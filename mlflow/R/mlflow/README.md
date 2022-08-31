@@ -12,12 +12,19 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Prerequisites
 
-To use the MLflow R API, you must install [the MLflow Python package](https://pypi.org/project/mlflow/) and set the `MLFLOW_PYTHON_BIN` and `MLFLOW_BIN` environment variables as follows:
+To use the MLflow R API, you must install [the MLflow Python package](https://pypi.org/project/mlflow/).
 
 ```bash
 pip install mlflow
-export MLFLOW_PYTHON_BIN=$(which python)
-export MLFLOW_BIN=$(which python)
+```
+
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify
+the Python and MLflow binaries to use. By default, the R client automatically finds them using
+``Sys.which("python")`` and ``Sys.which("mlflow")``.
+
+```python
+export MLFLOW_PYTHON_BIN=/path/to/python/bin
+export MLFLOW_BIN=/path/to/mlflow/bin
 ```
 
 ## Installation
