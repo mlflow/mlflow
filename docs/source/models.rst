@@ -1860,7 +1860,7 @@ For more info, see:
 Deploy a ``python_function`` model on Amazon SageMaker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.deployments` and py:mod:`mlflow.sagemaker` modules can deploy
+The :py:mod:`mlflow.deployments` and :py:mod:`mlflow.sagemaker` modules can deploy
 ``python_function`` models locally in a Docker container with SageMaker compatible environment and
 remotely on SageMaker. To deploy remotely to SageMaker you need to set up your environment and user
 accounts. To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be
@@ -1881,25 +1881,26 @@ module accept the following data formats as input, depending on the deployment f
 Commands
 ~~~~~~~~~
 
-* :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker container.
-  The image and the environment should be identical to how the model would be run remotely and it is
-  therefore useful for testing the model prior to deployment.
+* :py:func:`mlflow deployments run-local -t sagemaker <mlflow.sagemaker.run_local>` deploys the
+  model locally in a Docker container. The image and the environment should be identical to how the
+  model would be run remotely and it is therefore useful for testing the model prior to deployment.
 
-* `build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_ builds an MLfLow
-  Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
-  is built locally and requires Docker to be present on the machine that performs this step.
+* `mlflow sagemaker build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_
+  builds an MLfLow Docker image and uploads it to ECR. The caller must have the correct permissions
+  set up. The image is built locally and requires Docker to be present on the machine that performs
+  this step.
 
-* :py:func:`deploy <mlflow.sagemaker.SageMakerDeploymentClient>` deploys the model on Amazon
-  SageMaker. MLflow uploads the Python Function model into S3 and starts an Amazon SageMaker
-  endpoint serving the model.
+* :py:func:`mlflow deployments create -t sagemaker <mlflow.sagemaker.SageMakerDeploymentClient.create_deployment>`
+  deploys the model on Amazon SageMaker. MLflow uploads the Python Function model into S3 and starts
+  an Amazon SageMaker endpoint serving the model.
 
 .. rubric:: Example workflow using the MLflow CLI
 
 .. code-block:: bash
 
-    mlflow sagemaker build-and-push-container  - build the container (only needs to be called once)
-    mlflow deployments run-local -t sagemaker -m <path-to-model>  - test the model locally
-    mlflow deployments -t sagemaker create - deploy the model remotely
+    mlflow sagemaker build-and-push-container  # build the container (only needs to be called once)
+    mlflow deployments run-local -t sagemaker -m <path-to-model>  # test the model locally
+    mlflow deployments create -t sagemaker  # deploy the model remotely
 
 
 For more info, see:

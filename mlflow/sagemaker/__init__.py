@@ -1067,7 +1067,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
             flavor="python_function",
             config={
                 "port": 5000,
-                "image": mlflow-pyfunc,
+                "image": "mlflow-pyfunc",
             }
         )
 
@@ -1078,7 +1078,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
         mlflow deployments run-local --target sagemaker \\
                 --name my-local-deployment \\
                 --model-uri "/mlruns/0/abc/model" \\
-                --flavor python_function\\
+                --flavor python_function \\
                 -C port=5000 \\
                 -C image="mlflow-pyfunc"
     """
