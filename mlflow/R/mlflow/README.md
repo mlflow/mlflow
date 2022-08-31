@@ -22,7 +22,7 @@ Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment
 the Python and MLflow binaries to use. By default, the R client automatically finds them using
 ``Sys.which("python")`` and ``Sys.which("mlflow")``.
 
-```python
+```bash
 export MLFLOW_PYTHON_BIN=/path/to/python/bin
 export MLFLOW_BIN=/path/to/mlflow/bin
 ```
@@ -35,7 +35,7 @@ Install `mlflow` as follows:
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
-### Development
+## Development
 
 Install the `mlflow` package as follows:
 
@@ -57,7 +57,7 @@ And upgrade the runtime to the development version as follows:
 
 ```bash
 # Upgrade to the latest development version
-pip install -e "<local github repo>"
+pip install -e <local github repo>
 ```
 
 ## Tracking
