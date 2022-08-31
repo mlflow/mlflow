@@ -40,6 +40,8 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem. If unspecified, the pipeline root directory is
                                resolved from the current working directory, and an
+    :param profile: The name of the profile under the `profiles` directory to use,
+                    e.g. "dev" to use configs from "profiles/dev.yaml"
     :raises MlflowException: If the specified ``pipeline_root_path`` is not a pipeline root
                              directory or if ``pipeline_root_path`` is ``None`` and the current
                              working directory does not correspond to a pipeline.
