@@ -157,7 +157,7 @@ class FileStore(AbstractStore):
         else:
             return None
 
-    def __get_registered_model_from_path(self, model_path):
+    def _get_registered_model_from_path(self, model_path):
         meta = FileStore._read_yaml(model_path, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self.get_all_registered_model_tags_from_path(model_path)
         registered_model = RegisteredModel.from_dictionary(meta)
@@ -200,7 +200,7 @@ class FileStore(AbstractStore):
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        registered_model = self.__get_registered_model_from_path(model_path)
+        registered_model = self._get_registered_model_from_path(model_path)
 
         # TODO: update the logic of _get_registered_model_path here
         new_meta_dir = self._get_registered_model_path(new_name)
@@ -266,7 +266,7 @@ class FileStore(AbstractStore):
         registered_model_paths = self._get_all_registered_model_paths()
         registered_models = []
         for path in registered_model_paths:
-            registered_models.append(self.__get_registered_model_from_path(path))
+            registered_models.append(self._get_registered_model_from_path(path))
         return registered_models
 
     def search_registered_models(
@@ -326,7 +326,7 @@ class FileStore(AbstractStore):
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        return self.__get_registered_model_from_path(model_path)
+        return self._get_registered_model_from_path(model_path)
 
     def get_latest_versions(self, name, stages=None):
         """
