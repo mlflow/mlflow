@@ -1881,9 +1881,9 @@ module accept the following data formats as input, depending on the deployment f
 Commands
 ~~~~~~~~~
 
-* :py:func:`run-local <mlflow.sagemaker.SageMakerDeploymentClient.run_local>` deploys the model
-  locally in a Docker container. The image and the environment should be identical to how the model
-  would be run remotely and it is therefore useful for testing the model prior to deployment.
+* :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker container.
+  The image and the environment should be identical to how the model would be run remotely and it is
+  therefore useful for testing the model prior to deployment.
 
 * `build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_ builds an MLfLow
   Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
