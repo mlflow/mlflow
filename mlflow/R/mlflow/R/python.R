@@ -1,15 +1,15 @@
 # Computes path to Python executable from the MLFLOW_PYTHON_BIN environment variable.
 get_python_bin <- function() {
+  in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
+  if (in_env != "") {
+    return(in_env)
+  }
   python_bin <- Sys.which("python")
   if (python_bin != "") {
     return(python_bin)
   }
-  in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
-  if (in_env != "") {
-    return(in_env)
-  } else {
-    stop(paste("MLflow not configured, please run `pip install mlflow` or ",
-               "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
+  stop(paste("MLflow not configured, please run `pip install mlflow` or ",
+            "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
   }
 }
 
@@ -26,13 +26,13 @@ python_bin <- function() {
 # Returns path to MLflow CLI, assumed to be in the same bin/ directory as the
 # Python executable
 python_mlflow_bin <- function() {
-  mlflow_bin <- Sys.which("mlflow")
-  if (mlflow_bin != "") {
-    return(mlflow_bin)
-  }
   in_env <- Sys.getenv("MLFLOW_BIN")
   if (in_env != "") {
     return(in_env)
+  }
+  mlflow_bin <- Sys.which("mlflow")
+  if (mlflow_bin != "") {
+    return(mlflow_bin)
   }
   python_bin_dir <- dirname(python_bin())
   if (.Platform$OS.type == "windows") {
