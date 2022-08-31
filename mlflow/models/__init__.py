@@ -30,16 +30,23 @@ from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 
 
-def build_docker(model_uri=None, name="mlflow-pyfunc-servable", env_manager=_EnvManager.VIRTUALENV, mlflow_home=None, install_mlflow=False, enable_mlserver=False):
+def build_docker(
+    model_uri=None,
+    name="mlflow-pyfunc-servable",
+    env_manager=_EnvManager.VIRTUALENV,
+    mlflow_home=None,
+    install_mlflow=False,
+    enable_mlserver=False,
+):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor. The container serves the model referenced by ``model_uri``, if
     specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
     volume into the /opt/ml/model directory in the container.
-    
+
     .. warning::
 
-        If ``model_uri`` is unspecified, the resulting image doesn't support serving models with 
+        If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
         the RFunc or Java MLeap model servers.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the

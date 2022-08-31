@@ -2610,7 +2610,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while getting model prediction: {exc}\n")
             )
 
-    def run_local(self, name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
+    def run_local(
+        self, name, model_uri, flavor=None, config=None
+    ):  # pylint: disable=unused-argument
         """
         Serve model locally in a SageMaker compatible Docker container.
         
@@ -2651,7 +2653,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             model_uri=model_uri,
             flavor=flavor,
             port=config.get("port", 5000),
-            image=config.get("image", DEFAULT_IMAGE_NAME)
+            image=config.get("image", DEFAULT_IMAGE_NAME),
         )
 
     def explain(self, deployment_name=None, df=None, endpoint=None):
