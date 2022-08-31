@@ -1019,7 +1019,7 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
-def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
+def _run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.
 
@@ -2056,7 +2056,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2080,7 +2080,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.create_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2269,7 +2269,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2302,7 +2302,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 vpc_config=vpc_config
                 data_capture_config=data_capture_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.update_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2410,7 +2410,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
@@ -2419,7 +2419,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.delete_deployment("my-deployment", config=config)
 
         .. code-block:: bash
@@ -2471,9 +2471,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.list_deployments()
 
         .. code-block:: bash
@@ -2514,9 +2514,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.get_deployment("my-deployment")
 
         .. code-block:: bash
@@ -2566,10 +2566,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             :caption: Python example
 
             import pandas as pd
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             df = pd.DataFrame(data=[[1, 2, 3]], columns=["feat1", "feat2", "feat3"])
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.predict("my-deployment", df)
 
         .. code-block:: bash
@@ -2609,6 +2609,50 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")
             )
+
+    def run_local(self, name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
+        """
+        Serve model locally in a SageMaker compatible Docker container.
+        
+        Note that models deployed locally cannot be managed by other deployment APIs
+        (e.g. ``update_deployment``, ``delete_deployment``, etc).
+
+        .. code-block:: python
+            :caption: Python example
+
+            from mlflow.models import build_docker
+            from mlflow.deployments import get_deploy_client
+
+            build_docker(name="mlflow-pyfunc")
+
+            client = get_deploy_client("sagemaker")
+            client.run_local(
+                name="my-local-deployment",
+                model_uri="/mlruns/0/abc/model",
+                flavor="python_function",
+                config={
+                    "port": 5000,
+                    "image": mlflow-pyfunc,
+                }
+            )
+
+        .. code-block:: bash
+            :caption:  Command-line example
+
+            mlflow models build-docker --name "mlflow-pyfunc"
+            mlflow deployments run-local --target sagemaker \\
+                    --name my-local-deployment \\
+                    --model-uri "/mlruns/0/abc/model" \\
+                    --flavor python_function\\
+                    -C port=5000 \\
+                    -C image="mlflow-pyfunc"
+        """
+        return _run_local(
+            model_uri=model_uri,
+            flavor=flavor,
+            port=config.get("port", 5000),
+            image=config.get("image", DEFAULT_IMAGE_NAME)
+        )
 
     def explain(self, deployment_name=None, df=None, endpoint=None):
         """

@@ -1,16 +1,9 @@
-import logging
 import click
 
-from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.models import build_docker as build_docker_api
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils import env_manager as _EnvManager
-
-_logger = logging.getLogger(__name__)
 
 
 @click.group("models")
@@ -63,7 +56,7 @@ def serve(
         }'
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    return _get_flavor_backend(
+    return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(
         model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
@@ -118,7 +111,7 @@ def predict(
     env_manager = env_manager or _EnvManager.VIRTUALENV
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(
+    return get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).predict(
         model_uri=model_uri,
@@ -144,7 +137,7 @@ def prepare_env(
     calling predict or serve should be fast.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    return _get_flavor_backend(
+    return get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
 
@@ -185,8 +178,8 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 
     .. warning::
 
-        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
-        MLeap model server.
+        The image built without ``--model-uri`` doesn't support serving models with RFunc or Java
+        MLeap model servers.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -200,32 +193,11 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     'python_function' flavor.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
+    build_docker_api(
         model_uri,
         name,
+        env_manager=env_manager,
         mlflow_home=mlflow_home,
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
-
-
-def _get_flavor_backend(model_uri, **kwargs):
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
-
-    if model_uri:
-        with TempDir() as tmp:
-            if ModelsArtifactRepository.is_models_uri(model_uri):
-                underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-            else:
-                underlying_model_uri = model_uri
-            local_path = _download_artifact_from_uri(
-                append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
-            )
-            model = Model.load(local_path)
-    else:
-        model = None
-    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
-    if flavor_backend is None:
-        raise Exception("No suitable flavor backend was found for the model.")
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
-    return flavor_backend
