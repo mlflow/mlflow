@@ -35,8 +35,8 @@ const getPullInformation = async (context, github) => {
 };
 
 const createStatus = async (context, github, core) => {
-  const { sha, ref } = await getPullInformation(context, github);
-  if (full_name === 'mlflow/mlflow' && ref === 'master') {
+  const { sha, ref, repository } = await getPullInformation(context, github);
+  if (repository === 'mlflow/mlflow' && ref === 'master') {
     core.setFailed('Running autoformat bot against master branch of mlflow/mlflow is not allowed.');
   }
   await createCommitStatus(context, github, sha, 'pending');
