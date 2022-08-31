@@ -68,3 +68,23 @@ def test_virtualenv_conda_project_execution(create_virtualenv_spy):
 def test_virtualenv_project_execution_conda():
     with pytest.raises(MlflowException, match="python_env project cannot be executed using conda"):
         mlflow.projects.run(TEST_VIRTUALENV_PROJECT_DIR, env_manager="conda")
+
+
+@spy_on_create_virtualenv
+def test_virtualenv_project_no_env_file(create_virtualenv_spy, tmp_path):
+    """
+    When neither python_env.yaml nor conda.yaml is present, virtualenv should be used as an
+    environment manager.
+    """
+    ml_project_file = tmp_path.joinpath("MLproject")
+    ml_project_file.write_text(
+        """
+name: test
+entry_points:
+  main:
+    command: |
+      python --version
+"""
+    )
+    mlflow.projects.run(str(tmp_path))
+    create_virtualenv_spy.assert_called_once()

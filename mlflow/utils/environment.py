@@ -53,9 +53,9 @@ class _PythonEnv:
         if dependencies is not None and not isinstance(dependencies, list):
             raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
 
-        self.python = python
-        self.build_dependencies = build_dependencies
-        self.dependencies = dependencies
+        self.python = python or PYTHON_VERSION
+        self.build_dependencies = build_dependencies or []
+        self.dependencies = dependencies or []
 
     def __str__(self):
         return str(self.to_dict())
