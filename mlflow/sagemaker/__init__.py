@@ -2,7 +2,6 @@
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
 import os
-import re
 from subprocess import Popen
 import urllib.parse
 import sys
@@ -1608,14 +1607,6 @@ def _update_sagemaker_endpoint(
     if mode == DEPLOYMENT_MODE_ADD:
         new_model_weight = 0
         production_variants = deployed_production_variants
-        variant_name_list = [variant["VariantName"] for variant in production_variants]
-        if variant_name and variant_name in variant_name_list:
-            raise MlflowException(
-            message=(
-                "Variant {variant_name} already exists!".format(variant_name=variant_name)
-            ),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
     elif mode == DEPLOYMENT_MODE_REPLACE:
         new_model_weight = 1
         production_variants = []
