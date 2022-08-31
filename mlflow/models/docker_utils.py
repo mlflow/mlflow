@@ -42,7 +42,7 @@ RUN pip install virtualenv
 def _get_maven_proxy():
     http_proxy = os.getenv("http_proxy")
     https_proxy = os.getenv("https_proxy")
-    if http_proxy is None or https_proxy is None:
+    if not http_proxy or not https_proxy:
         return ""
 
     # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
@@ -190,7 +190,6 @@ def _build_image(
                 )
             )
         _logger.info("Building docker image with name %s", image_name)
-        os.system("find {cwd}/".format(cwd=cwd))
         _build_image_from_context(context_dir=cwd, image_name=image_name)
 
 

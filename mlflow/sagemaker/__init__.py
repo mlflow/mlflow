@@ -173,10 +173,10 @@ def deploy(
     instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
-    data_capture_config=None,
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
+    data_capture_config=None,
     variant_name=None,
 ):
     """
@@ -276,25 +276,6 @@ def deploy(
                      }
         mfs.deploy(..., vpc_config=vpc_config)
 
-    :param data_capture_config: A dictionary specifying the data capture configuration to use when
-                       creating the new SageMaker model associated with this application. For more
-                       information, see
-                       https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow.sagemaker as mfs
-        data_capture_config = {
-                        'EnableCapture': True,
-                        'InitalSamplingPercentage': 100,
-                        'DestinationS3Uri": 's3://my-bucket/path',
-                        'CaptureOptions': [
-                            {'CaptureMode': 'Output'}
-                        ],
-                     }
-        mfs.deploy(..., data_capture_config=data_capture_config)
-
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
                    a flavor is automatically selected from the model's available flavors. If the
@@ -312,7 +293,11 @@ def deploy(
                             responsible for monitoring the health and status of the pending
                             deployment using native SageMaker APIs or the AWS console. If
                             ``synchronous`` is ``False``, this parameter is ignored.
-    :variant_name: (optional) The name to assign to the new production variant.
+    :param data_capture_config: A dictionary specifying the data capture configuration to use when
+                                creating the new SageMaker model associated with this application.
+                                For more information, see https://docs.aws.amazon.com/sagemaker/
+                                latest/APIReference/API_DataCaptureConfig.html.
+    :param variant_name: The name to assign to the new production variant.
     """
     import boto3
 
@@ -1601,7 +1586,7 @@ def _update_sagemaker_endpoint(
     )
     _logger.info("Created new model with arn: %s", new_model_response["ModelArn"])
 
-    if not variant_name: 
+    if not variant_name:
         variant_name = model_name
 
     if mode == DEPLOYMENT_MODE_ADD:
@@ -2068,6 +2053,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a production
                          variant.  Defaults to ``None``.
+
         :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
@@ -2096,7 +2082,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300,
                 vpc_config=vpc_config,
-                variant_name="test-variant-name",
+                variant_name="prod-variant-1",
             )
             client = SageMakerDeploymentClient("sagemaker")
             client.create_deployment(
@@ -2122,7 +2108,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C instance_count=1 \\
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
-                    -C variant_name=test-variant-name \\
+                    -C variant_name=prod-variant-1 \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\
@@ -2269,7 +2255,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          Defaults to ``300``.
 
                        - ``variant_name``: A string specifying the desired name when creating a production
-                         variant.  Defaults to ``None``. 
+                         variant.  Defaults to ``None``.
 
                        - ``vpc_config``: A dictionary specifying the VPC configuration to use when
                          creating the new SageMaker model associated with this application.
@@ -2286,6 +2272,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                          Defaults to ``None``.
+
+                       - ``variant_name``: A string specifying the desired name when creating a production
+                         variant.  Defaults to ``None``.
+
         :param endpoint: (optional) Endpoint containing the deployment to update. Currently
                          unsupported
 
@@ -2322,7 +2312,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 instance_count=1,
                 synchronous=True,
                 timeout_seconds=300,
-                variant_name="test-variant-name",
+                variant_name="prod-variant-1",
                 vpc_config=vpc_config
                 data_capture_config=data_capture_config
             )
@@ -2350,7 +2340,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C instance_count=1 \\
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
-                    -C variant_name=test-variant-name \\
+                    -C variant_name=prod-variant-1 \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\

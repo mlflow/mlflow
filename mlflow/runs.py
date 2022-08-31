@@ -46,8 +46,7 @@ def list_run(experiment_id, view):
     runs = store.search_runs([experiment_id], None, view_type)
     table = []
     for run in runs:
-        tags = {k: v for k, v in run.data.tags.items()}
-        run_name = tags.get(MLFLOW_RUN_NAME, "")
+        run_name = run.data.tags.get(MLFLOW_RUN_NAME, "")
         table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
     click.echo(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
