@@ -30,7 +30,8 @@ function" flavor that describes how to run the model as a Python function. Howev
 also define and use other flavors. For example, MLflow's :py:mod:`mlflow.sklearn` library allows
 loading models back as a scikit-learn ``Pipeline`` object for use in code that is aware of
 scikit-learn, or as a generic Python function for use in tools that just need to apply the model
-(for example, the ``mlflow deployments -t sagemaker`` tool for deploying models to Amazon SageMaker).
+(for example, the ``mlflow deployments`` tool with the option ``-t sagemaker`` for deploying models
+to Amazon SageMaker).
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
