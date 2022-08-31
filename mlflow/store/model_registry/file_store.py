@@ -56,7 +56,10 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
 )
 
-from .sqlalchemy_store import now
+
+def now():
+    return int(time.time() * 1000)
+
 
 _REGISTRY_DIR_ENV_VAR = "MLFLOW_REGISTRY_DIR"
 
