@@ -9,8 +9,7 @@ get_python_bin <- function() {
     return(python_bin)
   }
   stop(paste("MLflow not configured, please run `pip install mlflow` or ",
-            "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
-  }
+             "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
 }
 
 # Returns path to Python executable
