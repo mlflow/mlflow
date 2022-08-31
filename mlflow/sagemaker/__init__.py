@@ -262,19 +262,19 @@ def deploy(
                        #SageMaker.Client.create_model>`_. For more information, see
                        https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-    .. code-block:: python
-        :caption: Example
+                       .. code-block:: python
+                           :caption: Example
 
-        import mlflow.sagemaker as mfs
-        vpc_config = {
-                        'SecurityGroupIds': [
-                            'sg-123456abc',
-                        ],
-                        'Subnets': [
-                            'subnet-123456abc',
-                        ]
-                     }
-        mfs.deploy(..., vpc_config=vpc_config)
+                           import mlflow.sagemaker as mfs
+                           vpc_config = {
+                               'SecurityGroupIds': [
+                                   'sg-123456abc',
+                               ],
+                               'Subnets': [
+                                   'subnet-123456abc',
+                               ]
+                            }
+                            mfs.deploy(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -295,22 +295,22 @@ def deploy(
                             ``synchronous`` is ``False``, this parameter is ignored.
     :param data_capture_config: A dictionary specifying the data capture configuration to use when
                                 creating the new SageMaker model associated with this application.
-                                For more information, see https://docs.aws.amazon.com/sagemaker/
-                                latest/APIReference/API_DataCaptureConfig.html.
+                                For more information, see
+                                https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
 
-    .. code-block:: python
-        :caption: Example
+                                .. code-block:: python
+                                    :caption: Example
 
-        import mlflow.sagemaker as mfs
-        data_capture_config = {
-                        'EnableCapture': True,
-                        'InitalSamplingPercentage': 100,
-                        'DestinationS3Uri": 's3://my-bucket/path',
-                        'CaptureOptions': [
-                            {'CaptureMode': 'Output'}
-                        ],
-                     }
-        mfs.deploy(..., data_capture_config=data_capture_config)
+                                    import mlflow.sagemaker as mfs
+                                    data_capture_config = {
+                                                    'EnableCapture': True,
+                                                    'InitalSamplingPercentage': 100,
+                                                    'DestinationS3Uri": 's3://my-bucket/path',
+                                                    'CaptureOptions': [
+                                                        {'CaptureMode': 'Output'}
+                                                    ],
+                                                 }
+                                    mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
     """
@@ -637,19 +637,19 @@ def deploy_transform_job(
                        #SageMaker.Client.create_model>`_. For more information, see
                        https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-    .. code-block:: python
-        :caption: Example
+                       .. code-block:: python
+                           :caption: Example
 
-        import mlflow.sagemaker as mfs
-        vpc_config = {
-                        'SecurityGroupIds': [
-                            'sg-123456abc',
-                        ],
-                        'Subnets': [
-                            'subnet-123456abc',
-                        ]
-                     }
-        mfs.deploy_transform_job(..., vpc_config=vpc_config)
+                           import mlflow.sagemaker as mfs
+                           vpc_config = {
+                               'SecurityGroupIds': [
+                                   'sg-123456abc',
+                               ],
+                               'Subnets': [
+                                   'subnet-123456abc',
+                               ]
+                            }
+                            mfs.deploy_transform_job(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -939,19 +939,19 @@ def push_model_to_sagemaker(
                        #SageMaker.Client.create_model>`_. For more information, see
                        https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-    .. code-block:: python
-        :caption: Example
+                       .. code-block:: python
+                           :caption: Example
 
-        import mlflow.sagemaker as mfs
-        vpc_config = {
-                        'SecurityGroupIds': [
-                            'sg-123456abc',
-                        ],
-                        'Subnets': [
-                            'subnet-123456abc',
-                        ]
-                     }
-        mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
+                           import mlflow.sagemaker as mfs
+                           vpc_config = {
+                               'SecurityGroupIds': [
+                                   'sg-123456abc',
+                               ],
+                               'Subnets': [
+                                   'subnet-123456abc',
+                               ]
+                            }
+                            mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -1081,9 +1081,6 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 def target_help():
     """
     Provide help information for the SageMaker deployment client.
-
-    :return:
-    :rtype: str
     """
     help_str = """\
     For detailed documentation on the SageMaker deployment client, please visit
