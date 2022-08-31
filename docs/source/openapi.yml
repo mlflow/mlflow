@@ -1,0 +1,1380 @@
+---
+openapi: 3.0.0
+info:
+  version: "2.0"
+  title: MLflow
+  description: This is the specification for MLflow REST API
+tags:
+  - name: Experiments
+  - name: Runs
+  - name: Artifacts
+  - name: Metrics
+paths:
+  /api/2.0/mlflow/artifacts/list:
+    get:
+      tags:
+        - Artifacts
+      description: >-
+        List artifacts for a run. Takes an optional ``artifact_path`` prefix
+        which if specified, the response contains only artifacts with 
+        the specified prefix.
+      operationId: artifacts.List
+      parameters:
+        - description: ID of the run whose artifacts to list. Must be provided.
+          in: query
+          name: run_id
+          required: false
+          schema:
+            type: string
+        - description: >-
+            Filter artifacts matching this path (a relative path from the root
+            artifact directory).
+          in: query
+          name: path
+          required: false
+          schema:
+            type: string
+        - description: Token indicating the page of artifact results to fetch
+          in: query
+          name: page_token
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of artifacts that fit the search criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListArtifactsResponse'
+  
+  /api/2.0/mlflow/experiments/create:
+    post:
+      tags:
+        - Experiments
+      description: >-
+        Create an experiment with a name. Returns the ID of the newly created
+        experiment.
+
+        Validates that another experiment with the same name does not already
+        exist and fails if another experiment with the same name already exists.
+      operationId: experiments.Create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExperimentRequest'
+      responses:
+        '200':
+          description: Created experiment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateExperimentResponse'
+  
+  /api/2.0/mlflow/experiments/delete:
+    post:
+      tags:
+        - Experiments
+      description: >-
+        Mark an experiment and associated metadata, runs, metrics, params, and
+        tags for deletion.
+
+        If the experiment uses FileStore, artifacts associated with experiment
+        are also deleted.
+      operationId: experiments.Delete
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteExperimentRequest'
+      responses:
+        '200':
+          description: Experiment successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteExperimentResponse'
+
+  /api/2.0/mlflow/experiments/get:
+    get:
+      tags:
+        - Experiments
+      description: >-
+        Get metadata for an experiment. This method works on deleted
+        experiments.
+      operationId: experiments.Get
+      parameters:
+        - description: ID of the associated experiment.
+          in: query
+          name: experiment_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Experiment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetExperimentResponse'
+  
+  /api/2.0/mlflow/experiments/get-by-name:
+    get:
+      tags:
+        - Experiments
+      description: >-
+        Get metadata for an experiment.
+
+        This endpoint will return deleted experiments, but prefers the active
+        experiment if an active and deleted experiment share the same name. If multiple
+        deleted experiments share the same name, the API will return one of them.
+
+      operationId: experiments.GetByName
+      parameters:
+        - description: Name of the associated experiment.
+          in: query
+          name: experiment_name
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Experiment found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetExperimentByNameResponse'
+
+  /api/2.0/mlflow/experiments/list:
+    get:
+      tags:
+        - Experiments
+      description: Get a list of all experiments.
+      operationId: experiments.List
+      parameters:
+        - description: |-
+            Qualifier for type of experiments to be returned.
+            If unspecified, return only active experiments.
+          in: query
+          name: view_type
+          required: false
+          schema:
+            type: string
+        - description: >-
+            Maximum number of experiments desired.
+
+            If `max_results` is unspecified, return all experiments.
+
+            If `max_results` is too large, it'll be automatically capped at
+            1000.
+
+            Callers of this endpoint are encouraged to pass max_results
+            explicitly and leverage page_token to iterate through experiments.
+          in: query
+          name: max_results
+          required: false
+          schema:
+            type: integer
+        - description: Token indicating the page of experiments to fetch
+          in: query
+          name: page_token
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListExperimentsResponse'
+      
+  /api/2.0/mlflow/experiments/restore:
+    post:
+      tags:
+        - Experiments
+      description: >-
+        Restore an experiment marked for deletion. This also restores
+        associated metadata, runs, metrics, params, and tags. If experiment uses
+        FileStore, underlying artifacts associated with experiment are also restored.
+
+
+        Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or
+        was permanently deleted.
+      operationId: experiments.Restore
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreExperimentRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreExperimentResponse'
+      
+  /api/2.0/mlflow/experiments/search:
+    post:
+      tags:
+        - Experiments
+      description: Search for experiments that satisfy specified search criteria.
+      operationId: experiments.Search
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchExperimentsRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchExperimentsResponse'
+      
+  /api/2.0/mlflow/experiments/set-experiment-tag:
+    post:
+      tags:
+        - Experiments
+      description: >-
+        Set a tag on an experiment. Experiment tags are metadata that can be
+        updated.
+      operationId: experiments.SetTag
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetExperimentTagRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetExperimentTagResponse'
+      
+  /api/2.0/mlflow/experiments/update:
+    post:
+      tags:
+        - Experiments
+      description: Update experiment metadata.
+      operationId: experiments.Update
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExperimentRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateExperimentResponse'
+
+  /api/2.0/mlflow/metrics/get-history:
+    get:
+      tags:
+        - Metrics
+      description: Get a list of all values for the specified metric for a given run.
+      operationId: metrics.GetHistory
+      parameters:
+        - description: ID of the run from which to fetch metric values. Must be provided.
+          in: query
+          name: run_id
+          required: false
+          schema:
+            type: string
+        - description: >-
+            [Deprecated, use run_id instead] ID of the run from which to fetch
+            metric values. This field
+
+            will be removed in a future MLflow version.
+          in: query
+          name: run_uuid
+          required: false
+          schema:
+            type: string
+        - description: Name of the metric.
+          in: query
+          name: metric_key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMetricHistoryResponse'
+      
+  /api/2.0/mlflow/runs/create:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Create a new run within an experiment. A run is usually a single
+        execution of a
+
+        machine learning or data ETL pipeline. MLflow uses runs to track
+        :ref:`mlflowParam`,
+
+        :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single
+        execution.
+      operationId: runs.Create
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRunResponse'
+      
+  /api/2.0/mlflow/runs/delete:
+    post:
+      tags:
+        - Runs
+      description: Mark a run for deletion.
+      operationId: runs.Delete
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRunRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteRunResponse'
+
+  /api/2.0/mlflow/runs/delete-tag:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Delete a tag on a run. Tags are run metadata that can be updated during
+        a run and after
+
+        a run completes.
+      operationId: runs.DeleteTag
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteTagRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteTagResponse'
+
+  /api/2.0/mlflow/runs/get:
+    get:
+      tags:
+        - Runs
+      description: >-
+        Get metadata, metrics, params, and tags for a run. In the case where
+        multiple metrics with the same key are logged for a run, return only 
+        the value with the latest timestamp.
+
+        If there are multiple values with the latest timestamp, return the
+        maximum of these values.
+      operationId: runs.Get
+      parameters:
+        - description: ID of the run to fetch. Must be provided.
+          in: query
+          name: run_id
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetRunResponse'
+
+  /api/2.0/mlflow/runs/log-batch:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Log a batch of metrics, params, and tags for a run.
+
+        If any data failed to be persisted, the server will respond with an
+        error (non-200 status code).
+
+        In case of error (due to internal server error or an invalid request),
+        partial data may be written.
+
+
+        You can write metrics, params, and tags in interleaving fashion, but
+        within a given entity type are guaranteed to follow the order specified 
+        in the request body. That is, for an API request like
+
+        .. code-block:: json
+
+          {
+             "run_id": "2a14ed5c6a87499199e0106c3501eab8",
+             "metrics": [
+               {"key": "mae", "value": 2.5, "timestamp": 1552550804},
+               {"key": "rmse", "value": 2.7, "timestamp": 1552550804},
+             ],
+             "params": [
+               {"key": "model_class", "value": "LogisticRegression"},
+             ]
+          }
+
+        the server is guaranteed to write metric "rmse" after "mae", though it
+        may write param
+
+        "model_class" before both metrics, after "mae", or after both metrics.
+
+
+        The overwrite behavior for metrics, params, and tags is as follows:
+
+
+        - Metrics: metric values are never overwritten. Logging a metric (key,
+        value, timestamp) appends to the set of values for the metric with the
+        provided key.
+
+
+        - Tags: tag values can be overwritten by successive writes to the same
+        tag key. That is, if multiple tag values with the same key are provided
+        in the same API request, the last-provided tag value is written. Logging
+        the same tag (key, value) is permitted - that is, logging a tag is
+        idempotent.
+
+
+        - Params: once written, param values cannot be changed (attempting to
+        overwrite a param value will result in an error). However, logging the
+        same param (key, value) is permitted - that is, logging a param is
+        idempotent.
+
+
+        Request Limits
+
+        --------------
+
+        A single JSON-serialized API request may be up to 1 MB in size and
+        contain:
+
+
+        - No more than 1000 metrics, params, and tags in total
+
+        - Up to 1000 metrics
+
+        - Up to 100 params
+
+        - Up to 100 tags
+
+
+        For example, a valid request might contain 900 metrics, 50 params, and
+        50 tags, but logging
+
+        900 metrics, 50 params, and 51 tags is invalid. The following limits
+        also apply
+
+        to metric, param, and tag keys and values:
+
+
+        - Metric, param, and tag keys can be up to 250 characters in length
+
+        - Param and tag values can be up to 250 characters in length
+      operationId: LogBatch
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogBatchRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogBatchResponse'
+
+  /api/2.0/mlflow/runs/log-metric:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Log a metric for a run. A metric is a key-value pair (string key, float
+        value) with an associated timestamp. Examples include the various 
+        metrics that represent ML model accuracy.
+
+        A metric can be logged multiple times.
+      operationId: LogMetric
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogMetricRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogMetricResponse'
+
+  /api/2.0/mlflow/runs/log-model:
+    post:
+      tags:
+        - Runs
+      description: |-
+        .. note::
+            Experimental: This API may change or be removed in a future release without warning.
+      operationId: LogModel
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogModelRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogModelResponse'
+
+  /api/2.0/mlflow/runs/log-parameter:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Log a param used for a run. A param is a key-value pair (string key,
+
+        string value). Examples include hyperparameters used for ML model
+        training and
+
+        constant dates and values used in an ETL pipeline. A param can be logged
+        only once for a run.
+      operationId: LogParam
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogParamRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogParamResponse'
+
+  /api/2.0/mlflow/runs/restore:
+    post:
+      tags:
+        - Runs
+      description: Restore a deleted run.
+      operationId: RestoreRun
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRunRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreRunResponse'
+
+  /api/2.0/mlflow/runs/search:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Search for runs that satisfy expressions. Search expressions can use
+        :ref:`mlflowMetric` and
+
+        :ref:`mlflowParam` keys.
+      operationId: SearchRuns
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRunsRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchRunsResponse'
+
+  /api/2.0/mlflow/runs/set-tag:
+    post:
+      tags:
+        - Runs
+      description: >-
+        Set a tag on a run. Tags are run metadata that can be updated during a
+        run and after a run completes.
+      operationId: SetTag
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTagRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetTagResponse'
+
+  /api/2.0/mlflow/runs/update:
+    post:
+      tags:
+        - Runs
+      description: Update run metadata.
+      operationId: UpdateRun
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRunRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateRunResponse'
+
+components:
+  schemas:
+    CreateExperimentRequest:
+      properties:
+        artifact_location:
+          description: >-
+            Location where all artifacts for the experiment are stored.
+
+            If not provided, the remote server will select an appropriate
+            default.
+          type: string
+        name:
+          description: Experiment name.
+          type: string
+        tags:
+          description: >-
+            A collection of tags to set on the experiment. Maximum tag size and
+            number of tags per request
+
+            depends on the storage backend. All storage backends are guaranteed
+            to support tag keys up
+
+            to 250 bytes in size and tag values up to 5000 bytes in size. All
+            storage backends are also
+
+            guaranteed to support up to 20 tags per request.
+          items:
+            $ref: '#/components/schemas/ExperimentTag'
+          type: array
+      required:
+        - name
+      type: object
+    CreateExperimentResponse:
+      properties:
+        experiment_id:
+          description: Unique identifier for the experiment.
+          type: string
+      type: object
+    CreateRunRequest:
+      properties:
+        experiment_id:
+          description: ID of the associated experiment.
+          type: string
+        start_time:
+          description: Unix timestamp in milliseconds of when the run started.
+          format: int64
+          type: integer
+        tags:
+          description: Additional metadata for run.
+          items:
+            $ref: '#/components/schemas/RunTag'
+          type: array
+        user_id:
+          description: >-
+            ID of the user executing the run.
+
+            This field is deprecated as of MLflow 1.0, and will be removed in a
+            future
+
+            MLflow release. Use 'mlflow.user' tag instead.
+          type: string
+      type: object
+    CreateRunResponse:
+      properties:
+        run:
+          $ref: '#/components/schemas/Run'
+          description: The newly created run.
+      type: object
+    DeleteExperimentRequest:
+      properties:
+        experiment_id:
+          description: ID of the associated experiment.
+          type: string
+      required:
+        - experiment_id
+      type: object
+    DeleteExperimentResponse:
+      properties: {}
+      type: object
+    DeleteRunRequest:
+      properties:
+        run_id:
+          description: ID of the run to delete.
+          type: string
+      required:
+        - run_id
+      type: object
+    DeleteRunResponse:
+      properties: {}
+      type: object
+    DeleteTagRequest:
+      properties:
+        key:
+          description: Name of the tag. Maximum size is 255 bytes. Must be provided.
+          type: string
+        run_id:
+          description: ID of the run that the tag was logged under. Must be provided.
+          type: string
+      required:
+        - run_id
+        - key
+      type: object
+    DeleteTagResponse:
+      properties: {}
+      type: object
+    Experiment:
+      properties:
+        artifact_location:
+          description: Location where artifacts for the experiment are stored.
+          type: string
+        creation_time:
+          description: Creation time
+          format: int64
+          type: integer
+        experiment_id:
+          description: Unique identifier for the experiment.
+          type: string
+        last_update_time:
+          description: Last update time
+          format: int64
+          type: integer
+        lifecycle_stage:
+          description: |-
+            Current life cycle stage of the experiment: "active" or "deleted".
+            Deleted experiments are not returned by APIs.
+          type: string
+        name:
+          description: Human readable name that identifies the experiment.
+          type: string
+        tags:
+          description: 'Tags: Additional metadata key-value pairs.'
+          items:
+            $ref: '#/components/schemas/ExperimentTag'
+          type: array
+      type: object
+    ExperimentTag:
+      properties:
+        key:
+          description: The tag key.
+          type: string
+        value:
+          description: The tag value.
+          type: string
+      type: object
+    FileInfo:
+      properties:
+        file_size:
+          description: Size in bytes. Unset for directories.
+          format: int64
+          type: integer
+        is_dir:
+          description: Whether the path is a directory.
+          type: boolean
+        path:
+          description: Path relative to the root artifact directory run.
+          type: string
+      type: object
+    GetExperimentByNameResponse:
+      properties:
+        experiment:
+          $ref: '#/components/schemas/Experiment'
+          description: Experiment details.
+      type: object
+    GetExperimentResponse:
+      properties:
+        experiment:
+          $ref: '#/components/schemas/Experiment'
+          description: Experiment details.
+        runs:
+          description: >-
+            A collection of active runs in the experiment. Note: this may not
+            contain
+
+            all of the experiment's active runs.
+
+
+            This field is deprecated. Please use the "Search Runs" API to fetch
+
+            runs within an experiment.
+          items:
+            $ref: '#/components/schemas/RunInfo'
+          type: array
+      type: object
+    GetMetricHistoryResponse:
+      properties:
+        metrics:
+          description: All logged values for this metric.
+          items:
+            $ref: '#/components/schemas/Metric'
+          type: array
+      type: object
+    GetRunResponse:
+      properties:
+        run:
+          $ref: '#/components/schemas/Run'
+          description: >-
+            Run metadata (name, start time, etc) and data (metrics, params, and
+            tags).
+      type: object
+    ListArtifactsResponse:
+      properties:
+        files:
+          description: File location and metadata for artifacts.
+          items:
+            $ref: '#/components/schemas/FileInfo'
+          type: array
+        next_page_token:
+          description: Token that can be used to retrieve the next page of artifact results
+          type: string
+        root_uri:
+          description: Root artifact directory for the run.
+          type: string
+      type: object
+    ListExperimentsResponse:
+      properties:
+        experiments:
+          description: >-
+            Paginated Experiments beginning with the first item on the requested
+            page.
+          items:
+            $ref: '#/components/schemas/Experiment'
+          type: array
+        next_page_token:
+          description: |-
+            Token that can be used to retrieve the next page of experiments.
+            Empty token means no more experiment is available for retrieval.
+          type: string
+      type: object
+    LogBatchRequest:
+      properties:
+        metrics:
+          description: >-
+            Metrics to log. A single request can contain up to 1000 metrics, and
+            up to 1000
+
+            metrics, params, and tags in total.
+          items:
+            $ref: '#/components/schemas/Metric'
+          type: array
+        params:
+          description: >-
+            Params to log. A single request can contain up to 100 params, and up
+            to 1000
+
+            metrics, params, and tags in total.
+          items:
+            $ref: '#/components/schemas/Param'
+          type: array
+        run_id:
+          description: ID of the run to log under
+          type: string
+        tags:
+          description: >-
+            Tags to log. A single request can contain up to 100 tags, and up to
+            1000
+
+            metrics, params, and tags in total.
+          items:
+            $ref: '#/components/schemas/RunTag'
+          type: array
+      type: object
+    LogBatchResponse:
+      properties: {}
+      type: object
+    LogMetricRequest:
+      properties:
+        key:
+          description: Name of the metric.
+          type: string
+        run_id:
+          description: ID of the run under which to log the metric. Must be provided.
+          type: string
+        run_uuid:
+          description: >-
+            [Deprecated, use run_id instead] ID of the run under which to log
+            the metric. This field will
+
+            be removed in a future MLflow version.
+          type: string
+        step:
+          default: '0'
+          description: Step at which to log the metric
+          format: int64
+          type: integer
+        timestamp:
+          description: Unix timestamp in milliseconds at the time metric was logged.
+          format: int64
+          type: integer
+        value:
+          description: Double value of the metric being logged.
+          format: double
+          type: number
+      required:
+        - key
+        - value
+        - timestamp
+      type: object
+    LogMetricResponse:
+      properties: {}
+      type: object
+    LogModelRequest:
+      properties:
+        model_json:
+          description: MLmodel file in json format.
+          type: string
+        run_id:
+          description: ID of the run to log under
+          type: string
+      type: object
+    LogModelResponse:
+      properties: {}
+      type: object
+    LogParamRequest:
+      properties:
+        key:
+          description: Name of the param. Maximum size is 255 bytes.
+          type: string
+        run_id:
+          description: ID of the run under which to log the param. Must be provided.
+          type: string
+        run_uuid:
+          description: >-
+            [Deprecated, use run_id instead] ID of the run under which to log
+            the param. This field will
+
+            be removed in a future MLflow version.
+          type: string
+        value:
+          description: String value of the param being logged. Maximum size is 500 bytes.
+          type: string
+      required:
+        - key
+        - value
+      type: object
+    LogParamResponse:
+      properties: {}
+      type: object
+    Metric:
+      properties:
+        key:
+          description: Key identifying this metric.
+          type: string
+        step:
+          default: '0'
+          description: Step at which to log the metric.
+          format: int64
+          type: integer
+        timestamp:
+          description: The timestamp at which this metric was recorded.
+          format: int64
+          type: integer
+        value:
+          description: Value associated with this metric.
+          format: double
+          type: number
+      type: object
+    Param:
+      properties:
+        key:
+          description: Key identifying this param.
+          type: string
+        value:
+          description: Value associated with this param.
+          type: string
+      type: object
+    RestoreExperimentRequest:
+      properties:
+        experiment_id:
+          description: ID of the associated experiment.
+          type: string
+      required:
+        - experiment_id
+      type: object
+    RestoreExperimentResponse:
+      properties: {}
+      type: object
+    RestoreRunRequest:
+      properties:
+        run_id:
+          description: ID of the run to restore.
+          type: string
+      required:
+        - run_id
+      type: object
+    RestoreRunResponse:
+      properties: {}
+      type: object
+    Run:
+      properties:
+        data:
+          $ref: '#/components/schemas/RunData'
+          description: Run data.
+        info:
+          $ref: '#/components/schemas/RunInfo'
+          description: Run metadata.
+      type: object
+    RunData:
+      properties:
+        metrics:
+          description: Run metrics.
+          items:
+            $ref: '#/components/schemas/Metric'
+          type: array
+        params:
+          description: Run parameters.
+          items:
+            $ref: '#/components/schemas/Param'
+          type: array
+        tags:
+          description: Additional metadata key-value pairs.
+          items:
+            $ref: '#/components/schemas/RunTag'
+          type: array
+      type: object
+    RunInfo:
+      properties:
+        artifact_uri:
+          description: >-
+            URI of the directory where artifacts should be uploaded.
+
+            This can be a local path (starting with "/"), or a distributed file
+            system (DFS)
+
+            path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.
+
+            If not set, the local ``./mlruns`` directory is  chosen.
+          type: string
+        end_time:
+          description: Unix timestamp of when the run ended in milliseconds.
+          format: int64
+          type: integer
+        experiment_id:
+          description: The experiment ID.
+          type: string
+        lifecycle_stage:
+          description: >-
+            Current life cycle stage of the experiment : OneOf("active",
+            "deleted")
+          type: string
+        run_id:
+          description: Unique identifier for the run.
+          type: string
+        run_uuid:
+          description: >-
+            [Deprecated, use run_id instead] Unique identifier for the run. This
+            field will
+
+            be removed in a future MLflow version.
+          type: string
+        start_time:
+          description: Unix timestamp of when the run started in milliseconds.
+          format: int64
+          type: integer
+        status:
+          description: Current status of the run.
+          enum:
+            - RUNNING
+            - SCHEDULED
+            - FINISHED
+            - FAILED
+            - KILLED
+          type: string
+        user_id:
+          description: >-
+            User who initiated the run.
+
+            This field is deprecated as of MLflow 1.0, and will be removed in a
+            future
+
+            MLflow release. Use 'mlflow.user' tag instead.
+          type: string
+      type: object
+    RunTag:
+      properties:
+        key:
+          description: The tag key.
+          type: string
+        value:
+          description: The tag value.
+          type: string
+      type: object
+    SearchExperimentsRequest:
+      properties:
+        filter:
+          description: >-
+            String representing a SQL filter condition (e.g. "name ILIKE
+            'my-experiment%'")
+          type: string
+        max_results:
+          description: Maximum number of experiments desired. Max threshold is 3000.
+          format: int64
+          type: integer
+        order_by:
+          description: >-
+            List of columns for ordering search results, which can include
+            experiment name and last updated
+
+            timestamp with an optional "DESC" or "ASC" annotation, where "ASC"
+            is the default.
+
+            Tiebreaks are done by experiment id DESC.
+          items:
+            type: string
+          type: array
+        page_token:
+          description: Token indicating the page of experiments to fetch
+          type: string
+        view_type:
+          description: |-
+            Qualifier for type of experiments to be returned.
+            If unspecified, return only active experiments.
+          enum:
+            - ACTIVE_ONLY
+            - DELETED_ONLY
+            - ALL
+          type: string
+      type: object
+    SearchExperimentsResponse:
+      properties:
+        experiments:
+          description: Experiments that match the search criteria
+          items:
+            $ref: '#/components/schemas/Experiment'
+          type: array
+        next_page_token:
+          description: >-
+            Token that can be used to retrieve the next page of experiments.
+
+            An empty token means that no more experiments are available for
+            retrieval.
+          type: string
+      type: object
+    SearchRunsRequest:
+      properties:
+        experiment_ids:
+          description: List of experiment IDs to search over.
+          items:
+            type: string
+          type: array
+        filter:
+          description: >-
+            A filter expression over params, metrics, and tags, that allows
+            returning a subset of
+
+            runs. The syntax is a subset of SQL that supports ANDing together
+            binary operations
+
+            between a param, metric, or tag and a constant.
+
+
+            Example: ``metrics.rmse < 1 and params.model_class =
+            'LogisticRegression'``
+
+
+            You can select columns with special characters (hyphen, space,
+            period, etc.) by using double quotes:
+
+            ``metrics."model class" = 'LinearRegression' and tags."user-name" =
+            'Tomas'``
+
+
+            Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and
+            ``<=``.
+          type: string
+        max_results:
+          default: '1000'
+          description: Maximum number of runs desired. Max threshold is 50000
+          format: int32
+          type: integer
+        order_by:
+          description: >-
+            List of columns to be ordered by, including attributes, params,
+            metrics, and tags with an
+
+            optional "DESC" or "ASC" annotation, where "ASC" is the default.
+
+            Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+
+            Tiebreaks are done by start_time DESC followed by run_id for runs
+            with the same start time
+
+            (and this is the default ordering criterion if order_by is not
+            provided).
+          items:
+            type: string
+          type: array
+        page_token:
+          description: ''
+          type: string
+        run_view_type:
+          default: ACTIVE_ONLY
+          description: |-
+            Whether to display only active, only deleted, or all runs.
+            Defaults to only active runs.
+          enum:
+            - ACTIVE_ONLY
+            - DELETED_ONLY
+            - ALL
+          type: string
+      type: object
+    SearchRunsResponse:
+      properties:
+        next_page_token:
+          description: ''
+          type: string
+        runs:
+          description: Runs that match the search criteria.
+          items:
+            $ref: '#/components/schemas/Run'
+          type: array
+      type: object
+    SetExperimentTagRequest:
+      properties:
+        experiment_id:
+          description: ID of the experiment under which to log the tag. Must be provided.
+          type: string
+        key:
+          description: >-
+            Name of the tag. Maximum size depends on storage backend.
+
+            All storage backends are guaranteed to support key values up to 250
+            bytes in size.
+          type: string
+        value:
+          description: >-
+            String value of the tag being logged. Maximum size depends on
+            storage backend.
+
+            All storage backends are guaranteed to support key values up to 5000
+            bytes in size.
+          type: string
+      required:
+        - experiment_id
+        - key
+        - value
+      type: object
+    SetExperimentTagResponse:
+      properties: {}
+      type: object
+    SetTagRequest:
+      properties:
+        key:
+          description: >-
+            Name of the tag. Maximum size depends on storage backend.
+
+            All storage backends are guaranteed to support key values up to 250
+            bytes in size.
+          type: string
+        run_id:
+          description: ID of the run under which to log the tag. Must be provided.
+          type: string
+        run_uuid:
+          description: >-
+            [Deprecated, use run_id instead] ID of the run under which to log
+            the tag. This field will
+
+            be removed in a future MLflow version.
+          type: string
+        value:
+          description: >-
+            String value of the tag being logged. Maximum size depends on
+            storage backend.
+
+            All storage backends are guaranteed to support key values up to 5000
+            bytes in size.
+          type: string
+      required:
+        - key
+        - value
+      type: object
+    SetTagResponse:
+      properties: {}
+      type: object
+    UpdateExperimentRequest:
+      properties:
+        experiment_id:
+          description: ID of the associated experiment.
+          type: string
+        new_name:
+          description: >-
+            If provided, the experiment's name is changed to the new name. The
+            new name must be unique.
+          type: string
+      required:
+        - experiment_id
+      type: object
+    UpdateExperimentResponse:
+      properties: {}
+      type: object
+    UpdateRunRequest:
+      properties:
+        end_time:
+          description: Unix timestamp in milliseconds of when the run ended.
+          format: int64
+          type: integer
+        run_id:
+          description: ID of the run to update. Must be provided.
+          type: string
+        run_uuid:
+          description: >-
+            [Deprecated, use run_id instead] ID of the run to update.. This
+            field will
+
+            be removed in a future MLflow version.
+          type: string
+        status:
+          description: Updated status of the run.
+          enum:
+            - RUNNING
+            - SCHEDULED
+            - FINISHED
+            - FAILED
+            - KILLED
+          type: string
+      type: object
+    UpdateRunResponse:
+      properties:
+        run_info:
+          $ref: '#/components/schemas/RunInfo'
+          description: Updated metadata of the run.
+      type: object
