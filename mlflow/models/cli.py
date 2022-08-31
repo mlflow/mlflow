@@ -144,7 +144,7 @@ def prepare_env(
 
 @commands.command("build-docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
-@click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
+@click.option("--name", "-n", default="mlflow-pyfunc", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW

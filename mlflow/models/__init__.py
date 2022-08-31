@@ -32,7 +32,7 @@ from mlflow.utils import env_manager as _EnvManager
 
 def build_docker(
     model_uri=None,
-    name="mlflow-pyfunc-servable",
+    name="mlflow-pyfunc",
     env_manager=_EnvManager.VIRTUALENV,
     mlflow_home=None,
     install_mlflow=False,
