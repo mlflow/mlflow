@@ -15,14 +15,6 @@ def check_run_is_active(run_info):
         )
 
 
-def check_run_is_deleted(run_info):
-    if run_info.lifecycle_stage != LifecycleStage.DELETED:
-        raise MlflowException(
-            "The run {} must be in 'deleted' lifecycle_stage.".format(run_info.run_id),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
 class searchable_attribute(property):
     # Wrapper class over property to designate some of the properties as searchable
     # run attributes
