@@ -325,7 +325,8 @@ def test_column_schema_enforcement():
     ):
         pyfunc_model.predict(d)
 
-    # 17. conversion from Decimal to float is allowed since numpy currently has no support for the data type.
+    # 17. conversion from Decimal to float is allowed since numpy currently has no support for the
+    #  data type.
     pdf["d"] = [decimal.Decimal(1.0)]
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
