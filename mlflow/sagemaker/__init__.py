@@ -201,7 +201,7 @@ def deploy(
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
- 
+
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
                                model artifacts. If unspecified, the currently-assumed role will be
@@ -297,6 +297,21 @@ def deploy(
                                 creating the new SageMaker model associated with this application.
                                 For more information, see https://docs.aws.amazon.com/sagemaker/
                                 latest/APIReference/API_DataCaptureConfig.html.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sagemaker as mfs
+        data_capture_config = {
+                        'EnableCapture': True,
+                        'InitalSamplingPercentage': 100,
+                        'DestinationS3Uri": 's3://my-bucket/path',
+                        'CaptureOptions': [
+                            {'CaptureMode': 'Output'}
+                        ],
+                     }
+        mfs.deploy(..., data_capture_config=data_capture_config)
+
     :param variant_name: The name to assign to the new production variant.
     """
     import boto3
@@ -1445,7 +1460,7 @@ def _create_sagemaker_endpoint(
                        creating the new SageMaker model associated with this application.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
-    :variant_name: (optional) The name to assign to the new production variant.
+    :param variant_name: The name to assign to the new production variant.
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
