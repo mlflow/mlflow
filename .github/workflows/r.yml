@@ -81,6 +81,4 @@ jobs:
         LINTR_COMMENT_BOT: false
       run: |
         cd tests
-        export MLFLOW_PYTHON_BIN=$(which python)
-        export MLFLOW_BIN=$(which mlflow)
         Rscript -e 'source("../.run-tests.R", echo=TRUE)'
