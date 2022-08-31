@@ -104,7 +104,9 @@ def test_get_pipeline_config_for_pipeline_directory_referencing_external_json(
     profile_contents = {
         "PROFILE_CONFIG": """{{ ("example-json.json" | from_json)["my-key"]["nested-key"] }}"""
     }
-    os.mkdir(os.path.join(test_pipeline_root_path, "profiles"))
+    profiles_dir = os.path.join(test_pipeline_root_path, "profiles")
+    if not os.path.exists(profiles_dir):
+        os.mkdir(profiles_dir)
     write_yaml(
         test_pipeline_root_path,
         f"profiles/{test_profile_name}.yaml",
