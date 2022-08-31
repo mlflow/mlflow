@@ -86,9 +86,7 @@ tensorflow:
       "== dev": ["scikit-learn"]
     run: |
       pip install keras==`python -c 'import tensorflow as tf; from packaging.version import Version; ver = Version(tf.__version__); print(f"{ver.major}.{ver.minor}")'`
-      pytest \
-        tests/tensorflow/test_tensorflow2_autolog.py \
-        tests/keras/test_keras_autolog.py
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
   package_info:
