@@ -97,14 +97,7 @@ class _KerasModelWrapper:
                 predicted = self.keras_model.predict(data)
             return predicted
 
-        # In TensorFlow < 2.0, we use a graph and session to predict
-        if self._graph is not None:
-            with self._graph.as_default():
-                with self._sess.as_default():
-                    predicted = _predict(data)
-        # In TensorFlow >= 2.0, we do not use a graph and session to predict
-        else:
-            predicted = _predict(data)
+        predicted = _predict(data)
         return predicted
 
 
