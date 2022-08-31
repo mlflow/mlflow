@@ -627,7 +627,7 @@ def test_get_cmd(args: dict, expected: str):
 def test_scoring_server_client(sklearn_model, model_path):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.utils import find_free_port
-    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
@@ -636,7 +636,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     timeout = 60
     server_proc = None
     try:
-        server_proc = _get_flavor_backend(
+        server_proc = get_flavor_backend(
             model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,

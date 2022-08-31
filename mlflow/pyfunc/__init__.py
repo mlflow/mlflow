@@ -1022,7 +1022,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         StructType as SparkStructType,
     )
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
-    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     _EnvManager.validate(env_manager)
 
@@ -1092,7 +1092,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
         if env_manager != _EnvManager.LOCAL:
-            _get_flavor_backend(
+            get_flavor_backend(
                 local_model_path,
                 env_manager=env_manager,
                 install_mlflow=False,
@@ -1197,7 +1197,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 local_model_path_on_executor = local_model_path
                 env_root_dir_on_executor = env_root_dir
 
-            pyfunc_backend = _get_flavor_backend(
+            pyfunc_backend = get_flavor_backend(
                 local_model_path_on_executor,
                 workers=1,
                 install_mlflow=False,
