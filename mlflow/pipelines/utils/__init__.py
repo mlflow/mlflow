@@ -1,5 +1,6 @@
 import logging
 import os
+import posixpath
 import pathlib
 from typing import Dict, Any
 
@@ -51,7 +52,9 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
     try:
         if profile:
-            profile_relpath = os.path.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
+            # Jinja expects template names in posixpath format relative to environment root,
+            # so use posixpath to construct the relative path here.
+            profile_relpath = posixpath.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
             profile_file_path = os.path.join(
                 pipeline_root_path, _PIPELINE_PROFILE_DIR, f"{profile}.yaml"
             )
