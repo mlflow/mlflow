@@ -81,8 +81,11 @@ class EvaluateStep(BaseStep):
             metric_name = val_criterion["metric"]
             metric_val = metrics.get(metric_name)
             if metric_val is None:
-                summary[metric_name] = False
-                continue
+                raise MlflowException(
+                    f"The metric {metric_name} is defined in the pipeline's validation criteria"
+                    " but was not returned from mlflow evaluation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             greater_is_better = self.evaluation_metrics[metric_name].greater_is_better
             comp_func = operator.ge if greater_is_better else operator.le
             threshold = val_criterion["threshold"]
