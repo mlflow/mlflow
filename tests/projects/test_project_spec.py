@@ -40,7 +40,7 @@ def test_project_get_unspecified_entry_point():
 
 
 @pytest.mark.parametrize(
-    "mlproject, conda_env_path, conda_env_contents, mlproject_path",
+    ("mlproject", "conda_env_path", "conda_env_contents", "mlproject_path"),
     [
         (None, None, "", None),
         ("key: value", "conda.yaml", "hi", "MLproject"),
@@ -95,7 +95,7 @@ def test_load_virtualenv_project(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "invalid_project_contents, expected_error_msg",
+    ("invalid_project_contents", "expected_error_msg"),
     [
         (
             textwrap.dedent(
