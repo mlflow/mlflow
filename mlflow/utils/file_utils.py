@@ -216,9 +216,6 @@ def render_and_merge_yaml(root, template_name, context_name):
         if not pathlib.Path(path).is_file():
             raise MissingConfigException("Yaml file '%s' does not exist." % path)
 
-    with codecs.open(context_path, mode="r", encoding=ENCODING) as context_file:
-        context_dict = yaml.load(context_file, Loader=UniqueKeyLoader) or {}
-
     j2_env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(root, encoding=ENCODING), undefined=jinja2.StrictUndefined
     )
@@ -230,6 +227,12 @@ def render_and_merge_yaml(root, template_name, context_name):
             return json.load(f)
 
     j2_env.filters["from_json"] = from_json
+    # Compute final source of context file (e.g. my-profile.yml), applying Jinja filters
+    # like from_json as needed to load context information from files, then load into a dict
+    context_source = j2_env.get_template(context_name).render({})
+    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader) or {}
+
+    # Substitute parameters from context dict into template
     source = j2_env.get_template(template_name).render(context_dict)
     rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
     return merge_dicts(rendered_template_dict, context_dict)
