@@ -70,11 +70,9 @@ class FlavorBackend:
         """
         pass
 
-    @abstractmethod
     def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
         raise NotImplementedError
 
-    @abstractmethod
     def generate_dockerfile(
             self,
             model_uri,
