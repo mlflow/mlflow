@@ -16,7 +16,6 @@ from tests.projects.utils import (
     TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
     SSH_PROJECT_URI,
-    TEST_NO_SPEC_PROJECT_DIR,
     TEST_DOCKER_PROJECT_DIR,
 )
 
@@ -102,21 +101,6 @@ def test_run_local_conda_env():
     invoke_cli_runner(
         cli.run,
         [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", "conda_env_name=%s" % expected_env_name],
-    )
-
-
-def test_run_local_no_spec():
-    # Run an example project that doesn't contain an MLproject file
-    expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
-    invoke_cli_runner(
-        cli.run,
-        [
-            TEST_NO_SPEC_PROJECT_DIR,
-            "-e",
-            "check_conda_env.py",
-            "-P",
-            "conda-env-name=%s" % expected_env_name,
-        ],
     )
 
 
