@@ -209,10 +209,13 @@ def test_get_experiment_id_from_env():
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    random_id = random.randint(1, 1e6)
-    HelperEnv.set_values(experiment_id=random_id)
-    HelperEnv.assert_values(str(random_id), None)
-    assert _get_experiment_id_from_env() == str(random_id)
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        assert exp_id is not None
+        HelperEnv.set_values(experiment_id=exp_id)
+        HelperEnv.assert_values(exp_id, None)
+        assert _get_experiment_id_from_env() == exp_id
 
     # set only name
     with TempDir(chdr=True):
@@ -223,15 +226,71 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(None, name)
         assert _get_experiment_id_from_env() == exp_id
 
-    # set both: assert that name variable takes precedence
+    # set invalid experiment name to env variable and assert raises
+    with TempDir(chdr=True):
+        invalid_name = "invalid experiment"
+        HelperEnv.set_values(name=invalid_name)
+        HelperEnv.assert_values(None, invalid_name)
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided environment variable {_EXPERIMENT_NAME_ENV_VAR} "
+            f"`invalid experiment` does not exist.",
+        ):
+            _get_experiment_id_from_env()
+
+    # assert raises from encapsulating function
+    with TempDir(chdr=True):
+        invalid_name = "invalid experiment"
+        HelperEnv.set_values(name=invalid_name)
+        HelperEnv.assert_values(None, invalid_name)
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided environment variable {_EXPERIMENT_NAME_ENV_VAR} "
+            "`invalid experiment` does not exist.",
+        ):
+            _get_experiment_id()
+
+    # assert raises from conflicting experiment_ids
     with TempDir(chdr=True):
         name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        random_id = random.randint(1, 1e6)
-        HelperEnv.set_values(name=name, experiment_id=random_id)
+        random_id = random.randint(100, 1e6)
+        assert exp_id != random_id
+        HelperEnv.set_values(experiment_id=random_id)
+        HelperEnv.assert_values(str(random_id), None)
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided environment variable {_EXPERIMENT_ID_ENV_VAR} `{random_id}` "
+            "does not exist in the tracking server",
+        ):
+            _get_experiment_id_from_env()
+
+    # assert raises from name to id mismatch
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        random_id = random.randint(100, 1e6)
+        assert exp_id != random_id
+        HelperEnv.set_values(experiment_id=random_id, name=name)
         HelperEnv.assert_values(str(random_id), name)
-        assert _get_experiment_id_from_env() == exp_id
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided environment variable {_EXPERIMENT_ID_ENV_VAR} `{random_id}` "
+            "does not match the experiment id",
+        ):
+            _get_experiment_id_from_env()
+
+    # assert does not raise if active experiment is set with invalid env variables
+    with TempDir(chdr=True):
+        invalid_name = "invalid experiment"
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        assert exp_id is not None
+        random_id = random.randint(100, 1e6)
+        HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
+        HelperEnv.assert_values(str(random_id), invalid_name)
+        mlflow.set_experiment(experiment_id=exp_id)
+        assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
