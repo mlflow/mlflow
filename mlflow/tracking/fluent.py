@@ -1011,7 +1011,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
-        Creation timestamp: 1661624204
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -1044,7 +1044,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
-        Creation timestamp: 1661624204
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -1218,6 +1218,7 @@ def create_experiment(
         Artifact Location: file:///.../mlruns
         Tags: {'version': 'v1', 'priority': 'P1'}
         Lifecycle_stage: active
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
 
@@ -1248,7 +1249,7 @@ def delete_experiment(experiment_id: str) -> None:
         Name: New Experiment
         Artifact Location: file:///.../mlruns/2
         Lifecycle_stage: deleted
-        Last Updated timestamp: 1661624204
+        Last Updated timestamp: 1662004217511
     """
     MlflowClient().delete_experiment(experiment_id)
 

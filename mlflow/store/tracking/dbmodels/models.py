@@ -73,11 +73,11 @@ class SqlExperiment(Base):
     """
     creation_time = Column(BigInteger(), default=int(time.time() * 1000))
     """
-    Creation Time of experiment: `BigInteger`.
+    Creation time of experiment: `BigInteger`.
     """
     last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
     """
-    Last Update Time of experiment: `BigInteger`.
+    Last Update time of experiment: `BigInteger`.
     """
 
     __table_args__ = (
