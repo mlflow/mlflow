@@ -106,8 +106,7 @@ def pyfunc_generate_dockerfile(model_uri=None, extra_args=None):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd)
-    assert p.wait() == 0, "Failed to generate dockerfile for model %s" % model_uri
+    subprocess.run(cmd, check=True)
     return output_directory
 
 
