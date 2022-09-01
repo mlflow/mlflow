@@ -20,9 +20,9 @@ from io import StringIO
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
-from mlflow.models.cli import _get_flavor_backend
-from mlflow.utils.conda import _get_conda_env_name
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.pyfunc.backend import _execute_in_conda_env
+from mlflow.utils.conda import _get_conda_env_name
 
 import mlflow.models.cli as models_cli
 
@@ -536,7 +536,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
 
 
 def test_env_manager_warning_for_use_of_conda(monkeypatch):
-    with mock.patch("mlflow.models.cli._get_flavor_backend") as mock_get_flavor_backend:
+    with mock.patch("mlflow.models.cli.get_flavor_backend") as mock_get_flavor_backend:
         with pytest.warns(UserWarning, match=r"Use of conda is discouraged"):
             CliRunner().invoke(
                 models_cli.serve,
@@ -592,7 +592,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             "1.0.2",
         ),  # test different env created in the same env root path.
     ]:
-        _get_flavor_backend(
+        get_flavor_backend(
             str(model_path),
             env_manager=_EnvManager.CONDA,
             install_mlflow=False,
