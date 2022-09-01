@@ -415,12 +415,8 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
 def _shap_predict_fn(x, predict_fn, feature_names):
-    if isinstance(x, pd.DataFrame):
-        df = x.copy(deep=True)
-        df.columns = feature_names
-        return predict_fn(df)
-
-    return predict_fn(pd.DataFrame(x, columns=feature_names))
+    df = pd.DataFrame(x)
+    return predict_fn(df.rename(columns=dict(zip(df.columns, feature_names))))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -1048,15 +1044,10 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        if isinstance(self.dataset.features_data, pd.DataFrame):
-            df = DefaultEvaluator._MutationGuardedData(
-                self.dataset.features_data
-            ).copy_to_avoid_mutation()
-            df.columns = self.dataset.feature_names
-        else:
-            df = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
-
-        return DefaultEvaluator._MutationGuardedData(df)
+        df = pd.DataFrame(self.dataset.features_data)
+        return DefaultEvaluator._MutationGuardedData(
+            df.rename(columns=dict(zip(df.columns, self.feature_names)))
+        )
 
     class _MutationGuardedData:
         """
