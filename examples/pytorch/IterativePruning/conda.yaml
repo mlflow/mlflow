@@ -12,3 +12,6 @@ dependencies:
   - prettytable
   - torch>=1.9.0
   - protobuf<4.0.0
+  # gyptorch 1.9.0 is incompatible with the versions of botorch
+  # required by many versions of pytorch
+  - gpytorch!=1.9.0
