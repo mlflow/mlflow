@@ -416,7 +416,7 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_generate_dockerfile(sk_model, enable_mlserver):
+def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
