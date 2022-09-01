@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from click.testing import CliRunner
 import numpy as np
@@ -414,6 +415,28 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
+def test_generate_dockerfile(sk_model, enable_mlserver):
+    with mlflow.start_run() as active_run:
+        if enable_mlserver:
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
+        else:
+            mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+    extra_args = ["--install-mlflow"]
+    if enable_mlserver:
+        extra_args.append("--enable_mlserver")
+
+    output_directory_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    assert Path(output_directory_name).is_dir()
+    assert Path(output_directory_name).joinpath("Dockerfile").exists()
+    assert Path(output_directory_name).joinpath("model_dir").is_dir()
+    # Assert file is not empty
+    assert Path(output_directory_name).joinpath("Dockerfile").stat().st_size != 0
+
+
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -497,7 +520,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
-                "Failed to serve prediction, got response %s" % scoring_response.text
+                    "Failed to serve prediction, got response %s" % scoring_response.text
             )
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)), sk_model.predict(x)
@@ -507,9 +530,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             scoring_response = endpoint.invoke(data="", content_type=content_type)
             expected_status_code = 500 if enable_mlserver else 400
             assert scoring_response.status_code == expected_status_code, (
-                "Expected server failure with error code %s, got response with status code %s "
-                "and body %s"
-                % (expected_status_code, scoring_response.status_code, scoring_response.text)
+                    "Expected server failure with error code %s, got response with status code %s "
+                    "and body %s"
+                    % (expected_status_code, scoring_response.status_code, scoring_response.text)
             )
 
             if enable_mlserver:
@@ -547,8 +570,8 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
     )
     assert res.exit_code != 0
     assert (
-        "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
-        in res.stdout
+            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+            in res.stdout
     )
 
 
@@ -578,14 +601,14 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     for env_root_path, model_path, sklearn_ver in [
         (env_root1_path, model1_path, "1.0.1"),
         (
-            env_root2_path,
-            model1_path,
-            "1.0.1",
+                env_root2_path,
+                model1_path,
+                "1.0.1",
         ),  # test the same env created in different env root path.
         (
-            env_root1_path,
-            model2_path,
-            "1.0.2",
+                env_root1_path,
+                model2_path,
+                "1.0.2",
         ),  # test different env created in the same env root path.
     ]:
         _get_flavor_backend(
@@ -608,7 +631,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         _execute_in_conda_env(
             conda_env_name,
             command=f"python -c \"import sys; assert sys.executable == '{python_exec_path}'; "
-            f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
+                    f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
             install_mlflow=False,
             env_root_dir=str(env_root_path),
         )
