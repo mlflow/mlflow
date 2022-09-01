@@ -1,5 +1,6 @@
 import logging
 import os
+import posixpath
 import pathlib
 from typing import Dict, Any
 
@@ -40,6 +41,8 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem. If unspecified, the pipeline root directory is
                                resolved from the current working directory, and an
+    :param profile: The name of the profile under the `profiles` directory to use,
+                    e.g. "dev" to use configs from "profiles/dev.yaml"
     :raises MlflowException: If the specified ``pipeline_root_path`` is not a pipeline root
                              directory or if ``pipeline_root_path`` is ``None`` and the current
                              working directory does not correspond to a pipeline.
@@ -49,6 +52,9 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
     try:
         if profile:
+            # Jinja expects template names in posixpath format relative to environment root,
+            # so use posixpath to construct the relative path here.
+            profile_relpath = posixpath.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
             profile_file_path = os.path.join(
                 pipeline_root_path, _PIPELINE_PROFILE_DIR, f"{profile}.yaml"
             )
@@ -59,7 +65,7 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return render_and_merge_yaml(
-                pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_file_path
+                pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_relpath
             )
         else:
             return read_yaml(pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
