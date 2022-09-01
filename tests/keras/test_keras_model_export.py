@@ -285,6 +285,8 @@ def test_model_save_load(build_model, save_format, model_path, data):
 
 
 def test_pyfunc_serve_and_score(data):
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
@@ -300,9 +302,11 @@ def test_pyfunc_serve_and_score(data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    actual_scoring_response = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
-    ).values.astype(np.float32)
+    actual_scoring_response = (
+        MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+        .get_predictions_dataframe()
+        .values.astype(np.float32)
+    )
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
 
@@ -659,6 +663,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
     from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
 
     bert = TFBertModel(
@@ -686,7 +691,12 @@ def test_pyfunc_serve_and_score_transformers():
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
+    actual_scoring_response = (
+        MlflowModelServerOutput.from_raw_json(resp.content.decode("utf-8"))
+        .get_predictions_dataframe()
+        .values
+    )
+    np.testing.assert_array_equal(actual_scoring_response, model.predict(dummy_inputs))
 
 
 def test_log_model_with_code_paths(model):

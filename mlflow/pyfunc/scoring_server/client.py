@@ -9,7 +9,7 @@ from mlflow.pyfunc import scoring_server
 from mlflow.exceptions import MlflowException
 
 
-class ScoringServerResponse(dict):
+class MlflowModelServerOutput(dict):
     """Predictions returned from the MLflow scoring server. The predictions are presented as a
     dictionary with convenience methods to access the predictions parsed as higher level type."""
 
@@ -24,7 +24,7 @@ class ScoringServerResponse(dict):
                 "Invalid predictions data. Prediction object must be a dictionary "
                 "with 'predictions' field."
             )
-        return ScoringServerResponse(parsed_response)
+        return MlflowModelServerOutput(parsed_response)
 
     def get_predictions_dataframe(self):
         """Get the predictions returned from the server as pandas.DataFrame. this method will fail
@@ -91,4 +91,4 @@ class ScoringServerClient:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
-        return ScoringServerResponse.from_raw_json(response.text)
+        return MlflowModelServerOutput.from_raw_json(response.text)

@@ -111,8 +111,6 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
                 output_json_path,
                 "-t",
                 "json",
-                "--json-format",
-                "records",
             ]
             + no_conda
         )
@@ -224,7 +222,9 @@ def test_predict(iris_data, sk_model):
         input_csv_path = tmp.path("input.csv")
         output_json_path = tmp.path("output.json")
         x, _ = iris_data
-        pd.DataFrame(x).to_json(input_json_path, orient="split")
+        with open(input_json_path, "w") as f:
+            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
         # Test with no conda & model registry URI
@@ -244,10 +244,12 @@ def test_predict(iris_data, sk_model):
                 "--env-manager",
                 "local",
             ],
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env_with_tracking_uri,
         )
-        assert p.wait() == 0
+        rc = p.wait()
+        assert rc == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -313,8 +315,6 @@ def test_predict(iris_data, sk_model):
                 output_json_path,
                 "-t",
                 "json",
-                "--json-format",
-                "split",
             ]
             + extra_options,
             env=env_with_tracking_uri,
@@ -327,8 +327,7 @@ def test_predict(iris_data, sk_model):
 
         # read from stdin, write to stdout.
         p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
-            + extra_options,
+            ["mlflow", "models", "predict", "-m", model_uri, "-t", "json"] + extra_options,
             text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -422,7 +421,9 @@ def test_prepare_env_fails(sk_model):
         assert p.wait() != 0
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
+# NB: ml_serve is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
+# the future.
+@pytest.mark.parametrize("enable_mlserver", [False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -460,7 +461,9 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
+# NB: ml_serve is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
+# the future.
+@pytest.mark.parametrize("enable_mlserver", [False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -503,7 +506,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
-        for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+        for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
                 "Failed to serve prediction, got response %s" % scoring_response.text

@@ -2587,7 +2587,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         import json
         import boto3
         import pandas as pd
-        from mlflow.pyfunc.scoring_server.client import ScoringServerResponse
+        from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
         from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
@@ -2608,7 +2608,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
-            return ScoringServerResponse.from_raw_json(response_body)
+            return MlflowModelServerOutput.from_raw_json(response_body)
         except Exception as exc:
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")

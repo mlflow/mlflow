@@ -259,8 +259,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             pdf = pd.DataFrame(data=decoded_input)
         except Exception as ex:
             raise MlflowBadScoringInputException(
-                f"Provided dataframe_records field is not a valid dataframe representation in 'records' format. "
-                f"Error: '{ex}'"
+                f"Provided dataframe_records field is not a valid dataframe representation in "
+                f"'records' format. Error: '{ex}'"
             )
     elif pandas_orient == "split":
         if not isinstance(decoded_input, dict):
@@ -270,7 +270,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
                 typemessage = f"type {type(decoded_input)}"
             raise MlflowBadScoringInputException(
                 f"Dataframe split format must have 'data' field and optionally 'columns' "
-                "and 'index' fields"
+                "and 'index' fields. "
                 f"Got {typemessage}."
             )
         keys = set(decoded_input.keys())
@@ -289,8 +289,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             )
         except Exception as ex:
             raise MlflowBadScoringInputException(
-                f"Provided dataframe_split field is not a valid dataframe representation in 'split' format. "
-                f"Error: '{ex}'"
+                f"Provided dataframe_split field is not a valid dataframe representation in "
+                f"'split' format. Error: '{ex}'"
             )
     if schema is not None:
         pdf = cast_df_types_according_to_schema(pdf, schema)

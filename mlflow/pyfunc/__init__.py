@@ -1209,7 +1209,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
             pyfunc_backend = _get_flavor_backend(
                 local_model_path_on_executor,
                 workers=1,
-                install_mlflow=(mlflow_home is None),
+                install_mlflow=(mlflow_home is not None),
                 env_manager=env_manager,
                 env_root_dir=env_root_dir_on_executor,
             )

@@ -64,7 +64,7 @@ INPUTS = "inputs"
 SUPPORTED_FORMATS = set([DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS])
 
 REQUIRED_INPUT_FORMAT = (
-    f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}."
+    f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
 
 
@@ -83,7 +83,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
             raise MlflowException(
                 message=(
                     "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                    f" formatted string. Error: '{ex}'"
+                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -266,13 +266,19 @@ def init(model: PyFuncModel):
 
 def _predict(model_uri, input_path, output_path, content_type):
     pyfunc_model = load_model(model_uri)
-    if input_path is None:
-        input_path = sys.stdin
 
     if content_type == "json":
-        df = infer_and_parse_json_input(input_path)
+        if input_path is None:
+            input_str = sys.stdin.read()
+        else:
+            with open(input_path, "r") as f:
+                input_str = f.read()
+        df = infer_and_parse_json_input(input_str)
     elif content_type == "csv":
-        df = parse_csv_input(input_path)
+        if input_path is not None:
+            df = parse_csv_input(input_path)
+        else:
+            df = parse_csv_input(sys.stdin)
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
 
