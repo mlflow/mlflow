@@ -207,10 +207,18 @@ class MlflowFailedTypeConversion(MlflowException):
 
 def cast_df_types_according_to_schema(pdf, schema):
     from mlflow.types.schema import DataType
+    import numpy as np
 
     actual_cols = set(pdf.columns)
-    dtype_list = schema.input_types()
-    for col_name, col_type_spec in zip(schema.input_names(), dtype_list):
+    if schema.has_input_names():
+        dtype_list = zip(schema.input_names(), schema.input_types())
+    elif schema.is_tensor_spec() and len(schema.input_types()) == 1:
+        dtype_list = zip(actual_cols, [schema.input_types()[0] for _ in actual_cols])
+    else:
+        n = min(len(schema.input_types(), pdf.columns))
+        dtype_list = zip(pdf.columns[:n], schema.input_types[:n])
+
+    for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):
             col_type = col_type_spec.to_pandas()
         else:
@@ -222,6 +230,8 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pdf[col_name] = pdf[col_name].map(
                         lambda x: base64.decodebytes(bytes(x, "utf8"))
                     )
+                elif col_type == np.dtype(bytes):
+                    pdf[col_name] = pdf[col_name].map(lambda x: bytes(x, "utf8"))
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
