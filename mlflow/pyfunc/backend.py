@@ -295,7 +295,7 @@ class PyFuncBackend(FlavorBackend):
     def generate_dockerfile(
         self,
         model_uri,
-        output_directory="generate_dockerfile_output",
+        output_directory="mlflow-dockerfile",
         install_mlflow=False,
         mlflow_home=None,
         enable_mlserver=False,
