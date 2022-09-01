@@ -101,6 +101,10 @@ service ModelRegistryService {
   rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
     option(rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/registered-models/get-latest-versions"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
