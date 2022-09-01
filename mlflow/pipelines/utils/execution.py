@@ -202,8 +202,11 @@ def _write_updated_step_confs(
             prev_step_conf = read_yaml(root=step_subdir_path, file_name=_STEP_CONF_YAML_NAME)
         else:
             prev_step_conf = None
-
+        
         if prev_step_conf != step.step_config:
+            print("STEP", step)
+            print("PREV", prev_step_conf)
+            print("CURR", step.step_config)
             write_yaml(
                 root=step_subdir_path,
                 file_name=_STEP_CONF_YAML_NAME,
