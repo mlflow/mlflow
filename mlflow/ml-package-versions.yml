@@ -72,7 +72,7 @@ tensorflow:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      pip install keras==`python -c 'import tensorflow as tf; from packaging.version import Version; ver = Version(tf.__version__); print(f"{ver.major}.{ver.minor}")'`
+      pip install "keras>=$(python -c 'import tensorflow as tf; from packaging.version import Version; ver = Version(tf.__version__); print(f"{ver.major}.{ver.minor}.0,<={ver.major}.{ver.minor}.{ver.micro}")')"
       pytest \
         tests/tensorflow/test_tensorflow2_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
@@ -85,7 +85,7 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
     run: |
-      pip install keras==`python -c 'import tensorflow as tf; from packaging.version import Version; ver = Version(tf.__version__); print(f"{ver.major}.{ver.minor}")'`
+      pip install "keras>=$(python -c 'import tensorflow as tf; from packaging.version import Version; ver = Version(tf.__version__); print(f"{ver.major}.{ver.minor}.0,<={ver.major}.{ver.minor}.{ver.micro}")')"
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
