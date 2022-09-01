@@ -342,8 +342,6 @@ class PyFuncModel:
     returned by invoking the model's ``loader_module``.
 
     ``model_meta`` contains model metadata loaded from the MLmodel file.
-
-    ``support_decimal`` indicates whether the model support decimal data type input.
     """
 
     def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
@@ -463,9 +461,6 @@ def load_model(
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
-    :param support_decimal: If true, the decimal data type from input will be converted to double
-                     if model schema is double when predict. If false, we will not enforce decimal
-                     data input converted to double when predict.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
@@ -1005,7 +1000,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
-                loaded_model = mlflow.pyfunc.load_model(local_model_path, support_decimal=True)
+                loaded_model = mlflow.pyfunc.load_model(local_model_path)
 
             def batch_predict_fn(pdf):
                 return loaded_model.predict(pdf)
