@@ -109,11 +109,8 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
-Developing and testing MLflow
-#############################
-
 Setting up the repository
-~~~~~~~~~~~~~~~~~~~~~~~~~
+#########################
 
 To set up the MLflow repository, run the following commands:
 
@@ -128,12 +125,15 @@ To set up the MLflow repository, run the following commands:
     cd mlflow
     git remote add upstream https://github.com/mlflow/mlflow.git
 
-If you have cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules.
+If you cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules:
 
 .. code-block:: bash
 
     git submodule update --init --recursive
 
+
+Developing and testing MLflow
+#############################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
