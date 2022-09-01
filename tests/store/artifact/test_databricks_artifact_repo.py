@@ -100,7 +100,7 @@ class TestDatabricksArtifactRepository:
                 )
 
     @pytest.mark.parametrize(
-        "artifact_uri, expected_uri, expected_db_uri",
+        ("artifact_uri", "expected_uri", "expected_db_uri"),
         [
             (
                 "dbfs:/databricks/mlflow-tracking/experiment/1/run/2",
@@ -147,7 +147,7 @@ class TestDatabricksArtifactRepository:
             assert repo.databricks_profile_uri == expected_db_uri
 
     @pytest.mark.parametrize(
-        "artifact_uri, expected_relative_path",
+        ("artifact_uri", "expected_relative_path"),
         [
             ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts", ""),
             ("dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty", "arty"),
@@ -193,7 +193,7 @@ class TestDatabricksArtifactRepository:
             assert repo.run_id == expected_run_id
 
     @pytest.mark.parametrize(
-        "artifact_path, expected_location",
+        ("artifact_path", "expected_location"),
         [(None, "test.txt"), ("output", "output/test.txt"), ("", "test.txt")],
     )
     def test_log_artifact_azure(
@@ -217,7 +217,7 @@ class TestDatabricksArtifactRepository:
                 mock_credential_info, test_file.strpath, expected_location
             )
 
-    @pytest.mark.parametrize("artifact_path, expected_location", [(None, "test.txt")])
+    @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_azure_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
@@ -274,7 +274,7 @@ class TestDatabricksArtifactRepository:
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_aws(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
@@ -297,7 +297,7 @@ class TestDatabricksArtifactRepository:
             )
             request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, data=ANY, headers={})
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_aws_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
@@ -340,7 +340,7 @@ class TestDatabricksArtifactRepository:
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_gcp(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
@@ -363,7 +363,7 @@ class TestDatabricksArtifactRepository:
             )
             request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, data=ANY, headers={})
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_gcp_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
@@ -407,7 +407,7 @@ class TestDatabricksArtifactRepository:
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
 
     @pytest.mark.parametrize(
-        "artifact_path, expected_location",
+        ("artifact_path", "expected_location"),
         [
             (None, posixpath.join(MOCK_SUBDIR, "test.txt")),
             ("test_path", posixpath.join(MOCK_SUBDIR, "test_path/test.txt")),
@@ -788,7 +788,7 @@ class TestDatabricksArtifactRepository:
             )
 
     @pytest.mark.parametrize(
-        "remote_file_path, local_path, cloud_credential_type",
+        ("remote_file_path", "local_path", "cloud_credential_type"),
         [
             ("test_file.txt", "", ArtifactCredentialType.AZURE_SAS_URI),
             ("test_file.txt", None, ArtifactCredentialType.AZURE_SAS_URI),
@@ -823,7 +823,7 @@ class TestDatabricksArtifactRepository:
             )
 
     @pytest.mark.parametrize(
-        "remote_file_path, local_path", [("test_file.txt", ""), ("test_file.txt", None)]
+        ("remote_file_path", "local_path"), [("test_file.txt", ""), ("test_file.txt", None)]
     )
     def test_databricks_download_file_with_relative_path(self, remote_file_path, local_path):
         with mock.patch(

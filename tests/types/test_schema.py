@@ -6,7 +6,7 @@ import pytest
 from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc import _enforce_tensor_spec
+from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _infer_schema, _get_tensor_shape
