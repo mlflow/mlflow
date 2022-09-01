@@ -429,14 +429,13 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     if enable_mlserver:
         extra_args.append("--enable_mlserver")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        pyfunc_generate_dockerfile(temp_dir, model_uri, extra_args=extra_args)
-        output_directory = Path(temp_dir)
-        assert output_directory.is_dir()
-        assert output_directory.joinpath("Dockerfile").exists()
-        assert output_directory.joinpath("model_dir").is_dir()
-        # Assert file is not empty
-        assert output_directory.joinpath("Dockerfile").stat().st_size != 0
+    pyfunc_generate_dockerfile(tmp_path, model_uri, extra_args=extra_args)
+    output_directory = Path(temp_dir)
+    assert output_directory.is_dir()
+    assert output_directory.joinpath("Dockerfile").exists()
+    assert output_directory.joinpath("model_dir").is_dir()
+    # Assert file is not empty
+    assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
