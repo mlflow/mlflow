@@ -918,7 +918,7 @@ def _get_or_create_env_root_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VIRTUALENV):
+def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -994,7 +994,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
     :param env_manager: The environment manager to use in order to create the python environment
                         for model inference. Note that environment is only restored in the context
                         of the PySpark UDF; the software environment outside of the UDF is
-                        unaffected. Default value is ``virtualenv``, and the following values are
+                        unaffected. Default value is ``local``, and the following values are
                         supported:
 
                          - ``virtualenv``: Use virtualenv to restore the python environment that
@@ -1022,7 +1022,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
         StructType as SparkStructType,
     )
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
-    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     _EnvManager.validate(env_manager)
 
@@ -1092,7 +1092,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
         if env_manager != _EnvManager.LOCAL:
-            _get_flavor_backend(
+            get_flavor_backend(
                 local_model_path,
                 env_manager=env_manager,
                 install_mlflow=False,
@@ -1197,7 +1197,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
                 local_model_path_on_executor = local_model_path
                 env_root_dir_on_executor = env_root_dir
 
-            pyfunc_backend = _get_flavor_backend(
+            pyfunc_backend = get_flavor_backend(
                 local_model_path_on_executor,
                 workers=1,
                 install_mlflow=False,
