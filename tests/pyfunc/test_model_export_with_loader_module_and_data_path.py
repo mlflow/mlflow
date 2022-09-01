@@ -558,7 +558,7 @@ def test_column_schema_enforcement_no_col_names():
 
     # Can only provide data type that can be converted to dataframe...
     with pytest.raises(MlflowException, match="Expected input to be DataFrame or list. Found: set"):
-        pyfunc_model.predict(set([1, 2, 3]))
+        pyfunc_model.predict({1, 2, 3})
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}

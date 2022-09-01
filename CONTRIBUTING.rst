@@ -109,6 +109,29 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
+Setting up the repository
+#########################
+
+To set up the MLflow repository, run the following commands:
+
+.. code-block:: bash
+
+    # Clone the repository
+    git clone --recurse-submodules https://github.com/<username>/mlflow.git
+    # Alternatively, you can use this command to clone through SSH:
+    # git clone --recurse-submodules git@github.com:<username>/mlflow.git
+
+    # Add the upstream repository
+    cd mlflow
+    git remote add upstream https://github.com/mlflow/mlflow.git
+
+If you cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules:
+
+.. code-block:: bash
+
+    git submodule update --init --recursive
+
+
 Developing and testing MLflow
 #############################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
@@ -277,7 +300,7 @@ In another shell:
    cd mlflow/server/js
    yarn start
 
-The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
+The Javascript Dev Server will run at `<http://localhost:3000>`_ and the MLflow server will run at `<http://localhost:5000>`_ and show runs logged in ``./mlruns``.
 
 Testing a React Component
 +++++++++++++++++++++++++

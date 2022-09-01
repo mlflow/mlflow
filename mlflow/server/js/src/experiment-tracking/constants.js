@@ -8,7 +8,7 @@ export const MLMODEL_FILE_NAME = 'MLmodel';
 export const ONE_MB = 1024 * 1024;
 
 export const ATTRIBUTE_COLUMN_LABELS = {
-  DATE: 'Start Time',
+  DATE: 'Created',
   EXPERIMENT_NAME: 'Experiment Name',
   DURATION: 'Duration',
   USER: 'User',
@@ -19,7 +19,7 @@ export const ATTRIBUTE_COLUMN_LABELS = {
 };
 
 export const ATTRIBUTE_COLUMN_SORT_LABEL = {
-  DATE: 'Start Time',
+  DATE: 'Created',
   USER: 'User',
   RUN_NAME: 'Run Name',
   SOURCE: 'Source',
