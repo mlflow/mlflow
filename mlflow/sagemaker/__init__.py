@@ -2064,8 +2064,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                          Defaults to ``None``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a production
-                         variant.  Defaults to ``None``.
+                       - ``variant_name``: A string specifying the desired name when creating a
+                                           production variant.  Defaults to ``None``.
 
         :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
@@ -2267,8 +2267,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          ``synchronous`` is ``False``, this parameter is ignored.
                          Defaults to ``300``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a production
-                         variant.  Defaults to ``None``.
+                       - ``variant_name``: A string specifying the desired name when creating a
+                                           production variant.  Defaults to ``None``.
 
                        - ``vpc_config``: A dictionary specifying the VPC configuration to use when
                          creating the new SageMaker model associated with this application.
@@ -2286,8 +2286,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                          Defaults to ``None``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a production
-                         variant.  Defaults to ``None``.
+                       - ``variant_name``: A string specifying the desired name when creating a
+                                           production variant.  Defaults to ``None``.
 
         :param endpoint: (optional) Endpoint containing the deployment to update. Currently
                          unsupported
