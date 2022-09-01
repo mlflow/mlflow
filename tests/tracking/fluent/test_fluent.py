@@ -226,29 +226,21 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(None, name)
         assert _get_experiment_id_from_env() == exp_id
 
-    # set invalid experiment name to env variable and assert raises
+    # create experiment from env name
     with TempDir(chdr=True):
-        invalid_name = "invalid experiment"
-        HelperEnv.set_values(name=invalid_name)
-        HelperEnv.assert_values(None, invalid_name)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided environment variable {_EXPERIMENT_NAME_ENV_VAR} "
-            f"`invalid experiment` does not exist.",
-        ):
-            _get_experiment_id_from_env()
+        name = "random experiment %d" % random.randint(1, 1e6)
+        HelperEnv.set_values(name=name)
+        HelperEnv.assert_values(None, name)
+        assert MlflowClient().get_experiment_by_name(name) is None
+        assert _get_experiment_id_from_env() is not None
 
-    # assert raises from encapsulating function
+    # assert experiment creation from encapsulating function
     with TempDir(chdr=True):
-        invalid_name = "invalid experiment"
-        HelperEnv.set_values(name=invalid_name)
-        HelperEnv.assert_values(None, invalid_name)
-        with pytest.raises(
-            MlflowException,
-            match=f"The provided environment variable {_EXPERIMENT_NAME_ENV_VAR} "
-            "`invalid experiment` does not exist.",
-        ):
-            _get_experiment_id()
+        name = "random experiment %d" % random.randint(1, 1e6)
+        HelperEnv.set_values(name=name)
+        HelperEnv.assert_values(None, name)
+        assert MlflowClient().get_experiment_by_name(name) is None
+        assert _get_experiment_id() is not None
 
     # assert raises from conflicting experiment_ids
     with TempDir(chdr=True):

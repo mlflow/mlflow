@@ -1649,12 +1649,8 @@ def _get_experiment_id_from_env():
             else:
                 return exp.experiment_id
         else:
-            raise MlflowException(
-                message=f"The provided environment variable {_EXPERIMENT_NAME_ENV_VAR} "
-                f"`{experiment_name}` does not exist. Create an experiment with this name "
-                f"by using `mlflow.create_experiment(name='{experiment_name}')`",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            experiment_id = MlflowClient().create_experiment(name=experiment_name)
+            return experiment_id
     if experiment_id is not None:
         try:
             exp = MlflowClient().get_experiment(experiment_id)
@@ -1663,9 +1659,9 @@ def _get_experiment_id_from_env():
             raise MlflowException(
                 message=f"The provided environment variable {_EXPERIMENT_ID_ENV_VAR} "
                 f"`{experiment_id}` does not exist in the tracking server. Provide a valid "
-                f"experiment_id.\nTracker exception: {exc.message}",
+                f"experiment_id.",
                 error_code=INVALID_PARAMETER_VALUE,
-            )
+            ) from exc
 
 
 def _get_experiment_id():
