@@ -160,7 +160,7 @@ def prepare_env(
 @click.option(
     "--output-directory",
     "-d",
-    default="generate-dockerfile-output",
+    default="mlflow-dockerfile",
     help="output directory for generating dockerfile",
 )
 @cli_args.ENV_MANAGER
