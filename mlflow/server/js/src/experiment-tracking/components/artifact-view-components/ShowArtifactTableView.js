@@ -63,7 +63,17 @@ class ShowArtifactTableView extends Component {
         title: f,
         dataIndex: f,
         key: f,
-        sorter: (a, b) => a[f] - b[f],
+        sorter: (a, b) => {
+          if (isNaN(a)) {
+            return a[f].localeCompare(b[f]);
+          } else {
+            return a[f] - b[f];
+          }
+        },
+        width: 200,
+        ellipsis: {
+          showTitle: true,
+        },
       }));
 
       return (
@@ -74,7 +84,7 @@ class ShowArtifactTableView extends Component {
             dataSource={this.state.data}
             pagination={false}
             sticky
-            scroll={{ x: true, y: true }}
+            scroll={{ x: 'min-content', y: true }}
           />
         </div>
       );
@@ -120,19 +130,6 @@ class ShowArtifactTableView extends Component {
       .catch((error) => {
         this.setState({ error: error, loading: false });
       });
-  }
-
-  getColumnDefs(fields) {
-    return fields.map((field) => {
-      return {
-        headerName: field,
-        field: field,
-        suppressSizeToFit: true,
-        sortable: true,
-        resizable: true,
-        maxWidth: 360,
-      };
-    });
   }
 }
 
