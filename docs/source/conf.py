@@ -126,7 +126,7 @@ todo_include_todos = False
 
 html_context = {
     "use_algolia": os.environ.get("USE_ALGOLIA", "0"),
-    "gtm_tag": os.environ.get("GTM_TAG", ""),
+    "gtm_id": os.environ.get("GTM_ID", ""),
 }
 
 html_theme_path = ["../theme/"]
