@@ -125,10 +125,10 @@ class TrainStep(BaseStep):
         )
 
         tuning_method = self.step_config["using"]  # pylint: disable=unused-variable
-        tuning_params = self.step_config["tuning"]
 
-        if tuning_params["enabled"]:
+        if self.step_config["tuning_enabled"]:
             # gate all HP tuning code within this condition
+            tuning_params = self.step_config["tuning"]
 
             # import hyperopt or throw error
             try:
@@ -503,6 +503,18 @@ class TrainStep(BaseStep):
                     )
             else:
                 step_config["using"] = "estimator_spec"
+
+            if "tuning" in step_config:
+                if "enabled" in step_config["tuning"]:
+                    step_config["tuning_enabled"] = step_config["tuning"]["enabled"]
+                else:
+                    raise MlflowException(
+                        f"Tuning 'enabled' value must be set ",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                step_config["tuning_enabled"] = False
+
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
