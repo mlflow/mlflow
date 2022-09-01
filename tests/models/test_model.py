@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature, validate_schema
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
@@ -17,7 +17,25 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
 from scipy.sparse import csc_matrix
+import sklearn.datasets
+import sklearn.neighbors
 from packaging.version import Version
+
+
+@pytest.fixture(scope="module")
+def iris_data():
+    iris = sklearn.datasets.load_iris()
+    x = iris.data[:, :2]
+    y = iris.target
+    return x, y
+
+
+@pytest.fixture(scope="module")
+def sklearn_knn_model(iris_data):
+    x, y = iris_data
+    knn_model = sklearn.neighbors.KNeighborsClassifier()
+    knn_model.fit(x, y)
+    return knn_model
 
 
 def test_model_save_load():
@@ -128,17 +146,29 @@ def test_model_info():
             model_info = Model.log(
                 "some/path", TestFlavor, signature=sig, input_example=input_example
             )
-        local_path = _download_artifact_from_uri(
-            "runs:/{}/some/path".format(run.info.run_id), output_path=tmp.path("")
-        )
+        model_uri = "runs:/{}/some/path".format(run.info.run_id)
+
+        model_info_fetched = mlflow.models.get_model_info(model_uri)
+        with pytest.warns(
+            FutureWarning,
+            match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
+        ):
+            assert model_info_fetched.signature_dict == sig.to_dict()
+
+        local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
         assert model_info.run_id == run.info.run_id
+        assert model_info_fetched.run_id == run.info.run_id
         assert model_info.artifact_path == "some/path"
-        assert model_info.model_uri == "runs:/{}/some/path".format(run.info.run_id)
+        assert model_info_fetched.artifact_path == "some/path"
+        assert model_info.model_uri == model_uri
+        assert model_info_fetched.model_uri == model_uri
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert model_info.utc_time_created == loaded_model.utc_time_created
+        assert model_info_fetched.utc_time_created == loaded_model.utc_time_created
         assert model_info.model_uuid == loaded_model.model_uuid
+        assert model_info_fetched.model_uuid == loaded_model.model_uuid
 
         assert model_info.flavors == {
             "flavor1": {"a": 1, "b": 2},
@@ -149,9 +179,12 @@ def test_model_info():
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
 
+        model_signature = model_info_fetched.signature
         assert model_info.signature_dict == sig.to_dict()
+        assert model_signature.to_dict() == sig.to_dict()
 
-        assert Version(model_info.mlflow_version) == Version(loaded_model.mlflow_version)
+        assert model_info.mlflow_version == loaded_model.mlflow_version
+        assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
 
 
 def test_load_model_without_mlflow_version():
@@ -325,3 +358,20 @@ def test_model_uuid():
     m_dict.pop("model_uuid")
     m4 = Model.from_dict(m_dict)
     assert m4.model_uuid is None
+
+
+def test_validate_schema(sklearn_knn_model, iris_data, tmpdir):
+    sk_model_path = os.path.join(str(tmpdir), "sk_model")
+    X, y = iris_data
+    signature = infer_signature(X, y)
+    mlflow.sklearn.save_model(
+        sklearn_knn_model,
+        sk_model_path,
+        signature=signature,
+    )
+
+    validate_schema(X, signature.inputs)
+    prediction = sklearn_knn_model.predict(X)
+    reloaded_model = mlflow.sklearn.load_model(sk_model_path)
+    np.testing.assert_array_equal(prediction, reloaded_model.predict(X))
+    validate_schema(prediction, signature.outputs)
