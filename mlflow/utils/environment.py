@@ -10,6 +10,8 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
+    _is_constraints_file,
+    _is_requirements_file,
 )
 from mlflow.version import VERSION
 from packaging.requirements import Requirement, InvalidRequirement
@@ -442,6 +444,21 @@ def _is_mlflow_requirement(requirement_string):
         return False
 
 
+def _validate_no_file_references(requirements):
+    """
+    Validates the given list of pip requirements doesn't contain file references such as
+    '-r requirements.txt' or '-c constraints.txt'.
+    """
+    invalid_requirements = [
+        r for r in requirements if _is_requirements_file(r) or _is_constraints_file(r)
+    ]
+    if invalid_requirements:
+        raise MlflowException(
+            f"Invalid requirements: {invalid_requirements}. File references are supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _contains_mlflow_requirement(requirements):
     """
     Returns True if `requirements` contains a requirement for mlflow (e.g. 'mlflow==1.2.3').
@@ -458,8 +475,10 @@ def _process_pip_requirements(
     """
     constraints = []
     if pip_requirements is not None:
+        _validate_no_file_references(pip_requirements)
         pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
     elif extra_pip_requirements is not None:
+        _validate_no_file_references(extra_pip_requirements)
         extra_pip_requirements, constraints = _parse_pip_requirements(extra_pip_requirements)
         pip_reqs = default_pip_requirements + extra_pip_requirements
     else:
@@ -492,6 +511,7 @@ def _process_conda_env(conda_env):
 
     # User-specified `conda_env` may contain requirements/constraints file references
     pip_reqs = _get_pip_deps(conda_env)
+    _validate_no_file_references(pip_reqs)
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
 
     if not _contains_mlflow_requirement(pip_reqs):
