@@ -32,7 +32,6 @@ def _experimental(api: Any, api_type: str):
 def deprecated(alternative=None, since=None, impact=None):
     """
     Decorator for marking APIs deprecated in the docstring.
-
     :param func: A function to mark
     :returns Decorated function.
     """
