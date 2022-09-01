@@ -509,7 +509,7 @@ class TrainStep(BaseStep):
                     step_config["tuning_enabled"] = step_config["tuning"]["enabled"]
                 else:
                     raise MlflowException(
-                        f"Tuning 'enabled' value must be set ",
+                        "Tuning 'enabled' value must be set ",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
