@@ -137,19 +137,19 @@ class TrainStep(BaseStep):
                 raise MlflowException("Hyperopt not installed.", error_code=INTERNAL_ERROR)
 
             # wrap training in objective fn
-            def objective(args):  # pylint: disable=unused-argument
+            def objective(args):
                 # log as a child run
                 with mlflow.start_run(nested=True):
                     # create unfitted estimator from yaml
-                    estimator = estimator_fn()
-                    # sample training data
-                    sample_fraction = (
+                    estimator = estimator_fn(**args)
+                    # TODO: sample training data
+                    sample_fraction = ( # pylint: disable=unused-variable
                         tuning_params["sample_fraction"]
                         if "sample_fraction" in tuning_params
                         else 1
                     )
-                    X_train_sampled = None
-                    y_train_sampled = None
+                    X_train_sampled = X_train
+                    y_train_sampled = y_train
                     # fit estimator to training
                     estimator.fit(X_train_sampled, y_train_sampled)
                     if hasattr(estimator, "best_score_"):
@@ -185,7 +185,7 @@ class TrainStep(BaseStep):
                     )
 
                     # return +/- metric
-                    return eval_result.metrics
+                    return eval_result.metrics[self.primary_metric]
 
             # construct hp search space from yaml
             search_space = {}
