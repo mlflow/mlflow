@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -38,7 +39,7 @@ from tests.helper_functions import (
     RestEndpoint,
     get_safe_port,
     pyfunc_serve_and_score_model,
-    PROTOBUF_REQUIREMENT,
+    PROTOBUF_REQUIREMENT, pyfunc_generate_dockerfile,
 )
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
@@ -428,13 +429,14 @@ def test_generate_dockerfile(sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable_mlserver")
 
-    output_directory_name = pyfunc_generate_dockerfile(model_uri, extra_args=extra_args)
-    output_directory = Path(output_directory_name)
-    assert output_directory.is_dir()
-    assert output_directory.joinpath("Dockerfile").exists()
-    assert output_directory.joinpath("model_dir").is_dir()
-    # Assert file is not empty
-    assert output_directory.joinpath("Dockerfile").stat().st_size != 0
+    with tempfile.TemporaryDirectory() as temp_dir:
+        pyfunc_generate_dockerfile(temp_dir, model_uri, extra_args=extra_args)
+        output_directory = Path(temp_dir)
+        assert output_directory.is_dir()
+        assert output_directory.joinpath("Dockerfile").exists()
+        assert output_directory.joinpath("model_dir").is_dir()
+        # Assert file is not empty
+        assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])

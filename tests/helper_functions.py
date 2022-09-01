@@ -86,13 +86,13 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def pyfunc_generate_dockerfile(model_uri=None, extra_args=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
     """
-    Builds a dockerfile for the specified model, returning the path of the dockerfile.
+    Builds a dockerfile for the specified model.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
     :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+    :param output_directory: Output directory to generate Dockerfile and model artifacts
     """
-    output_directory = ".dockerfile-output-{}".format(uuid.uuid4().hex)
     cmd = [
         "mlflow",
         "models",
@@ -107,7 +107,6 @@ def pyfunc_generate_dockerfile(model_uri=None, extra_args=None):
     if extra_args:
         cmd += extra_args
     subprocess.run(cmd, check=True)
-    return output_directory
 
 
 def pyfunc_build_image(model_uri=None, extra_args=None):
