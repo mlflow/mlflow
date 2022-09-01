@@ -119,12 +119,19 @@ To set up the MLflow repository, run the following commands:
 
 .. code-block:: bash
 
+    # Clone the repository
     git clone --recurse-submodules https://github.com/<username>/mlflow.git
+    # Alternatively, you can use this command to clone through SSH:
+    # git clone --recurse-submodules git@github.com:<username>/mlflow.git
+
+    # Add the upstream repository
     cd mlflow
     git remote add upstream https://github.com/mlflow/mlflow.git
 
-    # If you've cloned the repository without --recurse-submodules,
-    # run this command to fetch submodules.
+If you have cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules.
+
+.. code-block:: bash
+
     git submodule update --init --recursive
 
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
