@@ -122,30 +122,7 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
-    for the current run or log a Keras model.
-    If logging a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
-    `keras_model` argument
-    must not be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
-    arguments must be set.
-    this method operates on TensorFlow variables and graphs that have been
-    serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
-    format, see the TensorFlow documentation:
-    https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
-
-    This method saves a model with both ``python_function`` and ``tensorflow`` flavors.
-    If loaded back using the ``python_function`` flavor, the model can be used to predict on
-    pandas DataFrames, producing a pandas DataFrame whose output columns correspond to the
-    TensorFlow model's outputs. The python_function model will flatten outputs that are length-one,
-    one-dimensional tensors of a single scalar value (e.g.
-    ``{"predictions": [[1.0], [2.0], [3.0]]}``) into the scalar values (e.g.
-    ``{"predictions": [1, 2, 3]}``), so that the resulting output column is a column of scalars
-    rather than lists of length one. All other model output types are included as-is in the output
-    DataFrame.
-
-    When logging keras model, `keras_model` argument
-    must be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
-    arguments must not be set.
+    Log a Keras model.
 
     :param model: The Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
@@ -221,14 +198,7 @@ def save_model(
     **kwargs,
 ):
     """
-    Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
-    to a local path or save a Keras model to a path on the local file system.
-
-    When saving a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
-    this method operates on TensorFlow variables and graphs that have been
-    serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
-    format, see the TensorFlow documentation:
-    https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
+    Save a Keras model to a path on the local file system.
 
     :param model: The Keras model to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -774,7 +744,7 @@ def autolog(
         )
 
         log_model(
-            keras_model=history.model,
+            model=history.model,
             artifact_path="model",
             input_example=input_example,
             signature=signature,
