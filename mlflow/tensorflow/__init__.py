@@ -9,12 +9,10 @@ TensorFlow (native) format
 """
 import os
 import shutil
-import yaml
 import logging
 import concurrent.futures
 import warnings
 import atexit
-import time
 import tempfile
 from collections import namedtuple
 import pandas
@@ -23,34 +21,20 @@ from threading import RLock
 import numpy as np
 
 import mlflow
-from mlflow import pyfunc
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
+from mlflow.models.utils import ModelInputExample
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
-    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -63,7 +47,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
-from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
 from mlflow.tensorflow import keras as mlflow_keras
@@ -235,7 +218,7 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
-    return mlflow_keras.save_model(
+    return mlflow_keras._save_keras_model(
         keras_model=model,
         path=path,
         custom_objects=custom_objects,

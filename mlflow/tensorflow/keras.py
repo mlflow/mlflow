@@ -162,8 +162,6 @@ def _log_keras_model(
     extra_pip_requirements=None,
     **kwargs,
 ):
-    from mlflow.tensorflow import keras as keras_flavor
-
     if signature is not None:
         warnings.warn(
             "The pyfunc inference behavior of Keras models logged "
@@ -179,8 +177,8 @@ def _log_keras_model(
 
     return Model.log(
         artifact_path=artifact_path,
-        flavor=keras_flavor,
-        keras_model=keras_model,
+        flavor=mlflow.tensorflow,
+        model=keras_model,
         conda_env=conda_env,
         code_paths=code_paths,
         custom_objects=custom_objects,
@@ -213,7 +211,7 @@ def _save_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-def save_model(
+def _save_keras_model(
     keras_model,
     path,
     conda_env=None,
@@ -226,58 +224,6 @@ def save_model(
     extra_pip_requirements=None,
     **kwargs,
 ):
-    """
-    Save a Keras model to a path on the local file system.
-
-    :param keras_model: Keras model to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: MLflow model config this flavor is being added to.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param kwargs: kwargs to pass to ``keras_model.save`` method.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-        # Build, compile, and train your model
-        keras_model = ...
-        keras_model_path = ...
-        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-        results = keras_model.fit(
-            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-        # Save the model as an MLflow Model
-        mlflow.keras.save_model(keras_model, keras_model_path)
-    """
     import tensorflow.keras.models
     from mlflow.tensorflow import get_default_pip_requirements, FLAVOR_NAME
 

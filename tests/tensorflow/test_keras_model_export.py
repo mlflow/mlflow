@@ -1,9 +1,7 @@
 from packaging.version import Version
-import h5py
 import os
 import pytest
 import shutil
-import importlib
 import random
 import json
 
@@ -22,7 +20,6 @@ from unittest import mock
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -275,9 +272,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
-    mlflow.tensorflow.save_model(
-        custom_model, path=model_path, custom_objects=custom_objects
-    )
+    mlflow.tensorflow.save_model(custom_model, path=model_path, custom_objects=custom_objects)
     # Loading Keras model
     model_loaded = mlflow.tensorflow.load_model(model_path)
     assert all(model_loaded.predict(x.values) == custom_predicted)
@@ -413,9 +408,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            model, artifact_path="model", pip_requirements=req_file.strpath
-        )
+        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
@@ -483,9 +476,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
 def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            model, artifact_path=artifact_path, conda_env=keras_custom_env
-        )
+        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
@@ -499,9 +490,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            model, artifact_path=artifact_path, conda_env=keras_custom_env
-        )
+        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, conda_env=keras_custom_env)
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
@@ -644,9 +633,7 @@ def test_log_model_with_code_paths(model):
     with mlflow.start_run(), mock.patch(
         "mlflow.tensorflow.keras._add_code_from_conf_to_system_path"
     ) as add_mock:
-        mlflow.tensorflow.log_model(
-            model, artifact_path=artifact_path, code_paths=[__file__]
-        )
+        mlflow.tensorflow.log_model(model, artifact_path=artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
         mlflow.tensorflow.load_model(model_uri)

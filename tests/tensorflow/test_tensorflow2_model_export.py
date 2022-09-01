@@ -204,8 +204,7 @@ def saved_tf_categorical_model(tmpdir):
 
 
 def save_tf_estimator_model(
-        tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key,
-        path, mlflow_model=None
+    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path, mlflow_model=None
 ):
     """
     A helper method to save tf estimator model as a mlflow model, it is used for testing loading
@@ -229,7 +228,8 @@ def save_tf_estimator_model(
     )
     mlflow_model.save(os.path.join(path, "MLmodel"))
     with open(os.path.join(path, "conda.yaml"), "w") as f:
-        f.write("""
+        f.write(
+            """
 channels:
 - conda-forge
 dependencies:
@@ -248,9 +248,10 @@ dependencies:
   - scipy==1.7.3
   - tensorflow==2.7.0
 """
-                )
+        )
     with open(os.path.join(path, "python_env.yaml"), "w") as f:
-        f.write("""
+        f.write(
+            """
 python: 3.8.12
 build_dependencies:
 - pip==21.2.4
@@ -259,9 +260,10 @@ build_dependencies:
 dependencies:
 - -r requirements.txt
 """
-                )
+        )
     with open(os.path.join(path, "requirements.txt"), "w") as f:
-        f.write("""
+        f.write(
+            """
 mlflow
 bcrypt==3.2.0
 boto3==1.20.46
@@ -274,15 +276,12 @@ pyopenssl==22.0.0
 scipy==1.7.3
 tensorflow==2.7.0                                                                                             
 """
-                )
+        )
     shutil.copytree(tf_saved_model_dir, os.path.join(path, "tfmodel"))
 
 
 def log_tf_estimator_model(
-        tf_saved_model_dir,
-        tf_meta_graph_tags,
-        tf_signature_def_key,
-        artifact_path
+    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path
 ):
     """
     A helper method to log tf estimator model as a mlflow model artifact,

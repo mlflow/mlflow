@@ -9,7 +9,6 @@ import time
 import logging
 import inspect
 from copy import deepcopy
-from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
