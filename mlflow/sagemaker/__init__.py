@@ -19,7 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
@@ -160,6 +160,12 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     os.system(cmd)
 
 
+@deprecated(
+    alternative=(
+        "mlflow.deployments.get_deploy_client('sagemaker').create_deployment()"
+        " and mlflow.deployments.get_deploy_client('sagemaker').update_deployment()"
+    )
+)
 def deploy(
     app_name,
     model_uri,
@@ -439,6 +445,7 @@ def deploy(
     return app_name, flavor
 
 
+@deprecated(alternative="mlflow.deployments.get_deploy_client('sagemaker').delete_deployment()")
 def delete(
     app_name,
     region_name="us-west-2",
@@ -2056,7 +2063,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2080,7 +2087,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.create_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2269,7 +2276,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2302,7 +2309,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 vpc_config=vpc_config
                 data_capture_config=data_capture_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.update_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2410,7 +2417,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
@@ -2419,7 +2426,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.delete_deployment("my-deployment", config=config)
 
         .. code-block:: bash
@@ -2471,9 +2478,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.list_deployments()
 
         .. code-block:: bash
@@ -2514,9 +2521,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.get_deployment("my-deployment")
 
         .. code-block:: bash
@@ -2566,10 +2573,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             :caption: Python example
 
             import pandas as pd
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             df = pd.DataFrame(data=[[1, 2, 3]], columns=["feat1", "feat2", "feat3"])
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.predict("my-deployment", df)
 
         .. code-block:: bash
