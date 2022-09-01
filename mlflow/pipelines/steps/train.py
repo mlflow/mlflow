@@ -124,7 +124,7 @@ class TrainStep(BaseStep):
             importlib.import_module(self.train_module_name), self.estimator_method_name
         )
 
-        tuning_method = self.step_config["using"]
+        tuning_method = self.step_config["using"]  # pylint: disable=unused-variable
         tuning_params = self.step_config["tuning"]
 
         if tuning_params["enabled"]:
@@ -137,7 +137,7 @@ class TrainStep(BaseStep):
                 raise MlflowException("Hyperopt not installed.", error_code=INTERNAL_ERROR)
 
             # wrap training in objective fn
-            def objective(args):
+            def objective(args):  # pylint: disable=unused-argument
                 return None
 
             # construct hp search space from yaml
@@ -151,9 +151,9 @@ class TrainStep(BaseStep):
                 search_space[param_name] = hp_tuning_fn(param_name, param_details)
 
             # minimize
-            algorithm = tuning_params["algorithm"]
-            max_trials = tuning_params["max_trials"]
-            best = fmin(objective, search_space)
+            algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
+            max_trials = tuning_params["max_trials"]  # pylint: disable=unused-variable
+            best = fmin(objective, search_space)  # pylint: disable=unused-variable
 
         else:
             estimator = estimator_fn()
