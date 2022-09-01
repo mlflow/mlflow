@@ -61,11 +61,11 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_uri,
-        data,
-        content_type,
-        flavor="python_function",
-        activity_polling_timeout_seconds=500,
+    model_uri,
+    data,
+    content_type,
+    flavor="python_function",
+    activity_polling_timeout_seconds=500,
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -99,7 +99,7 @@ def pyfunc_generate_dockerfile(model_uri=None, extra_args=None):
         "generate-dockerfile",
         *(["-m", model_uri] if model_uri else []),
         "-d",
-        output_directory
+        output_directory,
     ]
     mlflow_home = os.environ.get("MLFLOW_HOME")
     if mlflow_home:
@@ -150,7 +150,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-        image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
+    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -174,12 +174,12 @@ def pyfunc_serve_from_docker_image_with_env_override(
 
 
 def pyfunc_serve_and_score_model(
-        model_uri,
-        data,
-        content_type,
-        activity_polling_timeout_seconds=500,
-        extra_args=None,
-        stdout=sys.stdout,
+    model_uri,
+    data,
+    content_type,
+    activity_polling_timeout_seconds=500,
+    extra_args=None,
+    stdout=sys.stdout,
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -292,8 +292,8 @@ class RestEndpoint:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
             elif (
-                    content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
-                    or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED
+                content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
+                or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED
             ):
                 data = data.to_json(orient="split")
             elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
@@ -431,9 +431,9 @@ def _is_available_on_pypi(package, version=None, module=None):
     version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)
     return (
-            dist_files is not None  # specified version exists
-            and (len(dist_files) > 0)  # at least one distribution file exists
-            and not dist_files[0].get("yanked", False)  # specified version is not yanked
+        dist_files is not None  # specified version exists
+        and (len(dist_files) > 0)  # at least one distribution file exists
+        and not dist_files[0].get("yanked", False)  # specified version is not yanked
     )
 
 
