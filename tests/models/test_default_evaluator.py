@@ -48,7 +48,9 @@ from tests.models.test_evaluation import (
     diabetes_dataset,
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
-    iris_pandas_df_unusual_cols_dataset,
+    iris_pandas_df_dataset,
+    iris_pandas_df_num_cols_dataset,
+    iris_pandas_df_longname_cols_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
     spark_linear_regressor_model_uri,
@@ -330,18 +332,43 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
-def test_explainer_with_pandas_df_unusual_cols(
-    multiclass_logistic_regressor_model_uri, iris_pandas_df_unusual_cols_dataset
-):
+def _evaluate_explainer_with_exceptions(model_uri, dataset):
     with mlflow.start_run():
         evaluate(
-            multiclass_logistic_regressor_model_uri,
-            iris_pandas_df_unusual_cols_dataset._constructor_args["data"],
+            model_uri,
+            dataset._constructor_args["data"],
             model_type="classifier",
-            targets=iris_pandas_df_unusual_cols_dataset._constructor_args["targets"],
-            dataset_name=iris_pandas_df_unusual_cols_dataset.name,
+            targets=dataset._constructor_args["targets"],
+            dataset_name=dataset.name,
             evaluators="default",
+            evaluator_config={
+                "ignore_exceptions": False,
+            },
         )
+
+
+def test_default_explainer_pandas_df_str_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_dataset
+    )
+
+
+def test_default_explainer_pandas_df_num_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
+    )
+
+
+def test_default_explainer_pandas_df_longname_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
+    )
 
 
 def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):

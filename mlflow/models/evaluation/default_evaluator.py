@@ -416,10 +416,11 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 def _shap_predict_fn(x, predict_fn, feature_names):
     if isinstance(x, pd.DataFrame):
-        df = x.rename(columns=dict(enumerate(feature_names)))
-    else:
-        df = pd.DataFrame(x, columns=feature_names)
-    return predict_fn(df)
+        df = x.copy(deep=True)
+        df.columns = feature_names
+        return predict_fn(df)
+
+    return predict_fn(pd.DataFrame(x, columns=feature_names))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -544,10 +545,9 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(str(f), 20) for f in self.feature_names]
-        # str used to account for non-string self.feature_names
+        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != str(self.feature_names[i]):
+            if truncated_name != self.feature_names[i]:
                 # For duplicated truncated name, attach "(f_{feature_index})" at the end
                 truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
 
@@ -633,8 +633,7 @@ class DefaultEvaluator(ModelEvaluator):
             # or unsupported model on specific shap explainer. Catch exception to prevent it
             # breaking the whole `evaluate` function.
 
-            # NaN errors should break evaluation
-            if str(e).find("NaN") != -1:
+            if not self.evaluator_config.get("ignore_exceptions", True):
                 raise e
 
             _logger.warning(
@@ -1049,9 +1048,15 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        return DefaultEvaluator._MutationGuardedData(
-            pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
-        )
+        if isinstance(self.dataset.features_data, pd.DataFrame):
+            df = DefaultEvaluator._MutationGuardedData(
+                self.dataset.features_data
+            ).copy_to_avoid_mutation()
+            df.columns = self.dataset.feature_names
+        else:
+            df = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
+
+        return DefaultEvaluator._MutationGuardedData(df)
 
     class _MutationGuardedData:
         """

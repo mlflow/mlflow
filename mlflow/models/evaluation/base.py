@@ -11,6 +11,7 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.string_utils import stringify_column
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
@@ -312,6 +313,7 @@ class EvaluationDataset:
                     f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
                     for i in range(num_features)
                 ]
+            self.is_dataset_column_unlabeled = True
         elif isinstance(data, self._supported_dataframe_types):
             if not isinstance(targets, str):
                 raise ValueError(
@@ -336,7 +338,11 @@ class EvaluationDataset:
                 self._feature_names = feature_names
             else:
                 self._features_data = data.drop(targets, axis=1, inplace=False)
-                self._feature_names = list(self._features_data.columns)
+                self._feature_names = [stringify_column(c) for c in self._features_data.columns]
+
+            self.is_dataset_column_unlabeled = all(
+                (i == c for i, c in enumerate(self._features_data.columns))
+            )
         else:
             raise ValueError(
                 "The data argument must be a numpy array, a list or a Pandas DataFrame, or "
