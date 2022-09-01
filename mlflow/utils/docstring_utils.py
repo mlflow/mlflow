@@ -141,15 +141,18 @@ The following is an *example* dictionary representation of a conda environment::
     }
             """,
         "pip_requirements": """
-Either an iterable of pip requirement strings
-(e.g. ``["{{ package_name }}", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
-a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
-describes the environment this model should be run in. If ``None``, a default list of requirements
-is inferred by :func:`mlflow.models.infer_pip_requirements` from the current software environment.
-If the requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
-Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
-``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
+Either an iterable of pip requirement strings (e.g. ``["{{ package_name }}"]``) or the string path
+to a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``).
+If provided, this describes the environment this model should be run in. If ``None``, a default
+list of requirements is inferred by :func:`mlflow.models.infer_pip_requirements` from the current
+software environment. If the requirement inference fails, it falls back to using
+:func:`get_default_pip_requirements`. Requirements are also
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
+
+.. warning::
+
+    File references are not supported. For example, ``['-r extra-requirements.txt']`` or path to
+    a requirements file containing ``-r extra-requirements.txt`` results in an error.
 """,
         "extra_pip_requirements": """
 Either an iterable of pip requirement strings

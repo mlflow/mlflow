@@ -3,6 +3,7 @@ import os
 import logging
 import re
 import hashlib
+from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -473,13 +474,21 @@ def _process_pip_requirements(
     Processes `pip_requirements` and `extra_pip_requirements` passed to `mlflow.*.save_model` or
     `mlflow.*.log_model`, and returns a tuple of (conda_env, pip_requirements, pip_constraints).
     """
-    constraints = []
     if pip_requirements is not None:
+        pip_requirements = (
+            Path(pip_requirements).read_text().splitlines()
+            if isinstance(pip_requirements, str)
+            else pip_requirements
+        )
         _validate_no_file_references(pip_requirements)
-        pip_reqs, constraints = _parse_pip_requirements(pip_requirements)
+        pip_reqs = pip_requirements
     elif extra_pip_requirements is not None:
+        extra_pip_requirements = (
+            Path(extra_pip_requirements).read_text().splitlines()
+            if isinstance(extra_pip_requirements, str)
+            else pip_requirements
+        )
         _validate_no_file_references(extra_pip_requirements)
-        extra_pip_requirements, constraints = _parse_pip_requirements(extra_pip_requirements)
         pip_reqs = default_pip_requirements + extra_pip_requirements
     else:
         pip_reqs = default_pip_requirements
@@ -487,12 +496,9 @@ def _process_pip_requirements(
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, "mlflow")
 
-    if constraints:
-        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
-
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
-    return conda_env, pip_reqs, constraints
+    return conda_env, pip_reqs, []
 
 
 def _process_conda_env(conda_env):
