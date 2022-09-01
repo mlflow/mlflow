@@ -1095,15 +1095,15 @@ def predict():
 
 def test_model_with_code_path_containing_main(tmp_path):
     """Test that the __main__ module is unaffected by model loading"""
-    dir = tmp_path.joinpath("model_with_main")
-    dir.mkdir()
-    main = dir.joinpath("__main__.py")
+    directory = tmp_path.joinpath("model_with_main")
+    directory.mkdir()
+    main = directory.joinpath("__main__.py")
     main.write_text("# empty main")
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model",
             python_model=mlflow.pyfunc.model.PythonModel(),
-            code_path=[str(dir)],
+            code_path=[str(directory)],
         )
 
     assert "__main__" in sys.modules
