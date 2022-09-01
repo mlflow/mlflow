@@ -755,7 +755,8 @@ def load_model(
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     loader_module = conf[MAIN]
     if loader_module == "mlflow.keras":
-        loader_module = "mlflow.tensorflow.keras"
+        # Support loading keras model saved by old mlflow.
+        loader_module = "mlflow.tensorflow"
     model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 

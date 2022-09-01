@@ -190,7 +190,7 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
-    return mlflow_keras.log_model(
+    return mlflow_keras._log_keras_model(
         artifact_path=artifact_path,
         keras_model=model,
         custom_objects=custom_objects,
@@ -327,7 +327,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     model_conf = Model.load(model_configuration_path)
 
     if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
-        return mlflow_keras.load_model(local_model_path, flavor_conf, **kwargs)
+        return mlflow_keras._load_keras_model(local_model_path, flavor_conf, **kwargs)
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     (
@@ -402,6 +402,9 @@ def _load_pyfunc(path):
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
     import tensorflow
+
+    if os.path.exists(os.path.join(path, mlflow_keras._KERAS_MODULE_SPEC_PATH)):
+        return mlflow_keras._load_pyfunc(path)
 
     flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
     (
@@ -770,7 +773,7 @@ def autolog(
             _logger,
         )
 
-        mlflow_keras.log_model(
+        log_model(
             keras_model=history.model,
             artifact_path="model",
             input_example=input_example,

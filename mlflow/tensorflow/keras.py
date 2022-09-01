@@ -16,7 +16,6 @@ import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -28,9 +27,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
@@ -111,9 +108,9 @@ def _load_pyfunc(path):
         with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
             keras_module = importlib.import_module(f.read())
     else:
-        import keras
+        import tensorflow.keras
 
-        keras_module = keras
+        keras_module = tensorflow.keras
 
     # By default, we assume the save_format is h5 for backwards compatibility
     save_format = "h5"
@@ -135,7 +132,7 @@ def _load_pyfunc(path):
         raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(local_model_path, flavor_conf, **kwargs):
+def _load_keras_model(local_model_path, flavor_conf, **kwargs):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
@@ -151,7 +148,7 @@ def load_model(local_model_path, flavor_conf, **kwargs):
     )
 
 
-def log_model(
+def _log_keras_model(
     keras_model,
     artifact_path,
     conda_env=None,
@@ -165,66 +162,6 @@ def log_model(
     extra_pip_requirements=None,
     **kwargs,
 ):
-    """
-    Log a Keras model as an MLflow artifact for the current run.
-
-    :param keras_model: Keras model to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param kwargs: kwargs to pass to ``keras_model.save`` method.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
-
-    .. code-block:: python
-        :caption: Example
-
-        from keras import Dense, layers
-        import mlflow
-        # Build, compile, and train your model
-        keras_model = ...
-        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-        results = keras_model.fit(
-            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-        # Log metrics and log the model
-        with mlflow.start_run() as run:
-            mlflow.keras.log_model(keras_model, "models")
-    """
     from mlflow.tensorflow import keras as keras_flavor
 
     if signature is not None:
@@ -341,14 +278,14 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    import keras.models
+    import tensorflow.keras.models
     from mlflow.tensorflow import get_default_pip_requirements, FLAVOR_NAME
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if not isinstance(keras_model, keras.models.Model):
+    if not isinstance(keras_model, tensorflow.keras.models.Model):
         raise MlflowException("The `keras_model` argument value is not a keras model instance.")
-    keras_module = importlib.import_module("keras")
+    keras_module = importlib.import_module("tensorflow.keras")
 
     # check if path exists
     path = os.path.abspath(path)
