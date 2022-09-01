@@ -252,7 +252,7 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), None)
         with pytest.raises(
             MlflowException,
-            match=f"The provided environment variable {_EXPERIMENT_ID_ENV_VAR} `{random_id}` "
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
             "does not exist in the tracking server",
         ):
             _get_experiment_id_from_env()
@@ -267,7 +267,7 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), name)
         with pytest.raises(
             MlflowException,
-            match=f"The provided environment variable {_EXPERIMENT_ID_ENV_VAR} `{random_id}` "
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
             "does not match the experiment id",
         ):
             _get_experiment_id_from_env()
