@@ -157,15 +157,19 @@ def prepare_env(
 
 @commands.command("generate-dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
-@click.option("--output-directory",
-              "-d",
-              default="generate-dockerfile-output",
-              help="output directory for generating dockerfile")
+@click.option(
+    "--output-directory",
+    "-d",
+    default="generate-dockerfile-output",
+    help="output directory for generating dockerfile",
+)
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def generate_dockerfile(model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver):
+def generate_dockerfile(
+    model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver
+):
     """
     Generates a directory with dockerfile whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor.
@@ -184,7 +188,10 @@ def generate_dockerfile(model_uri, output_directory, env_manager, mlflow_home, i
             enable_mlserver=enable_mlserver,
         )
     else:
-        _logger.error("Cannot build docker image for selected backend", extra={"backend": backend.__class__.__name__})
+        _logger.error(
+            "Cannot build docker image for selected backend",
+            extra={"backend": backend.__class__.__name__},
+        )
         raise NotImplementedError("Cannot build docker image for selected backend")
 
 
@@ -250,7 +257,10 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
             enable_mlserver=enable_mlserver,
         )
     else:
-        _logger.error("Cannot build docker image for selected backend", extra={"backend": backend.__class__.__name__})
+        _logger.error(
+            "Cannot build docker image for selected backend",
+            extra={"backend": backend.__class__.__name__},
+        )
         raise NotImplementedError("Cannot build docker image for selected backend")
 
 

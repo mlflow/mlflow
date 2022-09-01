@@ -74,12 +74,7 @@ class FlavorBackend:
         raise NotImplementedError
 
     def generate_dockerfile(
-            self,
-            model_uri,
-            output_path,
-            install_mlflow,
-            mlflow_home,
-            enable_mlserver
+        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver
     ):
         raise NotImplementedError
 

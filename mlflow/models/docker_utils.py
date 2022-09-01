@@ -153,11 +153,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
 
 
 def _generate_dockerfile_content(
-        setup_miniconda,
-        setup_pyenv_and_virtualenv,
-        install_mlflow,
-        custom_setup_steps,
-        entrypoint
+    setup_miniconda, setup_pyenv_and_virtualenv, install_mlflow, custom_setup_steps, entrypoint
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model

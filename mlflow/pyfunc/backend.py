@@ -9,8 +9,14 @@ import warnings
 from pathlib import Path
 
 from mlflow.models import FlavorBackend
-from mlflow.models.docker_utils import _build_image, _generate_dockerfile_content, DISABLE_ENV_CREATION, SETUP_MINICONDA, \
-    SETUP_PYENV_AND_VIRTUALENV, _get_mlflow_install_step
+from mlflow.models.docker_utils import (
+    _build_image,
+    _generate_dockerfile_content,
+    DISABLE_ENV_CREATION,
+    SETUP_MINICONDA,
+    SETUP_PYENV_AND_VIRTUALENV,
+    _get_mlflow_install_step,
+)
 from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.pyfunc import ENV, scoring_server, mlserver
 
@@ -287,10 +293,19 @@ class PyFuncBackend(FlavorBackend):
             return False
 
     def generate_dockerfile(
-            self, model_uri, output_directory="generate_dockerfile_output", install_mlflow=False, mlflow_home=None, enable_mlserver=False
+        self,
+        model_uri,
+        output_directory="generate_dockerfile_output",
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
     ):
-        copy_model_into_container = self.copy_model_into_container_wrapper(model_uri, install_mlflow, enable_mlserver)
-        pyfunc_entrypoint = _pyfunc_entrypoint(self._env_manager, model_uri, install_mlflow, enable_mlserver)
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
 
         mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
 
@@ -303,13 +318,15 @@ class PyFuncBackend(FlavorBackend):
         _logger.debug("Created all folders in path", extra={"output_directory": output_directory})
         install_mlflow = _get_mlflow_install_step(output_directory, mlflow_home)
 
-        custom_setup_steps = copy_model_into_container(output_directory) if copy_model_into_container else ""
+        custom_setup_steps = (
+            copy_model_into_container(output_directory) if copy_model_into_container else ""
+        )
         dockerfile_text = _generate_dockerfile_content(
             setup_miniconda=setup_miniconda,
             setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
             install_mlflow=install_mlflow,
             custom_setup_steps=custom_setup_steps,
-            entrypoint=pyfunc_entrypoint
+            entrypoint=pyfunc_entrypoint,
         )
         _logger.debug("generated dockerfile text", extra={"dockerfile": dockerfile_text})
 
@@ -319,8 +336,12 @@ class PyFuncBackend(FlavorBackend):
     def build_image(
         self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
     ):
-        copy_model_into_container = self.copy_model_into_container_wrapper(model_uri, install_mlflow, enable_mlserver)
-        pyfunc_entrypoint = _pyfunc_entrypoint(self._env_manager, model_uri, install_mlflow, enable_mlserver)
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
         _build_image(
             image_name=image_name,
             mlflow_home=mlflow_home,
@@ -382,12 +403,12 @@ def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
                 "from mlflow.models import container as C",
                 "from mlflow.models.container import _install_pyfunc_deps",
                 (
-                        "_install_pyfunc_deps("
-                        + '"/opt/ml/model", '
-                        + f"install_mlflow={install_mlflow}, "
-                        + f"enable_mlserver={enable_mlserver}, "
-                        + f'env_manager="{env_manager}"'
-                        + ")"
+                    "_install_pyfunc_deps("
+                    + '"/opt/ml/model", '
+                    + f"install_mlflow={install_mlflow}, "
+                    + f"enable_mlserver={enable_mlserver}, "
+                    + f'env_manager="{env_manager}"'
+                    + ")"
                 ),
                 'C._serve("{env_manager}")'.format(env_manager=env_manager),
             ]
