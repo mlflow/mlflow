@@ -47,10 +47,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/experiments/create"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/create"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Create Experiment",
@@ -64,10 +60,6 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/experiments/list"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -98,10 +90,6 @@ service MlflowService {
         method: "GET",
         path: "/mlflow/experiments/get"
         since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/experiments/get"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Get Experiment",
@@ -116,10 +104,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/delete"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -139,10 +123,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/restore"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Restore Experiment",
@@ -156,10 +136,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/update"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -177,10 +153,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/create"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/create"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -196,10 +168,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/update"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/update"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -214,10 +182,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/delete"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/delete"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Run",
@@ -230,10 +194,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/restore"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -250,10 +210,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/log-metric"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }],
 
@@ -272,10 +228,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-parameter"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -290,10 +242,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/set-experiment-tag"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/set-experiment-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -311,10 +259,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/set-tag"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -330,10 +274,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/delete-tag"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/delete-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -351,10 +291,6 @@ service MlflowService {
         method: "GET",
         path: "/mlflow/runs/get"
         since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/runs/get"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -371,14 +307,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/search"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/search"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/runs/search"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Search Runs",
@@ -394,10 +322,6 @@ service MlflowService {
         method: "GET",
         path: "/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/artifacts/list"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Artifacts",
@@ -411,10 +335,6 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/metrics/get-history"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -478,10 +398,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-batch"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Log Batch",
@@ -495,10 +411,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/log-model"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-model"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
