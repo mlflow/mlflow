@@ -20,8 +20,8 @@ class TestExperiment(unittest.TestCase):
         name = "exp_%d_%d" % (random_int(), random_int())
         lifecycle_stage = LifecycleStage.ACTIVE
         location = random_file(".json")
-        creation_time = int(time.time())
-        last_update_time = int(time.time())
+        creation_time = int(time.time() * 1000)
+        last_update_time = int(time.time() * 1000)
 
         exp = Experiment(
             exp_id,
@@ -57,11 +57,11 @@ class TestExperiment(unittest.TestCase):
             name="myname",
             artifact_location="hi",
             lifecycle_stage=LifecycleStage.ACTIVE,
-            creation_time=1661624204,
-            last_update_time=1661624204,
+            creation_time=1662004217511,
+            last_update_time=1662004217511,
         )
         assert (
             str(exp)
-            == "<Experiment: artifact_location='hi', creation_time=1661624204, experiment_id=0, "
-            "last_update_time=1661624204, lifecycle_stage='active', name='myname', tags={}>"
+            == "<Experiment: artifact_location='hi', creation_time=1662004217511, experiment_id=0, "
+            "last_update_time=1662004217511, lifecycle_stage='active', name='myname', tags={}>"
         )
