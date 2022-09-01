@@ -23,8 +23,8 @@ the Python and MLflow binaries to use. By default, the R client automatically fi
 ``Sys.which("python")`` and ``Sys.which("mlflow")``.
 
 ```bash
-export MLFLOW_PYTHON_BIN=/path/to/python/bin
-export MLFLOW_BIN=/path/to/mlflow/bin
+export MLFLOW_PYTHON_BIN=/path/to/bin/python
+export MLFLOW_BIN=/path/to/bin/mlflow
 ```
 
 ## Installation
