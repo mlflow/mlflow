@@ -140,7 +140,7 @@ def load_project(directory):
         )
 
     return Project(
-        env_type=env_type.CONDA,
+        env_type=env_type.PYTHON,
         env_config_path=None,
         entry_points=entry_points,
         docker_env=None,

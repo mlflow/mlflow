@@ -37,13 +37,21 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
 
 
 class _PythonEnv:
-    """
-    Represents environment information for an MLflow Model.
-    """
 
     BUILD_PACKAGES = ("pip", "setuptools", "wheel")
 
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        """
+        Represents environment information for MLflow Models and Projects.
+
+        :param python: Python version for the environment. If unspecified, defaults to the current
+                       Python version.
+        :param build_dependencies: List of build dependencies for the environment that must
+                                   be installed before installing ``dependencies``. If unspecified,
+                                   defaults to an empty list.
+        :param dependencies: List of dependencies for the environment. If unspecified, defaults to
+                             an empty list.
+        """
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")
         if build_dependencies is not None and not isinstance(build_dependencies, list):
@@ -53,9 +61,9 @@ class _PythonEnv:
         if dependencies is not None and not isinstance(dependencies, list):
             raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
 
-        self.python = python
-        self.build_dependencies = build_dependencies
-        self.dependencies = dependencies
+        self.python = python or PYTHON_VERSION
+        self.build_dependencies = build_dependencies or []
+        self.dependencies = dependencies or []
 
     def __str__(self):
         return str(self.to_dict())
