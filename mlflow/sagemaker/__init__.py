@@ -170,7 +170,6 @@ def _deploy(
     instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
-    data_capture_config=None,
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
