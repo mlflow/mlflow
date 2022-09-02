@@ -46,7 +46,7 @@ import mlflow.models
 import mlflow.artifacts
 import mlflow.pipelines
 import mlflow.client
-import mlflow.exceptions 
+import mlflow.exceptions
 
 
 # model flavors
