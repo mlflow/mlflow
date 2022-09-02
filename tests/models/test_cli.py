@@ -430,7 +430,6 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
         extra_args.append("--enable_mlserver")
 
     pyfunc_generate_dockerfile(tmp_path, model_uri, extra_args=extra_args)
-    output_directory = Path(tmp_path)
     assert output_directory.is_dir()
     assert output_directory.joinpath("Dockerfile").exists()
     assert output_directory.joinpath("model_dir").is_dir()
