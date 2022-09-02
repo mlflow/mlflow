@@ -288,7 +288,15 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+
+
+class EnvType:
+    CONDA = "conda"
+    VIRTUALENV = "virtualenv"
+
+
 PY_VERSION = "python_version"
+
 
 _logger = logging.getLogger(__name__)
 PyFuncInput = Union[
@@ -302,7 +310,9 @@ PyFuncInput = Union[
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
+def add_to_model(
+    model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
+):
     """
     Add a ``pyfunc`` spec to the model configuration.
 
@@ -318,7 +328,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param loader_module: The module to be used to load the model.
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
-    :param env: Conda environment.
+    :param conda_env: Conda environment.
+    :param python_env: Python environment.
     :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
@@ -331,10 +342,19 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
         params[CODE] = code
     if data:
         params[DATA] = data
-    if env:
-        params[ENV] = env
-
+    if conda_env or python_env:
+        params[ENV] = {}
+        if conda_env:
+            params[ENV][EnvType.CONDA] = conda_env
+        if python_env:
+            params[ENV][EnvType.VIRTUALENV] = python_env
     return model.add_flavor(FLAVOR_NAME, **params)
+
+
+def _extract_conda_env(env):
+    # In MLflow < 2.0.0, the 'env' field in a pyfunc config is a string containing the path to
+    # a conda.yaml file.
+    return env if isinstance(env, str) else env[EnvType.CONDA]
 
 
 def _load_model_env(path):
@@ -1663,7 +1683,8 @@ def _save_model_with_loader_module_and_data_path(
         loader_module=loader_module,
         code=code_dir_subpath,
         data=data,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

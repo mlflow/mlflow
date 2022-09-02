@@ -562,7 +562,8 @@ def save_model(
         data=model_data_subpath,
         pickle_module_name=pickle_module.__name__,
         code=code_dir_subpath,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
