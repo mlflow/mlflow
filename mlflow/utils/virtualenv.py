@@ -9,6 +9,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model, MLMODEL_FILE_NAME
+from mlflow.pyfunc import _extract_conda_env
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.requirements_utils import _parse_requirements
 from mlflow.utils.environment import (
@@ -154,7 +155,7 @@ def _get_conda_env_file(mlmodel_file):
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
             env = config.get(mlflow.pyfunc.ENV)
             if env:
-                return env
+                return _extract_conda_env(env)
     return _CONDA_ENV_FILE_NAME
 
 
