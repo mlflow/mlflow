@@ -352,8 +352,8 @@ def add_to_model(
 
 
 def _extract_conda_env(env):
-    # In MLflow < 2.0.0, the 'env' field in a pyfunc config is a string containing the path to
-    # a conda.yaml file.
+    # In MLflow < 2.0.0, the 'env' field in a pyfunc configuration is a string containing the path
+    # to a conda.yaml file.
     return env if isinstance(env, str) else env[EnvType.CONDA]
 
 
