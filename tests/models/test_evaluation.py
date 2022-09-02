@@ -317,7 +317,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
-            classifier_model,
+            multiclass_logistic_regressor_model_uri,
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
@@ -437,19 +437,18 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
         "mean_squared_error_on_diabetes_dataset": expected_mse,
     }
 
-    for model in [regressor_model, linear_regressor_model_uri]:
-        with mlflow.start_run() as run:
-            eval_result = evaluate(
-                model,
-                diabetes_dataset._constructor_args["data"],
-                model_type="regressor",
-                targets=diabetes_dataset._constructor_args["targets"],
-                dataset_name=diabetes_dataset.name,
-                evaluators="dummy_evaluator",
-            )
-        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
-        assert saved_metrics == expected_saved_metrics
-        assert eval_result.metrics == expected_metrics
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_dataset._constructor_args["targets"],
+            dataset_name=diabetes_dataset.name,
+            evaluators="dummy_evaluator",
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+    assert saved_metrics == expected_saved_metrics
+    assert eval_result.metrics == expected_metrics
 
 
 def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
@@ -458,21 +457,18 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
 
-    regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
-
     dataset_name = "diabetes_pd"
 
-    for model in [regressor_model, linear_regressor_model_uri]:
-        with mlflow.start_run() as run:
-            eval_result = evaluate(
-                model,
-                data=df,
-                targets="y",
-                model_type="regressor",
-                dataset_name=dataset_name,
-                evaluators=["default"],
-            )
-        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=df,
+            targets="y",
+            model_type="regressor",
+            dataset_name=dataset_name,
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
     augment_name = f"_on_data_{dataset_name}"
     for k, v in eval_result.metrics.items():
@@ -648,6 +644,11 @@ class FakeArtifact2(EvaluationArtifact):
         raise RuntimeError()
 
 
+class PyFuncModelMatcher:
+    def __eq__(self, other):
+        return isinstance(other, mlflow.pyfunc.PyFuncModel)
+
+
 def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
@@ -685,10 +686,9 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
         ) as mock_can_evaluate, mock.patch.object(
             FakeEvauator1, "evaluate", return_value=evaluator1_return_value
         ) as mock_evaluate:
-            classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
             with mlflow.start_run() as run:
                 eval1_result = evaluate(
-                    classifier_model,
+                    multiclass_logistic_regressor_model_uri,
                     iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
@@ -704,7 +704,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     model_type="classifier", evaluator_config=evaluator1_config
                 )
                 mock_evaluate.assert_called_once_with(
-                    model=classifier_model,
+                    model=PyFuncModelMatcher(),
                     model_type="classifier",
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
@@ -741,10 +741,9 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
             ) as mock_can_evaluate2, mock.patch.object(
                 FakeEvauator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
-                classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
-                        classifier_model,
+                        multiclass_logistic_regressor_model_uri,
                         iris_dataset._constructor_args["data"],
                         model_type="classifier",
                         targets=iris_dataset._constructor_args["targets"],
@@ -767,7 +766,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         model_type="classifier", evaluator_config=evaluator1_config
                     )
                     mock_evaluate1.assert_called_once_with(
-                        model=classifier_model,
+                        model=PyFuncModelMatcher(),
                         model_type="classifier",
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
@@ -779,7 +778,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         evaluator_config=evaluator2_config,
                     )
                     mock_evaluate2.assert_called_once_with(
-                        model=classifier_model,
+                        model=PyFuncModelMatcher(),
                         model_type="classifier",
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
