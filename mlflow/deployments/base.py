@@ -187,13 +187,13 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def predict(self, deployment_name=None, data=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Compute predictions on input data using the specified deployment.
         Note that the input/output types of this method matches that of `mlflow pyfunc predict`.
 
         :param deployment_name: Name of deployment to predict against
-        :param data: Input data to be used for inference
+        :param inputs: Input data (or arguments) used to generate inference from a model endpoint
         :param endpoint: Endpoint to predict against. May not be supported by all targets
         :return: A pandas DataFrame, pandas Series, or numpy array
         """
