@@ -2582,7 +2582,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while retrieving the deployment: {exc}\n")
             )
 
-    def predict(self, deployment_name=None, df=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2597,8 +2597,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
         :param deployment_name: Name of the deployment to predict against.
-        :param df: A PyFunc input, such as a Pandas DataFrame, NumPy array, list, or dictionary.
-                   For a complete list of supported input types, see :ref:`pyfunc-inference-api`.
+        :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
+                       inference. For a complete list of supported input types, see
+                       :ref:`pyfunc-inference-api`.
         :param endpoint: Endpoint to predict against. Currently unsupported
         :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
                  For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
@@ -2640,7 +2641,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=json.dumps(_get_jsonable_obj(df, pandas_orient="split")),
+                Body=json.dumps(_get_jsonable_obj(inputs, pandas_orient="split")),
                 ContentType="application/json",
             )
 
