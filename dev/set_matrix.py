@@ -418,6 +418,9 @@ def generate_matrix(args):
     if args.flavors:
         matrix = filter(lambda x: x.flavor in args.flavors, matrix)
 
+    if args.versions:
+        matrix = filter(lambda x: x.version in map(Version, args.versions), matrix)
+
     if args.only_latest:
         groups = defaultdict(list)
         for item in matrix:
