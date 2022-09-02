@@ -279,9 +279,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             else:
                 typemessage = f"type {type(decoded_input)}"
             raise MlflowBadScoringInputException(
-                f"Dataframe split format must have 'data' field and optionally 'columns' "
-                "and 'index' fields. "
-                f"Got {typemessage}."
+                f"Dataframe split format must be a dictionary. Got {typemessage}."
             )
         keys = set(decoded_input.keys())
         missing_data = "data" not in keys

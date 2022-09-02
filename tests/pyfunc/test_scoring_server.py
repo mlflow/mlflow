@@ -186,10 +186,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     response_json = json.loads(response.content)
     assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
     message = response_json.get("message")
-    assert (
-        "Dataframe split format must be a dictionary with at least 'data' field. Got list"
-        in message
-    )
+    assert "Dataframe split format must be a dictionary. Got list" in message
 
     response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),

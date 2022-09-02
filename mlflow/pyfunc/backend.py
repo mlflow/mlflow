@@ -210,7 +210,7 @@ class PyFuncBackend(FlavorBackend):
             conda_env_name = get_or_create_conda_env(
                 conda_env_path,
                 env_id=self._env_id,
-                capture_output=False,
+                capture_output=True,
                 env_root_dir=self._env_root_dir,
             )
 

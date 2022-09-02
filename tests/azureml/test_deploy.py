@@ -383,7 +383,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # reasonable output data is produced
         # pylint: disable=undefined-variable
         output_data = run(
-            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_json(orient="split")}
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
         )
         np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
@@ -429,7 +429,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # reasonable output data is produced
         # pylint: disable=undefined-variable
         output_raw = run(
-            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_json(orient="split")}
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
         )
         output_df = pd.DataFrame(output_raw)
         pandas.testing.assert_frame_equal(
