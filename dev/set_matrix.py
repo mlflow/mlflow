@@ -300,7 +300,7 @@ def parse_args(args):
         help="If True, exclude dev versions in the test matrix.",
     )
     parser.add_argument(
-        "--latest-only",
+        "--only-latest",
         action="store_true",
         help=(
             "If True, only test the latest version of each group. Useful when you want to save "
@@ -417,7 +417,7 @@ def generate_matrix(args):
     if args.flavors:
         matrix = filter(lambda x: x.flavor in args.flavors, matrix)
 
-    if args.latest_only:
+    if args.only_latest:
         groups = defaultdict(list)
         for item in matrix:
             groups[(item.name, item.category)].append(item)
