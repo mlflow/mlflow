@@ -39,7 +39,8 @@ from tests.helper_functions import (
     RestEndpoint,
     get_safe_port,
     pyfunc_serve_and_score_model,
-    PROTOBUF_REQUIREMENT, pyfunc_generate_dockerfile,
+    PROTOBUF_REQUIREMENT,
+    pyfunc_generate_dockerfile,
 )
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
