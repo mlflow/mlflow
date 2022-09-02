@@ -199,7 +199,10 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     response_json = json.loads(response.content)
     assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
     message = response_json.get("message")
-    assert "Dataframe records format must be a list of records. Got dictionary." in message
+    assert (
+        "Dataframe split format must have 'data' field and optionally 'columns' and 'index' fields."
+        " Got list." in message
+    )
 
 
 def test_scoring_server_responds_to_invalid_dataframe_with_stacktrace_and_error_code(

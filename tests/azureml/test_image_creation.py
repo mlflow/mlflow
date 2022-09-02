@@ -18,6 +18,7 @@ import mlflow.azureml
 import mlflow.azureml.cli
 import mlflow.sklearn
 from mlflow import pyfunc
+from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -548,8 +549,11 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_data = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
-        np.testing.assert_array_equal(output_data, pyfunc_outputs)
+        input_json = json.dumps(
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
+        )
+        output_data = run(input_json)
+        np.testing.assert_array_equal(output_data["predictions"], pyfunc_outputs)
 
 
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
@@ -592,8 +596,11 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_raw = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
-        output_df = pd.DataFrame(output_raw)
+        json_data = json.dumps(
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
+        )
+        model_output = MlflowModelServerOutput.from_raw_json(run(json_data))
+        output_df = pd.DataFrame(model_output.get_predictions_dataframe())
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False
         )

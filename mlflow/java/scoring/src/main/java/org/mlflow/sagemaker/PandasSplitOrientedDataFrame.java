@@ -61,7 +61,7 @@ class PandasSplitOrientedDataFrame {
         (List<List<Object>>) parsedFrame.get(PANDAS_FRAME_KEY_ROWS));
   }
 
-  private static Map<String List<?>> validatePandasDataFrameJsonRepresentation(Map<String, Object> parsedInput)
+  private static Map<String, List<?>> validatePandasDataFrameJsonRepresentation(Map<String, Object> parsedInput)
       throws InvalidSchemaException {
     Object dataframeSplitField = parsedInput.get("dataframe_split")
     if (dataframeSplitField == null) {
@@ -116,7 +116,6 @@ class PandasSplitOrientedDataFrame {
       }
       mleapRows.add(leapFrameBuilder.createRowFromIterable(mleapRow));
     }
-
     return leapFrameBuilder.createFrame(leapFrameSchema, mleapRows);
   }
 }

@@ -670,6 +670,6 @@ def init():
 
 def run(json_input):
     input_df = infer_and_parse_json_input(json_input)
-    return _get_jsonable_obj(model.predict(input_df), pandas_orient="records")
+    return {"predictions": _get_jsonable_obj(model.predict(input_df), pandas_orient="records")}
 
 """

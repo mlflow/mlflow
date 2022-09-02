@@ -183,11 +183,7 @@ serve_handlers <- function(host, port, ...) {
       headers <- strsplit(req$HEADERS, "\n")
       content_type <- headers$`content-type` %||% "application/json"
       df <- switch( content_type,
-        "application/json" = parse_json(data_raw, "split"),
-        "application/json; format=pandas-split" = parse_json(data_raw, "split"),
-        "application/json; format=pandas-records" = parse_json(data_raw, "records"),
-        "application/json-numpy-split" = parse_json(data_raw, "split"),
-        "application/json" = parse_json(data_raw, "split"),
+        "application/json" = parse_json(data_raw),
         "text/csv" = utils::read.csv(text = data_raw, stringsAsFactors = FALSE),
         stop("Unsupported input format.")
       )

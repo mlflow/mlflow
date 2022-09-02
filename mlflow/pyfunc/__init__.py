@@ -1104,7 +1104,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             get_flavor_backend(
                 local_model_path,
                 env_manager=env_manager,
-                install_mlflow=False,
+                install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
                 env_root_dir=env_root_dir,
             ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
 
