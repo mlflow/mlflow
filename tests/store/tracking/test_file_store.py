@@ -74,7 +74,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
-            d = {"experiment_id": exp, "name": random_str(), "artifact_location": exp_folder}
+            d = {
+                "experiment_id": exp,
+                "name": random_str(),
+                "artifact_location": exp_folder,
+                "creation_time": int(time.time() * 1000),
+                "last_update_time": int(time.time() * 1000),
+            }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
             # add runs
@@ -477,8 +483,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_delete_restore_experiment(self):
         fs = FileStore(self.test_root)
-        exp_name = "test_delete_restore_experiment"
-        exp_id = fs.create_experiment(exp_name)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        exp_name = self.exp_data[exp_id]["name"]
+
         exp1 = fs.get_experiment(exp_id)
         time.sleep(0.05)
 
