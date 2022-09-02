@@ -9,7 +9,7 @@ import cloudpickle
 
 import mlflow
 from mlflow.entities import SourceType, ViewType
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -127,12 +127,14 @@ class TrainStep(BaseStep):
         if self.step_config["tuning_enabled"]:
             # gate all HP tuning code within this condition
             tuning_params = self.step_config["tuning"]
-            tuning_method = self.step_config["using"]  # pylint: disable=unused-variable
             # import hyperopt or throw error
             try:
                 from hyperopt import hp, fmin
             except ModuleNotFoundError:
-                raise MlflowException("Hyperopt not installed.", error_code=INTERNAL_ERROR)
+                raise MlflowException(
+                    "Hyperopt not installed and is required if tuning is enabled",
+                    error_code=BAD_REQUEST,
+                )
 
             # wrap training in objective fn
             def objective(args):  # pylint: disable=unused-argument
@@ -149,6 +151,12 @@ class TrainStep(BaseStep):
                     param_details_to_pass = param_details.copy()
                     param_details_to_pass.pop("distribution")
                     search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
+                else:
+                    raise MlflowException(
+                        f"Parameter {param_name} must contain the arguments specified "
+                        f"in the hyperopt parameter expressions",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
             # minimize
             algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
             max_trials = tuning_params["max_trials"]  # pylint: disable=unused-variable
@@ -168,7 +176,6 @@ class TrainStep(BaseStep):
                 if hasattr(estimator, "best_params_"):
                     mlflow.log_params(estimator.best_params_)
 
-                # TODO: log this as a pyfunc model
                 code_paths = [os.path.join(self.pipeline_root, "steps")]
                 estimator_schema = infer_signature(X_train, estimator.predict(X_train.copy()))
                 logged_estimator = mlflow.sklearn.log_model(
@@ -506,11 +513,14 @@ class TrainStep(BaseStep):
                 step_config["using"] = "estimator_spec"
 
             if "tuning" in step_config:
-                if "enabled" in step_config["tuning"]:
+                if "enabled" in step_config["tuning"] and isinstance(
+                    step_config["tuning"]["enabled"], bool
+                ):
                     step_config["tuning_enabled"] = step_config["tuning"]["enabled"]
                 else:
                     raise MlflowException(
-                        "Tuning 'enabled' value must be set ",
+                        "The 'tuning' configuration in the train step must include an "
+                        "'enabled' key whose value is either true or false.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
