@@ -256,7 +256,105 @@ public class MlflowClient implements Serializable {
       searchFilter, runViewType, maxResults, orderBy, this);
   }
 
-  /** @return  A list of all experiments. */
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy) {
+    return searchExperiments(searchFilter, experimentViewType, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return up to 1000 active experiments.
+   *
+   * @return A page of active experiments with up to 1000 items.
+   */
+  public ExperimentsPage searchExperiments() {
+    return searchExperiments("", null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to the first 1000 active experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of up to active 1000 experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter) {
+    return searchExperiments(searchFilter, null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchExperiments(String)}.
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy,
+                                           String pageToken) {
+    SearchExperiments.Builder builder = SearchExperiments.newBuilder()
+            .addAllOrderBy(orderBy)
+            .setMaxResults(maxResults);
+
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (experimentViewType != null) {
+      builder.setViewType(experimentViewType);
+    } else {
+      builder.setViewType(ViewType.ACTIVE_ONLY);
+    }
+    if (pageToken != null) {
+      builder.setPageToken(pageToken);
+    }
+    SearchExperiments request = builder.build();
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/search", ijson);
+    SearchExperiments.Response response = mapper.toSearchExperimentsResponse(ojson);
+    return new ExperimentsPage(response.getExperimentsList(), response.getNextPageToken(),
+      searchFilter, experimentViewType, maxResults, orderBy, this);
+  }
+
+  /**
+   * @deprecated
+   * Use {@link #searchExperiments()} instead.
+   *
+   * @return  A list of all experiments.
+   */
   public List<Experiment> listExperiments() {
     return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
       .getExperimentsList();

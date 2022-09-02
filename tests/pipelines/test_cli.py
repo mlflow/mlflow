@@ -62,3 +62,35 @@ def test_pipelines_cli_works_with_non_default_profile():
     result = CliRunner().invoke(pipelines_cli.clean, env={_PIPELINE_PROFILE_ENV_VAR: "databricks"})
     assert "with profile: 'databricks'" in result.output
     assert result.exit_code == 0
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
+def test_pipelines_get_artifact_works():
+    result = CliRunner().invoke(
+        pipelines_cli.get_artifact,
+        args="--artifact model",
+        env={_PIPELINE_PROFILE_ENV_VAR: "local"},
+    )
+    assert result.exit_code == 0
+    assert result.output != None
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
+def test_pipelines_get_artifact_with_bad_artifact_name_fails():
+    result = CliRunner().invoke(
+        pipelines_cli.get_artifact,
+        args="--artifact foo",
+        env={_PIPELINE_PROFILE_ENV_VAR: "local"},
+    )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, MlflowException)
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
+def test_pipelines_get_artifact_with_no_artifact_name_fails():
+    result = CliRunner().invoke(
+        pipelines_cli.get_artifact,
+        env={_PIPELINE_PROFILE_ENV_VAR: "local"},
+    )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, SystemExit)

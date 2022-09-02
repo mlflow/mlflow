@@ -7,6 +7,8 @@ from mlflow.models.evaluation.base import (
     list_evaluators,
 )
 
+from mlflow.models.evaluation.validation import MetricThreshold
+
 __all__ = [
     "ModelEvaluator",
     "EvaluationDataset",
@@ -14,4 +16,5 @@ __all__ = [
     "EvaluationArtifact",
     "evaluate",
     "list_evaluators",
+    "MetricThreshold",
 ]

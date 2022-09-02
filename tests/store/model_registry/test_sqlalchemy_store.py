@@ -276,20 +276,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertIsInstance(registered_models[0], RegisteredModel)
 
         self._rm_maker("B")
-        self.assertEqual(set(self._list_registered_models()), set(["A", "B"]))
+        self.assertEqual(set(self._list_registered_models()), {"A", "B"})
 
         self._rm_maker("BB")
         self._rm_maker("BA")
         self._rm_maker("AB")
         self._rm_maker("BBC")
-        self.assertEqual(
-            set(self._list_registered_models()), set(["A", "B", "BB", "BA", "AB", "BBC"])
-        )
+        self.assertEqual(set(self._list_registered_models()), {"A", "B", "BB", "BA", "AB", "BBC"})
 
         # list should not return deleted models
         self.store.delete_registered_model(name="BA")
         self.store.delete_registered_model(name="B")
-        self.assertEqual(set(self._list_registered_models()), set(["A", "BB", "AB", "BBC"]))
+        self.assertEqual(set(self._list_registered_models()), {"A", "BB", "AB", "BBC"})
 
     def test_list_registered_model_paginated_last_page(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
@@ -854,30 +852,30 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
 
         # search using name should return all 4 versions
-        self.assertEqual(set(search_versions("name='%s'" % name)), set([1, 2, 3, 4]))
+        self.assertEqual(set(search_versions("name='%s'" % name)), {1, 2, 3, 4})
 
         # search using run_id_1 should return version 1
-        self.assertEqual(set(search_versions("run_id='%s'" % run_id_1)), set([1]))
+        self.assertEqual(set(search_versions("run_id='%s'" % run_id_1)), {1})
 
         # search using run_id_2 should return versions 2 and 3
-        self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), set([2, 3]))
+        self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), {2, 3})
 
         # search using the IN operator should return all versions
         self.assertEqual(
             set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")),
-            set([1, 2, 3]),
+            {1, 2, 3},
         )
 
         # search IN operator is case sensitive
         self.assertEqual(
             set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")),
-            set([2, 3]),
+            {2, 3},
         )
 
         # search IN operator with right-hand side value containing whitespaces
         self.assertEqual(
             set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")),
-            set([1, 2, 3]),
+            {1, 2, 3},
         )
 
         # search using the IN operator with bad lists should return exceptions
@@ -894,12 +892,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         self.assertEqual(
             set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")),
-            set([2, 3]),
+            {2, 3},
         )
 
         self.assertEqual(
             set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")),
-            set([2, 3]),
+            {2, 3},
         )
 
         # search using the IN operator with empty lists should return exceptions
@@ -956,7 +954,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # search using source_path "A/D" should return version 3 and 4
-        self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3, 4]))
+        self.assertEqual(set(search_versions("source_path = 'A/D'")), {3, 4})
 
         # search using source_path "A" should not return anything
         self.assertEqual(len(search_versions("source_path = 'A'")), 0)
@@ -965,13 +963,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # delete mv4. search should not return version 4
         self.store.delete_model_version(name=mv4.name, version=mv4.version)
-        self.assertEqual(set(search_versions("")), set([1, 2, 3]))
+        self.assertEqual(set(search_versions("")), {1, 2, 3})
 
-        self.assertEqual(set(search_versions(None)), set([1, 2, 3]))
+        self.assertEqual(set(search_versions(None)), {1, 2, 3})
 
-        self.assertEqual(set(search_versions("name='%s'" % name)), set([1, 2, 3]))
+        self.assertEqual(set(search_versions("name='%s'" % name)), {1, 2, 3})
 
-        self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3]))
+        self.assertEqual(set(search_versions("source_path = 'A/D'")), {3})
 
         self.store.transition_model_version_stage(
             name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
