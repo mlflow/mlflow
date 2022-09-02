@@ -426,7 +426,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
-        extra_args.append("--enable_mlserver")
+        extra_args.append("--enable-mlserver")
 
     output_directory = tmp_path.joinpath("output_directory")
     pyfunc_generate_dockerfile(output_directory, model_uri, extra_args=extra_args)
