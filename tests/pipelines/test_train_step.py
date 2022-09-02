@@ -134,7 +134,11 @@ def test_train_steps_autologs(tmp_pipeline_root_path):
 
 def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ,
+        {
+            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
+            "target_step_name": "train",
+        },
     ):
         train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
         train_step._run(str(train_step_output_dir))

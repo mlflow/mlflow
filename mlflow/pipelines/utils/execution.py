@@ -69,7 +69,10 @@ def run_pipeline_step(
     # Aggregate step-specific environment variables into a single environment dictionary
     # that is passed to the Make subprocess. In the future, steps with different environments
     # should be isolated in different subprocesses
-    make_env = {}
+    make_env = {
+        # Include target step name in the environment variable set
+        "target_step_name": target_step.name,
+    }
     for step in pipeline_steps:
         make_env.update(step.environment)
     # Use Make to run the target step and all of its dependencies
