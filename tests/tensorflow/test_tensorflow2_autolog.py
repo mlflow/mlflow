@@ -1569,6 +1569,28 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
         )
 
 
+def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
+    mlflow.autolog()
+    initial_model = create_tf_keras_model()
+    initial_model.fit(keras_data_gen_sequence)
+
+    mlmodel_path = mlflow.artifacts.download_artifacts(
+        f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
+    )
+    mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
+    assert "signature" in mlmodel_contents.keys()
+    signature = mlmodel_contents["signature"]
+    assert signature is not None
+    assert "inputs" in signature
+    assert "outputs" in signature
+    assert json.loads(signature["inputs"]) == [
+        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}
+    ]
+    assert json.loads(signature["outputs"]) == [
+        {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}
+    ]
+
+
 def test_extract_tf_keras_input_example_unsupported_type_returns_None():
     from mlflow.tensorflow._autolog import extract_tf_keras_input_example
 
