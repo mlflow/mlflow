@@ -302,6 +302,7 @@ def parse_args(args):
     parser.add_argument(
         "--only-latest",
         action="store_true",
+        default=False,
         help=(
             "If True, only test the latest version of each group. Useful when you want to avoid "
             "running too many GitHub Action jobs."
