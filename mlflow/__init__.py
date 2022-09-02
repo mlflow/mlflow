@@ -47,59 +47,155 @@ import mlflow.artifacts
 import mlflow.pipelines
 import mlflow.client
 
-# model flavors
+
+# We are conditionally loading these modules since the skinny client does
+# not support them due to the pandas and numpy dependencies of MLflow Models
 _model_flavors_supported = []
 try:
-    # pylint: disable=unused-import
-    from mlflow import catboost
-    from mlflow import fastai
-    from mlflow import gluon
-    from mlflow import h2o
-    from mlflow import keras
-    from mlflow import lightgbm
-    from mlflow import mleap
-    from mlflow import onnx
-    from mlflow import pyfunc
-    from mlflow import pytorch
-    from mlflow import sklearn
-    from mlflow import spacy
-    from mlflow import spark
-    from mlflow import statsmodels
-    from mlflow import tensorflow
-    from mlflow import xgboost
-    from mlflow import shap
-    from mlflow import pyspark
-    from mlflow import paddle
-    from mlflow import prophet
-    from mlflow import pmdarima
-    from mlflow import diviner
+    from mlflow import catboost  # pylint: disable=unused-import
 
-    _model_flavors_supported = [
-        "catboost",
-        "fastai",
-        "gluon",
-        "h2o",
-        "keras",
-        "lightgbm",
-        "mleap",
-        "onnx",
-        "pyfunc",
-        "pytorch",
-        "sklearn",
-        "spacy",
-        "spark",
-        "statsmodels",
-        "tensorflow",
-        "xgboost",
-        "shap",
-        "paddle",
-        "prophet",
-        "pmdarima",
-        "diviner",
-    ]
-except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
+    _model_flavors_supported += ["catboost"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import fastai  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["fastai"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import gluon  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["gluon"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import h2o  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["h2o"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import keras  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["keras"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import lightgbm  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["lightgbm"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import mleap  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["mleap"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import onnx  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["onnx"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import pyfunc  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["pyfunc"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import pytorch  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["pytorch"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import sklearn  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["sklearn"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import spacy  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["spacy"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import spark  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["spark"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import statsmodels  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["statsmodels"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import tensorflow  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["tensorflow"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import xgboost  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["xgboost"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import shap  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["shap"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import paddle  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["paddle"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import prophet  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["prophet"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import pmdarima  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["pmdarima"]
+except ImportError:
+    pass
+
+try:
+    from mlflow import diviner  # pylint: disable=unused-import
+
+    _model_flavors_supported += ["diviner"]
+except ImportError:
     pass
 
 
