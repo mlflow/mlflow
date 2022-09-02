@@ -30,7 +30,6 @@ from mlflow.utils.virtualenv import (
     _execute_in_virtualenv,
     _get_pip_install_mlflow,
 )
-from mlflow.utils import env_manager as em
 
 from mlflow.version import VERSION
 
@@ -309,7 +308,7 @@ class PyFuncBackend(FlavorBackend):
 
         mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
 
-        is_conda = self._env_manager == em.CONDA
+        is_conda = self._env_manager == _EnvManager.CONDA
         setup_miniconda = SETUP_MINICONDA if is_conda else ""
         setup_pyenv_and_virtualenv = "" if is_conda else SETUP_PYENV_AND_VIRTUALENV
 
