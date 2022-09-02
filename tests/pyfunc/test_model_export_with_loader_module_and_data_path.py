@@ -1,3 +1,4 @@
+import decimal
 import os
 import pickle
 import yaml
@@ -323,6 +324,12 @@ def test_column_schema_enforcement():
         match="This model contains a column-based signature, which suggests a DataFrame input.",
     ):
         pyfunc_model.predict(d)
+
+    # 17. conversion from Decimal to float is allowed since numpy currently has no support for the
+    #  data type.
+    pdf["d"] = [decimal.Decimal(1.0)]
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
 
 
 def _compare_exact_tensor_dict_input(d1, d2):
