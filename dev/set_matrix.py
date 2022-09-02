@@ -303,8 +303,8 @@ def parse_args(args):
         "--only-latest",
         action="store_true",
         help=(
-            "If True, only test the latest version of each group. Useful when you want to save "
-            "the number of GitHub Action runs."
+            "If True, only test the latest version of each group. Useful when you want to avoid "
+            "running too many GitHub Action jobs."
         ),
     )
 
