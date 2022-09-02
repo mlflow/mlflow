@@ -114,7 +114,6 @@ def log_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -147,6 +146,7 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param kwargs: kwargs to pass to ``model.save`` method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -190,7 +190,6 @@ def save_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -217,8 +216,9 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param kwargs: kwargs to pass to ``model.save`` method.
     """
-    return mlflow_keras._save_keras_model(
+    mlflow_keras._save_keras_model(
         keras_model=model,
         path=path,
         custom_objects=custom_objects,
