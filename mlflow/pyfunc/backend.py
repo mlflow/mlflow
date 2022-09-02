@@ -292,7 +292,7 @@ class PyFuncBackend(FlavorBackend):
     def generate_dockerfile(
         self,
         model_uri,
-        output_directory="mlflow-dockerfile",
+        output_path="mlflow-dockerfile",
         install_mlflow=False,
         mlflow_home=None,
         enable_mlserver=False,
@@ -310,13 +310,13 @@ class PyFuncBackend(FlavorBackend):
         setup_miniconda = SETUP_MINICONDA if is_conda else ""
         setup_pyenv_and_virtualenv = "" if is_conda else SETUP_PYENV_AND_VIRTUALENV
 
-        os.makedirs(output_directory, exist_ok=True)
+        os.makedirs(output_path, exist_ok=True)
 
-        _logger.debug("Created all folders in path", extra={"output_directory": output_directory})
-        install_mlflow = _get_mlflow_install_step(output_directory, mlflow_home)
+        _logger.debug("Created all folders in path", extra={"output_directory": output_path})
+        install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
 
         custom_setup_steps = (
-            copy_model_into_container(output_directory) if copy_model_into_container else ""
+            copy_model_into_container(output_path) if copy_model_into_container else ""
         )
         dockerfile_text = _generate_dockerfile_content(
             setup_miniconda=setup_miniconda,
@@ -327,7 +327,7 @@ class PyFuncBackend(FlavorBackend):
         )
         _logger.debug("generated dockerfile text", extra={"dockerfile": dockerfile_text})
 
-        with open(os.path.join(output_directory, "Dockerfile"), "w") as dockerfile:
+        with open(os.path.join(output_path, "Dockerfile"), "w") as dockerfile:
             dockerfile.write(dockerfile_text)
 
     def build_image(
@@ -349,7 +349,8 @@ class PyFuncBackend(FlavorBackend):
 
     def copy_model_into_container_wrapper(self, model_uri, install_mlflow, enable_mlserver):
         def copy_model_into_container(dockerfile_context_dir):
-            # This function have to be included in another, since `_build_image` function in `docker_utils` accepts only
+            # This function have to be included in another,
+            # since `_build_image` function in `docker_utils` accepts only
             # single-argument function like this
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
