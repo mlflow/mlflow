@@ -273,25 +273,6 @@ def _deploy(
                             }
                             mfs.deploy(..., vpc_config=vpc_config)
 
-    :param data_capture_config: A dictionary specifying the data capture configuration to use when
-                       creating the new SageMaker model associated with this application. For more
-                       information, see
-                       https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow.sagemaker as mfs
-        data_capture_config = {
-                        'EnableCapture': True,
-                        'InitalSamplingPercentage': 100,
-                        'DestinationS3Uri": 's3://my-bucket/path',
-                        'CaptureOptions': [
-                            {'CaptureMode': 'Output'}
-                        ],
-                     }
-        mfs.deploy(..., data_capture_config=data_capture_config)
-
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
                    a flavor is automatically selected from the model's available flavors. If the
