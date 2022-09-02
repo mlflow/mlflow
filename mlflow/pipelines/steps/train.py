@@ -124,12 +124,10 @@ class TrainStep(BaseStep):
             importlib.import_module(self.train_module_name), self.estimator_method_name
         )
 
-        tuning_method = self.step_config["using"]  # pylint: disable=unused-variable
-
         if self.step_config["tuning_enabled"]:
             # gate all HP tuning code within this condition
             tuning_params = self.step_config["tuning"]
-
+            tuning_method = self.step_config["using"]  # pylint: disable=unused-variable
             # import hyperopt or throw error
             try:
                 from hyperopt import hp, fmin
@@ -145,15 +143,18 @@ class TrainStep(BaseStep):
             params = tuning_params["parameters"]
             for param_name, param_details in params.items():
                 if "values" in param_details:
-                    search_space[param_name] = hp.choice(param_name, param_details)
+                    search_space[param_name] = hp.choice(param_name, **param_details)
                 elif "distribution" in param_details:
                     hp_tuning_fn = getattr(hp, param_details["distribution"])
-                search_space[param_name] = hp_tuning_fn(param_name, param_details)
-
+                    param_details_to_pass = param_details.copy()
+                    param_details_to_pass.pop("distribution")
+                    search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
             # minimize
             algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
             max_trials = tuning_params["max_trials"]  # pylint: disable=unused-variable
-            best = fmin(objective, search_space)  # pylint: disable=unused-variable
+            best = fmin(  # pylint: disable=unused-variable
+                objective, search_space, max_evals=max_trials
+            )
 
         else:
             estimator = estimator_fn()
