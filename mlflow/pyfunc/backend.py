@@ -307,17 +307,25 @@ class PyFuncBackend(FlavorBackend):
         mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
 
         is_conda = self._env_manager == _EnvManager.CONDA
-        setup_miniconda = SETUP_MINICONDA if is_conda else ""
-        setup_pyenv_and_virtualenv = "" if is_conda else SETUP_PYENV_AND_VIRTUALENV
+        setup_miniconda = ""
+        setup_pyenv_and_virtualenv = ""
+
+        if is_conda:
+            setup_miniconda = SETUP_MINICONDA
+        else:
+            setup_pyenv_and_virtualenv = SETUP_PYENV_AND_VIRTUALENV
 
         os.makedirs(output_path, exist_ok=True)
 
         _logger.debug("Created all folders in path", extra={"output_directory": output_path})
         install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
 
-        custom_setup_steps = (
-            copy_model_into_container(output_path) if copy_model_into_container else ""
-        )
+        custom_setup_steps = ()
+        if copy_model_into_container:
+            custom_setup_steps = copy_model_into_container(output_path)
+        else:
+            custom_setup_steps = ""
+
         dockerfile_text = _generate_dockerfile_content(
             setup_miniconda=setup_miniconda,
             setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
