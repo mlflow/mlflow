@@ -579,14 +579,6 @@ try:
 except ImportError as e:
     pass
 
-
-try:
-    import mlflow.azureml.cli  # pylint: disable=unused-import
-
-    cli.add_command(mlflow.azureml.cli.commands)
-except ImportError as e:
-    pass
-
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import
 
