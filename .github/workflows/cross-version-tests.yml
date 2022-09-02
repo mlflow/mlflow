@@ -67,7 +67,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const labelNames = labels.data(({ name }) => name);
+            const labelNames = labels.data.map(({ name }) => name);
             return {
               enable_dev_tests: labelNames.includes("enable-dev-tests"),
               only_latest: labelNames.includes("only-latest"),
