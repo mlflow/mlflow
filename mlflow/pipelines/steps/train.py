@@ -110,6 +110,11 @@ class TrainStep(BaseStep):
             relative_path="transformer.pkl",
         )
 
+        sys.path.append(self.pipeline_root)
+        estimator_fn = getattr(
+            importlib.import_module(self.train_module_name), self.estimator_method_name
+        )
+
         run_args = self.step_config.get("run_args") or {}
 
         tags = {
@@ -118,11 +123,6 @@ class TrainStep(BaseStep):
             MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
             MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
-
-        sys.path.append(self.pipeline_root)
-        estimator_fn = getattr(
-            importlib.import_module(self.train_module_name), self.estimator_method_name
-        )
 
         if self.step_config["tuning_enabled"]:
             # gate all HP tuning code within this condition
