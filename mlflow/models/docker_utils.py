@@ -160,19 +160,19 @@ def _generate_dockerfile_content(
     stored and tracked in MLflow.
 
     It just takes string parameters containing docker imperatives and has no logic
-    whatsoever. It will be more convenient if a more sophisticated function with some boolean flags would be called
-    `generate_dockerfile` while this function being a backend of sorts for such function.
+    whatsoever. It will be more convenient if a more sophisticated function
+    with some boolean flags would be called `generate_dockerfile`
+    while this function being a backend of sorts for such function.
 
-    :param setup_miniconda: Docker instructions related to set up miniconda. If used at all, variable `SETUP_MINICONDA`
-        provides a working template for instructions. Should be either an empty string or `SETUP_MINICONDA`-based
-        instructions
-    :param setup_pyenv_and_virtualenv: Docker instructions related to set up pyenv and virtualenv.
-        If used at all, variable `SETUP_PYENV_AND_VIRTUALENV` provides a working template for instructions.
-        Should be either an empty string or `SETUP_PYENV_AND_VIRTUALENV`-based
-        :param install_mlflow: Docker instruction for installing MLflow in given Docker context dir and optional source
-        directory
-    :param custom_setup_steps: Docker instructions for any customizations in the resulting Dockerfile
-    :param entrypoint: String containing ENTRYPOINT directive for docker image
+    :param setup_miniconda: Docker instructions related to set up miniconda. If used at all,
+    variable `SETUP_MINICONDA` provides a working template for instructions. Should be either an
+    empty string or `SETUP_MINICONDA`-based instructions :param setup_pyenv_and_virtualenv:
+    Docker instructions related to set up pyenv and virtualenv. If used at all, variable
+    `SETUP_PYENV_AND_VIRTUALENV` provides a working template for instructions. Should be either
+    an empty string or `SETUP_PYENV_AND_VIRTUALENV`-based :param install_mlflow: Docker
+    instruction for installing MLflow in given Docker context dir and optional source directory
+    :param custom_setup_steps: Docker instructions for any customizations in the resulting
+    Dockerfile :param entrypoint: String containing ENTRYPOINT directive for docker image
     """
     return _DOCKERFILE_TEMPLATE.format(
         setup_miniconda=setup_miniconda,
