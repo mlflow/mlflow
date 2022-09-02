@@ -89,29 +89,27 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.tags["key2"] == "val2"
 
     experiments = mlflow_client.list_experiments()
-    assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
+    assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert set([e.name for e in mlflow_client.list_experiments()]) == {"Default"}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == {
-        "Default"
-    }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == {
+    assert {e.name for e in mlflow_client.list_experiments()} == {"Default"}
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)} == {"Default"}
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)} == {
         "My Experiment"
     }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == {
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.ALL)} == {
         "My Experiment",
         "Default",
     }
     active_exps_paginated = mlflow_client.list_experiments(max_results=1)
-    assert set([e.name for e in active_exps_paginated]) == {"Default"}
+    assert {e.name for e in active_exps_paginated} == {"Default"}
     assert active_exps_paginated.token is None
 
     all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
-    first_page_names = set([e.name for e in all_exps_paginated])
+    first_page_names = {e.name for e in all_exps_paginated}
     all_exps_second_page = mlflow_client.list_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )
-    second_page_names = set([e.name for e in all_exps_second_page])
+    second_page_names = {e.name for e in all_exps_second_page}
     assert len(first_page_names) == 1
     assert len(second_page_names) == 1
     assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
@@ -673,10 +671,10 @@ def test_artifacts(mlflow_client, tmp_path):
     mlflow_client.log_artifacts(run_id, src_dir, "dir")
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
-    assert set([a.path for a in root_artifacts_list]) == {"my.file", "dir"}
+    assert {a.path for a in root_artifacts_list} == {"my.file", "dir"}
 
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
-    assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
+    assert {a.path for a in dir_artifacts_list} == {"dir/my.file"}
 
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
