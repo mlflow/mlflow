@@ -465,14 +465,14 @@ ingest_scoring:
 # target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
-steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest_scoring.py}
+steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
 	$(MAKE) ingest_scoring
 
 predict_objects = steps/predict/outputs/scored.parquet
 
 predict: $(predict_objects)
 
-steps/%/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
+steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
 
