@@ -4,9 +4,7 @@ import pathlib
 import subprocess
 import posixpath
 import sys
-import tempfile
 import warnings
-from pathlib import Path
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
