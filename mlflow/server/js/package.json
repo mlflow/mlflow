@@ -136,8 +136,8 @@
     "extract-i18n:base": "node scripts/extract-i18n.js",
     "extract-i18n:check": "yarn extract-i18n:base --lint",
     "extract-i18n": "yarn extract-i18n:base",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint --ext js,jsx,ts,tsx src",
+    "lint:fix": "eslint--ext js,jsx,ts,tsx src --fix",
     "storybook": "start-storybook -p 6006 -s public",
     "build-storybook": "build-storybook -s public",
     "prep-deps": ": # magic task to allow yarn ensure-deps plugin prepare dependencies of this package"

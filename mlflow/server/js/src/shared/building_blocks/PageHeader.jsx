@@ -58,6 +58,7 @@ export class PageHeader extends React.Component {
 
   render() {
     const { title, breadcrumbs = [], preview, children } = this.props;
+    // eslint-disable-next-line prefer-const
     let feedbackLink = null;
     return (
       <>
