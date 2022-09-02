@@ -332,7 +332,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     model from pyspark dataframe that contains decimal type, the schema will be
     treated as float64.
     7. decimal -> double
-    
+
     Any other type mismatch will raise error.
     """
     if values.dtype == object and t not in (DataType.binary, DataType.string):
