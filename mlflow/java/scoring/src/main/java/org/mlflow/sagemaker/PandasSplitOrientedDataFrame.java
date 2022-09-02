@@ -63,13 +63,13 @@ class PandasSplitOrientedDataFrame {
 
   private static Map<String, List<?>> validatePandasDataFrameJsonRepresentation(Map<String, Object> parsedInput)
       throws InvalidSchemaException {
-    Object dataframeSplitField = parsedInput.get("dataframe_split")
+    Object dataframeSplitField = parsedInput.get("dataframe_split");
     if (dataframeSplitField == null) {
         throw new InvalidSchemaException(
             "The JSON input is not a valid Dataframe representation in split format. "
                 + "Missing required field 'dataframe_split'");
     }
-    if(!dataframeSplitField instanceof Map<String, List<?>) {
+    if(!dataframeSplitField instanceof Map<String, List<?>>) {
         throw new InvalidSchemaException(
             "The JSON input is not a valid Dataframe representation in split format. "
                 + "'dataframe_split' must contain a dictionary.");
