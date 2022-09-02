@@ -1,3 +1,4 @@
+import decimal
 import json
 import os
 from typing import Union, Any, Dict, List
@@ -327,6 +328,11 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     5. np.datetime64[x] -> datetime (any precision)
     6. object -> datetime
 
+    NB: pandas does not have native decimal data type, when user train and infer
+    model from pyspark dataframe that contains decimal type, the schema will be
+    treated as float64.
+    7. decimal -> double
+
     Any other type mismatch will raise error.
     """
     if values.dtype == object and t not in (DataType.binary, DataType.string):
@@ -361,6 +367,16 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
             return values.astype(np.datetime64, errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+            )
+    if t == DataType.double and values.dtype == decimal.Decimal:
+        # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
+        # DataFrame. In order to support decimal data training from spark data frame, we add this
+        # conversion even we might lose the precision.
+        try:
+            return pd.to_numeric(values, errors="raise")
         except ValueError:
             raise MlflowException(
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
