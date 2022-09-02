@@ -7,7 +7,6 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
 import mlflow.models.docker_utils
 from mlflow.utils import env_manager as em
 
@@ -153,7 +152,6 @@ def commands():
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@experimental("command")
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -261,7 +259,6 @@ def deploy_transform_job(
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@experimental("command")
 def terminate_transform_job(job_name, region_name, archive, asynchronous, timeout):
     """
     Terminate the specified Sagemaker batch transform job. Unless ``--archive`` is specified,
@@ -311,7 +308,6 @@ def terminate_transform_job(job_name, region_name, archive, asynchronous, timeou
         )
     ),
 )
-@experimental("command")
 def push_model_to_sagemaker(
     model_name,
     model_uri,

@@ -19,7 +19,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
@@ -539,7 +538,6 @@ def _delete(
             delete_operation.clean_up()
 
 
-@experimental
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -778,7 +776,6 @@ def deploy_transform_job(
             deployment_operation.clean_up()
 
 
-@experimental
 def terminate_transform_job(
     job_name,
     region_name="us-west-2",
@@ -876,7 +873,6 @@ def terminate_transform_job(
             stop_operation.clean_up()
 
 
-@experimental
 def push_model_to_sagemaker(
     model_name,
     model_uri,
@@ -1960,7 +1956,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
             config[key] = value
 
-    @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         Deploy an MLflow model on AWS SageMaker.
@@ -2176,7 +2171,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=app_name, flavor=flavor)
 
-    @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
@@ -2411,7 +2405,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=app_name, flavor=flavor)
 
-    @experimental
     def delete_deployment(self, name, config=None, endpoint=None):
         """
         Delete a SageMaker application.

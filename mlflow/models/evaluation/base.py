@@ -11,7 +11,6 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
 import struct
@@ -661,7 +660,6 @@ def _evaluate(
     return merged_eval_result
 
 
-@experimental
 def evaluate(
     model: Union[str, "mlflow.pyfunc.PyFuncModel"],
     data,
