@@ -402,10 +402,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp1.artifact_location,
             path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
         )
+        assert exp1.creation_time
+        assert exp1.last_update_time
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
+        assert exp2.creation_time
+        assert exp2.last_update_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -473,21 +477,30 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_delete_restore_experiment(self):
         fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        exp_name = self.exp_data[exp_id]["name"]
+        exp_name = "test_delete_restore_experiment"
+        exp_id = fs.create_experiment(exp_name)
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.05)
 
         # delete it
         fs.delete_experiment(exp_id)
+        deleted_exp1 = fs.get_experiment(exp_id)
+
         assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
+        self.assertEqual(deleted_exp1.lifecycle_stage, LifecycleStage.DELETED)
+        assert deleted_exp1.last_update_time > exp1.last_update_time
 
         # restore it
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.05)
         fs.restore_experiment(exp_id)
         restored_1 = fs.get_experiment(exp_id)
         self.assertEqual(restored_1.experiment_id, exp_id)
         self.assertEqual(restored_1.name, exp_name)
+        assert restored_1.last_update_time > exp1.last_update_time
+
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
@@ -530,10 +543,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
 
         # Restore the experiment, and confirm that we can now rename it.
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.05)
         fs.restore_experiment(exp_id)
-        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        restored_exp1 = fs.get_experiment(exp_id)
+        self.assertEqual(restored_exp1.name, new_name)
+        assert restored_exp1.last_update_time > exp1.last_update_time
+
         fs.rename_experiment(exp_id, exp_name)
-        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        renamed_exp1 = fs.get_experiment(exp_id)
+        self.assertEqual(renamed_exp1.name, exp_name)
+        assert renamed_exp1.last_update_time > exp1.last_update_time
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
