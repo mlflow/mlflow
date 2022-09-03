@@ -75,11 +75,10 @@ test_that("Can predict with cli backend", {
     predict(model, xgboost::xgb.DMatrix(as.matrix(test$data)))
   )
   # json records
-  jsonlite::write_json(test$data, temp_in_json)
+  jsonlite::write_json(list(dataframe_records = test$data), temp_in_json)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
-    "-t", "json",
-    "--json-format", "records"
+    "-t", "json"
   )
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
@@ -92,11 +91,11 @@ test_that("Can predict with cli backend", {
     columns = names(test$data), index = row.names(test$data),
     data = as.matrix(test$data)
   )
-  jsonlite::write_json(mtcars_split, temp_in_json_split)
+  jsonlite::write_json(list(dataframe_split = mtcars_split), temp_in_json_split)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json_split,
     "-o", temp_out, "-t",
-    "json", "--json-format", "split"
+    "json"
   )
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))

@@ -162,7 +162,7 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
+@pytest.mark.parametrize("sklearn_version", ["0.24.0"])  # "0.22.1",
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
 def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):

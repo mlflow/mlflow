@@ -18,7 +18,6 @@ import mlflow.azureml
 import mlflow.azureml.cli
 import mlflow.sklearn
 from mlflow import pyfunc
-from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -599,8 +598,8 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         json_data = json.dumps(
             {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
         )
-        model_output = MlflowModelServerOutput.from_raw_json(run(json_data))
-        output_df = pd.DataFrame(model_output.get_predictions_dataframe())
+        model_output = run(json_data)
+        output_df = pd.DataFrame(model_output["predictions"])
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False
         )

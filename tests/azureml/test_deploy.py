@@ -385,7 +385,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         output_data = run(
             {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
         )
-        np.testing.assert_array_equal(output_data, pyfunc_outputs)
+        np.testing.assert_array_equal(output_data["predictions"], pyfunc_outputs)
 
 
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
@@ -431,7 +431,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         output_raw = run(
             {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_dict(orient="split")}
         )
-        output_df = pd.DataFrame(output_raw)
+        output_df = pd.DataFrame(output_raw["predictions"])
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False
         )
