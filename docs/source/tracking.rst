@@ -100,6 +100,8 @@ on the local filesystem—``./mlruns``—as shown in the diagram. The MLflow cli
 instance of a `FileStore` and `LocalArtifactRepository`.
 
 .. figure:: _static/images/scenario_1.png
+    :align: center
+    :figwidth: 600
 
 In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -113,6 +115,8 @@ Many users also run MLflow on their local machines with a `SQLAlchemy-compatible
 are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a SQLite database file ``mlruns.db``.
 
 .. figure:: _static/images/scenario_2.png
+    :align: center
+    :figwidth: 600
 
 In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -131,6 +135,13 @@ As in scenario 1, MLflow uses a local `mlruns` filesystem directory as a backend
 server running, the MLflow client interacts with the tracking server via REST requests, as shown in the diagram.
 
 .. figure:: _static/images/scenario_3.png
+    :align: center
+    :figwidth: 800
+
+.. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
+
+    mlflow server --backend-store-uri file:///path/to/mlruns --no-serve-artifacts
 
 To store all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
 
@@ -155,6 +166,13 @@ reside on remote hosts. This example scenario depicts an architecture with a rem
 a Postgres database for backend entity storage, and an S3 bucket for artifact storage.
 
 .. figure:: _static/images/scenario_4.png
+    :align: center
+    :figwidth: 800
+
+.. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
+
+    mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
 
 To record all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
 
@@ -193,6 +211,19 @@ This eliminates the need to allow end users to have direct path access to a remo
 need for an end-user to provide access credentials to interact with an underlying object store.
 
 .. figure:: _static/images/scenario_5.png
+    :align: center
+    :figwidth: 800
+
+.. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
+
+    mlflow server \
+      --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb \
+      # Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
+      # giving users access to this location without having to manage credentials
+      # or permissions.
+      --artifact-destination-root s3://bucket_name \
+      --host remote_host
 
 Enabling the Tracking Server to perform proxied artifact access in order to route client artifact requests to an object store location:
 
@@ -241,6 +272,13 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
     Creating runs, logging metrics or parameters, and accessing other attributes about experiments are all not permitted in this mode.
 
 .. figure:: _static/images/scenario_6.png
+    :align: center
+    :figwidth: 800
+
+.. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
+
+    mlflow server --artifact-destination-root s3://bucket_name --artifacts-only --host remote_host
 
 Running an MLFlow server in ``--artifacts-only`` mode:
 
@@ -792,21 +830,12 @@ MLflow Tracking Servers
 You run an MLflow tracking server using ``mlflow server``.  An example configuration for a server is:
 
 .. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server \
         --backend-store-uri /mnt/persistent-disk \
         --default-artifact-root s3://my-mlflow-bucket/ \
         --host 0.0.0.0
-
-An MLflow Tracking server can also be run as a proxied artifact handler. An example configuration for the ``mlflow server`` in this mode is:
-
-.. code-block:: bash
-
-    mlflow server \
-        --host 0.0.0.0 \
-        --port 8889 \
-        --serve-artifacts \
-        --artifacts-destination s3://my-mlflow-bucket/ \
 
 .. note::
     When started in ``--artifacts-only`` mode, the tracking server will not permit any operation other than saving, loading, and listing artifacts.
@@ -877,13 +906,14 @@ location to server's artifact store. This will be used as artifact location for 
 experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
 is no longer relevant to that experiment.
 
-Starting a server with the ``--serve-artifacts`` flag enables proxied access for artifacts.
+By default, a server is launched with the ``--serve-artifacts`` flag to enable proxied access for artifacts.
 The uri ``mlflow-artifacts:/`` replaces an otherwise explicit object store destination (e.g., "s3:/my_bucket/mlartifacts")
 for interfacing with artifacts. The client can access artifacts via HTTP requests to the MLflow Tracking Server.
 This simplifies access requirements for users of the MLflow client, eliminating the need to
 configure access tokens or username and password environment variables for the underlying object store when writing or retrieving artifacts.
+To disable proxied access for artifacts, specify ``--no-serve-artifacts``.
 
-Provided an Mlflow server configuraton where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
+Provided an Mlflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
 the following patterns will all resolve to the configured proxied object store location of ``s3://my-root-bucket/mlartifacts``:
 
  * ``https://<host>:<port>/mlartifacts``
@@ -1131,13 +1161,12 @@ To start the MLflow server with proxy artifact access enabled to an HDFS locatio
         --host 0.0.0.0 \
         --port 8885 \
         --artifacts-destination hdfs://myhost:8887/mlprojects/models \
-        --serve-artifacts
 
 Optionally using a Tracking Server instance exclusively for artifact handling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If the volume of tracking server requests is sufficiently large and performance issues are noticed, a tracking server
 can be configured to serve in ``--artifacts-only`` mode ( :ref:`scenario_6` ), operating in tandem with an instance that
-operates without ``--serve-artifacts`` enabled. This configuration ensures that the processing of artifacts is isolated
+operates with ``--no-serve-artifacts`` specified. This configuration ensures that the processing of artifacts is isolated
 from all other tracking server event handling.
 
 When a tracking server is configured in ``--artifacts-only`` mode, any tasks apart from those concerned with artifact

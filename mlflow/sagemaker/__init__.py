@@ -19,7 +19,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
@@ -160,7 +159,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     os.system(cmd)
 
 
-def deploy(
+def _deploy(
     app_name,
     model_uri,
     execution_role_arn=None,
@@ -439,7 +438,7 @@ def deploy(
     return app_name, flavor
 
 
-def delete(
+def _delete(
     app_name,
     region_name="us-west-2",
     assume_role_arn=None,
@@ -539,7 +538,6 @@ def delete(
             delete_operation.clean_up()
 
 
-@experimental
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -778,7 +776,6 @@ def deploy_transform_job(
             deployment_operation.clean_up()
 
 
-@experimental
 def terminate_transform_job(
     job_name,
     region_name="us-west-2",
@@ -876,7 +873,6 @@ def terminate_transform_job(
             stop_operation.clean_up()
 
 
-@experimental
 def push_model_to_sagemaker(
     model_name,
     model_uri,
@@ -1019,12 +1015,16 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
-def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
+def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
     """
-    Serve model locally in a SageMaker compatible Docker container.
+    Serve the model locally in a SageMaker compatible Docker container.
 
-    :param model_uri: The location, in URI format, of the MLflow model to serve locally,
-                      for example:
+    Note that models deployed locally cannot be managed by other deployment APIs
+    (e.g. ``update_deployment``, ``delete_deployment``, etc).
+
+    :param name: Name of the local serving application.
+    :param model_uri: The location, in URI format, of the MLflow model to deploy locally.
+                      For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
@@ -1036,13 +1036,47 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
+                   If ``None``, a flavor is automatically selected from the model's available
+                   flavors. If the specified flavor is not present or not supported for
+                   deployment, an exception will be thrown.
+    :param config: Configuration parameters. The supported parameters are:
 
-    :param port: Local port.
-    :param image: Name of the Docker image to be used.
-    :param flavor: The name of the flavor of the model to use for local serving. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   is thrown.
+                   - ``image``: The name of the Docker image to use for model serving. Defaults
+                                to ``"mlflow-pyfunc"``.
+                   - ``port``: The port at which to expose the model server on the local host.
+                               Defaults to ``5000``.
+
+    .. code-block:: python
+        :caption: Python example
+
+        from mlflow.models import build_docker
+        from mlflow.deployments import get_deploy_client
+
+        build_docker(name="mlflow-pyfunc")
+
+        client = get_deploy_client("sagemaker")
+        client.run_local(
+            name="my-local-deployment",
+            model_uri="/mlruns/0/abc/model",
+            flavor="python_function",
+            config={
+                "port": 5000,
+                "image": "mlflow-pyfunc",
+            }
+        )
+
+    .. code-block:: bash
+        :caption:  Command-line example
+
+        mlflow models build-docker --name "mlflow-pyfunc"
+        mlflow deployments run-local --target sagemaker \\
+                --name my-local-deployment \\
+                --model-uri "/mlruns/0/abc/model" \\
+                --flavor python_function \\
+                -C port=5000 \\
+                -C image="mlflow-pyfunc"
     """
     model_path = _download_artifact_from_uri(model_uri)
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
@@ -1053,6 +1087,9 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     else:
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for local serving!", flavor)
+
+    image = config.get("image", DEFAULT_IMAGE_NAME)
+    port = int(config.get("port", 5000))
 
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
@@ -1919,7 +1956,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
             config[key] = value
 
-    @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         Deploy an MLflow model on AWS SageMaker.
@@ -2056,7 +2092,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2080,7 +2116,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.create_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2114,7 +2150,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if config:
             self._apply_custom_config(final_config, config)
 
-        app_name, flavor = deploy(
+        app_name, flavor = _deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -2135,7 +2171,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=app_name, flavor=flavor)
 
-    @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
@@ -2269,7 +2304,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             vpc_config = {
                 'SecurityGroupIds': [
@@ -2302,7 +2337,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 vpc_config=vpc_config
                 data_capture_config=data_capture_config
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.update_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
@@ -2349,7 +2384,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        app_name, flavor = deploy(
+        app_name, flavor = _deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -2370,7 +2405,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=app_name, flavor=flavor)
 
-    @experimental
     def delete_deployment(self, name, config=None, endpoint=None):
         """
         Delete a SageMaker application.
@@ -2410,7 +2444,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
@@ -2419,7 +2453,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300
             )
-            client = SageMakerDeploymentClient("sagemaker")
+            client = get_deploy_client("sagemaker")
             client.delete_deployment("my-deployment", config=config)
 
         .. code-block:: bash
@@ -2443,7 +2477,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if config:
             self._apply_custom_config(final_config, config)
 
-        delete(
+        _delete(
             name,
             region_name=final_config["region_name"],
             assume_role_arn=final_config["assume_role_arn"],
@@ -2471,9 +2505,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.list_deployments()
 
         .. code-block:: bash
@@ -2514,9 +2548,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         .. code-block:: python
             :caption: Python example
 
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.get_deployment("my-deployment")
 
         .. code-block:: bash
@@ -2541,7 +2575,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while retrieving the deployment: {exc}\n")
             )
 
-    def predict(self, deployment_name=None, df=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2556,8 +2590,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
         :param deployment_name: Name of the deployment to predict against.
-        :param df: A PyFunc input, such as a Pandas DataFrame, NumPy array, list, or dictionary.
-                   For a complete list of supported input types, see :ref:`pyfunc-inference-api`.
+        :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
+                       inference. For a complete list of supported input types, see
+                       :ref:`pyfunc-inference-api`.
         :param endpoint: Endpoint to predict against. Currently unsupported
         :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
                  For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
@@ -2566,10 +2601,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             :caption: Python example
 
             import pandas as pd
-            from mlflow.sagemaker import SageMakerDeploymentClient
+            from mlflow.deployments import get_deploy_client
 
             df = pd.DataFrame(data=[[1, 2, 3]], columns=["feat1", "feat2", "feat3"])
-            client = SageMakerDeploymentClient("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
+            client = get_deploy_client("sagemaker:/us-east-1/arn:aws:123:role/assumed_role")
             client.predict("my-deployment", df)
 
         .. code-block:: bash
@@ -2599,7 +2634,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=json.dumps(_get_jsonable_obj(df, pandas_orient="split")),
+                Body=json.dumps(_get_jsonable_obj(inputs, pandas_orient="split")),
                 ContentType="application/json",
             )
 

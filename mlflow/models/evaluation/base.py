@@ -1,4 +1,4 @@
-from typing import Dict, Union, Any
+from typing import Dict, Any
 import mlflow
 import hashlib
 import json
@@ -11,7 +11,6 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
 import struct
@@ -661,9 +660,8 @@ def _evaluate(
     return merged_eval_result
 
 
-@experimental
 def evaluate(
-    model: Union[str, "mlflow.pyfunc.PyFuncModel"],
+    model: str,
     data,
     *,
     targets,
@@ -676,9 +674,9 @@ def evaluate(
     custom_metrics=None,
 ):
     """
-    Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
-    log resulting metrics & artifacts to MLflow Tracking. For additional overview information, see
-    :ref:`the Model Evaluation documentation <model-evaluation>`.
+    Evaluate an MLflow model on the specified dataset using one or more specified ``evaluators``,
+    and log resulting metrics & artifacts to MLflow Tracking. For additional overview information,
+    see :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
@@ -759,7 +757,7 @@ def evaluate(
         - The evaluation dataset label values must be numeric or boolean, all feature values
           must be numeric, and each feature column must only contain scalar values.
 
-    :param model: A pyfunc model instance, or a URI referring to such a model.
+    :param model: a URI referring to an MLflow model.
 
     :param data: One of the following:
 
@@ -900,17 +898,10 @@ def evaluate(
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
     """
-    from mlflow.pyfunc import PyFuncModel
-
     if isinstance(model, str):
         model = mlflow.pyfunc.load_model(model)
-    elif isinstance(model, PyFuncModel):
-        pass
     else:
-        raise ValueError(
-            "The model argument must be a string URI referring to an MLflow model or "
-            "an instance of `mlflow.pyfunc.PyFuncModel`."
-        )
+        raise ValueError("The model argument must be a string URI referring to an MLflow model")
 
     (
         evaluator_name_list,
