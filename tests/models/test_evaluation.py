@@ -731,6 +731,11 @@ class FakeArtifact2(EvaluationArtifact):
         raise RuntimeError()
 
 
+class PyFuncModelMatcher:
+    def __eq__(self, other):
+        return isinstance(other, mlflow.pyfunc.PyFuncModel)
+
+
 def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
@@ -914,14 +919,20 @@ def test_evaluate_with_multi_evaluators(
                         model_type="classifier", evaluator_config=evaluator1_config
                     )
                     mock_evaluate1.assert_called_once_with(
-                        **get_evaluate_call_arg(classifier_model, evaluator1_config)
+                        **get_evaluate_call_arg(
+                            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
+                            evaluator1_config,
+                        )
                     )
                     mock_can_evaluate2.assert_called_once_with(
                         model_type="classifier",
                         evaluator_config=evaluator2_config,
                     )
                     mock_evaluate2.assert_called_once_with(
-                        **get_evaluate_call_arg(classifier_model, evaluator2_config)
+                        **get_evaluate_call_arg(
+                            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
+                            evaluator2_config,
+                        )
                     )
 
 
