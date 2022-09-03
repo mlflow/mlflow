@@ -829,10 +829,9 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
         evaluator1_config = {"config": True}
-        classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
         with expected_error:
             evaluate(
-                classifier_model,
+                multiclass_logistic_regressor_model_uri,
                 iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
