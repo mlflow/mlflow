@@ -724,43 +724,6 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
-``mlflow_list_experiments``
-===========================
-
-List Experiments
-
-Gets a list of all experiments.
-
-.. code:: r
-
-   mlflow_list_experiments(
-     view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
-     client = NULL
-   )
-
-.. _arguments-19:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``view_type``                 | Qualifier for type of experiments to |
-|                               | be returned. Defaults to             |
-|                               | ``ACTIVE_ONLY``.                     |
-+-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An MLflow client object   |
-|                               | returned from                        |
-|                               | `mlflow_client <#mlflow-client>`__ . |
-|                               | If specified, MLflow will use the    |
-|                               | tracking server associated with the  |
-|                               | passed-in client. If unspecified     |
-|                               | (the common case), MLflow will use   |
-|                               | the tracking server associated with  |
-|                               | the current tracking URI.            |
-+-------------------------------+--------------------------------------+
-
 ``mlflow_list_registered_models``
 =================================
 
@@ -776,7 +739,7 @@ Retrieves a list of registered models.
      client = NULL
    )
 
-.. _arguments-20:
+.. _arguments-19:
 
 Arguments
 ---------
@@ -817,7 +780,7 @@ all runs under the specified experiment.
      client = NULL
    )
 
-.. _arguments-21:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -856,7 +819,7 @@ on MLflow model flavors.
 
    mlflow_load_flavor(flavor, model_path)
 
-.. _arguments-22:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -887,7 +850,7 @@ searches for a flavor supported by R/MLflow.
 
    mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 
-.. _arguments-23:
+.. _arguments-22:
 
 Arguments
 ---------
@@ -944,7 +907,7 @@ Logs a specific file or directory as an artifact for a run.
 
    mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL, client = NULL)
 
-.. _arguments-24:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -1004,7 +967,7 @@ request), partial data may be written.
      client = NULL
    )
 
-.. _arguments-25:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -1064,7 +1027,7 @@ historical metric values along two axes: timestamp and step.
      client = NULL
    )
 
-.. _arguments-26:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1113,7 +1076,7 @@ model as an artifact within the active run.
 
    mlflow_log_model(model, artifact_path, ...)
 
-.. _arguments-27:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -1151,7 +1114,7 @@ allowed to be logged only once.
 
    mlflow_log_param(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-28:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1190,7 +1153,7 @@ multiple invocations of the same script with different parameters.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-29:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1242,7 +1205,7 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict(model, data, ...)
 
-.. _arguments-30:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1277,7 +1240,7 @@ ignored.
 
    mlflow_register_external_observer(observer)
 
-.. _arguments-31:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1315,7 +1278,7 @@ Renames an experiment.
 
    mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1352,7 +1315,7 @@ Renames a model in the Model Registry.
 
    mlflow_rename_registered_model(name, new_name, client = NULL)
 
-.. _arguments-33:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1389,7 +1352,7 @@ restored.
 
    mlflow_restore_experiment(experiment_id, client = NULL)
 
-.. _arguments-34:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1430,7 +1393,7 @@ Restores the run with the specified ID.
 
    mlflow_restore_run(run_id, client = NULL)
 
-.. _arguments-35:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1475,7 +1438,7 @@ endpoint will be removed in a future version of mlflow.
      ...
    )
 
-.. _arguments-36:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1569,7 +1532,7 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
      storage_dir = NULL
    )
 
-.. _arguments-37:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1660,7 +1623,7 @@ model types.
    list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
    list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
 
-.. _arguments-38:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1699,7 +1662,7 @@ Search for experiments that satisfy specified criteria.
      client = NULL
    )
 
-.. _arguments-39:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1757,7 +1720,7 @@ Metric and Param keys.
      client = NULL
    )
 
-.. _arguments-40:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1813,7 +1776,7 @@ Wrapper for ``mlflow server``.
      serve_artifacts = FALSE
    )
 
-.. _arguments-41:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1856,7 +1819,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-42:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -1906,7 +1869,7 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
-.. _arguments-43:
+.. _arguments-42:
 
 Arguments
 ---------
@@ -1936,7 +1899,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-44:
+.. _arguments-43:
 
 Arguments
 ---------
@@ -1976,7 +1939,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-45:
+.. _arguments-44:
 
 Arguments
 ---------
@@ -1999,7 +1962,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-46:
+.. _arguments-45:
 
 Arguments
 ---------
@@ -2032,7 +1995,7 @@ can be provided.
      nested = FALSE
    )
 
-.. _arguments-47:
+.. _arguments-46:
 
 Arguments
 ---------
@@ -2105,7 +2068,7 @@ Transition a model version to a different stage.
      client = NULL
    )
 
-.. _arguments-48:
+.. _arguments-47:
 
 Arguments
 ---------
@@ -2144,7 +2107,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-49:
+.. _arguments-48:
 
 Arguments
 ---------
@@ -2194,7 +2157,7 @@ Updates a model version
 
    mlflow_update_model_version(name, version, description, client = NULL)
 
-.. _arguments-50:
+.. _arguments-49:
 
 Arguments
 ---------
@@ -2230,7 +2193,7 @@ Updates a model in the Model Registry.
 
    mlflow_update_registered_model(name, description, client = NULL)
 
-.. _arguments-51:
+.. _arguments-50:
 
 Arguments
 ---------
