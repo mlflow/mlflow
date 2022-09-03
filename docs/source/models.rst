@@ -680,6 +680,32 @@ This loaded PyFunc model can only be scored with DataFrame input. Finally, you c
 :py:func:`mlflow.sklearn.load_model()` method to load MLflow Models with the ``sklearn`` flavor as
 scikit-learn model objects.
 
+Scikit-learn pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a Scikit-learn LogisticRegression model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+    
+    import mlflow
+    import mlflow.sklearn
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+
+    with mlflow.start_run():
+        X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+        y = np.array([0, 0, 1, 1, 1, 0])
+        lr = LogisticRegression()
+        lr.fit(X, y)
+
+        mlflow.sklearn.save_model(sk_model=lr, path="/tmp/sklearn_lr_model")
+
+    sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/sklearn_lr_model")
+
+    data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
+
+    predictions = sklearn_pyfunc.predict(data)
+
 For more information, see :py:mod:`mlflow.sklearn`.
 
 Spark MLlib (``spark``)
