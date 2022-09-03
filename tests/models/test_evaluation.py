@@ -519,20 +519,19 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
         "mean_squared_error_on_diabetes_dataset": expected_mse,
     }
 
-    for model in [regressor_model, linear_regressor_model_uri]:
-        with mlflow.start_run() as run:
-            eval_result = evaluate(
-                model,
-                diabetes_dataset._constructor_args["data"],
-                model_type="regressor",
-                targets=diabetes_dataset._constructor_args["targets"],
-                dataset_name=diabetes_dataset.name,
-                evaluators="dummy_evaluator",
-                baseline_model=baseline_model_uri,
-            )
-        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
-        assert saved_metrics == expected_saved_metrics
-        assert eval_result.metrics == expected_metrics
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_dataset._constructor_args["targets"],
+            dataset_name=diabetes_dataset.name,
+            evaluators="dummy_evaluator",
+            baseline_model=baseline_model_uri,
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+    assert saved_metrics == expected_saved_metrics
+    assert eval_result.metrics == expected_metrics
 
 
 def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
