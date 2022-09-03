@@ -51561,7 +51561,6 @@ public final class Service {
       "2\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflo" +
       "w.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n" +
       "\010Response:+\342?(\n&com.databricks.rpc.RPC[$" +
-<<<<<<< HEAD
       "this.Response]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001" +
       "(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n" +
       "&com.databricks.rpc.RPC[$this.Response]\"" +
@@ -51574,260 +51573,81 @@ public final class Service {
       "OB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020" +
       "\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULE" +
       "D\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020" +
-      "\0052\346\036\n\rMlflowService\022\246\001\n\023getExperimentByN" +
+      "\0052\201\027\n\rMlflowService\022\246\001\n\023getExperimentByN" +
       "ame\022\033.mlflow.GetExperimentByName\032$.mlflo" +
       "w.GetExperimentByName.Response\"L\362\206\031H\n,\n\003" +
       "GET\022\037/mlflow/experiments/get-by-name\032\004\010\002" +
-      "\020\000\020\001*\026Get Experiment By Name\022\306\001\n\020createE" +
+      "\020\000\020\001*\026Get Experiment By Name\022\224\001\n\020createE" +
       "xperiment\022\030.mlflow.CreateExperiment\032!.ml" +
-      "flow.CreateExperiment.Response\"u\362\206\031q\n(\n\004" +
-      "POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\n0" +
-      "\n\004POST\022\"/preview/mlflow/experiments/crea" +
-      "te\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021search" +
-      "Experiments\022\031.mlflow.SearchExperiments\032\"" +
-      ".mlflow.SearchExperiments.Response\"m\362\206\031i" +
-      "\n(\n\004POST\022\032/mlflow/experiments/search\032\004\010\002" +
-      "\020\000\n\'\n\003GET\022\032/mlflow/experiments/search\032\004\010" +
-      "\002\020\000\020\001*\022Search Experiments\022\262\001\n\rgetExperim" +
-      "ent\022\025.mlflow.GetExperiment\032\036.mlflow.GetE" +
-      "xperiment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow" +
-      "/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/" +
-      "mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Expe" +
-      "riment\022\306\001\n\020deleteExperiment\022\030.mlflow.Del" +
-      "eteExperiment\032!.mlflow.DeleteExperiment." +
-      "Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experime" +
-      "nts/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflo" +
-      "w/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Exp" +
-      "eriment\022\314\001\n\021restoreExperiment\022\031.mlflow.R" +
-      "estoreExperiment\032\".mlflow.RestoreExperim" +
-      "ent.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/expe" +
-      "riments/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/" +
-      "mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Rest" +
-      "ore Experiment\022\306\001\n\020updateExperiment\022\030.ml" +
-      "flow.UpdateExperiment\032!.mlflow.UpdateExp" +
-      "eriment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/" +
-      "experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/previ" +
-      "ew/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Up" +
-      "date Experiment\022\234\001\n\tcreateRun\022\021.mlflow.C" +
-      "reateRun\032\032.mlflow.CreateRun.Response\"`\362\206" +
-      "\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n" +
-      "\004POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000" +
-      "\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlflow.Up" +
-      "dateRun\032\032.mlflow.UpdateRun.Response\"`\362\206\031" +
-      "\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004" +
-      "POST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020" +
-      "\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflow.Del" +
-      "eteRun\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\" +
-      "\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004P" +
-      "OST\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001" +
-      "*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlflow.Res" +
-      "toreRun\032\033.mlflow.RestoreRun.Response\"c\362\206" +
-      "\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*" +
-      "\n\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002" +
-      "\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow" +
-      ".LogMetric\032\032.mlflow.LogMetric.Response\"h" +
-      "\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010" +
-      "\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/log-me" +
-      "tric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020." +
-      "mlflow.LogParam\032\031.mlflow.LogParam.Respon" +
-      "se\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-param" +
-      "eter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs" +
-      "/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020se" +
-      "tExperimentTag\022\030.mlflow.SetExperimentTag" +
-      "\032!.mlflow.SetExperimentTag.Response\"\217\001\362\206" +
-      "\031\212\001\n4\n\004POST\022&/mlflow/experiments/set-exp" +
-      "eriment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlfl" +
-      "ow/experiments/set-experiment-tag\032\004\010\002\020\000\020" +
-      "\001*\022Set Experiment Tag\022\222\001\n\006setTag\022\016.mlflo" +
-      "w.SetTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n" +
-      "\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004P" +
-      "OST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020" +
-      "\001*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.Delete" +
-      "Tag\032\032.mlflow.DeleteTag.Response\"h\362\206\031d\n%\n" +
-      "\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004" +
-      "POST\022\037/preview/mlflow/runs/delete-tag\032\004\010" +
-      "\002\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.Ge" +
-      "tRun\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003G" +
-      "ET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/prev" +
-      "iew/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n" +
-      "\nsearchRuns\022\022.mlflow.SearchRuns\032\033.mlflow" +
-      ".SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/m" +
-      "lflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/previe" +
-      "w/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/prev" +
-      "iew/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search R" +
-      "uns\022\260\001\n\rlistArtifacts\022\025.mlflow.ListArtif" +
-      "acts\032\036.mlflow.ListArtifacts.Response\"h\362\206" +
-      "\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n" +
-      "+\n\003GET\022\036/preview/mlflow/artifacts/list\032\004" +
-      "\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetricHist" +
-      "ory\022\030.mlflow.GetMetricHistory\032!.mlflow.G" +
-      "etMetricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/" +
-      "mlflow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022" +
-      "#/preview/mlflow/metrics/get-history\032\004\010\002" +
-      "\020\000\020\001*\022Get Metric History\022\236\001\n\010logBatch\022\020." +
-      "mlflow.LogBatch\032\031.mlflow.LogBatch.Respon" +
-      "se\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch" +
-      "\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log" +
-      "-batch\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logModel\022\020" +
-      ".mlflow.LogModel\032\031.mlflow.LogModel.Respo" +
-      "nse\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-mode" +
-      "l\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/lo" +
-      "g-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlflow" +
-      ".api.proto\220\001\001\342?\002\020\001"
-=======
-      "this.Response]\"z\n\020UpdateExperiment\022\033\n\rex" +
-      "periment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(" +
-      "\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\270\001\n\tCreateRun\022\025\n\rexpe" +
-      "riment_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\nstar" +
-      "t_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016.mlflow.RunT" +
-      "ag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\276\001\n\tUpdateRun\022\016\n\006run_id\030\004 \001(\t\022\020\n\010r" +
-      "un_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(\0162\021.mlflow.R" +
-      "unStatus\022\020\n\010end_time\030\003 \001(\003\032-\n\010Response\022!" +
-      "\n\010run_info\030\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\"Z" +
-      "\n\tDeleteRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\t" +
-      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\270\001\n\tLogMetric\022\016\n" +
-      "\006run_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002" +
-      " \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimes" +
-      "tamp\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001(\t\022" +
-      "\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005" +
-      "value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\220\001\n\020S" +
-      "etExperimentTag\022\033\n\rexperiment_id\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004" +
-      "\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rp" +
-      "c.RPC[$this.Response]\"\213\001\n\006SetTag\022\016\n\006run_" +
-      "id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB" +
-      "\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"m\n\tDeleteTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021" +
-      "\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"}\n\006Ge" +
-      "tRun\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$" +
-      "\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\230\002\n\nSearchRuns\022\026\n\016experiment_ids\030\001 \003(\t" +
-      "\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162" +
-      "\020.mlflow.ViewType:\013ACTIVE_ONLY\022\031\n\013max_re" +
-      "sults\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\np" +
-      "age_token\030\007 \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(" +
-      "\0132\013.mlflow.Run\022\027\n\017next_page_token\030\002 \001(\t:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\330\001\n\rListArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020" +
-      "\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\npage_t" +
-      "oken\030\004 \001(\t\032V\n\010Response\022\020\n\010root_uri\030\001 \001(\t" +
-      "\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo\022\027\n\017nex" +
-      "t_page_token\030\003 \001(\t:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\";\n\010FileInfo\022\014\n\004p" +
-      "ath\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003" +
-      " \001(\003\"\250\001\n\020GetMetricHistory\022\016\n\006run_id\030\003 \001(" +
-      "\t\022\020\n\010run_uuid\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB" +
-      "\004\370\206\031\001\032+\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlf" +
-      "low.Metric:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001" +
-      " \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n" +
-      "\006params\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003" +
-      "(\0132\016.mlflow.RunTag\032\n\n\010Response:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"g\n\010L" +
-      "ogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 " +
-      "\001(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\225\001\n\023GetExperimentBy" +
-      "Name\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010R" +
-      "esponse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Exp" +
-      "eriment:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020" +
-      "\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTy" +
-      "pe\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t" +
-      "\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007" +
-      "RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n" +
-      "\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\221\030\n\rMlflowService" +
-      "\022\246\001\n\023getExperimentByName\022\033.mlflow.GetExp" +
-      "erimentByName\032$.mlflow.GetExperimentByNa" +
-      "me.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experi" +
-      "ments/get-by-name\032\004\010\002\020\000\020\001*\026Get Experimen" +
-      "t By Name\022\224\001\n\020createExperiment\022\030.mlflow." +
-      "CreateExperiment\032!.mlflow.CreateExperime" +
-      "nt.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/exper" +
-      "iments/create\032\004\010\002\020\000\020\001*\021Create Experiment" +
-      "\022\215\001\n\017listExperiments\022\027.mlflow.ListExperi" +
-      "ments\032 .mlflow.ListExperiments.Response\"" +
-      "?\362\206\031;\n%\n\003GET\022\030/mlflow/experiments/list\032\004" +
-      "\010\002\020\000\020\001*\020List Experiments\022\301\001\n\021searchExper" +
-      "iments\022\031.mlflow.SearchExperiments\032\".mlfl" +
-      "ow.SearchExperiments.Response\"m\362\206\031i\n(\n\004P" +
-      "OST\022\032/mlflow/experiments/search\032\004\010\002\020\000\n\'\n" +
-      "\003GET\022\032/mlflow/experiments/search\032\004\010\002\020\000\020\001" +
-      "*\022Search Experiments\022\204\001\n\rgetExperiment\022\025" +
-      ".mlflow.GetExperiment\032\036.mlflow.GetExperi" +
-      "ment.Response\"<\362\206\0318\n$\n\003GET\022\027/mlflow/expe" +
-      "riments/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\224\001\n\020" +
-      "deleteExperiment\022\030.mlflow.DeleteExperime" +
-      "nt\032!.mlflow.DeleteExperiment.Response\"C\362" +
-      "\206\031?\n(\n\004POST\022\032/mlflow/experiments/delete\032" +
-      "\004\010\002\020\000\020\001*\021Delete Experiment\022\231\001\n\021restoreEx" +
-      "periment\022\031.mlflow.RestoreExperiment\032\".ml" +
-      "flow.RestoreExperiment.Response\"E\362\206\031A\n)\n" +
-      "\004POST\022\033/mlflow/experiments/restore\032\004\010\002\020\000" +
-      "\020\001*\022Restore Experiment\022\224\001\n\020updateExperim" +
-      "ent\022\030.mlflow.UpdateExperiment\032!.mlflow.U" +
-      "pdateExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032" +
-      "/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Upda" +
-      "te Experiment\022q\n\tcreateRun\022\021.mlflow.Crea" +
-      "teRun\032\032.mlflow.CreateRun.Response\"5\362\206\0311\n" +
-      "!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCr" +
-      "eate Run\022q\n\tupdateRun\022\021.mlflow.UpdateRun" +
-      "\032\032.mlflow.UpdateRun.Response\"5\362\206\0311\n!\n\004PO" +
-      "ST\022\023/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate " +
-      "Run\022q\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.ml" +
-      "flow.DeleteRun.Response\"5\362\206\0311\n!\n\004POST\022\023/" +
-      "mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v" +
-      "\n\nrestoreRun\022\022.mlflow.RestoreRun\032\033.mlflo" +
-      "w.RestoreRun.Response\"7\362\206\0313\n\"\n\004POST\022\024/ml" +
-      "flow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022u" +
-      "\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlflow." +
-      "LogMetric.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflo" +
-      "w/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n" +
-      "\010logParam\022\020.mlflow.LogParam\032\031.mlflow.Log" +
-      "Param.Response\";\362\206\0317\n(\n\004POST\022\032/mlflow/ru" +
-      "ns/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020" +
-      "setExperimentTag\022\030.mlflow.SetExperimentT" +
-      "ag\032!.mlflow.SetExperimentTag.Response\"P\362" +
-      "\206\031L\n4\n\004POST\022&/mlflow/experiments/set-exp" +
-      "eriment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022" +
-      "f\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTa" +
-      "g.Response\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/s" +
-      "et-tag\032\004\010\002\020\000\020\001*\007Set Tag\022u\n\tdeleteTag\022\021.m" +
-      "lflow.DeleteTag\032\032.mlflow.DeleteTag.Respo" +
-      "nse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-t" +
-      "ag\032\004\010\002\020\000\020\001*\nDelete Tag\022a\n\006getRun\022\016.mlflo" +
-      "w.GetRun\032\027.mlflow.GetRun.Response\".\362\206\031*\n" +
-      "\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Ru" +
-      "n\022u\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.ml" +
-      "flow.SearchRuns.Response\"6\362\206\0312\n!\n\004POST\022\023" +
-      "/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs" +
-      "\022\203\001\n\rlistArtifacts\022\025.mlflow.ListArtifact" +
-      "s\032\036.mlflow.ListArtifacts.Response\";\362\206\0317\n" +
-      "#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016" +
-      "List Artifacts\022\225\001\n\020getMetricHistory\022\030.ml" +
-      "flow.GetMetricHistory\032!.mlflow.GetMetric" +
-      "History.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflow/m" +
-      "etrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric H" +
-      "istory\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.m" +
-      "lflow.LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/" +
-      "mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch" +
-      "\022p\n\010logModel\022\020.mlflow.LogModel\032\031.mlflow." +
-      "LogModel.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow" +
-      "/runs/log-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024or" +
-      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
->>>>>>> origin/branch-2.0
+      "flow.CreateExperiment.Response\"C\362\206\031?\n(\n\004" +
+      "POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\020\001" +
+      "*\021Create Experiment\022\301\001\n\021searchExperiment" +
+      "s\022\031.mlflow.SearchExperiments\032\".mlflow.Se" +
+      "archExperiments.Response\"m\362\206\031i\n(\n\004POST\022\032" +
+      "/mlflow/experiments/search\032\004\010\002\020\000\n\'\n\003GET\022" +
+      "\032/mlflow/experiments/search\032\004\010\002\020\000\020\001*\022Sea" +
+      "rch Experiments\022\204\001\n\rgetExperiment\022\025.mlfl" +
+      "ow.GetExperiment\032\036.mlflow.GetExperiment." +
+      "Response\"<\362\206\0318\n$\n\003GET\022\027/mlflow/experimen" +
+      "ts/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\224\001\n\020delet" +
+      "eExperiment\022\030.mlflow.DeleteExperiment\032!." +
+      "mlflow.DeleteExperiment.Response\"C\362\206\031?\n(" +
+      "\n\004POST\022\032/mlflow/experiments/delete\032\004\010\002\020\000" +
+      "\020\001*\021Delete Experiment\022\231\001\n\021restoreExperim" +
+      "ent\022\031.mlflow.RestoreExperiment\032\".mlflow." +
+      "RestoreExperiment.Response\"E\362\206\031A\n)\n\004POST" +
+      "\022\033/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022R" +
+      "estore Experiment\022\224\001\n\020updateExperiment\022\030" +
+      ".mlflow.UpdateExperiment\032!.mlflow.Update" +
+      "Experiment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlfl" +
+      "ow/experiments/update\032\004\010\002\020\000\020\001*\021Update Ex" +
+      "periment\022q\n\tcreateRun\022\021.mlflow.CreateRun" +
+      "\032\032.mlflow.CreateRun.Response\"5\362\206\0311\n!\n\004PO" +
+      "ST\022\023/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate " +
+      "Run\022q\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.ml" +
+      "flow.UpdateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/" +
+      "mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q" +
+      "\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflow." +
+      "DeleteRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflo" +
+      "w/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nres" +
+      "toreRun\022\022.mlflow.RestoreRun\032\033.mlflow.Res" +
+      "toreRun.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/" +
+      "runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlog" +
+      "Metric\022\021.mlflow.LogMetric\032\032.mlflow.LogMe" +
+      "tric.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/run" +
+      "s/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logP" +
+      "aram\022\020.mlflow.LogParam\032\031.mlflow.LogParam" +
+      ".Response\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/lo" +
+      "g-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setEx" +
+      "perimentTag\022\030.mlflow.SetExperimentTag\032!." +
+      "mlflow.SetExperimentTag.Response\"P\362\206\031L\n4" +
+      "\n\004POST\022&/mlflow/experiments/set-experime" +
+      "nt-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022f\n\006se" +
+      "tTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag.Res" +
+      "ponse\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-ta" +
+      "g\032\004\010\002\020\000\020\001*\007Set Tag\022u\n\tdeleteTag\022\021.mlflow" +
+      ".DeleteTag\032\032.mlflow.DeleteTag.Response\"9" +
+      "\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010" +
+      "\002\020\000\020\001*\nDelete Tag\022a\n\006getRun\022\016.mlflow.Get" +
+      "Run\032\027.mlflow.GetRun.Response\".\362\206\031*\n\035\n\003GE" +
+      "T\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022u\n\n" +
+      "searchRuns\022\022.mlflow.SearchRuns\032\033.mlflow." +
+      "SearchRuns.Response\"6\362\206\0312\n!\n\004POST\022\023/mlfl" +
+      "ow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\r" +
+      "listArtifacts\022\025.mlflow.ListArtifacts\032\036.m" +
+      "lflow.ListArtifacts.Response\";\362\206\0317\n#\n\003GE" +
+      "T\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List " +
+      "Artifacts\022\225\001\n\020getMetricHistory\022\030.mlflow." +
+      "GetMetricHistory\032!.mlflow.GetMetricHisto" +
+      "ry.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metric" +
+      "s/get-history\032\004\010\002\020\000\020\001*\022Get Metric Histor" +
+      "y\022p\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow" +
+      ".LogBatch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflo" +
+      "w/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010l" +
+      "ogModel\022\020.mlflow.LogModel\032\031.mlflow.LogMo" +
+      "del.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs" +
+      "/log-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlf" +
+      "low.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

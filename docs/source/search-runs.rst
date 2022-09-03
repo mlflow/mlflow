@@ -192,7 +192,7 @@ To search all known experiments for any MLflow runs created using the Inception 
   from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
-  all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
+  all_experiments = [exp.experiment_id for exp in MlflowClient().search_experiments()]
   runs = MlflowClient().search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
 
 To get all runs from the experiment named "Social NLP Experiments", use:

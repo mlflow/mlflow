@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -164,16 +164,11 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(_get_default_host_creds, store_uri))
 
 
-def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
-
-
 _tracking_store_registry = TrackingStoreRegistry()
 _tracking_store_registry.register("", _get_file_store)
 _tracking_store_registry.register("file", _get_file_store)
-_tracking_store_registry.register("databricks", _get_databricks_rest_store)
 
-for scheme in ["http", "https"]:
+for scheme in ["databricks", "http", "https"]:
     _tracking_store_registry.register(scheme, _get_rest_store)
 
 for scheme in DATABASE_ENGINES:

@@ -33,7 +33,6 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogParam,
     SetTag,
-    ListExperiments,
     SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,

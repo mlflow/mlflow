@@ -32,7 +32,6 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     SetExperimentTag,
     GetExperimentByName,
-    ListExperiments,
     SearchExperiments,
     LogModel,
 )
@@ -43,10 +42,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     ErrorCode,
 )
-from mlflow.store.tracking.rest_store import (
-    RestStore,
-    DatabricksRestStore,
-)
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -318,10 +314,9 @@ class TestRestStore:
                 mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
             )
 
-    @pytest.mark.parametrize("store_class", [RestStore, DatabricksRestStore])
-    def test_get_experiment_by_name(self, store_class):
+    def test_get_experiment_by_name(self):
         creds = MlflowHostCreds("https://hello")
-        store = store_class(lambda: creds)
+        store = RestStore(lambda: creds)
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             response = mock.MagicMock()
             response.status_code = 200
@@ -364,31 +359,6 @@ class TestRestStore:
                 "experiments/get-by-name",
                 "GET",
                 message_to_json(expected_message1),
-            )
-            assert mock_http.call_count == 1
-
-    def test_databricks_rest_store_get_experiment_by_name(self):
-        creds = MlflowHostCreds("https://hello")
-        store = DatabricksRestStore(lambda: creds)
-        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
-            # Verify that Databricks REST client won't fall back to ListExperiments for 500-level
-            # errors that are not ENDPOINT_NOT_FOUND
-
-            def rate_limit_response_fn(*args, **kwargs):
-                # pylint: disable=unused-argument
-                raise MlflowException("Some internal error!", INTERNAL_ERROR)
-
-            mock_http.side_effect = rate_limit_response_fn
-            with pytest.raises(MlflowException, match="Some internal error!") as exc_info:
-                store.get_experiment_by_name("abc")
-            assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
-            expected_message0 = GetExperimentByName(experiment_name="abc")
-            self._verify_requests(
-                mock_http,
-                creds,
-                "experiments/get-by-name",
-                "GET",
-                message_to_json(expected_message0),
             )
             assert mock_http.call_count == 1
 
