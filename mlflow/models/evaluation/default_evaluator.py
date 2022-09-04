@@ -198,6 +198,22 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
     return pd.DataFrame(per_class_metrics_list)
 
 
+def _get_dataframe_with_renamed_columns(x, new_column_names):
+    """Downstream inference functions may expect a pd.DataFrame to be created from x. However,
+    if x is already a pd.DataFrame, and new_column_names != x.columns, we cannot simply call
+    pd.DataFrame(x, columns=new_column_names) because the resulting pd.DataFrame will contain
+    NaNs for every column in new_column_names that does not exist in x.columns. This function
+    instead creates a new pd.DataFrame object from x, and then explicitly renames the columns
+    to avoid NaNs.
+
+    :param x: :param data: A data object, such as a Pandas DataFrame, numPy array, or list
+    :param new_column_names: Column names for the output Pandas DataFrame
+    :return: A pd.DataFrame with x as data, with columns new_column_names
+    """
+    df = pd.DataFrame(x)
+    return df.rename(columns=dict(zip(df.columns, new_column_names)))
+
+
 _Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
@@ -411,8 +427,7 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
 def _shap_predict_fn(x, predict_fn, feature_names):
-    df = pd.DataFrame(x)
-    return predict_fn(df.rename(columns=dict(zip(df.columns, feature_names))))
+    return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -1094,9 +1109,8 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        df = pd.DataFrame(self.dataset.features_data)
         return DefaultEvaluator._MutationGuardedData(
-            df.rename(columns=dict(zip(df.columns, self.feature_names)))
+            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.feature_names)
         )
 
     class _MutationGuardedData:

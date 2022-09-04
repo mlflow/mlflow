@@ -14,7 +14,7 @@ def is_string_type(item):
     return isinstance(item, str)
 
 
-def stringify_column(s):
+def generate_feature_name_if_not_string(s):
     if isinstance(s, str):
         return s
 
