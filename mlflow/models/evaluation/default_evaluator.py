@@ -199,7 +199,8 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
 
 
 def _get_dataframe_with_renamed_columns(x, new_column_names):
-    """Downstream inference functions may expect a pd.DataFrame to be created from x. However,
+    """
+    Downstream inference functions may expect a pd.DataFrame to be created from x. However,
     if x is already a pd.DataFrame, and new_column_names != x.columns, we cannot simply call
     pd.DataFrame(x, columns=new_column_names) because the resulting pd.DataFrame will contain
     NaNs for every column in new_column_names that does not exist in x.columns. This function
