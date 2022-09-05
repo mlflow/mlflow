@@ -100,12 +100,12 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     # Execute all other hooks to obtain the report object
     outcome = yield
     report = outcome.get_result()
-    github_run_id = os.getenv("GITHUB_RUN_ID")
+    workflow_run_id = os.getenv("GITHUB_RUN_ID")
     github_token = os.getenv("GITHUB_TOKEN")
     github_job_name = os.getenv("GITHUB_JOB")
     if (
         "GITHUB_ACTIONS" not in os.environ
-        or github_run_id is None
+        or workflow_run_id is None
         or github_token is None
         or github_job_name is None
         or report.when in ("setup", "teardown")
@@ -122,13 +122,15 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     )
 
     # Get the check run ID
-    resp = sess.get(f"https://api.github.com/repos/mlflow/mlflow/actions/runs/{github_run_id}/jobs")
+    resp = sess.get(
+        f"https://api.github.com/repos/mlflow/mlflow/actions/runs/{workflow_run_id}/jobs"
+    )
     resp.raise_for_status()
-    check_run_id = next(j["id"] for j in resp.json()["jobs"] if j["name"] == github_job_name)
+    job_run_id = next(j["id"] for j in resp.json()["jobs"] if j["name"] == github_job_name)
 
     # Avoid adding too many annotations
     resp = sess.get(
-        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{check_run_id}/annotations"
+        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{job_run_id}/annotations"
     )
     resp.raise_for_status()
     annotations = resp.json()
@@ -136,17 +138,19 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
         return
 
     rel_file_path, lineno = report.location[:2]
+    job_run_url = f"https://github.com/mlflow/mlflow/runs/{job_run_id}?check_suite_focus=true"
+    print(job_run_url)
     lineno += 1
     annotation = {
         "path": rel_file_path,
         "start_line": lineno,
         "annotation_level": "failure",
         "title": "pytest failure",
-        "message": f"{item.nodeid} failed",
+        "message": f"{item.nodeid} failed in {job_run_url}.",
         "raw_details": "raw_details",
     }
     sess.post(
-        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{check_run_id}",
+        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{job_run_id}",
         json={"output": {"annotations": [annotation]}},
     )
     resp.raise_for_status()
