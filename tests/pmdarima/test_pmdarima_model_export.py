@@ -243,7 +243,7 @@ def test_pmdarima_model_save_persists_specified_conda_env_in_mlflow_model_direct
         pmdarima_model=auto_arima_object_model, path=model_path, conda_env=str(pmdarima_custom_env)
     )
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV]["conda"])
     assert saved_conda_env_path.exists()
     assert not pmdarima_custom_env.samefile(saved_conda_env_path)
 

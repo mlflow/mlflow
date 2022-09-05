@@ -266,7 +266,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
@@ -361,7 +361,7 @@ def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -385,7 +385,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
@@ -497,7 +497,7 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
@@ -533,7 +533,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         pyfunc_conf = _get_flavor_configuration(
             model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME
         )
-        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
         assert os.path.exists(saved_conda_env_path)
         with open(saved_conda_env_path, "r") as f:
             saved_conda_env_parsed = yaml.safe_load(f)

@@ -210,7 +210,7 @@ def build_image(
 
         conda_env_path = None
         if pyfunc.ENV in model_pyfunc_conf:
-            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV])
+            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]["conda"])
 
         image_configuration = ContainerImage.image_configuration(
             execution_script=execution_script_path,
@@ -448,7 +448,7 @@ def deploy(
         if pyfunc.ENV in model_pyfunc_conf:
             environment = AzureEnvironment.from_conda_specification(
                 _get_mlflow_azure_name(run_id),
-                os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]),
+                os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]["conda"]),
             )
         else:
             environment = AzureEnvironment(_get_mlflow_azure_name(run_id))
