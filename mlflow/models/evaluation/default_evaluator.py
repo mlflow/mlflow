@@ -147,7 +147,7 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred):
+def _get_classifier_per_class_metrics(y, y_pred, *, pos_label=None):
     """
     get classifier metrics which computing over a specific class.
     For binary classifier, y/y_pred is for the positive class.
@@ -160,9 +160,12 @@ def _get_classifier_per_class_metrics(y, y_pred):
     metrics["false_positives"] = fp
     metrics["false_negatives"] = fn
     metrics["true_positives"] = tp
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-    metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
+    average = "weighted" if pos_label is None else "binary"
+    metrics["recall"] = sk_metrics.recall_score(y, y_pred, average=average, pos_label=pos_label)
+    metrics["precision"] = sk_metrics.precision_score(
+        y, y_pred, average=average, pos_label=pos_label
+    )
+    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, average=average, pos_label=pos_label)
     return metrics
 
 
@@ -184,7 +187,7 @@ def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
     return metrics
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels, pos_label):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
@@ -192,7 +195,9 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
         )
 
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics.update(
+            _get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=pos_label)
+        )
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -710,7 +715,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, self.label_list
+            self.y, self.y_pred, labels=self.label_list, pos_label=self.pos_label
         )
 
         log_roc_pr_curve = False
@@ -972,7 +977,9 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
             if self.is_binomial:
-                self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
+                self.metrics.update(
+                    _get_classifier_per_class_metrics(self.y, self.y_pred, pos_label=self.pos_label)
+                )
                 self._compute_roc_and_pr_curve()
         elif self.model_type == "regressor":
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
@@ -1048,6 +1055,7 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         custom_metrics=None,
         baseline_model=None,
+        pos_label=None,
         **kwargs,
     ):
         self.dataset = dataset
@@ -1058,6 +1066,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
+        self.pos_label = pos_label
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 
