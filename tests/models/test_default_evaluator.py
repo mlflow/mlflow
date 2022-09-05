@@ -1595,7 +1595,7 @@ def test_evaluation_pos_label(pos_label):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="iris",
+            dataset_name="breast_cancer",
             evaluators="default",
             pos_label=pos_label,
         )
