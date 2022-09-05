@@ -320,11 +320,7 @@ class PyFuncBackend(FlavorBackend):
         _logger.debug("Created all folders in path", extra={"output_directory": output_path})
         install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
 
-        custom_setup_steps = ()
-        if model_uri:
-            custom_setup_steps = copy_model_into_container(output_path)
-        else:
-            custom_setup_steps = ""
+        custom_setup_steps = copy_model_into_container(output_path)
 
         dockerfile_text = _generate_dockerfile_content(
             setup_miniconda=setup_miniconda,
