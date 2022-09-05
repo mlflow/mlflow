@@ -758,6 +758,7 @@ def autolog(
     silent=False,
     log_post_training_metrics=True,
     registered_model_name=None,
+    dfs_tmpdir=None,
     log_input_examples=False,
     log_model_signatures=True,
 ):  # pylint: disable=unused-argument
@@ -877,6 +878,12 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+                       filesystem if running in local mode. The model is written in this
+                       destination and then copied into the model's artifact directory. This is
+                       necessary as Spark ML models read from and write to DFS if running on a
+                       cluster. If this operation completes successfully, all temporary files
+                       created on the DFS are removed. Defaults to ``/tmp/mlflow``.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with pyspark ml model artifacts during training. If
                                ``False``, input examples are not logged.
@@ -1051,6 +1058,7 @@ def autolog(
                 mlflow.spark.log_model(
                     spark_model,
                     artifact_path="model",
+                    dfs_tmpdir=dfs_tmpdir,
                     registered_model_name=registered_model_name,
                     input_example=input_example,
                     signature=signature,
@@ -1059,6 +1067,7 @@ def autolog(
                     mlflow.spark.log_model(
                         spark_model.bestModel,
                         artifact_path="best_model",
+                        dfs_tmpdir=dfs_tmpdir,
                     )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
