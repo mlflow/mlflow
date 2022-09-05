@@ -16,7 +16,7 @@ from mlflow.pipelines.utils.execution import (
     _get_or_create_execution_directory,
     run_pipeline_step,
     get_step_output_path,
-    _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 
 # pylint: disable=unused-import
@@ -221,7 +221,7 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
     assert subprocess_call_kwargs.get("extra_env") == {
         "A": "B",
         "C": "D",
-        _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: "test_step_1",
+        _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "test_step_1",
     }
 
 
