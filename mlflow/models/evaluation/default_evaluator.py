@@ -195,9 +195,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels):
         )
 
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(
-            _get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=positive_class)
-        )
+        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=1))
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)

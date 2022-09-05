@@ -798,6 +798,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
                     baseline_model=None,
+                    pos_label=None,
                 )
 
 
@@ -840,6 +841,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 evaluator_config=evaluator1_config,
                 custom_metrics=None,
                 baseline_model=baseline_model_uri,
+                pos_label=None,
             )
 
 
@@ -878,6 +880,7 @@ def test_evaluate_with_multi_evaluators(
             "evaluator_config": evaluator_config,
             "custom_metrics": None,
             "baseline_model": baseline_model,
+            "pos_label": None,
         }
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
         # evaluators, and the evaluation results should equal to the case of

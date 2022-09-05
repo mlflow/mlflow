@@ -850,7 +850,7 @@ def test_get_classifier_per_class_metrics():
         "precision": 0.6666666666666666,
         "f1_score": 0.7272727272727272,
     }
-    metrics = _get_classifier_per_class_metrics(y, y_pred)
+    metrics = _get_classifier_per_class_metrics(y, y_pred, pos_label=1)
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
