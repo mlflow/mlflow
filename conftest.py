@@ -100,7 +100,7 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     # Execute all other hooks to obtain the report object
     outcome = yield
     report = outcome.get_result()
-    check_run_id = os.getenv("GITHUB_RUN_ID")
+    check_run_id = os.getenv("GITHUB_RUN_NUMBER")
     github_token = os.getenv("GITHUB_TOKEN")
     if (
         "GITHUB_ACTIONS" not in os.environ
