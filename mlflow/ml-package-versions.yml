@@ -106,7 +106,9 @@ keras:
       "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "transformers"]
       "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow", "transformers"]
+      ">= 2.6.0, < 2.10.0": ["tensorflow", "transformers"]
+      # TODO: Remove this once tensorflow 2.10 is released
+      ">= 2.10.0": ["tensorflow==2.10.0rc3", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py
 
@@ -119,7 +121,9 @@ keras:
       "<= 2.3.1": ["tensorflow==2.2.1"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
       "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow"]
+      ">= 2.6.0, < 2.10.0": ["tensorflow"]
+      # TODO: Remove this once tensorflow 2.10 is released
+      ">= 2.10.0": ["tensorflow==2.10.0rc3"]
     run: |
       pytest tests/keras/test_keras_autolog.py
 
