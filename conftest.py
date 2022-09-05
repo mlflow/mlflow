@@ -124,7 +124,7 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     # Get the check run ID
     resp = sess.get(f"https://api.github.com/repos/mlflow/mlflow/actions/runs/{github_run_id}/jobs")
     resp.raise_for_status()
-    check_run_id = next(j["run_id"] for j in resp.json()["jobs"] if j["name"] == github_job_name)
+    check_run_id = next(j["id"] for j in resp.json()["jobs"] if j["name"] == github_job_name)
 
     # Avoid adding too many annotations
     resp = sess.get(
