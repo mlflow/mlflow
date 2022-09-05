@@ -33,10 +33,6 @@ def now():
 class TestFileStore(unittest.TestCase):
     ROOT_LOCATION = tempfile.gettempdir()
 
-    def initialize(self):
-        shutil.rmtree(self.test_root, ignore_errors=True)
-        self.store = self.get_store()  # pylint: disable=attribute-defined-outside-init
-
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
 
@@ -75,7 +71,7 @@ class TestFileStore(unittest.TestCase):
             os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
 
     def test_create_registered_model(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
 
         # Error cases
         with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
@@ -100,7 +96,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(rm.tags, self.rm_data[name]["tags"])
 
     def test_get_registered_model(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         self._create_registered_models_for_test()
         for name in self.registered_models:
             self._verify_registered_model(fs, name)
@@ -113,7 +109,7 @@ class TestFileStore(unittest.TestCase):
                 fs.get_registered_model(name)
 
     def test_rename_registered_model(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         self._create_registered_models_for_test()
         model_name = self.registered_models[random_int(0, len(self.registered_models) - 1)]
 
@@ -140,7 +136,7 @@ class TestFileStore(unittest.TestCase):
         return [rm.name for rm in registered_models]
 
     def test_delete_registered_model(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         self._create_registered_models_for_test()
         model_name = self.registered_models[random_int(0, len(self.registered_models) - 1)]
 
@@ -162,7 +158,7 @@ class TestFileStore(unittest.TestCase):
             fs.delete_registered_model(model_name)
 
     def test_list_registered_model(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         self._create_registered_models_for_test()
         for rm in fs.list_registered_models(max_results=10, page_token=None):
             name = rm.name
@@ -170,7 +166,7 @@ class TestFileStore(unittest.TestCase):
             self.assertEqual(name, self.rm_data[name]["name"])
 
     def test_list_registered_model_paginated(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         for _ in range(10):
             fs.create_registered_model(random_str())
         rms1 = fs.list_registered_models(max_results=4, page_token=None)
@@ -186,7 +182,7 @@ class TestFileStore(unittest.TestCase):
             self.assertIsNone(rms3.token)
 
     def test_list_registered_model_paginated_returns_in_correct_order(self):
-        fs = FileStore(os.path.join(self.test_root, "list_registered_model_test"))
+        fs = self.get_store()
 
         rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
 
@@ -209,7 +205,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(self._extract_names(result), rms[35:])
 
     def test_list_registered_model_paginated_errors(self):
-        fs = FileStore(os.path.join(self.test_root, "test_for_list_registered_models"))
+        fs = self.get_store()
         rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
         # test that providing a completely invalid page token throws
         with pytest.raises(
@@ -249,7 +245,7 @@ class TestFileStore(unittest.TestCase):
         )
 
     def test_get_latest_versions(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "test_for_latest_versions"
         rmd1 = fs.create_registered_model(name)
         self.assertEqual(rmd1.latest_versions, [])
@@ -327,7 +323,7 @@ class TestFileStore(unittest.TestCase):
         )
 
     def test_set_registered_model_tag(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name1 = "SetRegisteredModelTag_TestMod"
         name2 = "SetRegisteredModelTag_TestMod 2"
         initial_tags = [
@@ -384,7 +380,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_registered_model_tag(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name1 = "DeleteRegisteredModelTag_TestMod"
         name2 = "DeleteRegisteredModelTag_TestMod 2"
         initial_tags = [
@@ -430,7 +426,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_create_model_version(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "test_for_create_MV"
         fs.create_registered_model(name)
         run_id = uuid.uuid4().hex
@@ -495,7 +491,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(mvd6.run_id, None)
 
     def test_update_model_version(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "test_for_update_MV"
         fs.create_registered_model(name)
         mv1 = self._create_model_version(fs, name)
@@ -549,7 +545,7 @@ class TestFileStore(unittest.TestCase):
             self.assertEqual(mvd5.current_stage, "Staging")
 
     def test_transition_model_version_stage_when_archive_existing_versions_is_false(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "model"
         fs.create_registered_model(name)
         mv1 = self._create_model_version(fs, name)
@@ -584,7 +580,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(mvd3.current_stage, "Production")
 
     def test_transition_model_version_stage_when_archive_existing_versions_is_true(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "model"
         fs.create_registered_model(name)
         mv1 = self._create_model_version(fs, name)
@@ -639,7 +635,7 @@ class TestFileStore(unittest.TestCase):
             self.assertEqual(mvd2.current_stage, "Staging")
 
     def test_delete_model_version(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         name = "test_for_delete_MV"
         initial_tags = [
             ModelVersionTag("key", "value"),
@@ -677,7 +673,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     def test_search_model_versions(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         # create some model versions
         name = "test_for_search_MV"
         fs.create_registered_model(name)
@@ -823,7 +819,7 @@ class TestFileStore(unittest.TestCase):
         assert mvds[0].description == "Online prediction model!"
 
     def test_search_model_versions_by_tag(self):
-        fs = FileStore(self.test_root)
+        fs = self.get_store()
         # create some model versions
         name = "test_for_search_MV_by_tag"
         fs.create_registered_model(name)
@@ -878,7 +874,7 @@ class TestFileStore(unittest.TestCase):
         return [registered_model.name for registered_model in result], result.token
 
     def test_search_registered_models(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_models"))
+        fs = self.get_store()
         # create some registered models
         prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
@@ -1003,7 +999,7 @@ class TestFileStore(unittest.TestCase):
         )
 
     def test_search_registered_models_by_tag(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_models"))
+        fs = self.get_store()
         name1 = "test_for_search_RM_by_tag1"
         name2 = "test_for_search_RM_by_tag2"
         tags1 = [
@@ -1047,7 +1043,7 @@ class TestFileStore(unittest.TestCase):
         assert rms == [name1]
 
     def test_search_registered_models_order_by_simple(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_models_order_by"))
+        fs = self.get_store()
         # create some registered models
         prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
@@ -1068,7 +1064,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(rms[-1], names[0])
 
     def test_search_registered_model_pagination(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_model_pagination"))
+        fs = self.get_store()
         rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
 
         # test flow with fixed max_results
@@ -1123,7 +1119,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_search_registered_model_order_by(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_model_order_by"))
+        fs = self.get_store()
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
@@ -1192,7 +1188,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual([rm3, rm4, rm1, rm2], result)
 
     def test_search_registered_model_order_by_errors(self):
-        fs = FileStore(os.path.join(self.test_root, "test_search_registered_model_order_by_errors"))
+        fs = self.get_store()
         query = "name LIKE 'RM%'"
         # test that invalid columns throw even if they come after valid columns
         with pytest.raises(
@@ -1220,7 +1216,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_set_model_version_tag(self):
-        fs = FileStore(os.path.join(self.test_root, "test_set_model_version_tag"))
+        fs = self.get_store()
         name1 = "SetModelVersionTag_TestMod"
         name2 = "SetModelVersionTag_TestMod 2"
         initial_tags = [
@@ -1290,7 +1286,7 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_model_version_tag(self):
-        fs = FileStore(os.path.join(self.test_root, "test_delete_model_version_tag"))
+        fs = self.get_store()
 
         name1 = "DeleteModelVersionTag_TestMod"
         name2 = "DeleteModelVersionTag_TestMod 2"

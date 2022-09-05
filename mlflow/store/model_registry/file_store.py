@@ -209,7 +209,6 @@ class FileStore(AbstractStore):
             )
         registered_model = self._get_registered_model_from_path(model_path)
 
-        # TODO: update the logic of _get_registered_model_path here
         new_meta_dir = self._get_registered_model_path(new_name)
         if new_meta_dir is None:
             updated_time = now()
