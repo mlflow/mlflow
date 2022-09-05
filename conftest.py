@@ -151,6 +151,12 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     }
     sess.post(
         f"https://api.github.com/repos/mlflow/mlflow/check-runs/{job_run_id}",
-        json={"output": {"annotations": [annotation]}},
+        json={
+            "output": {
+                "title": "test",
+                "summary": "test",
+                "annotations": [annotation],
+            }
+        },
     )
     resp.raise_for_status()
