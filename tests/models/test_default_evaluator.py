@@ -34,7 +34,8 @@ import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
-from sklearn.datasets import load_iris
+from sklearn.datasets import load_iris, load_breast_cancer
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 from tempfile import TemporaryDirectory
 from os.path import join as path_join
@@ -1173,3 +1174,30 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
             "shap_feature_importance_plot_on_data_iris.png",
             "shap_summary_plot_on_data_iris.png",
         }
+
+
+@pytest.mark.parametrize("pos_label", [0, 1])
+def test_evaluation_pos_label(pos_label):
+    X, y = load_breast_cancer(as_frame=True, return_X_y=True)
+    X = X.iloc[:, :4].head(100)
+    y = y.head(len(X))
+    with mlflow.start_run():
+        model = LogisticRegression()
+        model.fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier",
+            targets="target",
+            dataset_name="iris",
+            evaluators="default",
+            pos_label=pos_label,
+        )
+        y_pred = model.predict(X)
+        precision = precision_score(y, y_pred, pos_label=pos_label)
+        recall = recall_score(y, y_pred, pos_label=pos_label)
+        f1 = f1_score(y, y_pred, pos_label=pos_label)
+        np.testing.assert_almost_equal(result.metrics["precision"], precision)
+        np.testing.assert_almost_equal(result.metrics["recall"], recall)
+        np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
