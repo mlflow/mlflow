@@ -16,8 +16,8 @@ RUN apt-get update && \
 
 # Install required python packages first
 ADD requirements /app/requirements
-RUN pip install -r requirements/test-requirements.txt -r requirements/lint-requirements.txt --no-cache-dir
+RUN conda run -n mlflow-dev-env pip install -r requirements/test-requirements.txt -r requirements/lint-requirements.txt --no-cache-dir
 
 # Add the rest of files and install mlflow in editable form + packages necessary for development
 ADD . /app
-RUN pip install --no-cache-dir -e .[pipelines]
+RUN conda run -n mlflow-dev-env pip install --no-cache-dir -e .[pipelines]

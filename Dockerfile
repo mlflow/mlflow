@@ -13,9 +13,9 @@ RUN apt-get update && \
     conda create -n mlflow-dev-env python=3.7 && \
     echo "conda activate mlflow-dev-env" >> ~/.bashrc && \
     # install required python packages
-    pip install -r requirements/dev-requirements.txt --no-cache-dir && \
+    conda run -n mlflow-dev-env pip install -r requirements/dev-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
-    pip install --no-cache-dir -e . && \
+    conda run -n mlflow-dev-env pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless
 # Build MLflow UI
