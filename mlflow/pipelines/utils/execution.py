@@ -10,6 +10,7 @@ from mlflow.utils.process import _exec_cmd
 
 
 _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR = "MLFLOW_PIPELINES_EXECUTION_DIRECTORY"
+_MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR = "target_step_name"
 _STEPS_SUBDIRECTORY_NAME = "steps"
 _STEP_OUTPUTS_SUBDIRECTORY_NAME = "outputs"
 _STEP_CONF_YAML_NAME = "conf.yaml"
@@ -71,7 +72,7 @@ def run_pipeline_step(
     # should be isolated in different subprocesses
     make_env = {
         # Include target step name in the environment variable set
-        "target_step_name": target_step.name,
+        _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: target_step.name,
     }
     for step in pipeline_steps:
         make_env.update(step.environment)

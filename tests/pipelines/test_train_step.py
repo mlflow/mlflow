@@ -8,7 +8,10 @@ import mlflow
 import sklearn.compose
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.pipelines.utils.execution import (
+    _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+)
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.train import TrainStep
 from unittest import mock
@@ -137,7 +140,7 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
         os.environ,
         {
             _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
-            "target_step_name": "train",
+            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
         train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
