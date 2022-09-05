@@ -100,12 +100,14 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     # Execute all other hooks to obtain the report object
     outcome = yield
     report = outcome.get_result()
-    check_run_id = os.getenv("GITHUB_RUN_NUMBER")
+    github_run_id = os.getenv("GITHUB_RUN_ID")
     github_token = os.getenv("GITHUB_TOKEN")
+    github_job_name = os.getenv("GITHUB_JOB")
     if (
         "GITHUB_ACTIONS" not in os.environ
-        or check_run_id is None
+        or github_run_id is None
         or github_token is None
+        or github_job_name is None
         or report.when in ("setup", "teardown")
         or report.outcome != "failed"
     ):
@@ -118,6 +120,11 @@ def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
             "Authorization": f"Bearer {github_token}",
         }
     )
+
+    # Get the check run ID
+    resp = sess.get(f"https://api.github.com/repos/mlflow/mlflow/actions/runs/{github_run_id}/jobs")
+    resp.raise_for_status()
+    check_run_id = next(j["run_id"] for j in resp.json()["jobs"] if j["name"] == github_job_name)
 
     # Avoid adding too many annotations
     resp = sess.get(
