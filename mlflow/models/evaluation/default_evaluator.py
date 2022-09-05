@@ -187,7 +187,7 @@ def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
     return metrics
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels, pos_label):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
@@ -196,7 +196,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels, pos_la
 
         per_class_metrics = {"positive_class": positive_class}
         per_class_metrics.update(
-            _get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=pos_label)
+            _get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=positive_class)
         )
         per_class_metrics_list.append(per_class_metrics)
 
@@ -715,7 +715,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, labels=self.label_list, pos_label=self.pos_label
+            self.y, self.y_pred, labels=self.label_list
         )
 
         log_roc_pr_curve = False
