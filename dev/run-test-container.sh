@@ -8,6 +8,7 @@ docker run \
   -v "${ROOT_DIR}"/pyproject.toml:/app/pyproject.toml \
   -v "${ROOT_DIR}"/pytest.ini:/app/pytest.ini \
   -v "${ROOT_DIR}"/conftest.py:/app/conftest.py \
+  -p 5000:5000 \
   --name "mlflow-test" \
   -it mlflow-test-env
 
