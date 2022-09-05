@@ -321,7 +321,7 @@ class PyFuncBackend(FlavorBackend):
         install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
 
         custom_setup_steps = ()
-        if copy_model_into_container:
+        if model_uri:
             custom_setup_steps = copy_model_into_container(output_path)
         else:
             custom_setup_steps = ""
