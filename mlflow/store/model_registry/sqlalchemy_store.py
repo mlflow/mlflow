@@ -33,7 +33,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
-from mlflow.utils.search_utils import SearchUtils, SearchModelUtils
+from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_registered_model_tag,
@@ -847,7 +847,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects sorted by last updated time in descending order.
         """
-        parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
+        parsed_filters = SearchModelVersionUtils.parse_search_filter(filter_string)
 
         filter_query = self._get_search_model_versions_filter_clauses(
             parsed_filters, self.engine.dialect.name

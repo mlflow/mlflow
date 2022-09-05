@@ -1034,6 +1034,7 @@ class SearchModelVersionUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {
         "name",
         "run_id",
+        "source_path",  # this is for sql store only
     }
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
 
