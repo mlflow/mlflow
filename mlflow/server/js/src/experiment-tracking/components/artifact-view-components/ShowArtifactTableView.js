@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import { Table } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 import Papa from 'papaparse';
 
 class ShowArtifactTableView extends Component {
@@ -28,7 +29,6 @@ class ShowArtifactTableView extends Component {
     error: undefined,
     data: undefined,
     headers: undefined,
-    originalRowLength: 0,
     text: undefined,
   };
 
@@ -38,7 +38,7 @@ class ShowArtifactTableView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      this.setState({ data: undefined, headers: undefined, originalRowLength: 0, loading: true });
+      this.setState({ data: undefined, headers: undefined, loading: true });
       this.fetchArtifacts();
     }
   }
@@ -56,9 +56,6 @@ class ShowArtifactTableView extends Component {
     }
 
     if (this.state.data) {
-      // eslint-disable-next-line max-len
-      const rowPreviewMessage = `Previewing the first ${this.state.data.length} rows out of ${this.state.originalRowLength}`;
-
       const columns = this.state.headers.map((f) => ({
         title: f,
         dataIndex: f,
@@ -76,9 +73,17 @@ class ShowArtifactTableView extends Component {
         },
       }));
 
+      const numRows = this.state.data.length;
+
       return (
         <div css={{ overscrollBehaviorX: 'contain', overflowX: 'scroll', margin: 10 }}>
-          <span style={{ display: 'flex', justifyContent: 'center' }}>{rowPreviewMessage}</span>
+          <span css={{ display: 'flex', justifyContent: 'center' }}>
+            <FormattedMessage
+              defaultMessage='Previewing the first {numRows} rows'
+              description='Title for showing the number of rows in the parsed data preview'
+              values={{ numRows }}
+            />
+          </span>
           <Table
             columns={columns}
             dataSource={this.state.data}
@@ -104,23 +109,22 @@ class ShowArtifactTableView extends Component {
       .getArtifact(artifactLocation)
       .then((text) => {
         try {
-          const result = Papa.parse(text, { header: true });
-          let dataPreview;
-          let originalRowLength = result.data.length;
-          if (result.data.length > ShowArtifactTableView.MAX_ROW_LENGTH) {
-            dataPreview = result.data.slice(0, ShowArtifactTableView.MAX_ROW_LENGTH);
-          } else {
-            dataPreview = result.data;
-            // Removes possible parsed empty line at end of file
-            if (Object.values(dataPreview[dataPreview.length - 1]).map((value) => value === '')) {
-              dataPreview.pop();
-              originalRowLength -= 1;
-            }
+          const result = Papa.parse(text, {
+            header: true,
+            preview: ShowArtifactTableView.MAX_ROW_LENGTH,
+          });
+          const dataPreview = result.data;
+
+          const allCellsEmpty = Object.values(dataPreview[dataPreview.length - 1]).map(
+            (value) => value === '',
+          );
+          if (allCellsEmpty.every(Boolean)) {
+            dataPreview.pop();
           }
+
           this.setState({
             data: dataPreview,
             headers: result.meta.fields,
-            originalRowLength: originalRowLength,
             loading: false,
           });
         } catch (_) {
