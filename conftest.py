@@ -96,7 +96,7 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, _call):
+def pytest_runtest_makereport(item, call):  # pylint: disable=unused-argument
     # Execute all other hooks to obtain the report object
     outcome = yield
     report = outcome.get_result()
