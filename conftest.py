@@ -1,6 +1,7 @@
 import os
 import posixpath
 import pytest
+import requests
 
 
 def pytest_addoption(parser):
@@ -92,3 +93,53 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, _call):
+    # Execute all other hooks to obtain the report object
+    outcome = yield
+    report = outcome.get_result()
+    check_run_id = os.getenv("GITHUB_RUN_ID")
+    github_token = os.getenv("GITHUB_TOKEN")
+    if (
+        "GITHUB_ACTIONS" not in os.environ
+        or check_run_id is None
+        or github_token is None
+        or report.when in ("setup", "teardown")
+        or report.outcome != "failed"
+    ):
+        return
+
+    sess = requests.Session()
+    sess.headers.update(
+        {
+            "Accept": "Accept: application/vnd.github+json",
+            "Authorization": f"Bearer {github_token}",
+        }
+    )
+
+    # Avoid adding too many annotations
+    resp = sess.get(
+        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{check_run_id}/annotations"
+    )
+    resp.raise_for_status()
+    annotations = resp.json()
+    if len(annotations) > 10:
+        return
+
+    rel_file_path, lineno = report.location[:2]
+    lineno += 1
+    annotation = {
+        "path": rel_file_path,
+        "start_line": lineno,
+        "annotation_level": "failure",
+        "title": "pytest failure",
+        "message": f"{item.nodeid} failed",
+        "raw_details": "raw_details",
+    }
+    sess.post(
+        f"https://api.github.com/repos/mlflow/mlflow/check-runs/{check_run_id}",
+        json={"output": {"annotations": [annotation]}},
+    )
+    resp.raise_for_status()

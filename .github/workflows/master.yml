@@ -107,6 +107,8 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh --ml
     - name: Run tests
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         source dev/setup-ssh.sh
         ./dev/run-python-tests.sh
