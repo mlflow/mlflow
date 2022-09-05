@@ -14,6 +14,13 @@ def is_string_type(item):
     return isinstance(item, str)
 
 
+def generate_feature_name_if_not_string(s):
+    if isinstance(s, str):
+        return s
+
+    return f"feature_{s}"
+
+
 def truncate_str_from_middle(s, max_length):
     assert max_length > 5
     if len(s) <= max_length:
