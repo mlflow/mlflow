@@ -371,3 +371,15 @@ def get_databricks_env_vars(tracking_uri):
         env_vars.update(workspace_info.to_environment())
 
     return env_vars
+
+def get_databricks_run_env_vars(run_id, experiment_id, tracking_uri):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects, updated with the databricks environment variables.
+    """
+    env_vars = get_run_env_vars(run_id=run_id, experiment_id=experiment_id, tracking_uri=tracking_uri)
+    env_vars.update(get_databricks_env_vars(
+        tracking_uri=tracking._resolve_tracking_uri(tracking_uri)
+    ))
+
+    return env_vars

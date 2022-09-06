@@ -15,7 +15,7 @@ from mlflow.projects.utils import (
     get_or_create_run,
     load_project,
     get_run_env_vars,
-    get_databricks_env_vars,
+    get_databricks_run_env_vars,
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     MLFLOW_DOCKER_WORKDIR_PATH,
@@ -193,10 +193,7 @@ def _invoke_mlflow_run_subprocess(
         parameters=parameters,
     )
 
-    env_vars = get_run_env_vars(run_id, experiment_id, tracking_uri)
-    env_vars.update(
-        get_databricks_env_vars(tracking_uri=tracking._resolve_tracking_uri(tracking_uri))
-    )
+    env_vars = get_databricks_run_env_vars(run_id, experiment_id, tracking_uri)
     mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
@@ -252,8 +249,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id, tracking_uri=None
     the tracking URI is resolved based on the current environment.
     """
     env = os.environ.copy()
-    env.update(get_run_env_vars(run_id, experiment_id, tracking_uri))
-    env.update(get_databricks_env_vars(tracking_uri=tracking._resolve_tracking_uri(tracking_uri)))
+    env.update(get_databricks_run_env_vars(run_id, experiment_id, tracking_uri))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
