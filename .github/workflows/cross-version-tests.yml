@@ -59,9 +59,14 @@ jobs:
       - name: Check labels
         uses: actions/github-script@v4
         id: check-labels
-        if: ${{ github.event_name == 'pull_request' }}
         with:
           script: |
+            if (context.eventName !== "pull_request") {
+              return {
+                enable_dev_tests: true,
+                only_latest: false,
+              };
+            }
             const labels = await github.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
