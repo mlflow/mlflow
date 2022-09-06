@@ -143,7 +143,7 @@ class TrainStep(BaseStep):
                     # log as a child run
                     with mlflow.start_run(nested=True):
                         # create unfitted estimator from yaml
-                        estimator = estimator_fn(**args)
+                        estimator = estimator_fn(args)
                         # TODO: sample training data
                         sample_fraction = (  # pylint: disable=unused-variable
                             tuning_params["sample_fraction"]
@@ -210,7 +210,7 @@ class TrainStep(BaseStep):
                 algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
                 max_trials = tuning_params["max_trials"]
                 best_hp_params = fmin(objective, search_space, max_evals=max_trials)
-                estimator = estimator_fn(**best_hp_params)
+                estimator = estimator_fn(best_hp_params)
             else:
                 estimator = estimator_fn()
 
