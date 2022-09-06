@@ -264,6 +264,7 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags)
 
+    @deprecated(alternative="search_runs()")
     def list_run_infos(
         self,
         experiment_id: str,
@@ -335,6 +336,7 @@ class MlflowClient:
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
+    @deprecated(alternative="search_experiments()")
     def list_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
@@ -617,6 +619,9 @@ class MlflowClient:
     def delete_experiment(self, experiment_id: str) -> None:
         """
         Delete an experiment from the backend store.
+        This deletion is a soft-delete, not a permanent deletion.
+        Experiment names can not be reused, unless the deleted experiment
+        is permanently deleted by a database admin.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
 
@@ -1930,6 +1935,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_registered_model(name)
 
+    @deprecated(alternative="search_registered_models()")
     def list_registered_models(
         self,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
