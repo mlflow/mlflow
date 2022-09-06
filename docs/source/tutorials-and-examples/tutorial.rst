@@ -383,8 +383,8 @@ in MLflow saved the model as an artifact within the run.
 
         [[6.4287492410792]]
 
-Deploy the Model to Seldon Core or KServe (experimental)
---------------------------------------------------------
+Deploy the Model to Seldon Core or KServe
+-----------------------------------------
 
 After training and testing our model, we are now ready to deploy it to
 production.
@@ -401,7 +401,6 @@ these frameworks.
   Python models.
   Besides this, it's also worth noting that:
 
-  - This feature is **experimental** and is subject to change.
   - MLServer requires **Python 3.7** or above.
   - This step requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
 
