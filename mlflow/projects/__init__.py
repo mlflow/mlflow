@@ -5,7 +5,6 @@ import json
 import yaml
 import os
 import logging
-import warnings
 
 import mlflow.projects.databricks
 from mlflow import tracking
@@ -189,7 +188,6 @@ def run(
     experiment_id=None,
     backend="local",
     backend_config=None,
-    use_conda=None,
     storage_dir=None,
     synchronous=True,
     run_id=None,
@@ -233,11 +231,6 @@ def run(
                            be passed as config to the backend. The exact content which should be
                            provided is different for each execution backend and is documented
                            at https://www.mlflow.org/docs/latest/projects.html.
-    :param use_conda: This argument is deprecated. Use `env_manager='local'` instead.
-                      If True (the default), create a new Conda environment for the run and
-                      install project dependencies within that environment. Otherwise, run the
-                      project in the current environment without installing any project
-                      dependencies.
     :param storage_dir: Used only if ``backend`` is "local". MLflow downloads artifacts from
                         distributed URIs passed to parameters of type ``path`` to subdirectories of
                         ``storage_dir``.
@@ -258,10 +251,12 @@ def run(
                         are supported:
 
                         - local: use the local environment
-                        - conda: use conda
                         - virtualenv: use virtualenv (and pyenv for Python version management)
+                        - conda: use conda
 
-                        If unspecified, default to conda.
+                        If unspecified, MLflow automatically determines the environment manager to
+                        use by inspecting files in the project directory. For example, if
+                        ``python_env.yaml`` is present, virtualenv will be used.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -304,19 +299,7 @@ def run(
                 )
                 raise
 
-    if use_conda is not None and env_manager is not None:
-        raise MlflowException.invalid_parameter_value(
-            "`use_conda` cannot be used with `env_manager`"
-        )
-    elif use_conda is not None:
-        warnings.warn(
-            "`use_conda` is deprecated and will be removed in a future release. "
-            "Use `env_manager=local` instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
-    elif env_manager is not None:
+    if env_manager is not None:
         _EnvManager.validate(env_manager)
 
     if backend == "databricks":

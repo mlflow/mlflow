@@ -90,7 +90,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         filename = example.info["artifact_path"]
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
-            assert set(data.keys()) == set(("columns", "data"))
+            assert set(data.keys()) == {"columns", "data"}
         parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
@@ -175,7 +175,7 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         filename = example.info["artifact_path"]
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
-            assert set(data.keys()) == set(("columns", "data"))
+            assert set(data.keys()) == {"columns", "data"}
         parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
         # by definition of NaN, NaN == NaN is False but NaN != NaN is True
         assert (

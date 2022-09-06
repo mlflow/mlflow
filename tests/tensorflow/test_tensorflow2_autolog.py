@@ -404,7 +404,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15])
+    assert {metric.step for metric in all_epoch_acc} == {0, 5, 10, 15}
 
 
 def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(

@@ -115,7 +115,7 @@ class DeploymentPlugins(PluginManager):
                 deployment_classes.append(name)
         if len(expected) > 0:
             raise MlflowException(
-                "Plugin registered for the target {} does not has all "
+                "Plugin registered for the target {} does not have all "
                 "the required interfaces. Raise an issue with the "
                 "plugin developers.\n"
                 "Missing interfaces: {}".format(item, expected),

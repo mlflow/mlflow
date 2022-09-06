@@ -45,6 +45,10 @@ class _BasePipeline:
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
+        self._template = get_pipeline_config(self._pipeline_root_path, self._profile).get(
+            # TODO: Think about renaming this to something else
+            "template"
+        )
 
     @experimental
     @property
@@ -81,7 +85,9 @@ class _BasePipeline:
             self._pipeline_root_path,
             self._steps,
             # Runs the last step of the pipeline if no step is specified.
+            # TODO: Determine how this works in a world with disjoint DAGs
             self._get_step(step) if step else self._steps[-1],
+            self._template,
         )
 
         self.inspect(last_executed_step.name)
@@ -183,6 +189,18 @@ class _BasePipeline:
     def get_artifact(self, artifact_name: str):
         """
         Read an artifact from pipeline output. artifact names can be obtained from
+        `Pipeline.inspect()` or `Pipeline.run()` output.
+
+        Returns None if the specified artifact is not found.
+        Raise an error if the artifact is not supported.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _get_artifact_path(self, artifact_name: str):
+        """
+        Get a path of an artifact from pipeline output. artifact names can be obtained from
         `Pipeline.inspect()` or `Pipeline.run()` output.
 
         Returns None if the specified artifact is not found.

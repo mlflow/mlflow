@@ -30,7 +30,8 @@ function" flavor that describes how to run the model as a Python function. Howev
 also define and use other flavors. For example, MLflow's :py:mod:`mlflow.sklearn` library allows
 loading models back as a scikit-learn ``Pipeline`` object for use in code that is aware of
 scikit-learn, or as a generic Python function for use in tools that just need to apply the model
-(for example, the ``mlflow sagemaker`` tool for deploying models to Amazon SageMaker).
+(for example, the ``mlflow deployments`` tool with the option ``-t sagemaker`` for deploying models
+to Amazon SageMaker).
 
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
@@ -67,12 +68,12 @@ can serve a model with the ``python_function`` or the ``crate`` (R Function) fla
 
     mlflow models serve -m my_model
 
-In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
+In addition, the ``mlflow deployments`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
 
 .. code-block:: bash
 
-    mlflow sagemaker deploy -m my_model [other options]
+    mlflow deployments create -t sagemaker -m my_model [other options]
 
 Fields in the MLmodel Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1256,6 +1257,69 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
+Performing Model Validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
+generated during model evaluation to validate the quality of your model. By specifying a 
+``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
+objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
+as absolute and relative gains your model must have in comparison to a specified
+``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+will throw a ``ModelValidationFailedException`` detailing the validation failure.
+
+.. code-block:: py
+
+    import xgboost
+    import shap
+    from sklearn.model_selection import train_test_split
+    from sklearn.dummy import DummyClassifier
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    # load UCI Adult Data Set; segment it into training and test sets
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    # train a candidate XGBoost model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    # train a baseline dummy model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    # construct an evaluation dataset from the test set
+    eval_data = X_test
+    eval_data["label"] = y_test
+
+    # Define criteria for model to be validated against
+    thresholds = {
+        "accuracy": MetricThreshold(
+            threshold=0.8,             # accuracy should be >=0.8
+            min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
+            min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
+            higher_is_better=True
+        ),
+    }
+
+    with mlflow.start_run() as run:
+        candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
+        baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
+
+        mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            dataset_name="adult",
+            validation_thresholds=thresholds,
+            baseline_model=baseline_model_uri,
+        )
+
+Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
+and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
+`the Model Validation example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
@@ -1854,12 +1918,14 @@ For more info, see:
 Deploy a ``python_function`` model on Amazon SageMaker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.sagemaker` module can deploy ``python_function`` models locally in a Docker
-container with SageMaker compatible environment and remotely on SageMaker.
-To deploy remotely to SageMaker you need to set up your environment and user accounts.
-To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be available on Amazon ECR.
-MLflow provides a default Docker image definition; however, it is up to you to build the image and upload it to ECR.
-MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow container for all MLflow Models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
+The :py:mod:`mlflow.deployments` and :py:mod:`mlflow.sagemaker` modules can deploy
+``python_function`` models locally in a Docker container with SageMaker compatible environment and
+remotely on SageMaker. To deploy remotely to SageMaker you need to set up your environment and user
+accounts. To export a custom model to SageMaker, you need a MLflow-compatible Docker image to be
+available on Amazon ECR. MLflow provides a default Docker image definition; however, it is up to you
+to build the image and upload it to ECR. MLflow includes the utility function
+``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow
+container for all MLflow Models. Model webservers deployed using the :py:mod:`mlflow.deployments`
 module accept the following data formats as input, depending on the deployment flavor:
 
 * ``python_function``: For this deployment flavor, the endpoint accepts the same formats described
@@ -1873,25 +1939,26 @@ module accept the following data formats as input, depending on the deployment f
 Commands
 ~~~~~~~~~
 
-* :py:func:`run-local <mlflow.sagemaker.run_local>` deploys the model locally in a Docker
-  container. The image and the environment should be identical to how the model would be run
-  remotely and it is therefore useful for testing the model prior to deployment.
+* :py:func:`mlflow deployments run-local -t sagemaker <mlflow.sagemaker.run_local>` deploys the
+  model locally in a Docker container. The image and the environment should be identical to how the
+  model would be run remotely and it is therefore useful for testing the model prior to deployment.
 
-* `build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_ builds an MLfLow
-  Docker image and uploads it to ECR. The caller must have the correct permissions set up. The image
-  is built locally and requires Docker to be present on the machine that performs this step.
+* `mlflow sagemaker build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_
+  builds an MLfLow Docker image and uploads it to ECR. The caller must have the correct permissions
+  set up. The image is built locally and requires Docker to be present on the machine that performs
+  this step.
 
-* :py:func:`deploy <mlflow.sagemaker.deploy>` deploys the model on Amazon SageMaker. MLflow
-  uploads the Python Function model into S3 and starts an Amazon SageMaker endpoint serving
-  the model.
+* :py:func:`mlflow deployments create -t sagemaker <mlflow.sagemaker.SageMakerDeploymentClient.create_deployment>`
+  deploys the model on Amazon SageMaker. MLflow uploads the Python Function model into S3 and starts
+  an Amazon SageMaker endpoint serving the model.
 
 .. rubric:: Example workflow using the MLflow CLI
 
 .. code-block:: bash
 
-    mlflow sagemaker build-and-push-container  - build the container (only needs to be called once)
-    mlflow sagemaker run-local -m <path-to-model>  - test the model locally
-    mlflow sagemaker deploy <parameters> - deploy the model remotely
+    mlflow sagemaker build-and-push-container  # build the container (only needs to be called once)
+    mlflow deployments run-local -t sagemaker -m <path-to-model>  # test the model locally
+    mlflow deployments create -t sagemaker  # deploy the model remotely
 
 
 For more info, see:
@@ -1900,9 +1967,7 @@ For more info, see:
 
     mlflow sagemaker --help
     mlflow sagemaker build-and-push-container --help
-    mlflow sagemaker run-local --help
-    mlflow sagemaker deploy --help
-
+    mlflow deployments help -t sagemaker
 
 Export a ``python_function`` model as an Apache Spark UDF
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

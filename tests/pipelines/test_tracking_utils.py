@@ -20,7 +20,7 @@ from tests.pipelines.helper_functions import (
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 @pytest.mark.parametrize(
-    "tracking_uri,artifact_location,experiment_name,experiment_id",
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id"),
     [
         ("mysql://myhost:8000/test_uri", "test/artifact/location", "myexpname", "myexpid"),
         ("mysql://myhost:8000/test_uri", "test/artifact/location", None, "myexpid"),
@@ -41,7 +41,12 @@ def test_get_pipeline_tracking_config_returns_expected_config(
     )
     default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-    profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
+    profile_contents = {
+        "experiment": {},
+        "INGEST_DATA_LOCATION": None,
+        "INGEST_SCORING_DATA_LOCATION": None,
+        "SCORED_OUTPUT_DATA_LOCATION": None,
+    }
     if tracking_uri is not None:
         profile_contents["experiment"]["tracking_uri"] = tracking_uri
     if artifact_location is not None:
@@ -73,7 +78,7 @@ def test_get_pipeline_tracking_config_returns_expected_config(
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 @pytest.mark.parametrize(
-    "tracking_uri,artifact_location,experiment_name,experiment_id",
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id"),
     [
         ("mysql://myhost:8000/test_uri", "test/artifact/location", "myexpname", "myexpid"),
         ("mysql://myhost:8000/test_uri", "test/artifact/location", None, "myexpid"),
@@ -90,7 +95,12 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
         default_tracking_uri = "databricks"
         default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-        profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
+        profile_contents = {
+            "experiment": {},
+            "INGEST_DATA_LOCATION": None,
+            "INGEST_SCORING_DATA_LOCATION": None,
+            "SCORED_OUTPUT_DATA_LOCATION": None,
+        }
         if tracking_uri is not None:
             profile_contents["experiment"]["tracking_uri"] = tracking_uri
         if artifact_location is not None:

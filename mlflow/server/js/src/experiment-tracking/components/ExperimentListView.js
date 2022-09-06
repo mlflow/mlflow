@@ -232,7 +232,6 @@ const classNames = {
   experimentListOuterContainer: {
     boxSizing: 'border-box',
     marginLeft: '64px',
-    width: '220px',
   },
   experimentListContainer: {
     overflowY: 'scroll',

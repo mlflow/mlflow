@@ -61,7 +61,7 @@ def clean_mlruns_dir():
 
 
 @pytest.mark.parametrize(
-    "experiment_name,experiment_id,expected",
+    ("experiment_name", "experiment_id", "expected"),
     [
         ("Default", None, "0"),
         ("add an experiment", None, "1"),
@@ -91,18 +91,10 @@ def test_invalid_run_mode():
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-def test_use_conda():
-    """Verify that we correctly handle the `use_conda` argument."""
-    # Verify we throw an exception when conda is unavailable
-    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=EnvironmentError):
-        with pytest.raises(ExecutionException, match="Could not find Conda executable"):
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-
-
 def test_expected_tags_logged_when_using_conda():
     with mock.patch.object(MlflowClient, "set_tag") as tag_mock:
         try:
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+            mlflow.projects.run(TEST_PROJECT_DIR, env_manager="conda")
         finally:
             tag_mock.assert_has_calls(
                 [
@@ -128,7 +120,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
         entry_point="test_tracking",
         version=version,
         parameters={"use_start_run": use_start_run},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
     )
 
@@ -177,7 +169,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
             local_git_repo_uri + "#" + TEST_PROJECT_NAME,
             entry_point="test_tracking",
             version="badc0de",
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
 
@@ -189,7 +181,7 @@ def test_run(use_start_run):
         TEST_PROJECT_DIR,
         entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
     )
     assert submitted_run.run_id is not None
@@ -233,7 +225,7 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
             TEST_PROJECT_DIR,
             entry_point="test_tracking",
             parameters={"use_start_run": "1"},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
     assert submitted_run.run_id is not None
@@ -252,7 +244,7 @@ def test_run_with_artifact_path(tmpdir):
             TEST_PROJECT_DIR,
             entry_point="test_artifact_path",
             parameters={"model": "runs:/%s/model.pkl" % run.info.run_id},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
         validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -263,7 +255,7 @@ def test_run_async():
         TEST_PROJECT_DIR,
         entry_point="sleep",
         parameters={"duration": 2},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         synchronous=False,
     )
@@ -274,7 +266,7 @@ def test_run_async():
         TEST_PROJECT_DIR,
         entry_point="sleep",
         parameters={"duration": -1, "invalid-param": 30},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         synchronous=False,
     )
@@ -283,7 +275,7 @@ def test_run_async():
 
 
 @pytest.mark.parametrize(
-    "mock_env,expected_conda,expected_activate",
+    ("mock_env", "expected_conda", "expected_activate"),
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         (
@@ -301,7 +293,7 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 
 
 @pytest.mark.parametrize(
-    "mock_env, expected_conda_env_create_path",
+    ("mock_env", "expected_conda_env_create_path"),
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
         (
@@ -408,7 +400,7 @@ def test_cancel_run():
             TEST_PROJECT_DIR,
             entry_point="sleep",
             parameters={"duration": 2},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
             synchronous=False,
         )
@@ -534,7 +526,7 @@ def test_credential_propagation(get_config, synchronous):
             entry_point="sleep",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
             parameters={"duration": 2},
-            use_conda=False,
+            env_manager="local",
             synchronous=synchronous,
         )
         _, kwargs = popen_mock.call_args

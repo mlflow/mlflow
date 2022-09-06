@@ -24,6 +24,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -40,7 +41,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
-from mlflow.utils.annotations import experimental
 
 
 if TYPE_CHECKING:
@@ -1044,6 +1044,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
+@deprecated(alternative="search_experiments()")
 def list_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
@@ -1065,7 +1066,6 @@ def list_experiments(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
-@experimental
 def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
@@ -1523,6 +1523,7 @@ def search_runs(
         )
 
 
+@deprecated(alternative="search_runs()")
 def list_run_infos(
     experiment_id: str,
     run_view_type: int = ViewType.ACTIVE_ONLY,
@@ -1634,18 +1635,40 @@ def _get_or_start_run():
 
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
+    experiment_id = env.get_env(_EXPERIMENT_ID_ENV_VAR)
     if experiment_name is not None:
         exp = MlflowClient().get_experiment_by_name(experiment_name)
-        return exp.experiment_id if exp else None
-    return env.get_env(_EXPERIMENT_ID_ENV_VAR)
+        if exp:
+            if experiment_id and experiment_id != exp.experiment_id:
+                raise MlflowException(
+                    message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                    f"value `{experiment_id}` does not match the experiment id "
+                    f"`{exp.experiment_id}` for experiment name `{experiment_name}`",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                return exp.experiment_id
+        else:
+            experiment_id = MlflowClient().create_experiment(name=experiment_name)
+            return experiment_id
+    if experiment_id is not None:
+        try:
+            exp = MlflowClient().get_experiment(experiment_id)
+            return exp.experiment_id
+        except MlflowException as exc:
+            raise MlflowException(
+                message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                f"value `{experiment_id}` does not exist in the tracking server. Provide a valid "
+                f"experiment_id.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from exc
 
 
 def _get_experiment_id():
-    return (
-        _active_experiment_id
-        or _get_experiment_id_from_env()
-        or default_experiment_registry.get_experiment_id()
-    )
+    if _active_experiment_id:
+        return _active_experiment_id
+    else:
+        return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
 @autologging_integration("mlflow")

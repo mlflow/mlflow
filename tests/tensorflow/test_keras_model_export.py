@@ -184,7 +184,7 @@ def keras_custom_env(tmpdir):
 
 
 @pytest.mark.parametrize(
-    "build_model,save_format",
+    ("build_model", "save_format"),
     [
         (get_model, None),
         (get_tf_keras_model, None),
