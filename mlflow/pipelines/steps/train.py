@@ -153,8 +153,8 @@ class TrainStep(BaseStep):
                     search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
                 else:
                     raise MlflowException(
-                        f"Parameter {param_name} must contain the arguments specified "
-                        f"in the hyperopt parameter expressions",
+                        f"Parameter {param_name} must contain either a list of 'values' or a "
+                        f"'distribution' following hyperopt parameter expressions",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             # minimize
