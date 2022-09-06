@@ -45,7 +45,9 @@ def _get_kubernetes_job_definition(
     job_template["spec"]["template"]["spec"]["containers"][0]["name"] = project_name
     job_template["spec"]["template"]["spec"]["containers"][0]["image"] = container_image
     job_template["spec"]["template"]["spec"]["containers"][0]["command"] = command
-    job_template["spec"]["template"]["spec"]["containers"][0].setdefault("env", []).extend(environment_variables)
+    job_template["spec"]["template"]["spec"]["containers"][0].setdefault("env", []).extend(
+        environment_variables
+    )
     return job_template
 
 
