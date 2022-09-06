@@ -534,7 +534,6 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             assert "error_code" in scoring_response_dict
             assert scoring_response_dict["error_code"] == ErrorCode.Name(BAD_REQUEST)
             assert "message" in scoring_response_dict
-            assert "stack_trace" in scoring_response_dict
 
 
 def test_env_manager_warning_for_use_of_conda(monkeypatch):
