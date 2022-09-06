@@ -16,7 +16,7 @@ def newTrackingServiceClient():
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, databricks_uri, uri_for_repo",
+    ("artifact_uri", "databricks_uri", "uri_for_repo"),
     [
         ("dbfs:/path", "databricks://profile", "dbfs://profile@databricks/path"),
         ("dbfs:/path", "databricks://scope:key", "dbfs://scope:key@databricks/path"),

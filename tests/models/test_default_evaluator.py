@@ -51,6 +51,9 @@ from tests.models.test_evaluation import (
     multiclass_logistic_regressor_model_uri,
     linear_regressor_model_uri,
     iris_dataset,
+    iris_pandas_df_dataset,
+    iris_pandas_df_num_cols_dataset,
+    iris_pandas_df_longname_cols_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
     spark_linear_regressor_model_uri,
@@ -642,6 +645,45 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     }
 
 
+def _evaluate_explainer_with_exceptions(model_uri, dataset):
+    with mlflow.start_run():
+        evaluate(
+            model_uri,
+            dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=dataset._constructor_args["targets"],
+            dataset_name=dataset.name,
+            evaluators="default",
+            evaluator_config={
+                "ignore_exceptions": False,
+            },
+        )
+
+
+def test_default_explainer_pandas_df_str_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_dataset
+    )
+
+
+def test_default_explainer_pandas_df_num_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
+    )
+
+
+def test_default_explainer_pandas_df_longname_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
+):
+    _evaluate_explainer_with_exceptions(
+        multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
+    )
+
+
 def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     svm_model_uri, breast_cancer_dataset
 ):
@@ -1068,7 +1110,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
 
 @pytest.mark.parametrize(
-    "fn, expectation",
+    ("fn", "expectation"),
     [
         (lambda eval_df, _: {"pred_sum": sum(eval_df["prediction"])}, does_not_raise()),
         (lambda eval_df, builtin_metrics: ({"test": 1.1}, {"a_list": [1, 2, 3]}), does_not_raise()),
