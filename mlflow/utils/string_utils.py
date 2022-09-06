@@ -35,7 +35,7 @@ def truncate_str_from_middle(s, max_length):
 
 
 def _create_table(
-    rows: List[List[str]], headers: List[str], column_sep: str = "  ", min_column_width=4
+    rows: List[List[str]], headers: List[str], column_sep: str = "  ", min_column_width: int = 4
 ) -> str:
     """
     Creates a table from a list of rows and headers.
