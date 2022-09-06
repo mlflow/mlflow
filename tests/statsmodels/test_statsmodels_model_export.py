@@ -133,7 +133,7 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             model_config = Model.load(os.path.join(model_path, "MLmodel"))
             assert pyfunc.FLAVOR_NAME in model_config.flavors
             assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-            env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+            env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
             assert os.path.exists(os.path.join(model_path, env_path))
         finally:
             mlflow.end_run()

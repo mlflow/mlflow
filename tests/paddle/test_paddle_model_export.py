@@ -165,7 +165,7 @@ def test_model_log(pd_model, model_path, tmpdir):
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -369,7 +369,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -463,7 +463,7 @@ def test_log_model_built_in_high_level_api(
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
