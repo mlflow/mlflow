@@ -12,7 +12,6 @@ mlflow_view_url <- function(url) {
 #' @examples
 #' \dontrun{
 #' library(mlflow)
-#' install_mlflow()
 #'
 #' # launch mlflow ui locally
 #' mlflow_ui()

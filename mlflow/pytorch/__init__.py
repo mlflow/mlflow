@@ -28,7 +28,6 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -778,7 +777,6 @@ class _PyTorchWrapper:
             return predicted
 
 
-@experimental
 def log_state_dict(state_dict, artifact_path, **kwargs):
     """
     Log a state_dict as an MLflow artifact for the current run.
@@ -816,7 +814,6 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
         mlflow.log_artifacts(local_path, artifact_path)
 
 
-@experimental
 def save_state_dict(state_dict, path, **kwargs):
     """
     Save a state_dict to a path on the local file system
@@ -842,7 +839,6 @@ def save_state_dict(state_dict, path, **kwargs):
     torch.save(state_dict, state_dict_path, **kwargs)
 
 
-@experimental
 def load_state_dict(state_dict_uri, **kwargs):
     """
     Load a state_dict from a local file or a run.

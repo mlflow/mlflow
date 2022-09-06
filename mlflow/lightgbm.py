@@ -615,7 +615,7 @@ def autolog(
                     "will ignore the failure and continue. Exception: "
                 )
 
-            imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
+            imp = dict(zip(features, importance.tolist()))
             tmpdir = tempfile.mkdtemp()
             try:
                 filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))

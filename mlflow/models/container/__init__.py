@@ -187,9 +187,6 @@ def _serve_pyfunc(model, env_manager):
         procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
-    os.system("pip -V")
-    os.system("python -V")
-    os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
 
     inference_server = mlserver if enable_mlserver else scoring_server
     # Since MLServer will run without NGINX, expose the server in the `8080`

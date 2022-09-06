@@ -32,6 +32,7 @@ import re
 import shutil
 import functools
 import typing as t
+from collections import defaultdict
 
 import yaml
 import requests
@@ -298,6 +299,15 @@ def parse_args(args):
         default=False,
         help="If True, exclude dev versions in the test matrix.",
     )
+    parser.add_argument(
+        "--only-latest",
+        action="store_true",
+        default=False,
+        help=(
+            "If True, only test the latest version of each group. Useful when you want to avoid "
+            "running too many GitHub Action jobs."
+        ),
+    )
 
     return parser.parse_args(args)
 
@@ -410,6 +420,12 @@ def generate_matrix(args):
 
     if args.versions:
         matrix = filter(lambda x: x.version in map(Version, args.versions), matrix)
+
+    if args.only_latest:
+        groups = defaultdict(list)
+        for item in matrix:
+            groups[(item.name, item.category)].append(item)
+        matrix = {max(group, key=lambda x: x.version) for group in groups.values()}
 
     return set(matrix)
 

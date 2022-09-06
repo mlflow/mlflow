@@ -109,6 +109,29 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
+Setting up the repository
+#########################
+
+To set up the MLflow repository, run the following commands:
+
+.. code-block:: bash
+
+    # Clone the repository
+    git clone --recurse-submodules https://github.com/<username>/mlflow.git
+    # Alternatively, you can use this command to clone through SSH:
+    # git clone --recurse-submodules git@github.com:<username>/mlflow.git
+
+    # Add the upstream repository
+    cd mlflow
+    git remote add upstream https://github.com/mlflow/mlflow.git
+
+If you cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules:
+
+.. code-block:: bash
+
+    git submodule update --init --recursive
+
+
 Developing and testing MLflow
 #############################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
@@ -277,7 +300,7 @@ In another shell:
    cd mlflow/server/js
    yarn start
 
-The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
+The Javascript Dev Server will run at `<http://localhost:3000>`_ and the MLflow server will run at `<http://localhost:5000>`_ and show runs logged in ``./mlruns``.
 
 Testing a React Component
 +++++++++++++++++++++++++
@@ -525,6 +548,41 @@ checkout of MLflow:
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
 that you should then edit to add migration logic.
+
+Developing inside a Docker container (experimental)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of setting up local or virtual environment, it's possible to write code and tests inside a Docker container that will contain an isolated Python environment setup inside.
+It's possible to build and run preconfigured image, then attach with the compatible code editor (e.g. VSCode) into a running container. This helps avoiding issues with local setup, e.g. on CPU architectures that are not yet fully compatible with all dependency packages (e.g. Apple arm64 architecture).
+
+Prerequisites
++++++++++++++
+- Docker runtime installed on a local machine (https://docs.docker.com/get-docker/)
+- Code editor compatible capable of running inside containers
+  - Example: VSCode (https://code.visualstudio.com/download) with Remote Containers extension (https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+Setup
++++++
+
+Run the following command:
+
+.. code-block:: bash
+
+    dev/run-test-container.sh
+
+You will need to wait until the docker daemon will complete building the docker image. After successful build, the container will be automatically run with ``mlflow-test`` name. A new shell session running in container's context will start in the terminal window, do not close it.
+
+Now you can attach to the running container with your code editor.
+
+Instructions for VSCode: 
+  - invoke the command palette (``[Ctrl/CMD]+Shift+P``)
+  - find "Remote-Containers: Attach to Running Container..." option, confirm with ``Enter`` key
+  - find the "mlflow-test" container, confirm with ``Enter`` key
+  - a new code editor should appear running inside the context of Docker container
+  - you can now freely change source code and corresponding tests, the changes will be reflected on your machine filesystem
+  - to run code or tests inside container, you can open a terminal with ``[Ctrl/CMD]+Shift+``` and run any command which will be executed inside container, e.g. ``pytest tests/test_version.py``
+
+After typing ``exit`` in the terminal window that executed ``dev/run-test-container.sh``, the container will be shut down and removed.
 
 Writing MLflow Examples
 ~~~~~~~~~~~~~~~~~~~~~~~

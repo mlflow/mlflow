@@ -61,9 +61,8 @@ class AbstractStoreTest:
         all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
         logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
-        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
-        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
+        assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
+        logged_tags = set(run.data.tags.items())
+        assert {(tag.key, tag.value) for tag in tags} <= logged_tags
         assert len(run.data.params) == len(params)
-        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
-        assert set(logged_params) == set([(param.key, param.value) for param in params])
+        assert set(run.data.params.items()) == {(param.key, param.value) for param in params}
