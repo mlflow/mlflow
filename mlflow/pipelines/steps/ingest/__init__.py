@@ -183,6 +183,21 @@ class IngestStep(BaseIngestStep):
         super().__init__(step_config, pipeline_root)
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
+    @classmethod
+    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+        if "data" not in pipeline_config:
+            raise MlflowException(
+                message="The `data` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        data_config = pipeline_config["data"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+
+        return cls(
+            step_config={**data_config, **ingest_config},
+            pipeline_root=pipeline_root,
+        )
+
     @property
     def name(self) -> str:
         return "ingest"
