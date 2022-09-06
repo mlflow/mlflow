@@ -242,6 +242,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli.command()
 @click.option(
     "--backend-store-uri",
+    envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
@@ -252,6 +253,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 )
 @click.option(
     "--registry-store-uri",
+    envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
@@ -260,6 +262,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 )
 @click.option(
     "--default-artifact-root",
+    envvar="MLFLOW_DEFAULT_ARTIFACT_ROOT",
     metavar="URI",
     default=None,
     help="Directory in which to store artifacts for any new experiments created. For tracking "
@@ -350,6 +353,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli.command()
 @click.option(
     "--backend-store-uri",
+    envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
@@ -360,6 +364,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--registry-store-uri",
+    envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
@@ -368,6 +373,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--default-artifact-root",
+    envvar="MLFLOW_DEFAULT_ARTIFACT_ROOT",
     metavar="URI",
     default=None,
     help="Directory in which to store artifacts for any new experiments created. For tracking "
@@ -381,6 +387,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli_args.SERVE_ARTIFACTS
 @click.option(
     "--artifacts-only",
+    envvar="MLFLOW_ARTIFACTS_ONLY",
     is_flag=True,
     default=False,
     help="If specified, configures the mlflow server to be used only for proxied artifact serving. "
@@ -395,12 +402,14 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli_args.WORKERS
 @click.option(
     "--static-prefix",
+    envvar="MLFLOW_STATIC_PREFIX",
     default=None,
     callback=_validate_static_prefix,
     help="A prefix which will be prepended to the path of all static paths.",
 )
 @click.option(
     "--gunicorn-opts",
+    envvar="MLFLOW_GUNICORN_OPTS",
     default=None,
     help="Additional command line options forwarded to gunicorn processes.",
 )
@@ -409,6 +418,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--expose-prometheus",
+    envvar="MLFLOW_EXPOSE_PROMETHEUS",
     default=None,
     help="Path to the directory where metrics will be stored. If the directory "
     "doesn't exist, it will be created. "

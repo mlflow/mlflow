@@ -6,8 +6,9 @@ The passed int model is expected to have function:
 Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
-Defines two endpoints:
+Defines three endpoints:
     /ping used for health check
+    /health (same as /ping)
     /invocations used for scoring
 """
 from typing import Tuple, Dict
@@ -61,7 +62,7 @@ DF_SPLIT = "dataframe_split"
 INSTANCES = "instances"
 INPUTS = "inputs"
 
-SUPPORTED_FORMATS = set([DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS])
+SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -175,6 +176,7 @@ def init(model: PyFuncModel):
     input_schema = model.metadata.get_input_schema()
 
     @app.route("/ping", methods=["GET"])
+    @app.route("/health", methods=["GET"])
     def ping():  # pylint: disable=unused-variable
         """
         Determine if the container is working and healthy.
@@ -213,7 +215,7 @@ def init(model: PyFuncModel):
                 mimetype="text/plain",
             )
 
-        unexpected_content_parameters = set(parameter_values.keys()).difference(set(["charset"]))
+        unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
         if unexpected_content_parameters:
             return flask.Response(
                 response=(

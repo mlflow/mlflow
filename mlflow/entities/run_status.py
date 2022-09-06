@@ -12,7 +12,7 @@ class RunStatus:
 
     _STRING_TO_STATUS = {k: ProtoRunStatus.Value(k) for k in ProtoRunStatus.keys()}
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
-    _TERMINATED_STATUSES = set([FINISHED, FAILED, KILLED])
+    _TERMINATED_STATUSES = {FINISHED, FAILED, KILLED}
 
     @staticmethod
     def from_string(status_str):

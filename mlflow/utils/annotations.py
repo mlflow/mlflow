@@ -32,7 +32,6 @@ def _experimental(api: Any, api_type: str):
 def deprecated(alternative=None, since=None, impact=None):
     """
     Decorator for marking APIs deprecated in the docstring.
-
     :param func: A function to mark
     :returns Decorated function.
     """
@@ -41,8 +40,8 @@ def deprecated(alternative=None, since=None, impact=None):
         since_str = " since %s" % since if since else ""
         impact_str = impact if impact else "This method will be removed in a future release."
 
-        notice = "``{function_name}`` is deprecated{since_string}. {impact}".format(
-            function_name=".".join([func.__module__, func.__name__]),
+        notice = "``{qual_function_name}`` is deprecated{since_string}. {impact}".format(
+            qual_function_name=".".join([func.__module__, func.__qualname__]),
             since_string=since_str,
             impact=impact_str,
         )
@@ -51,7 +50,7 @@ def deprecated(alternative=None, since=None, impact=None):
 
         @wraps(func)
         def deprecated_func(*args, **kwargs):
-            warnings.warn(notice, category=DeprecationWarning, stacklevel=2)
+            warnings.warn(notice, category=FutureWarning, stacklevel=2)
             return func(*args, **kwargs)
 
         if func.__doc__ is not None:
