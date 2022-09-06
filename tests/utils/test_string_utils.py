@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.utils.string_utils import strip_prefix, strip_suffix, is_string_type
+from mlflow.utils.string_utils import strip_prefix, strip_suffix, is_string_type, dedup_string_list
 
 
 @pytest.mark.parametrize(
@@ -30,3 +30,15 @@ def test_is_string_type():
     assert not is_string_type({"test": "string"})
     assert not is_string_type(12)
     assert not is_string_type(12.7)
+
+
+def test_dedup_string_list():
+    assert dedup_string_list(["xb", "ab", "xb", "abc", "ab", "xb", "abd"]) == [
+        "xb",
+        "ab",
+        "xb(2)",
+        "abc",
+        "ab(2)",
+        "xb(3)",
+        "abd",
+    ]

@@ -9,7 +9,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.string_utils import truncate_str_from_middle
+from mlflow.utils.string_utils import dedup_string_list, truncate_str_from_middle
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -560,11 +560,9 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
-        for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
-                # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
+        truncated_feature_names = dedup_string_list(
+            [truncate_str_from_middle(f, 20) for f in self.feature_names]
+        )
 
         truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
 
