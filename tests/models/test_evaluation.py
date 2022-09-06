@@ -627,7 +627,7 @@ def test_dataset_hash(
 ):
     assert iris_dataset.hash == "99329a790dc483e7382c0d1d27aac3f3"
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
-    assert iris_pandas_df_num_cols_dataset.hash == "0194e59415d97e0f64631bcb31e6c6b7"
+    assert iris_pandas_df_num_cols_dataset.hash == "3c5fc56830a0646001253e25e17bdce4"
     assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
