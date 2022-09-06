@@ -66,6 +66,8 @@ def set_up_train_step(pipeline_root: Path):
           train:
             using: estimator_spec
             estimator_method: sklearn.linear_model.SGDRegressor
+            tuning:
+                enabled: false
         """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
