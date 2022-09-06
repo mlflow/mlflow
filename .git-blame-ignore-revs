@@ -12,3 +12,8 @@
 # Commit: https://github.com/mlflow/mlflow/commit/d743a40426d5dedbde395a4e6bbdeebadbccd4dc
 # Migrate code style to Black
 d743a40426d5dedbde395a4e6bbdeebadbccd4dc
+
+# PR: https://github.com/mlflow/mlflow/pull/5548
+# Commit: https://github.com/mlflow/mlflow/commit/43c15f7aea7ca737ce41c02d1d5e996006aa3006
+# Upgrade black version to 22.3.0
+43c15f7aea7ca737ce41c02d1d5e996006aa3006
