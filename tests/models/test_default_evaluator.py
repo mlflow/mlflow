@@ -1600,10 +1600,9 @@ def test_evaluation_pos_label(pos_label):
             evaluator_config={"pos_label": pos_label},
         )
         y_pred = model.predict(X)
-        average = "weighted" if pos_label is None else "binary"
-        precision = precision_score(y, y_pred, average=average, pos_label=pos_label)
-        recall = recall_score(y, y_pred, average=average, pos_label=pos_label)
-        f1 = f1_score(y, y_pred, average=average, pos_label=pos_label)
+        precision = precision_score(y, y_pred, pos_label=pos_label)
+        recall = recall_score(y, y_pred, pos_label=pos_label)
+        f1 = f1_score(y, y_pred, pos_label=pos_label)
         np.testing.assert_almost_equal(result.metrics["precision"], precision)
         np.testing.assert_almost_equal(result.metrics["recall"], recall)
         np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
