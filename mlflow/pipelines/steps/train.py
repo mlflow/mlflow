@@ -210,7 +210,7 @@ class TrainStep(BaseStep):
                 algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
                 max_trials = tuning_params["max_trials"]
                 best_hp_params = fmin(objective, search_space, max_evals=max_trials)
-                estimator = estimator_fn(**best_hp_params)
+                estimator = estimator_fn(best_hp_params)
             else:
                 estimator = estimator_fn()
 
