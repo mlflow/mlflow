@@ -22,3 +22,5 @@ RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     cd mlflow/server/js && \
     yarn install && \
     yarn build
+
+CMD ["bash"]
