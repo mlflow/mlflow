@@ -328,20 +328,12 @@ def run(
     elif env_manager is not None:
         _EnvManager.validate(env_manager)
 
-    _has_valid_tracking_uri = (
-        tracking_uri is not None
-    )  # Prevent having to do the check manually below,
-    # and can be replaced with a function that does the check
-
     if backend == "databricks":
-        _databricks_uri = tracking_uri if _has_valid_tracking_uri else mlflow.get_tracking_uri()
+        _databricks_uri = tracking._resolve_tracking_uri(tracking_uri)
         mlflow.projects.databricks.before_run_validations(_databricks_uri, backend_config)
     else:
         if backend == "local" and run_id is not None:
             backend_config_dict[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
-        if _has_valid_tracking_uri:
-            mlflow.set_tracking_uri(tracking_uri)
-            # prevent setting tracking_uri to the env MLFLOW_TRACKING_URI
 
     experiment_id = _resolve_experiment_id(
         experiment_name=experiment_name, experiment_id=experiment_id
