@@ -147,7 +147,7 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred, *, pos_label=None):
+def _get_classifier_per_class_metrics(y, y_pred, *, pos_label=1):
     """
     get classifier metrics which computing over a specific class.
     For binary classifier, y/y_pred is for the positive class.
@@ -160,12 +160,9 @@ def _get_classifier_per_class_metrics(y, y_pred, *, pos_label=None):
     metrics["false_positives"] = fp
     metrics["false_negatives"] = fn
     metrics["true_positives"] = tp
-    average = "weighted" if pos_label is None else "binary"
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred, average=average, pos_label=pos_label)
-    metrics["precision"] = sk_metrics.precision_score(
-        y, y_pred, average=average, pos_label=pos_label
-    )
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, average=average, pos_label=pos_label)
+    metrics["recall"] = sk_metrics.recall_score(y, y_pred, pos_label=pos_label)
+    metrics["precision"] = sk_metrics.precision_score(y, y_pred, pos_label=pos_label)
+    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, pos_label=pos_label)
     return metrics
 
 
@@ -195,7 +192,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels):
         )
 
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin, pos_label=1))
+        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -976,7 +973,9 @@ class DefaultEvaluator(ModelEvaluator):
             )
             if self.is_binomial:
                 self.metrics.update(
-                    _get_classifier_per_class_metrics(self.y, self.y_pred, pos_label=self.pos_label)
+                    _get_classifier_per_class_metrics(
+                        self.y, self.y_pred, pos_label=self.evaluator_config.get("pos_label", 1)
+                    )
                 )
                 self._compute_roc_and_pr_curve()
         elif self.model_type == "regressor":
@@ -1053,7 +1052,6 @@ class DefaultEvaluator(ModelEvaluator):
         evaluator_config,
         custom_metrics=None,
         baseline_model=None,
-        pos_label=None,
         **kwargs,
     ):
         self.dataset = dataset
@@ -1064,7 +1062,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
-        self.pos_label = pos_label
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 

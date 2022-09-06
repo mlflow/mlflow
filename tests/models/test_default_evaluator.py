@@ -850,7 +850,7 @@ def test_get_classifier_per_class_metrics():
         "precision": 0.6666666666666666,
         "f1_score": 0.7272727272727272,
     }
-    metrics = _get_classifier_per_class_metrics(y, y_pred, pos_label=1)
+    metrics = _get_classifier_per_class_metrics(y, y_pred)
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
@@ -1581,7 +1581,7 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
 
 
-@pytest.mark.parametrize("pos_label", [0, 1, None])
+@pytest.mark.parametrize("pos_label", [0, 1])
 def test_evaluation_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
@@ -1597,7 +1597,7 @@ def test_evaluation_pos_label(pos_label):
             targets="target",
             dataset_name="breast_cancer",
             evaluators="default",
-            pos_label=pos_label,
+            evaluator_config={"pos_label": pos_label},
         )
         y_pred = model.predict(X)
         average = "weighted" if pos_label is None else "binary"

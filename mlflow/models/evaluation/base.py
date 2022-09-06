@@ -508,7 +508,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         evaluator_config,
         custom_metrics=None,
         baseline_model=None,
-        pos_label=None,
         **kwargs,
     ):
         """
@@ -525,7 +524,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
         :param custom_metrics: A list of callable custom metric functions.
-        :param pos_label: The positive label for binary classification models.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
@@ -782,7 +780,6 @@ def _evaluate(
     evaluator_name_to_conf_map,
     custom_metrics,
     baseline_model,
-    pos_label,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -820,7 +817,6 @@ def _evaluate(
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
                 baseline_model=baseline_model,
-                pos_label=pos_label,
             )
             eval_results.append(eval_result)
 
@@ -861,7 +857,6 @@ def evaluate(
     custom_metrics=None,
     validation_thresholds=None,
     baseline_model=None,
-    pos_label=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -931,6 +926,8 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
+        - pos_label: The positive label used to compute binary classification metrics such as
+          precision, recall, f1, etc. This parameter is only used for binary classification model.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1141,13 +1138,6 @@ thresholds
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
                                       flavor. If specified, the candidate ``model`` is compared to
                                       this baseline for model validation purposes.
-    :param pos_label: The positive label used to compute binary classification metrics such as
-        precision, recall, f1, etc. This parameter is only used for binary classification model
-        - If specified for multi-label model, the evaluation will fail;
-        - If specified for regression model, the parameter will be ignored.
-        For multi-label classification, keep `pos_label` unset (or set to `None`), and the
-        function will calculate metrics for each label and find their average weighted by support
-        (number of true instances for each label).
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
@@ -1204,7 +1194,6 @@ thresholds
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
             custom_metrics=custom_metrics,
             baseline_model=baseline_model,
-            pos_label=pos_label,
         )
 
         if not validation_thresholds:
