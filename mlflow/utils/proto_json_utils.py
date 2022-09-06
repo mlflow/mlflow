@@ -283,7 +283,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             )
         keys = set(decoded_input.keys())
         missing_data = "data" not in keys
-        extra_keys = keys.difference(set(["columns", "data", "index"]))
+        extra_keys = keys.difference({"columns", "data", "index"})
         if missing_data or extra_keys:
             raise MlflowBadScoringInputException(
                 f"Dataframe split format must have 'data' field and optionally 'columns' "
