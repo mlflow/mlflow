@@ -75,7 +75,7 @@ def report_free_disk_space(capsys):
 
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
-    "directory, params",
+    ("directory", "params"),
     [
         ("h2o", []),
         ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
@@ -135,7 +135,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
-    "directory, command",
+    ("directory", "command"),
     [
         ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
         ("gluon", ["python", "train.py"]),
@@ -192,6 +192,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("evaluation", ["python", "evaluate_on_regressor.py"]),
         ("evaluation", ["python", "evaluate_with_custom_metrics.py"]),
         ("evaluation", ["python", "evaluate_with_custom_metrics_comprehensive.py"]),
+        ("evaluation", ["python", "evaluate_with_model_validation.py"]),
         ("diviner", ["python", "train.py"]),
         ("spark_udf", ["python", "spark_udf_datetime.py"]),
         ("pyfunc", ["python", "train.py"]),
