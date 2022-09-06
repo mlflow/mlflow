@@ -136,7 +136,9 @@ public class MLeapPredictor implements Predictor {
             .collect(Collectors.toList());
 
     try {
-      String predictionsJson = SerializationUtils.toJson(predictions);
+      Map<String, List<?>> predictionMap = new HashMap<String, List<?>>();
+      predictionMap.put("predictions", predictions);
+      String predictionsJson = SerializationUtils.toJson(predictionMap);
       return new PredictorDataWrapper(predictionsJson, PredictorDataWrapper.ContentType.Json);
     } catch (JsonProcessingException e) {
       logger.error("Encountered an error while serializing the output dataframe.", e);

@@ -114,15 +114,16 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
-    List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
+    Map<String, Object> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    Map<String, List<?>> dataframe = (Map<String, List<?>>) sampleInput.get("dataframe_split");
+    List<List<Object>> rows = (List<List<Object>>) dataframe.get("data");
     List<String> columnNames = (List<String>) sampleInput.get("columns");
     int topicIndex = columnNames.indexOf("topic");
     columnNames.remove("topic");
     for (List<Object> row : rows) {
       row.remove(topicIndex);
     }
-    String missingDataColumnJson = SerializationUtils.toJson(sampleInput);
+    String missingDataColumnJson = SerializationUtils.toJson(dataframe);
 
     PandasSplitOrientedDataFrame pandasFrame =
         PandasSplitOrientedDataFrame.fromJson(missingDataColumnJson);
