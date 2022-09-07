@@ -10,6 +10,7 @@ from mlflow.utils.process import _exec_cmd
 
 
 _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR = "MLFLOW_PIPELINES_EXECUTION_DIRECTORY"
+_MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR = "MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME"
 _STEPS_SUBDIRECTORY_NAME = "steps"
 _STEP_OUTPUTS_SUBDIRECTORY_NAME = "outputs"
 _STEP_CONF_YAML_NAME = "conf.yaml"
@@ -69,7 +70,10 @@ def run_pipeline_step(
     # Aggregate step-specific environment variables into a single environment dictionary
     # that is passed to the Make subprocess. In the future, steps with different environments
     # should be isolated in different subprocesses
-    make_env = {}
+    make_env = {
+        # Include target step name in the environment variable set
+        _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: target_step.name,
+    }
     for step in pipeline_steps:
         make_env.update(step.environment)
     # Use Make to run the target step and all of its dependencies
