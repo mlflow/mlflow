@@ -1,7 +1,7 @@
 import React from 'react';
 import { mountWithIntl } from '../../../common/utils/TestUtils';
 import { ErrorModalWithIntl } from './ErrorModal';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 
 describe('ErrorModalImpl', () => {
   let wrapper;

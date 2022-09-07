@@ -96,14 +96,14 @@ class ShowArtifactLoggedModelView extends Component {
   sparkDataFrameCodeText(modelPath) {
     return (
       `import mlflow\n` +
+      `from pyspark.sql.functions import struct, col\n` +
       `logged_model = '${modelPath}'\n\n` +
       // eslint-disable-next-line max-len
       `# Load model as a Spark UDF. Override result_type if the model does not return double values.\n` +
       // eslint-disable-next-line max-len
       `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model, result_type='double')\n\n` +
       `# Predict on a Spark DataFrame.\n` +
-      `columns = list(df.columns)\n` +
-      `df.withColumn('predictions', loaded_model(*columns)).collect()`
+      `df.withColumn('predictions', loaded_model(struct(*map(col, df.columns))))`
     );
   }
 
@@ -223,6 +223,8 @@ class ShowArtifactLoggedModelView extends Component {
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
+                  <span className='code-keyword'>from</span> pyspark.sql.functions
+                  <span className='code-keyword'>import</span> struct, col{`\n`}
                   logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
                 </div>
                 <br />
@@ -250,10 +252,7 @@ class ShowArtifactLoggedModelView extends Component {
                     />
                   </span>
                   {`\n`}
-                  columns = list(df.columns)
-                  {`\n`}
-                  df.withColumn(<span className='code-string'>'predictions'</span>,
-                  loaded_model(*columns)).collect()
+                  df.withColumn('predictions', loaded_model(struct(*map(col, df.columns))))
                 </div>
               </pre>
             </Paragraph>

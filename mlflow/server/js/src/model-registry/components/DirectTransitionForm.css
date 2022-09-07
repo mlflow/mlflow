@@ -6,3 +6,7 @@
     width: 100%;
     text-align: left;
 }
+
+.model-version-update-form div[role="status"][class^="css-"] {
+    margin-right: -0.5px;
+}

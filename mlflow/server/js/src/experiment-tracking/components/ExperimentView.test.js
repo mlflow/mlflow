@@ -1,8 +1,5 @@
 import React from 'react';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
 import FileSaver from 'file-saver';
-import { BrowserRouter } from 'react-router-dom';
 
 import { ExperimentViewWithIntl, mapStateToProps } from './ExperimentView';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -18,7 +15,7 @@ import Utils from '../../common/utils/Utils';
 import { Spinner } from '../../common/components/Spinner';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
-import { mountWithIntl, shallowWithInjectIntl } from '../../common/utils/TestUtils';
+import { shallowWithInjectIntl } from '../../common/utils/TestUtils';
 import {
   COLUMN_TYPES,
   LIFECYCLE_FILTER,
@@ -27,10 +24,7 @@ import {
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
   DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
-  DEFAULT_SHOW_MULTI_COLUMNS,
   DEFAULT_DIFF_SWITCH_SELECTED,
-  COLUMN_SORT_BY_ASC,
-  COLUMN_SORT_BY_DESC,
   DEFAULT_LIFECYCLE_FILTER,
   DEFAULT_MODEL_VERSION_FILTER,
 } from '../constants';
@@ -40,7 +34,6 @@ const EXPERIMENT_ID = '3';
 let onSearchSpy;
 let historyPushSpy;
 let onClearSpy;
-let setShowMultiColumnsSpy;
 let handleColumnSelectionCheckSpy;
 let handleDiffSwitchChangeSpy;
 let updateUrlWithViewStateSpy;
@@ -49,7 +42,6 @@ beforeEach(() => {
   onSearchSpy = jest.fn();
   historyPushSpy = jest.fn();
   onClearSpy = jest.fn();
-  setShowMultiColumnsSpy = jest.fn();
   handleColumnSelectionCheckSpy = jest.fn();
   handleDiffSwitchChangeSpy = jest.fn();
   updateUrlWithViewStateSpy = jest.fn();
@@ -59,7 +51,6 @@ const getDefaultExperimentViewProps = () => {
   return {
     onSearch: onSearchSpy,
     onClear: onClearSpy,
-    setShowMultiColumns: setShowMultiColumnsSpy,
     handleColumnSelectionCheck: handleColumnSelectionCheckSpy,
     handleDiffSwitchChange: handleDiffSwitchChangeSpy,
     updateUrlWithViewState: updateUrlWithViewStateSpy,
@@ -98,7 +89,6 @@ const getDefaultExperimentViewProps = () => {
     startTime: DEFAULT_START_TIME,
     modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
     lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
-    showMultiColumns: DEFAULT_SHOW_MULTI_COLUMNS,
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     diffSwitchSelected: DEFAULT_DIFF_SWITCH_SELECTED,
     preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
@@ -116,18 +106,6 @@ const getExperimentViewMock = (componentProps = {}) => {
   return shallowWithInjectIntl(<ExperimentViewWithIntl {...mergedProps} />);
 };
 
-const mountExperimentViewMock = (componentProps = {}) => {
-  const mergedProps = { ...getDefaultExperimentViewProps(), ...componentProps };
-  const store = configureStore()(emptyState);
-  return mountWithIntl(
-    <Provider store={store}>
-      <BrowserRouter>
-        <ExperimentViewWithIntl {...mergedProps} />
-      </BrowserRouter>
-    </Provider>,
-  );
-};
-
 const createTags = (tags) => {
   // Converts {key: value, ...} to {key: RunTag(key, value), ...}
   return Object.entries(tags).reduce(
@@ -138,12 +116,6 @@ const createTags = (tags) => {
 
 test('Should render with minimal props without exploding', () => {
   const wrapper = getExperimentViewMock();
-  expect(wrapper.length).toBe(1);
-});
-
-test('Should render compact view without exploding', () => {
-  const wrapper = mountExperimentViewMock({ isLoading: false, forceCompactTableView: true });
-  expect(wrapper.find('ExperimentRunsTableCompactView').text()).toContain('batch_size:512');
   expect(wrapper.length).toBe(1);
 });
 
@@ -173,7 +145,6 @@ test('Onboarding alert does not show if disabled', () => {
 
 test('ExperimentView will show spinner if isLoading prop is true', () => {
   const wrapper = getExperimentViewMock();
-  wrapper.setProps({ showMultiColumns: false });
   expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
@@ -345,72 +316,6 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toHaveBeenCalledTimes(2);
     expect(onSearchSpy).toBeCalledWith({
       searchInput: 'SearchString',
-    });
-  });
-});
-
-describe('Sort by dropdown', () => {
-  test('Selecting a sort option sorts the experiment runs correctly', () => {
-    const wrapper = mountExperimentViewMock({
-      isLoading: false,
-      forceCompactTableView: true,
-      startTime: 'ALL',
-    });
-
-    const sortSelect = wrapper
-      .find("Select [data-test-id='sort-select-dropdown'] > .ant-select-selector")
-      .first();
-    sortSelect.simulate('mousedown');
-    wrapper.update();
-
-    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_ASC}"]`)).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_ASC}"]`)).toBe(
-      true,
-    );
-    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_ASC}"]`)).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-User-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
-    expect(wrapper.exists(`[data-test-id="sort-select-batch_size-${COLUMN_SORT_BY_DESC}"]`)).toBe(
-      true,
-    );
-    expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
-
-    wrapper.find("Select[data-test-id='sort-select-dropdown']").first().prop('onChange')(
-      'attributes.start_time',
-    );
-
-    expect(onSearchSpy).toBeCalledWith({
-      orderByAsc: false,
-      orderByKey: 'attributes.start_time',
-    });
-  });
-});
-
-describe('Start time dropdown', () => {
-  test('Selecting a start time option calls the search correctly', () => {
-    const wrapper = mountExperimentViewMock({
-      isLoading: false,
-      forceCompactTableView: true,
-      startTime: 'ALL',
-    });
-
-    const startTimeSelect = wrapper
-      .find("Select [data-test-id='start-time-select-dropdown'] > .ant-select-selector")
-      .first();
-    startTimeSelect.simulate('mousedown');
-
-    expect(wrapper.exists('[data-test-id="start-time-select-ALL"]')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_HOUR"]')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_24_HOURS"]')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_7_DAYS"]')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"]')).toBe(true);
-    expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"]')).toBe(true);
-
-    wrapper.find("Select[data-test-id='start-time-select-dropdown']").first().prop('onChange')(
-      'LAST_7_DAYS',
-    );
-
-    expect(onSearchSpy).toBeCalledWith({
-      startTime: 'LAST_7_DAYS',
     });
   });
 });

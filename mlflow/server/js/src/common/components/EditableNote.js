@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
-import { Alert, Tooltip } from 'antd';
-import { Button } from '@databricks/design-system';
+import { Alert, Button, Tooltip } from '@databricks/design-system';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';

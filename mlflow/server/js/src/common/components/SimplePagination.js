@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Pagination } from 'antd';
+import { Pagination } from '@databricks/design-system';
 
 export class SimplePagination extends React.Component {
   static propTypes = {
@@ -8,27 +8,10 @@ export class SimplePagination extends React.Component {
     isLastPage: PropTypes.bool.isRequired,
     onClickNext: PropTypes.func.isRequired,
     onClickPrev: PropTypes.func.isRequired,
-    loading: PropTypes.bool,
     maxResultOptions: PropTypes.array,
     handleSetMaxResult: PropTypes.func,
-    getSelectedPerPageSelection: PropTypes.func,
+    getSelectedPerPageSelection: PropTypes.func.isRequired,
   };
-
-  constructDropdown() {
-    return (
-      <Menu
-        className='pagination-dropdown'
-        css={classNames.paginationDropdownMenuWrapper}
-        onClick={this.props.handleSetMaxResult}
-      >
-        {this.props.maxResultOptions.map((num_models) => (
-          <Menu.Item key={num_models.toString()} title={num_models.toString()}>
-            {num_models}
-          </Menu.Item>
-        ))}
-      </Menu>
-    );
-  }
 
   render() {
     const { currentPage, isLastPage, onClickNext, onClickPrev, maxResultOptions } = this.props;
@@ -46,16 +29,18 @@ export class SimplePagination extends React.Component {
     }
 
     return (
-      <div className='pagination-section' css={classNames.wrapper}>
+      <div className='pagination-section' css={[classNames.wrapper, classNames.paginationOverride]}>
         <Pagination
-          css={classNames.paginationOverride}
-          current={currentPage}
-          total={total}
+          currentPageIndex={currentPage}
+          numTotal={total}
           onChange={(nextPage) => (nextPage > currentPage ? onClickNext() : onClickPrev())}
-          showSizeChanger
-          pageSize={numEntries}
-          pageSizeOptions={maxResultOptions}
-          onShowSizeChange={(current, size) => this.props.handleSetMaxResult({ key: size })}
+          dangerouslySetAntdProps={{
+            showQuickJumper: false,
+            showSizeChanger: true,
+            pageSize: numEntries,
+            pageSizeOptions: maxResultOptions,
+            onShowSizeChange: (current, size) => this.props.handleSetMaxResult({ key: size }),
+          }}
         />
       </div>
     );
@@ -67,13 +52,13 @@ const classNames = {
     textAlign: 'right',
     paddingBottom: 30,
   },
-  paginationDropdownMenuWrapper: {
-    '.ant-dropdown-menu-item': {
-      textAlign: 'center',
-    },
-  },
   paginationOverride: {
-    '.ant-pagination-item:not(.ant-pagination-item-active)': {
+    // Hide extra page buttons
+    '.du-bois-light-pagination-item:not(.du-bois-light-pagination-item-active)': {
+      display: 'none',
+    },
+    // Hide jump buttons
+    '.du-bois-light-pagination-jump-prev': {
       display: 'none',
     },
   },

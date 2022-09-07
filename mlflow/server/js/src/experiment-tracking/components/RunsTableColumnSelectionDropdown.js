@@ -130,7 +130,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
       >
         <Button
           style={{ display: 'flex', alignItems: 'center' }}
-          dataTestId='column-selection-dropdown'
+          data-testid='column-selection-dropdown'
         >
           <FormattedMessage
             defaultMessage='Columns'

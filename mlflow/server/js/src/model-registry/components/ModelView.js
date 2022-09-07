@@ -376,6 +376,7 @@ export class ModelViewImpl extends React.Component {
 
         {/* Delete Model Dialog */}
         <Modal
+          data-testid='mlflow-input-modal'
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',
             description: 'Title text for delete model modal on model view page',
