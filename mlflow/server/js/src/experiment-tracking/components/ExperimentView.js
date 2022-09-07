@@ -13,14 +13,10 @@ import {
   useDesignSystemTheme,
   Select,
   Button,
-  SegmentedControlButton,
-  SegmentedControlGroup,
   ArrowDownIcon,
   ArrowUpIcon,
   SyncIcon,
   FilterIcon,
-  TableIcon,
-  ListBorderIcon,
   DownloadIcon,
   QuestionMarkFillIcon,
 } from '@databricks/design-system';
@@ -33,7 +29,6 @@ import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { ExperimentRunsTableMultiColumnView2 } from './ExperimentRunsTableMultiColumnView2';
-import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
@@ -106,8 +101,6 @@ export class ExperimentView extends Component {
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
-    this.addBagged = this.addBagged.bind(this);
-    this.removeBagged = this.removeBagged.bind(this);
     this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
     this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
@@ -162,7 +155,6 @@ export class ExperimentView extends Component {
     startTime: PropTypes.string.isRequired,
     lifecycleFilter: PropTypes.string.isRequired,
     modelVersionFilter: PropTypes.string.isRequired,
-    showMultiColumns: PropTypes.bool.isRequired,
     categorizedUncheckedKeys: PropTypes.object.isRequired,
     diffSwitchSelected: PropTypes.bool.isRequired,
     preSwitchCategorizedUncheckedKeys: PropTypes.object.isRequired,
@@ -177,10 +169,6 @@ export class ExperimentView extends Component {
     setExperimentTagApi: PropTypes.func.isRequired,
     // If child runs should be nested under their parents
     nestChildren: PropTypes.bool,
-    // ML-13038: Whether to force the compact view upon page load. Used only for testing;
-    // mounting ExperimentView by default will fail due to a version bug in AgGrid, so we need
-    // a state-independent way of bypassing MultiColumnView.
-    forceCompactTableView: PropTypes.bool,
     // The number of new runs since the last runs refresh
     numberOfNewRuns: PropTypes.number,
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
@@ -317,47 +305,6 @@ export class ExperimentView extends Component {
 
   onCloseRestoreRunModal() {
     this.setState({ showRestoreRunModal: false });
-  }
-
-  /**
-   * Mark a column as bagged by removing it from the appropriate array of unbagged columns.
-   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
-   *                assumed to be a param column.
-   * @param colName Name of the column (metric or param key).
-   */
-  addBagged(isParam, colName) {
-    const unbagged = isParam
-      ? this.state.persistedState.unbaggedParams
-      : this.state.persistedState.unbaggedMetrics;
-    const idx = unbagged.indexOf(colName);
-    const newUnbagged =
-      idx >= 0 ? unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
-    const stateKey = isParam ? 'unbaggedParams' : 'unbaggedMetrics';
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        [stateKey]: newUnbagged,
-      }).toJSON(),
-    });
-  }
-
-  /**
-   * Mark a column as unbagged by adding it to the appropriate array of unbagged columns.
-   * @param isParam If true, the column is assumed to be a metric column; if false, the column is
-   *                assumed to be a param column.
-   * @param colName Name of the column (metric or param key).
-   */
-  removeBagged(isParam, colName) {
-    const unbagged = isParam
-      ? this.state.persistedState.unbaggedParams
-      : this.state.persistedState.unbaggedMetrics;
-    const stateKey = isParam ? 'unbaggedParams' : 'unbaggedMetrics';
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        [stateKey]: unbagged.concat([colName]),
-      }).toJSON(),
-    });
   }
 
   handleSubmitEditNote(note) {
@@ -534,21 +481,16 @@ export class ExperimentView extends Component {
       orderByKey,
       orderByAsc,
       startTime,
-      showMultiColumns,
       categorizedUncheckedKeys,
       diffSwitchSelected,
       nestChildren,
       numberOfNewRuns,
     } = this.props;
     const { experiment_id, name } = experiments[0];
-    const { persistedState } = this.state;
-    const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, COLUMN_TYPES.METRICS);
     const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
     const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, COLUMN_TYPES.TAGS);
-    const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, COLUMN_TYPES.PARAMS);
-    const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, COLUMN_TYPES.METRICS);
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const noteInfo = NoteInfo.fromTags(experimentTags);
     const startTimeColumnLabels = this.getStartTimeColumnDisplayName();
@@ -821,7 +763,7 @@ export class ExperimentView extends Component {
                     </Tooltip>
                     <Tooltip
                       title={this.props.intl.formatMessage({
-                        defaultMessage: 'Started during',
+                        defaultMessage: 'Created during',
                         description:
                           'Label for the start time select dropdown for experiment runs view',
                       })}
@@ -854,36 +796,13 @@ export class ExperimentView extends Component {
               right={
                 <div css={styles.controlBar}>
                   <Spacer size='large' direction='horizontal'>
-                    <Spacer size='medium' direction='horizontal'>
-                      <SegmentedControlGroup
-                        defaultValue={showMultiColumns ? 'gridView' : 'compactView'}
-                        onChange={({ target }) => {
-                          this.props.setShowMultiColumns(target.value === 'gridView');
-                        }}
-                        css={styles.displaySwitch}
-                      >
-                        <SegmentedControlButton
-                          value='compactView'
-                          data-test-id='compact-runs-table-view-button'
-                        >
-                          <ListBorderIcon />
-                        </SegmentedControlButton>
-                        <SegmentedControlButton
-                          value='gridView'
-                          data-test-id='detailed-runs-table-view-button'
-                        >
-                          <TableIcon />
-                        </SegmentedControlButton>
-                      </SegmentedControlGroup>
-
-                      <RunsTableColumnSelectionDropdown
-                        paramKeyList={paramKeyList}
-                        metricKeyList={metricKeyList}
-                        visibleTagKeyList={visibleTagKeyList}
-                        categorizedUncheckedKeys={categorizedUncheckedKeys}
-                        onCheck={this.props.handleColumnSelectionCheck}
-                      />
-                    </Spacer>
+                    <RunsTableColumnSelectionDropdown
+                      paramKeyList={paramKeyList}
+                      metricKeyList={metricKeyList}
+                      visibleTagKeyList={visibleTagKeyList}
+                      categorizedUncheckedKeys={categorizedUncheckedKeys}
+                      onCheck={this.props.handleColumnSelectionCheck}
+                    />
                     <Spacer size='small' direction='horizontal'>
                       {this.props.intl.formatMessage({
                         defaultMessage: 'Only show differences',
@@ -922,7 +841,7 @@ export class ExperimentView extends Component {
                         />
                       </div>
                       <Button
-                        dataTestId='filter-button'
+                        data-testid='filter-button'
                         onClick={this.handleFilterToggle}
                         icon={<FilterIcon />}
                       >
@@ -932,7 +851,7 @@ export class ExperimentView extends Component {
                           description='String for the filter button to filter experiment runs table which match the search criteria'
                         />
                       </Button>
-                      <Button dataTestId='clear-button' onClick={this.onClear}>
+                      <Button data-test-id='clear-button' onClick={this.onClear}>
                         <FormattedMessage
                           defaultMessage='Clear'
                           // eslint-disable-next-line max-len
@@ -1039,7 +958,9 @@ export class ExperimentView extends Component {
                 values={{ length: runInfos.length }}
               />
             </div>
-            {showMultiColumns && !this.props.forceCompactTableView ? (
+            {isLoading ? (
+              <Spinner showImmediately />
+            ) : (
               <ExperimentRunsTableMultiColumnView2
                 compareExperiments={this.props.compareExperiments}
                 experiments={experiments}
@@ -1065,39 +986,6 @@ export class ExperimentView extends Component {
                 handleLoadMoreRuns={handleLoadMoreRuns}
                 loadingMore={loadingMore}
                 isLoading={isLoading}
-                nestChildren={nestChildren}
-              />
-            ) : isLoading ? (
-              <Spinner showImmediately />
-            ) : (
-              <ExperimentRunsTableCompactView
-                onCheckbox={this.onCheckbox}
-                runInfos={this.props.runInfos}
-                modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
-                // Bagged param and metric keys
-                paramKeyList={filteredParamKeys}
-                metricKeyList={filteredMetricKeys}
-                paramsList={this.props.paramsList}
-                metricsList={this.props.metricsList}
-                tagsList={this.props.tagsList}
-                categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.props.handleColumnSelectionCheck}
-                onCheckAll={this.onCheckAll}
-                isAllChecked={this.isAllChecked()}
-                onSortBy={this.onSortBy}
-                orderByKey={orderByKey}
-                orderByAsc={orderByAsc}
-                runsSelected={this.state.runsSelected}
-                runsExpanded={this.state.persistedState.runsExpanded}
-                onExpand={this.onExpand}
-                unbaggedMetrics={filteredUnbaggedMetricKeys}
-                unbaggedParams={filteredUnbaggedParamKeys}
-                onAddBagged={this.addBagged}
-                onRemoveBagged={this.removeBagged}
-                nextPageToken={nextPageToken}
-                numRunsFromLatestSearch={numRunsFromLatestSearch}
-                handleLoadMoreRuns={handleLoadMoreRuns}
-                loadingMore={loadingMore}
                 nestChildren={nestChildren}
               />
             )}

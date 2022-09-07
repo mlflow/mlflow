@@ -1,7 +1,9 @@
 import mlflow
 import os
 import pathlib
+import random
 import shutil
+import string
 import sys
 from typing import Generator
 
@@ -12,6 +14,7 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
 from sklearn.datasets import load_diabetes
+from sklearn.dummy import DummyRegressor
 from sklearn.linear_model import LinearRegression
 
 import pytest
@@ -20,6 +23,10 @@ PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_PIPELINE_EXAMPLE_PATH"
 PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression"
 
 ## Methods
+def get_random_id(length=6):
+    return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
+
+
 def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
     split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
@@ -46,13 +53,31 @@ def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
     return evaluate_step_output_dir, register_step_output_dir
 
 
-def train_and_log_model():
+def train_and_log_model(is_dummy=False):
     mlflow.set_experiment("demo")
     with mlflow.start_run() as run:
         X, y = load_diabetes(as_frame=True, return_X_y=True)
-        model = LinearRegression().fit(X, y)
-        mlflow.sklearn.log_model(model, artifact_path="train/model")
-        return run.info.run_id, model
+        if is_dummy:
+            model = DummyRegressor(strategy="constant", constant=42)
+        else:
+            model = LinearRegression()
+        fitted_model = model.fit(X, y)
+        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        return run.info.run_id, fitted_model
+
+
+def train_log_and_register_model(model_name, is_dummy=False):
+    run_id, _ = train_and_log_model(is_dummy)
+    runs_uri = "runs:/{}/train/model".format(run_id)
+    model_version = mlflow.register_model(runs_uri, model_name)
+    client = mlflow.tracking.MlflowClient()
+    client.transition_model_version_stage(
+        name=model_name,
+        version=model_version.version,
+        stage="Production",
+        archive_existing_versions=True,
+    )
+    return "models:/{model_name}/Production".format(model_name=model_name)
 
 
 ## Fixtures

@@ -21,6 +21,7 @@ import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages'
 import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
 import { PermissionDeniedView } from './PermissionDeniedView';
+import { PageNotFoundView } from './PageNotFoundView';
 import { Spinner } from '../../common/components/Spinner';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
@@ -384,7 +385,7 @@ export class ExperimentPage extends Component {
 
   handleLoadMoreRuns = () => {
     this.setState({ loadingMore: true });
-    this.handleGettingRuns(this.props.loadMoreRunsApi, this.loadMoreRunsRequestId);
+    return this.handleGettingRuns(this.props.loadMoreRunsApi, this.loadMoreRunsRequestId);
   };
 
   /*
@@ -428,25 +429,8 @@ export class ExperimentPage extends Component {
       {
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
-        persistedState: new ExperimentPagePersistedState({
-          showMultiColumns: this.state.persistedState.showMultiColumns,
-        }).toJSON(),
+        persistedState: new ExperimentPagePersistedState().toJSON(),
         nextPageToken: null,
-      },
-      () => {
-        this.updateUrlWithViewState();
-        this.snapshotComponentState();
-      },
-    );
-  };
-
-  setShowMultiColumns = (value) => {
-    this.setState(
-      {
-        persistedState: new ExperimentPagePersistedState({
-          ...this.state.persistedState,
-          showMultiColumns: value,
-        }).toJSON(),
       },
       () => {
         this.updateUrlWithViewState();
@@ -614,7 +598,6 @@ export class ExperimentPage extends Component {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
-      showMultiColumns,
       categorizedUncheckedKeys,
       diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys,
@@ -627,11 +610,7 @@ export class ExperimentPage extends Component {
       this.props.experiments.filter((experiment) => experiment !== undefined && experiment !== null)
         .length !== this.props.experimentIds.length
     ) {
-      const experimentFetchError = this.props.intl.formatMessage({
-        defaultMessage: 'Unable to view experiments',
-        description: "Error message when all the requested experiments couldn't be fetched",
-      });
-      throw new Error(experimentFetchError);
+      return <PageNotFoundView />;
     }
 
     const experimentViewProps = {
@@ -640,7 +619,6 @@ export class ExperimentPage extends Component {
       searchRunsRequestId: this.state.searchRunsRequestId,
       onSearch: this.onSearch,
       onClear: this.onClear,
-      setShowMultiColumns: this.setShowMultiColumns,
       handleColumnSelectionCheck: this.handleColumnSelectionCheck,
       handleDiffSwitchChange: this.handleDiffSwitchChange,
       updateUrlWithViewState: this.updateUrlWithViewState,
@@ -652,7 +630,6 @@ export class ExperimentPage extends Component {
       startTime: startTime,
       modelVersionFilter: modelVersionFilter,
       lifecycleFilter: lifecycleFilter,
-      showMultiColumns: showMultiColumns,
       categorizedUncheckedKeys: categorizedUncheckedKeys,
       diffSwitchSelected: diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,

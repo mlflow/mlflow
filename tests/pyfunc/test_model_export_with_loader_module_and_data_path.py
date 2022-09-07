@@ -1,3 +1,4 @@
+import decimal
 import os
 import pickle
 import yaml
@@ -324,6 +325,12 @@ def test_column_schema_enforcement():
     ):
         pyfunc_model.predict(d)
 
+    # 17. conversion from Decimal to float is allowed since numpy currently has no support for the
+    #  data type.
+    pdf["d"] = [decimal.Decimal(1.0)]
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+
 
 def _compare_exact_tensor_dict_input(d1, d2):
     """Return whether two dicts of np arrays are exactly equal"""
@@ -551,7 +558,7 @@ def test_column_schema_enforcement_no_col_names():
 
     # Can only provide data type that can be converted to dataframe...
     with pytest.raises(MlflowException, match="Expected input to be DataFrame or list. Found: set"):
-        pyfunc_model.predict(set([1, 2, 3]))
+        pyfunc_model.predict({1, 2, 3})
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}

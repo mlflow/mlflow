@@ -1,5 +1,4 @@
 import os
-import sys
 import importlib
 from unittest import mock
 
@@ -227,7 +226,7 @@ def test_strip_local_version_label():
     assert _strip_local_version_label("invalid") == "invalid"
 
 
-def test_get_installed_version(tmpdir):
+def test_get_installed_version(tmpdir, monkeypatch):
     import numpy as np
     import pandas as pd
     import sklearn
@@ -239,29 +238,29 @@ def test_get_installed_version(tmpdir):
 
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
-    sys.path.insert(0, tmpdir.strpath)
+    monkeypatch.syspath_prepend(tmpdir.strpath)
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
 
 
-def test_get_pinned_requirement(tmpdir):
+def test_get_pinned_requirement(tmpdir, monkeypatch):
     assert _get_pinned_requirement("mlflow") == f"mlflow=={mlflow.__version__}"
     assert _get_pinned_requirement("mlflow", version="1.2.3") == "mlflow==1.2.3"
 
     not_found_package = tmpdir.join("not_found.py")
     not_found_package.write("__version__ = '1.2.3'")
-    sys.path.insert(0, tmpdir.strpath)
+    monkeypatch.syspath_prepend(tmpdir.strpath)
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
 
 
-def test_get_pinned_requirement_local_version_label(tmpdir):
+def test_get_pinned_requirement_local_version_label(tmpdir, monkeypatch):
     package = tmpdir.join("my_package.py")
     lvl = "abc.def.ghi"  # Local version label
     package.write(f"__version__ = '1.2.3+{lvl}'")
-    sys.path.insert(0, tmpdir.strpath)
+    monkeypatch.syspath_prepend(tmpdir.strpath)
 
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         req = _get_pinned_requirement("my_package")
@@ -309,7 +308,7 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
         return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names=set(["scikit-learn"])),
+        _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
     ), mock.patch(
         "mlflow.utils.requirements_utils._logger.warning"
     ) as mock_warning:
