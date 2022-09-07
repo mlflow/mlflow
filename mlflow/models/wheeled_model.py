@@ -29,8 +29,9 @@ _PLATFORM = "platform"
 class WheeledModel:
     """
     Helper class to create a model with added dependency wheels from an existing registered model.
-    This helper only operates on a model which has been registered to the model registry. The
-    `wheeled` model contains all the model dependencies as wheels stored as model artifacts.
+    The `wheeled` model contains all the model dependencies as wheels stored as model artifacts.
+    .. note::
+    This utility only operates on a model that has been registered to the model registry.
     """
 
     def __init__(self, model_uri):
@@ -45,11 +46,11 @@ class WheeledModel:
     def log_model(cls, model_uri, registered_model_name=None):
         """
             Logs a registered model as an MLflow artifact for the current run. This only operates on
-            a model which has been registered to the model registry. Given the registered
-            model_uri (models:/<model_name>/<model_version/stage/latest>), it will re-log the model
+            a model which has been registered to the model registry. Given a registered
+            model_uri (models:/<model_name>/<model_version/stage/latest>), it re-logs the model
             along with all the required model libraries back to the model registry.
-            The required model libraries will be stored along with the model as model artifacts. In
-            addition, supporting files to the model (e.g. conda.yaml, requirements.txt) will be
+            The required model libraries are stored along with the model as model artifacts. In
+            addition, supporting files to the model (e.g. conda.yaml, requirements.txt) are
             modified to use the added libraries.
 
             The default behavior is to log a new model version to an existing registered model,
@@ -58,7 +59,7 @@ class WheeledModel:
 
             :param model_uri: registered model uri of the form
                                 models:/<model_name>/<model_version/stage/latest>
-            :param registered_model_name: If given, create a model version under
+            :param registered_model_name: If given, creates a model version under
                                       ``registered_model_name``, also creating a registered model if
                                       one with the given name does not exist.
         .. code-block:: python
@@ -187,9 +188,7 @@ class WheeledModel:
 
     def _download_wheels(self, pip_requirements_path, dst_path):
         """
-        Downloads all the wheels of the dependencies specified in the requirements.txt file. If the
-        requirements.txt does not exist, it uses the conda_env_path. One of the two is
-        guaranteed to be valid.
+        Downloads all the wheels of the dependencies specified in the requirements.txt file.
         :param pip_requirements_path: Path to requirements.txt in the model directory
         :param dst_path: Path to the directory where the wheels are to be downloaded
         """

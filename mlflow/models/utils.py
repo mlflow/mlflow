@@ -596,25 +596,28 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
 @experimental
 def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
-    This utility function only operates on a model which has been registered to the model registry.
-
-    Given the registered model_uri (models:/<model_name>/<model_version/stage/latest>), it will
-    re-log the model along with all the required model libraries back to the model registry.
-    The required model libraries will be stored along with the model as model artifacts. In
-    addition, supporting files to the model (e.g. conda.yaml, requirements.txt) will be modified
+    Given a registered model_uri (models:/<model_name>/<model_version/stage/latest>), this utility
+    re-logs the model along with all the required model libraries back to the model registry.
+    The required model libraries are stored along with the model as model artifacts. In
+    addition, supporting files to the model (e.g. conda.yaml, requirements.txt) are modified
     to use the added libraries.
 
-    The default working of this util will create a new model version under the same registered model
+    The default working of this util creates a new model version under the same registered model
     name, this behavior can be overridden by passing in a registered_model_name to the utility.
 
     :param model_uri: A registered model uri in the model registry of the form
                         models:/<model_name>/<model_version/stage/latest>
     :param run_id: The run_id to which the model artifacts will be stored. If None, the model
-                    artifacts will be stored in the original run_id where the inputted model version
+                    artifacts are stored in the original run_id where the inputted model version
                     was created. Can be overridden by explicitly passing a run_id.
-    :param registered_model_name: The new model version (model with its libraries) will be
+    :param registered_model_name: The new model version (model with its libraries) is
                         registered under the inputted registered_model_name. If None, a new version
-                        will be logged to the existing model in the model registry.
+                        is logged to the existing model in the model registry.
+
+
+    .. note::
+    This utility only operates on a model that has been registered to the model registry.
+
 
     .. code-block:: python
         :caption: Example
