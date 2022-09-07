@@ -493,7 +493,7 @@ class ModelServerPyfunc:
     def predict(self, _input):
         result = self._client.invoke(_input)  # always return a Pandas DataFrame!
         if isinstance(result, pandas.DataFrame):
-            result = result[0].values.tolist()
+            result = result[result.columns[0]]
         return result
 
 
