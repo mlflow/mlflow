@@ -312,7 +312,8 @@ _matplotlib_config = {
     "figure.dpi": 175,
     "figure.figsize": [6.0, 4.0],
     "figure.autolayout": True,
-    "font.size": 8,
+    "font.size": 4,
+    "legend.title_fontsize": "medium"
 }
 
 
@@ -658,9 +659,14 @@ class DefaultEvaluator(ModelEvaluator):
             )
             _logger.debug("", exc_info=True)
 
+        def _adjust_color_bar():
+            pyplot.gcf().axes[-1].set_aspect('auto')
+            pyplot.gcf().axes[-1].set_box_aspect(50)
+
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -669,7 +675,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         def plot_summary():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.summary_plot(shap_values, show=False)
+            shap.summary_plot(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
 
         self._log_image_artifact(
             plot_summary,
