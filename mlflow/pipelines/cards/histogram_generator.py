@@ -13,12 +13,7 @@ def generate_equal_height_histogram(quantiles, num_buckets: int) -> Histogram:
     :param num_buckets: The number of buckets in the generated equal height histogram.
     :return: An equal height histogram or None if inputs are invalid.
     """
-    if (
-        (len(quantiles) == 0)
-        or (len(quantiles) < 3)
-        or (len(quantiles) % 2 == 0)
-        or ((len(quantiles) - 1) % num_buckets != 0)
-    ):
+    if (len(quantiles) < 3) or ((len(quantiles) - 1) % num_buckets != 0):
         return None
 
     histogram = Histogram()

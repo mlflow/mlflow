@@ -14,7 +14,9 @@ class HistogramGeneratorTestCase(unittest.TestCase):
     def assert_histogram(
         self, expected: feature_statistics_pb2.Histogram, actual: feature_statistics_pb2.Histogram
     ):
-        """Helper function to assert the actual histogram is almost equal to the expected histogram."""
+        """
+        Helper function to assert the actual histogram is almost equal to the expected histogram.
+        """
         self.assertEqual(expected.type, actual.type)
         self.assertEqual(len(expected.buckets), len(actual.buckets))
         for i in range(len(expected.buckets)):
@@ -41,12 +43,6 @@ class EqualHeightHistogramGeneratorTestCase(HistogramGeneratorTestCase):
         # Quantiles which has less than 3 elements is invalid.
         self.assertIsNone(
             histogram_generator.generate_equal_height_histogram(quantiles=[1, 2], num_buckets=1)
-        )
-        # Quantiles which has an even number of elements is invalid.
-        self.assertIsNone(
-            histogram_generator.generate_equal_height_histogram(
-                quantiles=[1, 2, 3, 4], num_buckets=3
-            )
         )
         # When (len(quantiles) - 1) % num_buckets != 0, quantiles is considered as invalid.
         self.assertIsNone(
