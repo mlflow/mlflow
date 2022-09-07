@@ -14,10 +14,15 @@ from mlflow.utils.file_utils import write_to
 from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
 
 
 def _get_top_level_module(full_module_name):
     return full_module_name.split(".")[0]
+
+
+def _get_second_level_module(full_module_name):
+    return ".".join(full_module_name.split(".")[:2])
 
 
 class _CaptureImportedModules:
@@ -38,7 +43,14 @@ class _CaptureImportedModules:
             is_absolute_import = level == 0
             if not name.startswith("_") and is_absolute_import:
                 top_level_module = _get_top_level_module(name)
-                self.imported_modules.add(top_level_module)
+                second_level_module = _get_second_level_module(name)
+                if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
+                    # Multiple packages populate the `databricks` module namespace on Databricks;
+                    # to avoid bundling extraneous Databricks packages into model dependencies, we
+                    # scope each module to its relevant package
+                    self.imported_modules.add(second_level_module)
+                else:
+                    self.imported_modules.add(top_level_module)
             return original(name, globals, locals, fromlist, level)
 
         return wrapper
