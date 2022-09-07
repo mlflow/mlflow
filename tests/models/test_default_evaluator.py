@@ -646,7 +646,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
 
 
 def _evaluate_explainer_with_exceptions(model_uri, dataset):
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         evaluate(
             model_uri,
             dataset._constructor_args["data"],
@@ -658,6 +658,7 @@ def _evaluate_explainer_with_exceptions(model_uri, dataset):
                 "ignore_exceptions": False,
             },
         )
+    print(f"runid={run.info.run_id}\n")
 
 
 def test_default_explainer_pandas_df_str_cols(
@@ -1514,29 +1515,6 @@ def test_autologging_is_disabled_during_evaluate(model):
         assert duplicate_metrics == []
     finally:
         mlflow.sklearn.autolog(disable=True)
-
-
-def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, diabetes_dataset):
-    evaluate(
-        linear_regressor_model_uri,
-        diabetes_dataset._constructor_args["data"],
-        model_type="regressor",
-        targets=diabetes_dataset._constructor_args["targets"],
-        dataset_name=diabetes_dataset.name,
-        feature_names=[
-            "f1",
-            "f2",
-            "f3longnamelongnamelongname",
-            "f4",
-            "f5",
-            "f6",
-            "f7longlonglonglong",
-            "f8",
-            "f9",
-            "f10",
-        ],
-        evaluators="default",
-    )
 
 
 def test_evaluation_works_with_model_pipelines_that_modify_input_data():

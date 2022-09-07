@@ -473,7 +473,9 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path)
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
+            pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
             pyplot.close(pyplot.gcf())
 
