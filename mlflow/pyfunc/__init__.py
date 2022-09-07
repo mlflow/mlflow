@@ -285,6 +285,9 @@ class EnvType:
     CONDA = "conda"
     VIRTUALENV = "virtualenv"
 
+    def __init__(self):
+        raise NotImplementedError("This class is not meant to be instantiated.")
+
 
 PY_VERSION = "python_version"
 
