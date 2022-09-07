@@ -87,7 +87,7 @@ def _serve(env_manager):
 
 
 def _install_pyfunc_deps(
-    model_path=None, install_mlflow=False, enable_mlserver=False, env_manager=em.CONDA
+    model_path=None, install_mlflow=False, enable_mlserver=False, env_manager=em.VIRTUALENV
 ):
     """
     Creates a conda env for serving the model at the specified path and installs almost all serving
