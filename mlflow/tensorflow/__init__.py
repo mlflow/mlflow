@@ -20,6 +20,7 @@ import tensorflow
 from packaging.version import Version
 from threading import RLock
 import numpy as np
+import importlib
 
 import mlflow
 from mlflow.tracking.client import MlflowClient
@@ -27,15 +28,21 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _validate_env_arguments,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _add_code_from_conf_to_system_path,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -68,6 +75,13 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 # For tracking if the run was started by autologging.
 _AUTOLOG_RUN_ID = None
 
+# File name to which custom objects cloudpickle is saved - used during save and load
+_CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
+_KERAS_MODULE_SPEC_PATH = "keras_module.txt"
+_KERAS_SAVE_FORMAT_PATH = "save_format.txt"
+# File name to which keras model is saved
+_MODEL_SAVE_PATH = "model"
+_PIP_ENV_SUBPATH = "requirements.txt"
 
 def get_default_pip_requirements(include_cloudpickle=False):
     """
@@ -165,6 +179,150 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         **kwargs,
     )
+
+
+def _save_keras_custom_objects(path, custom_objects):
+    """
+    Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
+
+    :param path: An absolute path that points to the data directory within /path/to/model.
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
+                           names (strings) to custom classes or functions to be considered
+                           during deserialization. MLflow saves these custom layers using
+                           CloudPickle and restores them automatically when the model is
+                           loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    """
+    import cloudpickle
+
+    custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
+    with open(custom_objects_path, "wb") as out_f:
+        cloudpickle.dump(custom_objects, out_f)
+
+
+def _save_keras_model(
+    keras_model,
+    path,
+    conda_env=None,
+    code_paths=None,
+    mlflow_model=None,
+    custom_objects=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    **kwargs,
+):
+    import tensorflow.keras.models
+
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+    if not isinstance(keras_model, tensorflow.keras.models.Model):
+        raise MlflowException("The `keras_model` argument value is not a keras model instance.")
+    keras_module = importlib.import_module("tensorflow.keras")
+
+    # check if path exists
+    path = os.path.abspath(path)
+    _validate_and_prepare_target_save_path(path)
+
+    # construct new data folder in existing path
+    data_subpath = "data"
+    data_path = os.path.join(path, data_subpath)
+    os.makedirs(data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
+    # save custom objects if there are custom objects
+    if custom_objects is not None:
+        _save_keras_custom_objects(data_path, custom_objects)
+
+    # save keras module spec to path/data/keras_module.txt
+    with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
+        f.write(keras_module.__name__)
+
+    # Use the SavedModel format if `save_format` is unspecified
+    save_format = kwargs.get("save_format", "tf")
+
+    # save keras save_format to path/data/save_format.txt
+    with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
+        f.write(save_format)
+
+    # save keras model
+    # To maintain prior behavior, when the format is HDF5, we save
+    # with the h5 file extension. Otherwise, model_path is a directory
+    # where the saved_model.pb will be stored (for SavedModel format)
+    file_extension = ".h5" if save_format == "h5" else ""
+    model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
+    model_path = os.path.join(path, model_subpath) + file_extension
+    if path.startswith("/dbfs/"):
+        # The Databricks Filesystem uses a FUSE implementation that does not support
+        # random writes. It causes an error.
+        with tempfile.NamedTemporaryFile(suffix=".h5") as f:
+            keras_model.save(f.name, **kwargs)
+            f.flush()  # force flush the data
+            shutil.copyfile(src=f.name, dst=model_path)
+    else:
+        keras_model.save(model_path, **kwargs)
+
+    # update flavor info to mlflow_model
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        keras_module=keras_module.__name__,
+        keras_version=keras_module.__version__,
+        save_format=save_format,
+        data=data_subpath,
+        code=code_dir_subpath,
+    )
+
+    # append loader_module, data and env data to mlflow_model
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.tensorflow.keras",
+        data=data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+    )
+
+    # save mlflow_model to path/MLmodel
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    include_cloudpickle = custom_objects is not None
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements(include_cloudpickle)
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))

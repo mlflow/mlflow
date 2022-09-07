@@ -192,25 +192,6 @@ def _log_keras_model(
     )
 
 
-def _save_custom_objects(path, custom_objects):
-    """
-    Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
-
-    :param path: An absolute path that points to the data directory within /path/to/model.
-    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
-                           names (strings) to custom classes or functions to be considered
-                           during deserialization. MLflow saves these custom layers using
-                           CloudPickle and restores them automatically when the model is
-                           loaded with :py:func:`mlflow.keras.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    """
-    import cloudpickle
-
-    custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
-    with open(custom_objects_path, "wb") as out_f:
-        cloudpickle.dump(custom_objects, out_f)
-
-
 def _save_keras_model(
     keras_model,
     path,
