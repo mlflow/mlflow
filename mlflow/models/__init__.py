@@ -25,6 +25,7 @@ from .model import Model
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
 from .evaluation import evaluate, EvaluationArtifact, EvaluationResult, list_evaluators
+from .utils import add_libraries_to_model
 
 __all__ = [
     "Model",
@@ -34,6 +35,7 @@ __all__ = [
     "EvaluationArtifact",
     "EvaluationResult",
     "list_evaluators",
+    "add_libraries_to_model",
 ]
 
 

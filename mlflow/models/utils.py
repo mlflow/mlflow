@@ -7,8 +7,11 @@ import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types.utils import TensorsNotSupportedException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 try:
     from scipy.sparse import csr_matrix, csc_matrix
@@ -265,15 +268,92 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
     return fig, ax
 
 
-def create_wheeled_model(artifact_path, model_uri):
+@experimental
+def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
-    Given a registered model, this helper will re-log the model along with the wheels of all the
-    the model dependencies (stored along with the model artifacts).
+    This utility function only operates on a model which has been registered to the model registry.
 
-    :param artifact_path: Run-relative artifact path.
-    :param model_uri: registered model uri of the form
+    Given the registered model_uri (models:/<model_name>/<model_version/stage/latest>), it will
+    re-log the model along with all the required model libraries back to the model registry.
+    The required model libraries will be stored along with the model as model artifacts. In
+    addition, supporting files to the model (e.g. conda.yaml, requirements.txt) will be modified
+    to use the added libraries.
+
+    The default working of this util will create a new model version under the same registered model
+    name, this behavior can be overridden by passing in a registered_model_name to the utility.
+
+    :param model_uri: A registered model uri in the model registry of the form
                         models:/<model_name>/<model_version/stage/latest>
+    :param run_id: The run_id to which the model artifacts will be stored. If None, the model
+                    artifacts will be stored in the original run_id where the inputted model version
+                    was created. Can be overridden by explicitly passing a run_id.
+    :param registered_model_name: The new model version (model with its libraries) will be
+                        registered under the inputted registered_model_name. If None, a new version
+                        will be logged to the existing model in the model registry.
+
+    .. code-block:: python
+        :caption: Example
+
+        # Create and log a model to the model registry
+
+        import pandas as pd
+        from sklearn import datasets
+        from sklearn.ensemble import RandomForestClassifier
+        import mlflow
+        import mlflow.sklearn
+        from mlflow.models.signature import infer_signature
+
+        with mlflow.start_run():
+          iris = datasets.load_iris()
+          iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+          clf = RandomForestClassifier(max_depth=7, random_state=0)
+          clf.fit(iris_train, iris.target)
+          mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
+
+        # model uri for the above model
+        model_uri = "models:/model-with-libs/1"
+
+        # Import utility
+        from mlflow.models.utils import add_libraries_to_model
+
+        # Log libraries to the original run of the model
+        add_libraries_to_model(model_uri)
+
+        # Log libraries to some run_id
+        add_libraries_to_model(model_uri, run_id=run_id)
+
+        # Log libraries to a new run
+        with mlflow.start_run():
+            add_libraries_to_model(model_uri)
+
+        # Log libraries to a new registered model named 'new-model'
+        with mlflow.start_run():
+            add_libraries_to_model(model_uri, registered_model_name="new-model")
     """
+    import mlflow
     from mlflow.models.wheeled_model import WheeledModel
 
-    WheeledModel.log_model(artifact_path, model_uri)
+    if mlflow.active_run() is None:
+        if run_id is None:
+            run_id = get_model_version_from_model_uri(model_uri).run_id
+        with mlflow.start_run(run_id):
+            WheeledModel.log_model(model_uri, registered_model_name)
+    else:
+        WheeledModel.log_model(model_uri, registered_model_name)
+
+
+def get_model_version_from_model_uri(model_uri):
+    """
+    Helper function to fetch a model version from a model uri of the form
+    models:/<model_name>/<model_version/stage/latest>.
+    """
+    import mlflow
+    from mlflow import MlflowClient
+
+    databricks_profile_uri = (
+        get_databricks_profile_uri_from_artifact_uri(model_uri) or mlflow.get_registry_uri()
+    )
+    client = MlflowClient(registry_uri=databricks_profile_uri)
+    (name, version) = get_model_name_and_version(client, model_uri)
+    model_version = client.get_model_version(name, version)
+    return model_version
