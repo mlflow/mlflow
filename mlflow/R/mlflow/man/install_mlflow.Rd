@@ -17,7 +17,7 @@ dependencies before calling other MLflow APIs.
 }
 \details{
 install_mlflow() requires Python and Conda to be installed.
-See \url{https://www.python.org/getit/} and \url{https://docs.conda.io/projects/conda/en/latest/user-guide/install/}.
+See \url{https://www.python.org/downloads/} and \url{https://docs.conda.io/projects/conda/en/latest/user-guide/install/}.
 
 Alternatively, you can set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables
 instead. MLFLOW_PYTHON_BIN should point to python executable and MLFLOW_BIN to mlflow cli
