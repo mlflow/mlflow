@@ -486,6 +486,63 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
 
+class ModelServerPyfunc:
+    def __init__(self, client):
+        self._client = client
+
+    def predict(self, _input):
+        return self._client.invoke(_input)
+
+
+def _load_model_or_server(model_uri: str, env_manager: str):
+    """
+    :param model_uri: The uri of the model.
+    :param env_manager: The env_manager to load the model
+    :return: A tuple containing, in order: the PID of the model server (for non-local env managers),
+             and the loaded PyFuncModel.
+    """
+    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+    if env_manager == _EnvManager.LOCAL:
+        return None, load_model(model_uri)
+
+    _logger.info("Starting model server for model environment restoration")
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    env_root_dir = _get_or_create_env_root_dir(False)
+    pyfunc_backend = _get_flavor_backend(
+        local_path,
+        install_mlflow=False,
+        env_manager=env_manager,
+        env_root_dir=env_root_dir,
+    )
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
+    server_port = find_free_port()
+    scoring_server_proc = pyfunc_backend.serve(
+        model_uri=local_path,
+        port=server_port,
+        host="127.0.0.1",
+        timeout=60,
+        enable_mlserver=False,
+        synchronous=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+    client = ScoringServerClient("127.0.0.1", server_port)
+    try:
+        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+    except Exception:
+        raise MlflowException("MLflow model server failed to launch")
+
+    return scoring_server_proc.pid, PyFuncModel(
+        model_meta=model_meta, model_impl=ModelServerPyfunc(client)
+    )
+
+
 def _download_model_conda_env(model_uri):
     conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
     return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))

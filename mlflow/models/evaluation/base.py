@@ -860,6 +860,7 @@ def evaluate(
     custom_metrics=None,
     validation_thresholds=None,
     baseline_model=None,
+    env_manager="local",
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -1141,13 +1142,37 @@ thresholds
                                       flavor. If specified, the candidate ``model`` is compared to
                                       this baseline for model validation purposes.
 
+    :param env_manager: The environment manager to use in order to create the python environment
+                        for model inference. Note that environment is only restored in the context
+                        of the PySpark UDF; the software environment outside of the UDF is
+                        unaffected. Default value is ``local``, and the following values are
+                        supported:
+
+                         - ``virtualenv``: (Recommended) Use virtualenv to restore the python 
+                           environment that was used to train the model.
+                         - ``conda``:  Use Conda to restore the software environment that was used 
+                           to train the model.
+                         - ``local``: Use the current Python environment for model inference, which
+                           may differ from the environment used to train the model and may lead to
+                           errors or invalid predictions.
+
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     """
-    from mlflow.pyfunc import PyFuncModel
+    import signal
+    from mlflow.pyfunc import PyFuncModel, _load_model_or_server
+    from mlflow.utils import env_manager as _EnvManager
+
+    _EnvManager.validate(env_manager)
 
     if isinstance(model, str):
-        model = mlflow.pyfunc.load_model(model)
+        candidate_model_server_pid, model = _load_model_or_server(model, env_manager)
+    elif env_manager != _EnvManager.LOCAL:
+        raise MlflowException(
+            message="The model argument must be a string URI referring to an MLflow model when a "
+            "non-local env_manager is specified.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     elif isinstance(model, PyFuncModel):
         pass
     else:
@@ -1158,7 +1183,9 @@ thresholds
         )
 
     if isinstance(baseline_model, str):
-        baseline_model = mlflow.pyfunc.load_model(baseline_model)
+        baseline_model_server_pid, baseline_model = _load_model_or_server(
+            baseline_model, env_manager
+        )
     elif baseline_model is not None:
         raise MlflowException(
             message="The baseline model argument must be a string URI referring to an "
@@ -1197,6 +1224,10 @@ thresholds
             custom_metrics=custom_metrics,
             baseline_model=baseline_model,
         )
+
+        if env_manager != _EnvManager.LOCAL:
+            os.kill(candidate_model_server_pid, signal.SIGTERM)
+            os.kill(baseline_model_server_pid, signal.SIGTERM)
 
         if not validation_thresholds:
             return evaluate_result
