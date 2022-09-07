@@ -13,7 +13,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
   const [headers, setHeaders] = useState();
   const [text, setText] = useState();
 
-  const MAX_ROW_LENGTH = 500;
+  const MAX_NUM_ROWS = 500;
 
   useEffect(() => {
     resetState();
@@ -36,7 +36,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
         try {
           const result = Papa.parse(artifactText, {
             header: true,
-            preview: MAX_ROW_LENGTH,
+            preview: MAX_NUM_ROWS,
           });
           const dataPreview = result.data;
 
