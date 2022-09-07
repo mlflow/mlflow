@@ -56,6 +56,10 @@ class _CaptureImportedModules:
         return wrapper
 
     def _record_imported_module(self, full_module_name):
+        # If the module is an internal module (prefixed by "_") or is the "databricks"
+        # module, which is populated by many different packages, don't record it (specific
+        # module imports within the databricks namespace are still recorded and mapped to
+        # their corresponding packages)
         if full_module_name.startswith("_") or full_module_name == "databricks":
             return
 
