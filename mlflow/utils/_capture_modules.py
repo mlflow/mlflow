@@ -48,6 +48,7 @@ class _CaptureImportedModules:
             ):
                 top_level_module = _get_top_level_module(name)
                 second_level_module = _get_second_level_module(name)
+                print("NAME", name, "TOP_LEVEL", top_level_module, "SECOND LEVEL", second_level_module, DATABRICKS_MODULES_TO_PACKAGES)
                 if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
                     # Multiple packages populate the `databricks` module namespace on Databricks;
                     # to avoid bundling extraneous Databricks packages into model dependencies, we
