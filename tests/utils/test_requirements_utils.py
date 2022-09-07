@@ -365,6 +365,9 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmpdir)
 
 
 def test_infer_pip_requirements_scopes_databricks_imports():
+    mlflow.utils.requirements_utils._MODULES_TO_PACKAGES = None
+    mlflow.utils.requirements_utils._PACKAGES_TO_MODULES = None
+
     with mock.patch(
         "mlflow.utils.requirements_utils._capture_imported_modules",
         return_value=[
