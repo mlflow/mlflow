@@ -343,29 +343,6 @@ def iris_pandas_df_num_cols_dataset():
 
 
 @pytest.fixture
-def iris_pandas_df_longname_cols_dataset():
-    X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
-    data = pd.DataFrame(
-        {
-            "f1": eval_X[:, 0],
-            "f2": eval_X[:, 1],
-            "f3longnamelongnamelongname": eval_X[:, 2],
-            "f4longnamelongnamelongname": eval_X[:, 3],
-            "y": eval_y,
-        }
-    )
-    constructor_args = {
-        "data": data,
-        "targets": "y",
-        "name": "iris_pandas_df_longname_cols_dataset",
-    }
-    ds = EvaluationDataset(**constructor_args)
-    ds._constructor_args = constructor_args
-    return ds
-
-
-@pytest.fixture
 def baseline_model_uri(request):
     if request.param == "linear_regressor_model_uri":
         return get_linear_regressor_model_uri()

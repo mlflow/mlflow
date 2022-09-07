@@ -9,7 +9,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -474,7 +473,7 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path)
+            pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
             pyplot.close(pyplot.gcf())
 
@@ -560,19 +559,7 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
-        for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
-                # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
-
-        truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
-
-        # For some shap explainer, the plot will use the DataFrame column names instead of
-        # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.copy_to_avoid_mutation().rename(
-            columns=truncated_feature_name_map, copy=False
-        )
+        X_df = self.X.copy_to_avoid_mutation()
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -614,7 +601,7 @@ class DefaultEvaluator(ModelEvaluator):
                     explainer = shap.Explainer(
                         shap_predict_fn,
                         sampled_X,
-                        feature_names=truncated_feature_names,
+                        feature_names=self.feature_names,
                         algorithm=algorithm,
                     )
             else:
@@ -627,19 +614,19 @@ class DefaultEvaluator(ModelEvaluator):
                     # for raw model, this case shap plot doesn't support it well, so exclude the
                     # multinomial_classifier case here.
                     explainer = shap.Explainer(
-                        self.raw_model, sampled_X, feature_names=truncated_feature_names
+                        self.raw_model, sampled_X, feature_names=self.feature_names
                     )
                 else:
                     # fallback to default explainer
                     explainer = shap.Explainer(
-                        shap_predict_fn, sampled_X, feature_names=truncated_feature_names
+                        shap_predict_fn, sampled_X, feature_names=self.feature_names
                     )
 
             _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
             if algorithm == "kernel":
                 shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=truncated_feature_names
+                    explainer.shap_values(sampled_X), feature_names=self.feature_names
                 )
             else:
                 shap_values = explainer(sampled_X)
@@ -669,9 +656,18 @@ class DefaultEvaluator(ModelEvaluator):
             )
             _logger.debug("", exc_info=True)
 
+        def _adjust_color_bar():
+            pyplot.gcf().axes[-1].set_aspect("auto")
+            pyplot.gcf().axes[-1].set_box_aspect(50)
+
+        def _adjust_axis_tick():
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
+
         def plot_beeswarm():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -679,8 +675,9 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.summary_plot(shap_values, show=False)
+            shap.summary_plot(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_summary,
@@ -688,8 +685,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_feature_importance,
