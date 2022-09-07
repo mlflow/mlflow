@@ -662,9 +662,9 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         if run_id is None:
             run_id = get_model_version_from_model_uri(model_uri).run_id
         with mlflow.start_run(run_id):
-            WheeledModel.log_model(model_uri, registered_model_name)
+            return WheeledModel.log_model(model_uri, registered_model_name)
     else:
-        WheeledModel.log_model(model_uri, registered_model_name)
+        return WheeledModel.log_model(model_uri, registered_model_name)
 
 
 def get_model_version_from_model_uri(model_uri):
