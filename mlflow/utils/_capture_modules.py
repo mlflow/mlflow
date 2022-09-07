@@ -41,7 +41,11 @@ class _CaptureImportedModules:
         @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
-            if not name.startswith("_") and is_absolute_import:
+            if (
+                not name.startswith("_") and
+                is_absolute_import and
+                name != "databricks"
+            ):
                 top_level_module = _get_top_level_module(name)
                 second_level_module = _get_second_level_module(name)
                 if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
