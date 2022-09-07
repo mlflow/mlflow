@@ -41,21 +41,8 @@ class _CaptureImportedModules:
         @functools.wraps(original)
         def wrapper(name, globals=None, locals=None, fromlist=(), level=0):
             is_absolute_import = level == 0
-            if (
-                not name.startswith("_") and
-                is_absolute_import and
-                name != "databricks"
-            ):
-                top_level_module = _get_top_level_module(name)
-                second_level_module = _get_second_level_module(name)
-                print("NAME", name, "TOP_LEVEL", top_level_module, "SECOND LEVEL", second_level_module, DATABRICKS_MODULES_TO_PACKAGES)
-                if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
-                    # Multiple packages populate the `databricks` module namespace on Databricks;
-                    # to avoid bundling extraneous Databricks packages into model dependencies, we
-                    # scope each module to its relevant package
-                    self.imported_modules.add(second_level_module)
-                else:
-                    self.imported_modules.add(top_level_module)
+            if is_absolute_import:
+                self._record_imported_module(name)
             return original(name, globals, locals, fromlist, level)
 
         return wrapper
@@ -63,12 +50,25 @@ class _CaptureImportedModules:
     def _wrap_import_module(self, original):
         @functools.wraps(original)
         def wrapper(name, *args, **kwargs):
-            if not name.startswith("_"):
-                top_level_module = _get_top_level_module(name)
-                self.imported_modules.add(top_level_module)
+            self._record_imported_module(name)
             return original(name, *args, **kwargs)
 
         return wrapper
+
+    def _record_imported_module(self, full_module_name):
+        if full_module_name.startswith("_") or full_module_name == "databricks":
+            return
+
+        top_level_module = _get_top_level_module(full_module_name)
+        second_level_module = _get_second_level_module(full_module_name)
+        print("NAME", full_module_name, "TOP_LEVEL", top_level_module, "SECOND LEVEL", second_level_module, DATABRICKS_MODULES_TO_PACKAGES)
+        if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
+            # Multiple packages populate the `databricks` module namespace on Databricks;
+            # to avoid bundling extraneous Databricks packages into model dependencies, we
+            # scope each module to its relevant package
+            self.imported_modules.add(second_level_module)
+        else:
+            self.imported_modules.add(top_level_module)
 
     def __enter__(self):
         # Patch `builtins.__import__` and `importlib.import_module`
