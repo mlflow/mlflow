@@ -491,7 +491,10 @@ class ModelServerPyfunc:
         self._client = client
 
     def predict(self, _input):
-        return self._client.invoke(_input)
+        result = self._client.invoke(_input)  # always return a Pandas DataFrame!
+        if isinstance(result, pandas.DataFrame):
+            result = result[0].values.tolist()
+        return result
 
 
 def _load_model_or_server(model_uri: str, env_manager: str):

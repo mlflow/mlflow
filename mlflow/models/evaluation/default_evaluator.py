@@ -500,6 +500,13 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.evaluator_config.get("log_model_explainability", True):
             return
 
+        if self.is_model_server:  # TODO: add configuration to enable it
+            _logger.warning(
+                "Skipping model explainability because a model server is used for environment "
+                "restoration."
+            )
+            return
+
         if self.model_loader_module == "mlflow.spark":
             # TODO: Shap explainer need to manipulate on each feature values,
             #  but spark model input dataframe contains Vector type feature column
@@ -1024,6 +1031,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.temp_dir = temp_dir
             self.model = model
             self.is_baseline_model = is_baseline_model
+
+            self.is_model_server = isinstance(model._model_impl, mlflow.pyfunc.ModelServerPyfunc)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
