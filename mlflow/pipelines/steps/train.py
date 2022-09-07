@@ -209,9 +209,12 @@ class TrainStep(BaseStep):
                             error_code=INVALID_PARAMETER_VALUE,
                         )
                 # minimize
-                algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
+                algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
+                tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
                 max_trials = tuning_params["max_trials"]
-                best_hp_params = fmin(objective, search_space, max_evals=max_trials)
+                best_hp_params = fmin(
+                    objective, search_space, algo=tuning_algo, max_evals=max_trials
+                )
                 estimator = estimator_fn(dict(estimator_hardcoded_params, **best_hp_params))
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
@@ -566,6 +569,9 @@ class TrainStep(BaseStep):
                         "'enabled' key whose value is either true or false.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+
+                if "algorithm" not in step_config["tuning"]:
+                    step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
             else:
                 step_config["tuning_enabled"] = False
 
