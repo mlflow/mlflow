@@ -78,8 +78,8 @@ class _CaptureImportedModules:
                 if full_module_name.startswith(databricks_module):
                     self.imported_modules.add(databricks_module)
                     return
-        else:
-            self.imported_modules.add(top_level_module)
+
+        self.imported_modules.add(top_level_module)
 
     def __enter__(self):
         # Patch `builtins.__import__` and `importlib.import_module`

@@ -318,47 +318,60 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
         mock_warning.assert_not_called()
 
 
-def test_capture_imported_modules_scopes_databricks_imports(request, tmpdir):
+def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmpdir):
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
-    try:
-        os.chdir(tmpdir)
-        sys.path.append(str(tmpdir))
-        databricks_dir = os.path.join(tmpdir, "databricks")
-        os.makedirs(databricks_dir)
-        for file_name in ["__init__.py", "automl.py", "model_monitoring.py", "other.py"]:
-            with open(os.path.join(databricks_dir, file_name), "w"):
-                pass
+    monkeypatch.chdir(tmpdir)
+    monkeypatch.syspath_prepend(str(tmpdir))
 
-        with _CaptureImportedModules() as cap:
-            # pylint: disable=unused-import,unused-variable
-            import databricks.automl
-            import databricks.model_monitoring
+    databricks_dir = os.path.join(tmpdir, "databricks")
+    os.makedirs(databricks_dir)
+    for file_name in [
+        "__init__.py",
+        "automl.py",
+        "automl_runtime.py",
+        "automl_foo.py",
+        "model_monitoring.py",
+        "other.py",
+    ]:
+        with open(os.path.join(databricks_dir, file_name), "w"):
+            pass
 
-        assert "databricks.automl" in cap.imported_modules
-        assert "databricks.model_monitoring" in cap.imported_modules
-        assert "databricks" not in cap.imported_modules
+    with _CaptureImportedModules() as cap:
+        # pylint: disable=unused-import,unused-variable
+        import databricks
+        import databricks.automl
+        import databricks.automl_foo
+        import databricks.automl_runtime
+        import databricks.model_monitoring
 
-        with _CaptureImportedModules() as cap:
-            # pylint: disable=unused-import,unused-variable
-            import databricks.automl
-            import databricks.model_monitoring
-            import databricks.other
+    assert "databricks.automl" in cap.imported_modules
+    assert "databricks.model_monitoring" in cap.imported_modules
+    assert "databricks" not in cap.imported_modules
+    assert "databricks.automl_foo" not in cap.imported_modules
 
-        assert "databricks.automl" in cap.imported_modules
-        assert "databricks.model_monitoring" in cap.imported_modules
-        assert "databricks" in cap.imported_modules
+    with _CaptureImportedModules() as cap:
+        # pylint: disable=unused-import,unused-variable
+        import databricks.automl
+        import databricks.automl_foo
+        import databricks.automl_runtime
+        import databricks.model_monitoring
+        import databricks.other
 
-        assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
-    finally:
-        os.chdir(request.config.invocation_dir)
-        sys.path.remove(str(tmpdir))
+    assert "databricks.automl" in cap.imported_modules
+    assert "databricks.model_monitoring" in cap.imported_modules
+    assert "databricks" in cap.imported_modules
+    assert "databricks.automl_foo" not in cap.imported_modules
 
 
 def test_infer_pip_requirements_scopes_databricks_imports():
     with mock.patch(
         "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=["databricks.automl", "databricks.model_monitoring"],
+        return_value=[
+            "databricks.automl",
+            "databricks.model_monitoring",
+            "databricks.automl_runtime",
+        ],
     ), mock.patch(
         "mlflow.utils.requirements_utils._get_installed_version",
         return_value="1.0",
