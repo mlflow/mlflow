@@ -122,12 +122,8 @@ class PredictStep(BaseStep):
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
-        # scored_sdf.coalesce(1).write.format("parquet").save(
-        #    os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
-        # )
-        
-        scored_sdf.select("*").toPandas().to_parquet(
-            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
+        scored_sdf.coalesce(1).write.format("parquet").save(
+           os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
         )
 
         scored_size = scored_sdf.count()
