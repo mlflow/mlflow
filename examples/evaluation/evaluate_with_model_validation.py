@@ -68,3 +68,6 @@ with mlflow.start_run() as run:
         custom_metrics=[double_positive],
         baseline_model=baseline_model_uri,
     )
+    # If you would like to catch model validation failures, you can add try except clauses around
+    # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top
+    # of this file.
