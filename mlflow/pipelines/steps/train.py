@@ -124,7 +124,7 @@ class TrainStep(BaseStep):
             MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
 
-        mlflow.autolog(disable=True)
+        mlflow.autolog(log_models=False)
         with mlflow.start_run(tags=tags) as run:
             if self.step_config["tuning_enabled"]:
                 # gate all HP tuning code within this condition
@@ -141,7 +141,7 @@ class TrainStep(BaseStep):
                 # wrap training in objective fn
                 def objective(args):
                     # log as a child run
-                    with mlflow.start_run(nested=True):
+                    with mlflow.start_run(tags=tags, nested=True):
                         # create unfitted estimator from yaml
                         estimator = estimator_fn(args)
                         # TODO: sample training data
