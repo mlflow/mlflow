@@ -27,10 +27,7 @@ mlflow_save_model.xgb.Booster <- function(model,
   pyfunc_conf <- create_pyfunc_conf(
     loader_module = "mlflow.xgboost",
     data = model_data_subpath,
-    env = list(
-      conda = conda_env,
-      virtualenv = python_env,
-    )
+    env = list(conda = conda_env, virtualenv = python_env)
   )
   model_spec$flavors <- append(append(model_spec$flavors, xgboost_conf), pyfunc_conf)
 

@@ -41,10 +41,7 @@ mlflow_save_model.H2OModel <- function(model,
   pyfunc_conf <- create_pyfunc_conf(
     loader_module = "mlflow.h2o",
     data = model_data_subpath,
-    env = list(
-      conda = conda_env,
-      virtualenv = python_env,
-    )
+    env = list(conda = conda_env, virtualenv = python_env)
   )
   model_spec$flavors <- c(model_spec$flavors, h2o_conf, pyfunc_conf)
   mlflow_write_model_spec(path, model_spec)

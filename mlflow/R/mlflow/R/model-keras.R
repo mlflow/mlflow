@@ -24,10 +24,8 @@ mlflow_save_model.keras.engine.training.Model <- function(model,
   pyfunc_conf <- create_pyfunc_conf(
     loader_module = "mlflow.keras",
     data = "model.h5",
-    env = list(
-      conda = conda_env,
-      virtualenv = python_env,
-    ))
+    env = list(conda = conda_env, virtualenv = python_env),
+  )
   model_spec$flavors <- append(append(model_spec$flavors, keras_conf), pyfunc_conf)
   mlflow_write_model_spec(path, model_spec)
 
