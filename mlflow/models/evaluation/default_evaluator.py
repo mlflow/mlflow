@@ -1092,11 +1092,14 @@ class DefaultEvaluator(ModelEvaluator):
         if evaluator_config.get("_disable_candidate_model", False):
             evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
         else:
+            if baseline_model:
+                _logger.info("Evaluating candidate model:")
             evaluation_result = self._evaluate(model, is_baseline_model=False)
 
         if not baseline_model:
             return evaluation_result
 
+        _logger.info("Evaluating baseline model:")
         baseline_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
 
         return EvaluationResult(
