@@ -144,14 +144,13 @@ class TrainStep(BaseStep):
                     with mlflow.start_run(tags=tags, nested=True):
                         # create unfitted estimator from yaml
                         estimator = estimator_fn(args)
-                        # TODO: sample training data
-                        sample_fraction = (  # pylint: disable=unused-variable
-                            tuning_params["sample_fraction"]
+                        sample_fraction = (
+                            float(tuning_params["sample_fraction"])
                             if "sample_fraction" in tuning_params
-                            else 1
+                            else 1.0
                         )
-                        X_train_sampled = X_train
-                        y_train_sampled = y_train
+                        X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
+                        y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
                         # fit estimator to training
                         estimator.fit(X_train_sampled, y_train_sampled)
                         if hasattr(estimator, "best_score_P"):
