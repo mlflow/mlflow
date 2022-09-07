@@ -53,7 +53,6 @@ from tests.models.test_evaluation import (
     iris_dataset,
     iris_pandas_df_dataset,
     iris_pandas_df_num_cols_dataset,
-    iris_pandas_df_longname_cols_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
     spark_linear_regressor_model_uri,
@@ -148,7 +147,7 @@ def test_regressor_evaluation(
     diabetes_dataset,
     baseline_model_uri,
 ):
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         result = evaluate_model_helper(
             linear_regressor_model_uri,
             baseline_model_uri,
@@ -674,14 +673,6 @@ def test_default_explainer_pandas_df_num_cols(
 ):
     _evaluate_explainer_with_exceptions(
         multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
-    )
-
-
-def test_default_explainer_pandas_df_longname_cols(
-    multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
-):
-    _evaluate_explainer_with_exceptions(
-        multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
     )
 
 
