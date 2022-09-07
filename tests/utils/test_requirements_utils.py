@@ -368,10 +368,8 @@ def test_infer_pip_requirements_scopes_databricks_imports():
             "databricks": ["databricks-automl-runtime", "databricks-model-monitoring", "koalas"],
         },
     ):
-        assert (
-            _infer_requirements("path/to/model", "sklearn") == [
-                "databricks-automl-runtime==1.0",
-                "databricks-model-monitoring==1.0",
-            ]
-        )
+        assert _infer_requirements("path/to/model", "sklearn") == [
+            "databricks-automl-runtime==1.0",
+            "databricks-model-monitoring==1.0",
+        ]
         assert mlflow.utils.requirements_utils._MODULES_TO_PACKAGES["databricks"] == ["koalas"]
