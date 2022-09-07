@@ -126,6 +126,7 @@ class TrainStep(BaseStep):
 
         mlflow.autolog(log_models=False)
         with mlflow.start_run(tags=tags) as run:
+            estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
                 # gate all HP tuning code within this condition
                 tuning_params = self.step_config["tuning"]
@@ -139,11 +140,13 @@ class TrainStep(BaseStep):
                     )
 
                 # wrap training in objective fn
-                def objective(args):
+                def objective(hyperparameter_args):
                     # log as a child run
                     with mlflow.start_run(tags=tags, nested=True):
                         # create unfitted estimator from yaml
-                        estimator = estimator_fn(args)
+                        estimator = estimator_fn(
+                            dict(estimator_hardcoded_params, **hyperparameter_args)
+                        )
                         sample_fraction = (
                             float(tuning_params["sample_fraction"])
                             if "sample_fraction" in tuning_params
@@ -209,9 +212,9 @@ class TrainStep(BaseStep):
                 algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
                 max_trials = tuning_params["max_trials"]
                 best_hp_params = fmin(objective, search_space, max_evals=max_trials)
-                estimator = estimator_fn(best_hp_params)
+                estimator = estimator_fn(dict(estimator_hardcoded_params, **best_hp_params))
             else:
-                estimator = estimator_fn()
+                estimator = estimator_fn(estimator_hardcoded_params)
 
             estimator.fit(X_train, y_train)
 
@@ -565,6 +568,9 @@ class TrainStep(BaseStep):
                     )
             else:
                 step_config["tuning_enabled"] = False
+
+            if "estimator_params" not in step_config:
+                step_config["estimator_params"] = {}
 
             step_config.update(
                 get_pipeline_tracking_config(
