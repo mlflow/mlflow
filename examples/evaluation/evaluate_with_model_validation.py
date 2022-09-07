@@ -67,6 +67,7 @@ with mlflow.start_run() as run:
         validation_thresholds=thresholds,
         custom_metrics=[double_positive],
         baseline_model=baseline_model_uri,
+        env_manager="conda",
     )
     # If you would like to catch model validation failures, you can add try except clauses around
     # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top

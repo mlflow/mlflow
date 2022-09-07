@@ -1214,20 +1214,21 @@ thresholds
     )
 
     with _start_run_or_reuse_active_run() as run_id:
-        evaluate_result = _evaluate(
-            model=model,
-            model_type=model_type,
-            dataset=dataset,
-            run_id=run_id,
-            evaluator_name_list=evaluator_name_list,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-            custom_metrics=custom_metrics,
-            baseline_model=baseline_model,
-        )
-
-        if env_manager != _EnvManager.LOCAL:
-            os.kill(candidate_model_server_pid, signal.SIGTERM)
-            os.kill(baseline_model_server_pid, signal.SIGTERM)
+        try:
+            evaluate_result = _evaluate(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=run_id,
+                evaluator_name_list=evaluator_name_list,
+                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+                custom_metrics=custom_metrics,
+                baseline_model=baseline_model,
+            )
+        finally:
+            if env_manager != _EnvManager.LOCAL:
+                os.kill(candidate_model_server_pid, signal.SIGTERM)
+                os.kill(baseline_model_server_pid, signal.SIGTERM)
 
         if not validation_thresholds:
             return evaluate_result

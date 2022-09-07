@@ -79,7 +79,9 @@ def _extract_raw_model(model):
     """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
-        if model_loader_module == "mlflow.sklearn":
+        if model_loader_module == "mlflow.sklearn" and not isinstance(
+            model._model_impl, mlflow.pyfunc.ModelServerPyfunc
+        ):
             raw_model = model._model_impl
         else:
             raw_model = None
@@ -694,7 +696,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_sklearn_model_score_if_scorable(self):
-        if self.model_loader_module == "mlflow.sklearn":
+        if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
             try:
                 score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y)
                 self.metrics["score"] = score
