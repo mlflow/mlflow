@@ -65,7 +65,8 @@ class _CaptureImportedModules:
 
         top_level_module = _get_top_level_module(full_module_name)
         second_level_module = _get_second_level_module(full_module_name)
-        print("NAME", full_module_name, "TOP_LEVEL", top_level_module, "SECOND LEVEL", second_level_module, DATABRICKS_MODULES_TO_PACKAGES)
+        if top_level_module == "databricks" and second_level_module not in ["databricks.automl", "databricks.model_monitoring"]:
+            raise Exception("UNEXPECTED: " + str(second_level_module))
         if second_level_module in DATABRICKS_MODULES_TO_PACKAGES:
             # Multiple packages populate the `databricks` module namespace on Databricks;
             # to avoid bundling extraneous Databricks packages into model dependencies, we
