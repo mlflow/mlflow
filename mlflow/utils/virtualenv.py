@@ -167,7 +167,7 @@ def _get_python_env_file(model_config):
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
             env = config.get(mlflow.pyfunc.ENV)
             if env:
-                return env[EnvType.PYTHON]
+                return env[EnvType.VIRTUALENV]
     return _PYTHON_ENV_FILE_NAME
 
 
