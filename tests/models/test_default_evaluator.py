@@ -53,7 +53,6 @@ from tests.models.test_evaluation import (
     iris_dataset,
     iris_pandas_df_dataset,
     iris_pandas_df_num_cols_dataset,
-    iris_pandas_df_longname_cols_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
     spark_linear_regressor_model_uri,
@@ -673,14 +672,6 @@ def test_default_explainer_pandas_df_num_cols(
 ):
     _evaluate_explainer_with_exceptions(
         multiclass_logistic_regressor_model_uri, iris_pandas_df_num_cols_dataset
-    )
-
-
-def test_default_explainer_pandas_df_longname_cols(
-    multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
-):
-    _evaluate_explainer_with_exceptions(
-        multiclass_logistic_regressor_model_uri, iris_pandas_df_longname_cols_dataset
     )
 
 
@@ -1514,29 +1505,6 @@ def test_autologging_is_disabled_during_evaluate(model):
         assert duplicate_metrics == []
     finally:
         mlflow.sklearn.autolog(disable=True)
-
-
-def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, diabetes_dataset):
-    evaluate(
-        linear_regressor_model_uri,
-        diabetes_dataset._constructor_args["data"],
-        model_type="regressor",
-        targets=diabetes_dataset._constructor_args["targets"],
-        dataset_name=diabetes_dataset.name,
-        feature_names=[
-            "f1",
-            "f2",
-            "f3longnamelongnamelongname",
-            "f4",
-            "f5",
-            "f6",
-            "f7longlonglonglong",
-            "f8",
-            "f9",
-            "f10",
-        ],
-        evaluators="default",
-    )
 
 
 def test_evaluation_works_with_model_pipelines_that_modify_input_data():
