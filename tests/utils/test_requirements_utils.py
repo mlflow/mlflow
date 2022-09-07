@@ -7,6 +7,7 @@ import importlib_metadata
 import pytest
 
 import mlflow
+import mlflow.utils.requirements_utils
 from mlflow.utils.requirements_utils import (
     _is_comment,
     _is_empty,
@@ -315,3 +316,62 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
     ) as mock_warning:
         _infer_requirements("path/to/model", "sklearn")
         mock_warning.assert_not_called()
+
+
+def test_capture_imported_modules_scopes_databricks_imports(request, tmpdir):
+    from mlflow.utils._capture_modules import _CaptureImportedModules
+
+    try:
+        os.chdir(tmpdir)
+        sys.path.append(str(tmpdir))
+        databricks_dir = os.path.join(tmpdir, "databricks")
+        os.makedirs(databricks_dir)
+        for file_name in ["__init__.py", "automl.py", "model_monitoring.py", "other.py"]:
+            with open(os.path.join(databricks_dir, file_name), "w"):
+                pass
+
+        with _CaptureImportedModules() as cap:
+            # pylint: disable=unused-import,unused-variable
+            import databricks.automl
+            import databricks.model_monitoring
+
+        assert "databricks.automl" in cap.imported_modules
+        assert "databricks.model_monitoring" in cap.imported_modules
+        assert "databricks" not in cap.imported_modules
+
+        with _CaptureImportedModules() as cap:
+            # pylint: disable=unused-import,unused-variable
+            import databricks.automl
+            import databricks.model_monitoring
+            import databricks.other
+
+        assert "databricks.automl" in cap.imported_modules
+        assert "databricks.model_monitoring" in cap.imported_modules
+        assert "databricks" in cap.imported_modules
+
+        assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
+    finally:
+        os.chdir(request.config.invocation_dir)
+        sys.path.remove(str(tmpdir))
+
+
+def test_infer_pip_requirements_scopes_databricks_imports():
+    with mock.patch(
+        "mlflow.utils.requirements_utils._capture_imported_modules",
+        return_value=["databricks.automl", "databricks.model_monitoring"],
+    ), mock.patch(
+        "mlflow.utils.requirements_utils._get_installed_version",
+        return_value="1.0",
+    ), mock.patch(
+        "importlib_metadata.packages_distributions",
+        return_value={
+            "databricks": ["databricks-automl-runtime", "databricks-model-monitoring", "koalas"],
+        },
+    ):
+        assert (
+            _infer_requirements("path/to/model", "sklearn") == [
+                "databricks-automl-runtime==1.0",
+                "databricks-model-monitoring==1.0",
+            ]
+        )
+        assert mlflow.utils.requirements_utils._MODULES_TO_PACKAGES["databricks"] == ["koalas"]
