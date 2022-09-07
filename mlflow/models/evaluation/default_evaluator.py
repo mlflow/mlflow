@@ -312,8 +312,7 @@ _matplotlib_config = {
     "figure.dpi": 175,
     "figure.figsize": [6.0, 4.0],
     "figure.autolayout": True,
-    "font.size": 4,
-    "legend.title_fontsize": "medium"
+    "font.size": 8,
 }
 
 
@@ -473,8 +472,6 @@ class DefaultEvaluator(ModelEvaluator):
 
         try:
             pyplot.clf()
-            pyplot.xticks(fontsize=10)
-            pyplot.yticks(fontsize=10)
             do_plot()
             pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
@@ -660,12 +657,17 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
 
         def _adjust_color_bar():
-            pyplot.gcf().axes[-1].set_aspect('auto')
+            pyplot.gcf().axes[-1].set_aspect("auto")
             pyplot.gcf().axes[-1].set_box_aspect(50)
+
+        def _adjust_axis_tick():
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
 
         def plot_beeswarm():
             shap.plots.beeswarm(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -675,6 +677,7 @@ class DefaultEvaluator(ModelEvaluator):
         def plot_summary():
             shap.summary_plot(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_summary,
@@ -683,6 +686,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         def plot_feature_importance():
             shap.plots.bar(shap_values, show=False)
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_feature_importance,

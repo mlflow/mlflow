@@ -147,7 +147,7 @@ def test_regressor_evaluation(
     diabetes_dataset,
     baseline_model_uri,
 ):
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         result = evaluate_model_helper(
             linear_regressor_model_uri,
             baseline_model_uri,
@@ -645,7 +645,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
 
 
 def _evaluate_explainer_with_exceptions(model_uri, dataset):
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         evaluate(
             model_uri,
             dataset._constructor_args["data"],
