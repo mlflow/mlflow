@@ -42,7 +42,7 @@ Details
 -------
 
 install_mlflow() requires Python and Conda to be installed. See
-https://www.python.org/getit/ and
+https://www.python.org/downloads/ and
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
 
 Alternatively, you can set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment
