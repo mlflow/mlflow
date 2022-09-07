@@ -3,10 +3,17 @@ import logging
 import os
 import posixpath
 import requests
+import sys
 import uuid
 from collections import namedtuple
 
-from mlflow.azure.client import put_block, put_block_list
+from mlflow.azure.client import (
+    put_adls_file_creation,
+    patch_adls_file_upload,
+    patch_adls_flush,
+    put_block,
+    put_block_list,
+)
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -231,6 +238,38 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
+    def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
+        """
+        Uploads a file to a given Azure storage location using the ADLS gen2 API.
+        """
+        try:
+            headers = self._extract_headers_from_credentials(credentials.headers)
+
+            # try to create the file
+            try:
+                put_adls_file_creation(credentials.signed_uri, headers=headers)
+            except requests.HTTPError as e:
+                raise e
+
+            # next try to patch the file
+            offset = 0
+            for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
+                try:
+                    patch_adls_file_upload(
+                        credentials.signed_uri, chunk, str(offset), headers=headers
+                    )
+                    offset += sys.getsizeof(chunk)
+                except requests.HTTPError as e:
+                    raise e
+
+            # finally flush the file
+            try:
+                patch_adls_flush(credentials.signed_uri, str(offset), headers=headers)
+            except requests.HTTPError as e:
+                raise e
+        except Exception as err:
+            raise MlflowException(err)
+
     def _signed_url_upload_file(self, credentials, local_file):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
@@ -259,6 +298,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(
+                cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+            )
+        elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+            self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type in [

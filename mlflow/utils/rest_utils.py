@@ -299,9 +299,9 @@ def cloud_storage_http_request(
     **kwargs,
 ):
     """
-    Performs an HTTP PUT/GET request using Python's `requests` module with automatic retry.
+    Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
 
-    :param method: string of 'PUT' or 'GET', specify to do http PUT or GET
+    :param method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH
     :param url: the target URL address for the HTTP request.
     :param max_retries: maximum number of retries before throwing an exception.
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
@@ -314,7 +314,7 @@ def cloud_storage_http_request(
 
     :return requests.Response object.
     """
-    if method.lower() not in ("put", "get"):
+    if method.lower() not in ("put", "get", "patch"):
         raise ValueError("Illegal http method: " + method)
     try:
         with _get_http_response_with_retries(
