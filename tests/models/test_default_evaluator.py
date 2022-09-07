@@ -657,7 +657,6 @@ def _evaluate_explainer_with_exceptions(model_uri, dataset):
                 "ignore_exceptions": False,
             },
         )
-    print(f"runid={run.info.run_id}\n")
 
 
 def test_default_explainer_pandas_df_str_cols(
