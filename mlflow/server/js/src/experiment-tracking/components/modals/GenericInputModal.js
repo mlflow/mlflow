@@ -89,6 +89,7 @@ export class GenericInputModal extends Component {
 
     return (
       <Modal
+        data-testid='mlflow-input-modal'
         className={this.props.className}
         title={this.props.title}
         width={540}
