@@ -283,6 +283,7 @@ def _capture_imported_modules(model_uri, flavor):
 
 DATABRICKS_MODULES_TO_PACKAGES = {
     "databricks.automl": ["databricks-automl-runtime"],
+    "databricks.automl_runtime": ["databricks-automl-runtime"],
     "databricks.model_monitoring": ["databricks-model-monitoring"],
 }
 _MODULES_TO_PACKAGES = None

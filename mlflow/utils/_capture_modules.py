@@ -74,7 +74,6 @@ class _CaptureImportedModules:
                 self.imported_modules.add(second_level_module)
                 return
 
-
             for databricks_module in DATABRICKS_MODULES_TO_PACKAGES:
                 if full_module_name.startswith(databricks_module):
                     self.imported_modules.add(databricks_module)
