@@ -16,6 +16,7 @@ import atexit
 import tempfile
 from collections import namedtuple
 import pandas
+import tensorflow
 from packaging.version import Version
 from threading import RLock
 import numpy as np
@@ -181,9 +182,9 @@ def save_model(
     **kwargs,
 ):
     """
-    Save a Keras model to a path on the local file system.
+    Save a Keras model or a Tensorflow module to a path on the local file system.
 
-    :param model: The Keras model to be saved.
+    :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
@@ -218,20 +219,24 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``model.save`` method.
     """
-    mlflow_keras._save_keras_model(
-        keras_model=model,
-        path=path,
-        custom_objects=custom_objects,
-        mlflow_model=mlflow_model,
-        conda_env=conda_env,
-        code_paths=code_paths,
-        signature=signature,
-        input_example=input_example,
-        pip_requirements=pip_requirements,
-        extra_pip_requirements=extra_pip_requirements,
-        **kwargs,
-    )
-
+    if isinstance(model, tensorflow.Module):
+        tensorflow.saved_model.save
+    elif isinstance(model, tensorflow.keras.Model):
+        mlflow_keras._save_keras_model(
+            keras_model=model,
+            path=path,
+            custom_objects=custom_objects,
+            mlflow_model=mlflow_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            **kwargs,
+        )
+    else:
+        raise MlflowException(f"Unknown model type: {type(model)}")
 
 def load_model(model_uri, dst_path=None, **kwargs):
     """
