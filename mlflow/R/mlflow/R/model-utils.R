@@ -31,10 +31,7 @@ create_python_env <- function(model_path,
                               dependencies,
                               build_dependencies = list("pip", "setuptools", "wheel")) {
   python_env_file_name <- "python_env.yaml"
-  deps <- list(
-    build_dependencies = build_dependencies,
-    dependencies = dependencies,
-  )
+  deps <- list(build_dependencies = build_dependencies, dependencies = dependencies)
   write_yaml(deps, file.path(model_path, python_env_file_name))
   python_env_file_name
 }
