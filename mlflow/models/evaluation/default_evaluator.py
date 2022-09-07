@@ -664,7 +664,6 @@ class DefaultEvaluator(ModelEvaluator):
             pyplot.gcf().axes[-1].set_box_aspect(50)
 
         def plot_beeswarm():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.beeswarm(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
 
@@ -674,7 +673,6 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.summary_plot(shap_values, show=False, color_bar=True)
             _adjust_color_bar()
 
@@ -684,7 +682,6 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
 
         self._log_image_artifact(
