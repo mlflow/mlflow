@@ -1,3 +1,4 @@
+from dis import dis
 import importlib
 import logging
 import os
@@ -124,7 +125,7 @@ class TrainStep(BaseStep):
             MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
 
-        mlflow.autolog(log_models=False)
+        mlflow.autolog(disable=True)
         with mlflow.start_run(tags=tags) as run:
             if self.step_config["tuning_enabled"]:
                 # gate all HP tuning code within this condition
