@@ -39,28 +39,16 @@ from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-
-import keras
-
-# pylint: disable=no-name-in-module,reimported
-keras_version = Version(keras.__version__)
-if keras_version >= Version("2.6.0"):
-    from tensorflow import keras
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Layer, Dense
-    from tensorflow.keras import backend as K
-    from tensorflow.keras.optimizers import SGD
-else:
-    from keras.models import Sequential
-    from keras.layers import Layer, Dense
-    from keras import backend as K
-    from keras.optimizers import SGD
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Layer, Dense
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import SGD
 
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("keras") else ["--env-manager", "local"]
 )
-extra_pip_requirements = [PROTOBUF_REQUIREMENT] if keras_version < Version("2.6.0") else []
+extra_pip_requirements = [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
 
 
 @pytest.fixture(scope="module", autouse=True)
