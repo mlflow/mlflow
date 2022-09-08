@@ -1263,6 +1263,8 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
+.. _model-validation:
+
 Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

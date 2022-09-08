@@ -953,6 +953,17 @@ def evaluate(
         - The evaluation dataset label values must be numeric or boolean, all feature values
           must be numeric, and each feature column must only contain scalar values.
 
+     - Limitations when the model is loaded with a non-local ``env_manager``:
+        - When environment restoration is enabled, the model that is passed to the default evaluator
+          becomes a scoring server client, which invokes a model scoring server in an independent 
+          Python environment with the model's training time dependencies installed. As such, methods
+          like ``predict_proba`` (for probability outputs) or ``score`` (computes the evaluation 
+          criterian for sklearn models) of the model become inaccessible and the default evaluator 
+          does not compute metrics/artifacts that require those methods.
+        - Because the model is a client, shap explainations become quite slow. As such, model 
+          explainaibility is disabled when a non-local ``env_manager`` specified, unless the 
+          ``evaluator_config`` option **log_model_explainability** is explicitly set to `True`.
+
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param data: One of the following:
@@ -1137,16 +1148,18 @@ thresholds
                                                          baseline_model=your_baseline_model
 
                                                      )
+                                            
+                                            See :ref:`the Model Validation documentation \
+<model-validation>` for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
                                       flavor. If specified, the candidate ``model`` is compared to
                                       this baseline for model validation purposes.
 
-    :param env_manager: The environment manager to use in order to create the python environment
-                        for model inference. Note that environment is only restored in the context
-                        of the PySpark UDF; the software environment outside of the UDF is
-                        unaffected. Default value is ``local``, and the following values are
-                        supported:
+    :param env_manager: Specify an environment manager to load the candidate ``model`` and
+                        ``baseline_model`` in isolated Python evironments where their training time 
+                        dependencies are restored. Default value is ``local``, and the following 
+                        values are supported:
 
                          - ``virtualenv``: (Recommended) Use virtualenv to restore the python 
                            environment that was used to train the model.
