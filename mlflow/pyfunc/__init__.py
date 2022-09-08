@@ -486,10 +486,13 @@ def load_model(
 
 def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     model_dir = _download_artifact_from_uri(model_uri)
-    conda_yaml_filename = _get_flavor_configuration_from_ml_model_file(
-        os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
-    )[ENV]
-    conda_yaml_path = os.path.join(model_dir, conda_yaml_filename)
+
+    def get_conda_yaml_path():
+        model_config = _get_flavor_configuration_from_ml_model_file(
+            os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
+        )
+        return os.path.join(model_dir, model_config[ENV])
+
     if format == "pip":
         requirements_file = os.path.join(model_dir, _REQUIREMENTS_FILE_NAME)
         if os.path.exists(requirements_file):
@@ -501,7 +504,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
             " dependencies will be ignored."
         )
 
-        with open(conda_yaml_path, "r") as yf:
+        with open(get_conda_yaml_path(), "r") as yf:
             conda_yaml = yaml.safe_load(yf)
 
         conda_deps = conda_yaml.get("dependencies", [])
@@ -530,7 +533,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         return pip_file_path
 
     elif format == "conda":
-        return conda_yaml_path
+        return get_conda_yaml_path()
     else:
         raise MlflowException(
             f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
