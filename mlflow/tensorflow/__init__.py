@@ -69,7 +69,6 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
-from mlflow.tensorflow import keras as mlflow_keras
 
 FLAVOR_NAME = "tensorflow"
 
@@ -464,6 +463,23 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
         return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
 
 
+def _get_flavor_conf(model_conf):
+    if "keras" in model_conf.flavors:
+        return model_conf.flavors["keras"]
+    return model_conf.flavors[FLAVOR_NAME]
+
+
+def _infer_model_type(model_conf):
+    model_type = _get_flavor_conf(model_conf).get("model_type")
+    if model_type is not None:
+        return model_type
+    # Loading model logged by old version mlflow, which deos not record model_type
+    # Inferring model type by checking whether model_conf contains "keras" flavor.
+    if "keras" in model_conf.flavors:
+        return _MODEL_TYPE_KERAS
+    return _MODEL_TYPE_TF1_ESTIMATOR
+
+
 def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
@@ -505,19 +521,15 @@ def load_model(model_uri, dst_path=None, **kwargs):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
 
+    flavor_conf = _get_flavor_conf(model_conf)
+
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-    model_type = model_conf.flavors.get("model_type")
-    if model_type is None:
-        if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
-            model_type = _MODEL_TYPE_KERAS
-        else:
-            model_type = _MODEL_TYPE_TF1_ESTIMATOR
+    model_type = _infer_model_type(model_conf)
 
     if model_type == _MODEL_TYPE_KERAS:
         keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
@@ -536,7 +548,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
         tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
         tf_signature_def_key = flavor_conf["signature_def_key"]
-        return _load_tensorflow_saved_model(
+        return _load_tf1_estimator_saved_model(
             tf_saved_model_dir=tf_saved_model_dir,
             tf_meta_graph_tags=tf_meta_graph_tags,
             tf_signature_def_key=tf_signature_def_key,
@@ -548,7 +560,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     raise MlflowException("Unknown model_type.")
 
 
-def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
+def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
     Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
     from a serialized TensorFlow ``SavedModel`` collection.
@@ -589,14 +601,6 @@ def _load_pyfunc(path, *, model_type):
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
     import tensorflow
-
-    if model_type is None:
-        # Loading pyfunc model logged by old version mlflow, which deos not record model_type
-        # Inferring model type by checking whether "tfmodel" directory exists.
-        if os.path.exists(os.path.join(path, "tfmodel")):
-            model_type = "tf1-estimator"
-        else:
-            model_type = "keras"
 
     if model_type == _MODEL_TYPE_KERAS:
         if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
