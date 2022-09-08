@@ -96,6 +96,11 @@ _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
 
+_MODEL_TYPE_KERAS = "keras"
+_MODEL_TYPE_TF1_ESTIMATOR = "tf1-estimator"
+_MODEL_TYPE_TF2_MODULE = "tf2-module"
+
+
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -115,15 +120,6 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
-
-
-def _get_model_type(model_conf):
-    # model_type: tf1-estimator / tf2-module / keras
-    if "model_type" in model_conf.flavors:
-        return model_conf.flavors["model_type"]
-    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
-        return "keras"
-    return "tf1-estimator"
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -307,10 +303,6 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    data_subpath = "data"
-    # construct new data folder in existing path
-    data_path = os.path.join(path, data_subpath)
-    os.makedirs(data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -320,17 +312,24 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-
     if isinstance(model, tensorflow.Module):
-        model_path = os.path.join(path, model_subpath)
+        model_dir_subpath = "tf2model"
+        model_path = os.path.join(path, model_dir_subpath)
         tensorflow.saved_model.save(
             model, model_path, signature=tf_module_signatures, options=tf_module_options
         )
-        flavor_options = {
-            "model_type": "tf2-module"
+        pyfunc_options = {
+            "saved_model_dir": model_dir_subpath,
+            "model_type": _MODEL_TYPE_TF2_MODULE
         }
+        flavor_options = pyfunc_options.copy()
     elif isinstance(model, tensorflow.keras.Model):
+        data_subpath = "data"
+        # construct new data folder in existing path
+        data_path = os.path.join(path, data_subpath)
+        os.makedirs(data_path)
+        model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
+
         keras_module = importlib.import_module("tensorflow.keras")
         # save custom objects if there are custom objects
         if custom_objects is not None:
@@ -363,8 +362,12 @@ def save_model(
         else:
             model.save(model_path, **kwargs)
 
+        pyfunc_options = {
+            "model_type": _MODEL_TYPE_KERAS,
+            "data": data_subpath,
+        }
         flavor_options = {
-            "model_type": "keras",
+            **pyfunc_options,
             "keras_module": keras_module.__name__,
             "keras_version": keras_module.__version__,
             "save_format": save_format,
@@ -375,7 +378,6 @@ def save_model(
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        data=data_subpath,
         code=code_dir_subpath,
         **flavor_options
     )
@@ -387,6 +389,7 @@ def save_model(
         data=data_subpath,
         env=_CONDA_ENV_FILE_NAME,
         code=code_dir_subpath,
+        **pyfunc_options
     )
 
     # save mlflow_model to path/MLmodel
@@ -507,35 +510,40 @@ def load_model(model_uri, dst_path=None, **kwargs):
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
 
-    model_type = _get_model_type(model_conf)
-
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    model_path = os.path.join(
-        local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
-    )
-    if model_type == "keras":
+
+    model_type = model_conf.flavors.get("model_type")
+    if model_type is None:
+        if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
+            model_type = _MODEL_TYPE_KERAS
+        else:
+            model_type = _MODEL_TYPE_TF1_ESTIMATOR
+
+    if model_type == _MODEL_TYPE_KERAS:
         keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
         # For backwards compatibility, we assume h5 when the save_format is absent
         save_format = flavor_conf.get("save_format", "h5")
+        model_path = os.path.join(
+            local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
+        )
         return _load_keras_model(
             model_path=model_path,
             keras_module=keras_module,
             save_format=save_format,
             **kwargs,
         )
-    if model_type == "tf1-estimator":
-        (
-            tf_saved_model_dir,
-            tf_meta_graph_tags,
-            tf_signature_def_key,
-        ) = _parse_flavor_configuration(flavor_conf, local_model_path)
+    if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
+        tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
+        tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
+        tf_signature_def_key = flavor_conf["signature_def_key"]
         return _load_tensorflow_saved_model(
             tf_saved_model_dir=tf_saved_model_dir,
             tf_meta_graph_tags=tf_meta_graph_tags,
             tf_signature_def_key=tf_signature_def_key,
         )
-    if model_type == "tf2-module":
-        return tensorflow.saved_model.load(model_path)
+    if model_type == _MODEL_TYPE_TF2_MODULE:
+        tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
+        return tensorflow.saved_model.load(tf_saved_model_dir)
 
     raise MlflowException("Unknown model_type.")
 
@@ -572,26 +580,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
     return loaded_sig[tf_signature_def_key]
 
 
-def _parse_flavor_configuration(flavor_conf, model_path):
-    """
-    :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
-    :return: A triple containing the following elements:
-
-             - ``tf_saved_model_dir``: The local filesystem path to the underlying TensorFlow
-                                       SavedModel directory.
-             - ``tf_meta_graph_tags``: A list of tags identifying the TensorFlow model's metagraph
-                                       within the serialized ``SavedModel`` object.
-             - ``tf_signature_def_key``: A string identifying the input/output signature associated
-                                         with the model. This is a key within the serialized
-                                         ``SavedModel``'s signature definition mapping.
-    """
-    tf_saved_model_dir = os.path.join(model_path, flavor_conf["saved_model_dir"])
-    tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
-    tf_signature_def_key = flavor_conf["signature_def_key"]
-    return tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key
-
-
-def _load_pyfunc(path):
+def _load_pyfunc(path, *, model_type):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
@@ -601,11 +590,15 @@ def _load_pyfunc(path):
     """
     import tensorflow
 
-    model_configuration_path = os.path.join(path, MLMODEL_FILE_NAME)
-    model_conf = Model.load(model_configuration_path)
-    model_type = _get_model_type(model_conf)
+    if model_type is None:
+        # Loading pyfunc model logged by old version mlflow, which deos not record model_type
+        # Inferring model type by checking whether "tfmodel" directory exists.
+        if os.path.exists(os.path.join(path, "tfmodel")):
+            model_type = "tf1-estimator"
+        else:
+            model_type = "keras"
 
-    if model_type == "keras":
+    if model_type == _MODEL_TYPE_KERAS:
         if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
             with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
                 keras_module = importlib.import_module(f.read())
@@ -632,20 +625,21 @@ def _load_pyfunc(path):
             return _KerasModelWrapper(m, None, None)
         else:
             raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
-    if model_type == "tf1-estimator":
+    if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
-        (
-            tf_saved_model_dir,
-            tf_meta_graph_tags,
-            tf_signature_def_key,
-        ) = _parse_flavor_configuration(flavor_conf, path)
+
+        tf_saved_model_dir = os.path.join(path, flavor_conf["saved_model_dir"])
+        tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
+        tf_signature_def_key = flavor_conf["signature_def_key"]
 
         loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
             export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
         )
         return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
-    if model_type == "tf2-module":
-        return tensorflow.saved_model.load(model_path)
+    if model_type == _MODEL_TYPE_TF2_MODULE:
+        flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
+        tf_saved_model_dir = os.path.join(path, flavor_conf["saved_model_dir"])
+        return tensorflow.saved_model.load(tf_saved_model_dir)
 
     raise MlflowException("Unknown model_type.")
 
