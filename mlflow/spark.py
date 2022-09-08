@@ -231,7 +231,7 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB),
+        append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
