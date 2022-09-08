@@ -242,10 +242,9 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
+    _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -485,30 +484,27 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
 
-def _download_model_conda_env(model_uri):
-    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
-    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
-
-
 def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    model_dir = _download_artifact_from_uri(model_uri)
+    conda_yaml_filename = _get_flavor_configuration_from_ml_model_file(
+        os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
+    )[ENV]
+    conda_yaml_path = os.path.join(model_dir, conda_yaml_filename)
     if format == "pip":
-        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
-        try:
-            return _download_artifact_from_uri(req_file_uri)
-        except Exception as e:
-            # fallback to download conda.yaml file and parse the "pip" section from it.
-            _logger.info(
-                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
-                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
-                "Other conda dependencies will be ignored."
-            )
+        requirements_file = os.path.join(model_dir, _REQUIREMENTS_FILE_NAME)
+        if os.path.exists(requirements_file):
+            return requirements_file
 
-        conda_yml_path = _download_model_conda_env(model_uri)
+        _logger.info(
+            f"{_REQUIREMENTS_FILE_NAME} is not found in the model directory. Falling back to"
+            f" extracting pip requirements from the model's 'conda.yaml' file. Conda"
+            " dependencies will be ignored."
+        )
 
-        with open(conda_yml_path, "r") as yf:
-            conda_yml = yaml.safe_load(yf)
+        with open(conda_yaml_path, "r") as yf:
+            conda_yaml = yaml.safe_load(yf)
 
-        conda_deps = conda_yml.get("dependencies", [])
+        conda_deps = conda_yaml.get("dependencies", [])
         for index, dep in enumerate(conda_deps):
             if isinstance(dep, dict) and "pip" in dep:
                 pip_deps_index = index
@@ -534,8 +530,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         return pip_file_path
 
     elif format == "conda":
-        conda_yml_path = _download_model_conda_env(model_uri)
-        return conda_yml_path
+        return conda_yaml_path
     else:
         raise MlflowException(
             f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
