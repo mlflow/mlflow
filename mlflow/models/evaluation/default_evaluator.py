@@ -166,31 +166,53 @@ def _get_classifier_metrics(y, y_pred, average, pos_label):
     return metrics
 
 
-def _get_classifier_global_metrics(y, y_pred, y_probs, labels, average, pos_label):
+def _get_common_classifier_metrics(y_true, y_pred, average, pos_label):
+    return {
+        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred),
+        "recall_score": sk_metrics.recall_score(
+            y_true, y_pred, average=average, pos_label=pos_label
+        ),
+        "precision_score": sk_metrics.precision_score(
+            y_true, y_pred, average=average, pos_label=pos_label
+        ),
+        "f1_score": sk_metrics.f1_score(y_true, y_pred, average=average, pos_label=pos_label),
+    }
+
+
+def _get_binary_classifier_metrics(y_true, y_pred, pos_label):
+    tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+    return {
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        **_get_common_classifier_metrics(y_true, y_pred, average="binary", pos_label=pos_label),
+    }
+
+
+def _get_multiclass_classifier_metrics(y_true, y_pred, average):
+    return _get_common_classifier_metrics(y_true, y_pred, average=average, pos_label=None)
+
+
+def _get_classifier_global_metrics(y_true, y_probs, labels):
     """
     get classifier metrics which computing over all classes examples.
     """
     metrics = {}
-    metrics["example_count"] = len(y)
-    metrics.update(_get_classifier_metrics(y, y_pred, average, pos_label))
-
+    metrics["example_count"] = len(y_true)
     if y_probs is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
-
+        metrics["log_loss"] = sk_metrics.log_loss(y_true, y_probs, labels=labels)
     return metrics
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
-
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(
-            _get_classifier_metrics(y_bin, y_pred_bin, average="binary", pos_label=1)
-        )
+        per_class_metrics.update(_get_binary_classifier_metrics(y_bin, y_pred_bin, pos_label=1))
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -958,22 +980,24 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for computing builtin metrics
         """
-        pos_label = self.evaluator_config.get("pos_label")
-        average = "weighted" if pos_label is None else "binary"
+        pos_label = self.evaluator_config.get("pos_label", 1)
+        average = self.evaluator_config.get("average", "weighted")
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
             self.metrics.update(
                 _get_classifier_global_metrics(
                     self.y,
-                    self.y_pred,
                     self.y_probs,
                     self.label_list,
-                    average,
-                    pos_label,
                 )
             )
             if self.is_binomial:
+                self.metrics.update(_get_binary_classifier_metrics(self.y, self.y_prob, pos_label))
                 self._compute_roc_and_pr_curve()
+            else:
+                self.metrics.update(
+                    _get_multiclass_classifier_metrics(self.y, self.y_prob, average)
+                )
         elif self.model_type == "regressor":
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
