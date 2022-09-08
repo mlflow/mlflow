@@ -55,6 +55,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.tags }}
-            ACCOUNT=${{ github.actor }}
+            ACCOUNT=mlflow
           file: ../../docker/TrackingDockerfile
           
