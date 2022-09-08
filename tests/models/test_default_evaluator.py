@@ -1620,7 +1620,7 @@ def test_evaluation_multiclass_classification_with_average(average):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="breast_cancer",
+            dataset_name="iris",
             evaluators="default",
             evaluator_config=evaluator_config,
         )
