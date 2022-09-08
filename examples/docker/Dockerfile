@@ -1,4 +1,4 @@
-FROM condaforge/miniforge3
+FROM python:3.7
 
 RUN pip install mlflow>=1.0 \
     && pip install azure-storage-blob==12.3.0 \

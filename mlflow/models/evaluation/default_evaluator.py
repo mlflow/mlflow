@@ -9,7 +9,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -196,6 +195,23 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
+
+
+def _get_dataframe_with_renamed_columns(x, new_column_names):
+    """
+    Downstream inference functions may expect a pd.DataFrame to be created from x. However,
+    if x is already a pd.DataFrame, and new_column_names != x.columns, we cannot simply call
+    pd.DataFrame(x, columns=new_column_names) because the resulting pd.DataFrame will contain
+    NaNs for every column in new_column_names that does not exist in x.columns. This function
+    instead creates a new pd.DataFrame object from x, and then explicitly renames the columns
+    to avoid NaNs.
+
+    :param x: :param data: A data object, such as a Pandas DataFrame, numPy array, or list
+    :param new_column_names: Column names for the output Pandas DataFrame
+    :return: A pd.DataFrame with x as data, with columns new_column_names
+    """
+    df = pd.DataFrame(x)
+    return df.rename(columns=dict(zip(df.columns, new_column_names)))
 
 
 _Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
@@ -411,7 +427,7 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
 def _shap_predict_fn(x, predict_fn, feature_names):
-    return predict_fn(pd.DataFrame(x, columns=feature_names))
+    return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -457,7 +473,7 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path)
+            pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
             pyplot.close(pyplot.gcf())
 
@@ -543,19 +559,7 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
-        for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
-                # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
-
-        truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
-
-        # For some shap explainer, the plot will use the DataFrame column names instead of
-        # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.copy_to_avoid_mutation().rename(
-            columns=truncated_feature_name_map, copy=False
-        )
+        X_df = self.X.copy_to_avoid_mutation()
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -597,7 +601,7 @@ class DefaultEvaluator(ModelEvaluator):
                     explainer = shap.Explainer(
                         shap_predict_fn,
                         sampled_X,
-                        feature_names=truncated_feature_names,
+                        feature_names=self.feature_names,
                         algorithm=algorithm,
                     )
             else:
@@ -610,19 +614,19 @@ class DefaultEvaluator(ModelEvaluator):
                     # for raw model, this case shap plot doesn't support it well, so exclude the
                     # multinomial_classifier case here.
                     explainer = shap.Explainer(
-                        self.raw_model, sampled_X, feature_names=truncated_feature_names
+                        self.raw_model, sampled_X, feature_names=self.feature_names
                     )
                 else:
                     # fallback to default explainer
                     explainer = shap.Explainer(
-                        shap_predict_fn, sampled_X, feature_names=truncated_feature_names
+                        shap_predict_fn, sampled_X, feature_names=self.feature_names
                     )
 
             _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
             if algorithm == "kernel":
                 shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=truncated_feature_names
+                    explainer.shap_values(sampled_X), feature_names=self.feature_names
                 )
             else:
                 shap_values = explainer(sampled_X)
@@ -630,6 +634,10 @@ class DefaultEvaluator(ModelEvaluator):
             # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
             # or unsupported model on specific shap explainer. Catch exception to prevent it
             # breaking the whole `evaluate` function.
+
+            if not self.evaluator_config.get("ignore_exceptions", True):
+                raise e
+
             _logger.warning(
                 f"Shap evaluation failed. Reason: {repr(e)}. "
                 "Set logging level to DEBUG to see the full traceback."
@@ -648,9 +656,18 @@ class DefaultEvaluator(ModelEvaluator):
             )
             _logger.debug("", exc_info=True)
 
+        def _adjust_color_bar():
+            pyplot.gcf().axes[-1].set_aspect("auto")
+            pyplot.gcf().axes[-1].set_box_aspect(50)
+
+        def _adjust_axis_tick():
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
+
         def plot_beeswarm():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -658,8 +675,9 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.summary_plot(shap_values, show=False)
+            shap.summary_plot(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_summary,
@@ -667,8 +685,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_feature_importance,
@@ -1071,11 +1089,14 @@ class DefaultEvaluator(ModelEvaluator):
         if evaluator_config.get("_disable_candidate_model", False):
             evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
         else:
+            if baseline_model:
+                _logger.info("Evaluating candidate model:")
             evaluation_result = self._evaluate(model, is_baseline_model=False)
 
         if not baseline_model:
             return evaluation_result
 
+        _logger.info("Evaluating baseline model:")
         baseline_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
 
         return EvaluationResult(
@@ -1090,7 +1111,7 @@ class DefaultEvaluator(ModelEvaluator):
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
         return DefaultEvaluator._MutationGuardedData(
-            pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
+            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.feature_names)
         )
 
     class _MutationGuardedData:
