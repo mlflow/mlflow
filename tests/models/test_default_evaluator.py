@@ -1610,7 +1610,6 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
 @pytest.mark.parametrize("average", [None, "weighted", "macro", "micro"])
 def test_evaluation_multiclass_classification_with_average(average):
     X, y = load_iris(as_frame=True, return_X_y=True)
-    evaluator_config = {"average": average} if average else None
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
@@ -1622,7 +1621,7 @@ def test_evaluation_multiclass_classification_with_average(average):
             targets="target",
             dataset_name="iris",
             evaluators="default",
-            evaluator_config=evaluator_config,
+            evaluator_config={"average": average},
         )
         y_pred = model.predict(X)
         avg = average or "weighted"
