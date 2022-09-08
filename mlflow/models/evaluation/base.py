@@ -927,11 +927,11 @@ def evaluate(
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
         - **pos_label**: The positive label used to compute binary classification metrics such as
-          precision, recall, f1, etc. This parameter is only used for binary classification models.
-          For multi-class classification models, keep `pos_label` unset (or set to `None`), and the
-          function will calculate metrics for each label and find their average weighted by support
-          (number of true instances for each label). For regression models, this parameter will be
-          ignored.
+          precision, recall, f1, etc (default: ``None``). This parameter is only used for binary
+          classification models. For multi-class classification models, keep `pos_label` unset
+          (or set to `None`), and the function will calculate metrics for each label and find their
+          average weighted by support (number of true instances for each label). For regression
+          models, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
