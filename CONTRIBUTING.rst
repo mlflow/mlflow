@@ -505,8 +505,8 @@ Then, run the following to install ``protoc``:
 .. code-block:: bash
 
     # Update PROTOC_ZIP if on a platform other than 64-bit Mac OSX
-    PROTOC_ZIP=protoc-3.6.0-osx-x86_64.zip
-    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/$PROTOC_ZIP
+    PROTOC_ZIP=protoc-3.19.4-osx-x86_64.zip
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/$PROTOC_ZIP
     sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
     sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
     rm -f $PROTOC_ZIP
@@ -574,7 +574,7 @@ You will need to wait until the docker daemon will complete building the docker 
 
 Now you can attach to the running container with your code editor.
 
-Instructions for VSCode: 
+Instructions for VSCode:
   - invoke the command palette (``[Ctrl/CMD]+Shift+P``)
   - find "Remote-Containers: Attach to Running Container..." option, confirm with ``Enter`` key
   - find the "mlflow-test" container, confirm with ``Enter`` key
