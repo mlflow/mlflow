@@ -43,6 +43,7 @@ class PyFuncBackend(FlavorBackend):
         env_manager=_EnvManager.VIRTUALENV,
         install_mlflow=False,
         create_env_root_dir=False,
+        env_root_dir=None,
         **kwargs,
     ):
         """
@@ -61,6 +62,7 @@ class PyFuncBackend(FlavorBackend):
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
         self._create_env_root_dir = create_env_root_dir
+        self._env_root_dir = env_root_dir
         self._environment = None
 
     def prepare_env(self, model_uri, capture_output=False):
@@ -80,10 +82,12 @@ class PyFuncBackend(FlavorBackend):
 
         local_path = _download_artifact_from_uri(model_uri)
         if self._create_env_root_dir:
+            if self._env_root_dir is not None:
+                raise Exception("env_root_dir can not be set when create_env_root_dir=True")
             nfs_root_dir = get_nfs_cache_root_dir()
             env_root_dir = _get_or_create_env_root_dir(nfs_root_dir is not None)
         else:
-            env_root_dir = None
+            env_root_dir = self._env_root_dir
 
         if self._env_manager == _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(

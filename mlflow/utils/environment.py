@@ -538,6 +538,9 @@ class Environment:
         self._activate_cmd = activate_cmd
         self._extra_env = extra_env or {}
 
+    def get_activate_commmand(self):
+        return self._activate_cmd
+
     def execute(
         self,
         command,

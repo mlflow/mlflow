@@ -7,6 +7,7 @@ import pandas as pd
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.proto_json_utils import _DateTimeEncoder
 
 
 class MlflowModelServerOutput(dict):
@@ -81,7 +82,7 @@ class ScoringServerClient:
         else:
             post_data = data
         if not isinstance(post_data, str):
-            post_data = json.dumps(post_data)
+            post_data = json.dumps(post_data, cls=_DateTimeEncoder)
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=post_data,

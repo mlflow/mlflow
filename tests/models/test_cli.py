@@ -21,7 +21,7 @@ import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.pyfunc.backend import _execute_in_conda_env
+
 from mlflow.utils.conda import _get_conda_env_name
 
 import mlflow.models.cli as models_cli
@@ -593,7 +593,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             "1.0.2",
         ),  # test different env created in the same env root path.
     ]:
-        get_flavor_backend(
+        env = get_flavor_backend(
             str(model_path),
             env_manager=_EnvManager.CONDA,
             install_mlflow=False,
@@ -610,12 +610,9 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         python_exec_path = str(env_path / "bin" / "python")
 
         # Test `_execute_in_conda_env` run command under the correct activated python env.
-        _execute_in_conda_env(
-            conda_env_name,
+        env.execute(
             command=f"python -c \"import sys; assert sys.executable == '{python_exec_path}'; "
             f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
-            install_mlflow=False,
-            env_root_dir=str(env_root_path),
         )
 
     assert len(env_path_set) == 3
