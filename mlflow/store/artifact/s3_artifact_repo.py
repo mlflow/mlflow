@@ -190,10 +190,11 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
-        s3_full_path = posixpath.join(s3_root_path, remote_file_path)
-        s3_client = self._get_s3_client()
-        s3_client.download_file(bucket, s3_full_path, local_path)
+        if not os.path.exists(local_path):
+            (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
+            s3_full_path = posixpath.join(s3_root_path, remote_file_path)
+            s3_client = self._get_s3_client()
+            s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
