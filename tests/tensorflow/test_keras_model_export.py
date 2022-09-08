@@ -81,7 +81,7 @@ def get_model(data):
         # `lr` was renamed to `learning_rate` in keras 2.3.0:
         # https://github.com/keras-team/keras/releases/tag/2.3.0
         {"lr": lr}
-        if keras_version < Version("2.3.0")
+        if Version(tf.__version__) < Version("2.3.0")
         else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
@@ -619,7 +619,7 @@ def test_pyfunc_serve_and_score_transformers():
 def test_log_model_with_code_paths(model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.tensorflow.keras._add_code_from_conf_to_system_path"
+        "mlflow.tensorflow._add_code_from_conf_to_system_path"
     ) as add_mock:
         mlflow.tensorflow.log_model(model, artifact_path=artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)

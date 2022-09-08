@@ -187,8 +187,8 @@ def log_model(
              metadata of the logged model.
     """
 
-    import tensorflow.keras.Model
-    if isinstance(model, tensorflow.keras.Model) and signature is not None:
+    from tensorflow.keras.models import Model as KerasModel
+    if isinstance(model, KerasModel) and signature is not None:
         warnings.warn(
             "The pyfunc inference behavior of Keras models logged "
             "with signatures differs from the behavior of Keras "
@@ -294,7 +294,7 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to ``model.save`` method.
     """
-    import tensorflow.keras.models
+    from tensorflow.keras.models import Model as KerasModel
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -311,18 +311,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    if isinstance(model, tensorflow.Module):
-        model_dir_subpath = "tf2model"
-        model_path = os.path.join(path, model_dir_subpath)
-        tensorflow.saved_model.save(
-            model, model_path, signature=tf_module_signatures, options=tf_module_options
-        )
-        pyfunc_options = {
-            "saved_model_dir": model_dir_subpath,
-            "model_type": _MODEL_TYPE_TF2_MODULE
-        }
-        flavor_options = pyfunc_options.copy()
-    elif isinstance(model, tensorflow.keras.Model):
+    if isinstance(model, KerasModel):
         data_subpath = "data"
         # construct new data folder in existing path
         data_path = os.path.join(path, data_subpath)
@@ -371,6 +360,17 @@ def save_model(
             "keras_version": keras_module.__version__,
             "save_format": save_format,
         }
+    elif isinstance(model, tensorflow.Module):
+        model_dir_subpath = "tf2model"
+        model_path = os.path.join(path, model_dir_subpath)
+        tensorflow.saved_model.save(
+            model, model_path, signatures=tf_module_signatures, options=tf_module_options
+        )
+        pyfunc_options = {
+            "saved_model_dir": model_dir_subpath,
+            "model_type": _MODEL_TYPE_TF2_MODULE
+        }
+        flavor_options = pyfunc_options.copy()
     else:
         raise MlflowException(f"Unknown model type: {type(model)}")
 
@@ -385,7 +385,6 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.tensorflow",
-        data=data_subpath,
         env=_CONDA_ENV_FILE_NAME,
         code=code_dir_subpath,
         **pyfunc_options
@@ -530,7 +529,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     model_type = _infer_model_type(model_conf)
-
     if model_type == _MODEL_TYPE_KERAS:
         keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
         # For backwards compatibility, we assume h5 when the save_format is absent
@@ -643,7 +641,8 @@ def _load_pyfunc(path, *, model_type):
     if model_type == _MODEL_TYPE_TF2_MODULE:
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
         tf_saved_model_dir = os.path.join(path, flavor_conf["saved_model_dir"])
-        return tensorflow.saved_model.load(tf_saved_model_dir)
+        loaded_model = tensorflow.saved_model.load(tf_saved_model_dir)
+        return _TF2ModuleWrapper(model=loaded_model)
 
     raise MlflowException("Unknown model_type.")
 
@@ -699,6 +698,13 @@ class _TF2Wrapper:
             return pred_dict
         else:
             return pandas.DataFrame.from_dict(data=pred_dict)
+
+class _TF2ModuleWrapper:
+    def __init__(self, model):
+        self.model = model
+
+    def predict(self, data):
+        return self.model(data)
 
 
 class _KerasModelWrapper:
