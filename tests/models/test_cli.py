@@ -379,13 +379,6 @@ def test_prepare_env_passes(sk_model):
             mlflow.sklearn.log_model(sk_model, "model")
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
-        # Test with no conda
-        p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"],
-            stderr=subprocess.PIPE,
-        )
-        assert p.wait() == 0
-
         # With conda
         p = subprocess.Popen(
             ["mlflow", "models", "prepare-env", "-m", model_uri], stderr=subprocess.PIPE
@@ -409,12 +402,6 @@ def test_prepare_env_fails(sk_model):
                 sk_model, "model", pip_requirements=["does-not-exist-dep==abc"]
             )
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
-
-        # Test with no conda
-        p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"]
-        )
-        assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
         p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri])

@@ -74,7 +74,7 @@ test_that("Can predict with cli backend", {
   check_output <- function() {
     actual <- do.call(
       rbind,
-      lapply(jsonlite::read_json(temp_out), as.data.frame)
+      lapply(jsonlite::read_json(temp_out)$predictions, as.data.frame)
     )
 
     expect_true(!is.null(actual))
@@ -85,7 +85,7 @@ test_that("Can predict with cli backend", {
   write.csv(test[, predictors], temp_in_csv, row.names = FALSE)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_csv,
-    "-o", temp_out, "-t", "csv"
+    "-o", temp_out, "-t", "csv", "--install-mlflow"
   )
   check_output()
 
@@ -93,7 +93,7 @@ test_that("Can predict with cli backend", {
   jsonlite::write_json(list(dataframe_records = test[, predictors]), temp_in_json)
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
-    "-t", "json"
+    "-t", "json", "--install-mlflow"
   )
   check_output()
 
@@ -105,7 +105,7 @@ test_that("Can predict with cli backend", {
   mlflow_cli(
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json_split,
     "-o", temp_out, "-t",
-    "json"
+    "json", "--install-mlflow"
   )
   check_output()
 })

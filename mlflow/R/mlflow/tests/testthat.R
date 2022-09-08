@@ -21,7 +21,6 @@ library(mlflow)
 
 if (identical(Sys.getenv("NOT_CRAN"), "true")) {
   message("Current working directory: ", getwd())
-  mlflow_home <- Sys.getenv("MLFLOW_HOME", "../../../..")
-  message('MLFLOW_HOME: ', mlflow_home)
+  Sys.setenv(MLFLOW_HOME=Sys.getenv("MLFLOW_HOME","../../../.."))
   test_check("mlflow")
 }
