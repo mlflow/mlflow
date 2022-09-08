@@ -6,11 +6,13 @@ import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
 
@@ -104,6 +106,13 @@ describe('ShowArtifactPage', () => {
     TEXT_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    });
+  });
+
+  test('should render audio view for common audio extensions', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactAudioView).length).toBe(1);
     });
   });
 });

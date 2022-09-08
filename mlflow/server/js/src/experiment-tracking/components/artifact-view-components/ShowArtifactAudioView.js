@@ -123,6 +123,7 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact }) => {
     } else {
       audioInfo = (
         <>
+          {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
           <a title={playing ? 'Pause' : 'Play'} onClick={handlePlayPause}>
             <i className={playing ? 'fas fa-pause' : 'fas fa-play'} style={{ fontSize: 21 }}></i>
           </a>
@@ -149,7 +150,7 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact }) => {
         >
           {audioInfo}
         </div>
-        <div id='33333' ref={waveformRef}></div>
+        <div ref={waveformRef}></div>
       </div>
     );
   }

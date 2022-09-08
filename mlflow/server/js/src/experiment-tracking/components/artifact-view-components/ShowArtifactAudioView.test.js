@@ -1,6 +1,18 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
+
+function minimalWaveFile() {
+  const b64 =
+    'UklGRiTmAwBXQVZFZm10IBAAAAABAAEA5FcAAMivAAACABAAZGF0YQDmAwDM/3j/ef+k/z0ARgDx/5D/ff/n/w==';
+  const str = window.atob(b64);
+  const buffer = new ArrayBuffer(str.length);
+  const bufView = new Uint8Array(buffer);
+  for (let i = 0, strLen = str.length; i < strLen; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+  return buffer;
+}
 
 describe('ShowArtifactAudioView', () => {
   let wrapper;
@@ -9,7 +21,7 @@ describe('ShowArtifactAudioView', () => {
 
   beforeEach(() => {
     minimalProps = {
-      path: 'fakePath',
+      path: 'fakePath.wav',
       runUuid: 'fakeUuid',
     };
     const getArtifact = jest.fn((artifactLocation) => {
@@ -22,5 +34,19 @@ describe('ShowArtifactAudioView', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<ShowArtifactAudioView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
+  });
+
+  test('should render waveform from array buffer', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(minimalWaveFile());
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mount(<ShowArtifactAudioView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('wave').length).toBe(1);
+      done();
+    });
   });
 });
