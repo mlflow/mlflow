@@ -26,7 +26,6 @@ from mlflow.models.evaluation.default_evaluator import (
     _extract_predict_fn,
     _get_regressor_metrics,
     _get_binary_sum_up_label_pred_prob,
-    _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
     _compute_df_mode_or_mean,
@@ -1582,7 +1581,7 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
 
 
 @pytest.mark.parametrize("pos_label", [0, 1])
-def test_evaluation_pos_label(pos_label):
+def test_evaluation_binary_classification_with_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
     y = y.head(len(X))
@@ -1603,6 +1602,33 @@ def test_evaluation_pos_label(pos_label):
         precision = precision_score(y, y_pred, pos_label=pos_label)
         recall = recall_score(y, y_pred, pos_label=pos_label)
         f1 = f1_score(y, y_pred, pos_label=pos_label)
-        np.testing.assert_almost_equal(result.metrics["precision"], precision)
-        np.testing.assert_almost_equal(result.metrics["recall"], recall)
+        np.testing.assert_almost_equal(result.metrics["precision_score"], precision)
+        np.testing.assert_almost_equal(result.metrics["recall_score"], recall)
+        np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
+
+
+@pytest.mark.parametrize("average", [None, "weighted", "macro", "micro"])
+def test_evaluation_multiclass_classification_with_average(average):
+    X, y = load_iris(as_frame=True, return_X_y=True)
+    evaluator_config = {"average": average} if average else None
+    with mlflow.start_run():
+        model = LogisticRegression()
+        model.fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier",
+            targets="target",
+            dataset_name="breast_cancer",
+            evaluators="default",
+            evaluator_config=evaluator_config,
+        )
+        y_pred = model.predict(X)
+        avg = average or "weighted"
+        precision = precision_score(y, y_pred, average=avg)
+        recall = recall_score(y, y_pred, average=avg)
+        f1 = f1_score(y, y_pred, average=avg)
+        np.testing.assert_almost_equal(result.metrics["precision_score"], precision)
+        np.testing.assert_almost_equal(result.metrics["recall_score"], recall)
         np.testing.assert_almost_equal(result.metrics["f1_score"], f1)

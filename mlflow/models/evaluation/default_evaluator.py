@@ -977,7 +977,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 average = self.evaluator_config.get("average", "weighted")
                 self.metrics.update(
-                    _get_multiclass_classifier_metrics(self.y, self.y_prob, average)
+                    _get_multiclass_classifier_metrics(self.y, self.y_pred, average)
                 )
         elif self.model_type == "regressor":
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
