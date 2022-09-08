@@ -65,6 +65,7 @@ class TrainStep(BaseStep):
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.code_paths = [os.path.join(self.pipeline_root, "steps")]
 
     def _run(self, output_directory):
         import pandas as pd
@@ -128,11 +129,9 @@ class TrainStep(BaseStep):
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
-                # gate all HP tuning code within this condition
                 tuning_params = self.step_config["tuning"]
-                # import hyperopt or throw error
                 try:
-                    from hyperopt import hp, fmin, Trials
+                    from hyperopt import fmin, Trials
                 except ModuleNotFoundError:
                     raise MlflowException(
                         "Hyperopt not installed and is required if tuning is enabled",
@@ -141,37 +140,19 @@ class TrainStep(BaseStep):
 
                 # wrap training in objective fn
                 def objective(hyperparameter_args):
-                    # log as a child run
                     with mlflow.start_run(tags=tags, nested=True):
-                        # create unfitted estimator from yaml
                         estimator = estimator_fn(
                             dict(estimator_hardcoded_params, **hyperparameter_args)
                         )
-                        sample_fraction = (
-                            float(tuning_params["sample_fraction"])
-                            if "sample_fraction" in tuning_params
-                            else 1.0
-                        )
+
+                        sample_fraction = self.step_config["sample_fraction"]
                         X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                         y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
-                        # fit estimator to training
-                        estimator.fit(X_train_sampled, y_train_sampled)
-                        if hasattr(estimator, "best_score_P"):
-                            mlflow.log_metric("best_cv_score", estimator.best_score_)
-                        if hasattr(estimator, "best_params_"):
-                            mlflow.log_params(estimator.best_params_)
 
-                        code_paths = [os.path.join(self.pipeline_root, "steps")]
-                        estimator_schema = infer_signature(
-                            X_train_sampled, estimator.predict(X_train_sampled.copy())
-                        )
-                        logged_estimator = mlflow.sklearn.log_model(
-                            estimator,
-                            f"{self.name}/estimator",
-                            signature=estimator_schema,
-                            code_paths=code_paths,
-                        )
-                        # evaluate on primary metric
+                        estimator.fit(X_train_sampled, y_train_sampled)
+
+                        logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+
                         eval_result = mlflow.evaluate(
                             model=logged_estimator.model_uri,
                             data=validation_df,
@@ -191,28 +172,12 @@ class TrainStep(BaseStep):
                         # return +/- metric
                         return eval_result.metrics[self.primary_metric]
 
-                # construct hp search space from yaml
-                search_space = {}
-                params = tuning_params["parameters"]
-                for param_name, param_details in params.items():
-                    if "values" in param_details:
-                        search_space[param_name] = hp.choice(param_name, **param_details)
-                    elif "distribution" in param_details:
-                        hp_tuning_fn = getattr(hp, param_details["distribution"])
-                        param_details_to_pass = param_details.copy()
-                        param_details_to_pass.pop("distribution")
-                        search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
-                    else:
-                        raise MlflowException(
-                            f"Parameter {param_name} must contain either a list of 'values' or a "
-                            f"'distribution' following hyperopt parameter expressions",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-                # minimize
+                search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
                 algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
                 tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
                 max_trials = tuning_params["max_trials"]
                 hp_trials = Trials()
+
                 best_hp_params = fmin(
                     objective,
                     search_space,
@@ -222,36 +187,30 @@ class TrainStep(BaseStep):
                 )
                 best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
                 hardcoded_estimator_loss = objective({})
+
                 if best_hp_estimator_loss < hardcoded_estimator_loss:
-                    estimator = estimator_fn(dict(estimator_hardcoded_params, **best_hp_params))
+                    best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
                 else:
-                    estimator = estimator_fn(estimator_hardcoded_params)
+                    best_combined_params = estimator_hardcoded_params
+
+                estimator = estimator_fn(best_combined_params)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
             estimator.fit(X_train, y_train)
 
-            if hasattr(estimator, "best_score_"):
-                mlflow.log_metric("best_cv_score", estimator.best_score_)
-            if hasattr(estimator, "best_params_"):
-                mlflow.log_params(estimator.best_params_)
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
 
-            code_paths = [os.path.join(self.pipeline_root, "steps")]
-            estimator_schema = infer_signature(X_train, estimator.predict(X_train.copy()))
-            logged_estimator = mlflow.sklearn.log_model(
-                estimator,
-                f"{self.name}/estimator",
-                signature=estimator_schema,
-                code_paths=code_paths,
-            )
             # Create a pipeline consisting of the transformer+model for test data evaluation
             with open(transformer_path, "rb") as f:
                 transformer = cloudpickle.load(f)
-            mlflow.sklearn.log_model(transformer, "transform/transformer", code_paths=code_paths)
+            mlflow.sklearn.log_model(
+                transformer, "transform/transformer", code_paths=self.code_paths
+            )
             model = make_pipeline(transformer, estimator)
             model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
             model_info = mlflow.sklearn.log_model(
-                model, f"{self.name}/model", signature=model_schema, code_paths=code_paths
+                model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
             )
             output_model_path = get_step_output_path(
                 pipeline_root_path=self.pipeline_root,
@@ -580,8 +539,22 @@ class TrainStep(BaseStep):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
+                if "sample_fraction" in step_config["tuning"]:
+                    sample_fraction = float(step_config["tuning"]["sample_fraction"])
+                    if sample_fraction >= 0 and sample_fraction <= 1.0:
+                        step_config["sample_fraction"] = sample_fraction
+                    else:
+                        raise MlflowException(
+                            "The 'sample_fraction' configuration in the train step must be "
+                            "between 0 and 1.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                else:
+                    step_config["sample_fraction"] = 1.0
+
                 if "algorithm" not in step_config["tuning"]:
                     step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
             else:
                 step_config["tuning_enabled"] = False
 
@@ -610,3 +583,42 @@ class TrainStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
+        from mlflow.models.signature import infer_signature
+
+        if hasattr(estimator, "best_score_"):
+            mlflow.log_metric("best_cv_score", estimator.best_score_)
+        if hasattr(estimator, "best_params_"):
+            mlflow.log_params(estimator.best_params_)
+
+        estimator_schema = infer_signature(
+            X_train_sampled, estimator.predict(X_train_sampled.copy())
+        )
+        logged_estimator = mlflow.sklearn.log_model(
+            estimator,
+            f"{self.name}/estimator",
+            signature=estimator_schema,
+            code_paths=self.code_paths,
+        )
+        return logged_estimator
+
+    def _construct_search_space_from_yaml(self, params):
+        from hyperopt import hp
+
+        search_space = {}
+        for param_name, param_details in params.items():
+            if "values" in param_details:
+                search_space[param_name] = hp.choice(param_name, **param_details)
+            elif "distribution" in param_details:
+                hp_tuning_fn = getattr(hp, param_details["distribution"])
+                param_details_to_pass = param_details.copy()
+                param_details_to_pass.pop("distribution")
+                search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
+            else:
+                raise MlflowException(
+                    f"Parameter {param_name} must contain either a list of 'values' or a "
+                    f"'distribution' following hyperopt parameter expressions",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        return search_space
