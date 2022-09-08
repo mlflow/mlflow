@@ -1599,7 +1599,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             evaluator_config={"pos_label": pos_label},
         )
         y_pred = model.predict(X)
-        pl = 1 if pos_label is None else 0
+        pl = 1 if pos_label is None else pos_label
         precision = precision_score(y, y_pred, pos_label=pl)
         recall = recall_score(y, y_pred, pos_label=pl)
         f1 = f1_score(y, y_pred, pos_label=pl)
