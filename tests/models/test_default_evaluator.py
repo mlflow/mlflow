@@ -1580,7 +1580,7 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
 
 
-@pytest.mark.parametrize("pos_label", [0, 1])
+@pytest.mark.parametrize("pos_label", [None, 0, 1])
 def test_evaluation_binary_classification_with_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
@@ -1599,9 +1599,10 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             evaluator_config={"pos_label": pos_label},
         )
         y_pred = model.predict(X)
-        precision = precision_score(y, y_pred, pos_label=pos_label)
-        recall = recall_score(y, y_pred, pos_label=pos_label)
-        f1 = f1_score(y, y_pred, pos_label=pos_label)
+        pl = 1 if pos_label is None else 0
+        precision = precision_score(y, y_pred, pos_label=pl)
+        recall = recall_score(y, y_pred, pos_label=pl)
+        f1 = f1_score(y, y_pred, pos_label=pl)
         np.testing.assert_almost_equal(result.metrics["precision_score"], precision)
         np.testing.assert_almost_equal(result.metrics["recall_score"], recall)
         np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
