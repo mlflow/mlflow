@@ -147,25 +147,6 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_metrics(y, y_pred, average, pos_label):
-    metrics = {}
-    if average == "binary":
-        tn, fp, fn, tp = sk_metrics.confusion_matrix(y, y_pred).ravel()
-        metrics["true_negatives"] = tn
-        metrics["false_positives"] = fp
-        metrics["false_negatives"] = fn
-        metrics["true_positives"] = tp
-    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["recall_score"] = sk_metrics.recall_score(
-        y, y_pred, average=average, pos_label=pos_label
-    )
-    metrics["precision_score"] = sk_metrics.precision_score(
-        y, y_pred, average=average, pos_label=pos_label
-    )
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, average=average, pos_label=pos_label)
-    return metrics
-
-
 def _get_common_classifier_metrics(y_true, y_pred, average, pos_label):
     return {
         "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred),
