@@ -156,8 +156,10 @@ def _get_classifier_metrics(y, y_pred, average, pos_label):
         metrics["false_negatives"] = fn
         metrics["true_positives"] = tp
     metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred, average=average, pos_label=pos_label)
-    metrics["precision"] = sk_metrics.precision_score(
+    metrics["recall_score"] = sk_metrics.recall_score(
+        y, y_pred, average=average, pos_label=pos_label
+    )
+    metrics["precision_score"] = sk_metrics.precision_score(
         y, y_pred, average=average, pos_label=pos_label
     )
     metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, average=average, pos_label=pos_label)
