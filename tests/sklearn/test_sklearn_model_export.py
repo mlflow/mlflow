@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 import os
 import pytest
@@ -630,3 +631,11 @@ def test_log_predict_proba(sklearn_logreg_model):
     loaded_model = pyfunc.load_model(model_uri)
     actual_scores = loaded_model.predict(inference_dataframe)
     np.testing.assert_array_almost_equal(expected_scores, actual_scores)
+
+
+def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_path):
+    mlflow.sklearn.save_model(sklearn_logreg_model.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

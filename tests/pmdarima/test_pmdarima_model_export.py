@@ -1,5 +1,5 @@
 import os
-import pathlib
+from pathlib import Path
 import pytest
 from unittest import mock
 
@@ -196,7 +196,7 @@ def test_pmdarima_log_model(auto_arima_model, tmp_path, should_start_run):
         assert model_info.model_uri == model_uri
         reloaded_model = mlflow.pmdarima.load_model(model_uri=model_uri)
         np.testing.assert_array_equal(auto_arima_model.predict(20), reloaded_model.predict(20))
-        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
@@ -408,3 +408,11 @@ def test_log_model_with_code_paths(auto_arima_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.pmdarima.FLAVOR_NAME)
         mlflow.pmdarima.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(auto_arima_model, model_path):
+    mlflow.pmdarima.save_model(auto_arima_model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

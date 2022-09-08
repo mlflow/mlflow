@@ -522,8 +522,8 @@ def test_log_model_with_code_paths(xgb_model):
         add_mock.assert_called()
 
 
-def test_virtualenv_field_points_to_correct_path(xgb_model, model_path):
-    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
+def test_virtualenv_subfield_points_to_correct_path(xgb_model, model_path):
+    mlflow.xgboost.save_model(xgb_model.model, path=model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()

@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -1172,3 +1173,12 @@ def test_log_model_with_code_paths(sequential_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.pytorch.FLAVOR_NAME)
         mlflow.pytorch.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(model_path):
+    model = get_sequential_model()
+    mlflow.pytorch.save_model(model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()
