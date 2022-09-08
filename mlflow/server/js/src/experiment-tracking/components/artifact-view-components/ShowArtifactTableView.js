@@ -75,13 +75,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
       title: f,
       dataIndex: f,
       key: f,
-      sorter: (a, b) => {
-        if (isNaN(a)) {
-          return a[f].localeCompare(b[f]);
-        } else {
-          return a[f] - b[f];
-        }
-      },
+      sorter: (a, b) => a[f].localeCompare(b[f]),
       width: 200,
       ellipsis: {
         showTitle: true,
