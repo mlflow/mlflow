@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 
 from typing import Union, Iterable, Tuple
-from facets_overview import feature_statistics_pb2
+from mlflow.protos import feature_statistics_pb2
 from mlflow.pipelines.cards import histogram_generator
 
 

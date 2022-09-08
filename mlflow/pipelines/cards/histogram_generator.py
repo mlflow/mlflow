@@ -2,7 +2,7 @@
 Generates facets_overview histogram message for numeric features.
 """
 
-from facets_overview.feature_statistics_pb2 import Histogram
+from mlflow.protos.feature_statistics_pb2 import Histogram
 
 
 def generate_equal_height_histogram(quantiles, num_buckets: int) -> Histogram:
