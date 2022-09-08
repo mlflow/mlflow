@@ -1596,16 +1596,16 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             targets="target",
             dataset_name="breast_cancer",
             evaluators="default",
-            evaluator_config={"pos_label": pos_label},
+            evaluator_config=None if pos_label is None else {"pos_label": pos_label},
         )
         y_pred = model.predict(X)
         pl = 1 if pos_label is None else pos_label
         precision = precision_score(y, y_pred, pos_label=pl)
         recall = recall_score(y, y_pred, pos_label=pl)
         f1 = f1_score(y, y_pred, pos_label=pl)
-        np.testing.assert_almost_equal(result.metrics["precision_score"], precision)
-        np.testing.assert_almost_equal(result.metrics["recall_score"], recall)
-        np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
+        np.testing.assert_allclose(result.metrics["precision_score"], precision)
+        np.testing.assert_allclose(result.metrics["recall_score"], recall)
+        np.testing.assert_allclose(result.metrics["f1_score"], f1)
 
 
 @pytest.mark.parametrize("average", [None, "weighted", "macro", "micro"])
@@ -1622,13 +1622,13 @@ def test_evaluation_multiclass_classification_with_average(average):
             targets="target",
             dataset_name="iris",
             evaluators="default",
-            evaluator_config={"average": average},
+            evaluator_config=None if average is None else {"average": average},
         )
         y_pred = model.predict(X)
         avg = average or "weighted"
         precision = precision_score(y, y_pred, average=avg)
         recall = recall_score(y, y_pred, average=avg)
         f1 = f1_score(y, y_pred, average=avg)
-        np.testing.assert_almost_equal(result.metrics["precision_score"], precision)
-        np.testing.assert_almost_equal(result.metrics["recall_score"], recall)
-        np.testing.assert_almost_equal(result.metrics["f1_score"], f1)
+        np.testing.assert_allclose(result.metrics["precision_score"], precision)
+        np.testing.assert_allclose(result.metrics["recall_score"], recall)
+        np.testing.assert_allclose(result.metrics["f1_score"], f1)

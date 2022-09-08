@@ -972,7 +972,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             if self.is_binomial:
                 pos_label = self.evaluator_config.get("pos_label", 1)
-                self.metrics.update(_get_binary_classifier_metrics(self.y, self.y_prob, pos_label))
+                self.metrics.update(_get_binary_classifier_metrics(self.y, self.y_pred, pos_label))
                 self._compute_roc_and_pr_curve()
             else:
                 average = self.evaluator_config.get("average", "weighted")
