@@ -21,8 +21,10 @@ from packaging.version import Version
 from threading import RLock
 import numpy as np
 import importlib
+import yaml
 
 import mlflow
+from mlflow import pyfunc
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -32,9 +34,17 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
     _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
+    _mlflow_conda_env,
 )
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
@@ -83,6 +93,7 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 _MODEL_SAVE_PATH = "model"
 _PIP_ENV_SUBPATH = "requirements.txt"
 
+
 def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -104,11 +115,22 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+def _get_model_type(model_conf):
+    # model_type: tf1-estimator / tf2-module / keras
+    if "model_type" in model_conf.flavors:
+        return model_conf.flavors["model_type"]
+    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
+        return "keras"
+    return "tf1-estimator"
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
     artifact_path,
     custom_objects=None,
+    tf_module_signatures=None,
+    tf_module_options=None,
     conda_env=None,
     code_paths=None,
     signature: ModelSignature = None,
@@ -129,6 +151,8 @@ def log_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
+    :param tf_module_signatures: the value passed to `tensorflow.saved_model.save` `signature` argument
+    :param tf_module_options: the value passed to `tensorflow.saved_model.save` `options` argument
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -165,15 +189,33 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
-    return mlflow_keras._log_keras_model(
+
+    import tensorflow.keras.Model
+    if isinstance(model, tensorflow.keras.Model) and signature is not None:
+        warnings.warn(
+            "The pyfunc inference behavior of Keras models logged "
+            "with signatures differs from the behavior of Keras "
+            "models logged without signatures. Specifically, when a "
+            "signature is present, passing a Pandas DataFrame as "
+            "input to the pyfunc `predict()` API produces an `ndarray` "
+            "(for single-output models) or a dictionary of `str -> ndarray`: "
+            "(for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces "
+            "a Pandas DataFrame output in response to a Pandas DataFrame input."
+        )
+
+    return Model.log(
         artifact_path=artifact_path,
-        keras_model=model,
-        custom_objects=custom_objects,
+        flavor=mlflow.tensorflow,
+        model=model,
         conda_env=conda_env,
         code_paths=code_paths,
+        custom_objects=custom_objects,
+        tf_module_signatures=tf_module_signatures,
+        tf_module_options=tf_module_options,
+        registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
-        registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
@@ -200,33 +242,71 @@ def _save_keras_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-def _save_keras_model(
-    keras_model,
+def save_model(
+    model,
     path,
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
     custom_objects=None,
+    tf_module_signatures=None,
+    tf_module_options=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
     **kwargs,
 ):
+    """
+    Save a Keras model or a Tensorflow module to a path on the local file system.
+
+    :param model: The Keras model or Tensorflow module to be saved.
+    :param path: Local path where the MLflow model is to be saved.
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
+    :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param tf_module_signatures: the value passed to `tensorflow.saved_model.save` `signature` argument
+    :param tf_module_options: the value passed to `tensorflow.saved_model.save` `options` argument
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param kwargs: kwargs to pass to ``model.save`` method.
+    """
     import tensorflow.keras.models
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-
-    if not isinstance(keras_model, tensorflow.keras.models.Model):
-        raise MlflowException("The `keras_model` argument value is not a keras model instance.")
-    keras_module = importlib.import_module("tensorflow.keras")
 
     # check if path exists
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
-    # construct new data folder in existing path
     data_subpath = "data"
+    # construct new data folder in existing path
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -238,52 +318,69 @@ def _save_keras_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    # save custom objects if there are custom objects
-    if custom_objects is not None:
-        _save_keras_custom_objects(data_path, custom_objects)
-
-    # save keras module spec to path/data/keras_module.txt
-    with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
-        f.write(keras_module.__name__)
-
-    # Use the SavedModel format if `save_format` is unspecified
-    save_format = kwargs.get("save_format", "tf")
-
-    # save keras save_format to path/data/save_format.txt
-    with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
-        f.write(save_format)
-
-    # save keras model
-    # To maintain prior behavior, when the format is HDF5, we save
-    # with the h5 file extension. Otherwise, model_path is a directory
-    # where the saved_model.pb will be stored (for SavedModel format)
-    file_extension = ".h5" if save_format == "h5" else ""
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-    model_path = os.path.join(path, model_subpath) + file_extension
-    if path.startswith("/dbfs/"):
-        # The Databricks Filesystem uses a FUSE implementation that does not support
-        # random writes. It causes an error.
-        with tempfile.NamedTemporaryFile(suffix=".h5") as f:
-            keras_model.save(f.name, **kwargs)
-            f.flush()  # force flush the data
-            shutil.copyfile(src=f.name, dst=model_path)
+
+    if isinstance(model, tensorflow.Module):
+        tensorflow.saved_model.save(
+            model, signature=tf_module_signatures, options=tf_module_options
+        )
+        flavor_options = {
+            "model_type": "tf2-module"
+        }
+    elif isinstance(model, tensorflow.keras.Model):
+        keras_module = importlib.import_module("tensorflow.keras")
+        # save custom objects if there are custom objects
+        if custom_objects is not None:
+            _save_keras_custom_objects(data_path, custom_objects)
+
+        # save keras module spec to path/data/keras_module.txt
+        with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
+            f.write(keras_module.__name__)
+
+        # Use the SavedModel format if `save_format` is unspecified
+        save_format = kwargs.get("save_format", "tf")
+
+        # save keras save_format to path/data/save_format.txt
+        with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
+            f.write(save_format)
+
+        # save keras model
+        # To maintain prior behavior, when the format is HDF5, we save
+        # with the h5 file extension. Otherwise, model_path is a directory
+        # where the saved_model.pb will be stored (for SavedModel format)
+        file_extension = ".h5" if save_format == "h5" else ""
+        model_path = os.path.join(path, model_subpath) + file_extension
+        if path.startswith("/dbfs/"):
+            # The Databricks Filesystem uses a FUSE implementation that does not support
+            # random writes. It causes an error.
+            with tempfile.NamedTemporaryFile(suffix=".h5") as f:
+                model.save(f.name, **kwargs)
+                f.flush()  # force flush the data
+                shutil.copyfile(src=f.name, dst=model_path)
+        else:
+            model.save(model_path, **kwargs)
+
+        flavor_options = {
+            "model_type": "keras",
+            "keras_module": keras_module.__name__,
+            "keras_version": keras_module.__version__,
+            "save_format": save_format,
+        }
     else:
-        keras_model.save(model_path, **kwargs)
+        raise MlflowException(f"Unknown model type: {type(model)}")
 
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        keras_module=keras_module.__name__,
-        keras_version=keras_module.__version__,
-        save_format=save_format,
         data=data_subpath,
         code=code_dir_subpath,
+        **flavor_options
     )
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
         mlflow_model,
-        loader_module="mlflow.tensorflow.keras",
+        loader_module="mlflow.tensorflow",
         data=data_subpath,
         env=_CONDA_ENV_FILE_NAME,
         code=code_dir_subpath,
@@ -325,76 +422,40 @@ def _save_keras_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-def save_model(
-    model,
-    path,
-    custom_objects=None,
-    mlflow_model=None,
-    conda_env=None,
-    code_paths=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    **kwargs,
-):
-    """
-    Save a Keras model or a Tensorflow module to a path on the local file system.
+def _load_keras_model(model_path, keras_module, save_format, **kwargs):
+    keras_models = importlib.import_module(keras_module.__name__ + ".models")
+    custom_objects = kwargs.pop("custom_objects", {})
+    custom_objects_path = None
+    if os.path.isdir(model_path):
+        if os.path.isfile(os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)):
+            custom_objects_path = os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)
+        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
+    if custom_objects_path is not None:
+        import cloudpickle
 
-    :param model: The Keras model or Tensorflow module to be saved.
-    :param path: Local path where the MLflow model is to be saved.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+        with open(custom_objects_path, "rb") as in_f:
+            pickled_custom_objects = cloudpickle.load(in_f)
+            pickled_custom_objects.update(custom_objects)
+            custom_objects = pickled_custom_objects
 
-                      .. code-block:: python
+    # If the save_format is HDF5, then we save with h5 file
+    # extension to align with prior behavior of mlflow logging
+    if save_format == "h5":
+        model_path = model_path + ".h5"
 
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param kwargs: kwargs to pass to ``model.save`` method.
-    """
-    if isinstance(model, tensorflow.Module):
-        tensorflow.saved_model.save
-    elif isinstance(model, tensorflow.keras.Model):
-        mlflow_keras._save_keras_model(
-            keras_model=model,
-            path=path,
-            custom_objects=custom_objects,
-            mlflow_model=mlflow_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            signature=signature,
-            input_example=input_example,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            **kwargs,
-        )
+    # keras in tensorflow used to have a '-tf' suffix in the version:
+    # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
+    unsuffixed_version = re.sub(r"-tf$", "", keras_module.__version__)
+    if save_format == "h5" and Version(unsuffixed_version) >= Version("2.2.3"):
+        # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
+        # of string to avoid issues.
+        import h5py
+
+        with h5py.File(os.path.abspath(model_path), "r") as model_path:
+            return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
     else:
-        raise MlflowException(f"Unknown model type: {type(model)}")
+        # NOTE: Older versions of Keras only handle filepath.
+        return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
 
 def load_model(model_uri, dst_path=None, **kwargs):
     """
@@ -442,20 +503,35 @@ def load_model(model_uri, dst_path=None, **kwargs):
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
 
-    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
-        return mlflow_keras._load_keras_model(local_model_path, flavor_conf, **kwargs)
+    model_type = _get_model_type(model_conf)
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    (
-        tf_saved_model_dir,
-        tf_meta_graph_tags,
-        tf_signature_def_key,
-    ) = _parse_flavor_configuration(flavor_conf, local_model_path)
-    return _load_tensorflow_saved_model(
-        tf_saved_model_dir=tf_saved_model_dir,
-        tf_meta_graph_tags=tf_meta_graph_tags,
-        tf_signature_def_key=tf_signature_def_key,
+    model_path = os.path.join(
+        local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
     )
+    if model_type == "keras":
+        keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
+        # For backwards compatibility, we assume h5 when the save_format is absent
+        save_format = flavor_conf.get("save_format", "h5")
+        return _load_keras_model(
+            model_path=model_path,
+            keras_module=keras_module,
+            save_format=save_format,
+            **kwargs,
+        )
+    elif model_type == "tf1-estimator":
+        (
+            tf_saved_model_dir,
+            tf_meta_graph_tags,
+            tf_signature_def_key,
+        ) = _parse_flavor_configuration(flavor_conf, local_model_path)
+        return _load_tensorflow_saved_model(
+            tf_saved_model_dir=tf_saved_model_dir,
+            tf_meta_graph_tags=tf_meta_graph_tags,
+            tf_signature_def_key=tf_signature_def_key,
+        )
+    else:
+        return tensorflow.saved_model.load(model_path)
 
 
 def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
