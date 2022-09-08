@@ -7,6 +7,7 @@ import yaml
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
+from mlflow.utils.environment import Environment
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -206,7 +207,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     if project_env_name in _list_conda_environments(conda_extra_env_vars):
         _logger.info("Conda environment %s already exists.", project_env_path)
-        return project_env_name
+        return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 
     _logger.info("=== Creating conda environment %s ===", project_env_path)
     try:
@@ -240,7 +241,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                 extra_env=conda_extra_env_vars,
                 capture_output=capture_output,
             )
-        return project_env_name
+        return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
     except Exception:
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):
