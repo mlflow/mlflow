@@ -1,4 +1,5 @@
 from collections import namedtuple
+from unittest import mock
 
 import pytest
 from sklearn import datasets
@@ -6,6 +7,8 @@ import sklearn.neighbors as knn
 import mlflow
 import random
 
+from mlflow import MlflowClient
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import get_model_version_from_model_uri
 
@@ -133,3 +136,28 @@ def test_adding_libraries_to_model_new_model_name(sklearn_knn_model):
     assert wheeled_model_version.run_id == new_run_id
     assert wheeled_model_version.name == wheeled_model_name
     assert wheeled_model_name != model_name
+
+
+def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+    artifact_path = "model"
+    model_uri = f"models:/{model_name}/1"
+
+    # Log a model
+    with mlflow.start_run():
+        original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model.model,
+            artifact_path=artifact_path,
+            registered_model_name=model_name,
+        )
+
+    model_version_without_source = ModelVersion(name=model_name, version=1, creation_timestamp=124)
+    assert model_version_without_source.run_id is None
+    with mock.patch.object(
+        MlflowClient, "get_model_version", return_value=model_version_without_source
+    ) as mlflow_client_mock:
+        wheeled_model_info = add_libraries_to_model(model_uri)
+        assert wheeled_model_info.run_id is not None
+        assert wheeled_model_info.run_id != original_run_id
+        mlflow_client_mock.assert_called_once_with(model_name, "1")

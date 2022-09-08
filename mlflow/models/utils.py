@@ -596,33 +596,37 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
 @experimental
 def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
-    Given a registered model_uri (models:/<model_name>/<model_version/stage/latest>), this utility
-    re-logs the model along with all the required model libraries back to the model registry.
+    Given a registered model_uri (e.g. models:/<model_name>/<model_version>), this utility
+    re-logs the model along with all the required model libraries back to the Model Registry.
     The required model libraries are stored along with the model as model artifacts. In
     addition, supporting files to the model (e.g. conda.yaml, requirements.txt) are modified
     to use the added libraries.
 
-    The default working of this util creates a new model version under the same registered model
-    name, this behavior can be overridden by passing in a registered_model_name to the utility.
+    By default, this utility creates a new model version under the same registered model specified
+    by ``model_uri``. This behavior can be overridden by specifying the ``registered_model_name``
+    argument.
 
-    :param model_uri: A registered model uri in the model registry of the form
-                        models:/<model_name>/<model_version/stage/latest>
-    :param run_id: The run_id to which the model artifacts will be stored. If None, the model
-                    artifacts are stored in the original run_id where the inputted model version
-                    was created. Can be overridden by explicitly passing a run_id.
+    :param model_uri: A registered model uri in the Model Registry of the form
+                      models:/<model_name>/<model_version/stage/latest>
+    :param run_id: The ID of the run to which the model with libraries is logged. If None, the model
+                   with libraries is logged to the source run corresponding to model version
+                   specified by ``model_uri``; if the model version does not have a source run, a
+                   new run created.
     :param registered_model_name: The new model version (model with its libraries) is
-                        registered under the inputted registered_model_name. If None, a new version
-                        is logged to the existing model in the model registry.
-
+                                  registered under the inputted registered_model_name. If None, a
+                                  new version is logged to the existing model in the Model Registry.
 
     .. note::
-    This utility only operates on a model that has been registered to the model registry.
+        This utility only operates on a model that has been registered to the Model Registry.
 
+    .. note::
+        The libraries are only compatible with the platform on which they are added. Cross platform
+        libraries are not supported.
 
     .. code-block:: python
         :caption: Example
 
-        # Create and log a model to the model registry
+        # Create and log a model to the Model Registry
 
         import pandas as pd
         from sklearn import datasets
