@@ -1,0 +1,6 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  tracking:
+    build: ./tracking
+    args:
+        TAG: ${GITHUB_REF}
