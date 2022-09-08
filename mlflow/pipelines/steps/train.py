@@ -138,76 +138,9 @@ class TrainStep(BaseStep):
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
-                tuning_params = self.step_config["tuning"]
-                try:
-                    from hyperopt import fmin, Trials
-                except ModuleNotFoundError:
-                    raise MlflowException(
-                        "Hyperopt not installed and is required if tuning is enabled",
-                        error_code=BAD_REQUEST,
-                    )
-
-                # wrap training in objective fn
-                def objective(hyperparameter_args):
-                    with mlflow.start_run(tags=tags, nested=True):
-                        estimator = estimator_fn(
-                            dict(estimator_hardcoded_params, **hyperparameter_args)
-                        )
-
-                        sample_fraction = self.step_config["sample_fraction"]
-                        X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
-                        y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
-
-                        estimator.fit(X_train_sampled, y_train_sampled)
-
-                        logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
-
-                        eval_result = mlflow.evaluate(
-                            model=logged_estimator.model_uri,
-                            data=validation_df,
-                            targets=self.target_col,
-                            model_type="regressor",
-                            evaluators="default",
-                            dataset_name="validation",
-                            custom_metrics=_load_custom_metric_functions(
-                                self.pipeline_root,
-                                self.evaluation_metrics.values(),
-                            ),
-                            evaluator_config={
-                                "log_model_explainability": False,
-                            },
-                        )
-
-                        # return +/- metric
-                        sign = (
-                            -1
-                            if self.evaluation_metrics_greater_is_better[self.primary_metric]
-                            else 1
-                        )
-                        return sign * eval_result.metrics[self.primary_metric]
-
-                search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
-                algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
-                tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
-                max_trials = tuning_params["max_trials"]
-                hp_trials = Trials()
-
-                best_hp_params = fmin(
-                    objective,
-                    search_space,
-                    algo=tuning_algo,
-                    max_evals=max_trials,
-                    trials=hp_trials,
+                estimator = self._tune_and_get_best_estimator(
+                    estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
                 )
-                best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
-                hardcoded_estimator_loss = objective({})
-
-                if best_hp_estimator_loss < hardcoded_estimator_loss:
-                    best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-                else:
-                    best_combined_params = estimator_hardcoded_params
-
-                estimator = estimator_fn(best_combined_params)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
@@ -597,6 +530,74 @@ class TrainStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def _tune_and_get_best_estimator(
+        self, estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+    ):
+        tuning_params = self.step_config["tuning"]
+        try:
+            from hyperopt import fmin, Trials
+        except ModuleNotFoundError:
+            raise MlflowException(
+                "Hyperopt not installed and is required if tuning is enabled",
+                error_code=BAD_REQUEST,
+            )
+
+        # wrap training in objective fn
+        def objective(hyperparameter_args):
+            with mlflow.start_run(nested=True):
+                estimator = estimator_fn(dict(estimator_hardcoded_params, **hyperparameter_args))
+
+                sample_fraction = self.step_config["sample_fraction"]
+                X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
+                y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
+
+                estimator.fit(X_train_sampled, y_train_sampled)
+
+                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+
+                eval_result = mlflow.evaluate(
+                    model=logged_estimator.model_uri,
+                    data=validation_df,
+                    targets=self.target_col,
+                    model_type="regressor",
+                    evaluators="default",
+                    dataset_name="validation",
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
+                    ),
+                    evaluator_config={
+                        "log_model_explainability": False,
+                    },
+                )
+
+                # return +/- metric
+                sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
+                return sign * eval_result.metrics[self.primary_metric]
+
+        search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
+        algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
+        tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
+        max_trials = tuning_params["max_trials"]
+        hp_trials = Trials()
+
+        best_hp_params = fmin(
+            objective,
+            search_space,
+            algo=tuning_algo,
+            max_evals=max_trials,
+            trials=hp_trials,
+        )
+        best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
+        hardcoded_estimator_loss = objective(estimator_hardcoded_params)
+
+        if best_hp_estimator_loss < hardcoded_estimator_loss:
+            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+        else:
+            best_combined_params = estimator_hardcoded_params
+
+        return estimator_fn(best_combined_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
         from mlflow.models.signature import infer_signature
