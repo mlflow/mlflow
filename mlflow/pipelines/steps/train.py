@@ -59,6 +59,15 @@ class TrainStep(BaseStep):
         self.evaluation_metrics.update(
             {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
         )
+        self.evaluation_metrics_greater_is_better = {
+            metric.name: metric.greater_is_better for metric in BUILTIN_PIPELINE_METRICS
+        }
+        self.evaluation_metrics_greater_is_better.update(
+            {
+                metric.name: metric.greater_is_better
+                for metric in _get_custom_metrics(self.step_config)
+            }
+        )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -170,7 +179,12 @@ class TrainStep(BaseStep):
                         )
 
                         # return +/- metric
-                        return eval_result.metrics[self.primary_metric]
+                        sign = (
+                            -1
+                            if self.evaluation_metrics_greater_is_better[self.primary_metric]
+                            else 1
+                        )
+                        return sign * eval_result.metrics[self.primary_metric]
 
                 search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
                 algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
