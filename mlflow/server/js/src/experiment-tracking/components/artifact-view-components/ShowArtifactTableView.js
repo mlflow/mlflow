@@ -37,14 +37,12 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
           const result = Papa.parse(artifactText, {
             header: true,
             preview: MAX_NUM_ROWS,
+            skipEmptyLines: 'greedy',
           });
           const dataPreview = result.data;
 
-          const allCellsEmpty = Object.values(dataPreview[dataPreview.length - 1]).map(
-            (value) => value === '',
-          );
-          if (allCellsEmpty.every(Boolean)) {
-            dataPreview.pop();
+          if (result.errors.length > 0) {
+            throw Error(result.errors[0].message);
           }
 
           setLoading(false);
