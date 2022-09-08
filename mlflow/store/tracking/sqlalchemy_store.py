@@ -540,12 +540,10 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-                run_name_tag = RunTag(MLFLOW_RUN_NAME, _generate_random_name())
-                if tags:
-                    tags.append(run_name_tag)
-                else:
-                    tags = [run_name_tag]
+            if tags is None:
+                tags = [RunTag(MLFLOW_RUN_NAME, _generate_random_name())]
+            elif MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
+                tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
 
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)

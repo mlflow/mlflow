@@ -11,7 +11,6 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    run_name = "my_run",
     tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
   )
 
@@ -96,7 +95,6 @@ test_that("mlflow_restore_run() work properly", {
   run1 <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    run_name = "my_run",
     tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
   )
 

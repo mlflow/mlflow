@@ -1,4 +1,4 @@
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, RunTag
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -28,8 +28,6 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -185,8 +183,6 @@ class RestStore(AbstractStore):
 
         :return: The created Run object
         """
-        if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-            tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
 
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(

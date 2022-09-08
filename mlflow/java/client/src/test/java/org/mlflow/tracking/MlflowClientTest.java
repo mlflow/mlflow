@@ -606,7 +606,7 @@ public class MlflowClientTest {
 
       Stack<RunTag> tags = new Stack();
       tags.push(createTag("t1", "tagtagtag"));
-      tags.push(createTag("mlflow.runName", "myRun");
+      tags.push(createTag("mlflow.runName", "myRun"));
       client.logBatch(runUuid, null, null, tags);
 
       Run run = client.getRun(runUuid);
@@ -630,7 +630,7 @@ public class MlflowClientTest {
       Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
         createTag("t2", "xx"),
         createTag("t3", "xx"),
-        createTag("mlflow.runName", "myRun"));
+        createTag("mlflow.runName", "myRun")));
       client.logBatch(runUuid, metrics, params, tags);
 
       Run run = client.getRun(runUuid);

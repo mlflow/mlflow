@@ -589,13 +589,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
-        if isinstance(tags, list):
-            if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-                tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
-        # cli sends tags to the backend store as a dict
-        elif isinstance(tags, dict) and not tags:
-            if MLFLOW_RUN_NAME not in tags.keys():
-                tags = [RunTag(MLFLOW_RUN_NAME, _generate_random_name())]
+        if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
+            tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)

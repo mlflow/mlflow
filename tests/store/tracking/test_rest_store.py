@@ -47,8 +47,6 @@ from mlflow.store.tracking.rest_store import (
     RestStore,
     DatabricksRestStore,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -197,16 +195,6 @@ class TestRestStore:
                 # Tag order is inconsistent on Python 2 and 3, but the order does not matter
                 expected_tags = expected_kwargs["json"].pop("tags")
                 actual_tags = actual_kwargs["json"].pop("tags")
-
-                # Extract the run_name generated tag
-                run_name_tag = [
-                    tag["value"] for tag in actual_tags if tag["key"] == MLFLOW_RUN_NAME
-                ]
-                assert len(run_name_tag) == 1
-                assert run_name_tag[0].split("-")[0] in _GENERATOR_PREDICATES
-
-                # remove the run_name generated tag
-                actual_tags[:] = [tag for tag in actual_tags if tag.get("key") != MLFLOW_RUN_NAME]
 
                 assert sorted(expected_tags, key=lambda t: t["key"]) == sorted(
                     actual_tags, key=lambda t: t["key"]
