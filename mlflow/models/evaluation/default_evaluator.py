@@ -207,8 +207,6 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
             _get_binary_classifier_metrics(
                 y_true=y_bin,
                 y_pred=y_pred_bin,
-                y_proba=None,
-                labels=None,
                 pos_label=1,
             )
         )
