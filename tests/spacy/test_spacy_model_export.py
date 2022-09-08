@@ -463,7 +463,7 @@ def _predict(spacy_model, test_x):
 
 
 def test_virtualenv_subfield_points_to_correct_path(spacy_model_with_data, model_path):
-    mlflow.spacy.save_model(spacy_model_with_data, path=model_path)
+    mlflow.spacy.save_model(spacy_model_with_data.model, path=model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
