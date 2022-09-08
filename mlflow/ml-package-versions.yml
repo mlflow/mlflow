@@ -74,6 +74,9 @@ tensorflow:
     run: |
       tf_version=$(pip freeze | grep 'tensorflow==' | grep -Eo '[0-9].[0-9]')
       pip install tensorflow-estimator==${tf_version}
+      if [ ${tf_version: -1} -lt 6 ]; then
+        pip install protobuf<4.0.0
+      fi
       pytest \
         tests/tensorflow/test_tensorflow2_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
@@ -88,6 +91,9 @@ tensorflow:
     run: |
       tf_version=$(pip freeze | grep 'tensorflow==' | grep -Eo '[0-9].[0-9]')
       pip install tensorflow-estimator==${tf_version}
+      if [ ${tf_version: -1} -lt 6 ]; then
+        pip install protobuf<4.0.0
+      fi
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:
