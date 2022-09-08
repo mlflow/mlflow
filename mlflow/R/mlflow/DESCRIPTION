@@ -54,7 +54,7 @@ Suggests:
     keras,
     lintr,
     sparklyr,
-    stringi (< 1.4.4),
+    stringi,
     testthat (>= 2.0.0),
     reticulate,
     xgboost

@@ -26,7 +26,7 @@ from mlflow.projects.utils import (
     PROJECT_STORAGE_DIR,
 )
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
+from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.virtualenv import (
     _install_python,
     _create_virtualenv,
