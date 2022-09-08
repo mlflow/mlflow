@@ -500,7 +500,9 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.evaluator_config.get("log_model_explainability", True):
             return
 
-        if self.is_model_server:  # TODO: add configuration to enable it
+        if self.is_model_server and not self.evaluator_config.get(
+            "log_model_explainability", False
+        ):
             _logger.warning(
                 "Skipping model explainability because a model server is used for environment "
                 "restoration."
