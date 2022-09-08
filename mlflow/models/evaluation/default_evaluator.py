@@ -961,8 +961,6 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for computing builtin metrics
         """
-        pos_label = self.evaluator_config.get("pos_label", 1)
-        average = self.evaluator_config.get("average", "weighted")
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
             self.metrics.update(
@@ -973,9 +971,11 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
             if self.is_binomial:
+                pos_label = self.evaluator_config.get("pos_label", 1)
                 self.metrics.update(_get_binary_classifier_metrics(self.y, self.y_prob, pos_label))
                 self._compute_roc_and_pr_curve()
             else:
+                average = self.evaluator_config.get("average", "weighted")
                 self.metrics.update(
                     _get_multiclass_classifier_metrics(self.y, self.y_prob, average)
                 )
