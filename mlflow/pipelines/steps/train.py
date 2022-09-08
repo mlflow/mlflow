@@ -132,7 +132,7 @@ class TrainStep(BaseStep):
                 tuning_params = self.step_config["tuning"]
                 # import hyperopt or throw error
                 try:
-                    from hyperopt import hp, fmin
+                    from hyperopt import hp, fmin, Trials
                 except ModuleNotFoundError:
                     raise MlflowException(
                         "Hyperopt not installed and is required if tuning is enabled",
@@ -212,10 +212,20 @@ class TrainStep(BaseStep):
                 algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
                 tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
                 max_trials = tuning_params["max_trials"]
+                hp_trials = Trials()
                 best_hp_params = fmin(
-                    objective, search_space, algo=tuning_algo, max_evals=max_trials
+                    objective,
+                    search_space,
+                    algo=tuning_algo,
+                    max_evals=max_trials,
+                    trials=hp_trials,
                 )
-                estimator = estimator_fn(dict(estimator_hardcoded_params, **best_hp_params))
+                best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
+                hardcoded_estimator_loss = objective({})
+                if best_hp_estimator_loss < hardcoded_estimator_loss:
+                    estimator = estimator_fn(dict(estimator_hardcoded_params, **best_hp_params))
+                else:
+                    estimator = estimator_fn(estimator_hardcoded_params)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
