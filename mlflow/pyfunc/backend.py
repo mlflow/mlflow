@@ -38,7 +38,7 @@ class PyFuncBackend(FlavorBackend):
         self,
         config,
         workers=1,
-        env_manager=_EnvManager.CONDA,
+        env_manager=_EnvManager.VIRTUALENV,
         install_mlflow=False,
         env_root_dir=None,
         **kwargs,

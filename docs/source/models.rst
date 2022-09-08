@@ -843,8 +843,8 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
-Pmdarima (``pmdarima``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pmdarima (``pmdarima``)
+^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
 format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
@@ -926,8 +926,8 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
-Diviner (``diviner``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Diviner (``diviner``)
+^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
 `diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
 :py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
@@ -1595,8 +1595,8 @@ For more information about serializing tensor inputs using the TF serving format
 
 .. _serving_with_mlserver:
 
-Serving with MLServer (experimental)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Serving with MLServer
+~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
 <https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
@@ -1640,7 +1640,6 @@ the `end-to-end example in the MLServer documentation
 visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
 
 .. note::
-    - This feature is experimental and is subject to change.
     - MLServer requires Python 3.7 or above.
 
 .. _encoding-complex-data:
@@ -2078,10 +2077,6 @@ In addition to the built-in deployment tools, MLflow provides a pluggable
 models to custom targets and environments. To deploy to a custom target, you must first install an
 appropriate third-party Python plugin. See the list of known community-maintained plugins
 `here <plugins.html#deployment-plugins>`_.
-
-
-.. Note::
-    APIs for deployment to custom targets are experimental, and may be altered in a future release.
 
 
 Commands
