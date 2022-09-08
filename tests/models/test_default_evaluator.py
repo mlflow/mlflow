@@ -20,10 +20,11 @@ from mlflow.models.evaluation.artifacts import (
     PickleEvaluationArtifact,
 )
 from mlflow.models.evaluation.default_evaluator import (
-    _get_classifier_global_metrics,
     _infer_model_type_by_labels,
     _extract_raw_model,
     _extract_predict_fn,
+    _get_binary_classifier_metrics,
+    _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
     _get_binary_sum_up_label_pred_prob,
     _gen_classifier_curve,
@@ -290,7 +291,7 @@ def test_multi_classifier_evaluation(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -352,7 +353,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -406,7 +407,7 @@ def test_bin_classifier_evaluation(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -469,7 +470,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -611,7 +612,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -666,7 +667,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -836,24 +837,26 @@ def test_get_binary_sum_up_label_pred_prob():
     ]
 
 
-def test_get_classifier_per_class_metrics():
+def test_get_binary_classifier_metrics():
     y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
     y_pred = [0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
 
     expected_metrics = {
+        "example_count": 10,
         "true_negatives": 3,
-        "false_positives": 2,
-        "false_negatives": 1,
         "true_positives": 4,
-        "recall": 0.8,
-        "precision": 0.6666666666666666,
+        "false_negatives": 1,
+        "false_positives": 2,
+        "accuracy_score": 0.7,
         "f1_score": 0.7272727272727272,
+        "precision_score": 0.6666666666666666,
+        "recall_score": 0.8,
     }
-    metrics = _get_classifier_per_class_metrics(y, y_pred)
+    metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
-def test_multiclass_get_classifier_global_metrics():
+def test_get_multiclass_classifier_metrics():
     y = [0, 1, 2, 1, 2]
     y_pred = [0, 2, 1, 1, 0]
     y_probs = [
@@ -863,29 +866,17 @@ def test_multiclass_get_classifier_global_metrics():
         [0.3, 0.4, 0.3],
         [0.8, 0.1, 0.1],
     ]
-
-    metrics = _get_classifier_global_metrics(
-        is_binomial=False, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1, 2]
+    metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2]
     )
     expected_metrics = {
-        "accuracy_score": 0.4,
         "example_count": 5,
-        "f1_score_micro": 0.4,
-        "f1_score_macro": 0.38888888888888884,
+        "accuracy_score": 0.4,
+        "f1_score": 0.3333333333333333,
         "log_loss": 1.1658691395263094,
+        "precision_score": 0.3,
+        "recall_score": 0.4,
     }
-    assert_dict_equal(metrics, expected_metrics, 1e-3)
-
-
-def test_binary_get_classifier_global_metrics():
-    y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
-    y_pred = [0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-    y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
-    y_probs = [[1 - p, p] for p in y_prob]
-    metrics = _get_classifier_global_metrics(
-        is_binomial=True, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1]
-    )
-    expected_metrics = {"accuracy_score": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
@@ -1209,7 +1200,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_classifier_per_class_metrics(y, y_pred)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
 
     assert "true_count_on_data_breast_cancer_dataset" in metrics
     assert np.isclose(
