@@ -147,36 +147,30 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred, *, pos_label=1):
-    """
-    get classifier metrics which computing over a specific class.
-    For binary classifier, y/y_pred is for the positive class.
-    For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
-    """
+def _get_classifier_metrics(y, y_pred, average, pos_label):
     metrics = {}
-    confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-    tn, fp, fn, tp = confusion_matrix.ravel()
-    metrics["true_negatives"] = tn
-    metrics["false_positives"] = fp
-    metrics["false_negatives"] = fn
-    metrics["true_positives"] = tp
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred, pos_label=pos_label)
-    metrics["precision"] = sk_metrics.precision_score(y, y_pred, pos_label=pos_label)
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, pos_label=pos_label)
+    if average == "binary":
+        tn, fp, fn, tp = sk_metrics.confusion_matrix(y, y_pred).ravel()
+        metrics["true_negatives"] = tn
+        metrics["false_positives"] = fp
+        metrics["false_negatives"] = fn
+        metrics["true_positives"] = tp
+    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
+    metrics["recall"] = sk_metrics.recall_score(y, y_pred, average=average, pos_label=pos_label)
+    metrics["precision"] = sk_metrics.precision_score(
+        y, y_pred, average=average, pos_label=pos_label
+    )
+    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred, average=average, pos_label=pos_label)
     return metrics
 
 
-def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
+def _get_classifier_global_metrics(y, y_pred, y_probs, labels, average, pos_label):
     """
     get classifier metrics which computing over all classes examples.
     """
     metrics = {}
-    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
     metrics["example_count"] = len(y)
-
-    if not is_binomial:
-        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro", labels=labels)
-        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro", labels=labels)
+    metrics.update(_get_classifier_metrics(y, y_pred, average, pos_label))
 
     if y_probs is not None:
         metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
@@ -192,7 +186,9 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, *, labels):
         )
 
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics.update(
+            _get_classifier_metrics(y_bin, y_pred_bin, average="binary", pos_label=1)
+        )
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -960,23 +956,21 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for computing builtin metrics
         """
+        pos_label = self.evaluator_config.get("pos_label")
+        average = "weighted" if pos_label is None else "binary"
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
             self.metrics.update(
                 _get_classifier_global_metrics(
-                    self.is_binomial,
                     self.y,
                     self.y_pred,
                     self.y_probs,
                     self.label_list,
+                    average,
+                    pos_label,
                 )
             )
             if self.is_binomial:
-                self.metrics.update(
-                    _get_classifier_per_class_metrics(
-                        self.y, self.y_pred, pos_label=self.evaluator_config.get("pos_label", 1)
-                    )
-                )
                 self._compute_roc_and_pr_curve()
         elif self.model_type == "regressor":
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
