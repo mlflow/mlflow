@@ -45,23 +45,6 @@ _PIP_ENV_SUBPATH = "requirements.txt"
 
 
 
-class _KerasModelWrapper:
-    def __init__(self, keras_model, graph, sess):
-        self.keras_model = keras_model
-        self._graph = graph
-        self._sess = sess
-
-    def predict(self, data):
-        def _predict(data):
-            if isinstance(data, pd.DataFrame):
-                predicted = pd.DataFrame(self.keras_model.predict(data.values))
-                predicted.index = data.index
-            else:
-                predicted = self.keras_model.predict(data)
-            return predicted
-
-        predicted = _predict(data)
-        return predicted
 
 
 def _load_pyfunc(path):
@@ -90,7 +73,7 @@ def _load_pyfunc(path):
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if K.backend() == "tensorflow":
         K.set_learning_phase(0)
-        m = _load_model(
+        m = _load_keras_model(
             path, keras_module=keras_module, save_format=save_format, compile=should_compile
         )
         return _KerasModelWrapper(m, None, None)

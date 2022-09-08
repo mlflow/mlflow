@@ -22,6 +22,8 @@ from threading import RLock
 import numpy as np
 import importlib
 import yaml
+import pandas as pd
+import re
 
 import mlflow
 from mlflow import pyfunc
@@ -321,8 +323,9 @@ def save_model(
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
 
     if isinstance(model, tensorflow.Module):
+        model_path = os.path.join(path, model_subpath)
         tensorflow.saved_model.save(
-            model, signature=tf_module_signatures, options=tf_module_options
+            model, model_path, signature=tf_module_signatures, options=tf_module_options
         )
         flavor_options = {
             "model_type": "tf2-module"
@@ -457,6 +460,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
         # NOTE: Older versions of Keras only handle filepath.
         return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
 
+
 def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
@@ -519,7 +523,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
             save_format=save_format,
             **kwargs,
         )
-    elif model_type == "tf1-estimator":
+    if model_type == "tf1-estimator":
         (
             tf_saved_model_dir,
             tf_meta_graph_tags,
@@ -530,8 +534,10 @@ def load_model(model_uri, dst_path=None, **kwargs):
             tf_meta_graph_tags=tf_meta_graph_tags,
             tf_signature_def_key=tf_signature_def_key,
         )
-    else:
+    if model_type == "tf2-module":
         return tensorflow.saved_model.load(model_path)
+
+    raise MlflowException("Unknown model_type.")
 
 
 def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
@@ -595,20 +601,53 @@ def _load_pyfunc(path):
     """
     import tensorflow
 
-    if os.path.exists(os.path.join(path, mlflow_keras._KERAS_MODULE_SPEC_PATH)):
-        return mlflow_keras._load_pyfunc(path)
+    model_configuration_path = os.path.join(path, MLMODEL_FILE_NAME)
+    model_conf = Model.load(model_configuration_path)
+    model_type = _get_model_type(model_conf)
 
-    flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
-    (
-        tf_saved_model_dir,
-        tf_meta_graph_tags,
-        tf_signature_def_key,
-    ) = _parse_flavor_configuration(flavor_conf, path)
+    if model_type == "keras":
+        if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
+            with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
+                keras_module = importlib.import_module(f.read())
+        else:
+            import tensorflow.keras
 
-    loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
-        export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
-    )
-    return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
+            keras_module = tensorflow.keras
+
+        # By default, we assume the save_format is h5 for backwards compatibility
+        save_format = "h5"
+        save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
+        if os.path.isfile(save_format_path):
+            with open(save_format_path, "r") as f:
+                save_format = f.read()
+
+        # In SavedModel format, if we don't compile the model
+        should_compile = save_format == "tf"
+        K = importlib.import_module(keras_module.__name__ + ".backend")
+        if K.backend() == "tensorflow":
+            K.set_learning_phase(0)
+            m = _load_keras_model(
+                path, keras_module=keras_module, save_format=save_format, compile=should_compile
+            )
+            return _KerasModelWrapper(m, None, None)
+        else:
+            raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
+    if model_type == "tf1-estimator":
+        flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
+        (
+            tf_saved_model_dir,
+            tf_meta_graph_tags,
+            tf_signature_def_key,
+        ) = _parse_flavor_configuration(flavor_conf, path)
+
+        loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
+            export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
+        )
+        return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
+    if model_type == "tf2-module":
+        return tensorflow.saved_model.load(model_path)
+
+    raise MlflowException("Unknown model_type.")
 
 
 class _TF2Wrapper:
@@ -662,6 +701,25 @@ class _TF2Wrapper:
             return pred_dict
         else:
             return pandas.DataFrame.from_dict(data=pred_dict)
+
+
+class _KerasModelWrapper:
+    def __init__(self, keras_model, graph, sess):
+        self.keras_model = keras_model
+        self._graph = graph
+        self._sess = sess
+
+    def predict(self, data):
+        def _predict(data):
+            if isinstance(data, pd.DataFrame):
+                predicted = pd.DataFrame(self.keras_model.predict(data.values))
+                predicted.index = data.index
+            else:
+                predicted = self.keras_model.predict(data)
+            return predicted
+
+        predicted = _predict(data)
+        return predicted
 
 
 def _assoc_list_to_map(lst):
