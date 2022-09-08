@@ -1,0 +1,28 @@
+name: Push-Images
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  push-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Docker Compose
+        uses: KengoTODA/actions-setup-docker-compose@main
+        with:
+          version: '1.29.2'
+          
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          
+      - name: Login to GitHub Container Registry
+        run: echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+        env:
+          CR_PAT: ${{ secrets.CR_PAT }}
+      
+      - name: Build and Push Images
+        run: docker-compose build 
+        working-directory: ../../mlflow
