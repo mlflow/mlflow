@@ -24,7 +24,6 @@ For details, see `MLflow Models <../models.html>`_.
 from .model import Model, get_model_info
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
-from .utils import add_libraries_to_model
 from .evaluation import (
     evaluate,
     EvaluationArtifact,
@@ -43,7 +42,6 @@ __all__ = [
     "get_model_info",
     "list_evaluators",
     "MetricThreshold",
-    "add_libraries_to_model",
 ]
 
 
@@ -52,12 +50,14 @@ __all__ = [
 try:
     from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
     from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
+    from .utils import add_libraries_to_model  # pylint: disable=unused-import
 
     __all__ += [
         "ModelSignature",
         "ModelInputExample",
         "infer_signature",
         "validate_schema",
+        "add_libraries_to_model",
     ]
 except ImportError:
     pass
