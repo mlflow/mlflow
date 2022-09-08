@@ -249,24 +249,54 @@ class DatabricksArtifactRepository(ArtifactRepository):
             try:
                 put_adls_file_creation(credentials.signed_uri, headers=headers)
             except requests.HTTPError as e:
-                raise e
+                if e.response.status_code in [401, 403]:
+                    _logger.info(
+                        "Failed to authorize ADLS file creation request, possibly due "
+                        "to credential expiration. Refreshing credentials and trying again..."
+                    )
+                    credential_info = self._get_write_credential_infos(
+                        run_id=self.run_id, paths=[artifact_path]
+                    )[0]
+                    put_adls_file_creation(credential_info.signed_uri, headers=headers)
+                else:
+                    raise e
 
             # next try to patch the file
             offset = 0
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 try:
-                    patch_adls_file_upload(
-                        credentials.signed_uri, chunk, str(offset), headers=headers
-                    )
+                    patch_adls_file_upload(credentials.signed_uri, chunk, offset, headers=headers)
                     offset += sys.getsizeof(chunk)
                 except requests.HTTPError as e:
-                    raise e
+                    if e.response.status_code in [401, 403]:
+                        _logger.info(
+                            "Failed to authorize ADLS patch request, possibly due to "
+                            "credential expiration. Refreshing credentials and trying again..."
+                        )
+                        credential_info = self._get_write_credential_infos(
+                            run_id=self.run_id, paths=[artifact_path]
+                        )[0]
+                        patch_adls_file_upload(
+                            credential_info.signed_uri, chunk, offset, headers=headers
+                        )
+                    else:
+                        raise e
 
             # finally flush the file
             try:
-                patch_adls_flush(credentials.signed_uri, str(offset), headers=headers)
+                patch_adls_flush(credentials.signed_uri, offset, headers=headers)
             except requests.HTTPError as e:
-                raise e
+                if e.response.status_code in [401, 403]:
+                    _logger.info(
+                        "Failed to authorize flush request, possibly due to credential expiration."
+                        " Refreshing credentials and trying again..."
+                    )
+                    credential_info = self._get_write_credential_infos(
+                        run_id=self.run_id, paths=[artifact_path]
+                    )[0]
+                    patch_adls_flush(credential_info.signed_uri, offset, headers=headers)
+                else:
+                    raise e
         except Exception as err:
             raise MlflowException(err)
 

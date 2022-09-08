@@ -49,7 +49,7 @@ def patch_adls_file_upload(sas_url, data, position, headers):
     :param position: Positional offset of the data in the Patch request
     :param headers: Additional headers to include in the Patch request body
     """
-    request_url = _append_query_parameters(sas_url, {"action": "append", "position": position})
+    request_url = _append_query_parameters(sas_url, {"action": "append", "position": str(position)})
 
     request_headers = {}
     for name, value in headers.items():
@@ -74,7 +74,7 @@ def patch_adls_flush(sas_url, position, headers):
     :param position: The final size of the file to flush.
     :param headers: Additional headers to include in the Put request body.
     """
-    request_url = _append_query_parameters(sas_url, {"action": "flush", "position": position})
+    request_url = _append_query_parameters(sas_url, {"action": "flush", "position": str(position)})
 
     request_headers = {}
     for name, value in headers.items():
