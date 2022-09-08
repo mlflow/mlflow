@@ -1899,11 +1899,6 @@ ModelVersion
 ------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------------+------------------------------+-------------------------+
 |    Field Name    |             Type             |       Description       |
 +==================+==============================+=========================+
@@ -1916,11 +1911,6 @@ ModelVersion
 
 ModelVersionDetailed
 --------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
@@ -1972,11 +1962,6 @@ RegisteredModel
 ---------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------+------------+----------------------------+
 | Field Name |    Type    |        Description         |
 +============+============+============================+
@@ -1987,11 +1972,6 @@ RegisteredModel
 
 RegisteredModelDetailed
 -----------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
@@ -2110,9 +2090,6 @@ Tag for a run.
 ModelVersionStatus
 ------------------
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 +----------------------+---------------------------------------------------------------------------------------------+
 |         Name         |                                         Description                                         |
