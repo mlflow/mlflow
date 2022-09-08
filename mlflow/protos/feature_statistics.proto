@@ -22,9 +22,6 @@ syntax = "proto2";
 // Definitions for aggregated feature statistics for datasets.
 package featureStatistics;
 
-option java_package = "com.databricks.api.proto.featureStatistics";
-option java_generate_equals_and_hash = true;
-
 // A list of features statistics for different datasets. If you wish to compare
 // different datasets using this list, then the DatasetFeatureStatistics
 // entries should all contain the same list of features.

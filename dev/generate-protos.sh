@@ -15,9 +15,13 @@ protoc -I="$PROTOS" \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \
     "$PROTOS"/databricks_artifacts.proto \
-    "$PROTOS"/feature_statistics.proto \
     "$PROTOS"/mlflow_artifacts.proto \
     "$PROTOS"/scalapb/scalapb.proto
+
+PROTOS="mlflow/protos"
+protoc -I="$PROTOS" \
+    --python_out="$PROTOS" \
+    "$PROTOS"/feature_statistics.proto \
 
 # Generate only Python classes (no Java classes) for test protos.
 TEST_PROTOS="tests/protos"

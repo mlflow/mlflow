@@ -51,6 +51,7 @@ def testCommonStats():
     assert common_stats == text_format.Parse(
         """
         num_non_missing: 5
+        num_missing: 0
         min_num_values: 1
         max_num_values: 1
         avg_num_values: 1.0
@@ -88,6 +89,7 @@ def testConvertToProto():
             string_stats {
               common_stats {
                 num_non_missing: 5
+                num_missing: 0
                 min_num_values: 1
                 max_num_values: 1
                 avg_num_values: 1.0
@@ -104,6 +106,8 @@ def testConvertToProto():
               avg_length: 4.0
               rank_histogram {
                 buckets {
+                  low_rank: 0
+                  high_rank: 0
                   label: "MSFT"
                   sample_count: 2.0
                 }
@@ -135,6 +139,7 @@ def testConvertToProto():
               }
               mean: 155.0
               std_dev: 42.03173404306164
+              num_zeros: 0
               min: 100.0
               median: 160.0
               max: 200.0
@@ -189,6 +194,7 @@ def testConvertToProto():
                   high_value: 200.0
                   sample_count: 0.4444444444444445
                 }
+                type: STANDARD
               }
               histograms {
                 buckets {
