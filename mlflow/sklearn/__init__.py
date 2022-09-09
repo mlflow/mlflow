@@ -264,7 +264,8 @@ def save_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
-            env=_CONDA_ENV_FILE_NAME,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
             code=code_path_subdir,
             predict_fn=pyfunc_predict_fn,
         )

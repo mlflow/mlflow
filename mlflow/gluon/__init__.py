@@ -228,7 +228,11 @@ def save_model(
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME, code=code_dir_subpath
+        mlflow_model,
+        loader_module="mlflow.gluon",
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__, code=code_dir_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
