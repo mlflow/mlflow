@@ -514,7 +514,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         model_config = _get_flavor_configuration_from_ml_model_file(
             os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
         )
-        return os.path.join(model_dir, model_config[ENV])
+        return os.path.join(model_dir, _extract_conda_env(model_config[ENV]))
 
     if format == "pip":
         requirements_file = os.path.join(model_dir, _REQUIREMENTS_FILE_NAME)
