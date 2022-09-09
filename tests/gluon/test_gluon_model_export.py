@@ -301,9 +301,11 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records"
-    ).values.astype(np.float32)
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
+    response_values = MlflowModelServerOutput.from_raw_json(
+        scoring_response.content.decode("utf-8")
+    ).get_predictions_nparray(np.float32)
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
 
 

@@ -63,4 +63,9 @@ def main():
 
 
 if __name__ == "__main__":
+    from tests.helper_functions import _get_mlflow_home
+    import os
+
+    # Ensure we use the dev version of mlflow in spark.
+    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
     main()

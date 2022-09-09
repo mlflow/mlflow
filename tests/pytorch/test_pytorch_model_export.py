@@ -853,7 +853,9 @@ def test_pyfunc_serve_and_score(data):
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.DataFrame(json.loads(resp.content))
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
+    scores = MlflowModelServerOutput.from_raw_json(resp.content).get_predictions_nparray()
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 

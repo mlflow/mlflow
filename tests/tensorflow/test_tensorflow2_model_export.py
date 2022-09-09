@@ -7,7 +7,6 @@ import sys
 import pytest
 import yaml
 import copy
-import json
 from unittest import mock
 
 import numpy as np
@@ -746,7 +745,13 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
+    actual = (
+        MlflowModelServerOutput.from_raw_json(resp.content)
+        .get_predictions_dataframe()["class_ids"]
+        .values
+    )
     expected = (
         saved_tf_iris_model.expected_results_df["predictions"]
         .map(iris_data_utils.SPECIES.index)

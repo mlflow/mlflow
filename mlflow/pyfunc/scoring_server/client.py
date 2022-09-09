@@ -29,8 +29,13 @@ class MlflowModelServerOutput(dict):
 
     def get_predictions_dataframe(self):
         """Get the predictions returned from the server as pandas.DataFrame. this method will fail
-        if the returned predictions is not a valid"""
+        if the returned predictions is not a valid DataFrame representation."""
         return pd.DataFrame(data=self["predictions"])
+
+    def get_predictions_nparray(self, dtype=None):
+        """Get the predictions returned from the server as a numpy array. this method will fail
+        if the returned predictions is not a valid numpy array"""
+        return np.array(self["predictions"], dtype)
 
 
 class ScoringServerClient:
