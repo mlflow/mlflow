@@ -12,7 +12,10 @@ from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.execution import (
+    get_step_output_path,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+)
 from mlflow.pipelines.utils.metrics import (
     BUILTIN_PIPELINE_METRICS,
     _get_primary_metric,
@@ -125,13 +128,13 @@ class TrainStep(BaseStep):
             importlib.import_module(self.train_module_name), self.estimator_method_name
         )
 
-        run_args = self.step_config.get("run_args") or {}
-
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
             MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
-            MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
+            MLFLOW_PIPELINE_STEP_NAME: os.getenv(
+                _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
+            ),
         }
 
         mlflow.autolog(log_models=False)

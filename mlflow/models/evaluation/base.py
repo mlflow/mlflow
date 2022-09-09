@@ -884,11 +884,12 @@ def evaluate(
 
      - For binary classifiers, the default evaluator additionally logs:
         - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
-          precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
+          precision, f1_score, accuracy_score, example_count, log_loss, roc_auc, 
+          precision_recall_auc.
         - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
      - For multiclass classifiers, the default evaluator additionally logs:
-        - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
+        - **metrics**: accuracy_score, example_count, f1_score_micro, f1_score_macro, log_loss
         - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
@@ -929,6 +930,13 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
+        - **pos_label**: The positive label to use when computing classification metrics such as
+          precision, recall, f1, etc. for binary classification models (default: ``1``). For
+          multiclass classification and regression models, this parameter will be ignored.
+        - **average**: The averaging method to use when computing classification metrics such as
+          precision, recall, f1, etc. for multiclass classification models
+          (default: ``'weighted'``). For binary classification and regression models, this
+          parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

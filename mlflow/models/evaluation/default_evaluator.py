@@ -9,7 +9,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -147,41 +146,53 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred):
-    """
-    get classifier metrics which computing over a specific class.
-    For binary classifier, y/y_pred is for the positive class.
-    For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
-    """
-    metrics = {}
-    confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-    tn, fp, fn, tp = confusion_matrix.ravel()
-    metrics["true_negatives"] = tn
-    metrics["false_positives"] = fp
-    metrics["false_negatives"] = fn
-    metrics["true_positives"] = tp
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-    metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
-    return metrics
-
-
-def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
-    """
-    get classifier metrics which computing over all classes examples.
-    """
-    metrics = {}
-    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["example_count"] = len(y)
-
-    if not is_binomial:
-        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro", labels=labels)
-        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro", labels=labels)
-
-    if y_probs is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
+def _get_common_classifier_metrics(*, y_true, y_pred, y_proba, labels, average, pos_label):
+    metrics = {
+        "example_count": len(y_true),
+        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred),
+        "recall_score": sk_metrics.recall_score(
+            y_true, y_pred, average=average, pos_label=pos_label
+        ),
+        "precision_score": sk_metrics.precision_score(
+            y_true, y_pred, average=average, pos_label=pos_label
+        ),
+        "f1_score": sk_metrics.f1_score(y_true, y_pred, average=average, pos_label=pos_label),
+    }
+    if y_proba is not None:
+        metrics["log_loss"] = sk_metrics.log_loss(y_true, y_proba, labels=labels)
 
     return metrics
+
+
+def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None, pos_label=1):
+    tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+    return {
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        **_get_common_classifier_metrics(
+            y_true=y_true,
+            y_pred=y_pred,
+            y_proba=y_proba,
+            labels=labels,
+            average="binary",
+            pos_label=pos_label,
+        ),
+    }
+
+
+def _get_multiclass_classifier_metrics(
+    *, y_true, y_pred, y_proba=None, labels=None, average="weighted"
+):
+    return _get_common_classifier_metrics(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_proba=y_proba,
+        labels=labels,
+        average=average,
+        pos_label=None,
+    )
 
 
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
@@ -190,9 +201,14 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
-
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics.update(
+            _get_binary_classifier_metrics(
+                y_true=y_bin,
+                y_pred=y_pred_bin,
+                pos_label=1,
+            )
+        )
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -474,7 +490,7 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path)
+            pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
             pyplot.close(pyplot.gcf())
 
@@ -560,19 +576,7 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
-        for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
-                # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
-
-        truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
-
-        # For some shap explainer, the plot will use the DataFrame column names instead of
-        # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.copy_to_avoid_mutation().rename(
-            columns=truncated_feature_name_map, copy=False
-        )
+        X_df = self.X.copy_to_avoid_mutation()
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -614,7 +618,7 @@ class DefaultEvaluator(ModelEvaluator):
                     explainer = shap.Explainer(
                         shap_predict_fn,
                         sampled_X,
-                        feature_names=truncated_feature_names,
+                        feature_names=self.feature_names,
                         algorithm=algorithm,
                     )
             else:
@@ -627,19 +631,19 @@ class DefaultEvaluator(ModelEvaluator):
                     # for raw model, this case shap plot doesn't support it well, so exclude the
                     # multinomial_classifier case here.
                     explainer = shap.Explainer(
-                        self.raw_model, sampled_X, feature_names=truncated_feature_names
+                        self.raw_model, sampled_X, feature_names=self.feature_names
                     )
                 else:
                     # fallback to default explainer
                     explainer = shap.Explainer(
-                        shap_predict_fn, sampled_X, feature_names=truncated_feature_names
+                        shap_predict_fn, sampled_X, feature_names=self.feature_names
                     )
 
             _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
             if algorithm == "kernel":
                 shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=truncated_feature_names
+                    explainer.shap_values(sampled_X), feature_names=self.feature_names
                 )
             else:
                 shap_values = explainer(sampled_X)
@@ -669,9 +673,18 @@ class DefaultEvaluator(ModelEvaluator):
             )
             _logger.debug("", exc_info=True)
 
+        def _adjust_color_bar():
+            pyplot.gcf().axes[-1].set_aspect("auto")
+            pyplot.gcf().axes[-1].set_box_aspect(50)
+
+        def _adjust_axis_tick():
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
+
         def plot_beeswarm():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -679,8 +692,9 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.summary_plot(shap_values, show=False)
+            shap.summary_plot(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_summary,
@@ -688,8 +702,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_feature_importance,
@@ -731,7 +745,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, self.label_list
+            self.y, self.y_pred, labels=self.label_list
         )
 
         log_roc_pr_curve = False
@@ -983,18 +997,29 @@ class DefaultEvaluator(ModelEvaluator):
         """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
-            self.metrics.update(
-                _get_classifier_global_metrics(
-                    self.is_binomial,
-                    self.y,
-                    self.y_pred,
-                    self.y_probs,
-                    self.label_list,
-                )
-            )
             if self.is_binomial:
-                self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
+                pos_label = self.evaluator_config.get("pos_label", 1)
+                self.metrics.update(
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=pos_label,
+                    )
+                )
                 self._compute_roc_and_pr_curve()
+            else:
+                average = self.evaluator_config.get("average", "weighted")
+                self.metrics.update(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                    )
+                )
         elif self.model_type == "regressor":
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
@@ -1092,11 +1117,14 @@ class DefaultEvaluator(ModelEvaluator):
         if evaluator_config.get("_disable_candidate_model", False):
             evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
         else:
+            if baseline_model:
+                _logger.info("Evaluating candidate model:")
             evaluation_result = self._evaluate(model, is_baseline_model=False)
 
         if not baseline_model:
             return evaluation_result
 
+        _logger.info("Evaluating baseline model:")
         baseline_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
 
         return EvaluationResult(
