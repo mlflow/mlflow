@@ -76,6 +76,7 @@ jobs:
       env:
         SPARK_LOCAL_IP: localhost
       run: |
+        export MLFLOW_HOME=$(pwd)
         pytest tests/examples --durations=30
 
     - name: Remove conda environments

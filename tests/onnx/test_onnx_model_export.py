@@ -322,8 +322,12 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
+    model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records").values,
+        model_output.get_predictions_dataframe().values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
         atol=1e-05,
