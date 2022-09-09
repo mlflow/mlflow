@@ -620,17 +620,25 @@ class TrainStep(BaseStep):
         hardcoded_estimator_loss = objective(estimator_hardcoded_params)
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
-            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+            best_hardcoded_params = {
+                param_name: param_value
+                for param_name, param_value in estimator_hardcoded_params.items()
+                if param_name not in best_hp_params
+            }
         else:
-            best_combined_params = estimator_hardcoded_params
+            best_hp_params = {}
+            best_hardcoded_params = estimator_hardcoded_params
 
-        # write outputs
-        write_yaml(
-            root=output_directory,
-            file_name="best_hardcoded_params.yaml",
-            data=estimator_hardcoded_params,
+        best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+
+        self._write_yaml(
+            root=output_directory, file_name="best_hyperparameters.yaml", data=best_hp_params
         )
-        write_yaml(root=output_directory, file_name="best_tuned_params.yaml", data=best_hp_params)
+        self._write_yaml(
+            root=output_directory,
+            file_name="best_hardcoded_parameters.yaml",
+            data=best_hardcoded_params,
+        )
 
         return estimator_fn(best_combined_params)
 
@@ -672,3 +680,14 @@ class TrainStep(BaseStep):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         return search_space
+
+    def _write_yaml(self, root, file_name, data):
+        import numpy as np
+
+        processed_data = {}
+        for key, value in data.items():
+            if isinstance(value, np.float64):
+                processed_data[key] = float(value)
+            else:
+                processed_data[key] = value
+        write_yaml(root, file_name, processed_data)
