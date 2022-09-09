@@ -1,19 +1,33 @@
 import random
 
 
-def _generate_random_name(sep="-", integer_scale=3):
-    """Helper function for
-
-    :param sep: String seperator for word spacing
-    :param integer_scale: dictates the maximum scale range for random integer sampling (power of 10)
-
-    :return: A random string phrase comprised of a predicate, noun, and random integer
-    """
+def _generate_string(sep, integer_scale):
 
     predicate = random.choice(_GENERATOR_PREDICATES).lower()
     noun = random.choice(_GENERATOR_NOUNS).lower()
     num = random.randint(0, 10**integer_scale)
     return f"{predicate}{sep}{noun}{sep}{num}"
+
+
+def _generate_random_name(sep="-", integer_scale=3, max_length=20):
+    """Helper function for generating a random predicate, noun, and integer combination
+
+    :param sep: String seperator for word spacing
+    :param integer_scale: dictates the maximum scale range for random integer sampling (power of 10)
+    :param max_length: maximum allowable string length
+
+    :return: A random string phrase comprised of a predicate, noun, and random integer
+    """
+    max_iter = 10
+    i = 0
+    while True:
+        name = _generate_string(sep, integer_scale)
+        if len(name) <= max_length:
+            return name
+        elif i == max_iter:
+            return name[:max_length]
+        else:
+            i += 1
 
 
 _GENERATOR_NOUNS = [
@@ -39,7 +53,7 @@ _GENERATOR_NOUNS = [
     "cow",
     "crab",
     "crane",
-    "crocodile",
+    "croc",
     "crow",
     "cub",
     "deer",
@@ -194,11 +208,13 @@ _GENERATOR_PREDICATES = [
     "efficient",
     "enchanting",
     "entertaining",
-    "enthusiastic",
+    "enthused",
     "exultant",
     "fearless",
     "flawless",
     "fortunate",
+    "fun",
+    "funny",
     "gaudy",
     "gentle",
     "gifted",
@@ -218,7 +234,6 @@ _GENERATOR_PREDICATES = [
     "invincible",
     "judicious",
     "kindly",
-    "knowledgeable",
     "languid",
     "learned",
     "legendary",
