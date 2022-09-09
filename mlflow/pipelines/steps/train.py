@@ -59,12 +59,22 @@ class TrainStep(BaseStep):
         self.evaluation_metrics.update(
             {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
         )
+        self.evaluation_metrics_greater_is_better = {
+            metric.name: metric.greater_is_better for metric in BUILTIN_PIPELINE_METRICS
+        }
+        self.evaluation_metrics_greater_is_better.update(
+            {
+                metric.name: metric.greater_is_better
+                for metric in _get_custom_metrics(self.step_config)
+            }
+        )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.code_paths = [os.path.join(self.pipeline_root, "steps")]
 
     def _run(self, output_directory):
         import pandas as pd
@@ -124,135 +134,87 @@ class TrainStep(BaseStep):
             MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
 
-        if self.step_config["tuning_enabled"]:
-            # gate all HP tuning code within this condition
-            tuning_params = self.step_config["tuning"]
-            # import hyperopt or throw error
-            try:
-                from hyperopt import hp, fmin
-            except ModuleNotFoundError:
-                raise MlflowException(
-                    "Hyperopt not installed and is required if tuning is enabled",
-                    error_code=BAD_REQUEST,
+        mlflow.autolog(log_models=False)
+        with mlflow.start_run(tags=tags) as run:
+            estimator_hardcoded_params = self.step_config["estimator_params"]
+            if self.step_config["tuning_enabled"]:
+                estimator = self._tune_and_get_best_estimator(
+                    estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
                 )
+            else:
+                estimator = estimator_fn(estimator_hardcoded_params)
 
-            # wrap training in objective fn
-            def objective(args):  # pylint: disable=unused-argument
-                return None
+            estimator.fit(X_train, y_train)
 
-            # construct hp search space from yaml
-            search_space = {}
-            params = tuning_params["parameters"]
-            for param_name, param_details in params.items():
-                if "values" in param_details:
-                    search_space[param_name] = hp.choice(param_name, **param_details)
-                elif "distribution" in param_details:
-                    hp_tuning_fn = getattr(hp, param_details["distribution"])
-                    param_details_to_pass = param_details.copy()
-                    param_details_to_pass.pop("distribution")
-                    search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
-                else:
-                    raise MlflowException(
-                        f"Parameter {param_name} must contain either a list of 'values' or a "
-                        f"'distribution' following hyperopt parameter expressions",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-            # minimize
-            algorithm = tuning_params["algorithm"]  # pylint: disable=unused-variable
-            max_trials = tuning_params["max_trials"]  # pylint: disable=unused-variable
-            best = fmin(  # pylint: disable=unused-variable
-                objective, search_space, max_evals=max_trials
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+
+            # Create a pipeline consisting of the transformer+model for test data evaluation
+            with open(transformer_path, "rb") as f:
+                transformer = cloudpickle.load(f)
+            mlflow.sklearn.log_model(
+                transformer, "transform/transformer", code_paths=self.code_paths
+            )
+            model = make_pipeline(transformer, estimator)
+            model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
+            model_info = mlflow.sklearn.log_model(
+                model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
+            )
+            output_model_path = get_step_output_path(
+                pipeline_root_path=self.pipeline_root,
+                step_name=self.name,
+                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+            )
+            if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
+                shutil.rmtree(output_model_path)
+            mlflow.sklearn.save_model(model, output_model_path)
+
+            with open(os.path.join(output_directory, "run_id"), "w") as f:
+                f.write(run.info.run_id)
+            log_code_snapshot(
+                self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
             )
 
-        else:
-            estimator = estimator_fn()
-            mlflow.autolog(log_models=False)
-
-            with mlflow.start_run(tags=tags) as run:
-                estimator.fit(X_train, y_train)
-
-                if hasattr(estimator, "best_score_"):
-                    mlflow.log_metric("best_cv_score", estimator.best_score_)
-                if hasattr(estimator, "best_params_"):
-                    mlflow.log_params(estimator.best_params_)
-
-                code_paths = [os.path.join(self.pipeline_root, "steps")]
-                estimator_schema = infer_signature(X_train, estimator.predict(X_train.copy()))
-                logged_estimator = mlflow.sklearn.log_model(
-                    estimator,
-                    f"{self.name}/estimator",
-                    signature=estimator_schema,
-                    code_paths=code_paths,
+            eval_metrics = {}
+            for dataset_name, dataset in {
+                "training": train_df,
+                "validation": validation_df,
+            }.items():
+                eval_result = mlflow.evaluate(
+                    model=logged_estimator.model_uri,
+                    data=dataset,
+                    targets=self.target_col,
+                    model_type="regressor",
+                    evaluators="default",
+                    dataset_name=dataset_name,
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
+                    ),
+                    evaluator_config={
+                        "log_model_explainability": False,
+                    },
                 )
-                # Create a pipeline consisting of the transformer+model for test data evaluation
-                with open(transformer_path, "rb") as f:
-                    transformer = cloudpickle.load(f)
-                mlflow.sklearn.log_model(
-                    transformer, "transform/transformer", code_paths=code_paths
-                )
-                model = make_pipeline(transformer, estimator)
-                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                model_info = mlflow.sklearn.log_model(
-                    model, f"{self.name}/model", signature=model_schema, code_paths=code_paths
-                )
-                output_model_path = get_step_output_path(
-                    pipeline_root_path=self.pipeline_root,
-                    step_name=self.name,
-                    relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
-                )
-                if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-                    shutil.rmtree(output_model_path)
-                mlflow.sklearn.save_model(model, output_model_path)
+                eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
+                eval_metrics[dataset_name] = eval_result.metrics
 
-                with open(os.path.join(output_directory, "run_id"), "w") as f:
-                    f.write(run.info.run_id)
-                log_code_snapshot(
-                    self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
-                )
-
-                eval_metrics = {}
-                for dataset_name, dataset in {
-                    "training": train_df,
-                    "validation": validation_df,
-                }.items():
-                    eval_result = mlflow.evaluate(
-                        model=logged_estimator.model_uri,
-                        data=dataset,
-                        targets=self.target_col,
-                        model_type="regressor",
-                        evaluators="default",
-                        dataset_name=dataset_name,
-                        custom_metrics=_load_custom_metric_functions(
-                            self.pipeline_root,
-                            self.evaluation_metrics.values(),
-                        ),
-                        evaluator_config={
-                            "log_model_explainability": False,
-                        },
-                    )
-                    eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
-
-            target_data = raw_validation_df[self.target_col]
-            prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            pred_and_error_df = pd.DataFrame(
-                {
-                    "target": target_data,
-                    "prediction": prediction_result,
-                    "error": prediction_result - target_data,
-                }
-            )
-            train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                raw_train_df, train_predictions, self.target_col
-            )
-            leaderboard_df = None
-            try:
-                leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
-            except Exception as e:
-                _logger.warning(
-                    "Failed to build model leaderboard due to unexpected failure: %s", e
-                )
+        target_data = raw_validation_df[self.target_col]
+        prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
+        pred_and_error_df = pd.DataFrame(
+            {
+                "target": target_data,
+                "prediction": prediction_result,
+                "error": prediction_result - target_data,
+            }
+        )
+        train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
+        worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+            raw_train_df, train_predictions, self.target_col
+        )
+        leaderboard_df = None
+        try:
+            leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
+        except Exception as e:
+            _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
 
         card = self._build_step_card(
             eval_metrics=eval_metrics,
@@ -523,8 +485,40 @@ class TrainStep(BaseStep):
                         "'enabled' key whose value is either true or false.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+
+                if "sample_fraction" in step_config["tuning"]:
+                    sample_fraction = float(step_config["tuning"]["sample_fraction"])
+                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                        step_config["sample_fraction"] = sample_fraction
+                    else:
+                        raise MlflowException(
+                            "The 'sample_fraction' configuration in the train step must be "
+                            "between 0 and 1.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                else:
+                    step_config["sample_fraction"] = 1.0
+
+                if "algorithm" not in step_config["tuning"]:
+                    step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
+                if "max_trials" not in step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'max_trials' configuration in the train step must be provided.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+                if "parameters" not in step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'parameters' configuration in the train step must be provided.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
             else:
                 step_config["tuning_enabled"] = False
+
+            if "estimator_params" not in step_config:
+                step_config["estimator_params"] = {}
 
             step_config.update(
                 get_pipeline_tracking_config(
@@ -548,3 +542,110 @@ class TrainStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def _tune_and_get_best_estimator(
+        self, estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+    ):
+        tuning_params = self.step_config["tuning"]
+        try:
+            from hyperopt import fmin, Trials
+        except ModuleNotFoundError:
+            raise MlflowException(
+                "Hyperopt not installed and is required if tuning is enabled",
+                error_code=BAD_REQUEST,
+            )
+
+        # wrap training in objective fn
+        def objective(hyperparameter_args):
+            with mlflow.start_run(nested=True):
+                estimator = estimator_fn(dict(estimator_hardcoded_params, **hyperparameter_args))
+
+                sample_fraction = self.step_config["sample_fraction"]
+                X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
+                y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
+
+                estimator.fit(X_train_sampled, y_train_sampled)
+
+                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+
+                eval_result = mlflow.evaluate(
+                    model=logged_estimator.model_uri,
+                    data=validation_df,
+                    targets=self.target_col,
+                    model_type="regressor",
+                    evaluators="default",
+                    dataset_name="validation",
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
+                    ),
+                    evaluator_config={
+                        "log_model_explainability": False,
+                    },
+                )
+
+                # return +/- metric
+                sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
+                return sign * eval_result.metrics[self.primary_metric]
+
+        search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
+        algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
+        tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
+        max_trials = tuning_params["max_trials"]
+        hp_trials = Trials()
+
+        best_hp_params = fmin(
+            objective,
+            search_space,
+            algo=tuning_algo,
+            max_evals=max_trials,
+            trials=hp_trials,
+        )
+        best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
+        hardcoded_estimator_loss = objective(estimator_hardcoded_params)
+
+        if best_hp_estimator_loss < hardcoded_estimator_loss:
+            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+        else:
+            best_combined_params = estimator_hardcoded_params
+
+        return estimator_fn(best_combined_params)
+
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
+        from mlflow.models.signature import infer_signature
+
+        if hasattr(estimator, "best_score_"):
+            mlflow.log_metric("best_cv_score", estimator.best_score_)
+        if hasattr(estimator, "best_params_"):
+            mlflow.log_params(estimator.best_params_)
+
+        estimator_schema = infer_signature(
+            X_train_sampled, estimator.predict(X_train_sampled.copy())
+        )
+        logged_estimator = mlflow.sklearn.log_model(
+            estimator,
+            f"{self.name}/estimator",
+            signature=estimator_schema,
+            code_paths=self.code_paths,
+        )
+        return logged_estimator
+
+    def _construct_search_space_from_yaml(self, params):
+        from hyperopt import hp
+
+        search_space = {}
+        for param_name, param_details in params.items():
+            if "values" in param_details:
+                search_space[param_name] = hp.choice(param_name, **param_details)
+            elif "distribution" in param_details:
+                hp_tuning_fn = getattr(hp, param_details["distribution"])
+                param_details_to_pass = param_details.copy()
+                param_details_to_pass.pop("distribution")
+                search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
+            else:
+                raise MlflowException(
+                    f"Parameter {param_name} must contain either a list of 'values' or a "
+                    f"'distribution' following hyperopt parameter expressions",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        return search_space
