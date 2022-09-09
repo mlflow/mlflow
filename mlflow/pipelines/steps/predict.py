@@ -129,6 +129,7 @@ class PredictStep(BaseStep):
             artifact_path = os.path.join(output_directory, _SCORED_OUTPUT_FOLDER_NAME)
             dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
             scored_sdf.coalesce(1).write.format("parquet").save(artifact_path)
+            _logger.info("Moving artifact from DBFS to driver disk")
             dbutils.fs.cp("dbfs:" + artifact_path, "file:" + artifact_path, recurse=True)
             dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
         else:
