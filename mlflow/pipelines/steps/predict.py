@@ -9,6 +9,7 @@ from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.utils import databricks_utils
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 _logger = logging.getLogger(__name__)
@@ -16,7 +17,8 @@ _logger = logging.getLogger(__name__)
 
 # This should maybe imported from the ingest scoring step for consistency
 _INPUT_FILE_NAME = "scoring-dataset.parquet"
-_SCORED_OUTPUT_FILE_NAME = "scored.parquet"
+_SCORED_OUTPUT_FOLDER_NAME = "scored"
+_SCORED_OUTPUT_FILE_NAME = _SCORED_OUTPUT_FOLDER_NAME + ".parquet"
 _PREDICTION_COLUMN_NAME = "prediction"
 
 # Max dataframe size for profiling after scoring
@@ -122,9 +124,17 @@ class PredictStep(BaseStep):
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
-        scored_sdf.coalesce(1).write.format("parquet").save(
-            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
-        )
+        if databricks_utils.is_in_databricks_runtime():
+            dbutils = databricks_utils._get_dbutils()
+            artifact_path = os.path.join(output_directory, _SCORED_OUTPUT_FOLDER_NAME)
+            dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
+            scored_sdf.coalesce(1).write.format("parquet").save(artifact_path)
+            dbutils.fs.cp("dbfs:" + artifact_path, "file:" + artifact_path, recurse=True)
+            dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
+        else:
+            scored_sdf.coalesce(1).write.format("parquet").save(
+                os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
+            )
 
         scored_size = scored_sdf.count()
         if scored_size > _MAX_PROFILE_SIZE:

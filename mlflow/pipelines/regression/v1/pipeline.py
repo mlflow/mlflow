@@ -122,7 +122,11 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import (
+    PredictStep,
+    _SCORED_OUTPUT_FILE_NAME,
+    _SCORED_OUTPUT_FOLDER_NAME,
+)
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
@@ -131,6 +135,7 @@ from mlflow.pipelines.utils.execution import get_or_create_base_execution_direct
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.utils import databricks_utils
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -616,6 +621,8 @@ class RegressionPipeline(_BasePipeline):
             predict_output_dir = get_step_output_path(
                 self._pipeline_root_path, predict_step.name, ""
             )
+            if databricks_utils.is_in_databricks_runtime():
+                return os.path.join("/dbfs", predict_output_dir, _SCORED_OUTPUT_FOLDER_NAME)
             return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
         else:
             raise MlflowException(
