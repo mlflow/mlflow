@@ -281,10 +281,11 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+
+    model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
-        .values.flatten()
-        .astype(np.float32),
+        model_output.get_predictions_dataframe().values.flatten().astype(np.float32),
         predicted,
         rtol=1e-05,
         atol=1e-05,

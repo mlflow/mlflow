@@ -631,7 +631,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
-        def predict(self, context, model_input):
+        def predict(self, _, model_input):
             with torch.no_grad():
                 input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
                 output_tensor = self.pytorch_model(input_tensor)
@@ -857,7 +857,7 @@ def test_pyfunc_serve_and_score(data):
     from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 
     scores = MlflowModelServerOutput.from_raw_json(resp.content).get_predictions_nparray()
-    np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
+    np.testing.assert_array_almost_equal(scores[:, 0], _predict(model=model, data=data))
 
 
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")

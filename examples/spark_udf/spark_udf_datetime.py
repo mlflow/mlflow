@@ -63,16 +63,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import os
-
-    def _get_mlflow_home():
-        """
-        :return: The path to the MLflow installation root directory
-        """
-        mlflow_module_path = os.path.dirname(os.path.abspath(mlflow.__file__))
-        # The MLflow root directory is one level about the mlflow module location
-        return os.path.join(mlflow_module_path, os.pardir)
-
-    # Ensure we use the dev version of mlflow in spark.
-    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
     main()

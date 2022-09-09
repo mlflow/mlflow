@@ -318,7 +318,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
-    deployed_model_preds = np.array(json.loads(scoring_response.content))
+    deployed_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
 
     np.testing.assert_array_almost_equal(
         deployed_model_preds, spark_model_iris.predictions, decimal=4
