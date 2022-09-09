@@ -201,11 +201,11 @@ class RegressionPipeline(_BasePipeline):
     _SUBGRAPH_INDICES_MAP = {
         _TRAIN_DAG_NAME: (
             _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[0]),
-            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]),
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]) + 1,
         ),
         _SCORING_DAG_NAME: (
             _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[0]),
-            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]),
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]) + 1,
         ),
     }
 
