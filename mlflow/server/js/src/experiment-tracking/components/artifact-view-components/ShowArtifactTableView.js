@@ -18,7 +18,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
   useEffect(() => {
     resetState();
     fetchArtifacts({ path, runUuid, getArtifact });
-  }, [runUuid, path]);
+  }, [runUuid, path, getArtifact]);
 
   function resetState() {
     setError();
