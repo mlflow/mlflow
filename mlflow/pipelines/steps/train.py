@@ -34,6 +34,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_PIPELINE_TEMPLATE_NAME,
@@ -142,7 +143,12 @@ class TrainStep(BaseStep):
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
                 estimator = self._tune_and_get_best_estimator(
-                    estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+                    estimator_hardcoded_params,
+                    estimator_fn,
+                    X_train,
+                    y_train,
+                    validation_df,
+                    output_directory,
                 )
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
@@ -547,7 +553,13 @@ class TrainStep(BaseStep):
         return environ
 
     def _tune_and_get_best_estimator(
-        self, estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+        self,
+        estimator_hardcoded_params,
+        estimator_fn,
+        X_train,
+        y_train,
+        validation_df,
+        output_directory,
     ):
         tuning_params = self.step_config["tuning"]
         try:
@@ -611,6 +623,14 @@ class TrainStep(BaseStep):
             best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
         else:
             best_combined_params = estimator_hardcoded_params
+
+        # write outputs
+        write_yaml(
+            root=output_directory,
+            file_name="best_hardcoded_params.yaml",
+            data=estimator_hardcoded_params,
+        )
+        write_yaml(root=output_directory, file_name="best_tuned_params.yaml", data=best_hp_params)
 
         return estimator_fn(best_combined_params)
 
