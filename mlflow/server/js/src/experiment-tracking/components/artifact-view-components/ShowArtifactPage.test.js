@@ -86,6 +86,13 @@ describe('ShowArtifactPage', () => {
     });
   });
 
+  test('should render "select to preview" view for folder with common image extensions', () => {
+    IMAGE_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', isDirectory: 'true' });
+      expect(wrapper.text().includes('Select a file to preview')).toBe(true);
+    });
+  });
+
   test('should render html view for common html extensions', () => {
     HTML_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
