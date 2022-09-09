@@ -207,7 +207,7 @@ def test_capture_imported_modules():
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import,unused-variable
+        # pylint: disable=unused-import
         import math
 
         __import__("pandas")
@@ -337,7 +337,7 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmpdir)
             pass
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import,unused-variable
+        # pylint: disable=unused-import
         import databricks
         import databricks.automl
         import databricks.automl_foo
@@ -350,7 +350,7 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmpdir)
     assert "databricks.automl_foo" not in cap.imported_modules
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import,unused-variable
+        # pylint: disable=unused-import
         import databricks.automl
         import databricks.automl_foo
         import databricks.automl_runtime
