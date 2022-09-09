@@ -3,7 +3,7 @@ Unit tests for histogram_generator.py
 """
 import unittest
 
-from mlflow.protos import feature_statistics_pb2
+from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import histogram_generator
 from google.protobuf import text_format
 
@@ -12,7 +12,9 @@ class HistogramGeneratorTestCase(unittest.TestCase):
     """Base class to test histogram_generator.py."""
 
     def assert_histogram(
-        self, expected: feature_statistics_pb2.Histogram, actual: feature_statistics_pb2.Histogram
+        self,
+        expected: facet_feature_statistics_pb2.Histogram,
+        actual: facet_feature_statistics_pb2.Histogram,
     ):
         """
         Helper function to assert the actual histogram is almost equal to the expected histogram.
@@ -83,7 +85,7 @@ class EqualHeightHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: QUANTILES
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         self.assert_histogram(expected_histogram, actual_histogram)
 
@@ -135,7 +137,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -183,7 +185,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -232,7 +234,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -281,7 +283,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -304,7 +306,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -338,7 +340,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -366,7 +368,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq
@@ -409,7 +411,7 @@ class EqualWidthHistogramGeneratorTestCase(HistogramGeneratorTestCase):
             }
             type: STANDARD
             """,
-            feature_statistics_pb2.Histogram(),
+            facet_feature_statistics_pb2.Histogram(),
         )
         actual_histogram = histogram_generator.generate_equal_width_histogram(
             quantiles=quantiles, num_buckets=num_buckets, total_freq=total_freq

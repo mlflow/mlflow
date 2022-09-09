@@ -7,13 +7,13 @@ import pandas as pd
 import sys
 
 from typing import Union, Iterable, Tuple
-from mlflow.protos import feature_statistics_pb2
+from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import histogram_generator
 
 
 def DtypeToType(dtype):
     """Converts a Numpy dtype to the FeatureNameStatistics.Type proto enum."""
-    fs_proto = feature_statistics_pb2.FeatureNameStatistics
+    fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     if dtype.char in np.typecodes["AllFloat"]:
         return fs_proto.FLOAT
     elif (
@@ -55,14 +55,14 @@ def DtypeToNumberConverter(dtype):
         return None
 
 
-def compute_common_stats(column) -> feature_statistics_pb2.CommonStatistics:
+def compute_common_stats(column) -> facet_feature_statistics_pb2.CommonStatistics:
     """
     Computes common statistics for a given column in the DataFrame.
 
     :param column: A column from a DataFrame.
     :return: A CommonStatistics proto.
     """
-    common_stats = feature_statistics_pb2.CommonStatistics()
+    common_stats = facet_feature_statistics_pb2.CommonStatistics()
     common_stats.num_missing = column.isnull().sum()
     common_stats.num_non_missing = len(column) - common_stats.num_missing
     # Default set using: https://src.dev.databricks.com/databricks/universe/-/blob/model-monitoring/python/databricks/model_monitoring/rendering/html_renderer.py?L33-L35&subtree=true
@@ -75,15 +75,15 @@ def compute_common_stats(column) -> feature_statistics_pb2.CommonStatistics:
 
 def convert_to_dataset_feature_statistics(
     df: pd.DataFrame,
-) -> feature_statistics_pb2.DatasetFeatureStatistics:
+) -> facet_feature_statistics_pb2.DatasetFeatureStatistics:
     """
     Converts the data statistics from DataFrame format to DatasetFeatureStatistics proto.
 
     :param df: The DataFrame for which feature statistics need to be computed.
     :return: A DatasetFeatureStatistics proto.
     """
-    fs_proto = feature_statistics_pb2.FeatureNameStatistics
-    feature_stats = feature_statistics_pb2.DatasetFeatureStatistics()
+    fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
+    feature_stats = facet_feature_statistics_pb2.DatasetFeatureStatistics()
     pandas_describe = df.describe(datetime_is_numeric=True, include="all")
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
@@ -170,7 +170,7 @@ def convert_to_dataset_feature_statistics(
     return feature_stats
 
 
-def convert_to_proto(df: pd.DataFrame) -> feature_statistics_pb2.DatasetFeatureStatisticsList:
+def convert_to_proto(df: pd.DataFrame) -> facet_feature_statistics_pb2.DatasetFeatureStatisticsList:
     """
     Converts the data from DataFrame format to DatasetFeatureStatisticsList proto.
 
@@ -178,14 +178,14 @@ def convert_to_proto(df: pd.DataFrame) -> feature_statistics_pb2.DatasetFeatureS
     :return: A DatasetFeatureStatisticsList proto.
     """
     feature_stats = convert_to_dataset_feature_statistics(df)
-    feature_stats_list = feature_statistics_pb2.DatasetFeatureStatisticsList()
+    feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
     feature_stats_list.datasets.append(feature_stats)
     return feature_stats_list
 
 
 def convert_to_comparison_proto(
     dfs: Iterable[Tuple[str, pd.DataFrame]]
-) -> feature_statistics_pb2.DatasetFeatureStatisticsList:
+) -> facet_feature_statistics_pb2.DatasetFeatureStatisticsList:
     """
     Converts a collection of named stats DataFrames to a single DatasetFeatureStatisticsList proto.
     :param dfs: The named "glimpses" that contain the DataFrame. Each "glimpse"
@@ -193,7 +193,7 @@ def convert_to_comparison_proto(
     :return: A DatasetFeatureStatisticsList proto which contains a translation
         of the glimpses with the given names.
     """
-    feature_stats_list = feature_statistics_pb2.DatasetFeatureStatisticsList()
+    feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
     for (name, df) in dfs:
         proto = convert_to_dataset_feature_statistics(df)
         proto.name = name
@@ -202,7 +202,7 @@ def convert_to_comparison_proto(
 
 
 def construct_facets_html(
-    proto: feature_statistics_pb2.DatasetFeatureStatisticsList, compare: bool = False
+    proto: facet_feature_statistics_pb2.DatasetFeatureStatisticsList, compare: bool = False
 ) -> str:
     """
     Constructs the facets HTML to visualize the serialized FeatureStatisticsList proto.

@@ -5,18 +5,18 @@ import numpy as np
 import pandas as pd
 from google.protobuf import text_format
 
-from mlflow.protos import feature_statistics_pb2
+from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import pandas_renderer
 
 
 def test_convert_to_html():
-    proto = feature_statistics_pb2.DatasetFeatureStatisticsList()
+    proto = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
     html = pandas_renderer.construct_facets_html(proto)
     assert len(html) != 0
 
 
 def testDTypeToType():
-    fs_proto = feature_statistics_pb2.FeatureNameStatistics
+    fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(np.int32))
     # Boolean and time types treated as int
     assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(bool))
@@ -56,7 +56,7 @@ def testCommonStats():
         max_num_values: 1
         avg_num_values: 1.0
         """,
-        feature_statistics_pb2.CommonStatistics(),
+        facet_feature_statistics_pb2.CommonStatistics(),
     )
 
     common_stats = pandas_renderer.compute_common_stats(df["Shares"])
@@ -68,7 +68,7 @@ def testCommonStats():
         max_num_values: 1
         avg_num_values: 1.0
         """,
-        feature_statistics_pb2.CommonStatistics(),
+        facet_feature_statistics_pb2.CommonStatistics(),
     )
 
 
@@ -243,7 +243,7 @@ def testConvertToProto():
           }
         }
         """,
-        feature_statistics_pb2.DatasetFeatureStatisticsList(),
+        facet_feature_statistics_pb2.DatasetFeatureStatisticsList(),
     )
 
     converted_proto = pandas_renderer.convert_to_proto(df)
