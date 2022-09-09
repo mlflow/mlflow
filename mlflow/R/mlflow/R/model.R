@@ -207,16 +207,21 @@ parse_json <- function(input_path) {
     dataframe_split = {
       elms <- names(json$dataframe_split)
       if (length(setdiff(elms, c("columns", "index", "data"))) != 0
-      || length(setdiff(c("columns", "data"), elms) != 0)) {
+      || length(setdiff(c("data"), elms) != 0)) {
         stop(paste("Invalid input. Make sure the input json data is in 'split' format.", elms))
       }
-      max_len <- max(sapply(json$dataframe_split$data, length))
-      fill_nas <- function(row) {
-        append(row, rep(NA, max_len - length(row)))
+      data <- if (any(class(json$dataframe_split$data) == "list")) {
+        max_len <- max(sapply(json$dataframe_split$data, length))
+        fill_nas <- function(row) {
+          append(row, rep(NA, max_len - length(row)))
+        }
+        rows <- lapply(json$dataframe_split$data, fill_nas)
+        Reduce(rbind, rows)
+      } else {
+        json$dataframe_split$data
       }
-      rows <- lapply(json$dataframe_split$data, fill_nas)
-      data <- Reduce(rbind, rows)
-      df <- data.frame(data, row.names = json$dataframe_split$index)
+
+      df <- data.frame(data, row.names=json$dataframe_split$index)
       names(df) <- json$dataframe_split$columns
       df
     },

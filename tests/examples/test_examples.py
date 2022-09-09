@@ -167,4 +167,5 @@ def test_command_example(directory, command):
     cwd_dir = Path(EXAMPLES_DIR, directory)
     import os
 
+    assert os.environ.get("MLFLOW_HOME") is not None
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

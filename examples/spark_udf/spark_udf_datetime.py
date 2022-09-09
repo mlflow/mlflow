@@ -63,4 +63,10 @@ def main():
 
 
 if __name__ == "__main__":
+    import os
+
+    assert os.environ.get("MLFLOW_HOME") is not None
+    from mlflow.version import VERSION
+
+    assert "dev" in VERSION
     main()
