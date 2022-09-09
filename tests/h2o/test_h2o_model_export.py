@@ -149,7 +149,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=h2o_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 
@@ -238,7 +238,7 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -261,7 +261,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import random
 from collections import namedtuple
 from packaging.version import Version
@@ -257,7 +258,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spacy_custom_env
 
@@ -276,7 +277,7 @@ def test_model_save_accepts_conda_env_as_dict(spacy_model_with_data, model_path)
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -301,7 +302,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spacy_custom_env
 
@@ -460,3 +461,11 @@ def _predict(spacy_model, test_x):
     return pd.DataFrame(
         {"predictions": test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)}
     )
+
+
+def test_virtualenv_subfield_points_to_correct_path(spacy_model_with_data, model_path):
+    mlflow.spacy.save_model(spacy_model_with_data.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

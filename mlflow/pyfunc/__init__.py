@@ -242,10 +242,9 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
+    _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -276,12 +275,25 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+
+
+class EnvType:
+    CONDA = "conda"
+    VIRTUALENV = "virtualenv"
+
+    def __init__(self):
+        raise NotImplementedError("This class is not meant to be instantiated.")
+
+
 PY_VERSION = "python_version"
+
 
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
+def add_to_model(
+    model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
+):
     """
     Add a ``pyfunc`` spec to the model configuration.
 
@@ -297,7 +309,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param loader_module: The module to be used to load the model.
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
-    :param env: Conda environment.
+    :param conda_env: Conda environment.
+    :param python_env: Python environment.
     :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
@@ -310,10 +323,19 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
         params[CODE] = code
     if data:
         params[DATA] = data
-    if env:
-        params[ENV] = env
-
+    if conda_env or python_env:
+        params[ENV] = {}
+        if conda_env:
+            params[ENV][EnvType.CONDA] = conda_env
+        if python_env:
+            params[ENV][EnvType.VIRTUALENV] = python_env
     return model.add_flavor(FLAVOR_NAME, **params)
+
+
+def _extract_conda_env(env):
+    # In MLflow < 2.0.0, the 'env' field in a pyfunc configuration is a string containing the path
+    # to a conda.yaml file.
+    return env if isinstance(env, str) else env[EnvType.CONDA]
 
 
 def _load_model_env(path):
@@ -482,30 +504,30 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
 
-def _download_model_conda_env(model_uri):
-    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
-    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
-
-
 def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    model_dir = _download_artifact_from_uri(model_uri)
+
+    def get_conda_yaml_path():
+        model_config = _get_flavor_configuration_from_ml_model_file(
+            os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
+        )
+        return os.path.join(model_dir, _extract_conda_env(model_config[ENV]))
+
     if format == "pip":
-        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
-        try:
-            return _download_artifact_from_uri(req_file_uri)
-        except Exception as e:
-            # fallback to download conda.yaml file and parse the "pip" section from it.
-            _logger.info(
-                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
-                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
-                "Other conda dependencies will be ignored."
-            )
+        requirements_file = os.path.join(model_dir, _REQUIREMENTS_FILE_NAME)
+        if os.path.exists(requirements_file):
+            return requirements_file
 
-        conda_yml_path = _download_model_conda_env(model_uri)
+        _logger.info(
+            f"{_REQUIREMENTS_FILE_NAME} is not found in the model directory. Falling back to"
+            f" extracting pip requirements from the model's 'conda.yaml' file. Conda"
+            " dependencies will be ignored."
+        )
 
-        with open(conda_yml_path, "r") as yf:
-            conda_yml = yaml.safe_load(yf)
+        with open(get_conda_yaml_path(), "r") as yf:
+            conda_yaml = yaml.safe_load(yf)
 
-        conda_deps = conda_yml.get("dependencies", [])
+        conda_deps = conda_yaml.get("dependencies", [])
         for index, dep in enumerate(conda_deps):
             if isinstance(dep, dict) and "pip" in dep:
                 pip_deps_index = index
@@ -531,8 +553,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         return pip_file_path
 
     elif format == "conda":
-        conda_yml_path = _download_model_conda_env(model_uri)
-        return conda_yml_path
+        return get_conda_yaml_path()
     else:
         raise MlflowException(
             f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
@@ -1366,7 +1387,8 @@ def _save_model_with_loader_module_and_data_path(
         loader_module=loader_module,
         code=code_dir_subpath,
         data=data,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

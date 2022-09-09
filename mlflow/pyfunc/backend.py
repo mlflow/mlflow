@@ -9,7 +9,7 @@ import warnings
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver
+from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -98,7 +98,7 @@ class PyFuncBackend(FlavorBackend):
             )
             self._environment = Environment(activate_cmd)
         elif self._env_manager == _EnvManager.CONDA:
-            conda_env_path = os.path.join(local_path, self._config[ENV])
+            conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
             self._environment = get_or_create_conda_env(
                 conda_env_path,
                 env_id=self._env_id,

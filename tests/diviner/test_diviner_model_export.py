@@ -1,5 +1,5 @@
 import os
-import pathlib
+from pathlib import Path
 import pytest
 from unittest import mock
 
@@ -253,11 +253,11 @@ def test_diviner_log_model(grouped_prophet, tmp_path, should_start_run):
             grouped_prophet.forecast(horizon=10, frequency="D"),
             reloaded_model.forecast(horizon=10, frequency="D"),
         )
-        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert model_path.joinpath(env_path).exists()
     finally:
         mlflow.end_run()
@@ -300,7 +300,7 @@ def test_diviner_model_save_persists_specified_conda_env_in_mlflow_model_directo
         diviner_model=grouped_prophet, path=model_path, conda_env=str(diviner_custom_env)
     )
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV]["conda"])
 
     assert saved_conda_env_path.exists()
     assert not diviner_custom_env.samefile(saved_conda_env_path)
@@ -467,3 +467,11 @@ def test_log_model_with_code_paths(grouped_pmdarima):
         _compare_logged_code_paths(__file__, model_uri, mlflow.diviner.FLAVOR_NAME)
         mlflow.diviner.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(grouped_pmdarima, model_path):
+    mlflow.diviner.save_model(grouped_pmdarima, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()
