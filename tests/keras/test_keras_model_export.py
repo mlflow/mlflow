@@ -303,9 +303,11 @@ def test_pyfunc_serve_and_score(data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    actual_scoring_response = MlflowModelServerOutput.from_raw_json(
-        scoring_response.content.decode("utf-8")
-    ).get_predictions_nparray(np.float32)
+    actual_scoring_response = (
+        MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+        .get_predictions_dataframe()
+        .values.astype(np.float32)
+    )
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
 
