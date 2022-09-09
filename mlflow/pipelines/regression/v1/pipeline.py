@@ -209,7 +209,7 @@ class RegressionPipeline(_BasePipeline):
         ),
     }
 
-    _DEFAULT_STEP_INDEX = _PIPELINE_STEPS.index(PredictStep)
+    _DEFAULT_STEP_INDEX = _PIPELINE_STEPS.index(RegisterStep)
 
     def _get_step_classes(self):
         return self._PIPELINE_STEPS
