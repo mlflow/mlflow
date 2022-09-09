@@ -80,12 +80,11 @@ class _BasePipeline:
 
         # TODO Record performance here.
         self._steps = self._resolve_pipeline_steps()
+        target_step = self._get_step(step) if step else self._get_default_step()
         last_executed_step = run_pipeline_step(
             self._pipeline_root_path,
-            self._steps,
-            # Runs the last step of the pipeline if no step is specified.
-            # TODO: Determine how this works in a world with disjoint DAGs
-            self._get_step(step) if step else self._steps[-1],
+            self._get_subgraph_for_target_step(target_step),
+            target_step,
             self._template,
         )
 
@@ -154,7 +153,28 @@ class _BasePipeline:
 
     @experimental
     @abc.abstractmethod
-    def _get_step_classes(self) -> List[BaseStep]:
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+        """
+        Return a list of step objects representing a connected DAG containing the target_step.
+        The returned list should be a sublist of self._steps.
+
+        Concrete pipeline class should implement this method.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _get_default_step(self) -> BaseStep:
+        """
+        Defines which step to run if no step is specified.
+
+        Concrete pipeline class should implement this method.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _get_step_classes(self):
         """
         Returns a list of step classes defined in the pipeline.
 
