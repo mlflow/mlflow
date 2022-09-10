@@ -2871,8 +2871,7 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -2881,8 +2880,7 @@ public final class ModelRegistry {
     boolean hasRunLink();
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -2891,8 +2889,7 @@ public final class ModelRegistry {
     java.lang.String getRunLink();
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -3707,8 +3704,7 @@ public final class ModelRegistry {
     private volatile java.lang.Object runLink_;
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -3720,8 +3716,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -3744,8 +3739,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-     * only for model versions whose source run is from a tracking server that is different from the registry server.
+     * Run Link: Direct link to the run that generated this version
      * </pre>
      *
      * <code>optional string run_link = 13;</code>
@@ -5774,8 +5768,7 @@ public final class ModelRegistry {
       private java.lang.Object runLink_ = "";
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>
@@ -5786,8 +5779,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>
@@ -5809,8 +5801,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>
@@ -5831,8 +5822,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>
@@ -5851,8 +5841,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>
@@ -5866,8 +5855,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Run Link: Direct link to the run that generated this version. This field is set at model version creation time
-       * only for model versions whose source run is from a tracking server that is different from the registry server.
+       * Run Link: Direct link to the run that generated this version
        * </pre>
        *
        * <code>optional string run_link = 13;</code>

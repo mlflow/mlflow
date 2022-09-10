@@ -12,7 +12,6 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.models.evaluation.validation import (
@@ -366,9 +365,7 @@ class EvaluationDataset:
                 self._feature_names = feature_names
             else:
                 self._features_data = data.drop(targets, axis=1, inplace=False)
-                self._feature_names = [
-                    generate_feature_name_if_not_string(c) for c in self._features_data.columns
-                ]
+                self._feature_names = list(self._features_data.columns)
         else:
             raise MlflowException(
                 message="The data argument must be a numpy array, a list or a Pandas DataFrame, or "
@@ -884,12 +881,11 @@ def evaluate(
 
      - For binary classifiers, the default evaluator additionally logs:
         - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
-          precision, f1_score, accuracy_score, example_count, log_loss, roc_auc, 
-          precision_recall_auc.
+          precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
         - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
      - For multiclass classifiers, the default evaluator additionally logs:
-        - **metrics**: accuracy_score, example_count, f1_score_micro, f1_score_macro, log_loss
+        - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
         - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
@@ -930,13 +926,6 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
-        - **pos_label**: The positive label to use when computing classification metrics such as
-          precision, recall, f1, etc. for binary classification models (default: ``1``). For
-          multiclass classification and regression models, this parameter will be ignored.
-        - **average**: The averaging method to use when computing classification metrics such as
-          precision, recall, f1, etc. for multiclass classification models
-          (default: ``'weighted'``). For binary classification and regression models, this
-          parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

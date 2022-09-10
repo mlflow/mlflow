@@ -108,7 +108,7 @@ CREATE TABLE table (
     yield pytest.param(a, b, False, id="different column names")
 
 
-@pytest.mark.parametrize(("a", "b", "expected"), iter_parameter_sets())
+@pytest.mark.parametrize("a, b, expected", iter_parameter_sets())
 def test_schema_equal(a, b, expected):
     assert schema_equal(a, b) is expected
 

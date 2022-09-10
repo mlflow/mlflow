@@ -372,10 +372,14 @@ export class ModelListViewImpl extends React.Component {
     const { loading } = this.state;
 
     const title = (
-      <FormattedMessage
-        defaultMessage='Registered Models'
-        description='Header for displaying models in the model registry'
-      />
+      <Spacer size='small' direction='horizontal'>
+        <span>
+          <FormattedMessage
+            defaultMessage='Registered Models'
+            description='Header for displaying models in the model registry'
+          />
+        </span>
+      </Spacer>
     );
     return (
       <PageContainer data-test-id='ModelListView-container'>
@@ -414,11 +418,7 @@ export class ModelListViewImpl extends React.Component {
                       })}
                     />
                   </div>
-                  <Button
-                    data-test-id='clear-button'
-                    onClick={this.handleClear}
-                    disabled={this.props.searchInput === ''}
-                  >
+                  <Button dataTestId='clear-button' onClick={this.handleClear}>
                     <FormattedMessage
                       defaultMessage='Clear'
                       // eslint-disable-next-line max-len
@@ -448,6 +448,7 @@ export class ModelListViewImpl extends React.Component {
         <div>
           <SimplePagination
             currentPage={currentPage}
+            loading={this.props.loading}
             isLastPage={nextPageToken === null}
             onClickNext={this.handleClickNext}
             onClickPrev={this.handleClickPrev}

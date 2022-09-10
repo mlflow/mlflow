@@ -793,7 +793,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
 
 
 @pytest.mark.parametrize(
-    ("artifact_location", "expected_uri_format"),
+    "artifact_location, expected_uri_format",
     [
         (
             "mysql://user:password@host:port/dbname?driver=mydriver",

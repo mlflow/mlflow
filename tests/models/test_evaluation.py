@@ -324,10 +324,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_dataset"}
-    ds = EvaluationDataset(**constructor_args)
-    ds._constructor_args = constructor_args
-    return ds
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
 @pytest.fixture
@@ -336,10 +333,7 @@ def iris_pandas_df_num_cols_dataset():
     eval_X, eval_y = X[0::3], y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_num_cols_dataset"}
-    ds = EvaluationDataset(**constructor_args)
-    ds._constructor_args = constructor_args
-    return ds
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_num_cols_dataset")
 
 
 @pytest.fixture
@@ -608,7 +602,7 @@ def test_dataset_hash(
 ):
     assert iris_dataset.hash == "99329a790dc483e7382c0d1d27aac3f3"
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
-    assert iris_pandas_df_num_cols_dataset.hash == "3c5fc56830a0646001253e25e17bdce4"
+    assert iris_pandas_df_num_cols_dataset.hash == "0194e59415d97e0f64631bcb31e6c6b7"
     assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
@@ -808,7 +802,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
 
 
 @pytest.mark.parametrize(
-    ("baseline_model_uri", "expected_error"),
+    "baseline_model_uri, expected_error",
     [
         (
             "pyfunc",

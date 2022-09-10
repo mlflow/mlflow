@@ -604,7 +604,7 @@ def test_parse_json_input_including_path():
 
 
 @pytest.mark.parametrize(
-    ("args", "expected"),
+    "args, expected",
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},

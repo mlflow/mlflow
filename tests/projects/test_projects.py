@@ -61,7 +61,7 @@ def clean_mlruns_dir():
 
 
 @pytest.mark.parametrize(
-    ("experiment_name", "experiment_id", "expected"),
+    "experiment_name,experiment_id,expected",
     [
         ("Default", None, "0"),
         ("add an experiment", None, "1"),
@@ -283,7 +283,7 @@ def test_run_async():
 
 
 @pytest.mark.parametrize(
-    ("mock_env", "expected_conda", "expected_activate"),
+    "mock_env,expected_conda,expected_activate",
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         (
@@ -301,7 +301,7 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 
 
 @pytest.mark.parametrize(
-    ("mock_env", "expected_conda_env_create_path"),
+    "mock_env, expected_conda_env_create_path",
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
         (

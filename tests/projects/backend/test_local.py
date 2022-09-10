@@ -30,7 +30,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
-    # pylint: disable=unused-import
+    # pylint: disable=unused-import, unused-variable
     from azure.storage.blob import BlobServiceClient
 
     mock_env = {

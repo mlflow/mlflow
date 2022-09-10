@@ -20,6 +20,7 @@ import {
   DEFAULT_MODEL_VERSION_FILTER,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_ORDER_BY_KEY,
+  DEFAULT_SHOW_MULTI_COLUMNS,
   DEFAULT_START_TIME,
   LIFECYCLE_FILTER,
   MAX_DETECT_NEW_RUNS_RESULTS,
@@ -33,7 +34,6 @@ import Fixtures from '../utils/test-utils/Fixtures';
 
 const EXPERIMENT_ID = '17';
 const BASE_PATH = '/experiments/17/s';
-const MOCK_EXPERIMENT = Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID, tags: [] });
 
 jest.useFakeTimers();
 
@@ -76,7 +76,7 @@ afterAll(() => {
 const getExperimentPageMock = (additionalProps) => {
   return shallow(
     <ExperimentPage
-      experiments={[MOCK_EXPERIMENT]}
+      experiments={[Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID })]}
       experimentIds={[EXPERIMENT_ID]}
       searchRunsApi={searchRunsApi}
       getExperimentApi={getExperimentApi}
@@ -91,11 +91,6 @@ const getExperimentPageMock = (additionalProps) => {
       {...additionalProps}
     />,
   );
-};
-
-// eslint-disable-next-line no-unused-vars
-const getSearchRunsCall = () => {
-  return 1;
 };
 
 test('State and search params are correct for blank search', () => {
@@ -113,7 +108,7 @@ test('State and search params are correct for blank search', () => {
   expect(wrapper.state().persistedState.modelVersionFilter).toEqual(DEFAULT_MODEL_VERSION_FILTER);
   expect(wrapper.state().persistedState.startTime).toEqual(DEFAULT_START_TIME);
 
-  const searchRunsCallParams = searchRunsApi.mock.calls[getSearchRunsCall()][0];
+  const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
 
   expect(searchRunsCallParams.experimentIds).toEqual([EXPERIMENT_ID]);
   expect(searchRunsCallParams.filter).toEqual('');
@@ -141,7 +136,7 @@ test('State and search params are correct for complete search', () => {
   );
   expect(wrapper.state().persistedState.startTime).toEqual('1 Hour');
 
-  const searchRunsCallParams = searchRunsApi.mock.calls[getSearchRunsCall()][0];
+  const searchRunsCallParams = searchRunsApi.mock.calls[1][0];
   expect(searchRunsCallParams.filter).toEqual('metrics.metric0 > 3');
   expect(searchRunsCallParams.runViewType).toEqual(ViewType.DELETED_ONLY);
   expect(searchRunsCallParams.orderBy).toEqual(['test-key ASC']);
@@ -156,6 +151,7 @@ test('Loading state without any URL params and no snapshot', () => {
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
   expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
+  expect(state.persistedState.showMultiColumns).toEqual(DEFAULT_SHOW_MULTI_COLUMNS);
   expect(state.persistedState.diffSwitchSelected).toEqual(DEFAULT_DIFF_SWITCH_SELECTED);
   expect(state.persistedState.categorizedUncheckedKeys).toEqual(DEFAULT_CATEGORIZED_UNCHECKED_KEYS);
   expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual(
@@ -170,6 +166,7 @@ test('Loading state with all URL params and no snapshot', () => {
   location.search =
     'searchInput=c&orderByKey=d&orderByAsc=false&startTime=LAST_HOUR' +
     '&lifecycleFilter=lifecycle&modelVersionFilter=With%20Model%20Versions' +
+    '&showMultiColumns=false' +
     '&diffSwitchSelected=true' +
     '&categorizedUncheckedKeys%5Battributes%5D%5B0%5D=a1' +
     '&categorizedUncheckedKeys%5Bparams%5D%5B0%5D=p1' +
@@ -192,6 +189,7 @@ test('Loading state with all URL params and no snapshot', () => {
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
   expect(state.persistedState.startTime).toEqual('LAST_HOUR');
+  expect(state.persistedState.showMultiColumns).toEqual(false);
   expect(state.persistedState.diffSwitchSelected).toEqual(true);
   expect(state.persistedState.categorizedUncheckedKeys).toEqual({
     [COLUMN_TYPES.ATTRIBUTES]: ['a1'],
@@ -226,6 +224,7 @@ test('onClear clears all parameters', () => {
       startTime: 'HOUR',
       lifecycleFilter: LIFECYCLE_FILTER.DELETED,
       modelVersionFilter: MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS,
+      showMultiColumns: false,
       categorizedUncheckedKeys: {},
       diffSwitchSelected: true,
       preSwitchCategorizedUncheckedKeys: {},
@@ -242,6 +241,7 @@ test('onClear clears all parameters', () => {
   expect(state.persistedState.orderByKey).toBe(DEFAULT_ORDER_BY_KEY);
   expect(state.persistedState.orderByAsc).toEqual(DEFAULT_ORDER_BY_ASC);
   expect(state.persistedState.startTime).toEqual(DEFAULT_START_TIME);
+  expect(state.persistedState.showMultiColumns).toEqual(false);
   expect(state.persistedState.diffSwitchSelected).toEqual(DEFAULT_DIFF_SWITCH_SELECTED);
   expect(state.persistedState.categorizedUncheckedKeys).toEqual(DEFAULT_CATEGORIZED_UNCHECKED_KEYS);
   expect(state.persistedState.preSwitchCategorizedUncheckedKeys).toEqual(
@@ -312,13 +312,10 @@ test('should render experiment view when search error occurs', () => {
   expect(renderedView.find(ExperimentView)).toHaveLength(1);
 });
 
-test('should update next page token initially', async () => {
+test('should update next page token initially', () => {
   const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
-  getExperimentApi = jest.fn(() =>
-    Promise.resolve({ action: { payload: { experiment: MOCK_EXPERIMENT } } }),
-  );
   searchRunsApi = jest.fn(() => promise);
-  const wrapper = await getExperimentPageMock();
+  const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
   return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
 });
@@ -332,12 +329,12 @@ test('should update next page token after load-more', () => {
   return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
 });
 
-test('should update next page token to null when load-more response has no token', async () => {
+test('should update next page token to null when load-more response has no token', () => {
   const promise1 = Promise.resolve({ value: { next_page_token: 'token_1' } });
   const promise2 = Promise.resolve({ value: {} });
   searchRunsApi = jest.fn(() => promise1);
   loadMoreRunsApi = jest.fn(() => promise2);
-  const wrapper = await getExperimentPageMock();
+  const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
   instance.handleLoadMoreRuns();
   return Promise.all([promise1, promise2]).then(() =>
@@ -1012,6 +1009,7 @@ describe('updateUrlWithViewState', () => {
     orderByKey: DEFAULT_ORDER_BY_KEY,
     orderByAsc: DEFAULT_ORDER_BY_ASC,
     startTime: DEFAULT_START_TIME,
+    showMultiColumns: DEFAULT_SHOW_MULTI_COLUMNS,
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     diffSwitchSelected: DEFAULT_DIFF_SWITCH_SELECTED,
     preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
@@ -1035,6 +1033,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       diffSwitchSelected,
     } = defaultParameters;
 
@@ -1047,6 +1046,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
       diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
@@ -1067,6 +1067,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       diffSwitchSelected,
     } = defaultParameters;
 
@@ -1079,6 +1080,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
       diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
@@ -1094,7 +1096,7 @@ describe('updateUrlWithViewState', () => {
       }).toJSON(),
     });
 
-    const { searchInput, orderByKey, orderByAsc, startTime, diffSwitchSelected } =
+    const { searchInput, orderByKey, orderByAsc, startTime, showMultiColumns, diffSwitchSelected } =
       defaultParameters;
 
     instance.updateUrlWithViewState();
@@ -1106,6 +1108,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter: 'life',
       modelVersionFilter: 'model',
+      showMultiColumns,
       categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
       diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
@@ -1126,6 +1129,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       diffSwitchSelected,
     } = defaultParameters;
 
@@ -1138,6 +1142,41 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
+    });
+  });
+
+  test('updateUrlWithViewState updates URL correctly with showMultiColumns false', () => {
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        showMultiColumns: false,
+      }).toJSON(),
+    });
+
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      diffSwitchSelected,
+    } = defaultParameters;
+
+    instance.updateUrlWithViewState();
+
+    expectSearchState(history.push.mock.calls[0][0], {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns: false,
       categorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
       diffSwitchSelected,
       preSwitchCategorizedUncheckedKeys: emptyCategorizedUncheckedKeys,
@@ -1176,8 +1215,15 @@ describe('updateUrlWithViewState', () => {
       }).toJSON(),
     });
 
-    const { searchInput, orderByKey, orderByAsc, startTime, lifecycleFilter, modelVersionFilter } =
-      defaultParameters;
+    const {
+      searchInput,
+      orderByKey,
+      orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+    } = defaultParameters;
 
     instance.updateUrlWithViewState();
 
@@ -1188,6 +1234,7 @@ describe('updateUrlWithViewState', () => {
       startTime,
       lifecycleFilter,
       modelVersionFilter,
+      showMultiColumns,
       categorizedUncheckedKeys: categorizedUncheckedKeys,
       diffSwitchSelected: true,
       preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,
@@ -1247,6 +1294,25 @@ describe('filtersDidUpdate', () => {
   test('filtersDidUpdate returns false when modelVersionFilter was updated', () => {
     prevState.persistedState.modelVersionFilter = 'updated';
     expect(instance.filtersDidUpdate(prevState)).toEqual(true);
+  });
+});
+
+describe('setShowMultiColumns', () => {
+  test('setShowMultiColumns sets state correctly', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    const updateUrlWithViewStateSpy = jest.fn();
+    const snapshotComponentStateSpy = jest.fn();
+    instance.updateUrlWithViewState = updateUrlWithViewStateSpy;
+    instance.snapshotComponentState = snapshotComponentStateSpy;
+    instance.setShowMultiColumns(true);
+    expect(instance.state.persistedState.showMultiColumns).toEqual(true);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(1);
+    instance.setShowMultiColumns(false);
+    expect(instance.state.persistedState.showMultiColumns).toEqual(false);
+    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(2);
+    expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(2);
   });
 });
 

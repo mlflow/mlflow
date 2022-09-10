@@ -1,7 +1,10 @@
 import React from 'react';
 import { SearchTree, SearchTreeImpl, styles, getParentKey, flattenDataToList } from './SearchTree';
+import { Tree } from 'antd';
 import { shallowWithInjectIntl, mountWithIntl } from '../../common/utils/TestUtils';
 import { createIntl } from 'react-intl';
+
+const { TreeNode } = Tree;
 
 describe('SearchTree', () => {
   let wrapper;
@@ -62,8 +65,9 @@ describe('SearchTree', () => {
   });
 
   test('should render search tree properly', () => {
+    // TODO: this is a dumb test; make this better
     wrapper = mountWithIntl(<SearchTree {...commonProps} />);
-    const treeNodes = wrapper.find('div[data-testid="tree-node"]');
+    const treeNodes = wrapper.find(TreeNode);
     expect(treeNodes.length).toBe(3);
   });
 

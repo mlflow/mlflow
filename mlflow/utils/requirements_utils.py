@@ -281,11 +281,6 @@ def _capture_imported_modules(model_uri, flavor):
             return f.read().splitlines()
 
 
-DATABRICKS_MODULES_TO_PACKAGES = {
-    "databricks.automl": ["databricks-automl-runtime"],
-    "databricks.automl_runtime": ["databricks-automl-runtime"],
-    "databricks.model_monitoring": ["databricks-model-monitoring"],
-}
 _MODULES_TO_PACKAGES = None
 _PACKAGES_TO_MODULES = None
 
@@ -297,17 +292,6 @@ def _init_modules_to_packages_map():
         # Python’s site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
-
-        # Multiple packages populate the `databricks` module namespace on Databricks; to avoid
-        # bundling extraneous Databricks packages into model dependencies, we scope each module
-        # to its relevant package
-        _MODULES_TO_PACKAGES.update(DATABRICKS_MODULES_TO_PACKAGES)
-        if "databricks" in _MODULES_TO_PACKAGES:
-            _MODULES_TO_PACKAGES["databricks"] = [
-                package
-                for package in _MODULES_TO_PACKAGES["databricks"]
-                if package not in _flatten(DATABRICKS_MODULES_TO_PACKAGES.values())
-            ]
 
         # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
         # via pip or conda. To work around this issue, manually add pyspark.

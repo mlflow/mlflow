@@ -253,7 +253,7 @@ def test_that_keras_module_arg_works(model_path):
 
 
 @pytest.mark.parametrize(
-    ("build_model", "save_format"),
+    "build_model,save_format",
     [
         (get_model, None),
         (get_tf_keras_model, None),

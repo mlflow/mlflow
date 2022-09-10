@@ -7,7 +7,7 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental, deprecated
+from mlflow.utils.annotations import experimental
 import mlflow.models.docker_utils
 from mlflow.utils import env_manager as em
 
@@ -111,9 +111,6 @@ def commands():
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@deprecated(
-    alternative="mlflow deployments create -t sagemaker and mlflow deployments update -t sagemaker"
-)
 def deploy(
     app_name,
     model_uri,
@@ -207,7 +204,6 @@ def deploy(
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@deprecated(alternative="mlflow deployments delete -t sagemaker")
 def delete(app_name, region_name, archive, asynchronous, timeout):
     """
     Delete the specified application. Unless ``--archive`` is specified, all SageMaker resources

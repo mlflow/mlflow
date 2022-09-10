@@ -152,8 +152,7 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
                 ],
                 "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
-            },
-            "steps": {"ingest": {"skip_data_profiling": True}},
+            }
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
