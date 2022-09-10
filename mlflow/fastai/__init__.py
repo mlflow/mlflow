@@ -176,7 +176,8 @@ def save_model(
         loader_module="mlflow.fastai",
         data=model_data_subpath,
         code=code_dir_subpath,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,

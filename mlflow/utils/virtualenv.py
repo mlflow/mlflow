@@ -149,13 +149,26 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
 
 
-def _get_conda_env_file(mlmodel_file):
-    for flavor, config in Model.load(mlmodel_file).flavors.items():
+def _get_conda_env_file(model_config):
+    from mlflow.pyfunc import _extract_conda_env
+
+    for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
             env = config.get(mlflow.pyfunc.ENV)
             if env:
-                return env
+                return _extract_conda_env(env)
     return _CONDA_ENV_FILE_NAME
+
+
+def _get_python_env_file(model_config):
+    from mlflow.pyfunc import EnvType
+
+    for flavor, config in model_config.flavors.items():
+        if flavor == mlflow.pyfunc.FLAVOR_NAME:
+            env = config.get(mlflow.pyfunc.ENV)
+            if env:
+                return env[EnvType.VIRTUALENV]
+    return _PYTHON_ENV_FILE_NAME
 
 
 def _get_python_env(local_model_path):
@@ -169,9 +182,10 @@ def _get_python_env(local_model_path):
     :param local_model_path: Local directory containing the model artifacts.
     :return: `_PythonEnv` instance.
     """
-    python_env_file = local_model_path / _PYTHON_ENV_FILE_NAME
+    model_config = Model.load(local_model_path / MLMODEL_FILE_NAME)
+    python_env_file = local_model_path / _get_python_env_file(model_config)
+    conda_env_file = local_model_path / _get_conda_env_file(model_config)
     requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
-    conda_env_file = local_model_path / _get_conda_env_file(local_model_path / MLMODEL_FILE_NAME)
 
     if python_env_file.exists():
         return _PythonEnv.from_yaml(python_env_file)

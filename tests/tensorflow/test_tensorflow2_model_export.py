@@ -2,6 +2,7 @@
 
 import collections
 import os
+from pathlib import Path
 import shutil
 import sys
 import pytest
@@ -545,3 +546,16 @@ def test_saved_model_support_array_type_input():
     result = model.predict(infer_df)
 
     np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])
+
+
+def test_virtualenv_subfield_points_to_correct_path(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(
+        tf_saved_model_dir=saved_tf_iris_model.path,
+        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+        path=model_path,
+    )
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()
