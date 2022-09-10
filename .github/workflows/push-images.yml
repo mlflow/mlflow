@@ -44,17 +44,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
-            VERSION=${{ steps.meta.outputs.tags }}
+            VERSION=${{ steps.meta.outputs.version }}
           file: ../../docker/BaseDockerfile
-    
-      - name: Build and Push Tracking Image
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          build-args: |
-            VERSION=${{ steps.meta.outputs.tags }}
-            ACCOUNT=mlflow
-          file: ../../docker/TrackingDockerfile
           
