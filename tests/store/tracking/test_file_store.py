@@ -408,14 +408,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp1.artifact_location,
             path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
         )
-        assert exp1.creation_time
-        assert exp1.last_update_time
+        assert isinstance(exp1.creation_time, int)
+        assert isinstance(exp1.last_update_time, int)
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
-        assert exp2.creation_time
-        assert exp2.last_update_time
+        assert isinstance(exp2.creation_time, int)
+        assert isinstance(exp2.last_update_time, int)
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [

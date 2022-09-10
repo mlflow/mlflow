@@ -531,8 +531,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, "test exp")
-        assert actual.creation_time
-        assert actual.last_update_time
+        assert isinstance(actual.creation_time, int)
+        assert isinstance(actual.last_update_time, int)
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
