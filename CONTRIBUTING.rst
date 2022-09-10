@@ -117,13 +117,13 @@ To set up the MLflow repository, run the following commands:
 .. code-block:: bash
 
     # Clone the repository
-    git clone --recurse-submodules https://github.com/<username>/mlflow.git
-    # Alternatively, you can use this command to clone through SSH:
-    # git clone --recurse-submodules git@github.com:<username>/mlflow.git
+    git clone --recurse-submodules git@github.com:<username>/mlflow.git
+    # The alternative way of cloning through https may cause permission error during branch push
+    # git clone --recurse-submodules https://github.com/<username>/mlflow.git
 
     # Add the upstream repository
     cd mlflow
-    git remote add upstream https://github.com/mlflow/mlflow.git
+    git remote add upstream git@github.com/mlflow/mlflow.git
 
 If you cloned the repository before without ``--recurse-submodules``, run this command to fetch submodules:
 
