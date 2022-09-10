@@ -35,6 +35,7 @@ public class ModelRegistryMlflowClientTest {
     private MlflowClient client;
 
     private String modelName;
+    private String anotherModelName;
     private File tempDir;
     private File tempFile;
 
@@ -53,12 +54,16 @@ public class ModelRegistryMlflowClientTest {
     public void before() throws IOException {
         client = testClientProvider.initializeClientAndSqlLiteBasedServer();
         modelName = "Model-" + UUID.randomUUID().toString();
+        anotherModelName = "Model-" + UUID.randomUUID().toString();
 
         String expName = createExperimentName();
         String expId = client.createExperiment(expName);
 
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
+
+        RunInfo anotherRunCreated = client.createRun(expId);
+        String anotherRunId = anotherRunCreated.getRunUuid();
 
         tempDir = Files.createTempDirectory("tempDir").toFile();
         tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
@@ -69,6 +74,12 @@ public class ModelRegistryMlflowClientTest {
 
         client.sendPost("model-versions/create",
                 mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
+
+        client.sendPost("registered-models/create",
+                mapper.makeCreateModel(anotherModelName));
+
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(anotherModelName, anotherRunId, tempDir.getAbsolutePath()));
     }
 
     @AfterTest
@@ -142,5 +153,14 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getName(), modelName);
         Assert.assertEquals(details.getVersion(), version);
+    }
+
+    @Test
+    public void testListRegisteredModels() {
+        final List<ModelRegistry.RegisteredModel> modelVersions = client.listRegisteredModels();
+
+        Assert.assertEquals(modelVersions.size(), 2);
+        Assert.assertEquals(modelVersions.get(0).getLatestVersions(0).getName(), modelName);
+        Assert.assertEquals(modelVersions.get(1).getLatestVersions(0).getName(), anotherModelName);
     }
 }

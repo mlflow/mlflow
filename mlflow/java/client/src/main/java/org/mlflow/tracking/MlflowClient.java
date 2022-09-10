@@ -2,6 +2,7 @@ package org.mlflow.tracking;
 
 import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
+import org.mlflow.api.proto.ModelRegistry;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
 import org.mlflow.artifacts.CliBasedArtifactRepository;
@@ -881,4 +882,11 @@ public class MlflowClient implements Serializable {
       return downloadModelVersion(modelName, details.getVersion());
   }
 
+  /**
+   * @return A list of all registered models
+   */
+  public List<ModelRegistry.RegisteredModel> listRegisteredModels() {
+    return mapper.toListRegisteredModelsResponse(httpCaller.get("registered-models/list"))
+            .getRegisteredModelsList();
+  }
 }

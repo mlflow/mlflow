@@ -241,6 +241,12 @@ class MlflowProtobufMapper {
     return builder.getArtifactUri();
   }
 
+  ListRegisteredModels.Response toListRegisteredModelsResponse(String json) {
+    ListRegisteredModels.Response.Builder builder = ListRegisteredModels.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
   private String print(MessageOrBuilder message) {
     try {
       return JsonFormat.printer().preservingProtoFieldNames().print(message);
