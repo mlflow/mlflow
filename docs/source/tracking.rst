@@ -749,7 +749,7 @@ The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` funct
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
 
-.. important:: Do not use the prefix ``mlflow.`` (i.e. ``mlflow.note``) for a tag.  This prefix is reserved for use by MLflow. See :ref:`system_tags` for a list of reserved tag keys.
+.. important:: Do not use the prefix ``mlflow.`` (e.g. ``mlflow.note``) for a tag.  This prefix is reserved for use by MLflow. See :ref:`system_tags` for a list of reserved tag keys.
 
 .. _tracking_ui:
 
