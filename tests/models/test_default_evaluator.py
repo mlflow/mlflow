@@ -655,7 +655,7 @@ def _evaluate_explainer_with_exceptions(model_uri, dataset):
             dataset_name=dataset.name,
             evaluators="default",
             evaluator_config={
-                "ignore_exceptions": False,
+                "explainability_ignore_exceptions": False,
             },
         )
 

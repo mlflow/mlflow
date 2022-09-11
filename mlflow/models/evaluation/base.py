@@ -341,6 +341,7 @@ class EvaluationDataset:
                     f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
                     for i in range(num_features)
                 ]
+            self._original_column_names = list(range(num_features))
         elif isinstance(data, self._supported_dataframe_types):
             if not isinstance(targets, str):
                 raise MlflowException(
@@ -364,11 +365,13 @@ class EvaluationDataset:
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
+                self._original_column_names = feature_names
             else:
                 self._features_data = data.drop(targets, axis=1, inplace=False)
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
+                self._original_column_names = self._features_data.columns
         else:
             raise MlflowException(
                 message="The data argument must be a numpy array, a list or a Pandas DataFrame, or "
@@ -423,6 +426,13 @@ class EvaluationDataset:
         Dataset hash, includes hash on first 20 rows and last 20 rows.
         """
         return self._hash
+
+    @property
+    def original_column_names(self):
+        """
+        returns original column names of features data as a list.
+        """
+        return self._original_column_names
 
     @property
     def _metadata(self):
@@ -921,6 +931,8 @@ def evaluate(
           explainability insights. Default value is 2000.
         - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
           Available values are "identity" and "logit". Default value is "identity".
+        - **explainability_ignore_exceptions**: A boolean value specifying whether to ignore 
+          exceptions encountered when using ``shap.Explainer``. Default value is True.
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is

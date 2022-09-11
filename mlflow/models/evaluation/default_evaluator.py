@@ -222,7 +222,6 @@ def _get_dataframe_with_renamed_columns(x, new_column_names):
     NaNs for every column in new_column_names that does not exist in x.columns. This function
     instead creates a new pd.DataFrame object from x, and then explicitly renames the columns
     to avoid NaNs.
-
     :param x: :param data: A data object, such as a Pandas DataFrame, numPy array, or list
     :param new_column_names: Column names for the output Pandas DataFrame
     :return: A pd.DataFrame with x as data, with columns new_column_names
@@ -443,8 +442,8 @@ def _compute_df_mode_or_mean(df):
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
-def _shap_predict_fn(x, predict_fn, feature_names):
-    return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
+def _shap_predict_fn(x, predict_fn, original_column_names):
+    return predict_fn(_get_dataframe_with_renamed_columns(x, original_column_names))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -591,7 +590,9 @@ class DefaultEvaluator(ModelEvaluator):
         # the column name.
 
         shap_predict_fn = functools.partial(
-            _shap_predict_fn, predict_fn=self.predict_fn, feature_names=self.feature_names
+            _shap_predict_fn,
+            predict_fn=self.predict_fn,
+            original_column_names=self.dataset.original_column_names,
         )
 
         try:
@@ -647,12 +648,17 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             else:
                 shap_values = explainer(sampled_X)
+            # We want shap plots to use self.feature_names, but we can't use always use
+            # self.feature_names when computing shap_values, as they may differ from the
+            # names used during training (e.g. when using np.ndarrays). Instead, we rename
+            # shap_values.feature_names here before creating the plots.
+            shap_values.feature_names = self.feature_names
         except Exception as e:
             # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
             # or unsupported model on specific shap explainer. Catch exception to prevent it
             # breaking the whole `evaluate` function.
 
-            if not self.evaluator_config.get("ignore_exceptions", True):
+            if not self.evaluator_config.get("explainability_ignore_exceptions", True):
                 raise e
 
             _logger.warning(
@@ -1138,9 +1144,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        return DefaultEvaluator._MutationGuardedData(
-            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.feature_names)
-        )
+        return DefaultEvaluator._MutationGuardedData(pd.DataFrame(self.dataset.features_data))
 
     class _MutationGuardedData:
         """
