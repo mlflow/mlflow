@@ -68,7 +68,7 @@ test_that("Can predict with cli backend", {
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_csv,
     "-o", temp_out, "-t", "csv", "--install-mlflow"
   )
-  prediction <- unlist(jsonlite::read_json(temp_out))
+  prediction <- unlist(jsonlite::read_json(temp_out)$predictions)
   expect_true(!is.null(prediction))
   expect_equal(
     prediction,
@@ -80,7 +80,7 @@ test_that("Can predict with cli backend", {
     "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
     "-t", "json", "--install-mlflow"
   )
-  prediction <- unlist(jsonlite::read_json(temp_out))
+  prediction <- unlist(jsonlite::read_json(temp_out)$predictions)
   expect_true(!is.null(prediction))
   expect_equal(
     prediction,
@@ -97,7 +97,7 @@ test_that("Can predict with cli backend", {
     "-o", temp_out, "-t",
     "json", "--install-mlflow"
   )
-  prediction <- unlist(jsonlite::read_json(temp_out))
+  prediction <- unlist(jsonlite::read_json(temp_out)$predictions)
   expect_true(!is.null(prediction))
   expect_equal(
     prediction,
