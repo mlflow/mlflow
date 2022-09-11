@@ -173,7 +173,7 @@ def _create_run_in_store(store, create_artifacts=True):
         "experiment_id": "0",
         "user_id": "Anderson",
         "start_time": int(time.time()),
-        "tags": {},
+        "tags": [],
     }
     run = store.create_run(**config)
     if create_artifacts:

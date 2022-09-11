@@ -11,7 +11,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run <- mlflow_get_run(client = client, run$run_uuid)
@@ -23,7 +23,8 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
-        list(key = "mlflow.user", value = "user1")
+        list(key = "mlflow.user", value = "user1"),
+        list(key = "mlflow.runName", value = "my_run")
       )
     )
   )
@@ -94,7 +95,7 @@ test_that("mlflow_restore_run() work properly", {
   run1 <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run2 <- mlflow_get_run(client = client, run1$run_uuid)
@@ -109,7 +110,8 @@ test_that("mlflow_restore_run() work properly", {
         list(
           list(key = "foz", value = "baz"),
           list(key = "foo", value = "bar"),
-          list(key = "mlflow.user", value = "user1")
+          list(key = "mlflow.user", value = "user1"),
+          list(key = "mlflow.runName", value = "my_run")
         )
       )
     )

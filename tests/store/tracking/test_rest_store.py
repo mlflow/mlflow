@@ -195,6 +195,7 @@ class TestRestStore:
                 # Tag order is inconsistent on Python 2 and 3, but the order does not matter
                 expected_tags = expected_kwargs["json"].pop("tags")
                 actual_tags = actual_kwargs["json"].pop("tags")
+
                 assert sorted(expected_tags, key=lambda t: t["key"]) == sorted(
                     actual_tags, key=lambda t: t["key"]
                 )

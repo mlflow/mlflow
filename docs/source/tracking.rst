@@ -301,6 +301,9 @@ and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager fo
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
 with no active run automatically starts a new one.
 
+.. note::
+  - If the argument ``run_name`` is not set within :py:func:`mlflow.start_run`, a unique run name will be generated for each run.
+
 :py:func:`mlflow.end_run` ends the currently active run, if any, taking an optional run status.
 
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
@@ -746,7 +749,7 @@ The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` funct
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
 
-.. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
+.. important:: Do not use the prefix ``mlflow.`` (e.g. ``mlflow.note``) for a tag.  This prefix is reserved for use by MLflow. See :ref:`system_tags` for a list of reserved tag keys.
 
 .. _tracking_ui:
 
@@ -1240,7 +1243,9 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
-| ``mlflow.runName``            | Human readable name that identifies this run.                                          |
+| ``mlflow.runName``            | Human readable name that identifies this run. This tag is set either by specifying     |
+|                               | the argument ``run_name`` when calling :py:func:`mlflow.start_run` or is automatically |
+|                               | generated with a random name if no ``run_name`` is set.                                |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
 |                               | be overridden by the user to include additional information about the run. The content |
