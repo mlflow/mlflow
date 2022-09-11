@@ -18,16 +18,13 @@ def _generate_random_name(sep="-", integer_scale=3, max_length=20):
 
     :return: A random string phrase comprised of a predicate, noun, and random integer
     """
-    max_iter = 10
-    i = 0
-    while True:
+    name = None
+    for _ in range(10):
         name = _generate_string(sep, integer_scale)
         if len(name) <= max_length:
             return name
-        elif i == max_iter:
-            return name[:max_length]
-        else:
-            i += 1
+    # If the combined length isn't below the threshold after 10 iterations, truncate it.
+    return name[:max_length]
 
 
 _GENERATOR_NOUNS = [
