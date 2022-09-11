@@ -25,12 +25,14 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
+from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
@@ -639,9 +641,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 0
+        assert len(no_tags_run.data.tags) == 1
+
+        run_name = no_tags_run.data.tags.get(MLFLOW_RUN_NAME)
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
         tags_dict = {
+            MLFLOW_RUN_NAME: "my_run",
             "my_first_tag": "first",
             "my-second-tag": "2nd",
         }
