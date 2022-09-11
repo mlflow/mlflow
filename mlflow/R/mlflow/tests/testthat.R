@@ -21,6 +21,5 @@ library(mlflow)
 
 if (identical(Sys.getenv("NOT_CRAN"), "true")) {
   message("Current working directory: ", getwd())
-  Sys.setenv(MLFLOW_HOME=Sys.getenv("MLFLOW_HOME",normalizePath("../../../../..")))
   test_check("mlflow")
 }

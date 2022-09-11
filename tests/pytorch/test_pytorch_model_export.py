@@ -660,7 +660,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),

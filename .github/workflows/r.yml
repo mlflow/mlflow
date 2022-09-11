@@ -81,4 +81,5 @@ jobs:
         LINTR_COMMENT_BOT: false
       run: |
         cd tests
+        export MLFLOW_HOME=$(git rev-parse --show-toplevel)
         Rscript -e 'source("../.run-tests.R", echo=TRUE)'
