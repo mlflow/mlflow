@@ -91,7 +91,7 @@ test_that("mlflow can log model and load it back with a uri", {
   expect_true(5 == mlflow_predict(loaded_model_2, 0:10))
   temp_in  <- tempfile(fileext = ".json")
   temp_out  <- tempfile(fileext = ".json")
-  jsonlite::write_json(list(instances=0:10), temp_in)
+  jsonlite::write_json(list(dataframe_records=0:10), temp_in)
   mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
                       "--content-type", "json", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out)$predictions)

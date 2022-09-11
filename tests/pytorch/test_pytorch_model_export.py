@@ -604,7 +604,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)['predictions'])
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=main_scoped_subclassed_model, data=data),
