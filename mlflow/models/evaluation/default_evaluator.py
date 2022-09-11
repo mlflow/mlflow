@@ -1144,7 +1144,11 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
-        return DefaultEvaluator._MutationGuardedData(pd.DataFrame(self.dataset.features_data))
+        return DefaultEvaluator._MutationGuardedData(
+            _get_dataframe_with_renamed_columns(
+                self.dataset.features_data, self.dataset.original_column_names
+            )
+        )
 
     class _MutationGuardedData:
         """
