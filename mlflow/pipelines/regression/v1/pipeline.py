@@ -193,10 +193,10 @@ class RegressionPipeline(_BasePipeline):
     _PIPELINE_STEPS = _SCORING_DAG_STEPS + _TRAIN_DAG_STEPS
 
     _STEPS_SUBGRAPH_MAP = dict()
-    for step_class in _TRAIN_DAG_STEPS:
-        _STEPS_SUBGRAPH_MAP[step_class] = _TRAIN_DAG_NAME
-    for step_class in _SCORING_DAG_STEPS:
-        _STEPS_SUBGRAPH_MAP[step_class] = _SCORING_DAG_NAME
+    for _step_class in _TRAIN_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _TRAIN_DAG_NAME
+    for _step_class in _SCORING_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _SCORING_DAG_NAME
 
     _SUBGRAPH_INDICES_MAP = {
         _TRAIN_DAG_NAME: (
