@@ -41,7 +41,7 @@ const createReaction = async (context, github) => {
     owner,
     repo,
     comment_id,
-    content: rocket,
+    content: 'rocket',
   });
 };
 
