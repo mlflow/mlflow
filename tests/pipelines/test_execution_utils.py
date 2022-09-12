@@ -208,7 +208,13 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         def environment(self):
             return {"C": "D"}
 
-    with mock.patch("mlflow.pipelines.utils.execution._exec_cmd") as mock_run_in_subprocess:
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch("mlflow.pipelines.utils.execution._ExecutionPlan"):
+        process = mock.Mock()
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
         pipeline_steps = [TestStep1(), TestStep2()]
         run_pipeline_step(
             pipeline_root_path=tmp_path,
@@ -223,6 +229,38 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         "C": "D",
         _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "test_step_1",
     }
+    assert mock_run_in_subprocess.call_count == 2
+
+
+def test_run_pipeline_step_calls_execution_plan(tmp_path):
+    class TestStep(BaseStepImplemented):
+        def __init__(self):  # pylint: disable=super-init-not-called
+            self.step_config = {}
+
+        @property
+        def name(self):
+            return "test_step"
+
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch(
+        "mlflow.pipelines.utils.execution._ExecutionPlan"
+    ) as mock_execution_plan:
+        process = mock.Mock()
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
+        pipeline_steps = [TestStep()]
+        run_pipeline_step(
+            pipeline_root_path=tmp_path,
+            pipeline_steps=pipeline_steps,
+            target_step=pipeline_steps[0],
+            template="regression/v1",
+        )
+
+    execution_plan_args, _ = mock_execution_plan.call_args
+    assert execution_plan_args[0] == "test_step"
+    assert execution_plan_args[2] == pipeline_steps
 
 
 def run_test_pipeline_step(pipeline_steps, target_step):

@@ -1,6 +1,8 @@
 import hashlib
+import logging
 import os
 import pathlib
+import re
 import shutil
 from typing import List, Dict
 
@@ -8,6 +10,7 @@ from mlflow.pipelines.step import BaseStep, StepStatus
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.process import _exec_cmd
 
+_logger = logging.getLogger(__name__)
 
 _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR = "MLFLOW_PIPELINES_EXECUTION_DIRECTORY"
 _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR = "MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME"
@@ -27,9 +30,9 @@ def run_pipeline_step(
 
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem.
-    :param pipeline_steps: A list of all the steps contained in the specified pipeline. Pipeline
-                           steps must be provided in the order that they are intended to be
-                           executed.
+    :param pipeline_steps: A list of all the steps contained in the subgraph of the specified
+                           pipeline that contains the target_step. Pipeline steps must be
+                           provided in the order that they are intended to be executed.
     :param target_step: The step to run.
     :param template: The template to use when selecting a Makefile to load.  If the template is
                      invalid, an exception is thrown.
@@ -81,6 +84,7 @@ def run_pipeline_step(
         execution_directory_path=execution_dir_path,
         rule_name=target_step.name,
         extra_env=make_env,
+        pipeline_steps=pipeline_steps,
     )
 
     # Identify the last step that was executed, excluding steps that are downstream of the
@@ -274,7 +278,67 @@ def _get_step_output_directory_path(execution_directory_path: str, step_name: st
     )
 
 
-def _run_make(execution_directory_path, rule_name: str, extra_env: Dict[str, str]) -> None:
+class _ExecutionPlan:
+
+    _MSG_REGEX = r"^# Run MLP step: (\w+)\n$"
+    _FORMAT_STEPS_CACHED = "%s: No changes. Skipping."
+
+    def __init__(self, rule_name, output_lines_of_make: List[str], pipeline_steps: List[BaseStep]):
+        pipeline_step_names = [step.name for step in pipeline_steps]
+
+        steps_to_run = self._parse_output_lines(output_lines_of_make)
+        self.steps_cached = self._infer_cached_steps(rule_name, steps_to_run, pipeline_step_names)
+
+    @staticmethod
+    def _parse_output_lines(output_lines_of_make: List[str]) -> List[str]:
+        """
+        Parse the output lines of Make to get steps to run.
+        """
+
+        def get_step_to_run(output_line: str):
+            m = re.search(_ExecutionPlan._MSG_REGEX, output_line)
+            return m.group(1) if m else None
+
+        return list(
+            filter(
+                lambda step: step is not None,
+                (get_step_to_run(output_line) for output_line in output_lines_of_make),
+            )
+        )
+
+    @staticmethod
+    def _infer_cached_steps(rule_name, steps_to_run, pipeline_step_names) -> List[str]:
+        """
+        Infer cached steps.
+        :param rule_name: The name of the Make rule to run.
+        :param steps_to_run: The step names obtained by parsing the Make output showing
+                             which steps will be executed.
+        :param pipeline_step_names:  A list of all the step names contained in the specified
+                                     pipeline sorted by the execution order.
+        """
+        index = pipeline_step_names.index(rule_name)
+        if index == 0:
+            # If the rule_name is ingest, it should always be executed
+            return []
+
+        if len(steps_to_run) == 0:
+            # All steps are cached
+            return pipeline_step_names[: index + 1]
+
+        first_step_index = min([pipeline_step_names.index(step) for step in steps_to_run])
+        return pipeline_step_names[:first_step_index]
+
+    def print(self) -> None:
+        for step in self.steps_cached:
+            _logger.info(self._FORMAT_STEPS_CACHED, step)
+
+
+def _run_make(
+    execution_directory_path,
+    rule_name: str,
+    extra_env: Dict[str, str],
+    pipeline_steps: List[BaseStep],
+) -> None:
     """
     Runs the specified pipeline rule with Make. This method assumes that a Makefile named `Makefile`
     exists in the specified execution directory.
@@ -284,7 +348,26 @@ def _run_make(execution_directory_path, rule_name: str, extra_env: Dict[str, str
                                      in this directory.
     :param extra_env: Extra environment variables to be defined when running the Make child process.
     :param rule_name: The name of the Make rule to run.
+    :param pipeline_steps: A list of step instances that is a subgraph containing the step specified
+                           by `rule_name`.
     """
+    # Dry-run Make and collect the outputs
+    process = _exec_cmd(
+        ["make", "-n", "-f", "Makefile", rule_name],
+        capture_output=False,
+        stream_output=True,
+        synchronous=False,
+        throw_on_error=False,
+        cwd=execution_directory_path,
+        extra_env=extra_env,
+    )
+    output_lines = list(iter(process.stdout.readline, ""))
+    process.communicate()
+    # Debug only, will remove
+    # _logger.warning("Calling Execution Plan rule_name %s output lines %s pipeline_steps %s",
+    # rule_name, output_lines, [step.name for step in pipeline_steps])
+    _ExecutionPlan(rule_name, output_lines, pipeline_steps).print()
+
     _exec_cmd(
         ["make", "-s", "-f", "Makefile", rule_name],
         capture_output=False,
@@ -417,6 +500,7 @@ ingest:
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
 steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
+	# Run MLP step: ingest
 	$(MAKE) ingest
 
 split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/split/outputs/test.parquet
@@ -424,6 +508,7 @@ split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation
 split: $(split_objects)
 
 steps/%/outputs/train.parquet steps/%/outputs/validation.parquet steps/%/outputs/test.parquet: {path:prp/steps/split.py} steps/ingest/outputs/dataset.parquet steps/split/conf.yaml
+	# Run MLP step: split
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.split import SplitStep; SplitStep.from_step_config_path(step_config_path='{path:exe/steps/split/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/split/outputs}')"
 
@@ -432,6 +517,7 @@ transform_objects = steps/transform/outputs/transformer.pkl steps/transform/outp
 transform: $(transform_objects)
 
 steps/%/outputs/transformer.pkl steps/%/outputs/transformed_training_data.parquet steps/%/outputs/transformed_validation_data.parquet: {path:prp/steps/transform.py} steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/conf.yaml
+	# Run MLP step: transform
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.transform import TransformStep; TransformStep.from_step_config_path(step_config_path='{path:exe/steps/transform/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/transform/outputs}')"
 
@@ -440,6 +526,7 @@ train_objects = steps/train/outputs/model steps/train/outputs/run_id
 train: $(train_objects)
 
 steps/%/outputs/model steps/%/outputs/run_id: {path:prp/steps/train.py} {path:prp/steps/custom_metrics.py} steps/transform/outputs/transformed_training_data.parquet steps/transform/outputs/transformed_validation_data.parquet steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/outputs/transformer.pkl steps/train/conf.yaml
+	# Run MLP step: train
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.train import TrainStep; TrainStep.from_step_config_path(step_config_path='{path:exe/steps/train/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/train/outputs}')"
 
@@ -448,6 +535,7 @@ evaluate_objects = steps/evaluate/outputs/model_validation_status
 evaluate: $(evaluate_objects)
 
 steps/%/outputs/model_validation_status: {path:prp/steps/custom_metrics.py} steps/train/outputs/model steps/split/outputs/validation.parquet steps/split/outputs/test.parquet steps/train/outputs/run_id steps/evaluate/conf.yaml
+	# Run MLP step: evaluate
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.evaluate import EvaluateStep; EvaluateStep.from_step_config_path(step_config_path='{path:exe/steps/evaluate/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/evaluate/outputs}')"
 
@@ -456,6 +544,7 @@ register_objects = steps/register/outputs/registered_model_version.json
 register: $(register_objects)
 
 steps/%/outputs/registered_model_version.json: steps/train/outputs/run_id steps/register/conf.yaml steps/evaluate/outputs/model_validation_status
+	# Run MLP step: register
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.register import RegisterStep; RegisterStep.from_step_config_path(step_config_path='{path:exe/steps/register/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/register/outputs}')"
 
@@ -470,6 +559,7 @@ ingest_scoring:
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
 steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
+	# Run MLP step: ingest_scoring
 	$(MAKE) ingest_scoring
 
 predict_objects = steps/predict/outputs/scored.parquet
@@ -477,6 +567,7 @@ predict_objects = steps/predict/outputs/scored.parquet
 predict: $(predict_objects)
 
 steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
+	# Run MLP step: predict
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
 
