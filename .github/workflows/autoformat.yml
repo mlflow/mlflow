@@ -37,7 +37,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            core.debug(context);
+            core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const shouldAutoformat = autoformat.shouldAutoformat(context.payload.comment);
             if (shouldAutoformat) {
