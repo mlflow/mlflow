@@ -45,5 +45,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-          file: ../../docker/BaseDockerfile
+          file: ./docker/Dockerfile
           
