@@ -3,144 +3,28 @@
 import collections
 import os
 from pathlib import Path
-import shutil
 import pickle
 import pytest
-import copy
 import json
 
 import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
-from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.pyfunc.backend import _execute_in_conda_env
-from tests.pipelines.helper_functions import chdir
 
 from tests.helper_functions import pyfunc_serve_and_score_model
-
-SavedModelInfo = collections.namedtuple(
-    "SavedModelInfo",
-    [
-        "path",
-        "meta_graph_tags",
-        "signature_def_key",
-        "inference_df",
-        "expected_results_df",
-        "raw_results",
-        "raw_df",
-    ],
-)
-
-
-def save_tf_estimator_model(
-    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path, mlflow_model=None
-):
-    """
-    A helper method to save tf estimator model as a mlflow model, it is used for testing loading
-    tf estimator model saved by previous mlflow version.
-    """
-    os.makedirs(path)
-    if mlflow_model is None:
-        mlflow_model = Model()
-
-    flavor_conf = dict(
-        saved_model_dir="tfmodel",
-        meta_graph_tags=tf_meta_graph_tags,
-        signature_def_key=tf_signature_def_key,
-    )
-    mlflow_model.add_flavor("tensorflow", code=None, **flavor_conf)
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.tensorflow",
-        env="conda.yaml",
-        code=None,
-    )
-    mlflow_model.save(os.path.join(path, "MLmodel"))
-    with open(os.path.join(path, "conda.yaml"), "w") as f:
-        f.write(
-            """
-channels:
-- conda-forge
-dependencies:
-- python=3.8.12
-- pip<=21.2.4
-- pip:
-  - mlflow
-  - bcrypt==3.2.0
-  - boto3==1.20.46
-  - defusedxml==0.7.1
-  - fsspec==2022.1.0
-  - keras==2.7.0
-  - pandas==1.4.0
-  - pillow==9.0.0
-  - pyopenssl==22.0.0
-  - scipy==1.7.3
-  - tensorflow==2.7.0
-"""
-        )
-    with open(os.path.join(path, "python_env.yaml"), "w") as f:
-        f.write(
-            """
-python: 3.8.12
-build_dependencies:
-- pip==21.2.4
-- setuptools==61.2.0
-- wheel==0.37.1
-dependencies:
-- -r requirements.txt
-"""
-        )
-    with open(os.path.join(path, "requirements.txt"), "w") as f:
-        f.write(
-            """
-mlflow
-bcrypt==3.2.0
-boto3==1.20.46
-defusedxml==0.7.1
-fsspec==2022.1.0
-keras==2.7.0
-pandas==1.4.0
-pillow==9.0.0
-pyopenssl==22.0.0
-scipy==1.7.3
-tensorflow==2.7.0                                                                                             
-"""
-        )
-    shutil.copytree(tf_saved_model_dir, os.path.join(path, "tfmodel"))
-
-
-def log_tf_estimator_model(
-    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path
-):
-    """
-    A helper method to log tf estimator model as a mlflow model artifact,
-    it is used for testing loading tf estimator model saved by previous mlflow version.
-    """
-    with TempDir() as tmp:
-        local_path = tmp.path("model")
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
-        save_tf_estimator_model(
-            path=local_path,
-            tf_saved_model_dir=tf_saved_model_dir,
-            tf_meta_graph_tags=tf_meta_graph_tags,
-            tf_signature_def_key=tf_signature_def_key,
-            mlflow_model=mlflow_model,
-        )
-        mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
-    return mlflow_model.get_model_info()
 
 
 @pytest.fixture
