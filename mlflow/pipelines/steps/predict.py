@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import time
 from typing import Dict, Any
 
@@ -7,7 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.execution import get_step_output_path, _get_execution_directory_basename
 from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.utils import databricks_utils
 from mlflow.utils._spark_utils import _get_active_spark_session
@@ -125,13 +126,18 @@ class PredictStep(BaseStep):
 
         # predict step artifacts
         if databricks_utils.is_in_databricks_runtime():
-            dbutils = databricks_utils._get_dbutils()
-            artifact_path = os.path.join(output_directory, _SCORED_OUTPUT_FOLDER_NAME)
-            dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
-            scored_sdf.coalesce(1).write.format("parquet").save(artifact_path)
+            dbfs_path = os.path.join(
+                ".mlflow",
+                _get_execution_directory_basename(self.pipeline_root),
+                _SCORED_OUTPUT_FOLDER_NAME,
+            )
+            shutil.rmtree("/dbfs/" + dbfs_path)
+            scored_sdf.coalesce(1).write.format("parquet").save(dbfs_path)
             _logger.info("Moving artifact from DBFS to driver disk")
-            dbutils.fs.cp("dbfs:" + artifact_path, "file:" + artifact_path, recurse=True)
-            dbutils.fs.rm("dbfs:" + artifact_path, recurse=True)
+            shutil.copytree(
+                "/dbfs/" + dbfs_path, os.path.join(output_directory, _SCORED_OUTPUT_FOLDER_NAME)
+            )
+            shutil.rmtree("/dbfs/" + dbfs_path)
         else:
             scored_sdf.coalesce(1).write.format("parquet").save(
                 os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
