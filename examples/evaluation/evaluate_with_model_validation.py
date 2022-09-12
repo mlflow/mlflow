@@ -30,9 +30,11 @@ def double_positive(_, builtin_metrics):
 # Define criteria for model to be validated against
 thresholds = {
     # Specify metric value threshold
-    "precision": MetricThreshold(threshold=0.7, higher_is_better=True),  # precision should be >=0.7
+    "precision_score": MetricThreshold(
+        threshold=0.7, higher_is_better=True
+    ),  # precision should be >=0.7
     # Specify model comparison thresholds
-    "recall": MetricThreshold(
+    "recall_score": MetricThreshold(
         min_absolute_change=0.1,  # recall should be at least 0.1 greater than baseline model recall
         min_relative_change=0.1,  # recall should be at least 10 percent greater than baseline model recall
         higher_is_better=True,
