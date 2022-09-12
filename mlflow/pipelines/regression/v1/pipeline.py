@@ -201,11 +201,11 @@ class RegressionPipeline(_BasePipeline):
     _SUBGRAPH_INDICES_MAP = {
         _TRAIN_DAG_NAME: (
             _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[0]),
-            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]) + 1,
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]),
         ),
         _SCORING_DAG_NAME: (
             _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[0]),
-            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]) + 1,
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]),
         ),
     }
 
@@ -219,7 +219,7 @@ class RegressionPipeline(_BasePipeline):
 
         subgraph_name = self._STEPS_SUBGRAPH_MAP[target_step_class]
         s, e = self._SUBGRAPH_INDICES_MAP[subgraph_name]
-        return self._steps[s:e]
+        return self._steps[s : e + 1]
 
     def _get_default_step(self) -> BaseStep:
         return self._steps[self._DEFAULT_STEP_INDEX]
