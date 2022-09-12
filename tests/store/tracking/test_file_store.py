@@ -557,6 +557,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(restored_exp1.name, new_name)
         assert restored_exp1.last_update_time > exp1.last_update_time
 
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.05)
         fs.rename_experiment(exp_id, exp_name)
         renamed_exp1 = fs.get_experiment(exp_id)
         self.assertEqual(renamed_exp1.name, exp_name)
