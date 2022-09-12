@@ -40,10 +40,9 @@ jobs:
       - name: Build and Push Base Image
         uses: docker/build-push-action@v3
         with:
-          context: .
+          context: docker
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-          file: ./docker/Dockerfile
           
