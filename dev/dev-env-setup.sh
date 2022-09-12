@@ -98,10 +98,10 @@ quiet_command(){
 
 minor_to_micro() {
   case $1 in
-    "3.7") echo "3.7.13" ;;
+    "3.7") echo "3.7.14" ;;
     "3.8") echo "3.8.13" ;;
-    "3.9") echo "3.9.11" ;;
-    "3.10") echo "3.10.3" ;;
+    "3.9") echo "3.9.13" ;;
+    "3.10") echo "3.10.4" ;;
   esac
 }
 
@@ -154,8 +154,8 @@ fi
 MLFLOW_HOME=$(pwd)
 rd="$MLFLOW_HOME/requirements"
 
-# Get the minimum supported version from MLflow to ensure any feature development adheres to legacy Python versions
-min_py_version=$(python setup.py -q min_python_version)
+# Get the minimum supported version for development purposes
+min_py_version="3.8"
 
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
 

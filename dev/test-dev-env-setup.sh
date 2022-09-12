@@ -33,7 +33,7 @@ if [ -z "$SKLEARN_VER" ]; then
   err=$((err + 1))
 fi
 
-min_py_version=$(python setup.py -q min_python_version)
+min_py_version="3.8"
 installed_py_version=$(python --version | grep -E -o "([0-9]{1,}\.[0-9]{1,})")
 
 # shellcheck disable=SC2053
