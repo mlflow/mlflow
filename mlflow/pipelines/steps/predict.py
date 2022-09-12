@@ -40,9 +40,10 @@ class PredictStep(BaseStep):
         # Build profiles for scored dataset
         card = BaseCard(self.pipeline_name, self.name)
 
+        scored_size = scored_sdf.count()
+
         if not self.skip_data_profiling:
             _logger.info("Profiling scored dataset")
-            scored_size = scored_sdf.count()
             if scored_size > _MAX_PROFILE_SIZE:
                 _logger.info("Sampling scored dataset for profiling because dataset size is large.")
                 sample_percentage = _MAX_PROFILE_SIZE / scored_size
@@ -66,7 +67,7 @@ class PredictStep(BaseStep):
                 """,
             ).add_markdown(
                 "SCORED_DATA_NUM_ROWS",
-                f"**Number of scored dataset rows:** `{len(scored_df)}`",
+                f"**Number of scored dataset rows:** `{scored_size}`",
             )
         )
 
