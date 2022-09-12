@@ -64,6 +64,7 @@ class PredictStep(BaseStep):
         return card
 
     def _run(self, output_directory):
+        import pandas as pd
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
@@ -94,7 +95,9 @@ class PredictStep(BaseStep):
             step_name="ingest_scoring",
             relative_path=_INPUT_FILE_NAME,
         )
-        input_sdf = spark.read.parquet(ingested_data_path)
+        # Because the cached parquet file is not on DBFS, we have to first load it as a pandas df
+        input_pdf = pd.read_parquet(ingested_data_path)
+        input_sdf = spark.createDataFrame(input_pdf)
         if _PREDICTION_COLUMN_NAME in input_sdf.columns:
             _logger.warning(
                 f"Input scoring dataframe already contains a column '{_PREDICTION_COLUMN_NAME}'. "

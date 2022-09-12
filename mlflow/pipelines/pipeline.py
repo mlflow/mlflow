@@ -41,9 +41,12 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
-        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
+        # self._steps contains concatenated ordered lists of step objects representing multiple
+        # disjoint DAGs. To keep it in sync with the underlying config file, it should be reloaded
+        # from config files using self._resolve_pipeline_steps() at the beginning of __init__(),
+        # run(), and inspect(), and should not reload it elsewhere.
         self._steps = self._resolve_pipeline_steps()
         self._template = get_pipeline_config(self._pipeline_root_path, self._profile).get(
             # TODO: Think about renaming this to something else
@@ -75,18 +78,13 @@ class _BasePipeline:
         :return: None
         """
 
-        # Save the run parameters for later
-        self._run_args = {"step": step}
-
         # TODO Record performance here.
-        # Always resolve the steps to load latest step modules before execution.
         self._steps = self._resolve_pipeline_steps()
+        target_step = self._get_step(step) if step else self._get_default_step()
         last_executed_step = run_pipeline_step(
             self._pipeline_root_path,
-            self._steps,
-            # Runs the last step of the pipeline if no step is specified.
-            # TODO: Determine how this works in a world with disjoint DAGs
-            self._get_step(step) if step else self._steps[-1],
+            self._get_subgraph_for_target_step(target_step),
+            target_step,
             self._template,
         )
 
@@ -122,6 +120,7 @@ class _BasePipeline:
                      specified, the DAG of the pipeline is shown instead.
         :return: None
         """
+        self._steps = self._resolve_pipeline_steps()
         if not step:
             display_html(html_file_path=self._get_pipeline_dag_file())
         else:
@@ -144,7 +143,7 @@ class _BasePipeline:
 
     def _get_step(self, step_name) -> BaseStep:
         """Returns a step class object from the pipeline."""
-        steps = self._steps or self._resolve_pipeline_steps()
+        steps = self._steps
         step_names = [s.name for s in steps]
         if step_name not in step_names:
             raise MlflowException(
@@ -154,7 +153,28 @@ class _BasePipeline:
 
     @experimental
     @abc.abstractmethod
-    def _get_step_classes(self) -> List[BaseStep]:
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+        """
+        Return a list of step objects representing a connected DAG containing the target_step.
+        The returned list should be a sublist of self._steps.
+
+        Concrete pipeline class should implement this method.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _get_default_step(self) -> BaseStep:
+        """
+        Defines which step to run if no step is specified.
+
+        Concrete pipeline class should implement this method.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _get_step_classes(self):
         """
         Returns a list of step classes defined in the pipeline.
 
@@ -178,7 +198,6 @@ class _BasePipeline:
         """
         pipeline_config = get_pipeline_config(self._pipeline_root_path, self._profile)
         pipeline_config["profile"] = self.profile
-        pipeline_config["run_args"] = self._run_args
         return [
             s.from_pipeline_config(pipeline_config, self._pipeline_root_path)
             for s in self._get_step_classes()

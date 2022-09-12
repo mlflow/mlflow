@@ -80,6 +80,8 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
@@ -669,6 +671,8 @@ def _create_run():
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
+    if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
+        tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
     run = _get_tracking_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
