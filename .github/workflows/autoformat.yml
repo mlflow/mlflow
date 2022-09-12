@@ -1,5 +1,5 @@
 # How to test this workflow:
-# - Create a PR on mlflow/mlflow from your fork.
+# - Create a PR in https://github.com/mlflow/mlflow from your fork.
 # - Change the default branch of your fork to the PR branch.
 # - Create a GitHub token with full repo permissions.
 # - Register the token as a repository secret with name MLFLOW_AUTOMATION_TOKEN in your fork.
