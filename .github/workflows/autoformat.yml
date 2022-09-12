@@ -51,8 +51,8 @@ jobs:
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     outputs:
-      py_changed: ${{ steps.check-diff.outputs.py_changed }}
       protos_changed: ${{ steps.check-diff.outputs.protos_changed }}
+      py_changed: ${{ steps.check-diff.outputs.py_changed }}
       ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
     steps:
       - uses: actions/checkout@v3
@@ -70,6 +70,7 @@ jobs:
           protos_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
           py_changed=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
           ui_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
+          echo "::set-output name=protos_changed::$protos_changed"
           echo "::set-output name=py_changed::$py_changed"
           echo "::set-output name=ui_changed::$ui_changed"
 
