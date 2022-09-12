@@ -246,16 +246,14 @@ def save_model(
     code_paths=None,
     mlflow_model=None,
     custom_objects=None,
-    tf_module_signatures=None,
-    tf_module_options=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs,
+    save_options=None,
 ):
     """
-    Save a Keras model or a Tensorflow module to a path on the local file system.
+    Save a model to a path on the local file system.
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -269,8 +267,6 @@ def save_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param tf_module_signatures: the value passed to `tensorflow.saved_model.save` `signature` argument
-    :param tf_module_options: the value passed to `tensorflow.saved_model.save` `options` argument
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -292,11 +288,12 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param kwargs: kwargs to pass to ``model.save`` method.
+    :param save_options: a dict of kwargs to pass to ``model.save`` method.
     """
     from tensorflow.keras.models import Model as KerasModel
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    save_options = save_options or {}
 
     # check if path exists
     path = os.path.abspath(path)
@@ -328,7 +325,7 @@ def save_model(
             f.write(keras_module.__name__)
 
         # Use the SavedModel format if `save_format` is unspecified
-        save_format = kwargs.get("save_format", "tf")
+        save_format = save_options.get("save_format", "tf")
 
         # save keras save_format to path/data/save_format.txt
         with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
@@ -344,11 +341,11 @@ def save_model(
             # The Databricks Filesystem uses a FUSE implementation that does not support
             # random writes. It causes an error.
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
-                model.save(f.name, **kwargs)
+                model.save(f.name, **save_options)
                 f.flush()  # force flush the data
                 shutil.copyfile(src=f.name, dst=model_path)
         else:
-            model.save(model_path, **kwargs)
+            model.save(model_path, **save_options)
 
         pyfunc_options = {
             "model_type": _MODEL_TYPE_KERAS,
@@ -356,7 +353,6 @@ def save_model(
         }
         flavor_options = {
             **pyfunc_options,
-            "keras_module": keras_module.__name__,
             "keras_version": keras_module.__version__,
             "save_format": save_format,
         }
@@ -364,7 +360,7 @@ def save_model(
         model_dir_subpath = "tf2model"
         model_path = os.path.join(path, model_dir_subpath)
         tensorflow.saved_model.save(
-            model, model_path, signatures=tf_module_signatures, options=tf_module_options
+            model, model_path, **save_options
         )
         pyfunc_options = {
             "saved_model_dir": model_dir_subpath,

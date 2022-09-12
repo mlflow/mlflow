@@ -198,6 +198,7 @@ def test_pyfunc_serve_and_score():
     np.testing.assert_array_almost_equal(actual, expected)
 
 
+@pytest.mark.skip
 def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     tf.random.set_seed(1337)
 
