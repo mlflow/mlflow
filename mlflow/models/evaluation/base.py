@@ -1166,6 +1166,9 @@ should be at least 0.05 greater than baseline model accuracy
 
     _EnvManager.validate(env_manager)
 
+    candidate_model_server_pid = None
+    baseline_model_server_pid = None
+
     if isinstance(model, str):
         candidate_model_server_pid, model = _load_model_or_server(model, env_manager)
     elif env_manager != _EnvManager.LOCAL:
@@ -1227,14 +1230,15 @@ should be at least 0.05 greater than baseline model accuracy
                 baseline_model=baseline_model,
             )
         finally:
-            if env_manager != _EnvManager.LOCAL:
+            if candidate_model_server_pid:
                 os.kill(candidate_model_server_pid, signal.SIGTERM)
+            if baseline_model_server_pid:
                 os.kill(baseline_model_server_pid, signal.SIGTERM)
 
         if not validation_thresholds:
             return evaluate_result
 
-        _logger.info("Validating model metrics")
+        _logger.info("Validating generated model metrics")
         _validate(
             validation_thresholds,
             evaluate_result.metrics,

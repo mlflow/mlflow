@@ -510,7 +510,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     if env_manager == _EnvManager.LOCAL:
         return None, load_model(model_uri)
 
-    _logger.info("Starting model server for model environment restoration")
+    _logger.info("Starting model server for model environment restoration.")
 
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
@@ -522,7 +522,8 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         env_manager=env_manager,
         env_root_dir=env_root_dir,
     )
-    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
+    _logger.info("Restoring model environment. This can take a few minutes.")
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=False)
     server_port = find_free_port()
     scoring_server_proc = pyfunc_backend.serve(
         model_uri=local_path,
