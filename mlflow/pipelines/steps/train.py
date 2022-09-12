@@ -34,7 +34,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_run_url
-from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.file_utils import write_yaml, dump_yaml
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_PIPELINE_TEMPLATE_NAME,
@@ -233,6 +233,7 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
+            output_directory=output_directory,
             leaderboard_df=leaderboard_df,
         )
         card.save_as_html(output_directory)
@@ -347,6 +348,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
+        output_directory,
         leaderboard_df=None,
     ):
         import pandas as pd
@@ -462,6 +464,43 @@ class TrainStep(BaseStep):
             )
         else:
             run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
+
+        # Tab 8: Best Parameters
+        if self.step_config["tuning"]["enabled"]:
+            tuning_params_card_tab = card.add_tab(
+                "Best Parameters",
+                "{{ SEARCH_SPACE }} " + "{{ BEST_HARDCODED_PARAMS }} " + "{{ BEST_HP_PARAMS }}",
+            )
+            tuning_params = dump_yaml(self.step_config["tuning"]["parameters"])
+            tuning_params_card_tab.add_html(
+                "SEARCH_SPACE",
+                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
+            )
+            best_hardcoded_parameters_yaml = os.path.join(
+                output_directory, "best_hardcoded_parameters.yaml"
+            )
+            if os.path.exists(best_hardcoded_parameters_yaml):
+                best_hardcoded_parameters = open(best_hardcoded_parameters_yaml).read()
+                tuning_params_card_tab.add_html(
+                    "BEST_HARDCODED_PARAMS",
+                    f"<b>Best hardcoded parameters:</b><br>"
+                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
+                )
+            best_hp_params_yaml = os.path.join(output_directory, "best_hyperparameters.yaml")
+            if os.path.exists(best_hp_params_yaml):
+                best_hp_params = open(best_hp_params_yaml).read()
+                tuning_params_card_tab.add_html(
+                    "BEST_HP_PARAMS",
+                    f"<b>Best hyperparameters:</b> <br><pre>{best_hp_params}</pre><br><br>",
+                )
+
+        # # Tab 9: HP trials
+        # if hp_trials_df is not None:
+        #     (
+        #         card.add_tab("Tuning Trials", "{{ TUNING_TABLE }}").add_html(
+        #             "TUNING_TABLE", BaseCard.render_table(hp_trials_df, hide_index=False)
+        #         )
+        #     )
 
         return card
 

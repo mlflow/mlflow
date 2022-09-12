@@ -186,6 +186,17 @@ def read_yaml(root, file_name):
         raise e
 
 
+def dump_yaml(data):
+    """
+    Dump data from a dictionary into a formatted yaml
+
+    :param contents: Dictionary containing yaml contents
+
+    :return: Formatted yaml containing data
+    """
+    return yaml.dump(data)
+
+
 class UniqueKeyLoader(YamlSafeLoader):
     def construct_mapping(self, node, deep=False):
         mapping = set()
