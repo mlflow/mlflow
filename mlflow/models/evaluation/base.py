@@ -1122,7 +1122,7 @@ def evaluate(
                                                      ),
                                                      # Both metric value and model comparison \
 thresholds
-                                                     "accuarcy": MetricThreshold(
+                                                     "accuracy_score": MetricThreshold(
                                                          threshold=0.8,
                                                          min_absolute_change=0.09,
                                                          min_relative_change=0.05,
