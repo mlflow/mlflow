@@ -155,8 +155,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-tracking_uri = f"file:{os.getcwd()}/mlruns"
-
 ModelDataInfo = collections.namedtuple(
     "ModelDataInfo",
     [
@@ -164,28 +162,29 @@ ModelDataInfo = collections.namedtuple(
         "expected_results_df",
         "raw_results",
         "raw_df",
+        "run_id",
     ]
 )
 
 
-def save_tf_model_by_mlflow128(model_type, model_path):
+def save_or_log_tf_model_by_mlflow128(model_type, task_type, model_path=None):
     conda_env = get_or_create_conda_env("tests/tensorflow/mlflow-128-tf-23-env.yaml")
     with TempDir() as tmpdir:
         output_data_file_path = tmpdir.path("output_data.pkl")
-        with chdir("tests/tensorflow"):
-            # change cwd to avoid it imports current repo mlflow.
-            _execute_in_conda_env(
-                conda_env,
-                f"python save_tf_estimator_model.py {model_type} save_model {model_path} {output_data_file_path}",
-                install_mlflow=False,
-                command_env={"MLFLOW_TRACKING_URI": tracking_uri}
-            )
+        # change cwd to avoid it imports current repo mlflow.
+        _execute_in_conda_env(
+            conda_env,
+            f"python tests/tensorflow/save_tf_estimator_model.py {model_type} {task_type} "
+            f"{output_data_file_path} {model_path if model_path else ''}",
+            install_mlflow=False,
+            command_env={"MLFLOW_TRACKING_URI": mlflow.tracking.get_tracking_uri()}
+        )
         with open(output_data_file_path, "rb") as f:
             return ModelDataInfo(*pickle.load(f))
 
 
 def test_load_model_from_remote_uri_succeeds(model_path, mock_s3_bucket):
-    model_data_info = save_tf_model_by_mlflow128("iris", model_path)
+    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -208,26 +207,21 @@ def test_load_model_from_remote_uri_succeeds(model_path, mock_s3_bucket):
 
 
 def test_iris_model_can_be_loaded_and_evaluated_successfully(model_path):
-    save_tf_estimator_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
+    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
 
     def load_and_evaluate():
 
         infer = mlflow.tensorflow.load_model(model_uri=model_path)
         feed_dict = {
-            df_column_name: tf.constant(saved_tf_iris_model.inference_df[df_column_name])
-            for df_column_name in list(saved_tf_iris_model.inference_df)
+            df_column_name: tf.constant(model_data_info.inference_df[df_column_name])
+            for df_column_name in list(model_data_info.inference_df)
         }
         raw_preds = infer(**feed_dict)
         pred_dict = {
             column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
         }
         for col in pred_dict:
-            np.testing.assert_array_equal(pred_dict[col], saved_tf_iris_model.raw_results[col])
+            np.testing.assert_array_equal(pred_dict[col], model_data_info.raw_results[col])
 
     load_and_evaluate()
 
@@ -235,132 +229,85 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(model_path):
         load_and_evaluate()
 
 
-def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris_model, model_path):
-    save_tf_estimator_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
-
-    # Verify that the MLflow model can be loaded even after deleting the TensorFlow `SavedModel`
-    # directory that was used to create it, implying that the artifacts were copied to and are
-    # loaded from the specified MLflow model path
-    shutil.rmtree(saved_tf_iris_model.path)
-
-    mlflow.tensorflow.load_model(model_uri=model_path)
-
-
-def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
-    artifact_path = "model"
-    with mlflow.start_run():
-        model_info = log_tf_estimator_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        assert model_info.model_uri == model_uri
-
+def test_log_and_load_model_persists_and_restores_model_successfully():
+    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "log_model")
+    model_uri = f"runs:/{model_data_info.run_id}/model"
     mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
-def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_model, model_path):
-    save_tf_estimator_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
+def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
+    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
 
     # can call predict with a df
-    results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
+    results_df = pyfunc_wrapper.predict(model_data_info.inference_df)
     assert isinstance(results_df, pd.DataFrame)
     for key in results_df.keys():
-        np.testing.assert_array_equal(results_df[key], saved_tf_iris_model.raw_df[key])
+        np.testing.assert_array_equal(results_df[key], model_data_info.raw_df[key])
 
     # can also call predict with a dict
     inp_dict = {}
-    for df_col_name in list(saved_tf_iris_model.inference_df):
-        inp_dict[df_col_name] = saved_tf_iris_model.inference_df[df_col_name].values
+    for df_col_name in list(model_data_info.inference_df):
+        inp_dict[df_col_name] = model_data_info.inference_df[df_col_name].values
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
     for key in results.keys():
-        np.testing.assert_array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
+        np.testing.assert_array_equal(results[key], model_data_info.raw_df[key].tolist())
 
     # can not call predict with a list
     inp_list = []
-    for df_col_name in list(saved_tf_iris_model.inference_df):
-        inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
+    for df_col_name in list(model_data_info.inference_df):
+        inp_list.append(model_data_info.inference_df[df_col_name].values)
     with pytest.raises(TypeError, match="Only dict and DataFrame input types are supported"):
         results = pyfunc_wrapper.predict(inp_list)
 
 
-def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
-    saved_tf_categorical_model, model_path
-):
-    save_tf_estimator_model(
-        tf_saved_model_dir=saved_tf_categorical_model.path,
-        tf_meta_graph_tags=saved_tf_categorical_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_categorical_model.signature_def_key,
-        path=model_path,
-    )
+def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
+    model_data_info = save_or_log_tf_model_by_mlflow128("categorical", "save_model", model_path)
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
 
     # can call predict with a df
-    results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
+    results_df = pyfunc_wrapper.predict(model_data_info.inference_df)
     # Precision is less accurate for the categorical model when we load back the saved model.
     pandas.testing.assert_frame_equal(
-        results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=3
+        results_df, model_data_info.expected_results_df, check_less_precise=3
     )
 
     # can also call predict with a dict
     inp_dict = {}
-    for df_col_name in list(saved_tf_categorical_model.inference_df):
-        inp_dict[df_col_name] = saved_tf_categorical_model.inference_df[df_col_name].values
+    for df_col_name in list(model_data_info.inference_df):
+        inp_dict[df_col_name] = model_data_info.inference_df[df_col_name].values
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
     pandas.testing.assert_frame_equal(
         pandas.DataFrame.from_dict(data=results),
-        saved_tf_categorical_model.expected_results_df,
+        model_data_info.expected_results_df,
         check_less_precise=3,
     )
 
     # can not call predict with a list
     inp_list = []
-    for df_col_name in list(saved_tf_categorical_model.inference_df):
-        inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
+    for df_col_name in list(model_data_info.inference_df):
+        inp_list.append(model_data_info.inference_df[df_col_name].values)
     with pytest.raises(TypeError, match="Only dict and DataFrame input types are supported"):
         results = pyfunc_wrapper.predict(inp_list)
 
 
-def test_pyfunc_serve_and_score(saved_tf_iris_model):
-    artifact_path = "model"
-
-    with mlflow.start_run():
-        log_tf_estimator_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+def test_pyfunc_serve_and_score():
+    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "log_model")
+    model_uri = f"runs:/{model_data_info.run_id}/model"
 
     resp = pyfunc_serve_and_score_model(
         model_uri=model_uri,
-        data=saved_tf_iris_model.inference_df,
+        data=model_data_info.inference_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=["--env-manager", "local"],
     )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
     expected = (
-        saved_tf_iris_model.expected_results_df["predictions"]
+        model_data_info.expected_results_df["predictions"]
         .map(iris_data_utils.SPECIES.index)
         .values
     )

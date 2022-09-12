@@ -1,6 +1,14 @@
+import sys
+
+if '' in sys.path:
+    # prevent importing mlflow in cwd.
+    sys.path.remove('')
+
+import mlflow
+assert mlflow.__version__ == "1.28.0"
+
 import collections
 import os
-import sys
 import copy
 
 import numpy as np
@@ -10,7 +18,6 @@ import tensorflow as tf
 from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
-import mlflow
 
 from mlflow.utils.file_utils import TempDir
 import pickle
@@ -204,37 +211,39 @@ else:
 
 task_type = sys.argv[2]
 
-output_data_file_path = sys.argv[4]
+output_data_file_path = sys.argv[3]
 
 with TempDir() as tmp:
     saved_model = gen_model_fn(tmp.path())
 
-    output_data_info = (
-        saved_model.inference_df,
-        saved_model.expected_results_df,
-        saved_model.raw_results,
-        saved_model.raw_df,
-    )
-
-    with open(output_data_file_path, "wb") as f:
-        pickle.dump(output_data_info, f)
-
     if task_type == "log_model":
-        run_id = sys.argv[3]
-        mlflow.start_run(run_id=run_id)
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_model.path,
-            tf_meta_graph_tags=saved_model.meta_graph_tags,
-            tf_signature_def_key=saved_model.signature_def_key,
-            artifact_path="model",
-        )
+        with mlflow.start_run() as run:
+            mlflow.tensorflow.log_model(
+                tf_saved_model_dir=saved_model.path,
+                tf_meta_graph_tags=saved_model.meta_graph_tags,
+                tf_signature_def_key=saved_model.signature_def_key,
+                artifact_path="model",
+            )
+            run_id = run.info.run_id
     elif task_type == "save_model":
-        save_path = sys.argv[3]
+        save_path = sys.argv[4]
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_model.path,
             tf_meta_graph_tags=saved_model.meta_graph_tags,
             tf_signature_def_key=saved_model.signature_def_key,
             path=save_path,
         )
+        run_id = None
     else:
         raise ValueError("Illegal argument.")
+
+output_data_info = (
+    saved_model.inference_df,
+    saved_model.expected_results_df,
+    saved_model.raw_results,
+    saved_model.raw_df,
+    run_id
+)
+
+with open(output_data_file_path, "wb") as f:
+    pickle.dump(output_data_info, f)
