@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import datetime
+import yaml
 
 import cloudpickle
 
@@ -34,7 +35,6 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_run_url
-from mlflow.utils.file_utils import safe_dump, dump_yaml
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_PIPELINE_TEMPLATE_NAME,
@@ -138,11 +138,13 @@ class TrainStep(BaseStep):
             ),
         }
 
+        tuning_df = None
+        best_estimator_params = None
         mlflow.autolog(log_models=False)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
-                estimator = self._tune_and_get_best_estimator(
+                best_estimator_params = self._tune_and_get_best_estimator_params(
                     estimator_hardcoded_params,
                     estimator_fn,
                     X_train,
@@ -150,6 +152,11 @@ class TrainStep(BaseStep):
                     validation_df,
                     output_directory,
                 )
+                estimator = estimator_fn(best_estimator_params)
+                try:
+                    tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
+                except Exception as e:
+                    _logger.warning("Failed to build tuning table due to unexpected failure: %s", e)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
@@ -235,6 +242,8 @@ class TrainStep(BaseStep):
             worst_examples_df=worst_examples_df,
             output_directory=output_directory,
             leaderboard_df=leaderboard_df,
+            tuning_df=tuning_df,
+            best_estimator_params=best_estimator_params,
         )
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
@@ -339,6 +348,18 @@ class TrainStep(BaseStep):
         )
         return leaderboard_df
 
+    def _get_tuning_df(self, run, params):
+        exp_id = _get_experiment_id()
+        tuning_runs = mlflow.search_runs(
+            [exp_id],
+            filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
+        )
+        params = [f"params.{param}" for param in params]
+        tuning_runs = tuning_runs.filter(
+            [f"metrics.{self.primary_metric}_on_data_validation", *params]
+        )
+        return tuning_runs
+
     def _build_step_card(
         self,
         eval_metrics,
@@ -350,6 +371,8 @@ class TrainStep(BaseStep):
         worst_examples_df,
         output_directory,
         leaderboard_df=None,
+        tuning_df=None,
+        best_estimator_params=None,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -466,12 +489,12 @@ class TrainStep(BaseStep):
             run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
         # Tab 8: Best Parameters
-        if self.step_config["tuning"]["enabled"]:
+        if best_estimator_params:
             tuning_params_card_tab = card.add_tab(
                 "Best Parameters",
                 "{{ SEARCH_SPACE }} " + "{{ BEST_PARAMETERS }} ",
             )
-            tuning_params = dump_yaml(self.step_config["tuning"]["parameters"])
+            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
             tuning_params_card_tab.add_html(
                 "SEARCH_SPACE",
                 f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
@@ -485,13 +508,13 @@ class TrainStep(BaseStep):
                     f"<pre>{best_hardcoded_parameters}</pre><br><br>",
                 )
 
-        # # Tab 9: HP trials
-        # if hp_trials_df is not None:
-        #     (
-        #         card.add_tab("Tuning Trials", "{{ TUNING_TABLE }}").add_html(
-        #             "TUNING_TABLE", BaseCard.render_table(hp_trials_df, hide_index=False)
-        #         )
-        #     )
+        # Tab 9: HP trials
+        if tuning_df is not None:
+            (
+                card.add_tab("Tuning Trials", "{{ TUNING_TABLE }}").add_html(
+                    "TUNING_TABLE", BaseCard.render_table(tuning_df, hide_index=False)
+                )
+            )
 
         return card
 
@@ -582,7 +605,7 @@ class TrainStep(BaseStep):
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
 
-    def _tune_and_get_best_estimator(
+    def _tune_and_get_best_estimator_params(
         self,
         estimator_hardcoded_params,
         estimator_fn,
@@ -663,7 +686,7 @@ class TrainStep(BaseStep):
 
         self._write_yaml_output(best_hp_params, best_hardcoded_params, output_directory)
 
-        return estimator_fn(best_combined_params)
+        return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
         from mlflow.models.signature import infer_signature
@@ -710,7 +733,20 @@ class TrainStep(BaseStep):
             os.remove(best_parameters_path)
         with open(best_parameters_path, "a") as file:
             file.write("# tuned hyperparameters\n")
-            safe_dump(best_hp_params, file, default_flow_style=False)
+            self._process_and_safe_dump(best_hp_params, file, default_flow_style=False)
             file.write("# hardcoded parameters\n")
-            safe_dump(best_hardcoded_params, file, default_flow_style=False)
+            self._process_and_safe_dump(best_hardcoded_params, file, default_flow_style=False)
         mlflow.log_artifact(best_parameters_path, artifact_path="best_parameters.yaml")
+
+    def _process_and_safe_dump(self, data, file, **kwargs):
+        import numpy as np
+
+        processed_data = {}
+        for key, value in data.items():
+            if isinstance(value, np.floating):
+                processed_data[key] = float(value)
+            elif isinstance(value, np.integer):
+                processed_data[key] = int(value)
+            else:
+                processed_data[key] = value
+        return yaml.safe_dump(processed_data, file, **kwargs)
