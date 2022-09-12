@@ -1,11 +1,7 @@
 import collections
 import os
-from pathlib import Path
-import shutil
 import sys
-import pytest
 import copy
-import json
 
 import numpy as np
 import pandas as pd
@@ -15,17 +11,9 @@ from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import pyfunc
-from mlflow.models import Model
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.tensorflow import _TF2Wrapper
 
-from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.utils.file_utils import TempDir
-import pathlib
+import pickle
 
 
 SavedModelInfo = collections.namedtuple(
@@ -113,7 +101,8 @@ def gen_saved_tf_iris_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = str(tmpdir.mkdir("saved_model"))
+    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
     )
@@ -188,7 +177,8 @@ def gen_saved_tf_categorical_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = str(tmpdir.mkdir("saved_model"))
+    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
     )
@@ -203,14 +193,48 @@ def gen_saved_tf_categorical_model(tmpdir):
     )
 
 
-model_path = sys.argv[1]
+model_type = sys.argv[1]
 
+if model_type == "iris":
+    gen_model_fn = gen_saved_tf_iris_model
+elif model_type == "categorical":
+    gen_model_fn = gen_saved_tf_categorical_model
+else:
+    raise ValueError("Illegal argument.")
+
+task_type = sys.argv[2]
+
+output_data_file_path = sys.argv[4]
 
 with TempDir() as tmp:
-    saved_tf_iris_model = gen_saved_tf_iris_model(pathlib.Path(tmp.path()))
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
+    saved_model = gen_model_fn(tmp.path())
+
+    output_data_info = (
+        saved_model.inference_df,
+        saved_model.expected_results_df,
+        saved_model.raw_results,
+        saved_model.raw_df,
     )
+
+    with open(output_data_file_path, "wb") as f:
+        pickle.dump(output_data_info, f)
+
+    if task_type == "log_model":
+        run_id = sys.argv[3]
+        mlflow.start_run(run_id=run_id)
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_model.path,
+            tf_meta_graph_tags=saved_model.meta_graph_tags,
+            tf_signature_def_key=saved_model.signature_def_key,
+            artifact_path="model",
+        )
+    elif task_type == "save_model":
+        save_path = sys.argv[3]
+        mlflow.tensorflow.save_model(
+            tf_saved_model_dir=saved_model.path,
+            tf_meta_graph_tags=saved_model.meta_graph_tags,
+            tf_signature_def_key=saved_model.signature_def_key,
+            path=save_path,
+        )
+    else:
+        raise ValueError("Illegal argument.")

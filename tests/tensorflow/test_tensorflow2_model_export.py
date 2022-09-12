@@ -4,7 +4,7 @@ import collections
 import os
 from pathlib import Path
 import shutil
-import sys
+import pickle
 import pytest
 import copy
 import json
@@ -24,6 +24,9 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.tensorflow import _TF2Wrapper
+from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.pyfunc.backend import _execute_in_conda_env
+from tests.pipelines.helper_functions import chdir
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -39,10 +42,6 @@ SavedModelInfo = collections.namedtuple(
         "raw_df",
     ],
 )
-
-
-def gen_tf_estimator_model():
-    from ml
 
 
 def save_tf_estimator_model(
@@ -156,13 +155,37 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
-    save_tf_estimator_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
+tracking_uri = f"file:{os.getcwd()}/mlruns"
+
+ModelDataInfo = collections.namedtuple(
+    "ModelDataInfo",
+    [
+        "inference_df",
+        "expected_results_df",
+        "raw_results",
+        "raw_df",
+    ]
+)
+
+
+def save_tf_model_by_mlflow128(model_type, model_path):
+    conda_env = get_or_create_conda_env("tests/tensorflow/mlflow-128-tf-23-env.yaml")
+    with TempDir() as tmpdir:
+        output_data_file_path = tmpdir.path("output_data.pkl")
+        with chdir("tests/tensorflow"):
+            # change cwd to avoid it imports current repo mlflow.
+            _execute_in_conda_env(
+                conda_env,
+                f"python save_tf_estimator_model.py {model_type} save_model {model_path} {output_data_file_path}",
+                install_mlflow=False,
+                command_env={"MLFLOW_TRACKING_URI": tracking_uri}
+            )
+        with open(output_data_file_path, "rb") as f:
+            return ModelDataInfo(*pickle.load(f))
+
+
+def test_load_model_from_remote_uri_succeeds(model_path, mock_s3_bucket):
+    model_data_info = save_tf_model_by_mlflow128("iris", model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -172,19 +195,19 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
     model_uri = artifact_root + "/" + artifact_path
     infer = mlflow.tensorflow.load_model(model_uri=model_uri)
     feed_dict = {
-        df_column_name: tf.constant(saved_tf_iris_model.inference_df[df_column_name])
-        for df_column_name in list(saved_tf_iris_model.inference_df)
+        df_column_name: tf.constant(model_data_info.inference_df[df_column_name])
+        for df_column_name in list(model_data_info.inference_df)
     }
     raw_preds = infer(**feed_dict)
     pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
     for col in pred_dict:
         np.testing.assert_allclose(
             np.array(pred_dict[col], dtype=np.float),
-            np.array(saved_tf_iris_model.raw_results[col], dtype=np.float),
+            np.array(model_data_info.raw_results[col], dtype=np.float),
         )
 
 
-def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model, model_path):
+def test_iris_model_can_be_loaded_and_evaluated_successfully(model_path):
     save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
