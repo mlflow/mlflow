@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 import platform
 import yaml
 
@@ -197,7 +198,7 @@ class WheeledModel:
             os.makedirs(dst_path)
 
         download_command = (
-            f"python -m pip wheel --only-binary=:all: --wheel-dir={dst_path} -r"
+            f"{sys.executable} -m pip wheel --only-binary=:all: --wheel-dir={dst_path} -r"
             f"{pip_requirements_path} --no-cache-dir"
         )
         rc = os.system(download_command)

@@ -652,7 +652,8 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         add_libraries_to_model(model_uri)
 
         # Log libraries to some run_id
-        add_libraries_to_model(model_uri, run_id=run_id)
+        existing_run_id = "21df94e6bdef4631a9d9cb56f211767f"
+        add_libraries_to_model(model_uri, run_id=existing_run_id)
 
         # Log libraries to a new run
         with mlflow.start_run():
