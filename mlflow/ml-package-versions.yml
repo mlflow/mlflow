@@ -392,6 +392,7 @@ pmdarima:
     pip_release: "pmdarima"
     install_dev: |
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
+        pip install Cython
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
       fi
       pip install $CACHE_DIR/pmdarima-*.whl
