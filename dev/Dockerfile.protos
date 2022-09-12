@@ -1,5 +1,5 @@
 # How to build protobuf files using this Dockerfile:
-# $ DOCKER_BUILDKIT=1 docker build -t gen-protos -f dev/Dockerfile.protos .
+# $ DOCKER_BUILDKIT=1 docker build -f dev/Dockerfile.protos -t gen-protos .
 # $ docker run --rm -v $(pwd):/app gen-protos ./dev/generate-protos.sh
 
 FROM ubuntu:20.04
