@@ -517,7 +517,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
-
+        test_case_start_time = time.time() * 1000
+        time.sleep(0.5)
         experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
@@ -531,8 +532,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, "test exp")
-        assert isinstance(actual.creation_time, int)
-        assert isinstance(actual.last_update_time, int)
+        assert actual.creation_time > test_case_start_time
+        assert actual.last_update_time >= actual.creation_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [

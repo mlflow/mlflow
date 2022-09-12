@@ -393,7 +393,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
-
+        test_case_start_time = time.time() * 1000
+        time.sleep(0.5)
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
@@ -408,14 +409,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp1.artifact_location,
             path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
         )
-        assert isinstance(exp1.creation_time, int)
-        assert isinstance(exp1.last_update_time, int)
+        assert exp1.creation_time > test_case_start_time
+        assert exp1.last_update_time >= exp1.creation_time
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
-        assert isinstance(exp2.creation_time, int)
-        assert isinstance(exp2.last_update_time, int)
+        assert exp2.creation_time == exp1.creation_time
+        assert exp2.last_update_time == exp1.last_update_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
