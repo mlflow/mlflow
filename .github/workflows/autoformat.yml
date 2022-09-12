@@ -78,7 +78,7 @@ jobs:
     # Generate a patch to update proto code.
     runs-on: ubuntu-latest
     needs: [check-comment, check-diff]
-    if: ${{ needs.check-diff.outputs.py_changed == 'true' }}
+    if: ${{ needs.check-diff.outputs.protos_changed == 'true' }}
     outputs:
       has_diff: ${{ steps.check-diff.outputs.has_diff }}
     steps:
