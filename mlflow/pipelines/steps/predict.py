@@ -137,7 +137,7 @@ class PredictStep(BaseStep):
                 _get_execution_directory_basename(self.pipeline_root),
                 _SCORED_OUTPUT_FOLDER_NAME,
             )
-            shutil.rmtree("/dbfs/" + dbfs_path)
+            shutil.rmtree("/dbfs/" + dbfs_path, ignore_errors=True)
             scored_sdf.coalesce(1).write.format("parquet").save(dbfs_path)
             _logger.info("Moving artifact from DBFS to driver disk")
             shutil.copytree(
