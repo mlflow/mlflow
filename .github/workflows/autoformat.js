@@ -34,6 +34,17 @@ const getPullInformation = async (context, github) => {
   };
 };
 
+const createReaction = async (context, github) => {
+  const { owner, repo } = context.repo;
+  const { id: comment_id } = context.payload.comment;
+  await github.reactions.createForIssueComment({
+    owner,
+    repo,
+    comment_id,
+    content: rocket,
+  });
+};
+
 const createStatus = async (context, github, core) => {
   const { sha, ref, repository } = await getPullInformation(context, github);
   if (repository === 'mlflow/mlflow' && ref === 'master') {
@@ -51,6 +62,7 @@ const updateStatus = async (context, github, sha, needs) => {
 module.exports = {
   shouldAutoformat,
   getPullInformation,
+  createReaction,
   createStatus,
   updateStatus,
 };

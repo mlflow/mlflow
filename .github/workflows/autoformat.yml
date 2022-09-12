@@ -41,6 +41,7 @@ jobs:
             const autoformat = require('./.github/workflows/autoformat.js');
             const shouldAutoformat = autoformat.shouldAutoformat(context.payload.comment);
             if (shouldAutoformat) {
+              await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
             const pullInfo = await autoformat.getPullInformation(context, github);
