@@ -18,6 +18,7 @@ import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
 import os
+import signal
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
@@ -997,3 +998,32 @@ def test_normalize_evaluators_and_evaluator_config_args():
         match="evaluator_config must be a dict contains mapping from evaluator name to",
     ):
         _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+
+
+def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_uri, iris_dataset):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+
+    with mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"test_evaluator1": FakeEvauator1},
+    ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
+        FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
+    ), mock.patch(
+        "mlflow.pyfunc._load_model_or_server"
+    ) as server_loader, mock.patch(
+        "os.kill"
+    ) as os_mock:
+        server_loader.side_effect = [(1, model), (2, model)]
+        evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators=None,
+            baseline_model=multiclass_logistic_regressor_model_uri,
+            env_manager="virtualenv",
+        )
+        assert os_mock.call_count == 2
+        os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
