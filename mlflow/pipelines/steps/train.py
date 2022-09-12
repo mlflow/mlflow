@@ -684,9 +684,7 @@ class TrainStep(BaseStep):
             best_hardcoded_params = estimator_hardcoded_params
 
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-
         self._write_yaml_output(best_hp_params, best_hardcoded_params, output_directory)
-
         return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled):

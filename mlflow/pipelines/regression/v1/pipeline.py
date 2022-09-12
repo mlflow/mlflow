@@ -547,6 +547,10 @@ class RegressionPipeline(_BasePipeline):
         elif artifact_name == "scored_data":
             return read_dataframe_from_path(artifact_path, predict_step.name)
 
+        elif artifact_name == "best_parameters":
+            if os.path.exists(artifact_path):
+                return open(artifact_path).read()
+
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
@@ -617,6 +621,9 @@ class RegressionPipeline(_BasePipeline):
                 self._pipeline_root_path, predict_step.name, ""
             )
             return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
+        elif artifact_name == "best_parameters":
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+            return os.path.join(train_output_dir, "best_parameters.yaml")
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
