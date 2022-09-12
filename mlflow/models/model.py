@@ -370,7 +370,7 @@ class Model:
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
@@ -380,7 +380,7 @@ class Model:
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
-                    "runs:/%s/%s" % (run_id, artifact_path),
+                    "runs:/%s/%s" % (run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )

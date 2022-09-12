@@ -50,12 +50,14 @@ __all__ = [
 try:
     from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
     from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
+    from .utils import add_libraries_to_model  # pylint: disable=unused-import
 
     __all__ += [
         "ModelSignature",
         "ModelInputExample",
         "infer_signature",
         "validate_schema",
+        "add_libraries_to_model",
     ]
 except ImportError:
     pass
