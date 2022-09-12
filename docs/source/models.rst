@@ -849,8 +849,8 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
-Pmdarima (``pmdarima``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pmdarima (``pmdarima``)
+^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
 format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
@@ -932,8 +932,8 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
-Diviner (``diviner``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Diviner (``diviner``)
+^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
 `diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
 :py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
@@ -1263,6 +1263,69 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
+Performing Model Validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
+generated during model evaluation to validate the quality of your model. By specifying a 
+``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
+objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
+as absolute and relative gains your model must have in comparison to a specified
+``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+will throw a ``ModelValidationFailedException`` detailing the validation failure.
+
+.. code-block:: py
+
+    import xgboost
+    import shap
+    from sklearn.model_selection import train_test_split
+    from sklearn.dummy import DummyClassifier
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    # load UCI Adult Data Set; segment it into training and test sets
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    # train a candidate XGBoost model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    # train a baseline dummy model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    # construct an evaluation dataset from the test set
+    eval_data = X_test
+    eval_data["label"] = y_test
+
+    # Define criteria for model to be validated against
+    thresholds = {
+        "accuracy": MetricThreshold(
+            threshold=0.8,             # accuracy should be >=0.8
+            min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
+            min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
+            higher_is_better=True
+        ),
+    }
+
+    with mlflow.start_run() as run:
+        candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
+        baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
+
+        mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            dataset_name="adult",
+            validation_thresholds=thresholds,
+            baseline_model=baseline_model_uri,
+        )
+
+Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
+and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
+`the Model Validation example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
@@ -1538,8 +1601,8 @@ For more information about serializing tensor inputs using the TF serving format
 
 .. _serving_with_mlserver:
 
-Serving with MLServer (experimental)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Serving with MLServer
+~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
 <https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
@@ -1583,7 +1646,6 @@ the `end-to-end example in the MLServer documentation
 visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
 
 .. note::
-    - This feature is experimental and is subject to change.
     - MLServer requires Python 3.7 or above.
 
 .. _encoding-complex-data:
@@ -1912,7 +1974,6 @@ For more info, see:
     mlflow sagemaker build-and-push-container --help
     mlflow deployments help -t sagemaker
 
-
 Export a ``python_function`` model as an Apache Spark UDF
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2022,10 +2083,6 @@ In addition to the built-in deployment tools, MLflow provides a pluggable
 models to custom targets and environments. To deploy to a custom target, you must first install an
 appropriate third-party Python plugin. See the list of known community-maintained plugins
 `here <plugins.html#deployment-plugins>`_.
-
-
-.. Note::
-    APIs for deployment to custom targets are experimental, and may be altered in a future release.
 
 
 Commands

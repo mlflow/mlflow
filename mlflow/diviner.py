@@ -29,7 +29,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -62,7 +61,6 @@ _FLAVOR_KEY = "flavors"
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced with the ``Diviner``
@@ -72,7 +70,6 @@ def get_default_pip_requirements():
     return [_get_pinned_requirement("diviner")]
 
 
-@experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced with the ``Diviner`` flavor
@@ -81,7 +78,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     diviner_model,
@@ -152,7 +148,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.diviner",
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         **model_bin_kwargs,
     )
@@ -188,7 +185,6 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a ``Diviner`` object from a local file or a run.
@@ -249,7 +245,6 @@ def _load_pyfunc(path):
     return _DivinerModelWrapper(_load_model(local_path))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     diviner_model,

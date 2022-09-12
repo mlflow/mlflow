@@ -179,7 +179,7 @@ def test_list_experiments_paginated():
         assert len(result) <= max_results
         returned_experiments.extend(result)
     assert result.token is None
-    returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
+    returned_exp_id_set = {exp.experiment_id for exp in returned_experiments}
     assert set(experiments) - returned_exp_id_set == set()
 
 
@@ -793,7 +793,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
 
 
 @pytest.mark.parametrize(
-    "artifact_location, expected_uri_format",
+    ("artifact_location", "expected_uri_format"),
     [
         (
             "mysql://user:password@host:port/dbname?driver=mydriver",
@@ -842,7 +842,7 @@ def test_search_runs():
         mlflow.set_tag("t2", "second-tag-val")
 
     def verify_runs(runs, expected_set):
-        assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in expected_set])
+        assert {r.info.run_id for r in runs} == {logged_runs[r] for r in expected_set}
 
     experiment_id = MlflowClient().get_experiment_by_name("exp-for-search").experiment_id
 

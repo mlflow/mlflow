@@ -22,7 +22,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -69,7 +68,6 @@ def get_default_pip_requirements():
     )
 
 
-@experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -78,7 +76,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     onnx_model,
@@ -158,7 +155,8 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.onnx",
         data=model_data_subpath,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
@@ -268,7 +266,6 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    @experimental
     def predict(self, data):
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
@@ -355,7 +352,6 @@ def _load_pyfunc(path):
     return _OnnxModelWrapper(path)
 
 
-@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load an ONNX model from a local file or a run.
@@ -386,7 +382,6 @@ def load_model(model_uri, dst_path=None):
     return _load_model(model_file=onnx_model_artifacts_path)
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     onnx_model,

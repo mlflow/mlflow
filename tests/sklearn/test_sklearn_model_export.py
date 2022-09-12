@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 import os
 import pytest
@@ -183,7 +184,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
                 assert pyfunc.FLAVOR_NAME in model_config.flavors
                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
@@ -266,7 +267,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
@@ -361,7 +362,7 @@ def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -385,7 +386,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
@@ -497,7 +498,7 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
@@ -533,7 +534,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         pyfunc_conf = _get_flavor_configuration(
             model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME
         )
-        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
         assert os.path.exists(saved_conda_env_path)
         with open(saved_conda_env_path, "r") as f:
             saved_conda_env_parsed = yaml.safe_load(f)
@@ -617,3 +618,24 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)
         mlflow.sklearn.load_model(model_uri=model_uri)
         add_mock.assert_called()
+
+
+def test_log_predict_proba(sklearn_logreg_model):
+    model, inference_dataframe = sklearn_logreg_model
+    expected_scores = model.predict_proba(inference_dataframe)
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_fn="predict_proba")
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_model = pyfunc.load_model(model_uri)
+    actual_scores = loaded_model.predict(inference_dataframe)
+    np.testing.assert_array_almost_equal(expected_scores, actual_scores)
+
+
+def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_path):
+    mlflow.sklearn.save_model(sklearn_logreg_model.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

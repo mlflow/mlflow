@@ -1,3 +1,4 @@
+from pathlib import Path
 from packaging.version import Version
 import h5py
 import os
@@ -253,7 +254,7 @@ def test_that_keras_module_arg_works(model_path):
 
 
 @pytest.mark.parametrize(
-    "build_model,save_format",
+    ("build_model", "save_format"),
     [
         (get_model, None),
         (get_tf_keras_model, None),
@@ -436,7 +437,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
@@ -453,7 +454,7 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -559,7 +560,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
@@ -699,3 +700,11 @@ def test_log_model_with_code_paths(model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.keras.FLAVOR_NAME)
         mlflow.keras.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(model, model_path):
+    mlflow.keras.save_model(model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

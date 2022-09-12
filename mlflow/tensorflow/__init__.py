@@ -146,6 +146,9 @@ def log_model(
     rather than lists of length one. All other model output types are included as-is in the output
     DataFrame.
 
+    Note that this method should not be used to log a ``tf.keras`` model. Use
+    :py:func:`mlflow.keras.log_model` instead.
+
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
@@ -320,7 +323,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.tensorflow",
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))

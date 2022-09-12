@@ -165,7 +165,8 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.lightgbm",
         data=model_data_subpath,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
@@ -614,7 +615,7 @@ def autolog(
                     "will ignore the failure and continue. Exception: "
                 )
 
-            imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
+            imp = dict(zip(features, importance.tolist()))
             tmpdir = tempfile.mkdtemp()
             try:
                 filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))

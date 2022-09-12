@@ -37,7 +37,6 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -60,7 +59,6 @@ _MODEL_TYPE_KEY = "model_type"
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -70,7 +68,6 @@ def get_default_pip_requirements():
     return [_get_pinned_requirement("pmdarima")]
 
 
-@experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -79,7 +76,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     pmdarima_model,
@@ -154,7 +150,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.pmdarima",
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         **model_bin_kwargs,
     )
@@ -193,7 +190,6 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
@@ -275,7 +271,6 @@ def log_model(
     )
 
 
-@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.

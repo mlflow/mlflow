@@ -9,7 +9,7 @@ import warnings
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver
+from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -38,7 +38,7 @@ class PyFuncBackend(FlavorBackend):
         self,
         config,
         workers=1,
-        env_manager=_EnvManager.CONDA,
+        env_manager=_EnvManager.VIRTUALENV,
         install_mlflow=False,
         env_root_dir=None,
         **kwargs,
@@ -79,7 +79,7 @@ class PyFuncBackend(FlavorBackend):
         elif self._env_manager == _EnvManager.LOCAL or ENV not in self._config:
             return 0
 
-        conda_env_path = os.path.join(local_path, self._config[ENV])
+        conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
         conda_env_name = get_or_create_conda_env(
             conda_env_path,
             env_id=self._env_id,
@@ -116,7 +116,7 @@ class PyFuncBackend(FlavorBackend):
             json_format=repr(json_format),
         )
         if self._env_manager == _EnvManager.CONDA and ENV in self._config:
-            conda_env_path = os.path.join(local_path, self._config[ENV])
+            conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
             conda_env_name = get_or_create_conda_env(
                 conda_env_path,
                 env_id=self._env_id,
@@ -205,7 +205,7 @@ class PyFuncBackend(FlavorBackend):
             command = "exec " + command
 
         if self._env_manager == _EnvManager.CONDA and ENV in self._config:
-            conda_env_path = os.path.join(local_path, self._config[ENV])
+            conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
 
             conda_env_name = get_or_create_conda_env(
                 conda_env_path,

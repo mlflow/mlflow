@@ -1,3 +1,4 @@
+import decimal
 import os
 import pickle
 import yaml
@@ -324,6 +325,12 @@ def test_column_schema_enforcement():
     ):
         pyfunc_model.predict(d)
 
+    # 17. conversion from Decimal to float is allowed since numpy currently has no support for the
+    #  data type.
+    pdf["d"] = [decimal.Decimal(1.0)]
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+
 
 def _compare_exact_tensor_dict_input(d1, d2):
     """Return whether two dicts of np arrays are exactly equal"""
@@ -350,12 +357,12 @@ def test_tensor_multi_named_schema_enforcement():
     }
 
     # test that missing column raises
-    inp1 = {k: v for k, v in inp.items()}
+    inp1 = inp.copy()
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         pyfunc_model.predict(inp1.pop("b"))
 
     # test that extra column is ignored
-    inp2 = {k: v for k, v in inp.items()}
+    inp2 = inp.copy()
     inp2["x"] = 1
 
     # test that extra column is removed
@@ -378,7 +385,7 @@ def test_tensor_multi_named_schema_enforcement():
     assert expected_types == actual_types
 
     # test that type casting is not supported
-    inp4 = {k: v for k, v in inp.items()}
+    inp4 = inp.copy()
     inp4["a"] = inp4["a"].astype(np.int32)
     with pytest.raises(
         MlflowException, match="dtype of input int32 does not match expected dtype uint64"
@@ -409,7 +416,7 @@ def test_tensor_multi_named_schema_enforcement():
         pyfunc_model.predict(inp6)
 
     # test empty ndarray does not work
-    inp7 = {k: v for k, v in inp.items()}
+    inp7 = inp.copy()
     inp7["a"] = np.array([])
     with pytest.raises(
         MlflowException, match=re.escape("Shape of input (0,) does not match expected shape")
@@ -551,7 +558,7 @@ def test_column_schema_enforcement_no_col_names():
 
     # Can only provide data type that can be converted to dataframe...
     with pytest.raises(MlflowException, match="Expected input to be DataFrame or list. Found: set"):
-        pyfunc_model.predict(set([1, 2, 3]))
+        pyfunc_model.predict({1, 2, 3})
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}
@@ -706,7 +713,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
-    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env_file
 
@@ -742,7 +749,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
-    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
