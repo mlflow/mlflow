@@ -86,7 +86,7 @@ jobs:
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
-      - name: Run black
+      - name: Generate protos
         env:
           DOCKER_BUILDKIT: 1
         run: |
