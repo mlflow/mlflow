@@ -1114,23 +1114,13 @@ def evaluate(
                                                  from mlflow.models import MetricThreshold
 
                                                  thresholds = {
-                                                     # Metric value thresholds
-                                                     "f1_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         higher_is_better=True
-                                                     ),
-                                                     # Model comparison thresholds
-                                                     "log_loss": MetricThreshold(
-                                                         min_absolute_change=0.05,
-                                                         min_relative_change=0.1,
-                                                         higher_is_better=False
-                                                     ),
-                                                     # Both metric value and model comparison \
-thresholds
-                                                     "accuarcy": MetricThreshold(
-                                                         threshold=0.8,
-                                                         min_absolute_change=0.09,
-                                                         min_relative_change=0.05,
+                                                     "accuracy_score": MetricThreshold(
+                                                         threshold=0.8,            # accuracy \
+should be >=0.8
+                                                         min_absolute_change=0.05, # accuracy \
+should be at least 5 percent greater than baseline model accuracy
+                                                         min_relative_change=0.05, # accuracy \
+should be at least 0.05 greater than baseline model accuracy
                                                          higher_is_better=True
                                                      ),
                                                  }
@@ -1143,10 +1133,8 @@ thresholds
                                                          model_type,
                                                          dataset_name,
                                                          evaluators,
-                                                         custom_metrics=[custom_l1_loss],
                                                          validation_thresholds=thresholds,
-                                                         baseline_model=your_baseline_model
-
+                                                         baseline_model=your_baseline_model,
                                                      )
                                             
                                             See :ref:`the Model Validation documentation \
@@ -1246,7 +1234,7 @@ thresholds
         if not validation_thresholds:
             return evaluate_result
 
-        _logger.info("Validating model metrics:")
+        _logger.info("Validating model metrics")
         _validate(
             validation_thresholds,
             evaluate_result.metrics,

@@ -1301,7 +1301,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
 
     # Define criteria for model to be validated against
     thresholds = {
-        "accuracy": MetricThreshold(
+        "accuracy_score": MetricThreshold(
             threshold=0.8,             # accuracy should be >=0.8
             min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
             min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
