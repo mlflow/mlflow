@@ -3,10 +3,12 @@ Test to convert data from tabular format to DatasetFeatureStatisticsList proto.
 """
 import numpy as np
 import pandas as pd
+import pytest
 from google.protobuf import text_format
 
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import pandas_renderer
+from mlflow.exceptions import MlflowException
 
 
 def test_convert_to_html():
@@ -15,32 +17,55 @@ def test_convert_to_html():
     assert len(html) != 0
 
 
-def testDTypeToType():
+def test_get_facet_type_from_numpy_type():
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
-    assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(np.int32))
-    # Boolean and time types treated as int
-    assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(bool))
-    assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(np.datetime64))
-    assert fs_proto.INT == pandas_renderer.DtypeToType(np.dtype(np.timedelta64))
-    assert fs_proto.FLOAT == pandas_renderer.DtypeToType(np.dtype(np.float32))
-    assert fs_proto.STRING == pandas_renderer.DtypeToType(np.dtype(str))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.int8))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.uint8))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.int16))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.uint16))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.int32))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.longlong))
+    # date and time types treated as int
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.datetime64))
+    assert fs_proto.INT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.timedelta64))
+    assert fs_proto.FLOAT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.float16))
+    assert fs_proto.FLOAT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.float32))
+    assert fs_proto.FLOAT == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.float64))
+    assert fs_proto.STRING == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(str))
+    assert fs_proto.STRING == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(bool))
     # Unsupported types treated as string for now
-    assert fs_proto.STRING == pandas_renderer.DtypeToType(np.dtype(np.void))
+    assert fs_proto.STRING == pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.void))
+
+    with pytest.raises(
+        MlflowException,
+        match="Found type complex, but expected one of: int, long, float, string, bool",
+    ):
+        pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.csingle))
+    with pytest.raises(
+        MlflowException,
+        match="Found type complex, but expected one of: int, long, float, string, bool",
+    ):
+        pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.cdouble))
+    with pytest.raises(
+        MlflowException,
+        match="Found type complex, but expected one of: int, long, float, string, bool",
+    ):
+        pandas_renderer.get_facet_type_from_numpy_type(np.dtype(np.clongdouble))
 
 
-def testNdarrayToEntryTimeTypes():
+def test_datetime_and_timedelta_converter():
     arr = np.array([np.datetime64("2005-02-25"), np.datetime64("2006-02-25")], dtype=np.datetime64)
-    convertor = pandas_renderer.DtypeToNumberConverter(arr.dtype)
+    convertor = pandas_renderer.datetime_and_timedelta_converter(arr.dtype)
     assert np.array_equal([1109289600000000000, 1140825600000000000], convertor(arr))
 
     arr = np.array(
         [np.datetime64("2009-01-01") - np.datetime64("2008-01-01")], dtype=np.timedelta64
     )
-    convertor = pandas_renderer.DtypeToNumberConverter(arr.dtype)
+    convertor = pandas_renderer.datetime_and_timedelta_converter(arr.dtype)
     assert np.array_equal([31622400000000000], convertor(arr))
 
 
-def testCommonStats():
+def test_common_stats():
     data = {
         "Symbol": ["MSFT", "GOOG", "TSLA", "AAPL", "NFLX"],
         "Shares": [100, 50, 150, 200, None],
@@ -72,7 +97,7 @@ def testCommonStats():
     )
 
 
-def testConvertToProto():
+def test_convert_to_proto():
     data = {
         "Symbol": ["MSFT", "AAPL", "MSFT", "AAPL", "NFLX"],
         "Shares": [100, 170, 150, 200, None],

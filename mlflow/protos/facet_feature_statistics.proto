@@ -15,7 +15,7 @@ syntax = "proto2";
 // limitations under the License.
 // ==============================================================================
 
-// Adapted from https://github.com/PAIR-code/facets/blob/master/facets_overview/proto/feature_statistics.proto
+// Adapted from https://github.com/PAIR-code/facets/blob/4742b8b93c2dacf22fc8ace2cee42dd06382c48e/facets_overview/proto/feature_statistics.proto
 // - Ported from proto3 to proto2 by adding "optional" modifiers to relevant fields
 // - unsigned int64 types changed to int64 types
 

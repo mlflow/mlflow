@@ -9,16 +9,20 @@ import sys
 from typing import Union, Iterable, Tuple
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import histogram_generator
+from mlflow.exceptions import MlflowException
 
 
-def DtypeToType(dtype):
+def get_facet_type_from_numpy_type(dtype):
     """Converts a Numpy dtype to the FeatureNameStatistics.Type proto enum."""
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
-    if dtype.char in np.typecodes["AllFloat"]:
+    if dtype.char in np.typecodes["Complex"]:
+        raise MlflowException(
+            "Found type complex, but expected one of: int, long, float, string, bool"
+        )
+    elif dtype.char in np.typecodes["AllFloat"]:
         return fs_proto.FLOAT
     elif (
         dtype.char in np.typecodes["AllInteger"]
-        or dtype == bool
         or np.issubdtype(dtype, np.datetime64)
         or np.issubdtype(dtype, np.timedelta64)
     ):
@@ -27,30 +31,27 @@ def DtypeToType(dtype):
         return fs_proto.STRING
 
 
-def DtypeToNumberConverter(dtype):
-    """Converts a Numpy dtype to a converter method if applicable.
-      The converter method takes in a numpy array of objects of the provided
-      dtype
-      and returns a numpy array of the numbers backing that object for
-      statistical
-      analysis. Returns None if no converter is necessary.
-    Args:
-      dtype: The numpy dtype to make a converter for.
-    Returns:
-      The converter method or None.
+def datetime_and_timedelta_converter(dtype):
+    """
+    Converts a Numpy dtype to a converter method if applicable.
+    The converter method takes in a numpy array of objects of the provided
+    dtype and returns a numpy array of the numbers backing that object for
+    statistical analysis. Returns None if no converter is necessary.
+    :param dtype: The numpy dtype to make a converter for.
+    :return: The converter method or None.
     """
     if np.issubdtype(dtype, np.datetime64):
 
-        def DatetimesToNumbers(dt_list):
+        def datetime_converter(dt_list):
             return np.array([pd.Timestamp(dt).value for dt in dt_list])
 
-        return DatetimesToNumbers
+        return datetime_converter
     elif np.issubdtype(dtype, np.timedelta64):
 
-        def TimedetlasToNumbers(td_list):
+        def timedelta_converter(td_list):
             return np.array([pd.Timedelta(td).value for td in td_list])
 
-        return TimedetlasToNumbers
+        return timedelta_converter
     else:
         return None
 
@@ -65,7 +66,8 @@ def compute_common_stats(column) -> facet_feature_statistics_pb2.CommonStatistic
     common_stats = facet_feature_statistics_pb2.CommonStatistics()
     common_stats.num_missing = column.isnull().sum()
     common_stats.num_non_missing = len(column) - common_stats.num_missing
-    # Default set using: https://src.dev.databricks.com/databricks/universe/-/blob/model-monitoring/python/databricks/model_monitoring/rendering/html_renderer.py?L33-L35&subtree=true
+    # TODO: Add support to multi dimensional columns similar to
+    # https://github.com/PAIR-code/facets/blob/4742b8b93c2dacf22fc8ace2cee42dd06382c48e/facets_overview/facets_overview/base_generic_feature_statistics_generator.py#L106-L117
     common_stats.min_num_values = 1
     common_stats.max_num_values = 1
     common_stats.avg_num_values = 1.0
@@ -87,18 +89,22 @@ def convert_to_dataset_feature_statistics(
     pandas_describe = df.describe(datetime_is_numeric=True, include="all")
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
-    quantiles = df.quantile(quantiles_to_get)
+    try:
+        quantiles = df.quantile(quantiles_to_get)
+    except:
+        raise MlflowException("Error in generating quantiles")
 
     for key in df:
         pandas_describe_key = pandas_describe[key]
         current_column_value = df[key]
         feat = feature_stats.features.add(
-            type=DtypeToType(current_column_value.dtype), name=key.encode("utf-8")
+            type=get_facet_type_from_numpy_type(current_column_value.dtype),
+            name=key.encode("utf-8"),
         )
         if feat.type in (fs_proto.INT, fs_proto.FLOAT):
             feat_stats = feat.num_stats
 
-            converter = DtypeToNumberConverter(current_column_value.dtype)
+            converter = datetime_and_timedelta_converter(current_column_value.dtype)
             if converter:
                 date_time_converted = converter(current_column_value)
                 current_column_value = pd.DataFrame(date_time_converted)[0]
@@ -131,16 +137,7 @@ def convert_to_dataset_feature_statistics(
                     feat_stats.histograms.append(equal_height_hist)
         elif feat.type == fs_proto.STRING:
             feat_stats = feat.string_stats
-            strs = []
-            compute_unique_str = current_column_value.dropna()
-            for item in compute_unique_str:
-                strs.append(
-                    item
-                    if hasattr(item, "__len__")
-                    else item.encode("utf-8")
-                    if hasattr(item, "encode")
-                    else str(item)
-                )
+            strs = current_column_value.dropna()
 
             histogram_categorical_levels_count = None
             feat_stats.avg_length = np.mean(np.vectorize(len)(strs))
@@ -159,7 +156,7 @@ def convert_to_dataset_feature_statistics(
                 bucket = feat_stats.rank_histogram.buckets.add(
                     low_rank=val_index,
                     high_rank=val_index,
-                    sample_count=np.asscalar(val[0]),
+                    sample_count=val[0].item(),
                     label=printable_val,
                 )
                 if val_index < 2:
