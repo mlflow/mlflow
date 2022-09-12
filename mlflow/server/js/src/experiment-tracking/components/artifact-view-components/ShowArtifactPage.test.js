@@ -5,12 +5,14 @@ import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
+import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
+  DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
 
@@ -104,6 +106,13 @@ describe('ShowArtifactPage', () => {
     TEXT_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    });
+  });
+
+  test('should render data table view for common tabular data extensions', () => {
+    DATA_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactTableView).length).toBe(1);
     });
   });
 });
