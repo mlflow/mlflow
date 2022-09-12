@@ -36,12 +36,18 @@ class PredictStep(BaseStep):
         self.run_end_time = None
         self.execution_duration = None
 
-    def _build_profiles_and_card(self, scored_df) -> BaseCard:
+    def _build_profiles_and_card(self, scored_sdf) -> BaseCard:
         # Build profiles for scored dataset
         card = BaseCard(self.pipeline_name, self.name)
 
         if not self.skip_data_profiling:
-            _logger.info("Profiling ingested dataset")
+            _logger.info("Profiling scored dataset")
+            scored_size = scored_sdf.count()
+            if scored_size > _MAX_PROFILE_SIZE:
+                _logger.info("Sampling scored dataset for profiling because dataset size is large.")
+                sample_percentage = _MAX_PROFILE_SIZE / scored_size
+                scored_sdf = scored_sdf.sample(sample_percentage)
+            scored_df = scored_sdf.toPandas()
             scored_dataset_profile = get_pandas_data_profile(scored_df, "Profile of Scored Dataset")
 
             # Optional tab : data profile for scored data:
@@ -143,14 +149,9 @@ class PredictStep(BaseStep):
                 os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
             )
 
-        scored_size = scored_sdf.count()
-        if scored_size > _MAX_PROFILE_SIZE:
-            sample_percentage = _MAX_PROFILE_SIZE / scored_size
-            scored_sdf = scored_sdf.sample(sample_percentage)
-
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
-        return self._build_profiles_and_card(scored_sdf.toPandas())
+        return self._build_profiles_and_card(scored_sdf)
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
