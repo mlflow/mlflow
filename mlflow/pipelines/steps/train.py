@@ -138,7 +138,6 @@ class TrainStep(BaseStep):
             ),
         }
 
-        tuning_df = None
         best_estimator_params = None
         mlflow.autolog(log_models=False)
         with mlflow.start_run(tags=tags) as run:
@@ -153,10 +152,6 @@ class TrainStep(BaseStep):
                     output_directory,
                 )
                 estimator = estimator_fn(best_estimator_params)
-                try:
-                    tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
-                except Exception as e:
-                    _logger.warning("Failed to build tuning table due to unexpected failure: %s", e)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
@@ -231,6 +226,12 @@ class TrainStep(BaseStep):
             leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
         except Exception as e:
             _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
+        tuning_df = None
+        if best_estimator_params:
+            try:
+                tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
+            except Exception as e:
+                _logger.warning("Failed to build tuning table due to unexpected failure: %s", e)
 
         card = self._build_step_card(
             eval_metrics=eval_metrics,
