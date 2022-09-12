@@ -34,7 +34,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_run_url
-from mlflow.utils.file_utils import write_yaml, dump_yaml
+from mlflow.utils.file_utils import safe_dump, dump_yaml
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_PIPELINE_TEMPLATE_NAME,
@@ -469,29 +469,20 @@ class TrainStep(BaseStep):
         if self.step_config["tuning"]["enabled"]:
             tuning_params_card_tab = card.add_tab(
                 "Best Parameters",
-                "{{ SEARCH_SPACE }} " + "{{ BEST_HARDCODED_PARAMS }} " + "{{ BEST_HP_PARAMS }}",
+                "{{ SEARCH_SPACE }} " + "{{ BEST_PARAMETERS }} ",
             )
             tuning_params = dump_yaml(self.step_config["tuning"]["parameters"])
             tuning_params_card_tab.add_html(
                 "SEARCH_SPACE",
                 f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
             )
-            best_hardcoded_parameters_yaml = os.path.join(
-                output_directory, "best_hardcoded_parameters.yaml"
-            )
-            if os.path.exists(best_hardcoded_parameters_yaml):
-                best_hardcoded_parameters = open(best_hardcoded_parameters_yaml).read()
+            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+            if os.path.exists(best_parameters_yaml):
+                best_hardcoded_parameters = open(best_parameters_yaml).read()
                 tuning_params_card_tab.add_html(
-                    "BEST_HARDCODED_PARAMS",
-                    f"<b>Best hardcoded parameters:</b><br>"
+                    "BEST_PARAMETERS",
+                    f"<b>Best parameters:</b><br>"
                     f"<pre>{best_hardcoded_parameters}</pre><br><br>",
-                )
-            best_hp_params_yaml = os.path.join(output_directory, "best_hyperparameters.yaml")
-            if os.path.exists(best_hp_params_yaml):
-                best_hp_params = open(best_hp_params_yaml).read()
-                tuning_params_card_tab.add_html(
-                    "BEST_HP_PARAMS",
-                    f"<b>Best hyperparameters:</b> <br><pre>{best_hp_params}</pre><br><br>",
                 )
 
         # # Tab 9: HP trials
@@ -670,14 +661,7 @@ class TrainStep(BaseStep):
 
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
 
-        self._write_yaml(
-            root=output_directory, file_name="best_hyperparameters.yaml", data=best_hp_params
-        )
-        self._write_yaml(
-            root=output_directory,
-            file_name="best_hardcoded_parameters.yaml",
-            data=best_hardcoded_params,
-        )
+        self._write_yaml_output(best_hp_params, best_hardcoded_params, output_directory)
 
         return estimator_fn(best_combined_params)
 
@@ -720,13 +704,13 @@ class TrainStep(BaseStep):
                 )
         return search_space
 
-    def _write_yaml(self, root, file_name, data):
-        import numpy as np
-
-        processed_data = {}
-        for key, value in data.items():
-            if isinstance(value, np.float64):
-                processed_data[key] = float(value)
-            else:
-                processed_data[key] = value
-        write_yaml(root, file_name, processed_data)
+    def _write_yaml_output(self, best_hp_params, best_hardcoded_params, output_directory):
+        best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
+        if os.path.exists(best_parameters_path):
+            os.remove(best_parameters_path)
+        with open(best_parameters_path, "a") as file:
+            file.write("# tuned hyperparameters\n")
+            safe_dump(best_hp_params, file, default_flow_style=False)
+            file.write("# hardcoded parameters\n")
+            safe_dump(best_hardcoded_params, file, default_flow_style=False)
+        mlflow.log_artifact(best_parameters_path, artifact_path="best_parameters.yaml")

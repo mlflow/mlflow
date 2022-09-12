@@ -197,6 +197,24 @@ def dump_yaml(data):
     return yaml.dump(data)
 
 
+def safe_dump(data, file, **kwargs):
+    """
+    Dump data from a dictionary into a file
+
+    :param contents: Dictionary containing yaml contents
+    :param file: Output file stream
+    """
+    import numpy as np
+
+    processed_data = {}
+    for key, value in data.items():
+        if isinstance(value, np.float64):
+            processed_data[key] = float(value)
+        else:
+            processed_data[key] = value
+    return yaml.safe_dump(processed_data, file, **kwargs)
+
+
 class UniqueKeyLoader(YamlSafeLoader):
     def construct_mapping(self, node, deep=False):
         mapping = set()
