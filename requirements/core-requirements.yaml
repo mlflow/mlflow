@@ -46,3 +46,31 @@ waitress:
   pip_release: waitress
   max_major_version: 2
   markers: "platform_system == 'Windows'"
+
+scikit-learn:
+  pip_release: scikit-learn
+  max_major_version: 1
+
+pyarrow:
+  pip_release: pyarrow
+  max_major_version: 9
+
+shap:
+  pip_release: shap
+  max_major_version: 0
+
+pandas-profiling:
+  pip_release: pandas-profiling
+  max_major_version: 3
+
+ipython:
+  pip_release: gunicorn
+  max_major_version: 8
+
+markdown:
+  pip_release: markdown
+  max_major_version: 3
+
+Jinja2:
+  pip_release: Jinja2
+  max_major_version: 3
