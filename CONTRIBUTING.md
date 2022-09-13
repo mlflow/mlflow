@@ -40,6 +40,7 @@ We welcome community contributions to MLflow. This page provides useful informat
   - [Writing Docs](#writing-docs)
   - [Sign your work](#sign-your-work)
 - [Code of Conduct](#code-of-conduct)
+
 ## Governance
 
 Governance of MLflow is conducted by the Technical Steering Committee
@@ -95,25 +96,24 @@ features and patches for MLflow.
 For significant changes to MLflow, we recommend outlining a design for
 the feature or patch and discussing it with an MLflow committer before
 investing heavily in implementation. During issue triage, we try to
-proactively identify issues require design by labeling them with `needs
-design`. This is particularly important if your proposed implementation:
+proactively identify issues require design by labeling them with `needs design`. This is particularly important if your proposed implementation:
 
-  - Introduces changes or additions to the [MLflow REST
-    API](https://mlflow.org/docs/latest/rest-api.html)
-      - The MLflow REST API is implemented by a variety of open source
-        and proprietary platforms. Changes to the REST API impact all of
-        these platforms. Accordingly, we encourage developers to
-        thoroughly explore alternatives before attempting to introduce
-        REST API changes.
-  - Introduces new user-facing MLflow APIs
-      - MLflow's API surface is carefully designed to generalize across
-        a variety of common ML operations. It is important to ensure
-        that new APIs are broadly useful to ML developers, easy to work
-        with, and simple yet powerful.
-  - Adds new library dependencies to MLflow
-  - Makes changes to critical internal abstractions. Examples include:
-    the Tracking Artifact Repository, the Tracking Abstract Store, and
-    the Model Registry Abstract Store.
+- Introduces changes or additions to the [MLflow REST
+  API](https://mlflow.org/docs/latest/rest-api.html)
+  - The MLflow REST API is implemented by a variety of open source
+    and proprietary platforms. Changes to the REST API impact all of
+    these platforms. Accordingly, we encourage developers to
+    thoroughly explore alternatives before attempting to introduce
+    REST API changes.
+- Introduces new user-facing MLflow APIs
+  - MLflow's API surface is carefully designed to generalize across
+    a variety of common ML operations. It is important to ensure
+    that new APIs are broadly useful to ML developers, easy to work
+    with, and simple yet powerful.
+- Adds new library dependencies to MLflow
+- Makes changes to critical internal abstractions. Examples include:
+  the Tracking Artifact Repository, the Tracking Abstract Store, and
+  the Model Registry Abstract Store.
 
 ### Make changes backwards compatible
 
@@ -166,7 +166,7 @@ For more information about Plugins, see
 
 To set up the MLflow repository, run the following commands:
 
-``` bash
+```bash
 # Clone the repository
 git clone --recurse-submodules git@github.com:<username>/mlflow.git
 # The alternative way of cloning through https may cause permission error during branch push
@@ -180,7 +180,7 @@ git remote add upstream git@github.com/mlflow/mlflow.git
 If you cloned the repository before without `--recurse-submodules`, run
 this command to fetch submodules:
 
-``` bash
+```bash
 git submodule update --init --recursive
 ```
 
@@ -219,7 +219,7 @@ needed to develop and locally test the Python code portions of MLflow.
 This CLI tool's readme can be accessed via the root of the mlflow
 repository as follows:
 
-``` bash
+```bash
 dev/dev-env-setup.sh -h
 ```
 
@@ -227,7 +227,7 @@ An example usage of this script that will build a development
 environment using `virtualenv` and the minimum supported Python version
 (to ensure compatibility) is:
 
-``` bash
+```bash
 dev/dev-env-setup.sh -d .venvs/mlflow-dev -q
 ```
 
@@ -256,7 +256,7 @@ for testing.
 Example of installing an older version of `scikit-learn` to perform
 isolated testing:
 
-``` bash
+```bash
 dev/dev-env-setup.sh -d ~/.venvs/sklearn-test -q
 source ~/.venvs/sklearn-test/bin/activate
 pip freeze | grep "scikit-learn"
@@ -277,7 +277,7 @@ git](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup)
 so that you can [sign your work](#sign-your-work) when committing code
 changes and opening pull requests:
 
-``` bash
+```bash
 git config --global user.name "Your Name"
 git config --global user.email yourname@example.com
 ```
@@ -286,7 +286,7 @@ For convenience, we provide a pre-commit git hook that validates that
 commits are signed-off and runs `black --check` and `pylint` to ensure the
 code will pass the lint check for python. You can enable it by running:
 
-``` bash
+```bash
 git config core.hooksPath hooks
 ```
 
@@ -295,7 +295,7 @@ for developing & testing changes across all languages and APIs. We
 recommend installing MLflow in its own conda environment by running the
 following from your checkout of MLflow:
 
-``` bash
+```bash
 conda create --name mlflow-dev-env python=3.7
 conda activate mlflow-dev-env
 pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
@@ -304,7 +304,7 @@ pip install -e '.[extras]' # installs mlflow from current checkout with some use
 If you plan on doing development and testing, you will also need to
 install the following into the conda environment:
 
-``` bash
+```bash
 pip install -r requirements/dev-requirements.txt
 pip install -e '.[extras]'  # installs mlflow from current checkout
 pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
@@ -318,7 +318,7 @@ Ensure [Docker](https://www.docker.com/) is installed.
 Finally, we use `pytest` to test all Python contributed code. Install
 `pytest`:
 
-``` bash
+```bash
 pip install pytest
 ```
 
@@ -333,7 +333,7 @@ yarn](https://classic.yarnpkg.com/lang/en/docs/install) if needed.
 
 On OSX, install the following packages required by the node modules:
 
-``` bash
+```bash
 brew install pixman cairo pango jpeg
 ```
 
@@ -345,14 +345,13 @@ appropriate package manager on their platforms.
 Before running the Javascript dev server or building a distributable
 wheel, install Javascript dependencies via:
 
-``` bash
+```bash
 cd mlflow/server/js
 yarn install
 cd - # return to root repository directory
 ```
 
-If modifying dependencies in `mlflow/server/js/package.json`, run `yarn
-upgrade` within `mlflow/server/js` to install the updated dependencies.
+If modifying dependencies in `mlflow/server/js/package.json`, run `yarn upgrade` within `mlflow/server/js` to install the updated dependencies.
 
 #### Launching the Development UI
 
@@ -369,13 +368,13 @@ Distributable Artifact](#building-a-distributable-artifact).
 
 In one shell:
 
-``` bash
+```bash
 mlflow ui
 ```
 
 In another shell:
 
-``` bash
+```bash
 cd mlflow/server/js
 yarn start
 ```
@@ -391,7 +390,7 @@ component. For example, `CompareRunBox.test.js` should be added in the
 same directory as `CompareRunBox.js`. Next, in `mlflow/server/js`, run
 the following command to start the test.
 
-``` bash
+```bash
 # Run tests in CompareRunBox.test.js
 yarn test CompareRunBox.test.js
 # Run tests with a name that matches 'plot' in CompareRunBox.test.js
@@ -404,7 +403,7 @@ yarn test
 
 In `mlflow/server/js`, run the following command to lint your code.
 
-``` bash
+```bash
 # Note this command only fixes auto-fixable issues (e.g. remove trailing whitespace)
 yarn lint:fix
 ```
@@ -426,7 +425,7 @@ The `mlflow/R/mlflow` directory contains R wrappers for the Projects,
 Tracking and Models components. These wrappers depend on the Python
 package, so first install the Python package in a conda environment:
 
-``` bash
+```bash
 # Note that we don't pass the -e flag to pip, as the R tests attempt to run the MLflow UI
 # via the CLI, which will not work if we run against the development tracking server
 pip install .
@@ -435,7 +434,7 @@ pip install .
 [Install R](https://cloud.r-project.org/), then run the following to
 install dependencies for building MLflow locally:
 
-``` bash
+```bash
 cd mlflow/R/mlflow
 NOT_CRAN=true Rscript -e 'install.packages("devtools", repos = "https://cloud.r-project.org")'
 NOT_CRAN=true Rscript -e 'devtools::install_deps(dependencies = TRUE)'
@@ -443,13 +442,13 @@ NOT_CRAN=true Rscript -e 'devtools::install_deps(dependencies = TRUE)'
 
 Build the R client via:
 
-``` bash
+```bash
 R CMD build .
 ```
 
 Run tests:
 
-``` bash
+```bash
 R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
 cd tests
 NOT_CRAN=true LINTR_COMMENT_BOT=false Rscript ../.run-tests.R
@@ -458,7 +457,7 @@ cd -
 
 Run linter:
 
-``` bash
+```bash
 Rscript -e 'lintr::lint_package()'
 ```
 
@@ -469,7 +468,7 @@ the updated docs to your PR branch.
 When developing, you can make Python changes available in R by running
 (from mlflow/R/mlflow):
 
-``` bash
+```bash
 Rscript -e 'reticulate::conda_install("r-mlflow", "../../../.", pip = TRUE)'
 ```
 
@@ -496,7 +495,7 @@ the Java 8 JDK (or above), and
 [install](https://maven.apache.org/install.html) Maven. You can then
 build and run tests via:
 
-``` bash
+```bash
 cd mlflow/java
 mvn compile test
 ```
@@ -522,7 +521,7 @@ for testing.
 
 If your tests require usage of a tracking URI, the [pytest
 fixture](https://docs.pytest.org/en/3.2.1/fixture.html)
-[tracking\_uri\_mock](https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74)
+[tracking_uri_mock](https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74)
 is automatically set up for every tests. It sets up a mock tracking URI
 that will set itself up before your test runs and tear itself down
 after.
@@ -540,14 +539,14 @@ request by running:
 We use [Black](https://black.readthedocs.io/en/stable/) to ensure a
 consistent code format. You can auto-format your code by running:
 
-``` bash
+```bash
 black .
 ```
 
 Then, verify that the unit tests & linter pass before submitting a pull
 request by running:
 
-``` bash
+```bash
 ./dev/lint.sh
 ./dev/run-python-tests.sh
 ```
@@ -557,15 +556,13 @@ Python tests. You can run tests for one or more test directories or
 files via `pytest [file_or_dir] ... [file_or_dir]`. For example, to run
 all pyfunc tests, you can run:
 
-``` bash
+```bash
 pytest tests/pyfunc
 ```
 
 Note: Certain model tests are not well-isolated (can result in OOMs when
-run in the same Python process), so simply invoking `pytest` or `pytest
-tests` may not work. If you'd like to run multiple model tests, we
-recommend doing so via separate `pytest` invocations, e.g. `pytest
-tests/sklearn && pytest tests/tensorflow`
+run in the same Python process), so simply invoking `pytest` or `pytest tests` may not work. If you'd like to run multiple model tests, we
+recommend doing so via separate `pytest` invocations, e.g. `pytest tests/sklearn && pytest tests/tensorflow`
 
 If opening a PR that changes or adds new APIs, please update or add
 Python documentation as described in [Writing Docs](#writing-docs) and
@@ -587,7 +584,7 @@ properly. Generally, the files you'll have to edit are:
     1. Add your tests to the ignore list, where the other frameworks are
        ignored
     2. Add a pytest command for your tests along with the other framework
-      tests (as a separate command to avoid OOM issues)
+       tests (as a separate command to avoid OOM issues)
 
 2.  `requirements/test-requirements.txt`: add your framework and version
     to the list of requirements
@@ -611,7 +608,7 @@ if you're on 64-bit Mac OSX.
 
 Then, run the following to install `protoc`:
 
-``` bash
+```bash
 # Update PROTOC_ZIP if on a platform other than 64-bit Mac OSX
 PROTOC_ZIP=protoc-3.19.4-osx-x86_64.zip
 curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/$PROTOC_ZIP
@@ -622,7 +619,7 @@ rm -f $PROTOC_ZIP
 
 Alternatively, you can build protobuf files using Docker:
 
-``` bash
+```bash
 pushd dev
 DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
 popd
@@ -642,7 +639,7 @@ MLflow's Tracking component supports storing experiment and run data in
 a SQL backend. To make changes to the tracking database schema, run the
 following from your checkout of MLflow:
 
-``` bash
+```bash
 # starting at the root of the project
 $ pwd
 ~/mlflow
@@ -670,18 +667,18 @@ all dependency packages (e.g. Apple arm64 architecture).
 
 #### Prerequisites
 
-  - Docker runtime installed on a local machine
-    (<https://docs.docker.com/get-docker/>)
-  - Code editor compatible capable of running inside containers
-      - Example: VSCode (<https://code.visualstudio.com/download>) with
-        Remote Containers extension
-        (<https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>)
+- Docker runtime installed on a local machine
+  (<https://docs.docker.com/get-docker/>)
+- Code editor compatible capable of running inside containers
+  - Example: VSCode (<https://code.visualstudio.com/download>) with
+    Remote Containers extension
+    (<https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>)
 
 #### Setup
 
 Run the following command:
 
-``` bash
+```bash
 dev/run-test-container.sh
 ```
 
@@ -693,20 +690,20 @@ it.
 
 Now you can attach to the running container with your code editor.
 
-  - Instructions for VSCode:
-    
-      - invoke the command palette (`[Ctrl/CMD]+Shift+P`)
-      - find "Remote-Containers: Attach to Running Container..." option,
-        confirm with `Enter` key
-      - find the "mlflow-test" container, confirm with `Enter` key
-      - a new code editor should appear running inside the context of
-        Docker container
-      - you can now freely change source code and corresponding tests,
-        the changes will be reflected on your machine filesystem
-      - to run code or tests inside container, you can open a terminal
-        with `` [Ctrl/CMD]+Shift+` `` and run any
-        command which will be executed inside container, e.g.
-        `pytest tests/test_version.py`
+- Instructions for VSCode:
+
+  - invoke the command palette (`[Ctrl/CMD]+Shift+P`)
+  - find "Remote-Containers: Attach to Running Container..." option,
+    confirm with `Enter` key
+  - find the "mlflow-test" container, confirm with `Enter` key
+  - a new code editor should appear running inside the context of
+    Docker container
+  - you can now freely change source code and corresponding tests,
+    the changes will be reflected on your machine filesystem
+  - to run code or tests inside container, you can open a terminal
+    with `` [Ctrl/CMD]+Shift+` `` and run any
+    command which will be executed inside container, e.g.
+    `pytest tests/test_version.py`
 
 After typing `exit` in the terminal window that executed
 `dev/run-test-container.sh`, the container will be shut down and
@@ -759,14 +756,14 @@ Finally, before filing a pull request, verify all Python tests pass.
 
 Generate JS files in `mlflow/server/js/build`:
 
-``` bash
+```bash
 cd mlflow/server/js
 yarn build
 ```
 
 Build a pip-installable wheel in `dist/`:
 
-``` bash
+```bash
 cd -
 python setup.py bdist_wheel
 ```
@@ -781,28 +778,28 @@ following snippet. Note that R & Java API docs must be regenerated
 separately after each change and are not live-updated; see subsequent
 sections for instructions on generating R and Java docs.
 
-``` bash
+```bash
 cd docs
 make livehtml
 ```
 
 Generate R API rst doc files via:
 
-``` bash
+```bash
 cd docs
 make rdocs
 ```
 
 Generate Java API rst doc files via:
 
-``` bash
+```bash
 cd docs
 make javadocs
 ```
 
 Generate API docs for all languages via:
 
-``` bash
+```bash
 cd docs
 make html
 ```
@@ -826,24 +823,24 @@ you can certify the below (from developercertificate.org):
 
     Developer Certificate of Origin
     Version 1.1
-    
+
     Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
     1 Letterman Drive
     Suite D4700
     San Francisco, CA, 94129
-    
+
     Everyone is permitted to copy and distribute verbatim copies of this
     license document, but changing it is not allowed.
-    
-    
+
+
     Developer's Certificate of Origin 1.1
-    
+
     By making a contribution to this project, I certify that:
-    
+
     (a) The contribution was created in whole or in part by me and I
         have the right to submit it under the open source license
         indicated in the file; or
-    
+
     (b) The contribution is based upon previous work that, to the best
         of my knowledge, is covered under an appropriate open source
         license and I have the right under that license to submit that
@@ -851,11 +848,11 @@ you can certify the below (from developercertificate.org):
         by me, under the same open source license (unless I am
         permitted to submit under a different license), as indicated
         in the file; or
-    
+
     (c) The contribution was provided directly to me by some other
         person who certified (a), (b) or (c) and I have not modified
         it.
-    
+
     (d) I understand and agree that this project and the contribution
         are public and that a record of the contribution (including all
         personal information I submit with it, including my sign-off) is
