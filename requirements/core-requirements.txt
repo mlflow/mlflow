@@ -12,10 +12,10 @@ querystring_parser<2
 sqlalchemy<2,>=1.4.0
 gunicorn<21; platform_system != 'Windows'
 waitress<3; platform_system == 'Windows'
-scikit-learn<2
-pyarrow<10
-shap<1
-pandas-profiling<4
-ipython<9
-markdown<4
-Jinja2<4
+scikit-learn<2,>=1.0
+pyarrow<10,>=4.0.0
+shap<1,>=0.40
+pandas-profiling<4,>=3.1
+ipython<9,>=7.0
+markdown<4,>=3.3
+Jinja2<4,>=3.0
