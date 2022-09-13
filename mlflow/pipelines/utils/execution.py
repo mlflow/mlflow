@@ -281,11 +281,13 @@ def _get_step_output_directory_path(execution_directory_path: str, step_name: st
 class _ExecutionPlan:
 
     _MSG_REGEX = r"^# Run MLP step: (\w+)\n$"
+    # Errors that are fatal are prefixed with the string ***.
+    # https://www.gnu.org/software/make/manual/html_node/Error-Messages.html
+    _MAKE_FATAL_ERR_REGEX = r"^make: \*\*\*"
+    _MAKE_FATAL_ERR = "MAKE_FATAL_ERR"
     _FORMAT_STEPS_CACHED = "%s: No changes. Skipping."
 
-    def __init__(self, rule_name, output_lines_of_make: List[str], pipeline_steps: List[BaseStep]):
-        pipeline_step_names = [step.name for step in pipeline_steps]
-
+    def __init__(self, rule_name, output_lines_of_make: List[str], pipeline_step_names: List[str]):
         steps_to_run = self._parse_output_lines(output_lines_of_make)
         self.steps_cached = self._infer_cached_steps(rule_name, steps_to_run, pipeline_step_names)
 
@@ -299,12 +301,16 @@ class _ExecutionPlan:
             m = re.search(_ExecutionPlan._MSG_REGEX, output_line)
             return m.group(1) if m else None
 
-        return list(
-            filter(
-                lambda step: step is not None,
-                (get_step_to_run(output_line) for output_line in output_lines_of_make),
-            )
-        )
+        def steps_to_run():
+            for output_line in output_lines_of_make:
+                step = get_step_to_run(output_line)
+                if step is not None:
+                    yield step
+
+        if re.search(_ExecutionPlan._MAKE_FATAL_ERR_REGEX, output_lines_of_make[-1]):
+            # If Make has fatal errors, return a list containing a special error string
+            return [_ExecutionPlan._MAKE_FATAL_ERR]
+        return list(steps_to_run())
 
     @staticmethod
     def _infer_cached_steps(rule_name, steps_to_run, pipeline_step_names) -> List[str]:
@@ -316,6 +322,10 @@ class _ExecutionPlan:
         :param pipeline_step_names:  A list of all the step names contained in the specified
                                      pipeline sorted by the execution order.
         """
+        if len(steps_to_run) == 1 and steps_to_run[0] == _ExecutionPlan._MAKE_FATAL_ERR:
+            # If Make has fatal errors, return an empty list
+            return []
+
         index = pipeline_step_names.index(rule_name)
         if index == 0:
             # If the rule_name is ingest, it should always be executed
@@ -363,10 +373,8 @@ def _run_make(
     )
     output_lines = list(iter(process.stdout.readline, ""))
     process.communicate()
-    # Debug only, will remove
-    # _logger.warning("Calling Execution Plan rule_name %s output lines %s pipeline_steps %s",
-    # rule_name, output_lines, [step.name for step in pipeline_steps])
-    _ExecutionPlan(rule_name, output_lines, pipeline_steps).print()
+    pipeline_step_names = [step.name for step in pipeline_steps]
+    _ExecutionPlan(rule_name, output_lines, pipeline_step_names).print()
 
     _exec_cmd(
         ["make", "-s", "-f", "Makefile", rule_name],

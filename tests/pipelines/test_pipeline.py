@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 from distutils.dir_util import copy_tree
 
 import pandas as pd
@@ -313,3 +314,24 @@ def test_generate_worst_examples_dataframe():
         test_df2, predictions, target_col, worst_k=2
     )
     assert_result_correct(result_df2)
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_print_cached_steps_and_running_steps(capsys):
+    pipeline = Pipeline(profile="local")
+    pipeline.clean()
+    pipeline.run()
+    captured = capsys.readouterr()
+    output_info = captured.out
+    run_step_pattern = "Running step {step}..."
+    for step in _STEP_NAMES:
+        # Check for printed message when every step is actually executed
+        assert re.search(run_step_pattern.format(step=step), output_info) is not None
+
+    pipeline.run()  # cached
+    captured = capsys.readouterr()
+    output_info = captured.err
+    cached_step_pattern = "{step}: No changes. Skipping."
+    for step in _STEP_NAMES:
+        # Check for printed message when every step is cached
+        assert re.search(cached_step_pattern.format(step=step), output_info) is not None

@@ -16,6 +16,7 @@ from mlflow.pipelines.utils.execution import (
     _get_or_create_execution_directory,
     run_pipeline_step,
     get_step_output_path,
+    _ExecutionPlan,
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 
@@ -505,3 +506,26 @@ def test_run_pipeline_step_failure_clears_downstream_step_state(test_pipeline):
     assert get_test_pipeline_step_execution_state(split_step).status == StepStatus.UNKNOWN
     assert get_test_pipeline_step_execution_state(split_step).last_updated_timestamp == 0
     assert not os.listdir(get_test_pipeline_step_output_directory(split_step))
+
+
+def test_execution_plan():
+    train_subgraph = ["ingest", "split", "transform", "train", "evaluate", "register"]
+
+    # Make has fatal error
+    plan = _ExecutionPlan("train", ["make: *** bla"], train_subgraph)
+    assert plan.steps_cached == []
+
+    # all steps are cached
+    plan = _ExecutionPlan("register", ["make: `register' is up to date."], train_subgraph)
+    assert plan.steps_cached == train_subgraph
+
+    # all steps will be executed
+    plan = _ExecutionPlan(
+        "transform",
+        ["# Run MLP step: ingest\n", "# Run MLP step: split\n", "# Run MLP step: transform\n"],
+        train_subgraph,
+    )
+    assert plan.steps_cached == []
+
+    plan = _ExecutionPlan("transform", ["# Run MLP step: transform\n"], train_subgraph)
+    assert plan.steps_cached == ["ingest", "split"]
