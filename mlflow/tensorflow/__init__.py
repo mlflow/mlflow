@@ -134,7 +134,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     saved_model_kwargs=None,
-    keras_model_kwargs=None
+    keras_model_kwargs=None,
 ):
     """
     Log a Keras model.
@@ -185,6 +185,7 @@ def log_model(
     """
 
     from tensorflow.keras.models import Model as KerasModel
+
     if isinstance(model, KerasModel) and signature is not None:
         warnings.warn(
             "The pyfunc inference behavior of Keras models logged "
@@ -247,7 +248,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     saved_model_kwargs=None,
-    keras_model_kwargs=None
+    keras_model_kwargs=None,
 ):
     """
     Save a TF2 core model (inheriting tf.Module) or Keras model to a path on the local file system.
@@ -359,23 +360,17 @@ def save_model(
         saved_model_kwargs = saved_model_kwargs or {}
         model_dir_subpath = "tf2model"
         model_path = os.path.join(path, model_dir_subpath)
-        tensorflow.saved_model.save(
-            model, model_path, **saved_model_kwargs
-        )
+        tensorflow.saved_model.save(model, model_path, **saved_model_kwargs)
         pyfunc_options = {
             "saved_model_dir": model_dir_subpath,
-            "model_type": _MODEL_TYPE_TF2_MODULE
+            "model_type": _MODEL_TYPE_TF2_MODULE,
         }
         flavor_options = pyfunc_options.copy()
     else:
         raise MlflowException(f"Unknown model type: {type(model)}")
 
     # update flavor info to mlflow_model
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        code=code_dir_subpath,
-        **flavor_options
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_options)
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
@@ -384,7 +379,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        **pyfunc_options
+        **pyfunc_options,
     )
 
     # save mlflow_model to path/MLmodel
@@ -530,9 +525,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         keras_module = importlib.import_module(flavor_conf.get("keras_module", "tensorflow.keras"))
         # For backwards compatibility, we assume h5 when the save_format is absent
         save_format = flavor_conf.get("save_format", "h5")
-        model_path = os.path.join(
-            local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
-        )
+        model_path = os.path.join(local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH))
         return _load_keras_model(
             model_path=model_path,
             keras_module=keras_module,
@@ -695,6 +688,7 @@ class _TF2Wrapper:
             return pred_dict
         else:
             return pandas.DataFrame.from_dict(data=pred_dict)
+
 
 class _TF2ModuleWrapper:
     def __init__(self, model):

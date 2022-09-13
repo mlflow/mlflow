@@ -46,7 +46,7 @@ ModelDataInfo = collections.namedtuple(
         "raw_results",
         "raw_df",
         "run_id",
-    ]
+    ],
 )
 
 
@@ -65,10 +65,7 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
             f"python {exec_py_path} {model_type} {task_type} "
             f"{model_path if model_path else ''}",
             install_mlflow=False,
-            command_env={
-                "MLFLOW_TRACKING_URI": tracking_uri,
-                "MLFLOW_REPO_PATH": mlflow_repo_path
-            }
+            command_env={"MLFLOW_TRACKING_URI": tracking_uri, "MLFLOW_REPO_PATH": mlflow_repo_path},
         )
         with open(output_data_file_path, "rb") as f:
             return ModelDataInfo(*pickle.load(f)), tracking_uri
@@ -89,20 +86,20 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
             f"python {exec_py_path} {task_type} {save_as_type} "
             f"{save_path if save_path else ''}",
             install_mlflow=False,
-            command_env={
-                "MLFLOW_TRACKING_URI": tracking_uri,
-                "MLFLOW_REPO_PATH": mlflow_repo_path
-            }
+            command_env={"MLFLOW_TRACKING_URI": tracking_uri, "MLFLOW_REPO_PATH": mlflow_repo_path},
         )
         with open(output_data_file_path, "rb") as f:
             inference_df, expected_results_df, run_id = pickle.load(f)
-            return ModelDataInfo(
-                inference_df=inference_df,
-                expected_results_df=expected_results_df,
-                raw_results=None,
-                raw_df=None,
-                run_id=run_id,
-            ), tracking_uri
+            return (
+                ModelDataInfo(
+                    inference_df=inference_df,
+                    expected_results_df=expected_results_df,
+                    raw_results=None,
+                    raw_df=None,
+                    run_id=run_id,
+                ),
+                tracking_uri,
+            )
 
 
 def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket):
@@ -243,9 +240,7 @@ def test_pyfunc_serve_and_score(tmpdir):
         )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
     expected = (
-        model_data_info.expected_results_df["predictions"]
-        .map(iris_data_utils.SPECIES.index)
-        .values
+        model_data_info.expected_results_df["predictions"].map(iris_data_utils.SPECIES.index).values
     )
     np.testing.assert_array_almost_equal(actual, expected)
 
@@ -260,10 +255,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         with _use_tracking_uri(tracking_uri):
             mlflow_model = mlflow.pyfunc.load_model(model_uri)
         predictions = mlflow_model.predict({"features": model_data_info.inference_df})
-        np.testing.assert_allclose(
-            predictions["dense"],
-            model_data_info.expected_results_df
-        )
+        np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
 
     load_and_predict()
 

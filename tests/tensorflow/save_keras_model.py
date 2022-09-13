@@ -55,11 +55,7 @@ elif save_as_type == "keras":
 inference_df = np.array([[2.0, 3.0, 4.0], [11.0, 12.0, 13.0]], dtype=np.float64)
 expected_results_df = model.predict(inference_df)
 
-output_data_info = (
-    inference_df,
-    expected_results_df,
-    run_id
-)
+output_data_info = (inference_df, expected_results_df, run_id)
 
 output_data_file_path = "output_data.pkl"
 

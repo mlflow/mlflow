@@ -234,7 +234,7 @@ output_data_info = (
     saved_model.expected_results_df,
     saved_model.raw_results,
     saved_model.raw_df,
-    run_id
+    run_id,
 )
 
 with open(output_data_file_path, "wb") as f:

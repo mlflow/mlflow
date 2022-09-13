@@ -9,7 +9,6 @@ import mlflow.tensorflow
 
 
 class ToyModule(tf.Module):
-
     def __init__(self, w, b):
         self.w = w
         self.b = b
@@ -20,7 +19,6 @@ class ToyModule(tf.Module):
 
 
 class ToyModule(tf.Module):
-
     def __init__(self, w, b):
         self.w = w
         self.b = b
@@ -36,7 +34,7 @@ TF2ModuleInfo = collections.namedtuple(
         "module",
         "inference_data",
         "expected_results",
-    ]
+    ],
 )
 
 
@@ -96,14 +94,12 @@ def test_save_with_options(tmpdir, tf2_toy_module):
 
     saved_model_kwargs = {
         "signatures": [tf.TensorSpec(shape=None, dtype=tf.float32)],
-        "options": tf.saved_model.SaveOptions(save_debug_info=True)
+        "options": tf.saved_model.SaveOptions(save_debug_info=True),
     }
 
     with mock.patch("tensorflow.saved_model.save") as mock_save:
         mlflow.tensorflow.save_model(
-            tf2_toy_module.module,
-            model_path,
-            saved_model_kwargs=saved_model_kwargs
+            tf2_toy_module.module, model_path, saved_model_kwargs=saved_model_kwargs
         )
         _, _, kwargs = mock_save.mock_calls[0]
         assert kwargs == saved_model_kwargs
@@ -112,9 +108,7 @@ def test_save_with_options(tmpdir, tf2_toy_module):
 
         with mlflow.start_run():
             mlflow.tensorflow.log_model(
-                tf2_toy_module.module,
-                "model",
-                saved_model_kwargs=saved_model_kwargs
+                tf2_toy_module.module, "model", saved_model_kwargs=saved_model_kwargs
             )
 
         _, _, kwargs = mock_save.mock_calls[0]
