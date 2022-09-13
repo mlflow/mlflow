@@ -1505,80 +1505,6 @@ def search_runs(
         )
 
 
-def list_run_infos(
-    experiment_id: str,
-    run_view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-    order_by: Optional[List[str]] = None,
-) -> List[RunInfo]:
-    """
-    Return run information for runs which belong to the experiment_id.
-
-    :param experiment_id: The experiment id which to search
-    :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-    :param max_results: Maximum number of results desired.
-    :param order_by: List of order_by clauses. Currently supported values are
-           are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
-           For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
-
-    :return: A list of :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the
-        search expressions.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-        from mlflow.entities import ViewType
-
-        # Create two runs
-        with mlflow.start_run() as run1:
-            mlflow.log_param("p", 0)
-
-        with mlflow.start_run() as run2:
-            mlflow.log_param("p", 1)
-
-        # Delete the last run
-        mlflow.delete_run(run2.info.run_id)
-
-        def print_run_infos(run_infos):
-            for r in run_infos:
-                print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
-
-        print("Active runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
-
-        print("Deleted runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
-
-        print("All runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL))
-
-    .. code-block:: text
-        :caption: Output
-
-        Active runs:
-        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
-        Deleted runs:
-        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
-        All runs:
-        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
-        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
-    """
-
-    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
-    # full thing is a mess
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().list_run_infos(
-            experiment_id, run_view_type, number_to_get, order_by, next_page_token
-        )
-
-    return get_results_from_paginated_fn(
-        pagination_wrapper_func,
-        SEARCH_MAX_RESULTS_DEFAULT,
-        max_results,
-    )
-
-
 def _get_or_start_run():
     if len(_active_run_stack) > 0:
         return _active_run_stack[-1]
@@ -1826,7 +1752,7 @@ def autolog(
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
     for module in list(
-        set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["tensorflow", "keras", "pyspark", "pyspark.ml"])
+        set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"tensorflow", "keras", "pyspark", "pyspark.ml"}
     ):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 

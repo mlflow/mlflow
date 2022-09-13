@@ -2,6 +2,7 @@ import logging
 import os
 
 import json
+from pathlib import Path
 from unittest import mock
 import numpy as np
 import pandas as pd
@@ -11,7 +12,6 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 import pytest
 from sklearn import datasets
-import shutil
 from collections import namedtuple
 import yaml
 from packaging.version import Version
@@ -21,6 +21,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -211,7 +212,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
-    assert os.path.exists(sparkm.DFS_TMP)
+    assert os.path.exists(MLFLOW_DFS_TMP.get())
 
 
 def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
@@ -391,41 +392,33 @@ def test_sparkml_estimator_model_log(
 def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
-    try:
-        register_model_patch = mock.patch("mlflow.register_model")
-        with mlflow.start_run(), register_model_patch:
-            sparkm.log_model(
-                artifact_path=artifact_path,
-                spark_model=spark_model_iris.model,
-                dfs_tmpdir=dfs_tmp_dir,
-                registered_model_name="AdsModel1",
-            )
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-            mlflow.register_model.assert_called_once_with(
-                model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-            )
-    finally:
-        x = dfs_tmp_dir or sparkm.DFS_TMP
-        shutil.rmtree(x)
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmp_dir,
+            registered_model_name="AdsModel1",
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
-    try:
-        register_model_patch = mock.patch("mlflow.register_model")
-        with mlflow.start_run(), register_model_patch:
-            sparkm.log_model(
-                artifact_path=artifact_path,
-                spark_model=spark_model_iris.model,
-                dfs_tmpdir=dfs_tmp_dir,
-            )
-            mlflow.register_model.assert_not_called()
-    finally:
-        x = dfs_tmp_dir or sparkm.DFS_TMP
-        shutil.rmtree(x)
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmp_dir,
+        )
+        mlflow.register_model.assert_not_called()
 
 
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
@@ -451,7 +444,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -542,7 +535,7 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -567,7 +560,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -640,12 +633,20 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
+    (
+        "artifact_uri",
+        "db_runtime_version",
+        "mlflowdbfs_disabled",
+        "mlflowdbfs_available",
+        "dbutils_available",
+        "expectedURI",
+    ),
     [
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "12.0",
             "",
+            True,
             True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
         ),
@@ -654,19 +655,30 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "12.0",
             "false",
             True,
+            True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "false",
+            True,
+            False,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "12.0",
             "",
             False,
+            True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "",
             "",
+            True,
             True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
@@ -675,10 +687,11 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "12.0",
             "true",
             True,
+            True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
-        ("dbfs:/root/a/b", "12.0", "", True, "dbfs:/root/a/b/model/sparkml/sparkml"),
-        ("s3://mybucket/a/b", "12.0", "", True, "s3://mybucket/a/b/model/sparkml/sparkml"),
+        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml/sparkml"),
+        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml/sparkml"),
     ],
 )
 def test_model_logged_via_mlflowdbfs_when_appropriate(
@@ -688,6 +701,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     db_runtime_version,
     mlflowdbfs_disabled,
     mlflowdbfs_available,
+    dbutils_available,
     expectedURI,
 ):
     def mock_spark_session_load(path):
@@ -697,6 +711,22 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mock_read_spark_session = mock.Mock()
     mock_read_spark_session.load = mock_spark_session_load
 
+    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+
+    def mock_get_dbutils():
+        import inspect
+
+        # _get_dbutils is called during run creation and model logging; to avoid breaking run
+        # creation, we only mock the output if _get_dbutils is called during spark model logging
+        caller_fn_name = inspect.stack()[1].function
+        if caller_fn_name == "_should_use_mlflowdbfs":
+            if dbutils_available:
+                return mock.Mock()
+            else:
+                raise Exception("dbutils not available")
+        else:
+            return og_getdbutils()
+
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
@@ -705,6 +735,9 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         return_value=mlflowdbfs_available,
     ), mock.patch(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils",
+        mock_get_dbutils,
     ), mock.patch.object(
         spark_model_iris.model, "save"
     ) as mock_save:
@@ -731,6 +764,19 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     mock_spark_session = mock.Mock()
     mock_spark_session.read = mock_read_spark_session
 
+    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+
+    def mock_get_dbutils():
+        import inspect
+
+        # _get_dbutils is called during run creation and model logging; to avoid breaking run
+        # creation, we only mock the output if _get_dbutils is called during spark model logging
+        caller_fn_name = inspect.stack()[1].function
+        if caller_fn_name == "_should_use_mlflowdbfs":
+            return mock.Mock()
+        else:
+            return og_getdbutils()
+
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
@@ -742,6 +788,9 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
         side_effect=Exception("MlflowDbfsClient operation failed!"),
     ), mock.patch(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils",
+        mock_get_dbutils,
     ), mock.patch.object(
         spark_model_iris.model, "save"
     ) as mock_save:
@@ -784,3 +833,11 @@ def test_log_model_with_code_paths(spark_model_iris):
         _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
         sparkm.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(spark_model_iris, model_path):
+    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

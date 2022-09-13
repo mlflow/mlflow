@@ -436,10 +436,8 @@ in the Databricks docs (`Azure Databricks <https://docs.microsoft.com/en-us/azur
 
 .. _kubernetes_execution:
 
-Run an MLflow Project on Kubernetes (experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. important:: As an experimental feature, the API is subject to change.
+Run an MLflow Project on Kubernetes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
 on Kubernetes. The following sections provide an overview of the feature, including a simple

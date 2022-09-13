@@ -275,7 +275,8 @@ Delete Experiment
 
 Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
 If the experiment uses FileStore, artifacts associated with experiment are also deleted.
-
+This deletion is not a permanent deletion of the experiment, but instead a soft-delete from the database.
+Experiment names can not be reused, unless the deleted experiment is permanently deleted by a database admin.
 
 
 
@@ -1898,11 +1899,6 @@ ModelVersion
 ------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------------+------------------------------+-------------------------+
 |    Field Name    |             Type             |       Description       |
 +==================+==============================+=========================+
@@ -1915,11 +1911,6 @@ ModelVersion
 
 ModelVersionDetailed
 --------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
@@ -1971,11 +1962,6 @@ RegisteredModel
 ---------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------+------------+----------------------------+
 | Field Name |    Type    |        Description         |
 +============+============+============================+
@@ -1986,11 +1972,6 @@ RegisteredModel
 
 RegisteredModelDetailed
 -----------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
@@ -2109,9 +2090,6 @@ Tag for a run.
 ModelVersionStatus
 ------------------
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 +----------------------+---------------------------------------------------------------------------------------------+
 |         Name         |                                         Description                                         |

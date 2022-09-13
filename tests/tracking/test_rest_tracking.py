@@ -111,7 +111,7 @@ def test_create_get_search_experiment(mlflow_client):
     all_exps_second_page = mlflow_client.search_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )
-    second_page_names = set([e.name for e in all_exps_second_page])
+    second_page_names = {e.name for e in all_exps_second_page}
     assert len(first_page_names) == 1
     assert len(second_page_names) == 1
     assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
@@ -673,10 +673,10 @@ def test_artifacts(mlflow_client, tmp_path):
     mlflow_client.log_artifacts(run_id, src_dir, "dir")
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
-    assert set([a.path for a in root_artifacts_list]) == {"my.file", "dir"}
+    assert {a.path for a in root_artifacts_list} == {"my.file", "dir"}
 
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
-    assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
+    assert {a.path for a in dir_artifacts_list} == {"dir/my.file"}
 
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri

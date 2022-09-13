@@ -63,7 +63,6 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     batch_metrics_logger,
     get_autologging_config,
-    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -146,6 +145,9 @@ def log_model(
     ``{"predictions": [1, 2, 3]}``), so that the resulting output column is a column of scalars
     rather than lists of length one. All other model output types are included as-is in the output
     DataFrame.
+
+    Note that this method should not be used to log a ``tf.keras`` model. Use
+    :py:func:`mlflow.keras.log_model` instead.
 
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
@@ -321,7 +323,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.tensorflow",
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -671,7 +674,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     log_input_examples=False,
-    log_model_signatures=False,
+    log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -748,10 +751,10 @@ def autolog(
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with tf/keras model artifacts during training. If ``False``,
-                                 signatures are not logged. ``False`` by default because
-                                 logging TensorFlow models with signatures changes their pyfunc
-                                 inference behavior when Pandas DataFrames are passed to
-                                 ``predict()``: when a signature is present, an ``np.ndarray``
+                                 signatures are not logged. Note that logging TensorFlow models
+                                 with signatures changes their pyfunc inference behavior when
+                                 Pandas DataFrames are passed to ``predict()``.
+                                 When a signature is present, an ``np.ndarray``
                                  (for single-output models) or a mapping from
                                  ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
                                  when a signature is not present, a Pandas DataFrame is returned.
@@ -777,27 +780,6 @@ def autolog(
         return
 
     input_example_slice = None
-
-    def _should_log_model_signatures():
-        return (
-            log_model_signatures
-            and
-            # `log_model_signatures` is `False` by default for
-            # `mlflow.tensorflow.autolog()` in order to to preserve
-            # backwards-compatible inference behavior with older versions of MLflow
-            # that did not support signature autologging for TensorFlow (
-            # unfortunately, adding a signature to a TensorFlow model has the
-            # unintended consequence of changing the output type produced by
-            # inference with pyfunc `predict()` for Pandas DataFrame inputs).
-            # However, `log_model_signatures` is `True` by default for
-            # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
-            # when TensorFlow autologging is enabled via `mlflow.autolog()`,
-            # we only enable signature logging if `mlflow.tensorflow.autolog()` is
-            # called explicitly with `log_model_signatures=True`
-            not get_autologging_config(
-                FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
-            )
-        )
 
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
@@ -897,7 +879,7 @@ def autolog(
                             _get_input_example_slice,
                             lambda in_ex: infer_signature(input_example_slice, predicted_values[0]),
                             log_input_examples,
-                            _should_log_model_signatures(),
+                            log_model_signatures,
                             _logger,
                         )
 
@@ -1022,7 +1004,7 @@ def autolog(
             _get_tf_keras_input_example_slice,
             _infer_model_signature,
             log_input_examples,
-            _should_log_model_signatures(),
+            log_model_signatures,
             _logger,
         )
 

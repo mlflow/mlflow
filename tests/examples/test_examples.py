@@ -157,6 +157,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("evaluation", ["python", "evaluate_on_regressor.py"]),
         ("evaluation", ["python", "evaluate_with_custom_metrics.py"]),
         ("evaluation", ["python", "evaluate_with_custom_metrics_comprehensive.py"]),
+        ("evaluation", ["python", "evaluate_with_model_validation.py"]),
         ("diviner", ["python", "train.py"]),
         ("spark_udf", ["python", "spark_udf_datetime.py"]),
         ("pyfunc", ["python", "train.py"]),

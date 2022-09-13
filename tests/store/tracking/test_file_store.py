@@ -455,13 +455,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # delete it
         fs.delete_experiment(exp_id)
-        self.assertTrue(
-            exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-        )
-        self.assertTrue(
-            exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
-        )
-        self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL)))
+        assert exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
         # restore it
@@ -472,13 +468,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
-        self.assertTrue(
-            exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-        )
-        self.assertTrue(
-            exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
-        )
-        self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL)))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+        assert exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
 
     def test_rename_experiment(self):
@@ -527,10 +519,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         _, run_dir = fs._find_run_root(run_id)
         # Should not throw.
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
+        # Verify that run deletion is idempotent by deleting twice
+        fs.delete_run(run_id)
         fs.delete_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "deleted"
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         assert "deleted_time" in meta and meta["deleted_time"] is not None
+        # Verify that run restoration is idempotent by restoring twice
+        fs.restore_run(run_id)
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)

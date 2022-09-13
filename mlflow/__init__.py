@@ -46,6 +46,8 @@ import mlflow.models
 import mlflow.artifacts
 import mlflow.pipelines
 import mlflow.client
+import mlflow.exceptions
+
 
 # model flavors
 _model_flavors_supported = []
@@ -165,6 +167,7 @@ autolog = mlflow.tracking.fluent.autolog
 evaluate = mlflow.models.evaluate
 last_active_run = mlflow.tracking.fluent.last_active_run
 MlflowClient = mlflow.client.MlflowClient
+MlflowException = mlflow.exceptions.MlflowException
 
 run = projects.run
 
@@ -210,4 +213,5 @@ __all__ = [
     "evaluate",
     "last_active_run",
     "MlflowClient",
+    "MlflowException",
 ] + _model_flavors_supported

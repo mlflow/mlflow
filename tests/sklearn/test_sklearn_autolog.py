@@ -154,7 +154,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    "max_tuning_runs, total_runs, output_statement",
+    ("max_tuning_runs", "total_runs", "output_statement"),
     [
         (0, 4, "Logging no runs, all will be omitted"),
         (0, 1, "Logging no runs, one run will be omitted"),
@@ -402,7 +402,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
 
 
 @pytest.mark.parametrize(
-    "long_params, messages",
+    ("long_params", "messages"),
     [
         # key exceeds the limit
         ({("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b"}, ["Truncated the key"]),
@@ -741,7 +741,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
 
 @pytest.mark.parametrize(
-    "cv_class, search_space",
+    ("cv_class", "search_space"),
     [
         (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
         (sklearn.model_selection.RandomizedSearchCV, {"C": uniform(loc=0, scale=4)}),
