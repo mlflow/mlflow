@@ -548,34 +548,34 @@ class TrainStep(BaseStep):
                         "'enabled' key whose value is either true or false.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-
-                if "sample_fraction" in step_config["tuning"]:
-                    sample_fraction = float(step_config["tuning"]["sample_fraction"])
-                    if sample_fraction > 0 and sample_fraction <= 1.0:
-                        step_config["sample_fraction"] = sample_fraction
+                if step_config["tuning_enabled"]:
+                    if "sample_fraction" in step_config["tuning"]:
+                        sample_fraction = float(step_config["tuning"]["sample_fraction"])
+                        if sample_fraction > 0 and sample_fraction <= 1.0:
+                            step_config["sample_fraction"] = sample_fraction
+                        else:
+                            raise MlflowException(
+                                "The 'sample_fraction' configuration in the train step must be "
+                                "between 0 and 1.",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            )
                     else:
+                        step_config["sample_fraction"] = 1.0
+
+                    if "algorithm" not in step_config["tuning"]:
+                        step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
+                    if "max_trials" not in step_config["tuning"]:
                         raise MlflowException(
-                            "The 'sample_fraction' configuration in the train step must be "
-                            "between 0 and 1.",
+                            "The 'max_trials' configuration in the train step must be provided.",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
-                else:
-                    step_config["sample_fraction"] = 1.0
 
-                if "algorithm" not in step_config["tuning"]:
-                    step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
-
-                if "max_trials" not in step_config["tuning"]:
-                    raise MlflowException(
-                        "The 'max_trials' configuration in the train step must be provided.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                if "parameters" not in step_config["tuning"]:
-                    raise MlflowException(
-                        "The 'parameters' configuration in the train step must be provided.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                    if "parameters" not in step_config["tuning"]:
+                        raise MlflowException(
+                            "The 'parameters' configuration in the train step must be provided.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
 
             else:
                 step_config["tuning_enabled"] = False
