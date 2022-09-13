@@ -75,6 +75,37 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
             return ModelDataInfo(*pickle.load(f)), tracking_uri
 
 
+def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
+    conda_env = get_or_create_conda_env("tests/tensorflow/mlflow-128-tf-23-env.yaml")
+    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    tracking_uri = "file:" + os.path.abspath(os.path.join(tmpdir, "mlruns"))
+    exec_py_path = os.path.abspath("tests/tensorflow/save_keras_model.py")
+    mlflow_repo_path = os.getcwd()
+
+    with chdir(tmpdir):
+        # change current working directory to be a temporary directory,
+        # to prevent importing current repo mlflow module.
+        _execute_in_conda_env(
+            conda_env,
+            f"python {exec_py_path} {task_type} {save_as_type} "
+            f"{save_path if save_path else ''}",
+            install_mlflow=False,
+            command_env={
+                "MLFLOW_TRACKING_URI": tracking_uri,
+                "MLFLOW_REPO_PATH": mlflow_repo_path
+            }
+        )
+        with open(output_data_file_path, "rb") as f:
+            inference_df, expected_results_df, run_id = pickle.load(f)
+            return ModelDataInfo(
+                inference_df=inference_df,
+                expected_results_df=expected_results_df,
+                raw_results=None,
+                raw_df=None,
+                run_id=run_id,
+            ), tracking_uri
+
+
 def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket):
     model_data_info, _ = save_or_log_tf_model_by_mlflow128(
         str(tmpdir), "iris", "save_model", model_path
@@ -220,35 +251,21 @@ def test_pyfunc_serve_and_score(tmpdir):
     np.testing.assert_array_almost_equal(actual, expected)
 
 
-@pytest.mark.skip
 def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
-    tf.random.set_seed(1337)
-
-    mlflow_model_path = os.path.join(str(tmpdir), "mlflow_model")
-    tf_model_path = os.path.join(str(tmpdir), "tf_model")
-
-    # Build TensorFlow model.
-    inputs = tf.keras.layers.Input(shape=1, name="feature1", dtype=tf.float32)
-    outputs = tf.keras.layers.Dense(1)(inputs)
-    model = tf.keras.Model(inputs=inputs, outputs=[outputs])
-
-    # Save model in TensorFlow SavedModel format.
-    tf.saved_model.save(model, tf_model_path)
-
-    # Save TensorFlow SavedModel as MLflow model.
-    save_tf_estimator_model(
-        tf_saved_model_dir=tf_model_path,
-        tf_meta_graph_tags=["serve"],
-        tf_signature_def_key="serving_default",
-        path=mlflow_model_path,
+    model_data_info, tracking_uri = save_or_log_keras_model_by_mlflow128(
+        str(tmpdir), task_type="log_model", save_as_type="tf1-estimator"
     )
 
     def load_and_predict():
-        model_uri = mlflow_model_path
-        mlflow_model = mlflow.pyfunc.load_model(model_uri)
-        feed_dict = {"feature1": tf.constant([[2.0]])}
+        model_uri = f"runs:/{model_data_info.run_id}/model"
+        with _use_tracking_uri(tracking_uri):
+            mlflow_model = mlflow.pyfunc.load_model(model_uri)
+        feed_dict = model_data_info.inference_df
         predictions = mlflow_model.predict(feed_dict)
-        np.testing.assert_allclose(predictions["dense"], model.predict(feed_dict).squeeze())
+        np.testing.assert_allclose(
+            predictions.dense.to_list(),
+            model_data_info.expected_results_df
+        )
 
     load_and_predict()
 
@@ -264,14 +281,3 @@ def test_saved_model_support_array_type_input():
     result = model.predict(infer_df)
 
     np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])
-
-
-def test_virtualenv_subfield_points_to_correct_path(tmpdir, model_path):
-    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
-        str(tmpdir), "iris", "save_model", model_path
-    )
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    breakpoint()
-    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
-    assert python_env_path.exists()
-    assert python_env_path.is_file()

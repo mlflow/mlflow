@@ -140,7 +140,7 @@ def log_model(
     """
     Log a Keras model.
 
-    :param model: The TF core model (inheriting tf.Module) or Keras model to be saved.
+    :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
@@ -251,7 +251,7 @@ def save_model(
     keras_model_kwargs=None
 ):
     """
-    Save a TF core model (inheriting tf.Module) or Keras model to a path on the local file system.
+    Save a TF2 core model (inheriting tf.Module) or Keras model to a path on the local file system.
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
