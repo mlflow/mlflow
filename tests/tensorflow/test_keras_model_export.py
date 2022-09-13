@@ -547,7 +547,7 @@ def test_save_model_with_tf_save_format(model_path):
     mlflow.tensorflow.save_model(keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"})
     _, args, kwargs = keras_model.save.mock_calls[0]
     # Ensure that save_format propagated through
-    assert kwargs["keras_model_kwargs"] == {"save_format": "tf"}
+    assert kwargs["save_format"] == "tf"
     # Ensure that the saved model does not have h5 extension
     assert not args[0].endswith(".h5")
 
