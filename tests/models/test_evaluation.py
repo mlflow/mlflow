@@ -834,7 +834,6 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
-        evaluator1_config = {"config": True}
         classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
         with expected_error:
             evaluate(
@@ -844,7 +843,6 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 targets=iris_dataset._constructor_args["targets"],
                 dataset_name=iris_dataset.name,
                 evaluators="test_evaluator1",
-                evaluator_config=evaluator1_config,
                 custom_metrics=None,
                 baseline_model=baseline_model_uri,
             )
@@ -998,6 +996,37 @@ def test_normalize_evaluators_and_evaluator_config_args():
         match="evaluator_config must be a dict contains mapping from evaluator name to",
     ):
         _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+
+
+def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+    ):
+        with pytest.raises(MlflowException, match="The model argument must be a string URI"):
+            evaluate(
+                model,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators=None,
+                baseline_model=multiclass_logistic_regressor_model_uri,
+                env_manager="virtualenv",
+            )
+
+        with pytest.raises(MlflowException, match="Invalid value for `env_manager`"):
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators=None,
+                baseline_model=multiclass_logistic_regressor_model_uri,
+                env_manager="manager",
+            )
 
 
 def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_uri, iris_dataset):
