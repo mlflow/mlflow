@@ -200,7 +200,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
-    tracking_uri=None,  # Inserted at the bottom for backwards compatibility
+    tracking_uri=None,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
