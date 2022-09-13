@@ -176,6 +176,10 @@ def generate_dockerfile(
     directory, along with the model (if specified). This Dockerfile defines an image that is
     equivalent to the one produced by ``mlflow models build-docker``.
     """
+    _logger.info("Generating Dockerfile", extra={
+        "model_uri": model_uri,
+        "output directory": output_directory
+    })
     env_manager = env_manager or _EnvManager.CONDA
     backend = _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
@@ -186,6 +190,7 @@ def generate_dockerfile(
             install_mlflow=install_mlflow,
             enable_mlserver=enable_mlserver,
         )
+        _logger.info("Generated Dockerfile in directory %s", output_directory)
     else:
         _logger.error(
             "Cannot build docker image for selected backend",
