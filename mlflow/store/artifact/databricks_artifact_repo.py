@@ -266,7 +266,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 try:
                     patch_adls_file_upload(credentials.signed_uri, chunk, offset, headers=headers)
-                    offset += sys.getsizeof(chunk)
+                    offset += len(chunk)
                 except requests.HTTPError as e:
                     if e.response.status_code in [401, 403]:
                         _logger.info(
@@ -359,6 +359,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         if cloud_credential_info.type not in [
             ArtifactCredentialType.AZURE_SAS_URI,
+            ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             ArtifactCredentialType.AWS_PRESIGNED_URL,
             ArtifactCredentialType.GCP_SIGNED_URL,
         ]:
