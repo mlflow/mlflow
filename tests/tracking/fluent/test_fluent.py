@@ -912,7 +912,9 @@ def test_search_runs_no_arguments(search_runs_output_format):
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[])
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
+    )
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format)
         mlflow.tracking.fluent.get_results_from_paginated_fn.assert_called_once()
@@ -933,7 +935,9 @@ def test_search_runs_all_experiments(search_runs_output_format):
     experiment_list_patch = mock.patch(
         "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[])
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
+    )
     with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
         mlflow.tracking.fluent.search_experiments.assert_called_once()
@@ -949,7 +953,9 @@ def test_search_runs_by_experiment_name():
     get_experiment_patch = mock.patch(
         "mlflow.tracking.fluent.get_experiment_by_name", return_value=experiment
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs)
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs
+    )
 
     with get_experiment_patch, get_paginated_runs_patch:
         result = search_runs(experiment_names=[name])
