@@ -118,6 +118,12 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
     return train_step
 
 
+def estimator_fn(estimator_params=None):
+    from sklearn.linear_model import SGDRegressor
+
+    return SGDRegressor(random_state=42, **estimator_params)
+
+
 @pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tuning):
     with mock.patch.dict(
@@ -208,7 +214,27 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
     assert tags["mlflow.pipeline.profile.name"] == "test_profile"
 
 
-def estimator_fn(estimator_params=None):
-    from sklearn.linear_model import SGDRegressor
+def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._run(str(train_step_output_dir))
+    assert (train_step_output_dir / "best_parameters.yaml").exists()
 
-    return SGDRegressor(random_state=42, **estimator_params)
+
+def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._run(str(train_step_output_dir))
+
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
+
+    run = MlflowClient().get_run(run_id)
+    child_runs = train_step._get_tuning_df(run)
+    assert len(child_runs) == 3

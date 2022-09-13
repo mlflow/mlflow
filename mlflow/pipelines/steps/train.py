@@ -229,7 +229,7 @@ class TrainStep(BaseStep):
         tuning_df = None
         if best_estimator_params:
             try:
-                tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
+                tuning_df = self._get_tuning_df(run, params=best_estimator_params.keys())
             except Exception as e:
                 _logger.warning("Failed to build tuning table due to unexpected failure: %s", e)
 
@@ -349,16 +349,19 @@ class TrainStep(BaseStep):
         )
         return leaderboard_df
 
-    def _get_tuning_df(self, run, params):
+    def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
         tuning_runs = mlflow.search_runs(
             [exp_id],
             filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
         )
-        params = [f"params.{param}" for param in params]
-        tuning_runs = tuning_runs.filter(
-            [f"metrics.{self.primary_metric}_on_data_validation", *params]
-        )
+        if params:
+            params = [f"params.{param}" for param in params]
+            tuning_runs = tuning_runs.filter(
+                [f"metrics.{self.primary_metric}_on_data_validation", *params]
+            )
+        else:
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}_on_data_validation"])
         return tuning_runs
 
     def _build_step_card(
