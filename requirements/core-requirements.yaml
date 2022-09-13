@@ -64,7 +64,7 @@ pandas-profiling:
   max_major_version: 3
 
 ipython:
-  pip_release: gunicorn
+  pip_release: ipython
   max_major_version: 8
 
 markdown:
