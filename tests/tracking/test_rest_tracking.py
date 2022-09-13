@@ -11,7 +11,6 @@ import logging
 import time
 import tempfile
 import urllib.parse
-from unittest import mock
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
