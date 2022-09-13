@@ -126,8 +126,6 @@ def log_model(
     model,
     artifact_path,
     custom_objects=None,
-    tf_module_signatures=None,
-    tf_module_options=None,
     conda_env=None,
     code_paths=None,
     signature: ModelSignature = None,
@@ -136,20 +134,19 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    **kwargs,
+    saved_model_kwargs=None,
+    keras_model_kwargs=None
 ):
     """
     Log a Keras model.
 
-    :param model: The Keras model to be saved.
+    :param model: The TF core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param tf_module_signatures: the value passed to `tensorflow.saved_model.save` `signature` argument
-    :param tf_module_options: the value passed to `tensorflow.saved_model.save` `options` argument
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -182,7 +179,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param kwargs: kwargs to pass to ``model.save`` method.
+    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
+    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -208,15 +206,14 @@ def log_model(
         conda_env=conda_env,
         code_paths=code_paths,
         custom_objects=custom_objects,
-        tf_module_signatures=tf_module_signatures,
-        tf_module_options=tf_module_options,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs,
+        saved_model_kwargs=saved_model_kwargs,
+        keras_model_kwargs=keras_model_kwargs,
     )
 
 
@@ -250,10 +247,11 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    save_options=None,
+    saved_model_kwargs=None,
+    keras_model_kwargs=None
 ):
     """
-    Save a model to a path on the local file system.
+    Save a TF core model (inheriting tf.Module) or Keras model to a path on the local file system.
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -288,12 +286,12 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param save_options: a dict of kwargs to pass to ``model.save`` method.
+    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
+    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
     """
     from tensorflow.keras.models import Model as KerasModel
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
-    save_options = save_options or {}
 
     # check if path exists
     path = os.path.abspath(path)
@@ -309,6 +307,8 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     if isinstance(model, KerasModel):
+        keras_model_kwargs = keras_model_kwargs or {}
+
         data_subpath = "data"
         # construct new data folder in existing path
         data_path = os.path.join(path, data_subpath)
@@ -325,7 +325,7 @@ def save_model(
             f.write(keras_module.__name__)
 
         # Use the SavedModel format if `save_format` is unspecified
-        save_format = save_options.get("save_format", "tf")
+        save_format = keras_model_kwargs.get("save_format", "tf")
 
         # save keras save_format to path/data/save_format.txt
         with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
@@ -341,11 +341,11 @@ def save_model(
             # The Databricks Filesystem uses a FUSE implementation that does not support
             # random writes. It causes an error.
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
-                model.save(f.name, **save_options)
+                model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
                 shutil.copyfile(src=f.name, dst=model_path)
         else:
-            model.save(model_path, **save_options)
+            model.save(model_path, **keras_model_kwargs)
 
         pyfunc_options = {
             "model_type": _MODEL_TYPE_KERAS,
@@ -357,10 +357,11 @@ def save_model(
             "save_format": save_format,
         }
     elif isinstance(model, tensorflow.Module):
+        saved_model_kwargs = saved_model_kwargs or {}
         model_dir_subpath = "tf2model"
         model_path = os.path.join(path, model_dir_subpath)
         tensorflow.saved_model.save(
-            model, model_path, **save_options
+            model, model_path, **saved_model_kwargs
         )
         pyfunc_options = {
             "saved_model_dir": model_dir_subpath,
@@ -815,7 +816,7 @@ def autolog(
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
-    Note that autologging for ``tf.keras`` and ``keras`` are also
+    Note that autologging for ``tf.keras`` and ``keras`` is also
     handled by :py:func:`mlflow.tensorflow.autolog`.
     As an example, try running the
     `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.

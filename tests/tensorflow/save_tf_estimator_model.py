@@ -39,7 +39,7 @@ SavedModelInfo = collections.namedtuple(
 
 def gen_saved_tf_iris_model(tmpdir):
     # Following code from
-    # https://github.com/tensorflow/models/blob/master/samples/core/get_started/premade_estimator.py
+    # https://github.com/tensorflow/models/blob/v1.13.0/samples/core/get_started/premade_estimator.py
     train_x, train_y = iris_data_utils.load_data()[0]
 
     # Feature columns describe how to use the input.
@@ -76,11 +76,7 @@ def gen_saved_tf_iris_model(tmpdir):
         lambda: iris_data_utils.eval_input_fn(predict_x, None, batch_size)
     )
 
-    # Building a dictionary of the predictions by the estimator.
-    if sys.version_info < (3, 0):
-        estimator_preds_dict = estimator_preds.next()
-    else:
-        estimator_preds_dict = next(estimator_preds)
+    estimator_preds_dict = next(estimator_preds)
     for row in estimator_preds:
         for key in row.keys():
             estimator_preds_dict[key] = np.vstack((estimator_preds_dict[key], row[key]))
