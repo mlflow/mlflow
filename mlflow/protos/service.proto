@@ -625,6 +625,9 @@ message RunInfo {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
+  // The name of the run.
+  optional string run_name = 3;
+
   // The experiment ID.
   optional string experiment_id = 2;
 
@@ -835,6 +838,9 @@ message CreateRun {
   // MLflow release. Use 'mlflow.user' tag instead.
   optional string user_id = 2;
 
+  // Name of the run.
+  optional string run_name = 3;
+
   // Unix timestamp in milliseconds of when the run started.
   optional int64 start_time = 7;
 
@@ -862,6 +868,9 @@ message UpdateRun {
 
   //Unix timestamp in milliseconds of when the run ended.
   optional int64 end_time = 3;
+
+  // Updated name of the run.
+  optional string run_name = 5;
 
   message Response {
     // Updated metadata of the run.
