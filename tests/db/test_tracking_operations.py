@@ -2,7 +2,6 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import ViewType
 
 
 pytestmark = pytest.mark.notrackingurimock

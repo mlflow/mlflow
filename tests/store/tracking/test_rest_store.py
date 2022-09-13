@@ -35,13 +35,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     LogModel,
 )
-from mlflow.protos.databricks_pb2 import (
-    RESOURCE_DOES_NOT_EXIST,
-    ENDPOINT_NOT_FOUND,
-    REQUEST_LIMIT_EXCEEDED,
-    INTERNAL_ERROR,
-    ErrorCode,
-)
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds

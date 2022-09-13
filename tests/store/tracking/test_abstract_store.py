@@ -3,7 +3,6 @@ from unittest import mock
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.entities import ViewType
 
 
 class AbstractStoreTestImpl(AbstractStore):

@@ -89,25 +89,25 @@ def test_create_get_search_experiment(mlflow_client):
     assert exp.tags["key2"] == "val2"
 
     experiments = mlflow_client.search_experiments()
-    assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
+    assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert set([e.name for e in mlflow_client.search_experiments()]) == {"Default"}
-    assert set(
-        [e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)]
-    ) == {"Default"}
-    assert set(
-        [e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)]
-    ) == {"My Experiment"}
-    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)]) == {
+    assert {e.name for e in mlflow_client.search_experiments()} == {"Default"}
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)} == {
+        "Default"
+    }
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)} == {
+        "My Experiment"
+    }
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)} == {
         "My Experiment",
         "Default",
     }
     active_exps_paginated = mlflow_client.search_experiments(max_results=1)
-    assert set([e.name for e in active_exps_paginated]) == {"Default"}
+    assert {e.name for e in active_exps_paginated} == {"Default"}
     assert active_exps_paginated.token is None
 
     all_exps_paginated = mlflow_client.search_experiments(max_results=1, view_type=ViewType.ALL)
-    first_page_names = set([e.name for e in all_exps_paginated])
+    first_page_names = {e.name for e in all_exps_paginated}
     all_exps_second_page = mlflow_client.search_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )

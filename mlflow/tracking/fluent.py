@@ -12,7 +12,7 @@ from copy import deepcopy
 from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (

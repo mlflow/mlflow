@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 import math
-import random
 import pytest
 import sqlalchemy
 import time
@@ -203,7 +202,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.search_experiments()]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         self.store.delete_experiment(0)
 
@@ -226,7 +225,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
         all_experiments = [e.name for e in self.store.search_experiments(view_type=ViewType.ALL)]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
