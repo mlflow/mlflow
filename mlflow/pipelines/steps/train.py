@@ -8,8 +8,6 @@ import yaml
 
 import cloudpickle
 
-import numpy as np
-
 import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
@@ -752,6 +750,8 @@ class TrainStep(BaseStep):
         mlflow.log_artifact(best_parameters_path, artifact_path="best_parameters.yaml")
 
     def _process_and_safe_dump(self, data, file, **kwargs):
+        import numpy as np
+
         processed_data = {}
         for key, value in data.items():
             if isinstance(value, np.floating):
