@@ -65,7 +65,6 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     batch_metrics_logger,
     get_autologging_config,
-    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
@@ -821,7 +820,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     log_input_examples=False,
-    log_model_signatures=False,
+    log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -898,10 +897,10 @@ def autolog(
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with tf/keras model artifacts during training. If ``False``,
-                                 signatures are not logged. ``False`` by default because
-                                 logging TensorFlow models with signatures changes their pyfunc
-                                 inference behavior when Pandas DataFrames are passed to
-                                 ``predict()``: when a signature is present, an ``np.ndarray``
+                                 signatures are not logged. Note that logging TensorFlow models
+                                 with signatures changes their pyfunc inference behavior when
+                                 Pandas DataFrames are passed to ``predict()``.
+                                 When a signature is present, an ``np.ndarray``
                                  (for single-output models) or a mapping from
                                  ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
                                  when a signature is not present, a Pandas DataFrame is returned.
@@ -1031,7 +1030,7 @@ def autolog(
             _get_tf_keras_input_example_slice,
             _infer_model_signature,
             log_input_examples,
-            _should_log_model_signatures(),
+            log_model_signatures,
             _logger,
         )
 
