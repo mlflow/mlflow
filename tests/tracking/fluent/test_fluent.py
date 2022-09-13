@@ -37,13 +37,12 @@ from mlflow.tracking.fluent import (
     _RUN_ID_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
-    _paginate,
     search_runs,
     set_experiment,
     start_run,
     get_run,
 )
-from mlflow.utils import mlflow_tags
+from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
 from mlflow.utils.file_utils import TempDir
 
 from tests.tracking.integration_test_utils import _init_server
@@ -889,7 +888,7 @@ def get_search_runs_timestamp(output_format):
 
 def test_search_runs_attributes(search_runs_output_format):
     runs, data = create_test_runs_and_expected_data(search_runs_output_format)
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    with mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs):
         pdf = search_runs(output_format=search_runs_output_format)
         validate_search_runs(pdf, data, search_runs_output_format)
 
@@ -900,7 +899,7 @@ def test_search_runs_attributes(search_runs_output_format):
 )
 def test_search_runs_data():
     runs, data = create_test_runs_and_expected_data("pandas")
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    with mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs):
         pdf = search_runs()
         validate_search_runs(pdf, data, "pandas")
 
@@ -913,10 +912,10 @@ def test_search_runs_no_arguments(search_runs_output_format):
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format)
-        mlflow.tracking.fluent._paginate.assert_called_once()
+        mlflow.tracking.fluent.get_results_from_paginated_fn.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
 
@@ -934,7 +933,7 @@ def test_search_runs_all_experiments(search_runs_output_format):
     experiment_list_patch = mock.patch(
         "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[])
     with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
         mlflow.tracking.fluent.search_experiments.assert_called_once()
@@ -950,7 +949,7 @@ def test_search_runs_by_experiment_name():
     get_experiment_patch = mock.patch(
         "mlflow.tracking.fluent.get_experiment_by_name", return_value=experiment
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=runs)
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs)
 
     with get_experiment_patch, get_paginated_runs_patch:
         result = search_runs(experiment_names=[name])
@@ -983,7 +982,7 @@ def test_paginate_lt_maxresults_onepage():
     max_per_page = 10
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 5
 
@@ -999,7 +998,7 @@ def test_paginate_lt_maxresults_multipage():
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, tokenized_runs, no_token_runs])
     TOTAL_RUNS = 21
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     assert len(paginated_runs) == TOTAL_RUNS
 
 
@@ -1014,7 +1013,7 @@ def test_paginate_lt_maxresults_onepage_nonetoken():
     max_per_page = 10
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 5
 
@@ -1034,7 +1033,7 @@ def test_paginate_eq_maxresults_blanktoken():
     max_per_page = 10
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, no_token_runs])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 10
 
@@ -1053,7 +1052,7 @@ def test_paginate_eq_maxresults_token():
     max_per_page = 10
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, blank_runs])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 10
 
@@ -1070,7 +1069,7 @@ def test_paginate_gt_maxresults_multipage():
     max_per_page = 8
     mocked_lambda = mock.Mock(side_effect=[full_page_runs, full_page_runs, partial_page])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     calls = [mock.call(8, None), mock.call(8, "abc"), mock.call(20 % 8, "abc")]
     mocked_lambda.assert_has_calls(calls)
     assert len(paginated_runs) == 20
@@ -1087,7 +1086,7 @@ def test_paginate_gt_maxresults_onepage():
     max_per_page = 20
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once_with(max_results, None)
     assert len(paginated_runs) == 10
 

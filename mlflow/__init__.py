@@ -143,7 +143,6 @@ get_run = mlflow.tracking.fluent.get_run
 start_run = mlflow.tracking.fluent.start_run
 end_run = mlflow.tracking.fluent.end_run
 search_runs = mlflow.tracking.fluent.search_runs
-list_run_infos = mlflow.tracking.fluent.list_run_infos
 get_artifact_uri = mlflow.tracking.fluent.get_artifact_uri
 set_tracking_uri = tracking.set_tracking_uri
 set_registry_uri = tracking.set_registry_uri
@@ -208,7 +207,6 @@ __all__ = [
     "register_model",
     "get_registry_uri",
     "set_registry_uri",
-    "list_run_infos",
     "autolog",
     "evaluate",
     "last_active_run",
