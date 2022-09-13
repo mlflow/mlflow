@@ -8,6 +8,8 @@ import yaml
 
 import cloudpickle
 
+import numpy as np
+
 import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
@@ -626,7 +628,7 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(hyperparameter_args):
-            with mlflow.start_run(nested=True):
+            with mlflow.start_run(nested=True) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
 
@@ -653,8 +655,17 @@ class TrainStep(BaseStep):
                         "log_model_explainability": False,
                     },
                 )
-
-                mlflow.log_params(estimator_args)
+                autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
+                for param_name, param_value in estimator_args.items():
+                    if param_name in autologged_params:
+                        if not self._is_equal(param_value, autologged_params[param_name]):
+                            _logger.warning(
+                                f"Failed to log parameter {param_name} due to "
+                                f"conflict. old_value: {autologged_params[param_name]} "
+                                f"new_value: {param_value} type: {type(param_value)}"
+                            )
+                    else:
+                        mlflow.log_param(param_name, param_value)
 
                 # return +/- metric
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
@@ -741,8 +752,6 @@ class TrainStep(BaseStep):
         mlflow.log_artifact(best_parameters_path, artifact_path="best_parameters.yaml")
 
     def _process_and_safe_dump(self, data, file, **kwargs):
-        import numpy as np
-
         processed_data = {}
         for key, value in data.items():
             if isinstance(value, np.floating):
@@ -752,3 +761,13 @@ class TrainStep(BaseStep):
             else:
                 processed_data[key] = value
         return yaml.safe_dump(processed_data, file, **kwargs)
+
+    def _is_equal(self, new_param, logged_param):
+        if isinstance(new_param, int):
+            return new_param == int(logged_param)
+        elif isinstance(new_param, float):
+            return new_param == float(logged_param)
+        elif isinstance(new_param, str):
+            return new_param.strip() == logged_param.strip()
+        else:
+            return new_param == logged_param
