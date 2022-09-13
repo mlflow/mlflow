@@ -480,3 +480,13 @@ class StartsWithMatcher:
 class AnyStringWith(str):
     def __eq__(self, other):
         return self in other
+
+
+@contextmanager
+def chdir(directory_path):
+    og_dir = os.getcwd()
+    try:
+        os.chdir(directory_path)
+        yield
+    finally:
+        os.chdir(og_dir)

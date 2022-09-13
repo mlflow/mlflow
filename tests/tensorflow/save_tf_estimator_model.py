@@ -1,12 +1,5 @@
 import sys
 
-if '' in sys.path:
-    # prevent importing mlflow in cwd.
-    sys.path.remove('')
-
-import mlflow
-assert mlflow.__version__ == "1.28.0"
-
 import collections
 import os
 import copy
@@ -18,9 +11,12 @@ import tensorflow as tf
 from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
-
+import mlflow
 from mlflow.utils.file_utils import TempDir
 import pickle
+
+
+assert mlflow.__version__ == "1.28.0"
 
 
 SavedModelInfo = collections.namedtuple(
@@ -123,7 +119,7 @@ def gen_saved_tf_iris_model(tmpdir):
 
 
 def gen_saved_tf_categorical_model(tmpdir):
-    path = os.path.abspath("tests/data/uci-autos-imports-85.data")
+    path = os.path.join(os.environ["MLFLOW_REPO_PATH"], "tests/data/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
         [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0])]
@@ -207,7 +203,7 @@ else:
 
 task_type = sys.argv[2]
 
-output_data_file_path = sys.argv[3]
+output_data_file_path = "output_data.pkl"
 
 with TempDir() as tmp:
     saved_model = gen_model_fn(tmp.path())
@@ -222,7 +218,7 @@ with TempDir() as tmp:
             )
             run_id = run.info.run_id
     elif task_type == "save_model":
-        save_path = sys.argv[4]
+        save_path = sys.argv[3]
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_model.path,
             tf_meta_graph_tags=saved_model.meta_graph_tags,

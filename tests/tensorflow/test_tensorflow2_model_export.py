@@ -18,13 +18,13 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.pyfunc.backend import _execute_in_conda_env
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, chdir
 
 
 @pytest.fixture
@@ -51,24 +51,34 @@ ModelDataInfo = collections.namedtuple(
 )
 
 
-def save_or_log_tf_model_by_mlflow128(model_type, task_type, model_path=None):
+def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=None):
     conda_env = get_or_create_conda_env("tests/tensorflow/mlflow-128-tf-23-env.yaml")
-    with TempDir() as tmpdir:
-        output_data_file_path = tmpdir.path("output_data.pkl")
-        # change cwd to avoid it imports current repo mlflow.
+    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    tracking_uri = "file:" + os.path.abspath(os.path.join(tmpdir, "mlruns"))
+    exec_py_path = os.path.abspath("tests/tensorflow/save_tf_estimator_model.py")
+    mlflow_repo_path = os.getcwd()
+
+    with chdir(tmpdir):
+        # change current working directory to be a temporary directory,
+        # to prevent importing current repo mlflow module.
         _execute_in_conda_env(
             conda_env,
-            f"python tests/tensorflow/save_tf_estimator_model.py {model_type} {task_type} "
-            f"{output_data_file_path} {model_path if model_path else ''}",
+            f"python {exec_py_path} {model_type} {task_type} "
+            f"{model_path if model_path else ''}",
             install_mlflow=False,
-            command_env={"MLFLOW_TRACKING_URI": mlflow.tracking.get_tracking_uri()}
+            command_env={
+                "MLFLOW_TRACKING_URI": tracking_uri,
+                "MLFLOW_REPO_PATH": mlflow_repo_path
+            }
         )
         with open(output_data_file_path, "rb") as f:
-            return ModelDataInfo(*pickle.load(f))
+            return ModelDataInfo(*pickle.load(f)), tracking_uri
 
 
-def test_load_model_from_remote_uri_succeeds(model_path, mock_s3_bucket):
-    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
+def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket):
+    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "save_model", model_path
+    )
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -90,8 +100,10 @@ def test_load_model_from_remote_uri_succeeds(model_path, mock_s3_bucket):
         )
 
 
-def test_iris_model_can_be_loaded_and_evaluated_successfully(model_path):
-    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
+def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, model_path):
+    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "save_model", model_path
+    )
 
     def load_and_evaluate():
 
@@ -113,14 +125,19 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(model_path):
         load_and_evaluate()
 
 
-def test_log_and_load_model_persists_and_restores_model_successfully():
-    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "log_model")
+def test_log_and_load_model_persists_and_restores_model_successfully(tmpdir):
+    model_data_info, tracking_uri = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "log_model"
+    )
     model_uri = f"runs:/{model_data_info.run_id}/model"
-    mlflow.tensorflow.load_model(model_uri=model_uri)
+    with _use_tracking_uri(tracking_uri):
+        mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
-def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
-    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "save_model", model_path)
+def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_path):
+    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "save_model", model_path
+    )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
 
@@ -147,8 +164,10 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
         results = pyfunc_wrapper.predict(inp_list)
 
 
-def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
-    model_data_info = save_or_log_tf_model_by_mlflow128("categorical", "save_model", model_path)
+def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_path):
+    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "categorical", "save_model", model_path
+    )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
 
@@ -179,16 +198,19 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(model_path):
         results = pyfunc_wrapper.predict(inp_list)
 
 
-def test_pyfunc_serve_and_score():
-    model_data_info = save_or_log_tf_model_by_mlflow128("iris", "log_model")
+def test_pyfunc_serve_and_score(tmpdir):
+    model_data_info, tracking_uri = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "log_model"
+    )
     model_uri = f"runs:/{model_data_info.run_id}/model"
 
-    resp = pyfunc_serve_and_score_model(
-        model_uri=model_uri,
-        data=model_data_info.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--env-manager", "local"],
-    )
+    with _use_tracking_uri(tracking_uri):
+        resp = pyfunc_serve_and_score_model(
+            model_uri=model_uri,
+            data=model_data_info.inference_df,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            extra_args=["--env-manager", "local"],
+        )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
     expected = (
         model_data_info.expected_results_df["predictions"]
@@ -244,14 +266,12 @@ def test_saved_model_support_array_type_input():
     np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])
 
 
-def test_virtualenv_subfield_points_to_correct_path(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
+def test_virtualenv_subfield_points_to_correct_path(tmpdir, model_path):
+    model_data_info, _ = save_or_log_tf_model_by_mlflow128(
+        str(tmpdir), "iris", "save_model", model_path
     )
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    breakpoint()
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
     assert python_env_path.is_file()
