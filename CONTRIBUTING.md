@@ -45,9 +45,9 @@ We welcome community contributions to MLflow. This page provides useful informat
 Governance of MLflow is conducted by the Technical Steering Committee
 (TSC), which currently includes the following members:
 
->   - Patrick Wendell (<pwendell@gmail.com>)
->   - Reynold Xin (<reynoldx@gmail.com>)
->   - Matei Zaharia (<matei@cs.stanford.edu>)
+- Patrick Wendell (<pwendell@gmail.com>)
+- Reynold Xin (<reynoldx@gmail.com>)
+- Matei Zaharia (<matei@cs.stanford.edu>)
 
 The founding technical charter can be found
 [here](https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf).
@@ -238,13 +238,7 @@ It is advised to follow all of the prompts to ensure that the
 configuration of the environment, as well as git, are completed so that
 your PR process is as effortless as possible.
 
-<div class="note">
-
-<div class="title">
-
-Note
-
-</div>
+**Note**
 
 Frequently, a specific version of a library is required in order to
 validate a feature's compatibility with older versions. Modifying your
@@ -289,8 +283,7 @@ git config --global user.email yourname@example.com
 ```
 
 For convenience, we provide a pre-commit git hook that validates that
-commits are signed-off and runs <span class="title-ref">black
---check</span> and <span class="title-ref">pylint</span> to ensure the
+commits are signed-off and runs `black --check` and `pylint` to ensure the
 code will pass the lint check for python. You can enable it by running:
 
 ``` bash
@@ -591,10 +584,10 @@ properly. Generally, the files you'll have to edit are:
 
 1.  `dev/run-python-tests.sh`:
 
-> 1.  Add your tests to the ignore list, where the other frameworks are
->     ignored
-> 2.  Add a pytest command for your tests along with the other framework
->     tests (as a separate command to avoid OOM issues)
+    1. Add your tests to the ignore list, where the other frameworks are
+       ignored
+    2. Add a pytest command for your tests along with the other framework
+      tests (as a separate command to avoid OOM issues)
 
 2.  `requirements/test-requirements.txt`: add your framework and version
     to the list of requirements
@@ -711,10 +704,9 @@ Now you can attach to the running container with your code editor.
       - you can now freely change source code and corresponding tests,
         the changes will be reflected on your machine filesystem
       - to run code or tests inside container, you can open a terminal
-        with `[Ctrl/CMD]+Shift+`<span class="title-ref"> and run any
+        with `` [Ctrl/CMD]+Shift+` `` and run any
         command which will be executed inside container, e.g.
-        </span><span class="title-ref">pytest
-        tests/test\_version.py</span>\`
+        `pytest tests/test_version.py`
 
 After typing `exit` in the terminal window that executed
 `dev/run-test-container.sh`, the container will be shut down and
