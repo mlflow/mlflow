@@ -511,10 +511,6 @@ def test_run_pipeline_step_failure_clears_downstream_step_state(test_pipeline):
 def test_execution_plan():
     train_subgraph = ["ingest", "split", "transform", "train", "evaluate", "register"]
 
-    # Make has fatal error
-    plan = _ExecutionPlan("train", ["make: *** bla"], train_subgraph)
-    assert plan.steps_cached == []
-
     # all steps are cached
     plan = _ExecutionPlan("register", ["make: `register' is up to date."], train_subgraph)
     assert plan.steps_cached == train_subgraph

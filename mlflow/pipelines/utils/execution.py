@@ -281,10 +281,6 @@ def _get_step_output_directory_path(execution_directory_path: str, step_name: st
 class _ExecutionPlan:
 
     _MSG_REGEX = r"^# Run MLP step: (\w+)\n$"
-    # Errors that are fatal are prefixed with the string ***.
-    # https://www.gnu.org/software/make/manual/html_node/Error-Messages.html
-    _MAKE_FATAL_ERR_REGEX = r"^make: \*\*\*"
-    _MAKE_FATAL_ERR = "MAKE_FATAL_ERR"
     _FORMAT_STEPS_CACHED = "%s: No changes. Skipping."
 
     def __init__(self, rule_name, output_lines_of_make: List[str], pipeline_step_names: List[str]):
@@ -307,9 +303,6 @@ class _ExecutionPlan:
                 if step is not None:
                     yield step
 
-        if re.search(_ExecutionPlan._MAKE_FATAL_ERR_REGEX, output_lines_of_make[-1]):
-            # If Make has fatal errors, return a list containing a special error string
-            return [_ExecutionPlan._MAKE_FATAL_ERR]
         return list(steps_to_run())
 
     @staticmethod
@@ -322,10 +315,6 @@ class _ExecutionPlan:
         :param pipeline_step_names:  A list of all the step names contained in the specified
                                      pipeline sorted by the execution order.
         """
-        if len(steps_to_run) == 1 and steps_to_run[0] == _ExecutionPlan._MAKE_FATAL_ERR:
-            # If Make has fatal errors, return an empty list
-            return []
-
         index = pipeline_step_names.index(rule_name)
         if index == 0:
             # If the rule_name is ingest, it should always be executed
@@ -373,8 +362,14 @@ def _run_make(
     )
     output_lines = list(iter(process.stdout.readline, ""))
     process.communicate()
-    pipeline_step_names = [step.name for step in pipeline_steps]
-    _ExecutionPlan(rule_name, output_lines, pipeline_step_names).print()
+    return_code = process.poll()
+    if return_code == 0:
+        # Only try to print cached steps message when `make -n` completes with no error.
+        # Note that runtime errors from shell cannot be detected by Make dry-run, so the
+        # return code will be 0 in this case. As long as `make -n` has no error, cached
+        # steps inference logic can work correctly even when shell runtime error occurs.
+        pipeline_step_names = [step.name for step in pipeline_steps]
+        _ExecutionPlan(rule_name, output_lines, pipeline_step_names).print()
 
     _exec_cmd(
         ["make", "-s", "-f", "Makefile", rule_name],
