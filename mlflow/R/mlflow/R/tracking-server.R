@@ -105,7 +105,7 @@ new_mlflow_server <- function(server_url, handle, ...) {
 
 mlflow_validate_server <- function(client) {
   wait_for(
-    function() mlflow_rest("experiments", "list", client = client),
+    function() mlflow_rest("experiments", "search", client = client),
     getOption("mlflow.connect.wait", 10),
     getOption("mlflow.connect.sleep", 1)
   )
