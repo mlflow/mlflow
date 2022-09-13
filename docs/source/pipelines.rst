@@ -36,15 +36,28 @@ MLflow Pipelines is available by default in the `MLflow Python library <https://
   MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).
   Please ensure Make is installed before using MLflow Pipelines.
 
+
+Installation on Databricks
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+You can install MLflow Pipelines from a Databricks Notebook by running the following command or
+install MLflow Pipelines on a Databricks Cluster by following the instructions at `Install a library on a cluster <https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster>`_.
+
+.. code-block:: bash
+
+    %pip install mlflow>=2.0
+
+If you want to remain on a ``1.x`` version:
+
+.. code-block:: bash
+
+    %pip install mlflow[pipelines]<2.0
+
 .. note::
-  You can install MLflow Pipelines from a Databricks Notebook by running
-  ``%pip install -U mlflow`` or install MLflow Pipelines on a Databricks Cluster
-  by following the instructions at
-  https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster.
 
-  Note that `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
-  or greater is required in order to install MLflow Pipelines on Databricks.
-
+    - `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0 or greater is required in order to install MLflow Pipelines on Databricks.
+    - On `Databricks Runtime for Machine Learning <https://docs.databricks.com/runtime/mlruntime.html>`_ version 12.0 or greater, MLflow Pipelines is preinstalled.
 
 Key Concepts
 ------------
