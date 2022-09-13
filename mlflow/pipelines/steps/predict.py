@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 import time
 from typing import Dict, Any
 
@@ -8,9 +7,9 @@ import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import get_step_output_path, _get_execution_directory_basename
+from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profile
-from mlflow.utils import databricks_utils
+from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 _logger = logging.getLogger(__name__)
@@ -18,8 +17,7 @@ _logger = logging.getLogger(__name__)
 
 # This should maybe imported from the ingest scoring step for consistency
 _INPUT_FILE_NAME = "scoring-dataset.parquet"
-_SCORED_OUTPUT_FOLDER_NAME = "scored"
-_SCORED_OUTPUT_FILE_NAME = _SCORED_OUTPUT_FOLDER_NAME + ".parquet"
+_SCORED_OUTPUT_FILE_NAME = "scored.parquet"
 _PREDICTION_COLUMN_NAME = "prediction"
 
 # Max dataframe size for profiling after scoring
@@ -132,23 +130,9 @@ class PredictStep(BaseStep):
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
-        if databricks_utils.is_in_databricks_runtime():
-            dbfs_path = os.path.join(
-                ".mlflow",
-                _get_execution_directory_basename(self.pipeline_root),
-                _SCORED_OUTPUT_FOLDER_NAME,
-            )
-            shutil.rmtree("/dbfs/" + dbfs_path, ignore_errors=True)
-            scored_sdf.coalesce(1).write.format("parquet").save(dbfs_path)
-            _logger.info("Moving artifact from DBFS to driver disk")
-            shutil.copytree(
-                "/dbfs/" + dbfs_path, os.path.join(output_directory, _SCORED_OUTPUT_FOLDER_NAME)
-            )
-            shutil.rmtree("/dbfs/" + dbfs_path)
-        else:
-            scored_sdf.coalesce(1).write.format("parquet").save(
-                os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
-            )
+        write_spark_dataframe_to_parquet_on_local_disk(
+            scored_sdf, os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
+        )
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
