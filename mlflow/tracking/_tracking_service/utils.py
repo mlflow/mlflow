@@ -164,11 +164,16 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(_get_default_host_creds, store_uri))
 
 
+def _get_databricks_rest_store(store_uri, **_):
+    return RestStore(partial(get_databricks_host_creds, store_uri))
+
+
 _tracking_store_registry = TrackingStoreRegistry()
 _tracking_store_registry.register("", _get_file_store)
 _tracking_store_registry.register("file", _get_file_store)
+_tracking_store_registry.register("databricks", _get_databricks_rest_store)
 
-for scheme in ["databricks", "http", "https"]:
+for scheme in ["http", "https"]:
     _tracking_store_registry.register(scheme, _get_rest_store)
 
 for scheme in DATABASE_ENGINES:

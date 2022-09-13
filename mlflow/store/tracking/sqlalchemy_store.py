@@ -270,7 +270,7 @@ class SqlAlchemyStore(AbstractStore):
     ):
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results + 1 == current_size:
                 final_offset = offset + max_results
                 next_token = SearchExperimentsUtils.create_page_token(final_offset)
 
@@ -304,13 +304,13 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
                 .order_by(*order_by_clauses)
                 .offset(offset)
-                .limit(max_results)
+                .limit(max_results + 1)
             )
             queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
             experiments = [e.to_mlflow_entity() for e in queried_experiments]
             next_page_token = compute_next_token(len(experiments))
 
-        return experiments, next_page_token
+        return experiments[:max_results], next_page_token
 
     def search_experiments(
         self,

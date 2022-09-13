@@ -71,10 +71,10 @@ class TestRestStore:
     def test_successful_http_request(self, request):
         def mock_request(*args, **kwargs):
             # Filter out None arguments
-            assert args == ("GET", "https://hello/api/2.0/mlflow/experiments/search")
+            assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
-                "params": {"view_type": "ACTIVE_ONLY"},
+                "json": {"view_type": "ACTIVE_ONLY"},
                 "headers": DefaultRequestHeaderProvider().request_headers(),
                 "verify": True,
                 "timeout": 120,
