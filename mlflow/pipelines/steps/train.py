@@ -627,7 +627,8 @@ class TrainStep(BaseStep):
         # wrap training in objective fn
         def objective(hyperparameter_args):
             with mlflow.start_run(nested=True):
-                estimator = estimator_fn(dict(estimator_hardcoded_params, **hyperparameter_args))
+                estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
+                estimator = estimator_fn(estimator_args)
 
                 sample_fraction = self.step_config["sample_fraction"]
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
@@ -652,6 +653,8 @@ class TrainStep(BaseStep):
                         "log_model_explainability": False,
                     },
                 )
+
+                mlflow.log_params(estimator_args)
 
                 # return +/- metric
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
