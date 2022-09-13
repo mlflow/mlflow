@@ -25,7 +25,7 @@ describe('CreateExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      listExperimentsApi: () => Promise.resolve([]),
+      searchExperimentsApi: () => Promise.resolve([]),
       history: history,
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
@@ -51,7 +51,7 @@ describe('CreateExperimentModal', () => {
     const propsVals = [
       {
         ...minimalProps,
-        listExperimentsApi: () => Promise.reject(new Error('ListExperiments failed!')),
+        searchExperimentsApi: () => Promise.reject(new Error('SearchExperiments failed!')),
       },
       {
         ...minimalProps,
