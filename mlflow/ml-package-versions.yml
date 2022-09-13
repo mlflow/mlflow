@@ -75,7 +75,8 @@ tensorflow:
       tf_version=$(pip freeze | grep 'tensorflow==' | grep -Eo '[0-9].[0-9]')
       pip install tensorflow-estimator==${tf_version}
       pytest \
-        tests/tensorflow/test_tensorflow2_model_export.py \
+        tests/tensorflow/test_tensorflow_estimator_export.py \
+        tests/tensorflow/test_tensorflow2_module_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py

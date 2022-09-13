@@ -702,7 +702,17 @@ class _TF2ModuleWrapper:
         self.model = model
 
     def predict(self, data):
-        return self.model(data)
+        if isinstance(data, (np.ndarray, list)):
+            data = tensorflow.convert_to_tensor(data)
+        else:
+            raise MlflowException(
+                f"Unsupported input data type: {type(data)}, the input data must be"
+                "numpy array or a list."
+            )
+        result = self.model(data)
+        if isinstance(data, tensorflow.Tensor):
+            return result.numpy()
+        return result
 
 
 class _KerasModelWrapper:

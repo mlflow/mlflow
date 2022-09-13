@@ -5,14 +5,6 @@ dependencies:
 - pip<=21.2.4
 - pip:
   - mlflow==1.28.0
-  - bcrypt==3.2.0
-  - boto3==1.20.46
-  - defusedxml==0.7.1
-  - fsspec==2022.1.0
   - h5py<3.0.0
-  - pandas==1.4.0
-  - pillow==9.0.0
-  - pyopenssl==22.0.0
-  - pyyaml==6.0
   - tensorflow==2.3.0
 name: mlflow-128-tf-23-env
