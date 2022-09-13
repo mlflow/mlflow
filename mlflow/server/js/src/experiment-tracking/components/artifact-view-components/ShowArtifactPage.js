@@ -34,6 +34,7 @@ class ShowArtifactPage extends Component {
     artifactRootUri: PropTypes.string.isRequired,
     // If path is not defined don't render anything
     path: PropTypes.string,
+    isDirectory: PropTypes.bool,
     size: PropTypes.number,
     runTags: PropTypes.object,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
@@ -57,7 +58,7 @@ class ShowArtifactPage extends Component {
       }
       if (this.props.size > MAX_PREVIEW_ARTIFACT_SIZE_MB * ONE_MB) {
         return getFileTooLargeView();
-      } else if (normalizedExtension) {
+      } else if (!this.props.isDirectory && normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
