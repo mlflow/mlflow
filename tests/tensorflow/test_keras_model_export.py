@@ -47,7 +47,7 @@ from tensorflow.keras.optimizers import SGD
 
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("keras") else ["--env-manager", "local"]
+    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
 )
 extra_pip_requirements = [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
 
@@ -630,7 +630,7 @@ def test_log_model_with_code_paths(model):
 
 
 def test_virtualenv_subfield_points_to_correct_path(model, model_path):
-    mlflow.keras.save_model(model, path=model_path)
+    mlflow.tensorflow.save_model(model, path=model_path)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
