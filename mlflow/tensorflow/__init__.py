@@ -912,7 +912,7 @@ def autolog(
 
     atexit.register(_flush_queue)
 
-    if Version(tensorflow.__version__) < Version("2.6"):
+    if Version(tensorflow.__version__) < Version("1.12"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 

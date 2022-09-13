@@ -931,14 +931,6 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     assert tensorflow.keras.Model is ModelV2
 
 
-def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
-    mlflow.autolog()
-
-    import keras  # pylint: disable=unused-variable,unused-import,reimported
-
-    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-
-
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
