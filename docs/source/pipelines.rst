@@ -24,6 +24,11 @@ ML engineers, and DevOps teams to iterate very quickly within their domains of e
 offers :ref:`APIs <pipelines-apis>` and a :ref:`CLI <cli>` for executing pipelines and inspecting
 their results.
 
+Prerequisites
+-------------
+
+MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).
+Please ensure Make is installed before using MLflow Pipelines.
 
 Key Concepts
 ------------
