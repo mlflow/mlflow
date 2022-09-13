@@ -190,7 +190,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_path = os.path.join(model_path, "plain")
     expected = keras_model.predict(x.values)
     kwargs = {"save_format": save_format} if save_format else {}
-    mlflow.tensorflow.save_model(keras_model, path=model_path, **kwargs)
+    mlflow.tensorflow.save_model(keras_model, path=model_path, keras_model_kwargs=kwargs)
     # Loading Keras model
     model_loaded = mlflow.tensorflow.load_model(model_path)
     # When saving as SavedModel, we actually convert the model
@@ -520,7 +520,10 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.tensorflow.save_model(tf_keras_model, path=model_path, save_format="h5")
+    mlflow.tensorflow.save_model(
+        tf_keras_model, path=model_path,
+        keras_model_kwargs={"save_format": "h5"}
+    )
     shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -541,17 +544,17 @@ def test_save_model_with_tf_save_format(model_path):
     is _not_ "h5".
     """
     keras_model = mock.Mock(spec=tf.keras.Model)
-    mlflow.tensorflow.save_model(keras_model, path=model_path, save_format="tf")
+    mlflow.tensorflow.save_model(keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"})
     _, args, kwargs = keras_model.save.mock_calls[0]
     # Ensure that save_format propagated through
-    assert kwargs["save_format"] == "tf"
+    assert kwargs["keras_model_kwargs"] == {"save_format": "tf"}
     # Ensure that the saved model does not have h5 extension
     assert not args[0].endswith(".h5")
 
 
 def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
-    mlflow.tensorflow.save_model(tf_keras_model, path=model_path, save_format="tf")
+    mlflow.tensorflow.save_model(tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"})
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME, None)
@@ -570,7 +573,7 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
 
 def test_load_without_save_format(tf_keras_model, model_path):
     """Ensures that keras models without save_format can still be loaded."""
-    mlflow.tensorflow.save_model(tf_keras_model, path=model_path, save_format="h5")
+    mlflow.tensorflow.save_model(tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "h5"})
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME)

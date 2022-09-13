@@ -106,7 +106,7 @@ def get_default_pip_requirements(include_cloudpickle=False):
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    pip_deps = [_get_pinned_requirement("tensorflow"), _get_pinned_requirement("keras")]
+    pip_deps = [_get_pinned_requirement("tensorflow")]
     if include_cloudpickle:
         pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
@@ -528,7 +528,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     model_type = _infer_model_type(model_conf)
     if model_type == _MODEL_TYPE_KERAS:
-        keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
+        keras_module = importlib.import_module(flavor_conf.get("keras_module", "tensorflow.keras"))
         # For backwards compatibility, we assume h5 when the save_format is absent
         save_format = flavor_conf.get("save_format", "h5")
         model_path = os.path.join(
