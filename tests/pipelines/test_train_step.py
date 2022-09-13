@@ -1,4 +1,5 @@
 import os
+import sys
 import cloudpickle
 from pathlib import Path
 import pytest
@@ -238,3 +239,20 @@ def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
     run = MlflowClient().get_run(run_id)
     child_runs = train_step._get_tuning_df(run)
     assert len(child_runs) == 3
+
+
+@pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
+def test_search_space(tmp_pipeline_root_path):
+    tuning_params_yaml = tmp_pipeline_root_path.joinpath("tuning_params.yaml")
+    tuning_params_yaml.write_text(
+        """
+        parameters:
+            alpha:
+                distribution: "uniform"
+                low: 0.0
+                high: 0.01
+        """
+    )
+    tuning_params = read_yaml(tmp_pipeline_root_path, "tuning_params.yaml")
+    search_space = TrainStep._construct_search_space_from_yaml(tuning_params["parameters"])
+    assert "alpha" in search_space
