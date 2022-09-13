@@ -627,7 +627,7 @@ def get_or_create_nfs_tmp_dir():
 
 def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
     """
-    Write spark dataframe as in parquet format to local disk.
+    Write spark dataframe in parquet format to local disk.
 
     :param spark_df: Spark dataframe
     :param output_path: path to write the data to
