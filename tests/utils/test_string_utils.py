@@ -35,4 +35,4 @@ def test_is_string_type():
 def test_mslex_quote():
     assert mslex_quote("abc") == "abc"
     assert mslex_quote("a b c") == '"a b c"'
-    assert mslex_quote("C:\\file\\to\\file") == "C:\\file\\to\\file"
+    assert mslex_quote("C:\\path\\to\\file") == "C:\\path\\to\\file"
