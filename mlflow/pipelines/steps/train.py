@@ -747,7 +747,7 @@ class TrainStep(BaseStep):
             self._process_and_safe_dump(best_hp_params, file, default_flow_style=False)
             file.write("# hardcoded parameters\n")
             self._process_and_safe_dump(best_hardcoded_params, file, default_flow_style=False)
-        mlflow.log_artifact(best_parameters_path, artifact_path="best_parameters.yaml")
+        mlflow.log_artifact(best_parameters_path)
 
     def _process_and_safe_dump(self, data, file, **kwargs):
         import numpy as np
