@@ -49,7 +49,6 @@ waitress:
 
 scikit-learn:
   pip_release: scikit-learn
-  minimum: "1.0"
   max_major_version: 1
 
 pyarrow:
