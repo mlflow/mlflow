@@ -1605,7 +1605,7 @@ def test_evaluation_with_env_restoration(
     y = iris_dataset.labels_data
     y_pred = model.predict(iris_dataset.features_data)
 
-    expected_metrics = _get_classifier_global_metrics(False, y, y_pred, None, labels=None)
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=None)
 
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
