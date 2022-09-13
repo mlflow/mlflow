@@ -385,7 +385,7 @@ def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
         captured = capsys.readouterr()
         output_info = captured.out
         # Runtime error occurs
-        assert re.search(r"\*\*\*.+Error 1", output_info) is not None
+        assert re.search(r"\*\*\*.+Error", output_info) is not None
         # ingest step is executed
         assert re.search("Running step ingest...", output_info) is not None
         # split step is not executed
