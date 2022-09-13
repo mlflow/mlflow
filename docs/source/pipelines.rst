@@ -24,11 +24,27 @@ ML engineers, and DevOps teams to iterate very quickly within their domains of e
 offers :ref:`APIs <pipelines-apis>` and a :ref:`CLI <cli>` for executing pipelines and inspecting
 their results.
 
-Prerequisites
--------------
+Installation
+------------
+MLflow Pipelines is available by default in the `MLflow Python library <https://pypi.org/project/mlflow/>`_.
 
-MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).
-Please ensure Make is installed before using MLflow Pipelines.
+.. code-block:: sh
+
+    pip install mlflow
+
+.. note::
+  MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).
+  Please ensure Make is installed before using MLflow Pipelines.
+
+.. note::
+  You can install MLflow Pipelines from a Databricks Notebook by running
+  ``%pip install -U mlflow`` or install MLflow Pipelines on a Databricks Cluster
+  by following the instructions at
+  https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster.
+
+  Note that `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
+  or greater is required in order to install MLflow Pipelines on Databricks.
+
 
 Key Concepts
 ------------
