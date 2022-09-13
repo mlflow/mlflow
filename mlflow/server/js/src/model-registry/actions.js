@@ -10,13 +10,6 @@ export const createRegisteredModelApi = (name, id = getUUID()) => ({
   meta: { id, name },
 });
 
-export const LIST_REGISTERED_MODELS = 'LIST_REGISTERED_MODELS';
-export const listRegisteredModelsApi = (id = getUUID()) => ({
-  type: LIST_REGISTERED_MODELS,
-  payload: Services.listRegisteredModels({}),
-  meta: { id },
-});
-
 export const SEARCH_REGISTERED_MODELS = 'SEARCH_REGISTERED_MODELS';
 export const searchRegisteredModelsApi = (
   filter,

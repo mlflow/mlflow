@@ -21,7 +21,6 @@ describe('RegisterModelButton', () => {
       modelByName: {},
       createRegisteredModelApi: jest.fn(() => Promise.resolve({})),
       createModelVersionApi: jest.fn(() => Promise.resolve({})),
-      listRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
     };
