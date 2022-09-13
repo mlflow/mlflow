@@ -1029,6 +1029,56 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
             )
 
 
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
+    class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            pass
+
+        def predict(self, context, model_input):
+
+            if sklearn.__version__ == "0.22.1":
+                pred_value = 1
+            else:
+                pred_value = 0
+
+            return model_input.apply(lambda row: pred_value, axis=1)
+
+    class FakeEvauatorEnv(ModelEvaluator):
+        def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+            return True
+
+        def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+            y = model.predict(pd.DataFrame(dataset.features_data))
+            return EvaluationResult(metrics={"test": y[0]}, artifacts={})
+
+    model_path = os.path.join(str(tmpdir), "model")
+
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=EnvRestoringTestModel(),
+        pip_requirements=[
+            "scikit-learn==0.22.1",
+        ],
+    )
+
+    with mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"test_evaluator_env": FakeEvauatorEnv},
+    ):
+        result = evaluate(
+            model_path,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators=None,
+            env_manager=env_manager,
+        )
+        assert result.metrics["test"] == 1
+
+
 def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_uri, iris_dataset):
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
