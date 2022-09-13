@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.utils.string_utils import strip_prefix, strip_suffix, is_string_type
+from mlflow.utils.string_utils import strip_prefix, strip_suffix, is_string_type, mslex_quote
 
 
 @pytest.mark.parametrize(
@@ -30,3 +30,9 @@ def test_is_string_type():
     assert not is_string_type({"test": "string"})
     assert not is_string_type(12)
     assert not is_string_type(12.7)
+
+
+def test_mslex_quote():
+    assert mslex_quote("abc") == "abc"
+    assert mslex_quote("a b c") == '"a b c"'
+    assert mslex_quote("C:\\path\\to\\file") == "C:\\path\\to\\file"
