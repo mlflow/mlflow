@@ -172,9 +172,9 @@ def generate_dockerfile(
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
-    8080 using the python_function flavor. The generated Dockerfile is written to the specified output
-    directory, along with the model (if specified). This Dockerfile defines an image that is
-    equivalent to the one produced by ``mlflow models build-docker``.
+    8080 using the python_function flavor. The generated Dockerfile is written to the specified
+    output directory, along with the model (if specified). This Dockerfile defines an image that
+    is equivalent to the one produced by ``mlflow models build-docker``.
     """
     if model_uri:
         _logger.info("Generating Dockerfile for model %s", model_uri)
