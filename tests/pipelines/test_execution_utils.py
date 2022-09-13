@@ -261,7 +261,7 @@ def test_run_pipeline_step_calls_execution_plan(tmp_path):
 
     execution_plan_args, _ = mock_execution_plan.call_args
     assert execution_plan_args[0] == "test_step"
-    assert execution_plan_args[2] == pipeline_steps
+    assert execution_plan_args[2] == ["test_step"]
 
 
 def run_test_pipeline_step(pipeline_steps, target_step):
