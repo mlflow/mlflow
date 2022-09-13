@@ -24,7 +24,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
-from mlflow.utils.search_utils import quote
+from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
 
 # Base directory within driver container for storing files related to MLflow
