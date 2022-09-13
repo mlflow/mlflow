@@ -1,9 +1,9 @@
 import os
 import re
-from shlex import quote
 import subprocess
 
 from mlflow.models import FlavorBackend
+from mlflow.utils.string_utils import quote
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 
