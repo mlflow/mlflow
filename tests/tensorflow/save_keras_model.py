@@ -9,7 +9,7 @@ from mlflow.utils.file_utils import TempDir
 
 tf.random.set_seed(1337)
 
-inputs = tf.keras.layers.Input(shape=3, name="feature1", dtype=tf.float64)
+inputs = tf.keras.layers.Input(shape=3, name="features", dtype=tf.float64)
 outputs = tf.keras.layers.Dense(2)(inputs)
 model = tf.keras.Model(inputs=inputs, outputs=[outputs])
 
@@ -52,8 +52,8 @@ elif save_as_type == "keras":
         raise ValueError("Illegal arguments.")
 
 
-inference_df = pd.DataFrame({"feature1": [[2.0, 3.0, 4.0], [11.0, 12.0, 13.0]]})
-expected_results_df = model.predict(np.array(inference_df.feature1.to_list()))
+inference_df = np.array([[2.0, 3.0, 4.0], [11.0, 12.0, 13.0]], dtype=np.float64)
+expected_results_df = model.predict(inference_df)
 
 output_data_info = (
     inference_df,

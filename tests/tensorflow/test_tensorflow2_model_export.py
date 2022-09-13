@@ -2,7 +2,6 @@
 
 import collections
 import os
-from pathlib import Path
 import pickle
 import pytest
 import json
@@ -260,10 +259,9 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         model_uri = f"runs:/{model_data_info.run_id}/model"
         with _use_tracking_uri(tracking_uri):
             mlflow_model = mlflow.pyfunc.load_model(model_uri)
-        feed_dict = model_data_info.inference_df
-        predictions = mlflow_model.predict(feed_dict)
+        predictions = mlflow_model.predict({"features": model_data_info.inference_df})
         np.testing.assert_allclose(
-            predictions.dense.to_list(),
+            predictions["dense"],
             model_data_info.expected_results_df
         )
 

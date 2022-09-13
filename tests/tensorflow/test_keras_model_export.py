@@ -25,6 +25,7 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -38,6 +39,8 @@ from tests.helper_functions import (
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
+from tests.tensorflow.test_tensorflow2_model_export import save_or_log_keras_model_by_mlflow128
+
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tensorflow.keras.models import Sequential
@@ -638,3 +641,23 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
     assert python_env_path.is_file()
+
+
+def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir):
+    model_data_info, tracking_uri = save_or_log_keras_model_by_mlflow128(
+        str(tmpdir), task_type="log_model", save_as_type="keras"
+    )
+
+    model_uri = f"runs:/{model_data_info.run_id}/model"
+
+    def load_and_predict(load_model_fn):
+        with _use_tracking_uri(tracking_uri):
+            mlflow_model = load_model_fn()
+        predictions = mlflow_model.predict(model_data_info.inference_df)
+        np.testing.assert_allclose(
+            predictions,
+            model_data_info.expected_results_df
+        )
+
+    load_and_predict(lambda: mlflow.pyfunc.load_model(model_uri))
+    load_and_predict(lambda: mlflow.tensorflow.load_model(model_uri))
