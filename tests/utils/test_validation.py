@@ -1,6 +1,5 @@
 import copy
 import pytest
-from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
