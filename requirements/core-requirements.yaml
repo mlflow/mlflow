@@ -49,28 +49,35 @@ waitress:
 
 scikit-learn:
   pip_release: scikit-learn
+  minimum: "1.0"
   max_major_version: 1
 
 pyarrow:
   pip_release: pyarrow
+  minimum: "4.0.0"
   max_major_version: 9
 
 shap:
   pip_release: shap
+  minimum: "0.40"
   max_major_version: 0
 
 pandas-profiling:
   pip_release: pandas-profiling
+  minimum: "3.1"
   max_major_version: 3
 
 ipython:
   pip_release: ipython
+  minimum: "7.0"
   max_major_version: 8
 
 markdown:
   pip_release: markdown
+  minimum: "3.3"
   max_major_version: 3
 
 Jinja2:
   pip_release: Jinja2
+  minimum: "3.0"
   max_major_version: 3
