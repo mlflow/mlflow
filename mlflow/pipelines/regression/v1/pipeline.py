@@ -190,7 +190,7 @@ class RegressionPipeline(_BasePipeline):
         PredictStep,
     )
 
-    _PIPELINE_STEPS = _SCORING_DAG_STEPS + _TRAIN_DAG_STEPS
+    _PIPELINE_STEPS = _TRAIN_DAG_STEPS + _SCORING_DAG_STEPS
 
     _STEPS_SUBGRAPH_MAP = dict()
     for _step_class in _TRAIN_DAG_STEPS:
@@ -478,14 +478,14 @@ class RegressionPipeline(_BasePipeline):
         import mlflow.pyfunc
 
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         def log_artifact_not_found_warning(artifact_name, step_name):
@@ -595,14 +595,14 @@ class RegressionPipeline(_BasePipeline):
         corresponding pipeline step has been run.
         """
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         if artifact_name == "ingested_data":

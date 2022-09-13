@@ -248,6 +248,7 @@ def test_run_pipeline_step_calls_execution_plan(tmp_path):
         "mlflow.pipelines.utils.execution._ExecutionPlan"
     ) as mock_execution_plan:
         process = mock.Mock()
+        process.poll.return_value = 0
         process.stdout.readline = mock.Mock(side_effect="")
         mock_run_in_subprocess.return_value = process
 
