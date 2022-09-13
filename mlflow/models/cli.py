@@ -155,6 +155,50 @@ def prepare_env(
     ).prepare_env(model_uri=model_uri)
 
 
+@commands.command("generate-dockerfile")
+@cli_args.MODEL_URI_BUILD_DOCKER
+@click.option(
+    "--output-directory",
+    "-d",
+    default="mlflow-dockerfile",
+    help="Output directory where the generated Dockerfile is stored.",
+)
+@cli_args.ENV_MANAGER
+@cli_args.MLFLOW_HOME
+@cli_args.INSTALL_MLFLOW
+@cli_args.ENABLE_MLSERVER
+def generate_dockerfile(
+    model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver
+):
+    """
+    Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
+    8080 using the python_function flavor. The generated Dockerfile is written to the specified
+    output directory, along with the model (if specified). This Dockerfile defines an image that
+    is equivalent to the one produced by ``mlflow models build-docker``.
+    """
+    if model_uri:
+        _logger.info("Generating Dockerfile for model %s", model_uri)
+    else:
+        _logger.info("Generating Dockerfile")
+    env_manager = env_manager or _EnvManager.CONDA
+    backend = _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
+    if backend.can_build_image():
+        backend.generate_dockerfile(
+            model_uri,
+            output_directory,
+            mlflow_home=mlflow_home,
+            install_mlflow=install_mlflow,
+            enable_mlserver=enable_mlserver,
+        )
+        _logger.info("Generated Dockerfile in directory %s", output_directory)
+    else:
+        _logger.error(
+            "Cannot build docker image for selected backend",
+            extra={"backend": backend.__class__.__name__},
+        )
+        raise NotImplementedError("Cannot build docker image for selected backend")
+
+
 @commands.command("build-docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
@@ -206,13 +250,22 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     'python_function' flavor.
     """
     env_manager = env_manager or _EnvManager.CONDA
-    _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
-        model_uri,
-        name,
-        mlflow_home=mlflow_home,
-        install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
-    )
+    backend = _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
+
+    if backend.can_build_image:
+        backend.build_image(
+            model_uri,
+            name,
+            mlflow_home=mlflow_home,
+            install_mlflow=install_mlflow,
+            enable_mlserver=enable_mlserver,
+        )
+    else:
+        _logger.error(
+            "Cannot build docker image for selected backend",
+            extra={"backend": backend.__class__.__name__},
+        )
+        raise NotImplementedError("Cannot build docker image for selected backend")
 
 
 def _get_flavor_backend(model_uri, **kwargs):
