@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 from distutils.dir_util import copy_tree
 
 import pandas as pd
@@ -13,7 +14,11 @@ from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.pipeline import Pipeline
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import get_step_output_path, _get_execution_directory_basename
+from mlflow.pipelines.utils.execution import (
+    get_step_output_path,
+    _get_execution_directory_basename,
+    _REGRESSION_MAKEFILE_FORMAT_STRING,
+)
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -313,3 +318,89 @@ def test_generate_worst_examples_dataframe():
         test_df2, predictions, target_col, worst_k=2
     )
     assert_result_correct(result_df2)
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_print_cached_steps_and_running_steps(capsys):
+    pipeline = Pipeline(profile="local")
+    pipeline.clean()
+    pipeline.run()
+    captured = capsys.readouterr()
+    output_info = captured.out
+    run_step_pattern = "Running step {step}..."
+    for step in _STEP_NAMES:
+        # Check for printed message when every step is actually executed
+        assert re.search(run_step_pattern.format(step=step), output_info) is not None
+
+    pipeline.run()  # cached
+    captured = capsys.readouterr()
+    output_info = captured.err
+    cached_step_pattern = "{step}: No changes. Skipping."
+    for step in _STEP_NAMES:
+        # Check for printed message when every step is cached
+        assert re.search(cached_step_pattern.format(step=step), output_info) is not None
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
+    malformed_makefile = _REGRESSION_MAKEFILE_FORMAT_STRING + "non_existing_cmd"
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._REGRESSION_MAKEFILE_FORMAT_STRING",
+        new=malformed_makefile,
+    ):
+        p = Pipeline(profile="local")
+        p.clean()
+        try:
+            p.run()
+        except MlflowException:
+            pass
+        captured = capsys.readouterr()
+        output_info = captured.out
+        assert re.search(r"\*\*\* missing separator.  Stop.", output_info) is not None
+
+        output_info = captured.err
+        cached_step_pattern = "{step}: No changes. Skipping."
+        for step in _STEP_NAMES:
+            assert re.search(cached_step_pattern.format(step=step), output_info) is None
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
+    split = "# Run MLP step: split"
+    tokens = _REGRESSION_MAKEFILE_FORMAT_STRING.split(split)
+    assert len(tokens) == 2
+    tokens[1] = "\n\tnon-existing-cmd" + tokens[1]
+    malformed_makefile_rte = split.join(tokens)
+
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._REGRESSION_MAKEFILE_FORMAT_STRING",
+        new=malformed_makefile_rte,
+    ):
+        p = Pipeline(profile="local")
+        p.clean()
+        try:
+            p.run(step="split")
+        except MlflowException:
+            pass
+        captured = capsys.readouterr()
+        output_info = captured.out
+        # Runtime error occurs
+        assert re.search(r"\*\*\*.+Error", output_info) is not None
+        # ingest step is executed
+        assert re.search("Running step ingest...", output_info) is not None
+        # split step is not executed
+        assert re.search("Running step split...", output_info) is None
+
+        try:
+            p.run(step="split")
+        except MlflowException:
+            pass
+        captured = capsys.readouterr()
+        output_info = captured.out
+        # Runtime error occurs
+        assert re.search(r"\*\*\*.+Error", output_info) is not None
+        output_info = captured.err
+        # ingest step is cached
+        assert re.search("ingest: No changes. Skipping.", output_info) is not None
+        # split step is not cached
+        assert re.search("split: No changes. Skipping.", output_info) is None
