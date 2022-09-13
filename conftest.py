@@ -20,6 +20,16 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore tests for model flavors.",
     )
+    parser.addoption(
+        "--mlp-next-release",
+        action="store_true",
+        dest="run_mlp_next_release_tests",
+        default=False,
+        help=(
+            "Run MLflow Pipelines tests that depend on the next MLflow Pipelines"
+            " template(s) release"
+        ),
+    )
 
 
 def pytest_configure(config):
@@ -27,6 +37,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+    config.addinivalue_line("markers", "mlp_next_release")
 
 
 def pytest_runtest_setup(item):
@@ -92,3 +103,24 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+    if config.getoption("run_mlp_next_release_tests"):
+        skip_not_mlp_next_release = pytest.mark.skip(
+            reason=(
+                "Only running MLflow Pipelines next release tests because --mlp_next_release"
+                " is specified"
+            )
+        )
+        for item in items:
+            if "mlp_next_release" not in item.keywords:
+                item.add_marker(skip_not_mlp_next_release)
+    else:
+        skip_mlp_next_release = pytest.mark.skip(
+            reason=(
+                "MLflow Pipelines next release tests are disabled because --mlp_next_release"
+                " isn't specified"
+            ),
+        )
+        for item in items:
+            if "mlp_next_release" in item.keywords:
+                item.add_marker(skip_mlp_next_release)

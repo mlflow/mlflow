@@ -56,6 +56,11 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines
+          # Run pipelines tests against the next MLP template release branch
+          cd examples/pipelines/sklearn_regression
+          git fetch origin && git checkout origin/next-release
+          cd $MLFLOW_HOME
+          pytest tests/pipelines --mlp_next_release
 
   pipelines-windows:
     runs-on: windows-latest
@@ -83,3 +88,8 @@ jobs:
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines
+          # Run pipelines tests against the next MLP template release branch
+          cd examples/pipelines/sklearn_regression
+          git fetch origin && git checkout origin/next-release
+          cd $MLFLOW_HOME
+          pytest tests/pipelines --mlp_next_release
