@@ -337,13 +337,14 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
+        creation_time = int(time.time() * 1000)
         experiment = Experiment(
             experiment_id,
             name,
             artifact_uri,
             LifecycleStage.ACTIVE,
-            creation_time=int(time.time() * 1000),
-            last_update_time=int(time.time() * 1000),
+            creation_time=creation_time,
+            last_update_time=creation_time,
         )
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write

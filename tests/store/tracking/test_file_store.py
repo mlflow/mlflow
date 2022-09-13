@@ -393,11 +393,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
-        test_case_start_time = time.time() * 1000
-        time.sleep(0.5)
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
+        time_before_create = int(time.time() * 1000)
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
         self.assertEqual(created_id, next_id)
@@ -409,8 +408,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp1.artifact_location,
             path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
         )
-        assert exp1.creation_time > test_case_start_time
-        assert exp1.last_update_time >= exp1.creation_time
+        assert exp1.creation_time >= time_before_create
+        assert exp1.last_update_time == exp1.creation_time
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
@@ -488,7 +487,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_name = self.exp_data[exp_id]["name"]
 
         exp1 = fs.get_experiment(exp_id)
-        time.sleep(0.05)
+        time.sleep(0.01)
 
         # delete it
         fs.delete_experiment(exp_id)
@@ -502,7 +501,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # restore it
         exp1 = fs.get_experiment(exp_id)
-        time.sleep(0.05)
+        time.sleep(0.01)
         fs.restore_experiment(exp_id)
         restored_1 = fs.get_experiment(exp_id)
         self.assertEqual(restored_1.experiment_id, exp_id)
@@ -552,14 +551,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # Restore the experiment, and confirm that we can now rename it.
         exp1 = fs.get_experiment(exp_id)
-        time.sleep(0.05)
+        time.sleep(0.01)
         fs.restore_experiment(exp_id)
         restored_exp1 = fs.get_experiment(exp_id)
         self.assertEqual(restored_exp1.name, new_name)
         assert restored_exp1.last_update_time > exp1.last_update_time
 
         exp1 = fs.get_experiment(exp_id)
-        time.sleep(0.05)
+        time.sleep(0.01)
         fs.rename_experiment(exp_id, exp_name)
         renamed_exp1 = fs.get_experiment(exp_id)
         self.assertEqual(renamed_exp1.name, exp_name)
