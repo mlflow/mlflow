@@ -9,7 +9,7 @@ export const searchExperimentsApi = (id = getUUID()) => {
   return {
     type: SEARCH_EXPERIMENTS_API,
     payload: MlflowService.searchExperiments({
-      max_results: 20000
+      max_results: 20000,
     }),
     meta: { id: id },
   };
