@@ -816,3 +816,18 @@ def test_saved_model_support_array_type_input():
     result = model.predict(infer_df)
 
     np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])
+
+
+def test_tf2_wrapper_handles_1d_output_data_shape():
+    def infer(features):
+        # NOTE: by removing `np.expand_dims` we create a 1D output.
+        res = features.numpy().sum(axis=1)
+        return {"prediction": tf.constant(res)}
+
+    model = _TF2Wrapper(None, infer)
+
+    infer_df = pd.DataFrame({"features": [[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]]})
+
+    result = model.predict(infer_df)
+
+    np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])
