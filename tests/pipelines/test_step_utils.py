@@ -89,12 +89,12 @@ def test_get_data_profile_truncates_large_data_frame(
     step_utils._MAX_PROFILE_ROW_SIZE = max_rows
     with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
         get_pandas_data_profile(data_frame, "fake profile")
-        truncated_df = mock_pandas_renderer_html.call_args.args[0][0][1]
+        truncated_df = mock_pandas_renderer_html.call_args_list[0][0][0][0][1]
         assert truncated_df.shape == (expected_rows, expected_cols)
 
 
 def test_get_data_profile_works_for_empty_data_frame():
     with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
         get_pandas_data_profile(DataFrame(), "fake profile")
-        truncated_df = mock_pandas_renderer_html.call_args.args[0][0][1]
+        truncated_df = mock_pandas_renderer_html.call_args_list[0][0][0][0][1]
         assert truncated_df.shape == (0, 0)

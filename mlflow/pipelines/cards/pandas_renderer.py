@@ -192,9 +192,10 @@ def convert_to_comparison_proto(
     """
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
     for (name, df) in dfs:
-        proto = convert_to_dataset_feature_statistics(df)
-        proto.name = name
-        feature_stats_list.datasets.append(proto)
+        if not df.empty:
+            proto = convert_to_dataset_feature_statistics(df)
+            proto.name = name
+            feature_stats_list.datasets.append(proto)
     return feature_stats_list
 
 
@@ -229,8 +230,9 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
     """
     if isinstance(inputs, pd.DataFrame):
         df: pd.DataFrame = inputs
-        proto = convert_to_proto(df)
-        compare = False
+        if not df.empty:
+            proto = convert_to_proto(df)
+            compare = False
     else:
         proto = convert_to_comparison_proto(inputs)
         compare = True
