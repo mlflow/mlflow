@@ -10,6 +10,8 @@ CREATE TABLE experiments (
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	artifact_location VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	lifecycle_stage VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_time BIGINT,
+	last_update_time BIGINT,
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id)
 )
 
@@ -69,11 +71,11 @@ CREATE TABLE runs (
 	status VARCHAR(9) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	start_time BIGINT,
 	end_time BIGINT,
-	deleted_time BIGINT,
 	source_version VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	lifecycle_stage VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	artifact_uri VARCHAR(200) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id INTEGER,
+	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
 	CONSTRAINT "FK__runs__experiment__3D5E1FD2" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
