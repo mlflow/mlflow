@@ -231,7 +231,9 @@ class TrainStep(BaseStep):
             try:
                 tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
             except Exception as e:
-                _logger.warning("Failed to build tuning table due to unexpected failure: %s", e)
+                _logger.warning(
+                    "Failed to build tuning results table due to unexpected failure: %s", e
+                )
 
         card = self._build_step_card(
             eval_metrics=eval_metrics,
@@ -491,19 +493,14 @@ class TrainStep(BaseStep):
 
         # Tab 8: Best Parameters
         if best_estimator_params:
-            tuning_params_card_tab = card.add_tab(
+            best_parameters_card_tab = card.add_tab(
                 "Best Parameters",
-                "{{ SEARCH_SPACE }} " + "{{ BEST_PARAMETERS }} ",
-            )
-            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
-            tuning_params_card_tab.add_html(
-                "SEARCH_SPACE",
-                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
+                "{{ BEST_PARAMETERS }} ",
             )
             best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_yaml):
                 best_hardcoded_parameters = open(best_parameters_yaml).read()
-                tuning_params_card_tab.add_html(
+                best_parameters_card_tab.add_html(
                     "BEST_PARAMETERS",
                     f"<b>Best parameters:</b><br>"
                     f"<pre>{best_hardcoded_parameters}</pre><br><br>",
@@ -511,10 +508,16 @@ class TrainStep(BaseStep):
 
         # Tab 9: HP trials
         if tuning_df is not None:
-            (
-                card.add_tab("Tuning Trials", "{{ TUNING_TABLE }}").add_html(
-                    "TUNING_TABLE", BaseCard.render_table(tuning_df, hide_index=False)
-                )
+            tuning_trials_card_tab = card.add_tab(
+                "Tuning Trials", "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE }}"
+            )
+            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
+            tuning_trials_card_tab.add_html(
+                "SEARCH_SPACE",
+                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
+            )
+            tuning_trials_card_tab.add_html(
+                "TUNING_TABLE", BaseCard.render_table(tuning_df, hide_index=False)
             )
 
         return card
@@ -654,16 +657,22 @@ class TrainStep(BaseStep):
                     },
                 )
                 autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
+                manual_log_params = {}
                 for param_name, param_value in estimator_args.items():
                     if param_name in autologged_params:
                         if not self._is_equal(param_value, autologged_params[param_name]):
                             _logger.warning(
-                                f"Failed to log parameter {param_name} due to "
-                                f"conflict. old_value: {autologged_params[param_name]} "
-                                f"new_value: {param_value} type: {type(param_value)}"
+                                f"Failed to log parameter due to conflict. Attempting to log "
+                                f"search space parameter {param_name} as {param_value}, "
+                                f"but {param_name} is already logged as "
+                                f"{autologged_params[param_name]} during training. "
+                                f"Are you passing `estimator_params` properly to the estimator?"
                             )
                     else:
-                        mlflow.log_param(param_name, param_value)
+                        manual_log_params[param_name] = param_value
+
+                if len(manual_log_params) > 0:
+                    mlflow.log_params(manual_log_params)
 
                 # return +/- metric
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
@@ -745,7 +754,7 @@ class TrainStep(BaseStep):
         with open(best_parameters_path, "a") as file:
             file.write("# tuned hyperparameters\n")
             self._process_and_safe_dump(best_hp_params, file, default_flow_style=False)
-            file.write("# hardcoded parameters\n")
+            file.write("\n# hardcoded parameters\n")
             self._process_and_safe_dump(best_hardcoded_params, file, default_flow_style=False)
         mlflow.log_artifact(best_parameters_path)
 
