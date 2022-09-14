@@ -128,7 +128,7 @@ def test_from_pipeline_config_works_with_target_col(tmp_path):
         assert SplitStep.from_pipeline_config({"target_col": "fake_col"}, "fake_root") is not None
 
 
-@pytest.mark.mlp_next_release
+@pytest.mark.mlp_next_release("1.29.0")
 def test_split_step_skips_profiling_when_specified(tmp_path):
     ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
     ingest_output_dir.mkdir(parents=True)

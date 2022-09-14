@@ -1,6 +1,10 @@
 import os
 import posixpath
+from packaging.version import Version
+
 import pytest
+
+import mlflow
 
 
 def pytest_addoption(parser):
@@ -107,20 +111,26 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
     if config.getoption("run_mlp_next_release_tests"):
         skip_not_mlp_next_release = pytest.mark.skip(
             reason=(
-                "Only running MLflow Pipelines next release tests because --mlp_next_release"
-                " is specified"
+                f"Only running MLflow Pipelines next release tests beyond MLflow version"
+                f" {mlflow.__version__} because --mlp_next_release is specified"
             )
         )
         for item in items:
-            if "mlp_next_release" not in item.keywords:
+            mark = item.get_closest_marker("mlp_next_release")
+            if not mark or (
+                mark and mark.args and Version(mark.args[0]) <= Version(mlflow.__version__)
+            ):
                 item.add_marker(skip_not_mlp_next_release)
     else:
         skip_mlp_next_release = pytest.mark.skip(
             reason=(
-                "MLflow Pipelines next release tests are disabled because --mlp_next_release"
-                " isn't specified"
+                f"MLflow Pipelines next release tests beyond MLflow version {mlflow.__version__}"
+                f" are disabled because --mlp_next_release isn't specified"
             ),
         )
         for item in items:
-            if "mlp_next_release" in item.keywords:
+            mark = item.get_closest_marker("mlp_next_release")
+            if mark and (
+                not mark.args or (mark.args and Version(mark.args[0]) > Version(mlflow.__version__))
+            ):
                 item.add_marker(skip_mlp_next_release)
