@@ -512,6 +512,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
+    import tensorflow
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
@@ -696,6 +697,7 @@ class _TF2ModuleWrapper:
         self.model = model
 
     def predict(self, data):
+        import tensorflow
         if isinstance(data, (np.ndarray, list)):
             data = tensorflow.convert_to_tensor(data)
         else:
@@ -893,27 +895,6 @@ def autolog(
     if Version(tensorflow.__version__) < Version("2.3"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
         return
-
-    def _should_log_model_signatures():
-        return (
-            log_model_signatures
-            and
-            # `log_model_signatures` is `False` by default for
-            # `mlflow.tensorflow.autolog()` in order to to preserve
-            # backwards-compatible inference behavior with older versions of MLflow
-            # that did not support signature autologging for TensorFlow (
-            # unfortunately, adding a signature to a TensorFlow model has the
-            # unintended consequence of changing the output type produced by
-            # inference with pyfunc `predict()` for Pandas DataFrame inputs).
-            # However, `log_model_signatures` is `True` by default for
-            # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
-            # when TensorFlow autologging is enabled via `mlflow.autolog()`,
-            # we only enable signature logging if `mlflow.tensorflow.autolog()` is
-            # called explicitly with `log_model_signatures=True`
-            not get_autologging_config(
-                FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
-            )
-        )
 
     @picklable_exception_safe_function
     def _get_early_stop_callback(callbacks):
