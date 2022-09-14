@@ -58,8 +58,8 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
     mlflow_repo_path = os.getcwd()
 
     with chdir(tmpdir):
-        # Change the current working directory to a temporary directory,
-        # to prevent importing current repo mlflow module.
+        # Change the current working directory to a temporary directory
+        # to avoid importing mlflow from the repository.
         _execute_in_conda_env(
             conda_env,
             f"python {exec_py_path} {model_type} {task_type} "
@@ -132,24 +132,17 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, model_path)
         str(tmpdir), "iris", "save_model", model_path
     )
 
-    def load_and_evaluate():
-
-        infer = mlflow.tensorflow.load_model(model_uri=model_path)
-        feed_dict = {
-            df_column_name: tf.constant(model_data_info.inference_df[df_column_name])
-            for df_column_name in list(model_data_info.inference_df)
-        }
-        raw_preds = infer(**feed_dict)
-        pred_dict = {
-            column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
-        }
-        for col in pred_dict:
-            np.testing.assert_array_equal(pred_dict[col], model_data_info.raw_results[col])
-
-    load_and_evaluate()
-
-    with tf.device("/CPU:0"):
-        load_and_evaluate()
+    infer = mlflow.tensorflow.load_model(model_uri=model_path)
+    feed_dict = {
+        df_column_name: tf.constant(model_data_info.inference_df[df_column_name])
+        for df_column_name in list(model_data_info.inference_df)
+    }
+    raw_preds = infer(**feed_dict)
+    pred_dict = {
+        column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
+    }
+    for col in pred_dict:
+        np.testing.assert_array_equal(pred_dict[col], model_data_info.raw_results[col])
 
 
 def test_log_and_load_model_persists_and_restores_model_successfully(tmpdir):
@@ -250,14 +243,11 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         str(tmpdir), task_type="log_model", save_as_type="tf1-estimator"
     )
 
-    def load_and_predict():
-        model_uri = f"runs:/{model_data_info.run_id}/model"
-        with _use_tracking_uri(tracking_uri):
-            mlflow_model = mlflow.pyfunc.load_model(model_uri)
-        predictions = mlflow_model.predict({"features": model_data_info.inference_df})
-        np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
-
-    load_and_predict()
+    model_uri = f"runs:/{model_data_info.run_id}/model"
+    with _use_tracking_uri(tracking_uri):
+        mlflow_model = mlflow.pyfunc.load_model(model_uri)
+    predictions = mlflow_model.predict({"features": model_data_info.inference_df})
+    np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
 
 
 def test_saved_model_support_array_type_input():

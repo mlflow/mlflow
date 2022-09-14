@@ -7,4 +7,5 @@ dependencies:
   - mlflow==1.28.0
   - h5py<3.0.0
   - tensorflow==2.3.0
+  - pandas==1.4.0
 name: mlflow-128-tf-23-env

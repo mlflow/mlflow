@@ -18,10 +18,10 @@ class ToyModel(tf.Module):
         return tf.reshape(tf.add(tf.matmul(x, self.w), self.b), [-1])
 
 
-TF2ModuleInfo = collections.namedtuple(
-    "TF2ModuleInfo",
+TF2ModelInfo = collections.namedtuple(
+    "TF2ModelInfo",
     [
-        "module",
+        "model",
         "inference_data",
         "expected_results",
     ],
@@ -35,11 +35,11 @@ def tf2_toy_module():
     rand_b = tf.random.uniform(shape=[], dtype=tf.float32)
 
     inference_data = np.array([[2, 3, 4], [5, 6, 7]], dtype=np.float32)
-    module = ToyModel(rand_w, rand_b)
-    expected_results = module(inference_data)
+    model = ToyModel(rand_w, rand_b)
+    expected_results = model(inference_data)
 
-    return TF2ModuleInfo(
-        module=module,
+    return TF2ModelInfo(
+        model=model,
         inference_data=inference_data,
         expected_results=expected_results,
     )
@@ -47,7 +47,7 @@ def tf2_toy_module():
 
 def test_save_and_load_tf2_module(tmpdir, tf2_toy_module):
     model_path = os.path.join(str(tmpdir), "model")
-    mlflow.tensorflow.save_model(tf2_toy_module.module, model_path)
+    mlflow.tensorflow.save_model(tf2_toy_module.model, model_path)
 
     loaded_model = mlflow.tensorflow.load_model(model_path)
 
@@ -60,7 +60,7 @@ def test_save_and_load_tf2_module(tmpdir, tf2_toy_module):
 
 def test_log_and_load_tf2_module(tf2_toy_module):
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(tf2_toy_module.module, "model")
+        model_info = mlflow.tensorflow.log_model(tf2_toy_module.model, "model")
 
     model_uri = model_info.model_uri
     loaded_model = mlflow.tensorflow.load_model(model_uri)
@@ -89,17 +89,15 @@ def test_save_with_options(tmpdir, tf2_toy_module):
 
     with mock.patch("tensorflow.saved_model.save") as mock_save:
         mlflow.tensorflow.save_model(
-            tf2_toy_module.module, model_path, saved_model_kwargs=saved_model_kwargs
+            tf2_toy_module.model, model_path, saved_model_kwargs=saved_model_kwargs
         )
-        _, _, kwargs = mock_save.mock_calls[0]
-        assert kwargs == saved_model_kwargs
+        mock_save.assert_called_once_with(mock.ANY, mock.ANY, **saved_model_kwargs)
 
         mock_save.reset_mock()
 
         with mlflow.start_run():
             mlflow.tensorflow.log_model(
-                tf2_toy_module.module, "model", saved_model_kwargs=saved_model_kwargs
+                tf2_toy_module.model, "model", saved_model_kwargs=saved_model_kwargs
             )
 
-        _, _, kwargs = mock_save.mock_calls[0]
-        assert kwargs == saved_model_kwargs
+        mock_save.assert_called_once_with(mock.ANY, mock.ANY, **saved_model_kwargs)

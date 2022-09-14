@@ -16,13 +16,11 @@ import atexit
 import tempfile
 from collections import namedtuple
 import pandas
-import tensorflow
 from packaging.version import Version
 from threading import RLock
 import numpy as np
 import importlib
 import yaml
-import pandas as pd
 import re
 
 import mlflow
@@ -91,7 +89,6 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
-_PIP_ENV_SUBPATH = "requirements.txt"
 
 
 _MODEL_TYPE_KERAS = "keras"
@@ -137,7 +134,7 @@ def log_model(
     keras_model_kwargs=None,
 ):
     """
-    Log a TF2 core model (inheriting tf.Module) or a Keras model.
+    Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
@@ -251,7 +248,8 @@ def save_model(
     keras_model_kwargs=None,
 ):
     """
-    Save a TF2 core model (inheriting tf.Module) or Keras model to a path on the local file system.
+    Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
+    the local file system.
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -291,6 +289,7 @@ def save_model(
     :param keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
                                to be saved is a keras model.
     """
+    import tensorflow
     from tensorflow.keras.models import Model as KerasModel
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -718,8 +717,8 @@ class _KerasModelWrapper:
 
     def predict(self, data):
         def _predict(data):
-            if isinstance(data, pd.DataFrame):
-                predicted = pd.DataFrame(self.keras_model.predict(data.values))
+            if isinstance(data, pandas.DataFrame):
+                predicted = pandas.DataFrame(self.keras_model.predict(data.values))
                 predicted.index = data.index
             else:
                 predicted = self.keras_model.predict(data)
@@ -820,9 +819,8 @@ def autolog(
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
-    Enables automatic logging from TensorFlow to MLflow.
-    Note that autologging for ``tf.keras`` and ``keras`` is also
-    handled by :py:func:`mlflow.tensorflow.autolog`.
+    Enables autologging for ``tf.keras`` and ``keras``.
+    Note that only ``tensorflow>=2.3`` are supported.
     As an example, try running the
     `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
@@ -847,22 +845,6 @@ def autolog(
         ``restore_best_weight``, etc
       - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``:
         ``min_delta``, ``patience``, ``baseline``, ``restore_best_weights``, etc
-
-    **tf.estimator**
-     - **Metrics** and **Parameters**
-
-      - TensorBoard metrics: ``average_loss``, ``loss``, etc
-      - Parameters ``steps`` and ``max_steps``
-
-     - **Artifacts**
-
-      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call
-        to ``tf.estimator.export_saved_model``
-
-    **TensorFlow Core**
-     - **Metrics**
-
-      - All ``tf.summary.scalar`` calls
 
     Refer to the autologging tracking documentation for more
     information on `TensorFlow workflows
@@ -908,8 +890,8 @@ def autolog(
 
     atexit.register(_flush_queue)
 
-    if Version(tensorflow.__version__) < Version("1.12"):
-        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
+    if Version(tensorflow.__version__) < Version("2.3"):
+        warnings.warn("Could not log to MLflow. TensorFlow versions below 2.3 are not supported.")
         return
 
     def _should_log_model_signatures():

@@ -703,16 +703,14 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows serialized TensorFlow models in
-`SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
-or Keras models in MLflow Model format
+The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
 Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
 can be scored with both DataFrame input and numpy array input. Finally, you can use the
 :py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow graphs or Keras model.
+flavor as TensorFlow Core models or Keras models.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 

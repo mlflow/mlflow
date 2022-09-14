@@ -540,12 +540,12 @@ containing the following data:
 .. _GridSearchCV:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
-TensorFlow and Keras
---------------------
+Keras
+-----
 Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
-Note that only tensorflow>=2.3 are supported.
+Note that only ``tensorflow>=2.3`` are supported.
 The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
 As an example, try running the `MLflow TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 

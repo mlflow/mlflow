@@ -76,7 +76,7 @@ tensorflow:
       pip install tensorflow-estimator==${tf_version}
       pytest \
         tests/tensorflow/test_tensorflow_estimator_export.py \
-        tests/tensorflow/test_tensorflow2_module_export.py \
+        tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
