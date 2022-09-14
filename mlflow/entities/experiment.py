@@ -84,8 +84,8 @@ class Experiment(_MLflowObject):
             proto.name,
             proto.artifact_location,
             proto.lifecycle_stage,
-            creation_time=proto.creation_time,
-            last_update_time=proto.last_update_time,
+            creation_time=proto.creation_time or None,
+            last_update_time=proto.last_update_time or None,
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
