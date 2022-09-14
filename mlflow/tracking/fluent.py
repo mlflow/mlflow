@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+import importlib
 import os
 
 import atexit
@@ -10,6 +11,7 @@ import logging
 import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from packaging.version import Version
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -1873,6 +1875,13 @@ def autolog(
     # the post-import hook also retroactively activates for previously-imported libraries.
     for module in set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}:
         register_post_import_hook(setup_autologging, module, overwrite=True)
+
+    def keras_import_hook(keras_module):
+        if Version(keras_module.__version__) >= Version("2.6"):
+            # Import tensorflow to ensure setup tensorflow autologging.
+            importlib.import_module("tensorflow")
+
+    register_post_import_hook(keras_import_hook, "keras", overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
