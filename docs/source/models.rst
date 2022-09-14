@@ -624,7 +624,11 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
     
     import mlflow
     import numpy as np
+    import pathlib
+    import shutil
     from tensorflow import keras
+
+    mlflow.tensorflow.autolog()
 
     with mlflow.start_run():
         X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
@@ -637,14 +641,17 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
         )
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-
         model_info = mlflow.keras.log_model(keras_model=model, artifact_path="model")
 
-    keras_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    local_artifact_dir = "/tmp/mlflow/keras_model"
+    pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
+
+    keras_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri, dst_path=local_artifact_dir)
 
     data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
-
     predictions = keras_pyfunc.predict(data)
+
+    shutil.rmtree(local_artifact_dir)
 
 For more information, see :py:mod:`mlflow.keras`.
 
