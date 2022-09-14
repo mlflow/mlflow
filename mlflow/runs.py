@@ -6,7 +6,6 @@ import json
 import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
 from mlflow.utils.string_utils import _create_table
 

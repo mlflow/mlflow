@@ -75,7 +75,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 

@@ -32,7 +32,6 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
