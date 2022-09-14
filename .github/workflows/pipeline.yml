@@ -58,6 +58,7 @@ jobs:
           pytest tests/pipelines
           # Run pipelines tests against the next MLP template release branch
           cd examples/pipelines/sklearn_regression
+          git fetch
           git checkout next-release
           cd $MLFLOW_HOME
           pytest tests/pipelines --mlp_next_release
@@ -90,6 +91,7 @@ jobs:
           pytest tests/pipelines
           # Run pipelines tests against the next MLP template release branch
           cd examples/pipelines/sklearn_regression
+          git fetch
           git checkout next-release
           cd $MLFLOW_HOME
           pytest tests/pipelines --mlp_next_release
