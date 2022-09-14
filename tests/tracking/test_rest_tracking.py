@@ -23,7 +23,6 @@ from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
-    MLFLOW_RUN_NAME,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
@@ -207,6 +206,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_version = "abc"
     create_run_kwargs = {
         "start_time": 456,
+        "name": "my name",
         "tags": {
             MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",
@@ -214,7 +214,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
             MLFLOW_GIT_COMMIT: source_version,
             MLFLOW_PARENT_RUN_ID: "7",
-            MLFLOW_RUN_NAME: "my name",
             "my": "tag",
             "other": "tag",
         },
@@ -232,10 +231,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         assert run.info.experiment_id == experiment_id
         assert run.info.user_id == user
         assert run.info.start_time == create_run_kwargs["start_time"]
+        assert run.info.run_name == "my name"
         for tag in create_run_kwargs["tags"]:
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
-        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
         assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 

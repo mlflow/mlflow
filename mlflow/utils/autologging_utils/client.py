@@ -32,7 +32,7 @@ from mlflow.utils.validation import (
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags"])
+_PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags", "name"])
 _PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
 
 
@@ -136,6 +136,7 @@ class MlflowAutologgingQueueingClient:
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
@@ -155,6 +156,7 @@ class MlflowAutologgingQueueingClient:
                 experiment_id=experiment_id,
                 start_time=start_time,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
+                name=name,
             )
         )
         return run_id

@@ -516,7 +516,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.last_update_time = int(time.time() * 1000)
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, name):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -530,7 +530,7 @@ class SqlAlchemyStore(AbstractStore):
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
             run = SqlRun(
-                name="",
+                name=name,
                 artifact_uri=artifact_location,
                 run_uuid=run_id,
                 experiment_id=experiment_id,
@@ -613,12 +613,14 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, name):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
+            if name is not None:
+                run.name = name
 
             self._save_to_db(objs=run, session=session)
             run = run.to_mlflow_entity()

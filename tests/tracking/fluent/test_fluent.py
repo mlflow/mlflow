@@ -473,7 +473,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
     ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -547,7 +547,7 @@ def test_start_run_defaults_databricks_notebook(
     ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -607,7 +607,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
     ):
         active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -656,7 +656,7 @@ def test_start_run_with_parent():
     ):
         active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -792,7 +792,7 @@ def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=
     ):
         active_run = start_run(description=description)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 

@@ -95,6 +95,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 run_info = {
                     "run_uuid": run_id,
                     "run_id": run_id,
+                    "run_name": "name",
                     "experiment_id": exp,
                     "user_id": random_str(random_int(10, 25)),
                     "status": random.choice(RunStatus.all_status()),
@@ -650,7 +651,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             with TempDir() as tmp:
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
-                run = fs.create_run(experiment_id=exp_id, user_id="user", start_time=0, tags=[])
+                run = fs.create_run(
+                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], name="name"
+                )
                 self.assertEqual(
                     run.info.artifact_uri,
                     expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
@@ -662,21 +665,24 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete it
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception, match="Could not create run under non-active experiment"):
-            fs.create_run(exp_id, "user", 0, [])
+            fs.create_run(exp_id, "user", 0, [], "name")
 
     def test_create_run_returns_expected_run_data(self):
         fs = FileStore(self.test_root)
         no_tags_run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 1
+        assert len(no_tags_run.data.tags) == 0
 
-        run_name = no_tags_run.data.tags.get(MLFLOW_RUN_NAME)
+        run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
         tags_dict = {
-            MLFLOW_RUN_NAME: "my_run",
             "my_first_tag": "first",
             "my-second-tag": "2nd",
         }
@@ -686,6 +692,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=tags_entities,
+            name="name",
         )
         assert isinstance(tags_run.data, RunData)
         assert tags_run.data.tags == tags_dict
@@ -856,8 +863,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
-        r1 = fs.create_run(experiment_id, "user", 0, []).info.run_id
-        r2 = fs.create_run(experiment_id, "user", 0, []).info.run_id
+        r1 = fs.create_run(experiment_id, "user", 0, [], "name").info.run_id
+        r2 = fs.create_run(experiment_id, "user", 0, [], "name").info.run_id
 
         fs.set_tag(r1, RunTag("generic_tag", "p_val"))
         fs.set_tag(r2, RunTag("generic_tag", "p_val"))
@@ -913,7 +920,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("search_with_max_results")
 
-        runs = [fs.create_run(exp, "user", r, []).info.run_id for r in range(10)]
+        runs = [fs.create_run(exp, "user", r, [], "name").info.run_id for r in range(10)]
         runs.reverse()
 
         assert runs[:10] == self._search(fs, exp)
@@ -931,7 +938,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # Create 10 runs with the same start_time.
         # Sort based on run_id
-        runs = sorted([fs.create_run(exp, "user", 1000, []).info.run_id for r in range(10)])
+        runs = sorted([fs.create_run(exp, "user", 1000, [], "name").info.run_id for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert runs[: min(10, n)] == self._search(fs, exp, max_results=n)
 
@@ -939,7 +946,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("test_search_runs_pagination")
         # test returned token behavior
-        runs = sorted([fs.create_run(exp, "user", 1000, []).info.run_id for r in range(10)])
+        runs = sorted([fs.create_run(exp, "user", 1000, [], "name").info.run_id for r in range(10)])
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
         assert [r.info.run_id for r in result] == runs[0:4]
         assert result.token is not None
@@ -1234,7 +1241,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="name",
         )
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
@@ -1247,7 +1258,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="name",
         )
 
     def test_log_batch_max_length_value(self):
