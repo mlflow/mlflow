@@ -80,6 +80,27 @@ class TrainStep(BaseStep):
             )
         self.code_paths = [os.path.join(self.pipeline_root, "steps")]
 
+    @classmethod
+    def _construct_search_space_from_yaml(cls, params):
+        from hyperopt import hp
+
+        search_space = {}
+        for param_name, param_details in params.items():
+            if "values" in param_details:
+                search_space[param_name] = hp.choice(param_name, **param_details)
+            elif "distribution" in param_details:
+                hp_tuning_fn = getattr(hp, param_details["distribution"])
+                param_details_to_pass = param_details.copy()
+                param_details_to_pass.pop("distribution")
+                search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
+            else:
+                raise MlflowException(
+                    f"Parameter {param_name} must contain either a list of 'values' or a "
+                    f"'distribution' following hyperopt parameter expressions",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        return search_space
+
     def _run(self, output_directory):
         import pandas as pd
         import shutil
@@ -229,7 +250,7 @@ class TrainStep(BaseStep):
         tuning_df = None
         if best_estimator_params:
             try:
-                tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
+                tuning_df = self._get_tuning_df(run, params=best_estimator_params.keys())
             except Exception as e:
                 _logger.warning(
                     "Failed to build tuning results table due to unexpected failure: %s", e
@@ -351,7 +372,7 @@ class TrainStep(BaseStep):
         )
         return leaderboard_df
 
-    def _get_tuning_df(self, run, params):
+    def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
         primary_metric_tag = f"metrics.{self.primary_metric}_on_data_validation"
         order_str = (
@@ -362,9 +383,13 @@ class TrainStep(BaseStep):
             filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
             order_by=[f"{primary_metric_tag} {order_str}"],
         )
-        params = [f"params.{param}" for param in params]
-        tuning_runs = tuning_runs.filter([primary_metric_tag, *params])
-        # tuning_runs.index.name = "Model Rank"
+        if params:
+            params = [f"params.{param}" for param in params]
+            tuning_runs = tuning_runs.filter(
+                [f"metrics.{self.primary_metric}_on_data_validation", *params]
+            )
+        else:
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}_on_data_validation"])
         tuning_runs = tuning_runs.reset_index().rename(columns={"index": "Model Rank"})
         return tuning_runs
 
@@ -567,33 +592,34 @@ class TrainStep(BaseStep):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
-                if "sample_fraction" in step_config["tuning"]:
-                    sample_fraction = float(step_config["tuning"]["sample_fraction"])
-                    if sample_fraction > 0 and sample_fraction <= 1.0:
-                        step_config["sample_fraction"] = sample_fraction
+                if step_config["tuning_enabled"]:
+                    if "sample_fraction" in step_config["tuning"]:
+                        sample_fraction = float(step_config["tuning"]["sample_fraction"])
+                        if sample_fraction > 0 and sample_fraction <= 1.0:
+                            step_config["sample_fraction"] = sample_fraction
+                        else:
+                            raise MlflowException(
+                                "The 'sample_fraction' configuration in the train step must be "
+                                "between 0 and 1.",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            )
                     else:
+                        step_config["sample_fraction"] = 1.0
+
+                    if "algorithm" not in step_config["tuning"]:
+                        step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
+                    if "max_trials" not in step_config["tuning"]:
                         raise MlflowException(
-                            "The 'sample_fraction' configuration in the train step must be "
-                            "between 0 and 1.",
+                            "The 'max_trials' configuration in the train step must be provided.",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
-                else:
-                    step_config["sample_fraction"] = 1.0
 
-                if "algorithm" not in step_config["tuning"]:
-                    step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
-
-                if "max_trials" not in step_config["tuning"]:
-                    raise MlflowException(
-                        "The 'max_trials' configuration in the train step must be provided.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                if "parameters" not in step_config["tuning"]:
-                    raise MlflowException(
-                        "The 'parameters' configuration in the train step must be provided.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                    if "parameters" not in step_config["tuning"]:
+                        raise MlflowException(
+                            "The 'parameters' configuration in the train step must be provided.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
 
             else:
                 step_config["tuning_enabled"] = False
@@ -695,7 +721,7 @@ class TrainStep(BaseStep):
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
                 return sign * eval_result.metrics[self.primary_metric]
 
-        search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
+        search_space = TrainStep._construct_search_space_from_yaml(tuning_params["parameters"])
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
         tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
         max_trials = tuning_params["max_trials"]
@@ -743,26 +769,6 @@ class TrainStep(BaseStep):
             code_paths=self.code_paths,
         )
         return logged_estimator
-
-    def _construct_search_space_from_yaml(self, params):
-        from hyperopt import hp
-
-        search_space = {}
-        for param_name, param_details in params.items():
-            if "values" in param_details:
-                search_space[param_name] = hp.choice(param_name, **param_details)
-            elif "distribution" in param_details:
-                hp_tuning_fn = getattr(hp, param_details["distribution"])
-                param_details_to_pass = param_details.copy()
-                param_details_to_pass.pop("distribution")
-                search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
-            else:
-                raise MlflowException(
-                    f"Parameter {param_name} must contain either a list of 'values' or a "
-                    f"'distribution' following hyperopt parameter expressions",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        return search_space
 
     def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
         best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")

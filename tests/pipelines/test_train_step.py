@@ -1,6 +1,8 @@
 import os
+import sys
 import cloudpickle
 from pathlib import Path
+import pytest
 
 import pandas as pd
 
@@ -21,8 +23,8 @@ from tests.pipelines.helper_functions import tmp_pipeline_root_path
 
 # pylint: enable=unused-import
 
-# Sets up the train step and returns the constructed TrainStep instance and step output dir
-def set_up_train_step(pipeline_root: Path):
+# Sets up the train step output dir
+def setup_train_dataset(pipeline_root: Path):
     split_step_output_dir = pipeline_root.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
 
@@ -54,45 +56,91 @@ def set_up_train_step(pipeline_root: Path):
     transformed_dataset.to_parquet(str(split_step_output_dir / "validation.parquet"))
     transformed_dataset.to_parquet(str(split_step_output_dir / "train.parquet"))
 
+    return train_step_output_dir
+
+
+# Sets up the constructed TrainStep instance
+def setup_train_step(pipeline_root: Path, use_tuning: bool):
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
-        """
-        template: "regression/v1"
-        target_col: "y"
-        profile: "test_profile"
-        run_args:
-            step: "train"
-        experiment:
-          name: "demo"
-          tracking_uri: {tracking_uri}
-        steps:
-          train:
-            using: estimator_spec
-            estimator_method: sklearn.linear_model.SGDRegressor
-            tuning:
-                enabled: false
-        """.format(
-            tracking_uri=mlflow.get_tracking_uri()
+    if use_tuning:
+        pipeline_yaml.write_text(
+            """
+            template: "regression/v1"
+            target_col: "y"
+            profile: "test_profile"
+            run_args:
+                step: "train"
+            experiment:
+                name: "demo"
+                tracking_uri: {tracking_uri}
+            steps:
+                train:
+                    using: estimator_spec
+                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    estimator_params:
+                        alpha: 0.1
+                        penalty: l1
+                    tuning:
+                        enabled: true
+                        max_trials: 2
+                        sample_fraction: 0.5
+                        parameters:
+                            alpha:
+                                distribution: "uniform"
+                                low: 0.0
+                                high: 0.01
+            """.format(
+                tracking_uri=mlflow.get_tracking_uri()
+            )
         )
-    )
+    else:
+        pipeline_yaml.write_text(
+            """
+            template: "regression/v1"
+            target_col: "y"
+            profile: "test_profile"
+            run_args:
+                step: "train"
+            experiment:
+                name: "demo"
+                tracking_uri: {tracking_uri}
+            steps:
+                train:
+                    using: estimator_spec
+                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    tuning:
+                        enabled: false
+            """.format(
+                tracking_uri=mlflow.get_tracking_uri()
+            )
+        )
     pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
     train_step = TrainStep.from_pipeline_config(pipeline_config, str(pipeline_root))
-    return train_step, train_step_output_dir
+    return train_step
 
 
-def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path):
+def estimator_fn(estimator_params=None):
+    from sklearn.linear_model import SGDRegressor
+
+    return SGDRegressor(random_state=42, **estimator_params)
+
+
+@pytest.mark.parametrize("use_tuning", [True, False])
+def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tuning):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
-        train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
         train_step._run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/model.pkl").exists()
     assert (train_step_output_dir / "card.html").exists()
 
 
+@pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
-    monkeypatch, tmp_pipeline_root_path
+    monkeypatch, tmp_pipeline_root_path, use_tuning
 ):
     workspace_host = "https://dev.databricks.com"
     workspace_id = 123456
@@ -102,7 +150,8 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
     monkeypatch.setenv(_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_pipeline_root_path))
 
-    train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
+    train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+    train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
     train_step._run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -119,11 +168,13 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
     )
 
 
-def test_train_steps_autologs(tmp_pipeline_root_path):
+@pytest.mark.parametrize("use_tuning", [True, False])
+def test_train_steps_autologs(tmp_pipeline_root_path, use_tuning):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
-        train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
         train_step._run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -138,7 +189,8 @@ def test_train_steps_autologs(tmp_pipeline_root_path):
     assert "epsilon" in params
 
 
-def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
+@pytest.mark.parametrize("use_tuning", [True, False])
+def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
     with mock.patch.dict(
         os.environ,
         {
@@ -146,7 +198,8 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
             _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
-        train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
         train_step._run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -160,3 +213,46 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
     assert tags["mlflow.pipeline.template.name"] == "regression/v1"
     assert tags["mlflow.pipeline.step.name"] == "train"
     assert tags["mlflow.pipeline.profile.name"] == "test_profile"
+
+
+def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._run(str(train_step_output_dir))
+    assert (train_step_output_dir / "best_parameters.yaml").exists()
+
+
+def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._run(str(train_step_output_dir))
+
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
+
+    run = MlflowClient().get_run(run_id)
+    child_runs = train_step._get_tuning_df(run)
+    assert len(child_runs) == 3
+
+
+@pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
+def test_search_space(tmp_pipeline_root_path):
+    tuning_params_yaml = tmp_pipeline_root_path.joinpath("tuning_params.yaml")
+    tuning_params_yaml.write_text(
+        """
+        parameters:
+            alpha:
+                distribution: "uniform"
+                low: 0.0
+                high: 0.01
+        """
+    )
+    tuning_params = read_yaml(tmp_pipeline_root_path, "tuning_params.yaml")
+    search_space = TrainStep._construct_search_space_from_yaml(tuning_params["parameters"])
+    assert "alpha" in search_space
