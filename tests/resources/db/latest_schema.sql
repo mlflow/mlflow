@@ -10,6 +10,8 @@ CREATE TABLE experiments (
 	name VARCHAR(256) NOT NULL,
 	artifact_location VARCHAR(256),
 	lifecycle_stage VARCHAR(32),
+	creation_time BIGINT,
+	last_update_time BIGINT,
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id),
 	UNIQUE (name),
 	CONSTRAINT experiments_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
