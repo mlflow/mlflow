@@ -101,3 +101,15 @@ def test_save_with_options(tmpdir, tf2_toy_module):
             )
 
         mock_save.assert_called_once_with(mock.ANY, mock.ANY, **saved_model_kwargs)
+
+
+def test_load_with_options(tmpdir, tf2_toy_module):
+    model_path = os.path.join(str(tmpdir), "model")
+    mlflow.tensorflow.save_model(tf2_toy_module.model, model_path)
+
+    saved_model_kwargs = {
+        "options": tf.saved_model.LoadOptions(allow_partial_checkpoint=True),
+    }
+    with mock.patch("tensorflow.saved_model.load") as mock_load:
+        mlflow.tensorflow.load_model(model_path, saved_model_kwargs=saved_model_kwargs)
+        mock_load.assert_called_once_with(mock.ANY, **saved_model_kwargs)

@@ -472,7 +472,7 @@ def _infer_model_type(model_conf):
     return _MODEL_TYPE_TF1_ESTIMATOR
 
 
-def load_model(model_uri, dst_path=None, **kwargs):
+def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kwargs=None):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
@@ -491,9 +491,10 @@ def load_model(model_uri, dst_path=None, **kwargs):
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
-
-    :param kwargs: kwargs to pass to ``keras.models.load_model`` method. Only available
-                   when you are loading a Keras model.
+    :param saved_model_kwargs: kwargs to pass to ``tensorflow.saved_model.load`` method.
+                               Only available when you are loading a tensorflow2 core model.
+    :param keras_model_kwargs: kwargs to pass to ``keras.models.load_model`` method.
+                               Only available when you are loading a Keras model.
 
     :return: A callable graph (tf.function) that takes inputs and returns inferences.
 
@@ -524,6 +525,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     model_type = _infer_model_type(model_conf)
     if model_type == _MODEL_TYPE_KERAS:
+        keras_model_kwargs = keras_model_kwargs or {}
         keras_module = importlib.import_module(flavor_conf.get("keras_module", "tensorflow.keras"))
         # For backwards compatibility, we assume h5 when the save_format is absent
         save_format = flavor_conf.get("save_format", "h5")
@@ -532,7 +534,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
             model_path=model_path,
             keras_module=keras_module,
             save_format=save_format,
-            **kwargs,
+            **keras_model_kwargs,
         )
     if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
         tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
@@ -544,8 +546,9 @@ def load_model(model_uri, dst_path=None, **kwargs):
             tf_signature_def_key=tf_signature_def_key,
         )
     if model_type == _MODEL_TYPE_TF2_MODULE:
+        saved_model_kwargs = saved_model_kwargs or {}
         tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
-        return tensorflow.saved_model.load(tf_saved_model_dir)
+        return tensorflow.saved_model.load(tf_saved_model_dir, **saved_model_kwargs)
 
     raise MlflowException("Unknown model_type.")
 

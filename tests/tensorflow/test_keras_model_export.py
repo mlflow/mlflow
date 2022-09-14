@@ -292,7 +292,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     model_loaded = mlflow.tensorflow.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
     with pytest.raises(TypeError, match=r".+"):
-        model_loaded = mlflow.tensorflow.load_model(model_path)
+        mlflow.tensorflow.load_model(model_path)
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
@@ -665,3 +665,23 @@ def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir):
 
     load_and_predict(lambda: mlflow.pyfunc.load_model(model_uri))
     load_and_predict(lambda: mlflow.tensorflow.load_model(model_uri))
+
+
+def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
+    """
+    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
+    can be loaded successfully. These models are missing the `data` flavor configuration key.
+    """
+    mlflow.tensorflow.save_model(tf_keras_model, path=model_path)
+    keras_model_kwargs = {
+        "compile": False,
+        "options": tf.saved_model.LoadOptions(allow_partial_checkpoint=True),
+    }
+    with mock.patch("mlflow.tensorflow._load_keras_model") as mock_load:
+        mlflow.tensorflow.load_model(model_path, keras_model_kwargs=keras_model_kwargs)
+        mock_load.assert_called_once_with(
+            model_path=mock.ANY,
+            keras_module=mock.ANY,
+            save_format=mock.ANY,
+            **keras_model_kwargs
+        )
