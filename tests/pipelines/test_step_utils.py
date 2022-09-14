@@ -1,4 +1,3 @@
-import json
 import mlflow.pipelines.utils.step as step_utils
 import numpy as np
 import pytest

@@ -112,8 +112,6 @@ def get_pandas_data_profile(data_frame, title: str):
     :param title: String, the title of the data profile.
     :return: a data profiling object such as Pandas profiling ProfileReport.
     """
-    from pandas_profiling import ProfileReport
-
     if len(data_frame) == 0:
         pandas_renderer.get_html([[title, data_frame]])
 

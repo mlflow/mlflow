@@ -227,8 +227,6 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
         and they are all visualized in comparison mode.
     :return: None
     """
-    from IPython.display import display as ip_display, HTML
-
     if isinstance(inputs, pd.DataFrame):
         df: pd.DataFrame = inputs
         proto = convert_to_proto(df)
