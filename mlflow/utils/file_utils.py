@@ -623,3 +623,22 @@ def get_or_create_nfs_tmp_dir():
         atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
 
     return tmp_nfs_dir
+
+
+def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
+    """
+    Write spark dataframe in parquet format to local disk.
+
+    :param spark_df: Spark dataframe
+    :param output_path: path to write the data to
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
+    import uuid
+
+    if is_in_databricks_runtime():
+        dbfs_path = os.path.join(".mlflow", "cache", str(uuid.uuid4()))
+        spark_df.coalesce(1).write.format("parquet").save(dbfs_path)
+        shutil.copytree("/dbfs/" + dbfs_path, output_path)
+        shutil.rmtree("/dbfs/" + dbfs_path)
+    else:
+        spark_df.coalesce(1).write.format("parquet").save(output_path)

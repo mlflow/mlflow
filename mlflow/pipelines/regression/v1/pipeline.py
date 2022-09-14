@@ -122,7 +122,10 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import (
+    PredictStep,
+    _SCORED_OUTPUT_FILE_NAME,
+)
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
