@@ -353,14 +353,19 @@ class TrainStep(BaseStep):
 
     def _get_tuning_df(self, run, params):
         exp_id = _get_experiment_id()
+        primary_metric_tag = f"metrics.{self.primary_metric}_on_data_validation"
+        order_str = (
+            "DESC" if self.evaluation_metrics_greater_is_better[self.primary_metric] else "ASC"
+        )
         tuning_runs = mlflow.search_runs(
             [exp_id],
             filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
+            order_by=[f"{primary_metric_tag} {order_str}"],
         )
         params = [f"params.{param}" for param in params]
-        tuning_runs = tuning_runs.filter(
-            [f"metrics.{self.primary_metric}_on_data_validation", *params]
-        )
+        tuning_runs = tuning_runs.filter([primary_metric_tag, *params])
+        # tuning_runs.index.name = "Model Rank"
+        tuning_runs = tuning_runs.reset_index().rename(columns={"index": "Model Rank"})
         return tuning_runs
 
     def _build_step_card(
@@ -509,15 +514,25 @@ class TrainStep(BaseStep):
         # Tab 9: HP trials
         if tuning_df is not None:
             tuning_trials_card_tab = card.add_tab(
-                "Tuning Trials", "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE }}"
+                "Tuning Trials",
+                "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE_TITLE }}" + "{{ TUNING_TABLE }}",
             )
             tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
             tuning_trials_card_tab.add_html(
                 "SEARCH_SPACE",
                 f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
             )
+            tuning_trials_card_tab.add_html("TUNING_TABLE_TITLE", "<b>Tuning results:</b><br>")
             tuning_trials_card_tab.add_html(
-                "TUNING_TABLE", BaseCard.render_table(tuning_df, hide_index=False)
+                "TUNING_TABLE",
+                BaseCard.render_table(
+                    tuning_df.style.apply(
+                        lambda row: pd.Series("font-weight: bold", row.index),
+                        axis=1,
+                        subset=tuning_df.index[0],
+                    ),
+                    hide_index=True,
+                ),
             )
 
         return card
@@ -660,10 +675,12 @@ class TrainStep(BaseStep):
                 manual_log_params = {}
                 for param_name, param_value in estimator_args.items():
                     if param_name in autologged_params:
-                        if not self._is_equal(param_value, autologged_params[param_name]):
+                        if not self._is_tuning_param_equal(
+                            param_value, autologged_params[param_name]
+                        ):
                             _logger.warning(
-                                f"Failed to log parameter due to conflict. Attempting to log "
-                                f"search space parameter {param_name} as {param_value}, "
+                                f"Failed to log search space parameter due to conflict. Attempted "
+                                f"to log search space parameter {param_name} as {param_value}, "
                                 f"but {param_name} is already logged as "
                                 f"{autologged_params[param_name]} during training. "
                                 f"Are you passing `estimator_params` properly to the estimator?"
@@ -705,7 +722,7 @@ class TrainStep(BaseStep):
             best_hardcoded_params = estimator_hardcoded_params
 
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_yaml_output(best_hp_params, best_hardcoded_params, output_directory)
+        self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
@@ -747,18 +764,20 @@ class TrainStep(BaseStep):
                 )
         return search_space
 
-    def _write_yaml_output(self, best_hp_params, best_hardcoded_params, output_directory):
+    def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
         best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
         if os.path.exists(best_parameters_path):
             os.remove(best_parameters_path)
         with open(best_parameters_path, "a") as file:
             file.write("# tuned hyperparameters\n")
-            self._process_and_safe_dump(best_hp_params, file, default_flow_style=False)
+            self._safe_dump_with_numeric_values(best_hp_params, file, default_flow_style=False)
             file.write("\n# hardcoded parameters\n")
-            self._process_and_safe_dump(best_hardcoded_params, file, default_flow_style=False)
+            self._safe_dump_with_numeric_values(
+                best_hardcoded_params, file, default_flow_style=False
+            )
         mlflow.log_artifact(best_parameters_path)
 
-    def _process_and_safe_dump(self, data, file, **kwargs):
+    def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
 
         processed_data = {}
@@ -771,12 +790,12 @@ class TrainStep(BaseStep):
                 processed_data[key] = value
         return yaml.safe_dump(processed_data, file, **kwargs)
 
-    def _is_equal(self, new_param, logged_param):
-        if isinstance(new_param, int):
-            return new_param == int(logged_param)
-        elif isinstance(new_param, float):
-            return new_param == float(logged_param)
-        elif isinstance(new_param, str):
-            return new_param.strip() == logged_param.strip()
+    def _is_tuning_param_equal(self, tuning_param, logged_param):
+        if isinstance(tuning_param, int):
+            return tuning_param == int(logged_param)
+        elif isinstance(tuning_param, float):
+            return tuning_param == float(logged_param)
+        elif isinstance(tuning_param, str):
+            return tuning_param.strip() == logged_param.strip()
         else:
-            return new_param == logged_param
+            return tuning_param == logged_param
