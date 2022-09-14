@@ -65,13 +65,13 @@ MLflow committers actively [triage](ISSUE_TRIAGE.rst) and respond to
 GitHub issues. In general, we recommend waiting for feedback from an
 MLflow committer or community member before proceeding to implement a
 feature or patch. This is particularly important for [significant
-changes](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes),
+changes](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#write-designs-for-significant-changes),
 and will typically be labeled during triage with `needs design`.
 
 After you have agreed upon an implementation strategy for your feature
 or patch with an MLflow committer, the next step is to introduce your
 changes (see [developing
-changes](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-mlflow))
+changes](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#developing-and-testing-mlflow))
 as a pull request against the MLflow Repository (we recommend pull
 requests be filed from a non-master branch on a repository fork) or as a
 standalone MLflow Plugin. MLflow committers actively review pull
