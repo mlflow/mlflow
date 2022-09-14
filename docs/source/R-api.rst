@@ -1647,8 +1647,19 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
+| ``filter``                    | A filter expression used to identify |
+|                               | specific registered models. The      |
+|                               | syntax is a subset of SQL which      |
+|                               | allows only ANDing together binary   |
+|                               | operations. Example: “name =         |
+|                               | ‘my_model_name’ and tag.key =        |
+|                               | ‘value1’”                            |
++-------------------------------+--------------------------------------+
 | ``max_results``               | Maximum number of registered models  |
 |                               | to retrieve.                         |
++-------------------------------+--------------------------------------+
+| ``order_by``                  | List of registered model properties  |
+|                               | to order by. Example: “name”.        |
 +-------------------------------+--------------------------------------+
 | ``page_token``                | Pagination token to go to the next   |
 |                               | page based on a previous query.      |

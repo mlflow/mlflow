@@ -13,7 +13,13 @@ mlflow_search_registered_models(
 )
 }
 \arguments{
+\item{filter}{A filter expression used to identify specific registered models.
+The syntax is a subset of SQL which allows only ANDing together binary operations.
+Example: "name = 'my_model_name' and tag.key = 'value1'"}
+
 \item{max_results}{Maximum number of registered models to retrieve.}
+
+\item{order_by}{List of registered model properties to order by. Example: "name".}
 
 \item{page_token}{Pagination token to go to the next page based on a
 previous query.}
