@@ -65,7 +65,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -e .[pipelines]
+          pip install -e .
           pip install -r ${{ github.event.inputs.repository }}/requirements.txt
           pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
           # This dependency is needed pytest.ini uses pytest-cov
@@ -85,7 +85,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -e .[pipelines]
+          pip install -e .
           pip install -r ${{ github.event.inputs.repository }}/requirements.txt
           pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
           # This dependency is needed pytest.ini uses pytest-cov
