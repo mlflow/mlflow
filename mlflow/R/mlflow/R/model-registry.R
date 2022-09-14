@@ -130,18 +130,23 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
 #'   previous query.
 #' @template roxlate-client
 #' @export
-mlflow_list_registered_models <- function(max_results = 100, page_token = NULL,
-                                          client = NULL) {
+mlflow_search_registered_models <- function(filter = NULL,
+                                            max_results = 100,
+                                            order_by = list(),
+                                            page_token = NULL,
+                                            client = NULL) {
   client <- resolve_client(client)
 
   response <- mlflow_rest(
     "registered-models",
-    "list",
+    "search",
     client = client,
-    verb = "GET",
+    verb = "POST",
     version = "2.0",
-    query = list(
+    data = list(
+      filter = filter,
       max_results = max_results,
+      order_by = cast_string_list(order_by),
       page_token = page_token
     )
   )

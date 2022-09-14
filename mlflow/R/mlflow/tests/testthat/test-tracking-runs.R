@@ -407,21 +407,6 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
   })
 })
 
-test_that("mlflow_list_run_infos() works", {
-  mlflow_clear_test_dir("mlruns")
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("test", 10)
-  })
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 1)
-  mlflow_set_experiment("new-experiment")
-  expect_equal(nrow(mlflow_list_run_infos()), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("new_experiment_metric", 20)
-  })
-  expect_equal(nrow(mlflow_list_run_infos()), 1)
-})
-
 test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()

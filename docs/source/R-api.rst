@@ -724,42 +724,6 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
-``mlflow_list_experiments``
-===========================
-
-List Experiments
-
-Gets a list of all experiments.
-
-.. code:: r
-
-   mlflow_list_experiments(
-     view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
-     client = NULL
-   )
-
-.. _arguments-19:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``view_type``                 | Qualifier for type of experiments to |
-|                               | be returned. Defaults to             |
-|                               | ``ACTIVE_ONLY``.                     |
-+-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An MLflow client object   |
-|                               | returned from                        |
-|                               | `mlflow_client <#mlflow-client>`__ . |
-|                               | If specified, MLflow will use the    |
-|                               | tracking server associated with the  |
-|                               | passed-in client. If unspecified     |
-|                               | (the common case), MLflow will use   |
-|                               | the tracking server associated with  |
-|                               | the current tracking URI.            |
-+-------------------------------+--------------------------------------+
 
 ``mlflow_list_registered_models``
 =================================
