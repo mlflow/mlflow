@@ -820,7 +820,8 @@ def test_saved_model_support_array_type_input():
 
 def test_tf2_wrapper_handles_1d_output_data_shape():
     def infer(features):
-        res = features.numpy().sum(axis=1)  # NOTE: by removing `np.expand_dims` we create a 1D output.
+        # NOTE: by removing `np.expand_dims` we create a 1D output.
+        res = features.numpy().sum(axis=1)
         return {"prediction": tf.constant(res)}
 
     model = _TF2Wrapper(None, infer)
