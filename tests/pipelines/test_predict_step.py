@@ -10,7 +10,7 @@ from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -67,7 +67,7 @@ def predict_step_output_dir(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path
     )
     ingest_scoring_step_output_dir.mkdir(parents=True)
     X, _ = load_diabetes(as_frame=True, return_X_y=True)
-    X.to_parquet(ingest_scoring_step_output_dir.joinpath("scoring-dataset.parquet"))
+    X.to_parquet(ingest_scoring_step_output_dir.joinpath(_INPUT_FILE_NAME))
     predict_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "predict", "outputs")
     predict_step_output_dir.mkdir(parents=True)
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
