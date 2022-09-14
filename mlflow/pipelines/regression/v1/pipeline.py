@@ -122,7 +122,10 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import (
+    PredictStep,
+    _SCORED_OUTPUT_FILE_NAME,
+)
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
@@ -171,10 +174,8 @@ class RegressionPipeline(_BasePipeline):
         regression_pipeline.inspect(step="evaluate")
     """
 
-    _PIPELINE_STEPS = (
-        # Batch scoring DAG
-        IngestScoringStep,
-        PredictStep,
+    _TRAIN_DAG_NAME = "train_dag"
+    _TRAIN_DAG_STEPS = (
         # Training data ingestion DAG
         IngestStep,
         # Model training DAG
@@ -185,8 +186,46 @@ class RegressionPipeline(_BasePipeline):
         RegisterStep,
     )
 
-    def _get_step_classes(self) -> List[BaseStep]:
+    _SCORING_DAG_NAME = "scoring_dag"
+    _SCORING_DAG_STEPS = (
+        # Batch scoring DAG
+        IngestScoringStep,
+        PredictStep,
+    )
+
+    _PIPELINE_STEPS = _TRAIN_DAG_STEPS + _SCORING_DAG_STEPS
+
+    _STEPS_SUBGRAPH_MAP = dict()
+    for _step_class in _TRAIN_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _TRAIN_DAG_NAME
+    for _step_class in _SCORING_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _SCORING_DAG_NAME
+
+    _SUBGRAPH_INDICES_MAP = {
+        _TRAIN_DAG_NAME: (
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[0]),
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]),
+        ),
+        _SCORING_DAG_NAME: (
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[0]),
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]),
+        ),
+    }
+
+    _DEFAULT_STEP_INDEX = _PIPELINE_STEPS.index(RegisterStep)
+
+    def _get_step_classes(self):
         return self._PIPELINE_STEPS
+
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+        target_step_class = type(target_step)
+
+        subgraph_name = self._STEPS_SUBGRAPH_MAP[target_step_class]
+        s, e = self._SUBGRAPH_INDICES_MAP[subgraph_name]
+        return self._steps[s : e + 1]
+
+    def _get_default_step(self) -> BaseStep:
+        return self._steps[self._DEFAULT_STEP_INDEX]
 
     def _get_pipeline_dag_file(self) -> str:
         import jinja2
@@ -442,14 +481,14 @@ class RegressionPipeline(_BasePipeline):
         import mlflow.pyfunc
 
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         def log_artifact_not_found_warning(artifact_name, step_name):
@@ -563,14 +602,14 @@ class RegressionPipeline(_BasePipeline):
         corresponding pipeline step has been run.
         """
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         if artifact_name == "ingested_data":

@@ -1,9 +1,9 @@
 import os
 import re
-from shlex import quote
 import subprocess
 
 from mlflow.models import FlavorBackend
+from mlflow.utils.string_utils import quote
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 
@@ -12,6 +12,14 @@ class RFuncBackend(FlavorBackend):
     Flavor backend implementation for the generic R models.
     Predict and serve locally models with 'crate' flavor.
     """
+
+    def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
+        pass
+
+    def generate_dockerfile(
+        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver
+    ):
+        pass
 
     version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
