@@ -261,6 +261,9 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           pip install pyspark
+      - name: Download Hadoop winutils for Spark
+        run: |
+          git clone https://github.com/cdarlint/winutils
       - name: Run python tests
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
