@@ -545,8 +545,9 @@ class _TF2Wrapper:
         for col in pred_dict.keys():
             # If the output tensor is not 1-dimensional
             # AND all elements have length of 1, flatten the array with `ravel()`
-            if (len(pred_dict[col].shape) != 1 and
-                    all(len(element) == 1 for element in pred_dict[col])):
+            if len(pred_dict[col].shape) != 1 and all(
+                len(element) == 1 for element in pred_dict[col]
+            ):
                 pred_dict[col] = pred_dict[col].ravel()
             else:
                 pred_dict[col] = pred_dict[col].tolist()
