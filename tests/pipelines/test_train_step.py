@@ -256,3 +256,8 @@ def test_search_space(tmp_pipeline_root_path):
     tuning_params = read_yaml(tmp_pipeline_root_path, "tuning_params.yaml")
     search_space = TrainStep._construct_search_space_from_yaml(tuning_params["parameters"])
     assert "alpha" in search_space
+
+
+@pytest.mark.parametrize("tuning_param,logged_param", [(1, "1"), (1.0, "1.0"), ("a", " a ")])
+def test_tuning_param_equal(tuning_param, logged_param):
+    assert TrainStep._is_tuning_param_equal(tuning_param, logged_param)

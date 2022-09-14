@@ -101,6 +101,17 @@ class TrainStep(BaseStep):
                 )
         return search_space
 
+    @classmethod
+    def _is_tuning_param_equal(cls, tuning_param, logged_param):
+        if isinstance(tuning_param, int):
+            return tuning_param == int(logged_param)
+        elif isinstance(tuning_param, float):
+            return tuning_param == float(logged_param)
+        elif isinstance(tuning_param, str):
+            return tuning_param.strip() == logged_param.strip()
+        else:
+            return tuning_param == logged_param
+
     def _run(self, output_directory):
         import pandas as pd
         import shutil
@@ -701,7 +712,7 @@ class TrainStep(BaseStep):
                 manual_log_params = {}
                 for param_name, param_value in estimator_args.items():
                     if param_name in autologged_params:
-                        if not self._is_tuning_param_equal(
+                        if not TrainStep._is_tuning_param_equal(
                             param_value, autologged_params[param_name]
                         ):
                             _logger.warning(
@@ -795,13 +806,3 @@ class TrainStep(BaseStep):
             else:
                 processed_data[key] = value
         return yaml.safe_dump(processed_data, file, **kwargs)
-
-    def _is_tuning_param_equal(self, tuning_param, logged_param):
-        if isinstance(tuning_param, int):
-            return tuning_param == int(logged_param)
-        elif isinstance(tuning_param, float):
-            return tuning_param == float(logged_param)
-        elif isinstance(tuning_param, str):
-            return tuning_param.strip() == logged_param.strip()
-        else:
-            return tuning_param == logged_param
