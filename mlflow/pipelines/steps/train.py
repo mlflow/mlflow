@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import datetime
+import yaml
 
 import cloudpickle
 
@@ -137,13 +138,20 @@ class TrainStep(BaseStep):
             ),
         }
 
+        best_estimator_params = None
         mlflow.autolog(log_models=False)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
-                estimator = self._tune_and_get_best_estimator(
-                    estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+                best_estimator_params = self._tune_and_get_best_estimator_params(
+                    estimator_hardcoded_params,
+                    estimator_fn,
+                    X_train,
+                    y_train,
+                    validation_df,
+                    output_directory,
                 )
+                estimator = estimator_fn(best_estimator_params)
             else:
                 estimator = estimator_fn(estimator_hardcoded_params)
 
@@ -218,6 +226,14 @@ class TrainStep(BaseStep):
             leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
         except Exception as e:
             _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
+        tuning_df = None
+        if best_estimator_params:
+            try:
+                tuning_df = self._get_tuning_df(run, best_estimator_params.keys())
+            except Exception as e:
+                _logger.warning(
+                    "Failed to build tuning results table due to unexpected failure: %s", e
+                )
 
         card = self._build_step_card(
             eval_metrics=eval_metrics,
@@ -227,7 +243,10 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
+            output_directory=output_directory,
             leaderboard_df=leaderboard_df,
+            tuning_df=tuning_df,
+            best_estimator_params=best_estimator_params,
         )
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
@@ -332,6 +351,23 @@ class TrainStep(BaseStep):
         )
         return leaderboard_df
 
+    def _get_tuning_df(self, run, params):
+        exp_id = _get_experiment_id()
+        primary_metric_tag = f"metrics.{self.primary_metric}_on_data_validation"
+        order_str = (
+            "DESC" if self.evaluation_metrics_greater_is_better[self.primary_metric] else "ASC"
+        )
+        tuning_runs = mlflow.search_runs(
+            [exp_id],
+            filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
+            order_by=[f"{primary_metric_tag} {order_str}"],
+        )
+        params = [f"params.{param}" for param in params]
+        tuning_runs = tuning_runs.filter([primary_metric_tag, *params])
+        # tuning_runs.index.name = "Model Rank"
+        tuning_runs = tuning_runs.reset_index().rename(columns={"index": "Model Rank"})
+        return tuning_runs
+
     def _build_step_card(
         self,
         eval_metrics,
@@ -341,7 +377,10 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
+        output_directory,
         leaderboard_df=None,
+        tuning_df=None,
+        best_estimator_params=None,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -457,6 +496,45 @@ class TrainStep(BaseStep):
         else:
             run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
+        # Tab 8: Best Parameters
+        if best_estimator_params:
+            best_parameters_card_tab = card.add_tab(
+                "Best Parameters",
+                "{{ BEST_PARAMETERS }} ",
+            )
+            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+            if os.path.exists(best_parameters_yaml):
+                best_hardcoded_parameters = open(best_parameters_yaml).read()
+                best_parameters_card_tab.add_html(
+                    "BEST_PARAMETERS",
+                    f"<b>Best parameters:</b><br>"
+                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
+                )
+
+        # Tab 9: HP trials
+        if tuning_df is not None:
+            tuning_trials_card_tab = card.add_tab(
+                "Tuning Trials",
+                "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE_TITLE }}" + "{{ TUNING_TABLE }}",
+            )
+            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
+            tuning_trials_card_tab.add_html(
+                "SEARCH_SPACE",
+                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
+            )
+            tuning_trials_card_tab.add_html("TUNING_TABLE_TITLE", "<b>Tuning results:</b><br>")
+            tuning_trials_card_tab.add_html(
+                "TUNING_TABLE",
+                BaseCard.render_table(
+                    tuning_df.style.apply(
+                        lambda row: pd.Series("font-weight: bold", row.index),
+                        axis=1,
+                        subset=tuning_df.index[0],
+                    ),
+                    hide_index=True,
+                ),
+            )
+
         return card
 
     @classmethod
@@ -546,8 +624,14 @@ class TrainStep(BaseStep):
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
 
-    def _tune_and_get_best_estimator(
-        self, estimator_hardcoded_params, estimator_fn, X_train, y_train, validation_df
+    def _tune_and_get_best_estimator_params(
+        self,
+        estimator_hardcoded_params,
+        estimator_fn,
+        X_train,
+        y_train,
+        validation_df,
+        output_directory,
     ):
         tuning_params = self.step_config["tuning"]
         try:
@@ -560,8 +644,9 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(hyperparameter_args):
-            with mlflow.start_run(nested=True):
-                estimator = estimator_fn(dict(estimator_hardcoded_params, **hyperparameter_args))
+            with mlflow.start_run(nested=True) as tuning_run:
+                estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
+                estimator = estimator_fn(estimator_args)
 
                 sample_fraction = self.step_config["sample_fraction"]
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
@@ -586,6 +671,25 @@ class TrainStep(BaseStep):
                         "log_model_explainability": False,
                     },
                 )
+                autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
+                manual_log_params = {}
+                for param_name, param_value in estimator_args.items():
+                    if param_name in autologged_params:
+                        if not self._is_tuning_param_equal(
+                            param_value, autologged_params[param_name]
+                        ):
+                            _logger.warning(
+                                f"Failed to log search space parameter due to conflict. Attempted "
+                                f"to log search space parameter {param_name} as {param_value}, "
+                                f"but {param_name} is already logged as "
+                                f"{autologged_params[param_name]} during training. "
+                                f"Are you passing `estimator_params` properly to the estimator?"
+                            )
+                    else:
+                        manual_log_params[param_name] = param_value
+
+                if len(manual_log_params) > 0:
+                    mlflow.log_params(manual_log_params)
 
                 # return +/- metric
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
@@ -608,11 +712,18 @@ class TrainStep(BaseStep):
         hardcoded_estimator_loss = objective(estimator_hardcoded_params)
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
-            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+            best_hardcoded_params = {
+                param_name: param_value
+                for param_name, param_value in estimator_hardcoded_params.items()
+                if param_name not in best_hp_params
+            }
         else:
-            best_combined_params = estimator_hardcoded_params
+            best_hp_params = {}
+            best_hardcoded_params = estimator_hardcoded_params
 
-        return estimator_fn(best_combined_params)
+        best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+        self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
+        return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
         from mlflow.models.signature import infer_signature
@@ -652,3 +763,39 @@ class TrainStep(BaseStep):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         return search_space
+
+    def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
+        best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
+        if os.path.exists(best_parameters_path):
+            os.remove(best_parameters_path)
+        with open(best_parameters_path, "a") as file:
+            file.write("# tuned hyperparameters\n")
+            self._safe_dump_with_numeric_values(best_hp_params, file, default_flow_style=False)
+            file.write("\n# hardcoded parameters\n")
+            self._safe_dump_with_numeric_values(
+                best_hardcoded_params, file, default_flow_style=False
+            )
+        mlflow.log_artifact(best_parameters_path)
+
+    def _safe_dump_with_numeric_values(self, data, file, **kwargs):
+        import numpy as np
+
+        processed_data = {}
+        for key, value in data.items():
+            if isinstance(value, np.floating):
+                processed_data[key] = float(value)
+            elif isinstance(value, np.integer):
+                processed_data[key] = int(value)
+            else:
+                processed_data[key] = value
+        return yaml.safe_dump(processed_data, file, **kwargs)
+
+    def _is_tuning_param_equal(self, tuning_param, logged_param):
+        if isinstance(tuning_param, int):
+            return tuning_param == int(logged_param)
+        elif isinstance(tuning_param, float):
+            return tuning_param == float(logged_param)
+        elif isinstance(tuning_param, str):
+            return tuning_param.strip() == logged_param.strip()
+        else:
+            return tuning_param == logged_param
