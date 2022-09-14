@@ -137,7 +137,7 @@ def log_model(
     keras_model_kwargs=None,
 ):
     """
-    Log a Keras model.
+    Log a TF2 core model (inheriting tf.Module) or a Keras model.
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
@@ -286,8 +286,10 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
-    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method
+                               if the model to be saved is a Tensorflow module.
+    :param keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
+                               to be saved is a keras model.
     """
     from tensorflow.keras.models import Model as KerasModel
 

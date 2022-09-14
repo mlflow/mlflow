@@ -39,7 +39,7 @@ from tests.helper_functions import (
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
-from tests.tensorflow.test_tensorflow2_model_export import save_or_log_keras_model_by_mlflow128
+from tests.tensorflow.test_tensorflow_estimator_export import save_or_log_keras_model_by_mlflow128
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 

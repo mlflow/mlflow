@@ -58,7 +58,7 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
     mlflow_repo_path = os.getcwd()
 
     with chdir(tmpdir):
-        # change current working directory to be a temporary directory,
+        # Change the current working directory to a temporary directory,
         # to prevent importing current repo mlflow module.
         _execute_in_conda_env(
             conda_env,

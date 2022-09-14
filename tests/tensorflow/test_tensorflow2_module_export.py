@@ -8,17 +8,7 @@ from unittest import mock
 import mlflow.tensorflow
 
 
-class ToyModule(tf.Module):
-    def __init__(self, w, b):
-        self.w = w
-        self.b = b
-
-    @tf.function
-    def __call__(self, x):
-        return tf.reshape(tf.add(tf.matmul(x, self.w), self.b), [-1])
-
-
-class ToyModule(tf.Module):
+class ToyModel(tf.Module):
     def __init__(self, w, b):
         self.w = w
         self.b = b
@@ -45,7 +35,7 @@ def tf2_toy_module():
     rand_b = tf.random.uniform(shape=[], dtype=tf.float32)
 
     inference_data = np.array([[2, 3, 4], [5, 6, 7]], dtype=np.float32)
-    module = ToyModule(rand_w, rand_b)
+    module = ToyModel(rand_w, rand_b)
     expected_results = module(inference_data)
 
     return TF2ModuleInfo(

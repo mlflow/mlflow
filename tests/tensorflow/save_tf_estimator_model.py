@@ -33,7 +33,7 @@ SavedModelInfo = collections.namedtuple(
 )
 
 
-def gen_saved_tf_iris_model(tmpdir):
+def save_tf_iris_model(tmpdir):
     # Following code from
     # https://github.com/tensorflow/models/blob/v1.13.0/samples/core/get_started/premade_estimator.py
     train_x, train_y = iris_data_utils.load_data()[0]
@@ -118,7 +118,7 @@ def gen_saved_tf_iris_model(tmpdir):
     )
 
 
-def gen_saved_tf_categorical_model(tmpdir):
+def save_tf_categorical_model(tmpdir):
     path = os.path.join(os.environ["MLFLOW_REPO_PATH"], "tests/data/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
@@ -195,9 +195,9 @@ def gen_saved_tf_categorical_model(tmpdir):
 model_type = sys.argv[1]
 
 if model_type == "iris":
-    gen_model_fn = gen_saved_tf_iris_model
+    gen_model_fn = save_tf_iris_model
 elif model_type == "categorical":
-    gen_model_fn = gen_saved_tf_categorical_model
+    gen_model_fn = save_tf_categorical_model
 else:
     raise ValueError("Illegal argument.")
 
