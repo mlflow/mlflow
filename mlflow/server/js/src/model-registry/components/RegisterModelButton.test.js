@@ -52,8 +52,9 @@ describe('RegisterModelButton', () => {
     wrapper = shallowWithInjectIntl(
       <RegisterModelButtonWithIntl {...props} store={minimalStore} />,
     );
+    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(1);
     const instance = wrapper.instance();
     instance.handleSearchRegisteredModels('A');
-    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(1);
+    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(2);
   });
 });
