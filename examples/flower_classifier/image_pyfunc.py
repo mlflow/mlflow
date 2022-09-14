@@ -117,7 +117,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
         with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
         keras_path = os.path.join(data_path, "keras_model")
-        mlflow.tensorflow.save_model(keras_model=keras_model, path=keras_path)
+        mlflow.tensorflow.save_model(model=keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
         with open(conda_env, "w") as f:
             f.write(

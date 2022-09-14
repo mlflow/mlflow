@@ -395,7 +395,7 @@ on the ``MNIST dataset``:
     model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
 
     signature = infer_signature(testX, model.predict(testX))
-    mlflow.tensorflow.log_model(keras_model=model, path="mnist_cnn", signature=signature)
+    mlflow.tensorflow.log_model(model=model, path="mnist_cnn", signature=signature)
 
 The same signature can be created explicitly as follows:
 

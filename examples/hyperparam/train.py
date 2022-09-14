@@ -10,16 +10,16 @@ import warnings
 
 import math
 
-import keras
+from tensorflow import keras
 import numpy as np
 import pandas as pd
 
 import click
 
-from keras.callbacks import Callback
-from keras.models import Sequential
-from keras.layers import Dense, Lambda
-from keras.optimizers import SGD
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Lambda
+from tensorflow.keras.optimizers import SGD
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
@@ -71,7 +71,7 @@ class MLflowCheckpoint(Callback):
             raise Exception("Failed to build any model")
         mlflow.log_metric(self.train_loss, self._best_train_loss, step=self._next_step)
         mlflow.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
-        mlflow.tensorflow.log_model(keras_model=self._best_model, path="model")
+        mlflow.tensorflow.log_model(model=self._best_model, path="model")
 
     def on_epoch_end(self, epoch, logs=None):
         """
