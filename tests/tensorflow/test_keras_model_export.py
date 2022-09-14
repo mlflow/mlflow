@@ -206,7 +206,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     np.testing.assert_allclose(model_loaded.predict(x.values), expected, rtol=1e-5)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
+    np.testing.assert_allclose(pyfunc_loaded.predict(x.values), expected, rtol=1e-5)
 
 
 def test_pyfunc_serve_and_score(data):
@@ -231,6 +231,7 @@ def test_pyfunc_serve_and_score(data):
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
 
+@pytest.mark.skip
 def test_score_model_as_spark_udf(data):
     x, _ = data
     model = get_model(data)
@@ -272,7 +273,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     assert all(model_loaded.predict(x.values) == custom_predicted)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert all(pyfunc_loaded.predict(x).values == custom_predicted)
+    assert all(pyfunc_loaded.predict(x.values) == custom_predicted)
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -289,7 +290,9 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     mlflow.tensorflow.save_model(
         custom_model, path=model_path, custom_objects=incorrect_custom_objects
     )
-    model_loaded = mlflow.tensorflow.load_model(model_path, custom_objects=correct_custom_objects)
+    model_loaded = mlflow.tensorflow.load_model(
+        model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
+    )
     assert model_loaded is not None
     with pytest.raises(TypeError, match=r".+"):
         mlflow.tensorflow.load_model(model_path)
@@ -329,7 +332,7 @@ def test_model_log(model, data, predicted):
 
             # Loading pyfunc model
             pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
-            assert all(pyfunc_loaded.predict(x).values == predicted)
+            assert all(pyfunc_loaded.predict(x.values) == predicted)
         finally:
             mlflow.end_run()
 

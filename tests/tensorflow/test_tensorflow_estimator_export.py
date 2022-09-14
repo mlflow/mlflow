@@ -124,6 +124,7 @@ def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket)
         np.testing.assert_allclose(
             np.array(pred_dict[col], dtype=np.float),
             np.array(model_data_info.raw_results[col], dtype=np.float),
+            rtol=1e-6,
         )
 
 
@@ -142,7 +143,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, model_path)
         column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
     }
     for col in pred_dict:
-        np.testing.assert_array_equal(pred_dict[col], model_data_info.raw_results[col])
+        np.testing.assert_allclose(pred_dict[col], model_data_info.raw_results[col], rtol=1e-6)
 
 
 def test_log_and_load_model_persists_and_restores_model_successfully(tmpdir):
@@ -165,7 +166,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_pat
     results_df = pyfunc_wrapper.predict(model_data_info.inference_df)
     assert isinstance(results_df, pd.DataFrame)
     for key in results_df.keys():
-        np.testing.assert_array_equal(results_df[key], model_data_info.raw_df[key])
+        np.testing.assert_allclose(results_df[key], model_data_info.raw_df[key], rtol=1e-6)
 
     # can also call predict with a dict
     inp_dict = {}
@@ -174,7 +175,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_pat
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
     for key in results.keys():
-        np.testing.assert_array_equal(results[key], model_data_info.raw_df[key].tolist())
+        np.testing.assert_allclose(results[key], model_data_info.raw_df[key].tolist(), rtol=1e-6)
 
     # can not call predict with a list
     inp_list = []

@@ -183,19 +183,6 @@ def log_model(
 
     from tensorflow.keras.models import Model as KerasModel
 
-    if isinstance(model, KerasModel) and signature is not None:
-        warnings.warn(
-            "The pyfunc inference behavior of Keras models logged "
-            "with signatures differs from the behavior of Keras "
-            "models logged without signatures. Specifically, when a "
-            "signature is present, passing a Pandas DataFrame as "
-            "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`: "
-            "(for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces "
-            "a Pandas DataFrame output in response to a Pandas DataFrame input."
-        )
-
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.tensorflow,
@@ -721,16 +708,14 @@ class _KerasModelWrapper:
         self._sess = sess
 
     def predict(self, data):
-        def _predict(data):
-            if isinstance(data, pandas.DataFrame):
-                predicted = pandas.DataFrame(self.keras_model.predict(data.values))
-                predicted.index = data.index
-            else:
-                predicted = self.keras_model.predict(data)
-            return predicted
-
-        predicted = _predict(data)
-        return predicted
+        if isinstance(data, (np.ndarray, list)):
+            if isinstance(data, list):
+                data = np.array(data)
+            return self.keras_model.predict(data)
+        raise MlflowException(
+            f"Unsupported input data type: {type(data)}, the input data must be"
+            "numpy array or a list."
+        )
 
 
 def _assoc_list_to_map(lst):
