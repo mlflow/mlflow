@@ -219,7 +219,7 @@ def construct_facets_html(
     return html
 
 
-def render_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> None:
+def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
     """Rendering the data statistics in a HTML format.
 
     :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
@@ -238,4 +238,4 @@ def render_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]])
         compare = True
 
     html = construct_facets_html(proto, compare=compare)
-    ip_display(HTML(data=html))
+    return html

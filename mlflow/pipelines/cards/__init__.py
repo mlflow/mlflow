@@ -101,15 +101,9 @@ class CardTab:
         :return: the updated card instance
         """
         try:
-            # Add "anchor" class to variable links to override their click behaviors using
-            # this jQuery code in pandas-profiling:
-            # https://github.com/ydataai/pandas-profiling/blob/v3.2.0/src/pandas_profiling/report/presentation/flavours/html/templates/wrapper/assets/script.js#L5-L23
-            profile_html = _PP_VARIABLE_LINK_REGEX.sub(
-                r'<a class="anchor" href="\g<href>">', profile.to_html()
-            )
             profile_iframe = (
                 "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-            ).format(src=html.escape(profile_html))
+            ).format(src=html.escape(profile))
         except Exception as e:
             profile_iframe = f"Unable to create data profile. Error found:\n{e}"
         self.add_html(name, profile_iframe)

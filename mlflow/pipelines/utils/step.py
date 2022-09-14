@@ -1,5 +1,6 @@
 import logging
 import os
+from mlflow.pipelines.cards import pandas_renderer
 
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import (
@@ -114,13 +115,7 @@ def get_pandas_data_profile(data_frame, title: str):
     from pandas_profiling import ProfileReport
 
     if len(data_frame) == 0:
-        return ProfileReport(
-            data_frame,
-            title=title,
-            minimal=True,
-            progress_bar=False,
-            pool_size=_get_pool_size(),
-        )
+        pandas_renderer.get_html([[title, data_frame]])
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
@@ -140,10 +135,4 @@ def get_pandas_data_profile(data_frame, title: str):
             max_cols,
             max_rows,
         )
-    return ProfileReport(
-        truncated_df,
-        title=title,
-        minimal=True,
-        progress_bar=False,
-        pool_size=_get_pool_size(),
-    )
+    return pandas_renderer.get_html([[title, truncated_df]])
