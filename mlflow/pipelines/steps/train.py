@@ -81,7 +81,7 @@ class TrainStep(BaseStep):
         self.code_paths = [os.path.join(self.pipeline_root, "steps")]
 
     @classmethod
-    def _construct_search_space_from_yaml(cls, params):
+    def construct_search_space_from_yaml(cls, params):
         from hyperopt import hp
 
         search_space = {}
@@ -102,7 +102,7 @@ class TrainStep(BaseStep):
         return search_space
 
     @classmethod
-    def _is_tuning_param_equal(cls, tuning_param, logged_param):
+    def is_tuning_param_equal(cls, tuning_param, logged_param):
         if isinstance(tuning_param, int):
             return tuning_param == int(logged_param)
         elif isinstance(tuning_param, float):
@@ -712,7 +712,7 @@ class TrainStep(BaseStep):
                 manual_log_params = {}
                 for param_name, param_value in estimator_args.items():
                     if param_name in autologged_params:
-                        if not TrainStep._is_tuning_param_equal(
+                        if not TrainStep.is_tuning_param_equal(
                             param_value, autologged_params[param_name]
                         ):
                             _logger.warning(
@@ -732,7 +732,7 @@ class TrainStep(BaseStep):
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
                 return sign * eval_result.metrics[self.primary_metric]
 
-        search_space = TrainStep._construct_search_space_from_yaml(tuning_params["parameters"])
+        search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
         tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
         max_trials = tuning_params["max_trials"]
