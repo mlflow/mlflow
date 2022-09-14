@@ -84,10 +84,10 @@ class Experiment(_MLflowObject):
             proto.name,
             proto.artifact_location,
             proto.lifecycle_stage,
-            # In mlflow <= 1.28, experiments don't have creation_time and last_update_time
-            # and proto.creation_time and proto.last_update_time are 0 (default value for numeric
-            # types in protobuf). We should not set creation_time and last_update_time to 0
-            # because it is not a valid timestamp.
+            # `creation_time` and `last_update_time` were added in MLflow 1.29.0. Experiments
+            # created before this version don't have these fields and `proto.creation_time` and
+            # `proto.last_update_time` default to 0. We should only set `creation_time` and
+            # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
         )
