@@ -240,7 +240,7 @@ def _gen_classifier_curve(
     y_probs,
     labels,
     curve_type,
-    pos_label=None,
+    pos_label,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -270,7 +270,7 @@ def _gen_classifier_curve(
 
         def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            ap = sk_metrics.average_precision_score(_y, _y_prob, pos_label)
+            ap = sk_metrics.average_precision_score(_y, _y_prob, pos_label=pos_label)
             return recall, precision, f"AP={ap:.3f}"
 
         xlabel = "Recall"
@@ -741,6 +741,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="roc",
+                pos_label=self.pos_label
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -750,6 +751,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="pr",
+                pos_label=self.pos_label
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -780,6 +782,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="roc",
+                pos_label=self.pos_label
             )
 
             def plot_roc_curve():
@@ -794,6 +797,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="pr",
+                pos_label=self.pos_label
             )
 
             def plot_pr_curve():
@@ -820,7 +824,7 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
 
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs),
+                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
                 "lift_curve_plot",
             )
 
@@ -1116,6 +1120,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
+        self.pos_label = self.evaluator_config.get("pos_label")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 
