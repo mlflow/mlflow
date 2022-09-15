@@ -8,7 +8,7 @@ test_that("http(s) clients work as expected", {
   mlflow_clear_test_dir("mlruns")
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
-    expect_true(paste(args, collapse = "/") == "experiments/list")
+    expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
     list(experiments = c(1, 2, 3))
   }, {
     with_mock(.env = "mlflow", mlflow_register_local_server = function(...) NA, {
@@ -50,7 +50,7 @@ test_that("http(s) clients works with deprecated env vars", {
   mlflow_clear_test_dir("mlruns")
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
-    expect_true(paste(args, collapse = "/") == "experiments/list")
+    expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
     list(experiments = c(1, 2, 3))
   }, {
     with_mock(.env = "mlflow", mlflow_register_local_server = function(...) NA, {
