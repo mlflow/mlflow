@@ -281,8 +281,7 @@ def _gen_classifier_curve(
     elif curve_type == "pr":
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob)
-            # precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
+            precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
             ap = sk_metrics.average_precision_score(y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights)
