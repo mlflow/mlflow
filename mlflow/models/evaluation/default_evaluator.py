@@ -265,10 +265,10 @@ def _gen_classifier_curve(
 
         def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            print("precision:", precision)
             print("mean precision:", np.mean(precision))
-            print("recall:", recall)
+            print(len(precision))
             print("mean recall:", np.mean(recall))
+            print(len(recall))
             ap = np.mean(precision)
             return recall, precision, f"AP={ap:.3f}"
 
