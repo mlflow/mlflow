@@ -151,8 +151,7 @@ def test_regressor_evaluation(
     use_sample_weights,
 ):
     sample_weights = (
-        np.random.rand(len(diabetes_dataset.labels_data))
-        if use_sample_weights else None
+        np.random.rand(len(diabetes_dataset.labels_data)) if use_sample_weights else None
     )
 
     with mlflow.start_run() as run:
@@ -283,10 +282,7 @@ def test_multi_classifier_evaluation(
     baseline_model_uri,
     use_sample_weights,
 ):
-    sample_weights = (
-        np.random.rand(len(iris_dataset.labels_data))
-        if use_sample_weights else None
-    )
+    sample_weights = np.random.rand(len(iris_dataset.labels_data)) if use_sample_weights else None
 
     with mlflow.start_run() as run:
         result = evaluate_model_helper(
@@ -313,7 +309,9 @@ def test_multi_classifier_evaluation(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights)
+    expected_metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
+    )
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -375,7 +373,9 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
+    expected_metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
+    )
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -410,8 +410,7 @@ def test_bin_classifier_evaluation(
     use_sample_weights,
 ):
     sample_weights = (
-        np.random.rand(len(breast_cancer_dataset.labels_data))
-        if use_sample_weights else None
+        np.random.rand(len(breast_cancer_dataset.labels_data)) if use_sample_weights else None
     )
 
     with mlflow.start_run() as run:
@@ -439,7 +438,9 @@ def test_bin_classifier_evaluation(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights)
+    expected_metrics = _get_binary_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
+    )
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -502,7 +503,9 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
+    expected_metrics = _get_binary_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
+    )
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -872,15 +875,15 @@ def test_get_regressor_metrics(use_sample_weights):
 
     if use_sample_weights:
         expected_metrics = {
-            'example_count': 3,
-            'mean_absolute_error': 0.35000000000000003,
-            'mean_squared_error': 0.155,
-            'root_mean_squared_error': 0.39370039370059057,
-            'sum_on_label': -5.199999999999999,
-            'mean_on_label': -1.7333333333333332,
-            'r2_score': 0.9780003154076644,
-            'max_error': 0.5,
-            'mean_absolute_percentage_error': 0.1479076479076479
+            "example_count": 3,
+            "mean_absolute_error": 0.35000000000000003,
+            "mean_squared_error": 0.155,
+            "root_mean_squared_error": 0.39370039370059057,
+            "sum_on_label": -5.199999999999999,
+            "mean_on_label": -1.7333333333333332,
+            "r2_score": 0.9780003154076644,
+            "max_error": 0.5,
+            "mean_absolute_percentage_error": 0.1479076479076479,
         }
     else:
         expected_metrics = {
@@ -921,10 +924,7 @@ def test_get_binary_sum_up_label_pred_prob():
 def test_get_binary_classifier_metrics(use_sample_weights):
     y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
     y_pred = [0, 1, 1, 0, 1, 1, 0, 1, 1, 0]
-    sample_weights = (
-        [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1]
-        if use_sample_weights else None
-    )
+    sample_weights = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1] if use_sample_weights else None
 
     if use_sample_weights:
         expected_metrics = {
@@ -998,7 +998,13 @@ def test_gen_binary_precision_recall_curve_no_sample_weights():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="pr", sample_weights=None
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=1,
+        curve_type="pr",
+        sample_weights=None,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -1022,16 +1028,34 @@ def test_gen_binary_precision_recall_curve_with_sample_weights():
     sample_weights = [0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 0.1, 0.1]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="pr", sample_weights=sample_weights
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=1,
+        curve_type="pr",
+        sample_weights=sample_weights,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array([1.0, 0.83870968, 0.83870968, 0.83870968, 0.51612903, 0.48387097, 0.48387097, 0.16129032, 0.0]),
+        np.array(
+            [
+                1.0,
+                0.83870968,
+                0.83870968,
+                0.83870968,
+                0.51612903,
+                0.48387097,
+                0.48387097,
+                0.16129032,
+                0.0,
+            ]
+        ),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array([0.59615385, 0.55319149, 0.7027027 , 0.72222222, 0.61538462, 0.6, 0.75, 1.0, 1.0]),
+        np.array([0.59615385, 0.55319149, 0.7027027, 0.72222222, 0.61538462, 0.6, 0.75, 1.0, 1.0]),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "recall"
@@ -1045,7 +1069,13 @@ def test_gen_binary_roc_curve_no_sample_weights():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="roc", sample_weights=None
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=1,
+        curve_type="roc",
+        sample_weights=None,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -1069,16 +1099,48 @@ def test_gen_binary_roc_curve_with_sample_weights():
     sample_weights = [0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 0.1, 0.1]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="roc", sample_weights=sample_weights
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=1,
+        curve_type="roc",
+        sample_weights=sample_weights,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array([0.0 , 0.0, 0.19230769, 0.38461538, 0.38461538, 0.38461538, 0.42307692, 0.80769231, 0.80769231, 1.0]),
+        np.array(
+            [
+                0.0,
+                0.0,
+                0.19230769,
+                0.38461538,
+                0.38461538,
+                0.38461538,
+                0.42307692,
+                0.80769231,
+                0.80769231,
+                1.0,
+            ]
+        ),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array([0.0, 0.16129032, 0.48387097, 0.48387097, 0.51612903, 0.83870968, 0.83870968, 0.83870968, 1.0, 1.0]),
+        np.array(
+            [
+                0.0,
+                0.16129032,
+                0.48387097,
+                0.48387097,
+                0.51612903,
+                0.83870968,
+                0.83870968,
+                0.83870968,
+                1.0,
+                1.0,
+            ]
+        ),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "False Positive Rate"
@@ -1232,12 +1294,16 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
     )
 
     expected_x_data_list = [
-        [0.0, 0.375, 0.375, 1.0],
-        [0.0, 0.33333333, 0.33333333, 1.0],
-        [0.0, 0.33333333, 0.33333333, 1.0, 1.0],
+        [0.0, 0.375, 0.375, 0.5, 1.0],
+        [0.0, 0.285714, 0.285714, 1.0],
+        [0.0, 0.4, 0.4, 0.6, 1.0, 1.0],
     ]
-    expected_y_data_list = [[0.0, 0.0, 1.0, 1.0], [0.0, 0.5, 1.0, 1.0], [0.0, 0.0, 0.5, 0.5, 1.0]]
-    line_labels = ["label=0,AUC=0.625", "label=1,AUC=0.750", "label=2,AUC=0.333"]
+    expected_y_data_list = [
+        [0.0, 0.0, 1.0, 1.0, 1.0],
+        [0.0, 0.333333, 1.0, 1.0],
+        [0.0, 0.0, 0.4, 0.4, 0.4, 1.0],
+    ]
+    line_labels = ["label=0,AUC=0.625", "label=1,AUC=0.762", "label=2,AUC=0.240"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
@@ -1247,7 +1313,7 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
     assert results.plot_fn_args["ylabel"] == "True Positive Rate"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
-    expected_auc = [0.75, 0.75, 0.3333]
+    expected_auc = [0.625, 0.761905, 0.24]
     np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
