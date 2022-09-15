@@ -303,12 +303,13 @@ def _gen_classifier_curve(
             )
 
             x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y_bin, y_prob_bin, _pos_label=1)
-            curve_list.append((positive_class, x_data, y_data, line_label))
+            curve_list.append((positive_class, x_data, y_data, line_label, auc))
 
         data_series = [
             (f"label={positive_class},{line_label}", x_data, y_data)
-            for positive_class, x_data, y_data, line_label in curve_list
+            for positive_class, x_data, y_data, line_label, _ in curve_list
         ]
+        auc = [auc for _, _, _, _, auc in curve_list]
 
     def _do_plot(**kwargs):
         from matplotlib import pyplot
