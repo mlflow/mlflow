@@ -172,7 +172,7 @@ def _create_conda_env_retry(
                 capture_output=True,
             )
         except process.ShellCommandException as e:
-            if "ConnectionResetError" in str(e) and (num_attempts - attempt - 1) > 0:
+            if (num_attempts - attempt - 1) > 0 and "ConnectionResetError" in str(e):
                 _logger.warning(
                     "Conda env creation failed due to ConnectionResetError, retrying..."
                 )
