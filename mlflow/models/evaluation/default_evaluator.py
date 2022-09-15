@@ -800,7 +800,6 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="roc",
                 sample_weights=self.sample_weights,
-                pos_label=self.pos_label
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -812,7 +811,6 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="pr",
                 sample_weights=self.sample_weights,
-                pos_label=self.pos_label
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -848,7 +846,6 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="roc",
                 sample_weights=self.sample_weights,
-                pos_label=self.pos_label
             )
 
             def plot_roc_curve():
@@ -865,7 +862,6 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="pr",
                 sample_weights=self.sample_weights,
-                pos_label=self.pos_label
             )
 
             def plot_pr_curve():
