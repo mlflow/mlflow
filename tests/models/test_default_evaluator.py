@@ -1059,8 +1059,8 @@ def test_gen_binary_precision_recall_curve_with_sample_weights():
         np.array([0.59615385, 0.55319149, 0.7027027, 0.72222222, 0.61538462, 0.6, 0.75, 1.0, 1.0]),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "recall"
-    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.7522056796250345, rtol=1e-3)
 
@@ -1145,8 +1145,8 @@ def test_gen_binary_roc_curve_with_sample_weights():
         ),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.702, rtol=1e-3)
 
@@ -1166,8 +1166,7 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
         y=y,
         y_probs=y_probs,
         labels=[0, 1, 2],
-        # Should be ignored for multiclass classification
-        pos_label=2,
+        pos_label=None,
         curve_type="pr",
         sample_weights=None,
     )
@@ -1183,8 +1182,8 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
-    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
+    assert results.plot_fn_args["xlabel"] == "Recall"
+    assert results.plot_fn_args["ylabel"] == "Precision"
     assert results.plot_fn_args["title"] == "Precision recall curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
@@ -1208,8 +1207,7 @@ def test_gen_multiclass_precision_recall_curve_with_sample_weights():
         y=y,
         y_probs=y_probs,
         labels=[0, 1, 2],
-        # Should be ignored for multiclass classification
-        pos_label=2,
+        pos_label=None,
         curve_type="pr",
         sample_weights=sample_weights,
     )
@@ -1225,8 +1223,8 @@ def test_gen_multiclass_precision_recall_curve_with_sample_weights():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "recall"
-    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["xlabel"] == "Recall"
+    assert results.plot_fn_args["ylabel"] == "Precision"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.4, 0.511111, 0.5]
@@ -1248,8 +1246,7 @@ def test_gen_multiclass_roc_curve_no_sample_weights():
         y=y,
         y_probs=y_probs,
         labels=[0, 1, 2],
-        # Should be ignored for multiclass classification
-        pos_label=2,
+        pos_label=None,
         curve_type="roc",
         sample_weights=None,
     )
@@ -1266,8 +1263,8 @@ def test_gen_multiclass_roc_curve_no_sample_weights():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
     assert results.plot_fn_args["title"] == "ROC curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
@@ -1291,8 +1288,7 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
         y=y,
         y_probs=y_probs,
         labels=[0, 1, 2],
-        # Should be ignored for multiclass classification
-        pos_label=2,
+        pos_label=None,
         curve_type="roc",
         sample_weights=sample_weights,
     )
