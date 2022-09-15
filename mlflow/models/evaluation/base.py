@@ -1109,23 +1109,13 @@ def evaluate(
                                                  from mlflow.models import MetricThreshold
 
                                                  thresholds = {
-                                                     # Metric value thresholds
-                                                     "f1_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         higher_is_better=True
-                                                     ),
-                                                     # Model comparison thresholds
-                                                     "log_loss": MetricThreshold(
-                                                         min_absolute_change=0.05,
-                                                         min_relative_change=0.1,
-                                                         higher_is_better=False
-                                                     ),
-                                                     # Both metric value and model comparison \
-thresholds
                                                      "accuracy_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         min_absolute_change=0.09,
-                                                         min_relative_change=0.05,
+                                                         threshold=0.8,            # accuracy \
+should be >=0.8
+                                                         min_absolute_change=0.05, # accuracy \
+should be at least 5 percent greater than baseline model accuracy
+                                                         min_relative_change=0.05, # accuracy \
+should be at least 0.05 greater than baseline model accuracy
                                                          higher_is_better=True
                                                      ),
                                                  }
@@ -1143,6 +1133,9 @@ thresholds
                                                          baseline_model=your_baseline_model
 
                                                      )
+                                            
+                                            See :ref:`the Model Validation documentation \
+<model-validation>` for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
                                       flavor. If specified, the candidate ``model`` is compared to
