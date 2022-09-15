@@ -118,19 +118,26 @@ def _extract_predict_fn(model, raw_model):
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
     sum_on_label = (
-        sum(np.array(y) * np.array(sample_weights)) if sample_weights is not None
-        else sum(y)
+        sum(np.array(y) * np.array(sample_weights)) if sample_weights is not None else sum(y)
     )
     return {
         "example_count": len(y),
-        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred, sample_weight=sample_weights),
-        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred, sample_weight=sample_weights),
-        "root_mean_squared_error": sk_metrics.mean_squared_error(y, y_pred, sample_weight=sample_weights, squared=False),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "root_mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights, squared=False
+        ),
         "sum_on_label": sum_on_label,
         "mean_on_label": sum_on_label / len(y),
         "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
-        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred, sample_weight=sample_weights),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
     }
 
 
@@ -150,18 +157,32 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_common_classifier_metrics(*, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights):
+def _get_common_classifier_metrics(
+    *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
+):
     metrics = {
         "example_count": len(y_true),
         "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
         "recall_score": sk_metrics.recall_score(
-            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
         ),
         "precision_score": sk_metrics.precision_score(
-            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
         ),
         "f1_score": sk_metrics.f1_score(
-            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
         ),
     }
     if y_proba is not None:
@@ -172,7 +193,9 @@ def _get_common_classifier_metrics(*, y_true, y_pred, y_proba, labels, average, 
     return metrics
 
 
-def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None):
+def _get_binary_classifier_metrics(
+    *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
+):
     tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
     return {
         "true_negatives": tn,
@@ -192,7 +215,13 @@ def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None,
 
 
 def _get_multiclass_classifier_metrics(
-    *, y_true, y_pred, y_proba=None, labels=None, average="weighted", sample_weights,
+    *,
+    y_true,
+    y_pred,
+    y_proba=None,
+    labels=None,
+    average="weighted",
+    sample_weights,
 ):
     return _get_common_classifier_metrics(
         y_true=y_true,
@@ -281,10 +310,14 @@ def _gen_classifier_curve(
     elif curve_type == "pr":
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
+            precision, recall, _ = sk_metrics.precision_recall_curve(
+                _y, _y_prob, sample_weight=sample_weights
+            )
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
-            ap = sk_metrics.average_precision_score(y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights)
+            ap = sk_metrics.average_precision_score(
+                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+            )
             return recall, precision, f"AP={ap:.3f}", ap
 
         xlabel = "recall"
@@ -302,7 +335,9 @@ def _gen_classifier_curve(
                 positive_class_index, positive_class, y, labels, y_probs
             )
 
-            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y_bin, y_prob_bin, _pos_label=1)
+            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(
+                y_bin, y_prob_bin, _pos_label=1
+            )
             curve_list.append((positive_class, x_data, y_data, line_label, auc))
 
         data_series = [
@@ -768,7 +803,10 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, labels=self.label_list, sample_weights=self.sample_weights,
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            sample_weights=self.sample_weights,
         )
 
         log_roc_pr_curve = False
@@ -952,7 +990,11 @@ class DefaultEvaluator(ModelEvaluator):
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y, self.y_pred, labels=self.label_list, normalize="true", sample_weight=self.sample_weights
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            normalize="true",
+            sample_weight=self.sample_weights,
         )
 
         def plot_confusion_matrix():
