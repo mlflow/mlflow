@@ -116,17 +116,21 @@ def _extract_predict_fn(model, raw_model):
     return predict_fn, predict_proba_fn
 
 
-def _get_regressor_metrics(y, y_pred):
+def _get_regressor_metrics(y, y_pred, sample_weights):
+    sum_on_label = (
+        sum(np.array(y) * np.array(sample_weights)) if sample_weights is not None
+        else sum(y)
+    )
     return {
         "example_count": len(y),
-        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred),
-        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred),
-        "root_mean_squared_error": math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
-        "sum_on_label": sum(y),
-        "mean_on_label": sum(y) / len(y),
-        "r2_score": sk_metrics.r2_score(y, y_pred),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred, sample_weight=sample_weights),
+        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred, sample_weight=sample_weights),
+        "root_mean_squared_error": sk_metrics.mean_squared_error(y, y_pred, sample_weight=sample_weights, squared=False),
+        "sum_on_label": sum_on_label,
+        "mean_on_label": sum_on_label / len(y),
+        "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
-        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred, sample_weight=sample_weights),
     }
 
 
@@ -188,7 +192,7 @@ def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None,
 
 
 def _get_multiclass_classifier_metrics(
-    *, y_true, y_pred, y_proba=None, labels=None, average="weighted", pos_label=None,
+    *, y_true, y_pred, y_proba=None, labels=None, average="weighted", sample_weights,
 ):
     return _get_common_classifier_metrics(
         y_true=y_true,
@@ -196,11 +200,12 @@ def _get_multiclass_classifier_metrics(
         y_proba=y_proba,
         labels=labels,
         average=average,
-        pos_label=pos_label,
+        pos_label=None,
+        sample_weights=sample_weights,
     )
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
@@ -212,6 +217,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
                 y_true=y_bin,
                 y_pred=y_pred_bin,
                 pos_label=1,
+                sample_weights=sample_weights,
             )
         )
         per_class_metrics_list.append(per_class_metrics)
@@ -244,7 +250,9 @@ def _gen_classifier_curve(
     y,
     y_probs,
     labels,
+    pos_label,
     curve_type,
+    sample_weights,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -253,24 +261,31 @@ def _gen_classifier_curve(
     :param y_probs: if binary classifier, the predicted probability for positive class.
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
+    :param pos_label: The positive label to use when computing classification metrics such as
+                      precision, recall, f1, etc. for binary classification models (default: ``1``).
+                      For multiclass classification and regression models, this parameter will be
+                      ignored.
     :param curve_type: "pr" or "roc"
+    :param sample_weights: Optional sample weights.
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob)
-            auc = sk_metrics.auc(fpr, tpr)
-            return fpr, tpr, f"AUC={auc:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _labels, _pos_label):  # pylint: disable=unused-argument
+            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob, sample_weight=sample_weights)
+            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_labels, sample_weight=sample_weights)
+            return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
     elif curve_type == "pr":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            ap = np.mean(precision)
-            return recall, precision, f"AP={ap:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _labels, _pos_label):
+            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
+            # NB: We return average precision score (AP) instead of AUC because AP is more
+            # appropriate for summarizing a precision-recall curve
+            ap = sk_metrics.average_precision_score(y_true=_y, y_score=_labels, pos_label=_pos_label, sample_weight=sample_weights)
+            return recall, precision, f"AP={ap:.3f}", ap
 
         xlabel = "recall"
         ylabel = "precision"
@@ -278,24 +293,22 @@ def _gen_classifier_curve(
         assert False, "illegal curve type"
 
     if is_binomial:
-        x_data, y_data, line_label = gen_line_x_y_label_fn(y, y_probs)
+        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, labels, pos_label)
         data_series = [(line_label, x_data, y_data)]
-        auc = sk_metrics.auc(x_data, y_data)
     else:
         curve_list = []
         for positive_class_index, positive_class in enumerate(labels):
-            y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
-                positive_class_index, positive_class, y, None, y_probs
+            y_bin, labels_bin, y_prob_bin = _get_binary_sum_up_label_pred_prob(
+                positive_class_index, positive_class, y, labels, y_probs
             )
 
-            x_data, y_data, line_label = gen_line_x_y_label_fn(y_bin, y_prob_bin)
+            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y_bin, y_prob_bin, labels_bin, pos_label=1)
             curve_list.append((positive_class, x_data, y_data, line_label))
 
         data_series = [
             (f"label={positive_class},{line_label}", x_data, y_data)
             for positive_class, x_data, y_data, line_label in curve_list
         ]
-        auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
 
     def _do_plot(**kwargs):
         from matplotlib import pyplot
@@ -734,7 +747,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -743,7 +758,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -773,7 +790,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             def plot_roc_curve():
@@ -787,7 +806,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             def plot_pr_curve():
@@ -930,7 +951,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y, self.y_pred, labels=self.label_list, normalize="true"
+            self.y, self.y_pred, labels=self.label_list, normalize="true", sample_weight=self.sample_weights
         )
 
         def plot_confusion_matrix():
@@ -1001,7 +1022,6 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        sample_weights = self.evaluator_config.get("sample_weights")
         if self.model_type == "classifier":
             if self.is_binomial:
                 pos_label = self.evaluator_config.get("pos_label", 1)
@@ -1012,7 +1032,7 @@ class DefaultEvaluator(ModelEvaluator):
                         y_proba=self.y_probs,
                         labels=self.label_list,
                         pos_label=pos_label,
-                        sample_weights=sample_weights,
+                        sample_weights=self.sample_weights,
                     )
                 )
                 self._compute_roc_and_pr_curve()
@@ -1025,11 +1045,11 @@ class DefaultEvaluator(ModelEvaluator):
                         y_proba=self.y_probs,
                         labels=self.label_list,
                         average=average,
-                        sample_weights=sample_weights,
+                        sample_weights=self.sample_weights,
                     )
                 )
         elif self.model_type == "regressor":
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, sample_weights))
+            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
     def _log_metrics_and_artifacts(self):
         """
@@ -1112,8 +1132,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
-        self.pos_label = self.evaluator_config.get("pos_label", 1) 
-        self.sample_weights = self.evaluator_config.get("sample_weights") 
+        self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 

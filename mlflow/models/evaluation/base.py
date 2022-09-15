@@ -937,6 +937,8 @@ def evaluate(
           precision, recall, f1, etc. for multiclass classification models
           (default: ``'weighted'``). For binary classification and regression models, this
           parameter will be ignored.
+        - **sample_weights**: Weights for each sample to apply when computing model performance
+          metrics.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
