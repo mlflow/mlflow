@@ -2,6 +2,8 @@ import os
 import logging
 import distutils
 
+
+
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
 
@@ -30,7 +32,7 @@ def remove_comments_and_empty_lines(lines):
     return [line for line in lines if not is_comment_or_empty(line)]
 
 
-# Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
+# Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build 1
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files("mlflow/server/js/build")
 models_container_server_files = package_files("mlflow/models/container")
