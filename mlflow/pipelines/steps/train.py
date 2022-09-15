@@ -184,8 +184,10 @@ class TrainStep(BaseStep):
                     output_directory,
                 )
                 estimator = estimator_fn(best_estimator_params)
-            else:
+            elif estimator_hardcoded_params != {}:
                 estimator = estimator_fn(estimator_hardcoded_params)
+            else:
+                estimator = estimator_fn
 
             estimator.fit(X_train, y_train)
 
