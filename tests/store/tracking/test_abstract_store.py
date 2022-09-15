@@ -3,18 +3,9 @@ from unittest import mock
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.entities import ViewType
 
 
 class AbstractStoreTestImpl(AbstractStore):
-    def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-    ):
-        raise NotImplementedError()
-
     def create_experiment(self, name, artifact_location, tags):
         raise NotImplementedError()
 
@@ -58,23 +49,6 @@ class AbstractStoreTestImpl(AbstractStore):
 
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError()
-
-
-def test_get_experiment_by_name():
-    experiments = [mock.Mock(), mock.Mock(), mock.Mock()]
-    # Configure name after mock creation as name is a reserved argument to Mock()
-    experiments[1].configure_mock(name="my experiment")
-    with mock.patch.object(AbstractStoreTestImpl, "list_experiments", return_value=experiments):
-        store = AbstractStoreTestImpl()
-        assert store.get_experiment_by_name("my experiment") == experiments[1]
-        store.list_experiments.assert_called_once_with(ViewType.ALL)
-
-
-def test_get_experiment_by_name_missing():
-    with mock.patch.object(AbstractStoreTestImpl, "list_experiments", return_value=[]):
-        store = AbstractStoreTestImpl()
-        assert store.get_experiment_by_name("my experiment") is None
-        store.list_experiments.assert_called_once_with(ViewType.ALL)
 
 
 def test_log_metric():

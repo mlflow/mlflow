@@ -21,7 +21,6 @@ describe('RegisterModelButton', () => {
       modelByName: {},
       createRegisteredModelApi: jest.fn(() => Promise.resolve({})),
       createModelVersionApi: jest.fn(() => Promise.resolve({})),
-      listRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
     };
@@ -53,8 +52,9 @@ describe('RegisterModelButton', () => {
     wrapper = shallowWithInjectIntl(
       <RegisterModelButtonWithIntl {...props} store={minimalStore} />,
     );
+    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(1);
     const instance = wrapper.instance();
     instance.handleSearchRegisteredModels('A');
-    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(1);
+    expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(2);
   });
 });

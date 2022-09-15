@@ -2,13 +2,15 @@ import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
 
-export const SEARCH_MAX_RESULTS = 100;
+export const RUNS_SEARCH_MAX_RESULTS = 100;
 
-export const LIST_EXPERIMENTS_API = 'LIST_EXPERIMENTS_API';
-export const listExperimentsApi = (id = getUUID()) => {
+export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
+export const searchExperimentsApi = (id = getUUID()) => {
   return {
-    type: LIST_EXPERIMENTS_API,
-    payload: MlflowService.listExperiments({}),
+    type: SEARCH_EXPERIMENTS_API,
+    payload: MlflowService.searchExperiments({
+      max_results: 20000,
+    }),
     meta: { id: id },
   };
 };
@@ -162,7 +164,7 @@ export const searchRunsPayload = ({
     experiment_ids: experimentIds,
     filter: filter,
     run_view_type: runViewType,
-    max_results: maxResults || SEARCH_MAX_RESULTS,
+    max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
     order_by: orderBy,
     page_token: pageToken,
   }).then((res) => (shouldFetchParents ? fetchMissingParents(res) : res));
