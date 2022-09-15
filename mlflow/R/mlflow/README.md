@@ -298,4 +298,4 @@ follows:
 
 ## Contributing
 
-See the [MLflow contribution guidelines](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst).
+See the [MLflow contribution guidelines](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md).

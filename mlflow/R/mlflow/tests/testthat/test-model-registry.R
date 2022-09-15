@@ -148,8 +148,8 @@ test_that("mlflow can retrieve a list of registered models without args", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/") == "registered-models/list")
-      expect_equal(args$verb, "GET")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
+      expect_equal(args$verb, "POST")
 
       return(list(
         registered_models = list(),
@@ -157,7 +157,8 @@ test_that("mlflow can retrieve a list of registered models without args", {
       ))
     }, {
       mock_client <- get_mock_client()
-      mlflow_list_registered_models(client = mock_client)
+      search_result <- mlflow_search_registered_models(client = mock_client)
+      expect_null(search_result$next_page_token)
   })
 })
 
@@ -165,17 +166,44 @@ test_that("mlflow can retrieve a list of registered models with args", {
   with_mock(.env = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/") == "registered-models/list")
-      expect_equal(args$verb, "GET")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
+      expect_equal(args$verb, "POST")
+      expect_equal(args$data$max_results, 5)
+      expect_equal(args$data$page_token, "abc")
+      expect_equal(args$data$filter, "name LIKE '%foo'")
+      expect_equal(
+        args$data$order_by, forge::cast_string_list(list("name ASC", "last_updated_timestamp"))
+      )
 
       return(list(
-        registered_models = list(),
+        registered_models = list(
+          list(
+            name = "test_model",
+            creation_timestamp = 1.6241e+12,
+            last_updated_timestamp = 1.6241e+12,
+            user_id = "donald.duck"
+          )
+        ),
         next_page_token = "def"
       ))
     }, {
       mock_client <- get_mock_client()
-      mlflow_list_registered_models(max_results = 5, page_token = "abc",
-                                    client = mock_client)
+      search_result <- mlflow_search_registered_models(filter = "name LIKE '%foo'",
+                                                       max_results = 5,
+                                                       order_by = list(
+                                                         "name ASC", "last_updated_timestamp"
+                                                       ),
+                                                       page_token = "abc",
+                                                       client = mock_client)
+      expect_equal(search_result$registered_models, list(
+        list(
+          name = "test_model",
+          creation_timestamp = 1.6241e+12,
+          last_updated_timestamp = 1.6241e+12,
+          user_id = "donald.duck"
+        )
+      ))
+      expect_equal(search_result$next_page_token, "def")
   })
 })
 

@@ -125,23 +125,32 @@ mlflow_delete_registered_model <- function(name, client = NULL) {
 #'
 #' Retrieves a list of registered models.
 #'
+#' @param filter A filter expression used to identify specific registered models.
+#'   The syntax is a subset of SQL which allows only ANDing together binary operations.
+#'   Example: "name = 'my_model_name' and tag.key = 'value1'"
 #' @param max_results Maximum number of registered models to retrieve.
 #' @param page_token Pagination token to go to the next page based on a
 #'   previous query.
+#' @param order_by List of registered model properties to order by. Example: "name".
 #' @template roxlate-client
 #' @export
-mlflow_list_registered_models <- function(max_results = 100, page_token = NULL,
-                                          client = NULL) {
+mlflow_search_registered_models <- function(filter = NULL,
+                                            max_results = 100,
+                                            order_by = list(),
+                                            page_token = NULL,
+                                            client = NULL) {
   client <- resolve_client(client)
 
   response <- mlflow_rest(
     "registered-models",
-    "list",
+    "search",
     client = client,
-    verb = "GET",
+    verb = "POST",
     version = "2.0",
-    query = list(
+    data = list(
+      filter = filter,
       max_results = max_results,
+      order_by = cast_string_list(order_by),
       page_token = page_token
     )
   )

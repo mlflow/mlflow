@@ -66,7 +66,7 @@ test_that("mlflow_run passes all numbers as non-scientific", {
   })
 })
 
-test_that("active experiment is set when starting a run with experiemnt specified", {
+test_that("active experiment is set when starting a run with experiment specified", {
   mlflow_clear_test_dir("mlruns")
   id <- mlflow_create_experiment("one-more")
   mlflow_start_run(experiment_id = id)
@@ -77,7 +77,7 @@ test_that("active experiment is set when starting a run with experiemnt specifie
   mlflow_end_run()
 })
 
-test_that("active experiment is set when starting a run without experiemnt specified", {
+test_that("active experiment is set when starting a run without experiment specified", {
   mlflow_clear_test_dir("mlruns")
   id <- mlflow_create_experiment("second-exp")
   mlflow_start_run()
