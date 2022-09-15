@@ -922,7 +922,7 @@ def test_gen_binary_precision_recall_curve():
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
+        np.array([1.0, 1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
