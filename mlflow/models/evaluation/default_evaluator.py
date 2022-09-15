@@ -221,7 +221,7 @@ def _get_multiclass_classifier_metrics(
     y_proba=None,
     labels=None,
     average="weighted",
-    sample_weights,
+    sample_weights=None,
 ):
     return _get_common_classifier_metrics(
         y_true=y_true,
@@ -300,7 +300,7 @@ def _gen_classifier_curve(
     """
     if curve_type == "roc":
 
-        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):  # pylint: disable=unused-argument
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
             fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob, sample_weight=sample_weights)
             auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
