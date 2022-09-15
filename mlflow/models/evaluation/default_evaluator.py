@@ -146,25 +146,29 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_common_classifier_metrics(*, y_true, y_pred, y_proba, labels, average, pos_label):
+def _get_common_classifier_metrics(*, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights):
     metrics = {
         "example_count": len(y_true),
-        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred),
+        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
         "recall_score": sk_metrics.recall_score(
-            y_true, y_pred, average=average, pos_label=pos_label
+            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
         ),
         "precision_score": sk_metrics.precision_score(
-            y_true, y_pred, average=average, pos_label=pos_label
+            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
         ),
-        "f1_score": sk_metrics.f1_score(y_true, y_pred, average=average, pos_label=pos_label),
+        "f1_score": sk_metrics.f1_score(
+            y_true, y_pred, average=average, pos_label=pos_label, sample_weight=sample_weights,
+        ),
     }
     if y_proba is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y_true, y_proba, labels=labels)
+        metrics["log_loss"] = sk_metrics.log_loss(
+            y_true, y_proba, labels=labels, sample_weight=sample_weights
+        )
 
     return metrics
 
 
-def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None, pos_label=1):
+def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None):
     tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
     return {
         "true_negatives": tn,
@@ -178,12 +182,13 @@ def _get_binary_classifier_metrics(*, y_true, y_pred, y_proba=None, labels=None,
             labels=labels,
             average="binary",
             pos_label=pos_label,
+            sample_weights=sample_weights,
         ),
     }
 
 
 def _get_multiclass_classifier_metrics(
-    *, y_true, y_pred, y_proba=None, labels=None, average="weighted"
+    *, y_true, y_pred, y_proba=None, labels=None, average="weighted", pos_label=None,
 ):
     return _get_common_classifier_metrics(
         y_true=y_true,
@@ -191,7 +196,7 @@ def _get_multiclass_classifier_metrics(
         y_proba=y_proba,
         labels=labels,
         average=average,
-        pos_label=None,
+        pos_label=pos_label,
     )
 
 
@@ -996,6 +1001,7 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
+        sample_weights = self.evaluator_config.get("sample_weights")
         if self.model_type == "classifier":
             if self.is_binomial:
                 pos_label = self.evaluator_config.get("pos_label", 1)
@@ -1006,6 +1012,7 @@ class DefaultEvaluator(ModelEvaluator):
                         y_proba=self.y_probs,
                         labels=self.label_list,
                         pos_label=pos_label,
+                        sample_weights=sample_weights,
                     )
                 )
                 self._compute_roc_and_pr_curve()
@@ -1018,10 +1025,11 @@ class DefaultEvaluator(ModelEvaluator):
                         y_proba=self.y_probs,
                         labels=self.label_list,
                         average=average,
+                        sample_weights=sample_weights,
                     )
                 )
         elif self.model_type == "regressor":
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, sample_weights))
 
     def _log_metrics_and_artifacts(self):
         """
@@ -1104,6 +1112,8 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
+        self.pos_label = self.evaluator_config.get("pos_label", 1) 
+        self.sample_weights = self.evaluator_config.get("sample_weights") 
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 
