@@ -304,7 +304,7 @@ def _gen_classifier_curve(
             fpr, tpr, _ = sk_metrics.roc_curve(
                 _y,
                 _y_prob,
-                sample_weight=sample_weights
+                sample_weight=sample_weights,
                 # For multiclass classification where a one-vs-rest ROC curve is produced for each
                 # class, the positive label is binarized and should not be included in the plot
                 # legend
