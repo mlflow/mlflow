@@ -262,7 +262,7 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csr_matrix((data, indices, indptr), shape=shape)
 
 
-def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None, title=None):
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
@@ -276,7 +276,7 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
     if legend_loc:
         ax.legend(loc=legend_loc)
 
-    ax.set(xlabel=xlabel, ylabel=ylabel)
+    ax.set(xlabel=xlabel, ylabel=ylabel, title=title)
 
     return fig, ax
 
