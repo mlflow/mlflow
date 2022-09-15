@@ -372,6 +372,19 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
         return self._predict_fn(data)
 
+    def unwrap_python_model(self, unwrap_metadata: bool = False):
+        """
+        Unwrap the underlying Python model object, and it's metadata (optionally).
+
+        :param unwrap_metadata: (optional) If True, return a tuple of the
+        underlying Python model object and metadata loaded from the MLmodel file.
+        """
+        return (
+            self._model_impl.python_model
+            if not unwrap_metadata
+            else (self._model_impl.python_model, self._model_meta)
+        )
+
     def __eq__(self, other):
         if not isinstance(other, PyFuncModel):
             return False
