@@ -1016,8 +1016,9 @@ def test_gen_binary_precision_recall_curve_no_sample_weights():
         np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "recall"
-    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
+    assert results.plot_fn_args["title"] == "Precision recall curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.69777777, rtol=1e-3)
 
@@ -1087,8 +1088,9 @@ def test_gen_binary_roc_curve_no_sample_weights():
         np.array([0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0, 1.0]),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["title"] == "ROC curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.66, rtol=1e-3)
 
@@ -1181,8 +1183,9 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "recall"
-    assert results.plot_fn_args["ylabel"] == "precision"
+    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
+    assert results.plot_fn_args["title"] == "Precision recall curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.5, 0.583333, 0.45]
@@ -1263,8 +1266,9 @@ def test_gen_multiclass_roc_curve_no_sample_weights():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["title"] == "ROC curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.75, 0.75, 0.3333]

@@ -290,10 +290,7 @@ def _gen_classifier_curve(
     :param y_probs: if binary classifier, the predicted probability for positive class.
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
-    :param pos_label: The positive label to use when computing classification metrics such as
-                      precision, recall, f1, etc. for binary classification models (default: ``1``).
-                      For multiclass classification and regression models, this parameter will be
-                      ignored.
+    :param pos_label: The label of the positive class.
     :param curve_type: "pr" or "roc"
     :param sample_weights: Optional sample weights.
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
@@ -315,6 +312,10 @@ def _gen_classifier_curve(
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
+        title = "ROC curve"
+        if pos_label:
+            xlabel = f"False Positive Rate (Positive label: {pos_label})"
+            ylabel = f"True Positive Rate (Positive label: {pos_label})"
     elif curve_type == "pr":
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
@@ -328,8 +329,12 @@ def _gen_classifier_curve(
             )
             return recall, precision, f"AP={ap:.3f}", ap
 
-        xlabel = "recall"
-        ylabel = "precision"
+        xlabel = "Recall"
+        ylabel = "Precision"
+        title = "Precision recall curve"
+        if pos_label:
+            xlabel = f"Recall (Positive label: {pos_label})"
+            ylabel = f"Precision (Positive label: {pos_label})"
     else:
         assert False, "illegal curve type"
 
@@ -382,6 +387,7 @@ def _gen_classifier_curve(
             "xlabel": xlabel,
             "ylabel": ylabel,
             "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
+            "title": title,
         },
         auc=auc,
     )
@@ -794,6 +800,7 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="roc",
                 sample_weights=self.sample_weights,
+                pos_label=self.pos_label
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -805,6 +812,7 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="pr",
                 sample_weights=self.sample_weights,
+                pos_label=self.pos_label
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -840,6 +848,7 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="roc",
                 sample_weights=self.sample_weights,
+                pos_label=self.pos_label
             )
 
             def plot_roc_curve():
@@ -856,6 +865,7 @@ class DefaultEvaluator(ModelEvaluator):
                 pos_label=self.pos_label,
                 curve_type="pr",
                 sample_weights=self.sample_weights,
+                pos_label=self.pos_label
             )
 
             def plot_pr_curve():
@@ -882,7 +892,7 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
 
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs),
+                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
                 "lift_curve_plot",
             )
 
@@ -1016,10 +1026,11 @@ class DefaultEvaluator(ModelEvaluator):
                 }
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
-                sk_metrics.ConfusionMatrixDisplay(
+                disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
                 ).plot(cmap="Blues", ax=ax)
+                disp.ax_.set_title("Normalized confusion matrix")
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
