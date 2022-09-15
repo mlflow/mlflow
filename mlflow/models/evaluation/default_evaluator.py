@@ -239,8 +239,8 @@ def _gen_classifier_curve(
     y,
     y_probs,
     labels,
-    curve_type,
     pos_label,
+    curve_type,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -249,8 +249,8 @@ def _gen_classifier_curve(
     :param y_probs: if binary classifier, the predicted probability for positive class.
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
-    :param curve_type: "pr" or "roc"
     :param pos_label: The label of the positive class.
+    :param curve_type: "pr" or "roc"
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
@@ -1120,7 +1120,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
-        self.pos_label = self.evaluator_config.get("pos_label")
+        self.pos_label = self.evaluator_config.get("pos_label", 1)
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 

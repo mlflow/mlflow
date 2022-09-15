@@ -918,7 +918,7 @@ def test_gen_binary_precision_recall_curve():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="pr"
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -930,8 +930,8 @@ def test_gen_binary_precision_recall_curve():
         np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "Recall"
-    assert results.plot_fn_args["ylabel"] == "Precision"
+    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
     assert results.plot_fn_args["title"] == "Precision recall curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.7088888888888889, rtol=1e-3)
@@ -942,7 +942,7 @@ def test_gen_binary_roc_curve():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc", pos_label=1
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -954,8 +954,8 @@ def test_gen_binary_roc_curve():
         np.array([0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0, 1.0]),
         rtol=1e-3,
     )
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
     assert results.plot_fn_args["title"] == "ROC curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
     assert np.isclose(results.auc, 0.66, rtol=1e-3)
@@ -972,7 +972,7 @@ def test_gen_multiclass_precision_recall_curve():
     ]
 
     results = _gen_classifier_curve(
-        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="pr"
+        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], pos_label=1, curve_type="pr"
     )
     expected_x_data_list = [[1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [1.0, 0.5, 0.5, 0.5, 0.0, 0.0]]
     expected_y_data_list = [
@@ -986,8 +986,8 @@ def test_gen_multiclass_precision_recall_curve():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "Recall"
-    assert results.plot_fn_args["ylabel"] == "Precision"
+    assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "Precision (Positive label: 1)"
     assert results.plot_fn_args["title"] == "Precision recall curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
@@ -1006,7 +1006,7 @@ def test_gen_multiclass_roc_curve():
     ]
 
     results = _gen_classifier_curve(
-        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="roc"
+        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], pos_label=1, curve_type="roc"
     )
 
     expected_x_data_list = [
@@ -1021,8 +1021,8 @@ def test_gen_multiclass_roc_curve():
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
         np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
-    assert results.plot_fn_args["xlabel"] == "False Positive Rate"
-    assert results.plot_fn_args["ylabel"] == "True Positive Rate"
+    assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
+    assert results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 1)"
     assert results.plot_fn_args["title"] == "ROC curve"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
