@@ -28,7 +28,6 @@ from typing import NamedTuple, Callable
 import tempfile
 import pandas as pd
 import numpy as np
-np.set_printoptions(threshold=np.inf)
 import copy
 import shutil
 import time
