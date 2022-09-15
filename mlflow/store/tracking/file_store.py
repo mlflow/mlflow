@@ -570,7 +570,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time, name)
+        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=name)
         self._overwrite_run_info(new_info)
         return new_info
 

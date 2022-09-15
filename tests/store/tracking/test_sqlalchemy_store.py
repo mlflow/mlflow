@@ -803,11 +803,23 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(actual.info.experiment_id, experiment_id)
         self.assertEqual(actual.info.user_id, expected["user_id"])
+        self.assertEqual(actual.info.run_name, expected["name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
         self.assertEqual(len(actual.data.tags), len(tags))
         expected_tags = {tag.key: tag.value for tag in tags}
         self.assertEqual(actual.data.tags, expected_tags)
+
+    def test_get_run_with_name(self):
+        experiment_id = self._experiment_factory("test_get_run")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+
+        run_id = self.store.create_run(**configs).info.run_id
+
+        run = self.store.get_run(run_id)
+
+        self.assertEqual(run.info.experiment_id, experiment_id)
+        self.assertEqual(run.info.run_name, configs["name"])
 
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
@@ -1239,6 +1251,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             )
             self.assertEqual(actual.status, new_status_string)
             self.assertEqual(actual.end_time, endtime)
+
+    def test_update_run_name(self):
+        experiment_id = self._experiment_factory("test_update_run_name")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+
+        run_id = self.store.create_run(**configs).info.run_id
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, configs["name"])
+
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory("helloexp")

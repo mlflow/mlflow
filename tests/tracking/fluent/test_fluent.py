@@ -471,9 +471,9 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run()
+        active_run = start_run(run_name="my name")
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags, name=None
+            experiment_id=mock_experiment_id, tags=expected_tags, name="my name"
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 

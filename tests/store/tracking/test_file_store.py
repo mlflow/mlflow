@@ -691,10 +691,23 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=tags_entities,
-            name="name",
+            name=None,
         )
         assert isinstance(tags_run.data, RunData)
         assert tags_run.data.tags == tags_dict
+
+    def test_create_run_sets_name(self):
+        fs = FileStore(self.test_root)
+        run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="my name",
+        )
+
+        run_name = run.info.run_name
+        assert run_name == "my name"
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -721,6 +734,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             runs = self.exp_data[exp_id]["runs"]
             for run_id in runs:
                 self._verify_run(fs, run_id)
+
+    def test_get_run_returns_name_in_info(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="my name",
+        ).info.run_id
+
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "my name"
 
     def test_get_run_retries_for_transient_empty_yaml_read(self):
         fs = FileStore(self.test_root)
@@ -751,6 +777,32 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         root_dir = os.path.join(self.test_root, exp_id, run_id)
         with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
             self._verify_run(fs, run_id)
+
+    def test_update_run_renames_run(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "new name"
+
+    def test_update_run_does_not_rename_run_with_none_name(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "first name"
 
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)
