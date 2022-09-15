@@ -781,7 +781,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
             try:
-                score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y)
+                score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights)
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
