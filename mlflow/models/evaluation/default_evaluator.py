@@ -118,7 +118,7 @@ def _extract_predict_fn(model, raw_model):
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
     sum_on_label = (
-        sum(np.array(y) * np.array(sample_weights)) if sample_weights is not None else sum(y)
+        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
     )
     return {
         "example_count": len(y),
