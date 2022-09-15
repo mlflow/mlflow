@@ -301,7 +301,15 @@ def _gen_classifier_curve(
     if curve_type == "roc":
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob, sample_weight=sample_weights)
+            fpr, tpr, _ = sk_metrics.roc_curve(
+                _y,
+                _y_prob,
+                sample_weight=sample_weights
+                # For multiclass classification where a one-vs-rest ROC curve is produced for each
+                # class, the positive label is binarized and should not be included in the plot
+                # legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
+            )
             auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
