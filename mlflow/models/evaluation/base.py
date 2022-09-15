@@ -1201,9 +1201,12 @@ should be at least 0.05 greater than baseline model accuracy
         if not validation_thresholds:
             return evaluate_result
 
+        _logger.info("Validating generated model metrics")
         _validate(
             validation_thresholds,
             evaluate_result.metrics,
             evaluate_result.baseline_model_metrics,
         )
+        _logger.info("Model validation passed!")
+
         return evaluate_result
