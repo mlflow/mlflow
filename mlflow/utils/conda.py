@@ -164,7 +164,7 @@ def _create_conda_env_retry(
     num_attempts = 3
     for attempt in range(num_attempts):
         try:
-            _create_conda_env(
+            return _create_conda_env(
                 conda_env_path,
                 conda_env_create_path,
                 project_env_name,
@@ -174,7 +174,7 @@ def _create_conda_env_retry(
         except process.ShellCommandException as e:
             if (num_attempts - attempt - 1) > 0 and "ConnectionResetError" in str(e):
                 _logger.warning(
-                    "Conda env creation failed due to ConnectionResetError, retrying..."
+                    "Conda env creation failed due to ConnectionResetError. Retrying..."
                 )
                 continue
             raise
@@ -276,10 +276,10 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     _logger.info("=== Creating conda environment %s ===", project_env_path)
     try:
         _create_conda_env_func = (
-            _create_conda_env
             # Retry conda env creation in a pytest session to avoid flaky test failures
+            _create_conda_env_retry
             if "PYTEST_CURRENT_TEST" in os.environ
-            else _create_conda_env_retry
+            else _create_conda_env
         )
         _create_conda_env_func(
             conda_env_path,
