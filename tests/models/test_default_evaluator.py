@@ -1019,7 +1019,7 @@ def test_gen_binary_precision_recall_curve_no_sample_weights():
     assert results.plot_fn_args["xlabel"] == "recall"
     assert results.plot_fn_args["ylabel"] == "precision"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
-    assert np.isclose(results.auc, 0.7088888888888889, rtol=1e-3)
+    assert np.isclose(results.auc, 0.69777777, rtol=1e-3)
 
 
 def test_gen_binary_precision_recall_curve_with_sample_weights():
@@ -1175,7 +1175,7 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
         [0.66666667, 0.5, 1.0],
         [0.4, 0.25, 0.33333333, 0.5, 0.0, 1.0],
     ]
-    line_labels = ["label=0,AP=0.500", "label=1,AP=0.722", "label=2,AP=0.414"]
+    line_labels = ["label=0,AP=0.500", "label=1,AP=0.583", "label=2,AP=0.450"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
         np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
@@ -1185,7 +1185,7 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
     assert results.plot_fn_args["ylabel"] == "precision"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
-    expected_auc = [0.25, 0.6666666666666666, 0.2875]
+    expected_auc = [0.5, 0.583333, 0.45]
     np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
