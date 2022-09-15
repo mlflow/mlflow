@@ -119,7 +119,7 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
     return train_step
 
 
-def estimator_fn(estimator_params=None):
+def estimator_fn(estimator_params={}):  # pylint: disable=dangerous-default-value
     from sklearn.linear_model import SGDRegressor
 
     return SGDRegressor(random_state=42, **estimator_params)
