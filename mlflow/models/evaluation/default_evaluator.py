@@ -271,20 +271,21 @@ def _gen_classifier_curve(
     """
     if curve_type == "roc":
 
-        def gen_line_x_y_label_auc(_y, _y_prob, _labels, _pos_label):  # pylint: disable=unused-argument
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):  # pylint: disable=unused-argument
             fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob, sample_weight=sample_weights)
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_labels, sample_weight=sample_weights)
+            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
     elif curve_type == "pr":
 
-        def gen_line_x_y_label_auc(_y, _y_prob, _labels, _pos_label):
-            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
+            precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob)
+            # precision, recall, _ = sk_metrics.precision_recall_curve(_y, _y_prob, sample_weight=sample_weights)
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
-            ap = sk_metrics.average_precision_score(y_true=_y, y_score=_labels, pos_label=_pos_label, sample_weight=sample_weights)
+            ap = sk_metrics.average_precision_score(y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights)
             return recall, precision, f"AP={ap:.3f}", ap
 
         xlabel = "recall"
@@ -293,16 +294,16 @@ def _gen_classifier_curve(
         assert False, "illegal curve type"
 
     if is_binomial:
-        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, labels, pos_label)
+        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, pos_label)
         data_series = [(line_label, x_data, y_data)]
     else:
         curve_list = []
         for positive_class_index, positive_class in enumerate(labels):
-            y_bin, labels_bin, y_prob_bin = _get_binary_sum_up_label_pred_prob(
+            y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
                 positive_class_index, positive_class, y, labels, y_probs
             )
 
-            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y_bin, y_prob_bin, labels_bin, pos_label=1)
+            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y_bin, y_prob_bin, _pos_label=1)
             curve_list.append((positive_class, x_data, y_data, line_label))
 
         data_series = [
@@ -767,7 +768,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, labels=self.label_list
+            self.y, self.y_pred, labels=self.label_list, sample_weights=self.sample_weights,
         )
 
         log_roc_pr_curve = False
@@ -1024,14 +1025,13 @@ class DefaultEvaluator(ModelEvaluator):
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
             if self.is_binomial:
-                pos_label = self.evaluator_config.get("pos_label", 1)
                 self.metrics.update(
                     _get_binary_classifier_metrics(
                         y_true=self.y,
                         y_pred=self.y_pred,
                         y_proba=self.y_probs,
                         labels=self.label_list,
-                        pos_label=pos_label,
+                        pos_label=self.pos_label,
                         sample_weights=self.sample_weights,
                     )
                 )
@@ -1132,6 +1132,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
+        self.pos_label = self.evaluator_config.get("pos_label", 1)
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)

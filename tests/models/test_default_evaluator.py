@@ -167,7 +167,7 @@ def test_regressor_evaluation(
     y = diabetes_dataset.labels_data
     y_pred = model.predict(diabetes_dataset.features_data)
 
-    expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
@@ -224,7 +224,7 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
     y = diabetes_dataset.labels_data
     y_pred = model.predict(diabetes_dataset.features_data)
 
-    expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
@@ -293,7 +293,7 @@ def test_multi_classifier_evaluation(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -355,7 +355,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
-    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
@@ -409,7 +409,7 @@ def test_bin_classifier_evaluation(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -472,7 +472,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -524,7 +524,7 @@ def test_spark_regressor_model_evaluation(
     y = diabetes_spark_dataset.labels_data
     y_pred = model.predict(X)
 
-    expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
 
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
@@ -568,7 +568,7 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
     y = diabetes_spark_dataset.labels_data
     y_pred = model.predict(X)
 
-    expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
@@ -614,7 +614,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -700,7 +700,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
@@ -836,7 +836,7 @@ def test_get_regressor_metrics():
     y = [1.1, 2.1, -3.5]
     y_pred = [1.5, 2.0, -3.0]
 
-    metrics = _get_regressor_metrics(y, y_pred)
+    metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
     expected_metrics = {
         "example_count": 3,
         "mean_absolute_error": 0.3333333333333333,
@@ -885,7 +885,7 @@ def test_get_binary_classifier_metrics():
         "precision_score": 0.6666666666666666,
         "recall_score": 0.8,
     }
-    metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
+    metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
@@ -900,7 +900,7 @@ def test_get_multiclass_classifier_metrics():
         [0.8, 0.1, 0.1],
     ]
     metrics = _get_multiclass_classifier_metrics(
-        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2]
+        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], sample_weights=None
     )
     expected_metrics = {
         "example_count": 5,
@@ -918,7 +918,7 @@ def test_gen_binary_precision_recall_curve():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="pr", sample_weights=None
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -941,7 +941,7 @@ def test_gen_binary_roc_curve():
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
 
     results = _gen_classifier_curve(
-        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
+        is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], pos_label=1, curve_type="roc", sample_weights=None
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
@@ -970,7 +970,14 @@ def test_gen_multiclass_precision_recall_curve():
     ]
 
     results = _gen_classifier_curve(
-        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="pr"
+        is_binomial=False,
+        y=y,
+        y_probs=y_probs,
+        labels=[0, 1, 2],
+        # Should be ignored for multiclass classification
+        pos_label=2,
+        curve_type="pr",
+        sample_weights=None,
     )
     expected_x_data_list = [[1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [1.0, 0.5, 0.5, 0.5, 0.0, 0.0]]
     expected_y_data_list = [
@@ -1003,7 +1010,14 @@ def test_gen_multiclass_roc_curve():
     ]
 
     results = _gen_classifier_curve(
-        is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="roc"
+        is_binomial=False,
+        y=y,
+        y_probs=y_probs,
+        labels=[0, 1, 2],
+        # Should be ignored for multiclass classification
+        pos_label=2,
+        curve_type="roc",
+        sample_weights=None,
     )
 
     expected_x_data_list = [
@@ -1028,7 +1042,7 @@ def test_gen_multiclass_roc_curve():
 
 def test_evaluate_custom_metric_incorrect_return_formats():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
 
     def dummy_fn(*_):
         pass
@@ -1107,14 +1121,14 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 )
 def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
     with expectation:
         _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0, ""), eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
-    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"])
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
 
     def example_custom_metric(_, given_metrics):
         return {
@@ -1233,7 +1247,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
 
     assert "true_count_on_data_breast_cancer_dataset" in metrics
     assert np.isclose(
