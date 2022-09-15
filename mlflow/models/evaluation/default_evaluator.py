@@ -240,7 +240,7 @@ def _gen_classifier_curve(
     y_probs,
     labels,
     curve_type,
-    title,
+    pos_label=None,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -250,7 +250,7 @@ def _gen_classifier_curve(
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
     :param curve_type: "pr" or "roc"
-    :param title: Title of the plot
+    :param pos_label: The label of the positive class.
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
@@ -262,15 +262,23 @@ def _gen_classifier_curve(
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
+        title = "ROC curve"
+        if pos_label:
+            xlabel = f"False Positive Rate (Positive label: {pos_label})"
+            ylabel = f"True Positive Rate (Positive label: {pos_label})"
     elif curve_type == "pr":
 
         def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            ap = sk_metrics.average_precision_score(_y, _y_prob)
+            ap = sk_metrics.average_precision_score(_y, _y_prob, pos_label)
             return recall, precision, f"AP={ap:.3f}"
 
         xlabel = "Recall"
         ylabel = "Precision"
+        title = "Precision recall curve"
+        if pos_label:
+            xlabel = f"Recall (Positive label: {pos_label})"
+            ylabel = f"Precision (Positive label: {pos_label})"
     else:
         assert False, "illegal curve type"
 
@@ -733,7 +741,6 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="roc",
-                title="ROC curve",
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -743,7 +750,6 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="pr",
-                title="Precision recall curve",
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -774,7 +780,6 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="roc",
-                title="ROC curve",
             )
 
             def plot_roc_curve():
@@ -789,7 +794,6 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="pr",
-                title="Precision recall curve",
             )
 
             def plot_pr_curve():
