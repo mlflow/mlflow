@@ -255,14 +255,14 @@ The accepted values for <stage> are: Staging|Archived|Production|None.
 
 Listing and Searching MLflow Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-You can fetch a list of all registered models in the registry with a simple method.
+You can fetch a list of registered models in the registry with a simple method.
 
 .. code-block:: py
 
     from pprint import pprint
 
     client = MlflowClient()
-    for rm in client.list_registered_models():
+    for rm in client.search_registered_models():
         pprint(dict(rm), indent=4)
 
 This outputs:
