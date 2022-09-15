@@ -444,7 +444,7 @@ def test_bin_classifier_evaluation(
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data,
         breast_cancer_dataset.labels_data,
-        sample_weight=sample_weights
+        sample_weight=sample_weights,
     )
 
     for metric_key, expected_metric_val in expected_metrics.items():
