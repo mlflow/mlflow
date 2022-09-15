@@ -241,6 +241,7 @@ def _gen_classifier_curve(
     y_probs,
     labels,
     curve_type,
+    title,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -250,6 +251,7 @@ def _gen_classifier_curve(
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
     :param curve_type: "pr" or "roc"
+    :param title: Title of the plot
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
@@ -265,16 +267,11 @@ def _gen_classifier_curve(
 
         def gen_line_x_y_label_fn(_y, _y_prob):
             precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            # print("mean precision:", np.mean(precision))
-            # print(len(precision))
-            # print("mean recall:", np.mean(recall))
-            # print(len(recall))
-            # for i in range(len())
             ap = sk_metrics.average_precision_score(_y, _y_prob)
             return recall, precision, f"AP={ap:.3f}"
 
-        xlabel = "recall"
-        ylabel = "precision"
+        xlabel = "Recall"
+        ylabel = "Precision"
     else:
         assert False, "illegal curve type"
 
@@ -326,6 +323,7 @@ def _gen_classifier_curve(
             "xlabel": xlabel,
             "ylabel": ylabel,
             "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
+            "title": title,
         },
         auc=auc,
     )
@@ -736,6 +734,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="roc",
+                title="ROC curve",
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -745,6 +744,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="pr",
+                title="Precision recall curve",
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
@@ -775,6 +775,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="roc",
+                title="ROC curve",
             )
 
             def plot_roc_curve():
@@ -789,6 +790,7 @@ class DefaultEvaluator(ModelEvaluator):
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="pr",
+                title="Precision recall curve",
             )
 
             def plot_pr_curve():
@@ -945,10 +947,11 @@ class DefaultEvaluator(ModelEvaluator):
                 }
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
-                sk_metrics.ConfusionMatrixDisplay(
+                disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
                 ).plot(cmap="Blues", ax=ax)
+                disp.ax_.set_title("Normalized confusion matrix")
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
