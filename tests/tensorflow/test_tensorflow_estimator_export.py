@@ -1,5 +1,3 @@
-# pep8: disable=E501
-
 import collections
 import os
 import pickle

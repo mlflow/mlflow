@@ -72,7 +72,6 @@ tensorflow:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      tf_version=$(pip freeze | grep 'tensorflow==' | grep -Eo '[0-9].[0-9]')
       pytest \
         tests/tensorflow/test_tensorflow_estimator_export.py \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
@@ -86,7 +85,6 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
     run: |
-      tf_version=$(pip freeze | grep 'tensorflow==' | grep -Eo '[0-9].[0-9]')
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
 xgboost:

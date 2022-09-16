@@ -671,10 +671,6 @@ def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir):
 
 
 def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
-    """
-    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
-    can be loaded successfully. These models are missing the `data` flavor configuration key.
-    """
     mlflow.tensorflow.save_model(tf_keras_model, path=model_path)
     keras_model_kwargs = {
         "compile": False,

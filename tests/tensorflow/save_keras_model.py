@@ -52,10 +52,10 @@ elif save_as_type == "keras":
         raise ValueError("Illegal arguments.")
 
 
-inference_df = np.array([[2.0, 3.0, 4.0], [11.0, 12.0, 13.0]], dtype=np.float64)
-expected_results_df = model.predict(inference_df)
+inference_data = np.array([[2.0, 3.0, 4.0], [11.0, 12.0, 13.0]], dtype=np.float64)
+expected_results_data = model.predict(inference_data)
 
-output_data_info = (inference_df, expected_results_df, run_id)
+output_data_info = (inference_data, expected_results_data, run_id)
 
 output_data_file_path = "output_data.pkl"
 
