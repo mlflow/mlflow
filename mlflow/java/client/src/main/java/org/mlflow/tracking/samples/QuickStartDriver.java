@@ -29,7 +29,7 @@ public class QuickStartDriver {
     System.out.println("createExperiment: expId=" + expId);
 
     System.out.println("====== getExperiment");
-    GetExperiment.Response exp = client.getExperiment(expId);
+    Experiment exp = client.getExperiment(expId);
     System.out.println("getExperiment: " + exp);
 
     System.out.println("====== searchExperiments");
@@ -40,7 +40,7 @@ public class QuickStartDriver {
     createRun(client, expId);
 
     System.out.println("====== getExperiment again");
-    GetExperiment.Response exp2 = client.getExperiment(expId);
+    Experiment exp2 = client.getExperiment(expId);
     System.out.println("getExperiment: " + exp2);
 
     System.out.println("====== getExperiment by name");

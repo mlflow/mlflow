@@ -33,7 +33,6 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogParam,
     SetTag,
-    ListExperiments,
     SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,
@@ -967,26 +966,6 @@ def _get_metric_history():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_experiments():
-    request_message = _get_request_message(
-        ListExperiments(), schema={"max_results": [_assert_intlike], "page_token": [_assert_string]}
-    )
-    # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
-    # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
-    # #google.protobuf.message.Message.ListFields
-    params = {field.name: val for field, val in request_message.ListFields()}
-    experiment_entities = _get_tracking_store().list_experiments(**params)
-    response_message = ListExperiments.Response()
-    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
-    if experiment_entities.token:
-        response_message.next_page_token = experiment_entities.token
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),
@@ -1618,7 +1597,6 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
-    ListExperiments: _list_experiments,
     SearchExperiments: _search_experiments,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,

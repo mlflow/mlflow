@@ -27,7 +27,7 @@ import {
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
 import {
-  LIST_EXPERIMENTS_API,
+  SEARCH_EXPERIMENTS_API,
   GET_EXPERIMENT_API,
   GET_RUN_API,
   SEARCH_RUNS_API,
@@ -48,12 +48,12 @@ describe('test experimentsById', () => {
     expect(experimentsById(undefined, {})).toEqual({});
   });
 
-  test('listExperiments correctly updates empty state', () => {
+  test('searchExperiments correctly updates empty state', () => {
     const experimentA = mockExperiment('experiment01', 'experimentA');
     const experimentB = mockExperiment('experiment02', 'experimentB');
     const state = undefined;
     const action = {
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
         experiments: [experimentA.toJSON(), experimentB.toJSON()],
       },
@@ -65,7 +65,7 @@ describe('test experimentsById', () => {
     });
   });
 
-  test('listExperiments correctly updates state', () => {
+  test('searchExperiments correctly updates state', () => {
     const newA = mockExperiment('experiment01', 'experimentA');
     const newB = mockExperiment('experiment02', 'experimentB');
     const preserved = mockExperiment('experiment03', 'still exists');
@@ -78,7 +78,7 @@ describe('test experimentsById', () => {
       [replacedOld.getExperimentId()]: replacedOld,
     });
     const action = {
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
         experiments: [preserved.toJSON(), newA.toJSON(), newB.toJSON(), replacedNew.toJSON()],
       },
@@ -1223,7 +1223,7 @@ describe('test public accessors', () => {
     });
 
     const action = new_action({
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: { experiments: [A.toJSON(), B.toJSON()] },
     });
     const state = rootReducer(undefined, action);

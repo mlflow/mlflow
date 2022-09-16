@@ -21,22 +21,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned. However, certain server
-                            backend may apply its own limit. Check returned ``PagedList`` token to
-                            see if additional experiments are available.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        pass
-
-    @abstractmethod
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,
@@ -117,17 +101,12 @@ class AbstractStore:
     def get_experiment_by_name(self, experiment_name):
         """
         Fetch the experiment by name from the backend store.
-        This is a base implementation using ``list_experiments``, derived classes may have
-        some specialized implementations.
 
         :param experiment_name: Name of experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists.
         """
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == experiment_name:
-                return experiment
-        return None
+        pass
 
     @abstractmethod
     def delete_experiment(self, experiment_id):
