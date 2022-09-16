@@ -6,12 +6,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard, CardTab
 
 
-class ProfileReport:
-    def to_html(self):
-        return "pandas-profiling"
-
-
 def test_verify_card_information():
+    profile_report = "pandas-profiling"
     card = BaseCard(
         pipeline_name="fake pipeline",
         step_name="fake step",
@@ -28,8 +24,8 @@ def test_verify_card_information():
         .add_markdown("MARKDOWN_1", "#### Hello, world!")
         .add_html("HTML_1", "<span style='color:blue'>blue</span>")
     )
-    card.add_tab("Profile 1", "{{PROFILE}}").add_pandas_profile("PROFILE", ProfileReport())
-    card.add_tab("Profile 2", "{{PROFILE}}").add_pandas_profile("PROFILE", ProfileReport())
+    card.add_tab("Profile 1", "{{PROFILE}}").add_pandas_profile("PROFILE", profile_report)
+    card.add_tab("Profile 2", "{{PROFILE}}").add_pandas_profile("PROFILE", profile_report)
     card.add_text("1,2,3.")
 
     expected_html = """
@@ -45,11 +41,12 @@ def test_verify_card_information():
 
 
 def test_card_tab_works():
+    profile_report = "pandas-profiling"
     tab = (
         CardTab("tab", "{{MARKDOWN_1}}{{HTML_1}}{{PROFILE_1}}")
         .add_html("HTML_1", "<span style='color:blue'>blue</span>")
         .add_markdown("MARKDOWN_1", "#### Hello, world!")
-        .add_pandas_profile("PROFILE_1", ProfileReport())
+        .add_pandas_profile("PROFILE_1", profile_report)
     )
     assert (
         tab.to_html()

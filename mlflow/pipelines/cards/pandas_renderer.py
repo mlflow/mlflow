@@ -192,9 +192,10 @@ def convert_to_comparison_proto(
     """
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
     for (name, df) in dfs:
-        proto = convert_to_dataset_feature_statistics(df)
-        proto.name = name
-        feature_stats_list.datasets.append(proto)
+        if not df.empty:
+            proto = convert_to_dataset_feature_statistics(df)
+            proto.name = name
+            feature_stats_list.datasets.append(proto)
     return feature_stats_list
 
 
@@ -219,7 +220,7 @@ def construct_facets_html(
     return html
 
 
-def render_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> None:
+def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
     """Rendering the data statistics in a HTML format.
 
     :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
@@ -227,15 +228,13 @@ def render_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]])
         and they are all visualized in comparison mode.
     :return: None
     """
-    from IPython.display import display as ip_display, HTML
-
     if isinstance(inputs, pd.DataFrame):
-        df: pd.DataFrame = inputs
-        proto = convert_to_proto(df)
-        compare = False
+        if not inputs.empty:
+            proto = convert_to_proto(inputs)
+            compare = False
     else:
         proto = convert_to_comparison_proto(inputs)
         compare = True
 
     html = construct_facets_html(proto, compare=compare)
-    ip_display(HTML(data=html))
+    return html
