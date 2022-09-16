@@ -1,7 +1,4 @@
-import os
-
 import mlflow
-from mlflow import set_experiment, set_tracking_uri
 from mlflow.pyfunc import PythonModel, log_model, load_model
 
 
