@@ -45,6 +45,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
@@ -247,12 +249,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
 
         exp_id = experiments[0]
+        exp = self.store.get_experiment(exp_id)
+        time.sleep(0.01)
         self.store.delete_experiment(exp_id)
 
         updated_exp = self.store.get_experiment(exp_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
+        assert updated_exp.last_update_time > exp.last_update_time
 
     def test_delete_restore_experiment_with_runs(self):
 
@@ -514,7 +519,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
-
+        time_before_create = int(time.time() * 1000)
         experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
@@ -528,6 +533,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, "test exp")
+        assert actual.creation_time >= time_before_create
+        assert actual.last_update_time == actual.creation_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -767,7 +774,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             else:
                 self.assertEqual(v, v2)
 
-    def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
+    def _get_run_configs(self, experiment_id=None, tags=None, start_time=None):
         return {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
@@ -1135,6 +1142,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         assert tkey in run.data.tags and run.data.tags[tkey] == new_val
+        # test that unspecified run_name will generate a correct name
+        run_name = run.data.tags.get(MLFLOW_RUN_NAME)
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1209,11 +1219,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_rename_experiment(self):
         new_name = "new name"
         experiment_id = self._experiment_factory("test name")
+        experiment = self.store.get_experiment(experiment_id)
+        time.sleep(0.01)
         self.store.rename_experiment(experiment_id, new_name)
 
         renamed_experiment = self.store.get_experiment(experiment_id)
 
         self.assertEqual(renamed_experiment.name, new_name)
+        assert renamed_experiment.last_update_time > experiment.last_update_time
 
     def test_update_run_info(self):
         experiment_id = self._experiment_factory("test_update_run_info")
@@ -1237,11 +1250,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         deleted = self.store.get_experiment(experiment_id)
         self.assertEqual(deleted.experiment_id, experiment_id)
         self.assertEqual(deleted.lifecycle_stage, entities.LifecycleStage.DELETED)
-
+        time.sleep(0.01)
         self.store.restore_experiment(exp.experiment_id)
         restored = self.store.get_experiment(exp.experiment_id)
         self.assertEqual(restored.experiment_id, experiment_id)
         self.assertEqual(restored.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        assert restored.last_update_time > deleted.last_update_time
 
     def test_delete_restore_run(self):
         run = self._run_factory()
@@ -1864,12 +1878,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
-        tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        tag_entities = [
+            RunTag("t1", "t1val"),
+            RunTag("t2", "t2val"),
+            RunTag(MLFLOW_RUN_NAME, "my_run"),
+        ]
         self.store.log_batch(
             run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities
         )
         run = self.store.get_run(run_id)
-        assert run.data.tags == {"t1": "t1val", "t2": "t2val"}
+        assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "my_run"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
             [self.store.get_metric_history(run_id, key) for key in run.data.metrics], []
@@ -2180,7 +2198,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
+                experiment_id=experiment_id, start_time=current_run, tags=[], user_id="Anderson"
             ).info.run_uuid
 
             run_ids.append(run_id)
@@ -2277,10 +2295,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self.store.create_experiment("test_experiment1")
 
         r1 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me"
         ).info.run_uuid
         r2 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me"
         ).info.run_uuid
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))

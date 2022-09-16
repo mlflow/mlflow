@@ -25,7 +25,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLatestMetric,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment
+from mlflow.entities import RunStatus, SourceType, Experiment, RunTag
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
@@ -37,6 +37,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
 )
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
@@ -54,7 +55,7 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -239,10 +240,13 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
+                creation_time = int(time.time() * 1000)
                 experiment = SqlExperiment(
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
+                    creation_time=creation_time,
+                    last_update_time=creation_time,
                 )
                 experiment.tags = (
                     [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
@@ -472,6 +476,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
+            experiment.last_update_time = int(time.time() * 1000)
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_deleted(session, run)
@@ -495,6 +500,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
+            experiment.last_update_time = int(time.time() * 1000)
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_active(session, run)
@@ -507,6 +513,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
 
             experiment.name = new_name
+            experiment.last_update_time = int(time.time() * 1000)
             self._save_to_db(objs=experiment, session=session)
 
     def create_run(self, experiment_id, user_id, start_time, tags):
@@ -539,7 +546,12 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
+            if tags is None:
+                tags = [RunTag(MLFLOW_RUN_NAME, _generate_random_name())]
+            elif MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
+                tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
+
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()

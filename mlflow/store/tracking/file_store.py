@@ -37,6 +37,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -74,7 +75,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -337,7 +338,15 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
+        creation_time = int(time.time() * 1000)
+        experiment = Experiment(
+            experiment_id,
+            name,
+            artifact_uri,
+            LifecycleStage.ACTIVE,
+            creation_time=creation_time,
+            last_update_time=creation_time,
+        )
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
         # As such, we should not include them in the meta file.
@@ -433,6 +442,14 @@ class FileStore(AbstractStore):
                 "Could not find experiment with ID %s" % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
+        experiment = self._get_experiment(experiment_id)
+        experiment._set_last_update_time(int(time.time() * 1000))
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
         mv(experiment_dir, self.trash_folder)
 
     def restore_experiment(self, experiment_id):
@@ -450,6 +467,14 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
+        experiment = self._get_experiment(experiment_id)
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        experiment._set_last_update_time(int(time.time() * 1000))
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
 
     def rename_experiment(self, experiment_id, new_name):
         _validate_experiment_name(new_name)
@@ -463,6 +488,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
+        experiment._set_last_update_time(int(time.time() * 1000))
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
@@ -588,6 +614,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
+            tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)
