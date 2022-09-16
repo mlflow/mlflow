@@ -10,6 +10,7 @@ import pytest
 import tarfile
 import stat
 import pandas as pd
+from pyspark.sql import SparkSession
 
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
@@ -18,12 +19,20 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
+    write_spark_dataframe_to_parquet_on_local_disk,
     TempDir,
     _handle_readonly_on_windows,
 )
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file, safe_edit_yaml
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    session = SparkSession.builder.master("local[*]").getOrCreate()
+    yield session
+    session.stop()
 
 
 def test_yaml_read_and_write(tmpdir):
@@ -286,6 +295,21 @@ def test_read_and_write_parquet():
     write_pandas_df_as_parquet(data_frame, fileSource)
     serialized_data_frame = read_parquet_as_pandas_df(fileSource)
     pd.testing.assert_frame_equal(data_frame, serialized_data_frame)
+
+
+def test_write_spark_df_to_parquet(spark_session, tmp_path):
+    sdf = spark_session.createDataFrame(
+        [
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0),
+        ],
+        ["id", "text", "label"],
+    )
+    output_path = str(tmp_path / "output")
+    write_spark_dataframe_to_parquet_on_local_disk(sdf, output_path)
+    pd.testing.assert_frame_equal(sdf.toPandas(), pd.read_parquet(output_path))
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows")

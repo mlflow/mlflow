@@ -38,6 +38,7 @@ from tests.helper_functions import (
     get_safe_port,
     pyfunc_serve_and_score_model,
     PROTOBUF_REQUIREMENT,
+    pyfunc_generate_dockerfile,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
@@ -412,6 +413,29 @@ def test_prepare_env_fails(sk_model):
         # With conda - should fail due to bad conda environment.
         p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri])
         assert p.wait() != 0
+
+
+@pytest.mark.parametrize("enable_mlserver", [True, False])
+def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
+    with mlflow.start_run() as active_run:
+        if enable_mlserver:
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
+        else:
+            mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+    extra_args = ["--install-mlflow"]
+    if enable_mlserver:
+        extra_args.append("--enable-mlserver")
+
+    output_directory = tmp_path.joinpath("output_directory")
+    pyfunc_generate_dockerfile(output_directory, model_uri, extra_args=extra_args)
+    assert output_directory.is_dir()
+    assert output_directory.joinpath("Dockerfile").exists()
+    assert output_directory.joinpath("model_dir").is_dir()
+    # Assert file is not empty
+    assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
