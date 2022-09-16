@@ -3,6 +3,7 @@
 import collections
 import os
 import pickle
+import sys
 from unittest.mock import patch
 import json
 import functools
@@ -24,6 +25,7 @@ from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     autologging_is_disabled,
 )
+from mlflow.utils.process import _exec_cmd
 
 np.random.seed(1337)
 
@@ -1122,3 +1124,20 @@ def test_extract_input_example_from_tf_input_fn_unsupported_type_returns_None():
         "Tensorflow's input_fn training data extraction should have"
         " returned None as input type is not supported."
     )
+
+
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
+)
+def test_import_keras_model_trigger_import_tensorflow():
+    # This test is for guarding importing keras model will trigger importing tensorflow
+    # Because in Keras>=2.6, the keras autologging patching is installed by
+    # `mlflow.tensorflow.autolog`, suppose user enable autolog by `mlflow.autolog()`,
+    # and then import keras, if keras does not trigger importing tensorflow,
+    # then the keras autologging patching cannot be installed.
+    py_executable = sys.executable
+    _exec_cmd([
+        py_executable, "-c",
+        "from keras import Model; import sys; assert 'tensorflow' in sys.modules"
+    ])

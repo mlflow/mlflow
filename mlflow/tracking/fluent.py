@@ -1753,16 +1753,6 @@ def autolog(
     for module in set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}:
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
-    def keras_import_hook(keras_module):
-        if Version(keras_module.__version__) >= Version("2.6"):
-            # For Keras >= 2.6, Importing `keras` is equivalent with importing `tensorflow.keras`,
-            # when user importing `keras`, we need to enable mlflow tensorflow
-            # autologging which contains `keras` model autologging functionality.
-            # So the post hook is to import `tensorflow` to ensure setup tensorflow autologging.
-            importlib.import_module("tensorflow")
-
-    register_post_import_hook(keras_import_hook, "keras", overwrite=True)
-
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.

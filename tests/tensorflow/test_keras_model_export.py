@@ -673,7 +673,7 @@ def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
     mlflow.tensorflow.save_model(tf_keras_model, path=model_path)
     keras_model_kwargs = {
         "compile": False,
-        "options": tf.saved_model.LoadOptions(allow_partial_checkpoint=True),
+        "options": tf.saved_model.LoadOptions(),
     }
     with mock.patch("mlflow.tensorflow._load_keras_model") as mock_load:
         mlflow.tensorflow.load_model(model_path, keras_model_kwargs=keras_model_kwargs)

@@ -58,11 +58,6 @@ def reset_global_states():
         except Exception:
             pass
 
-    # For Keras >= 2.6, a special post hook installed on keras module for triggering importing
-    # tensorflow.
-    if 'keras' in mlflow.utils.import_hooks._post_import_hooks:
-        del mlflow.utils.import_hooks._post_import_hooks["keras"]
-
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
