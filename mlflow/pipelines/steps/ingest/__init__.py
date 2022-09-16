@@ -2,6 +2,7 @@ import abc
 import logging
 import os
 
+from pathlib import Path
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
@@ -78,10 +79,10 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             ingested_dataset_profile = get_pandas_data_profile(
                 ingested_df, "Profile of Ingested Dataset"
             )
-            dataset_profile_path = os.path.join(
-                output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME
+            dataset_profile_path = Path(
+                str(os.path.join(output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME))
             )
-            ingested_dataset_profile.to_file(output_file=dataset_profile_path)
+            dataset_profile_path.write_text(ingested_dataset_profile, encoding="utf-8")
             _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
 
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
