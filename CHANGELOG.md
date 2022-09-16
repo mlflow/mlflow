@@ -13,8 +13,8 @@ Features:
 - [Tracking] Add `load_text()`, `load_image()` and `load_dict()` fluent APIs for convenient artifact loading (#6475, @subramaniam02)
 - [Tracking] Add `creation_time` and `last_update_time` attributes to the Experiment class (#6756, @subramaniam02)
 - [Tracking] Add official MLflow Tracking Server DockerFiles to MLflow repository (#6731, @oojo12)
-- [Tracking / Java] Add `searchExperiments` API to Java client, deprecate `listExperiments` (#6561, @dbczumar)
-- [Tracking / R] Add mlflow_search_experiments API to R client (#6576, @dbczumar)
+- [Tracking] Add `searchExperiments` API to Java client and deprecate `listExperiments` (#6561, @dbczumar)
+- [Tracking] Add `mlflow_search_experiments` API to R client and deprecate `mlflow_list_experiments` (#6576, @dbczumar)
 - [UI] Make URLs clickable in the MLflow Tracking UI (#6526, @marijncv)
 - [UI] Introduce support for csv data preview within the artifact viewer pane (#6567, @nnethery)
 - [Model Registry / Models] Introduce `mlflow.models.add_libraries_to_model()` API for adding libraries to an MLflow Model (#6586, @arjundc-db)
@@ -43,12 +43,11 @@ Documentation updates:
 
 - [Tracking] Mark the SearchExperiments API as stable (#6551, @dbczumar)
 - [Tracking / Model Registry] Deprecate the ListExperiments, ListRegisteredModels, and `list_run_infos()` APIs (#6550, @dbczumar)
-- [Scoring] Deprecate mlflow.sagemaker.deploy() & mlflow.sagemaker.delete() (#6651, @dbczumar)
-- [Docs] Update documentation for model version `run_link` field (#6632, @arpitjasa-db)
+- [Scoring] Deprecate `mlflow.sagemaker.deploy()` in favor of `SageMakerDeploymentClient.create()` (#6651, @dbczumar)
 
 Small bug fixes and documentation updates:
 
-#6803, #6804, #6801, #6791, #6772, #6745, #6762, #6760, #6761, #6741, #6725, #6720, #6666, #6708, #6717, #6704, #6711, #6710, #6706, #6699, #6700, #6702, #6701, #6685, #6664, #6644, #6653, #6629, #6639, #6624, #6565, #6558, #6557, #6552, #6549, #6534, #6533, #6516, #6514, #6506, #6509, #6505, #6492, #6490, #6478, #6481, #6464, #6463, #6460, #6461, @harupy; #6810, #6809, #6727, #6648, @BenWilson2; #6808, #6766, #6729, @jerrylian-db; #6781, #6694, @marijncv; #6580, #6661, @bbarnes52; #6778, #6687, #6623, @shraddhafalane; #6662, #6737, #6612, #6595, @sunishsheth2009; #6777, @aviralsharma07; #6665, #6743, #6573, @liangz1; #6784, @apurva-koti; #6753, #6751, @mingyu89; #6690, #6455, #6484, @kriscon-db; #6465, #6689, @hubertzub-db; #6721, @WeichenXu123; #6722, #6718, #6668, #6663, #6621, #6547, #6508, #6474, #6452, @dbczumar; #6555, #6584, #6543, #6542, #6521, @dsgibbons; #6634, #6596, #6563, #6495, @prithvikannan; #6571, @smurching; #6630, #6483, @serena-ruan; #6642, @thinkall; #6614, #6597, @jinzhang21; #6457, @cnphil; #6570, #6559, @kumaryogesh17; #6560, #6540, @iamthen0ise; #6544, @Monkero; #6438, @ahlag; #3292, @dolfinus; #6637 @ninabacc-db
+#6803, #6804, #6801, #6791, #6772, #6745, #6762, #6760, #6761, #6741, #6725, #6720, #6666, #6708, #6717, #6704, #6711, #6710, #6706, #6699, #6700, #6702, #6701, #6685, #6664, #6644, #6653, #6629, #6639, #6624, #6565, #6558, #6557, #6552, #6549, #6534, #6533, #6516, #6514, #6506, #6509, #6505, #6492, #6490, #6478, #6481, #6464, #6463, #6460, #6461, @harupy; #6810, #6809, #6727, #6648, @BenWilson2; #6808, #6766, #6729, @jerrylian-db; #6781, #6694, @marijncv; #6580, #6661, @bbarnes52; #6778, #6687, #6623, @shraddhafalane; #6662, #6737, #6612, #6595, @sunishsheth2009; #6777, @aviralsharma07; #6665, #6743, #6573, @liangz1; #6784, @apurva-koti; #6753, #6751, @mingyu89; #6690, #6455, #6484, @kriscon-db; #6465, #6689, @hubertzub-db; #6721, @WeichenXu123; #6722, #6718, #6668, #6663, #6621, #6547, #6508, #6474, #6452, @dbczumar; #6555, #6584, #6543, #6542, #6521, @dsgibbons; #6634, #6596, #6563, #6495, @prithvikannan; #6571, @smurching; #6630, #6483, @serena-ruan; #6642, @thinkall; #6614, #6597, @jinzhang21; #6457, @cnphil; #6570, #6559, @kumaryogesh17; #6560, #6540, @iamthen0ise; #6544, @Monkero; #6438, @ahlag; #3292, @dolfinus; #6637, @ninabacc-db; #6632, @arpitjasa-db
 
 ## 1.28.0 (2022-08-09)
 
