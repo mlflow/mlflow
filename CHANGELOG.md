@@ -38,7 +38,7 @@ Bug fixes:
 - [Models] Fix a regression in the directory path structure of logged Spark Models that occurred in MLflow 1.28.0 (#6683, @gwy1995)
 - [Models] No longer reload the `__main__` module when loading model code (#6647, @Jooakim)
 - [Artifacts] Fix an `mlflow server` compatibility issue with HDFS when running in `--serve-artifacts` mode (#6482, @shidianshifen)
-- [Scoring] Fix schema issue with 1-D arrays for TF / Keras (#6796, @LiamConnell)
+- [Scoring] Fix an inference failure with 1-dimensional tensor inputs in TensorFlow and Keras (#6796, @LiamConnell)
 - [Build] Increase minimum python versions in dev setup script (#6727, @BenWilson2)
 
 Documentation updates:
