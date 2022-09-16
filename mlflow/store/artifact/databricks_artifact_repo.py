@@ -3,7 +3,6 @@ import logging
 import os
 import posixpath
 import requests
-import sys
 import uuid
 from collections import namedtuple
 
