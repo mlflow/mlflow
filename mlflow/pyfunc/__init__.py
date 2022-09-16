@@ -382,8 +382,8 @@ class PyFuncModel:
                 raise AttributeError("Expected python_model attribute not to be None.")
         except AttributeError as e:
             raise MlflowException(
-                "Model does not contain a python_model attribute or it's None.", e
-            )
+                "Unable to retrieve base model object from pyfunc."
+            ) from e
         return python_model
 
     def __eq__(self, other):
