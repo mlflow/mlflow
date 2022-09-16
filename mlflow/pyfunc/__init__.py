@@ -381,7 +381,9 @@ class PyFuncModel:
             if python_model is None:
                 raise AttributeError("Expected python_model attribute not to be None.")
         except AttributeError as e:
-            raise MlflowException("Model does not contain a python_model attribute or it's None.", e)
+            raise MlflowException(
+                "Model does not contain a python_model attribute or it's None.", e
+            )
         return python_model
 
     def __eq__(self, other):
@@ -402,8 +404,8 @@ class PyFuncModel:
             if hasattr(self._model_meta, "run_id") and self._model_meta.run_id is not None:
                 info["run_id"] = self._model_meta.run_id
             if (
-                    hasattr(self._model_meta, "artifact_path")
-                    and self._model_meta.artifact_path is not None
+                hasattr(self._model_meta, "artifact_path")
+                and self._model_meta.artifact_path is not None
             ):
                 info["artifact_path"] = self._model_meta.artifact_path
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
@@ -447,9 +449,9 @@ def _warn_dependency_requirement_mismatches(model_path):
 
 
 def load_model(
-        model_uri: str,
-        suppress_warnings: bool = False,
-        dst_path: str = None,
+    model_uri: str,
+    suppress_warnings: bool = False,
+    dst_path: str = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -788,7 +790,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-                    "of the following types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -898,8 +900,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The the model did not produce any values compatible with the requested "
-                        "type '{}'. Consider requesting udf with StringType or "
-                        "Arraytype(StringType).".format(str(elem_type)),
+                "type '{}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).".format(str(elem_type)),
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -917,7 +919,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     @pandas_udf(result_type)
     def udf(
-            iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import ScoringServerClient
@@ -1050,8 +1052,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 else:
                     raise MlflowException(
                         message="Cannot apply udf because no column names specified. The udf "
-                                "expects {} columns with types: {}. Input column names could not be "
-                                "inferred from the model signature (column names not found).".format(
+                        "expects {} columns with types: {}. Input column names could not be "
+                        "inferred from the model signature (column names not found).".format(
                             len(input_schema.inputs),
                             input_schema.inputs,
                         ),
@@ -1071,19 +1073,19 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
-        path,
-        loader_module=None,
-        data_path=None,
-        code_path=None,
-        conda_env=None,
-        mlflow_model=None,
-        python_model=None,
-        artifacts=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        **kwargs,
+    path,
+    loader_module=None,
+    data_path=None,
+    code_path=None,
+    conda_env=None,
+    mlflow_model=None,
+    python_model=None,
+    artifacts=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
@@ -1243,19 +1245,19 @@ def save_model(
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
-        artifact_path,
-        loader_module=None,
-        data_path=None,
-        code_path=None,
-        conda_env=None,
-        python_model=None,
-        artifacts=None,
-        registered_model_name=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        pip_requirements=None,
-        extra_pip_requirements=None,
+    artifact_path,
+    loader_module=None,
+    data_path=None,
+    code_path=None,
+    conda_env=None,
+    python_model=None,
+    artifacts=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -1363,14 +1365,14 @@ def log_model(
 
 
 def _save_model_with_loader_module_and_data_path(
-        path,
-        loader_module,
-        data_path=None,
-        code_paths=None,
-        conda_env=None,
-        mlflow_model=None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
+    path,
+    loader_module,
+    data_path=None,
+    code_paths=None,
+    conda_env=None,
+    mlflow_model=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Export model as a generic Python function model.
