@@ -6,9 +6,9 @@ MLflow 1.29.0 includes several major features and improvements
 
 Features:
 
-- [Pipelines / CLI] Add support for `get_artifact` in the cli (#6517, @prithvikannan)
-- [Pipelines] Add Pipelines step option to skip step profiling (#6456, @apurva-koti)
-- [Pipelines / UI] CLI command suggestion after running the pipeline (#6376, @hubertzub-db)
+- [Pipelines] Add an `mlflow pipelines get-artifact` CLI for retrieving Pipeline artifacts (#6517, @prithvikannan)
+- [Pipelines] Introduce an option for skipping dataset profiling to the scikit-learn regression Pipeline (#6456, @apurva-koti)
+- [Pipelines / UI] Display an `mlflow pipelines` CLI command for reproducing a Pipeline run in the MLflow UI (#6376, @hubertzub-db)
 - [Tracking] Automatically generate friendly names for Runs if not supplied by the user (#6736, @BenWilson2)
 - [Tracking] Add `load_text()`, `load_image()` and `load_dict()` fluent APIs for convenient artifact loading (#6475, @subramaniam02)
 - [Tracking] Add `creation_time` and `last_update_time` attributes to the Experiment class (#6756, @subramaniam02)
@@ -33,8 +33,8 @@ Features:
 
 Bug fixes:
 
-- [Tracking] Enforce idempotent behavior with make run & experiment deletion / restoration (#6641, @dbczumar)
-- [Tracking] Remove the fixed width css for the experimentlist container (#6569, @sunishsheth2009)
+- [Tracking] Make Run and Experiment deletion and restoration idempotent (#6641, @dbczumar)
+- [UI] Fix an alignment bug affecting the Experiments list in the MLflow UI  (#6569, @sunishsheth2009)
 - [Models] Fix a regression in the directory path structure of logged Spark Models that occurred in MLflow 1.28.0 (#6683, @gwy1995)
 - [Models] No longer reload the `__main__` module when loading model code (#6647, @Jooakim)
 - [Artifacts] Fix an `mlflow server` compatibility issue with HDFS when running in `--serve-artifacts` mode (#6482, @shidianshifen)
