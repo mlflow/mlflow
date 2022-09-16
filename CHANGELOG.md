@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 1.29.0 (2022-09-16)
+
+MLflow 1.29.0 includes several major features and improvements
+
+Features:
+
+- [Models] Introduce sample_weights arg to mlflow.evaluate() (#6806, @dbczumar)
+- [Tracking] adding creation_time and last_update_time to experiment (#6756, @subramaniam02)
+- [Build / Docker] Tracking server image (#6731, @oojo12)
+- [Build / Docker] [CLI] [FR] Add new CLI command for generating Dockerfile (issue #6532) (#6591, @anuarkaliyev23)
+- [Tracking] Update RunInfo, CreateRun and UpdateRun infos to accept run names (#6769, @apurva-koti)
+- [UI] Feature/csv data preview (#6567, @nnethery)
+- [Model Registry / Models] Wheeled Model (#6586, @arjundc-db)
+- [Tracking] Add generated run name to create run backend stores if not supplied (#6736, @BenWilson2)
+- [Tracking] Add `pos_label` to `mlflow.evaluate` (#6696, @harupy)
+- [Models] Add support for Decimal object to Double cast in ML Flow (#6600, @shitaoli-db)
+- [] Set production variant name (#6486, @nfarley-soaren)
+- [Models] feat: add utility for signature validation of logged model to dataset (#6494, @serena-ruan)
+- [Models] Improve flexibility of PyFuncModel prediction (#6631, @skylarbpayne)
+- [Tracking] adding load_text, load_image, load_dict to fluent.py (#6475, @subramaniam02)
+- [] Move data capture config to end (#6621, @dbczumar)
+- [Scoring] feat(scoring_server): add /health endpoint (#6574, @gabriel-milan)
+- [Models] [Model Validation] Land model validation feature (#6582, @jerrylian-db)
+- [Models] Add confs for metric prefix and metric dataset info to mlflow.evaluate(), rename accuracy to accuracy_score (#6593, @dbczumar)
+- [UI] Make URLs clickable in the MLflow Tracking UI (#6526, @marijncv)
+- [R / Tracking] Add mlflow_search_experiments API to R client (#6576, @dbczumar)
+- [Pipelines] [ML-22889] Get artifact cli (#6517, @prithvikannan)
+- [Java / Tracking] Add searchExperiments API to Java client, deprecate listExperiments (#6561, @dbczumar)
+- [Build] feat: Docker development scripts and readme (#6465, @hubertzub-db)
+- [Pipelines] Add Pipelines step option to skip step profiling (#6456, @apurva-koti)
+- [Pipelines / UI] CLI command suggestion after running the pipeline (#6376, @hubertzub-db)
+- [] Add data capture config to sagemaker (#6423, @jonwiggins)
+
+Bug fixes:
+
+- [Scoring] Fix bug with 1-D arrays (#6796, @LiamConnell)
+- [Build] Bump min python versions in dev setup script (#6727, @BenWilson2)
+- [Models] Scope Databricks inferred pip requirements to modules (#6722, @dbczumar)
+- [] Remove duplicate `_SPARK_MODEL_PATH_SUB` (#6683, @gwy1995)
+- [Models] Fix bug when reloading modules (#6647, @Jooakim)
+- [Tracking] Make run & experiment deletion / restoration idempotent (#6641, @dbczumar)
+- [Tracking] [bug-fix] Removing the fixed width css for the experimentlist container (#6569, @sunishsheth2009)
+- [Models] Don't use mlflowdbfs if dbutils is unavailable (#6508, @dbczumar)
+- [Artifacts] Implement _download_file in hdfs_artifact_repo (#6482, @shidianshifen)
+
+Documentation updates:
+
+- [Docs / Scoring] Deprecate mlflow.sagemaker.deploy() & mlflow.sagemaker.delete() (#6651, @dbczumar)
+- [Docs] Add soft delete in (#6637, @ninabacc-db)
+- [Tracking] Stabilize SearchExperiments API (#6551, @dbczumar)
+- [Docs] Update documentation for model version `run_link` field (#6632, @arpitjasa-db)
+- [Model Registry / Tracking] Deprecate ListExperiments, ListRegisteredModels, ListRunInfos APIs (#6550, @dbczumar)
+
+Small bug fixes and documentation updates:
+
+#6803, #6804, #6801, #6791, #6772, #6745, #6762, #6760, #6761, #6741, #6725, #6720, #6666, #6708, #6717, #6704, #6711, #6710, #6706, #6699, #6700, #6702, #6701, #6685, #6664, #6644, #6653, #6629, #6639, #6624, #6565, #6558, #6557, #6552, #6549, #6534, #6533, #6516, #6514, #6506, #6509, #6505, #6492, #6490, #6478, #6481, #6464, #6463, #6460, #6461, @harupy; #6810, #6809, #6648, @BenWilson2; #6808, #6766, #6729, @jerrylian-db; #6781, #6694, @marijncv; #6580, #6661, @bbarnes52; #6778, #6687, #6623, @shraddhafalane; #6662, #6737, #6612, #6595, @sunishsheth2009; #6777, @aviralsharma07; #6665, #6743, #6573, @liangz1; #6784, @apurva-koti; #6753, #6751, @mingyu89; #6690, #6455, #6484, @kriscon-db; #6689, @hubertzub-db; #6721, @WeichenXu123; #6718, #6668, #6663, #6547, #6474, #6452, @dbczumar; #6555, #6584, #6543, #6542, #6521, @dsgibbons; #6634, #6596, #6563, #6495, @prithvikannan; #6571, @smurching; #6630, #6483, @serena-ruan; #6642, @thinkall; #6614, #6597, @jinzhang21; #6457, @cnphil; #6570, #6559, @kumaryogesh17; #6560, #6540, @iamthen0ise; #6544, @Monkero; #6438, @ahlag; #3292, @dolfinus
+
 ## 1.28.0 (2022-08-09)
 
 MLflow 1.28.0 includes several major features and improvements:
