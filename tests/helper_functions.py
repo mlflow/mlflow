@@ -14,6 +14,8 @@ import subprocess
 import uuid
 import sys
 import yaml
+import numpy as np
+import numbers
 
 import pytest
 
@@ -490,3 +492,18 @@ def chdir(directory_path):
         yield
     finally:
         os.chdir(og_dir)
+
+
+def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
+    elem0 = actual_array[0]
+    if isinstance(elem0, numbers.Number) or (
+            isinstance(elem0, (list, np.ndarray)) and isinstance(elem0[0], numbers.Number)
+    ):
+        np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
+    else:
+        np.testing.assert_array_equal(actual_array, desired_array)
+
+
+def assert_pandas_dataframe_almost_equal(actual_df, desired_df, rtol=1e-6):
+    for key in actual_df.keys():
+        assert_array_almost_equal(list(actual_df[key]), list(desired_df[key]), rtol=rtol)

@@ -19,11 +19,15 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.pyfunc.backend import _execute_in_conda_env
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
-from tests.helper_functions import pyfunc_serve_and_score_model, chdir
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    chdir,
+    assert_pandas_dataframe_almost_equal,
+    assert_array_almost_equal,
+)
 
 
 @pytest.fixture
@@ -120,6 +124,7 @@ def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket)
     }
     raw_preds = infer(**feed_dict)
     pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
+
     for col in pred_dict:
         np.testing.assert_allclose(
             np.array(pred_dict[col], dtype=np.float),
@@ -142,8 +147,8 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, model_path)
     pred_dict = {
         column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
     }
-    for col in pred_dict:
-        np.testing.assert_allclose(pred_dict[col], model_data_info.raw_results[col], rtol=1e-6)
+    for key in pred_dict.keys():
+        assert_array_almost_equal(pred_dict[key], model_data_info.raw_results[key])
 
 
 def test_log_and_load_model_persists_and_restores_model_successfully(tmpdir):
@@ -165,8 +170,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_pat
     # can call predict with a df
     results_df = pyfunc_wrapper.predict(model_data_info.inference_df)
     assert isinstance(results_df, pd.DataFrame)
-    for key in results_df.keys():
-        np.testing.assert_allclose(results_df[key], model_data_info.raw_df[key], rtol=1e-6)
+    assert_pandas_dataframe_almost_equal(results_df, model_data_info.raw_df)
 
     # can also call predict with a dict
     inp_dict = {}
@@ -174,8 +178,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_pat
         inp_dict[df_col_name] = model_data_info.inference_df[df_col_name].values
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
-    for key in results.keys():
-        np.testing.assert_allclose(results[key], model_data_info.raw_df[key].tolist(), rtol=1e-6)
+    assert_pandas_dataframe_almost_equal(pd.DataFrame(results), model_data_info.raw_df)
 
     # can not call predict with a list
     inp_list = []

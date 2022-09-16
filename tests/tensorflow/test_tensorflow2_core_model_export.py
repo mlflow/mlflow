@@ -108,7 +108,7 @@ def test_load_with_options(tmpdir, tf2_toy_model):
     mlflow.tensorflow.save_model(tf2_toy_model.model, model_path)
 
     saved_model_kwargs = {
-        "options": tf.saved_model.LoadOptions(allow_partial_checkpoint=True),
+        "options": tf.saved_model.LoadOptions(),
     }
     with mock.patch("tensorflow.saved_model.load") as mock_load:
         mlflow.tensorflow.load_model(model_path, saved_model_kwargs=saved_model_kwargs)

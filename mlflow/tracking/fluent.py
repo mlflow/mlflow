@@ -1878,7 +1878,10 @@ def autolog(
 
     def keras_import_hook(keras_module):
         if Version(keras_module.__version__) >= Version("2.6"):
-            # Import tensorflow to ensure setup tensorflow autologging.
+            # For Keras >= 2.6, Importing `keras` is equivalent with importing `tensorflow.keras`,
+            # when user importing `keras`, we need to enable mlflow tensorflow
+            # autologging which contains `keras` model autologging functionality.
+            # So the post hook is to import `tensorflow` to ensure setup tensorflow autologging.
             importlib.import_module("tensorflow")
 
     register_post_import_hook(keras_import_hook, "keras", overwrite=True)

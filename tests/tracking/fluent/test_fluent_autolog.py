@@ -13,7 +13,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 import tensorflow
-import keras
 import fastai
 import sklearn
 import xgboost
@@ -58,6 +57,11 @@ def reset_global_states():
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
+
+    # For Keras >= 2.6, a special post hook installed on keras module for triggering importing
+    # tensorflow.
+    if 'keras' in mlflow.utils.import_hooks._post_import_hooks:
+        del mlflow.utils.import_hooks._post_import_hooks["keras"]
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -105,15 +109,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
         if library != pyspark and library != pyspark.ml:
             autolog_mock.assert_not_called()
 
-        if mlflow_module == mlflow.tensorflow and Version(tensorflow.__version__) >= Version(
-            "2.6.0"
-        ):
-            # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
-            # autologging enablement logic relies on this import behavior.
-            mlflow.utils.import_hooks.notify_module_loaded(keras)
-            mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
-        else:
-            mlflow.utils.import_hooks.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(library)
 
         autolog_mock.assert_called_once()
 
@@ -133,15 +129,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         else:
             mlflow.autolog()
             with pytest.raises(Exception, match="asdf"):
-                if mlflow_module == mlflow.tensorflow and Version(
-                    tensorflow.__version__
-                ) >= Version("2.6.0"):
-                    # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
-                    # autologging enablement logic relies on this import behavior.
-                    mlflow.utils.import_hooks.notify_module_loaded(keras)
-                    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
-                else:
-                    mlflow.utils.import_hooks.notify_module_loaded(library)
+                mlflow.utils.import_hooks.notify_module_loaded(library)
 
         autolog_mock.assert_called_once()
 
@@ -163,13 +151,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
     mlflow.autolog(**args_to_test)
 
-    if mlflow_module == mlflow.tensorflow and Version(tensorflow.__version__) >= Version("2.6.0"):
-        # NB: In TensorFlow >= 2.6.0, TensorFlow unconditionally imports Keras. Fluent
-        # autologging enablement logic relies on this import behavior.
-        mlflow.utils.import_hooks.notify_module_loaded(keras)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
-    else:
-        mlflow.utils.import_hooks.notify_module_loaded(library)
+    mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
         assert (
