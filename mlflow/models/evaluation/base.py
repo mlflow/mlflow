@@ -12,7 +12,6 @@ from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.models.evaluation.validation import (
@@ -341,7 +340,6 @@ class EvaluationDataset:
                     f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
                     for i in range(num_features)
                 ]
-            self._original_column_names = list(range(num_features))
         elif isinstance(data, self._supported_dataframe_types):
             if not isinstance(targets, str):
                 raise MlflowException(
@@ -365,13 +363,9 @@ class EvaluationDataset:
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
-                self._original_column_names = feature_names
             else:
                 self._features_data = data.drop(targets, axis=1, inplace=False)
-                self._feature_names = [
-                    generate_feature_name_if_not_string(c) for c in self._features_data.columns
-                ]
-                self._original_column_names = self._features_data.columns
+                self._feature_names = self._features_data.columns
         else:
             raise MlflowException(
                 message="The data argument must be a numpy array, a list or a Pandas DataFrame, or "

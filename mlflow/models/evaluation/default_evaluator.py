@@ -9,6 +9,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -442,8 +443,8 @@ def _compute_df_mode_or_mean(df):
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
-def _shap_predict_fn(x, predict_fn, original_column_names):
-    return predict_fn(_get_dataframe_with_renamed_columns(x, original_column_names))
+def _shap_predict_fn(x, predict_fn, feature_names):
+    return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -592,7 +593,7 @@ class DefaultEvaluator(ModelEvaluator):
         shap_predict_fn = functools.partial(
             _shap_predict_fn,
             predict_fn=self.predict_fn,
-            original_column_names=self.dataset.original_column_names,
+            feature_names=self.feature_names,
         )
 
         try:
@@ -652,7 +653,9 @@ class DefaultEvaluator(ModelEvaluator):
             # self.feature_names when computing shap_values, as they may differ from the
             # names used during training (e.g. when using np.ndarrays). Instead, we rename
             # shap_values.feature_names here before creating the plots.
-            shap_values.feature_names = self.feature_names
+            shap_values.feature_names = [
+                generate_feature_name_if_not_string(n) for n in self.feature_names
+            ]
         except Exception as e:
             # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
             # or unsupported model on specific shap explainer. Catch exception to prevent it
@@ -1145,9 +1148,7 @@ class DefaultEvaluator(ModelEvaluator):
         The features (`X`) portion of the dataset, guarded against accidental mutations.
         """
         return DefaultEvaluator._MutationGuardedData(
-            _get_dataframe_with_renamed_columns(
-                self.dataset.features_data, self.dataset.original_column_names
-            )
+            _get_dataframe_with_renamed_columns(self.dataset.features_data, self.feature_names)
         )
 
     class _MutationGuardedData:
