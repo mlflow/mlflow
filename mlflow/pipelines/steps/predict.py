@@ -9,6 +9,7 @@ from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 _logger = logging.getLogger(__name__)
@@ -33,12 +34,19 @@ class PredictStep(BaseStep):
         self.run_end_time = None
         self.execution_duration = None
 
-    def _build_profiles_and_card(self, scored_df) -> BaseCard:
+    def _build_profiles_and_card(self, scored_sdf) -> BaseCard:
         # Build profiles for scored dataset
         card = BaseCard(self.pipeline_name, self.name)
 
+        scored_size = scored_sdf.count()
+
         if not self.skip_data_profiling:
-            _logger.info("Profiling ingested dataset")
+            _logger.info("Profiling scored dataset")
+            if scored_size > _MAX_PROFILE_SIZE:
+                _logger.info("Sampling scored dataset for profiling because dataset size is large.")
+                sample_percentage = _MAX_PROFILE_SIZE / scored_size
+                scored_sdf = scored_sdf.sample(sample_percentage)
+            scored_df = scored_sdf.toPandas()
             scored_dataset_profile = get_pandas_data_profile(scored_df, "Profile of Scored Dataset")
 
             # Optional tab : data profile for scored data:
@@ -57,13 +65,14 @@ class PredictStep(BaseStep):
                 """,
             ).add_markdown(
                 "SCORED_DATA_NUM_ROWS",
-                f"**Number of scored dataset rows:** `{len(scored_df)}`",
+                f"**Number of scored dataset rows:** `{scored_size}`",
             )
         )
 
         return card
 
     def _run(self, output_directory):
+        import pandas as pd
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
@@ -94,7 +103,9 @@ class PredictStep(BaseStep):
             step_name="ingest_scoring",
             relative_path=_INPUT_FILE_NAME,
         )
-        input_sdf = spark.read.parquet(ingested_data_path)
+        # Because the cached parquet file is not on DBFS, we have to first load it as a pandas df
+        input_pdf = pd.read_parquet(ingested_data_path)
+        input_sdf = spark.createDataFrame(input_pdf)
         if _PREDICTION_COLUMN_NAME in input_sdf.columns:
             _logger.warning(
                 f"Input scoring dataframe already contains a column '{_PREDICTION_COLUMN_NAME}'. "
@@ -119,18 +130,13 @@ class PredictStep(BaseStep):
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
-        scored_sdf.coalesce(1).write.format("parquet").save(
-            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
+        write_spark_dataframe_to_parquet_on_local_disk(
+            scored_sdf, os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
         )
-
-        scored_size = scored_sdf.count()
-        if scored_size > _MAX_PROFILE_SIZE:
-            sample_percentage = _MAX_PROFILE_SIZE / scored_size
-            scored_sdf = scored_sdf.sample(sample_percentage)
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
-        return self._build_profiles_and_card(scored_sdf.toPandas())
+        return self._build_profiles_and_card(scored_sdf)
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):

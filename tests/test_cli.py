@@ -173,7 +173,7 @@ def _create_run_in_store(store, create_artifacts=True):
         "experiment_id": "0",
         "user_id": "Anderson",
         "start_time": int(time.time()),
-        "tags": {},
+        "tags": [],
     }
     run = store.create_run(**config)
     if create_artifacts:
@@ -335,7 +335,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
 )
 def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input):  # pylint: disable=unused-variable
+        def predict(self, context, model_input):
             return np.array([1, 2, 3])
 
     model = MyModel()

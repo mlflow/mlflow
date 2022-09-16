@@ -75,6 +75,7 @@ def plot_lift_curve(
     figsize=None,
     title_fontsize="large",
     text_fontsize="medium",
+    pos_label=None,
 ):
     """
     This method is copied from scikit-plot package.
@@ -111,6 +112,8 @@ def plot_lift_curve(
         text_fontsize (string or int, optional): Matplotlib-style fontsizes.
             Use e.g. "small", "medium", "large" or integer-values. Defaults to
             "medium".
+
+        pos_label (optional): Label for the positive class.
 
     Returns:
         ax (:class:`matplotlib.axes.Axes`): The axes on which the plot was
@@ -153,8 +156,18 @@ def plot_lift_curve(
 
     ax.set_title(title, fontsize=title_fontsize)
 
-    ax.plot(percentages, gains1, lw=3, label="Class {}".format(classes[0]))
-    ax.plot(percentages, gains2, lw=3, label="Class {}".format(classes[1]))
+    label0 = "Class {}".format(classes[0])
+    label1 = "Class {}".format(classes[1])
+    # show (positive) next to the positive class in the legend
+    if pos_label:
+        if pos_label == classes[0]:
+            label0 = "Class {} (positive)".format(classes[0])
+        elif pos_label == classes[1]:
+            label1 = "Class {} (positive)".format(classes[1])
+        # do not mark positive class if pos_label is not in classes
+
+    ax.plot(percentages, gains1, lw=3, label=label0)
+    ax.plot(percentages, gains2, lw=3, label=label1)
 
     ax.plot([0, 1], [1, 1], "k--", lw=2, label="Baseline")
 

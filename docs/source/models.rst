@@ -615,6 +615,44 @@ scored with both DataFrame input and numpy array input. Finally, you can use the
 function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
+Keras pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+    
+    import mlflow
+    import numpy as np
+    import pathlib
+    import shutil
+    from tensorflow import keras
+
+    mlflow.tensorflow.autolog()
+
+    with mlflow.start_run():
+        X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+        y = np.array([0, 0, 1, 1, 1, 0])
+        model = keras.Sequential(
+            [
+                keras.Input(shape=(1,)),
+                keras.layers.Dense(1, activation="sigmoid"),
+            ]
+        )
+        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+        model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
+        model_info = mlflow.keras.log_model(keras_model=model, artifact_path="model")
+
+    local_artifact_dir = "/tmp/mlflow/keras_model"
+    pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
+
+    keras_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri, dst_path=local_artifact_dir)
+
+    data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
+    predictions = keras_pyfunc.predict(data)
+
+    shutil.rmtree(local_artifact_dir)
+
 For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
@@ -679,6 +717,31 @@ be loaded as generic Python functions for inference via :py:func:`mlflow.pyfunc.
 This loaded PyFunc model can only be scored with DataFrame input. Finally, you can use the
 :py:func:`mlflow.sklearn.load_model()` method to load MLflow Models with the ``sklearn`` flavor as
 scikit-learn model objects.
+
+Scikit-learn pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a Scikit-learn LogisticRegression model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+    
+    import mlflow
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+
+    with mlflow.start_run():
+        X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+        y = np.array([0, 0, 1, 1, 1, 0])
+        lr = LogisticRegression()
+        lr.fit(X, y)
+
+        model_info = mlflow.sklearn.log_model(sk_model=lr, artifact_path="model")
+
+    sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
+
+    predictions = sklearn_pyfunc.predict(data)
 
 For more information, see :py:mod:`mlflow.sklearn`.
 
@@ -1263,6 +1326,8 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
+.. _model-validation:
+
 Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1299,7 +1364,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
 
     # Define criteria for model to be validated against
     thresholds = {
-        "accuracy": MetricThreshold(
+        "accuracy_score": MetricThreshold(
             threshold=0.8,             # accuracy should be >=0.8
             min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
             min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
