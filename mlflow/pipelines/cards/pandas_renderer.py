@@ -229,9 +229,8 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
     :return: None
     """
     if isinstance(inputs, pd.DataFrame):
-        df: pd.DataFrame = inputs
-        if not df.empty:
-            proto = convert_to_proto(df)
+        if not inputs.empty:
+            proto = convert_to_proto(inputs)
             compare = False
     else:
         proto = convert_to_comparison_proto(inputs)

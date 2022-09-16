@@ -92,12 +92,12 @@ class CardTab:
         )
         self.add_html(name, img_html)
 
-    def add_pandas_profile(self, name: str, profile) -> CardTab:
+    def add_pandas_profile(self, name: str, profile: str) -> CardTab:
         """
         Add a new tab representing the provided pandas profile to the card.
 
         :param name: name of the variable in the Jinja2 template
-        :param profile: the pandas profile object
+        :param profile: html string to render profile in the step card
         :return: the updated card instance
         """
         try:
