@@ -231,7 +231,6 @@ def test_pyfunc_serve_and_score(data):
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
 
-@pytest.mark.skip
 def test_score_model_as_spark_udf(data):
     x, _ = data
     model = get_model(data)
