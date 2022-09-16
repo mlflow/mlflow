@@ -33,7 +33,6 @@ Features:
 - [Pipelines] Add Pipelines step option to skip step profiling (#6456, @apurva-koti)
 - [Pipelines / UI] CLI command suggestion after running the pipeline (#6376, @hubertzub-db)
 
-
 Bug fixes:
 
 - [Scoring] Fix schema issue with 1-D arrays for TF / Keras (#6796, @LiamConnell)
