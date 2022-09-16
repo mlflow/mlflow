@@ -422,13 +422,6 @@ class EvaluationDataset:
         return self._hash
 
     @property
-    def original_column_names(self):
-        """
-        returns original column names of features data as a list.
-        """
-        return self._original_column_names
-
-    @property
     def _metadata(self):
         """
         Return dataset metadata containing name, hash, and optional path.
