@@ -12,7 +12,7 @@ Features:
 - [Tracking] Automatically generate friendly names for Runs if not supplied by the user (#6736, @BenWilson2)
 - [Tracking] Add `load_text()`, `load_image()` and `load_dict()` fluent APIs for convenient artifact loading (#6475, @subramaniam02)
 - [Tracking] Add `creation_time` and `last_update_time` attributes to the Experiment class (#6756, @subramaniam02)
-- [Tracking] Add official MLflow Tracking Server DockerFiles to MLflow repository (#6731, @oojo12)
+- [Tracking] Add official MLflow Tracking Server Dockerfiles to the MLflow repository (#6731, @oojo12)
 - [Tracking] Add `searchExperiments` API to Java client and deprecate `listExperiments` (#6561, @dbczumar)
 - [Tracking] Add `mlflow_search_experiments` API to R client and deprecate `mlflow_list_experiments` (#6576, @dbczumar)
 - [UI] Make URLs clickable in the MLflow Tracking UI (#6526, @marijncv)
