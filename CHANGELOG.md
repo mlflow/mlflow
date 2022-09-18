@@ -6,6 +6,7 @@ MLflow 1.29.0 includes several major features and improvements
 
 Features:
 
+- [Pipelines] Improve performance and fidelity of dataset profiling in the scikit-learn regression Pipeline (#6792, @sunishsheth2009) 
 - [Pipelines] Add an `mlflow pipelines get-artifact` CLI for retrieving Pipeline artifacts (#6517, @prithvikannan)
 - [Pipelines] Introduce an option for skipping dataset profiling to the scikit-learn regression Pipeline (#6456, @apurva-koti)
 - [Pipelines / UI] Display an `mlflow pipelines` CLI command for reproducing a Pipeline run in the MLflow UI (#6376, @hubertzub-db)
