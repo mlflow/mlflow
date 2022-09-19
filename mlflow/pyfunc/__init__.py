@@ -504,8 +504,7 @@ def load_model(
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     loader_module = conf[MAIN]
     if loader_module in ["mlflow.tensorflow", "mlflow.keras"]:
-        model_type = mlflow.tensorflow._infer_model_type(model_meta)
-        model_impl = mlflow.tensorflow._load_pyfunc(data_path, model_type=model_type)
+        model_impl = mlflow.tensorflow._load_pyfunc(data_path)
     else:
         model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")

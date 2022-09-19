@@ -585,7 +585,7 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     return loaded_sig[tf_signature_def_key]
 
 
-def _load_pyfunc(path, *, model_type):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
@@ -595,6 +595,17 @@ def _load_pyfunc(path, *, model_type):
     """
     import tensorflow
 
+    model_meta_path1 = os.path.join(path, MLMODEL_FILE_NAME)
+    model_meta_path2 = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)
+
+    if os.path.isfile(model_meta_path1):
+        model_meta = Model.load(model_meta_path1)
+    elif os.path.isfile(model_meta_path2):
+        model_meta = Model.load(model_meta_path2)
+    else:
+        raise MlflowException(f"Cannot find file {MLMODEL_FILE_NAME} for the logged model.")
+
+    model_type = _infer_model_type(model_meta)
     if model_type == _MODEL_TYPE_KERAS:
         if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
             with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
