@@ -14,10 +14,22 @@ import iris_data_utils
 import mlflow
 from mlflow.utils.file_utils import TempDir
 import pickle
-
+import argparse
 
 assert mlflow.__version__ == "1.28.0"
 
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("tracking_uri")
+parser.add_argument("mlflow_repo_path")
+parser.add_argument("model_type")
+parser.add_argument("task_type")
+parser.add_argument("--save_path")
+
+args = parser.parse_args()
+
+mlflow.set_tracking_uri(args.tracking_uri)
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
@@ -119,7 +131,7 @@ def save_tf_iris_model(tmpdir):
 
 
 def save_tf_categorical_model(tmpdir):
-    path = os.path.join(os.environ["MLFLOW_REPO_PATH"], "tests/data/uci-autos-imports-85.data")
+    path = os.path.join(args.mlflow_repo_path, "tests/data/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
         [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0])]
@@ -192,23 +204,19 @@ def save_tf_categorical_model(tmpdir):
     )
 
 
-model_type = sys.argv[1]
-
-if model_type == "iris":
+if args.model_type == "iris":
     gen_model_fn = save_tf_iris_model
-elif model_type == "categorical":
+elif args.model_type == "categorical":
     gen_model_fn = save_tf_categorical_model
 else:
     raise ValueError("Illegal argument.")
-
-task_type = sys.argv[2]
 
 output_data_file_path = "output_data.pkl"
 
 with TempDir() as tmp:
     saved_model = gen_model_fn(tmp.path())
 
-    if task_type == "log_model":
+    if args.task_type == "log_model":
         with mlflow.start_run() as run:
             mlflow.tensorflow.log_model(
                 tf_saved_model_dir=saved_model.path,
@@ -217,13 +225,12 @@ with TempDir() as tmp:
                 artifact_path="model",
             )
             run_id = run.info.run_id
-    elif task_type == "save_model":
-        save_path = sys.argv[3]
+    elif args.task_type == "save_model":
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_model.path,
             tf_meta_graph_tags=saved_model.meta_graph_tags,
             tf_signature_def_key=saved_model.signature_def_key,
-            path=save_path,
+            path=args.save_path,
         )
         run_id = None
     else:

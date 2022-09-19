@@ -6,6 +6,17 @@ import pickle
 
 import mlflow.tensorflow
 from mlflow.utils.file_utils import TempDir
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("tracking_uri")
+parser.add_argument("task_type")
+parser.add_argument("save_as_type")
+parser.add_argument("--save_path")
+
+args = parser.parse_args()
+mlflow.set_tracking_uri(args.tracking_uri)
 
 tf.random.set_seed(1337)
 
@@ -13,8 +24,8 @@ inputs = tf.keras.layers.Input(shape=3, name="features", dtype=tf.float64)
 outputs = tf.keras.layers.Dense(2)(inputs)
 model = tf.keras.Model(inputs=inputs, outputs=[outputs])
 
-task_type = sys.argv[1]
-save_as_type = sys.argv[2]
+task_type = args.task_type
+save_as_type = args.save_as_type
 
 run_id = None
 
@@ -22,7 +33,7 @@ if save_as_type == "tf1-estimator":
     with TempDir() as tmp:
         tf.saved_model.save(model, tmp.path())
         if task_type == "save_model":
-            save_path = sys.argv[3]
+            save_path = args.save_path
             mlflow.tensorflow.save_model(
                 tf_saved_model_dir=tmp.path(),
                 tf_meta_graph_tags=["serve"],
@@ -42,7 +53,7 @@ if save_as_type == "tf1-estimator":
             raise ValueError("Illegal arguments.")
 elif save_as_type == "keras":
     if task_type == "save_model":
-        save_path = sys.argv[3]
+        save_path = args.save_path
         mlflow.keras.save_model(model, save_path)
     elif task_type == "log_model":
         with mlflow.start_run() as run:

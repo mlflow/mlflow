@@ -652,16 +652,16 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
     assert python_env_path.is_file()
 
 
-def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir):
-    model_data_info, tracking_uri = save_or_log_keras_model_by_mlflow128(
+def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir, monkeypatch):
+    monkeypatch.chdir(str(tmpdir))
+    model_data_info = save_or_log_keras_model_by_mlflow128(
         str(tmpdir), task_type="log_model", save_as_type="keras"
     )
 
     model_uri = f"runs:/{model_data_info.run_id}/model"
 
     def load_and_predict(load_model_fn):
-        with _use_tracking_uri(tracking_uri):
-            mlflow_model = load_model_fn()
+        mlflow_model = load_model_fn()
         predictions = mlflow_model.predict(model_data_info.inference_df)
         np.testing.assert_allclose(predictions, model_data_info.expected_results_df)
 
