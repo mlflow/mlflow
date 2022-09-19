@@ -50,6 +50,18 @@ public final class DatabricksArtifacts {
      * <code>GCP_SIGNED_URL = 3;</code>
      */
     GCP_SIGNED_URL(3),
+    /**
+     * <pre>
+     * The credential is an Azure Shared Access Signature URI for ADLS.  For more
+     * information see
+     * https://docs.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2
+     * and
+     * https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+     * </pre>
+     *
+     * <code>AZURE_ADLS_GEN2_SAS_URI = 4;</code>
+     */
+    AZURE_ADLS_GEN2_SAS_URI(4),
     ;
 
     /**
@@ -79,6 +91,18 @@ public final class DatabricksArtifacts {
      * <code>GCP_SIGNED_URL = 3;</code>
      */
     public static final int GCP_SIGNED_URL_VALUE = 3;
+    /**
+     * <pre>
+     * The credential is an Azure Shared Access Signature URI for ADLS.  For more
+     * information see
+     * https://docs.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2
+     * and
+     * https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+     * </pre>
+     *
+     * <code>AZURE_ADLS_GEN2_SAS_URI = 4;</code>
+     */
+    public static final int AZURE_ADLS_GEN2_SAS_URI_VALUE = 4;
 
 
     public final int getNumber() {
@@ -104,6 +128,7 @@ public final class DatabricksArtifacts {
         case 1: return AZURE_SAS_URI;
         case 2: return AWS_PRESIGNED_URL;
         case 3: return GCP_SIGNED_URL;
+        case 4: return AZURE_ADLS_GEN2_SAS_URI;
         default: return null;
       }
     }
@@ -7543,19 +7568,20 @@ public final class DatabricksArtifacts {
       "ctCredentialInfo\022\027\n\017next_page_token\030\003 \001(" +
       "\tJ\004\010\001\020\002:_\342?(\n&com.databricks.rpc.RPC[$th" +
       "is.Response]\342?1\n/com.databricks.mlflow.a" +
-      "pi.MlflowTrackingMessage*V\n\026ArtifactCred" +
+      "pi.MlflowTrackingMessage*s\n\026ArtifactCred" +
       "entialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRE" +
-      "SIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\0032\344\002\n Dat" +
-      "abricksMlflowArtifactsService\022\234\001\n\025getCre" +
-      "dentialsForRead\022\035.mlflow.GetCredentialsF" +
-      "orRead\032&.mlflow.GetCredentialsForRead.Re" +
-      "sponse\"<\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/" +
-      "credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCred" +
-      "entialsForWrite\022\036.mlflow.GetCredentialsF" +
-      "orWrite\032\'.mlflow.GetCredentialsForWrite." +
-      "Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artifact" +
-      "s/credentials-for-write\032\004\010\002\020\000\020\003B,\n\037com.d" +
-      "atabricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "SIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027AZUR" +
+      "E_ADLS_GEN2_SAS_URI\020\0042\344\002\n DatabricksMlfl" +
+      "owArtifactsService\022\234\001\n\025getCredentialsFor" +
+      "Read\022\035.mlflow.GetCredentialsForRead\032&.ml" +
+      "flow.GetCredentialsForRead.Response\"<\362\206\031" +
+      "8\n4\n\004POST\022&/mlflow/artifacts/credentials" +
+      "-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForW" +
+      "rite\022\036.mlflow.GetCredentialsForWrite\032\'.m" +
+      "lflow.GetCredentialsForWrite.Response\"=\362" +
+      "\206\0319\n5\n\004POST\022\'/mlflow/artifacts/credentia" +
+      "ls-for-write\032\004\010\002\020\000\020\003B,\n\037com.databricks.a" +
+      "pi.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
