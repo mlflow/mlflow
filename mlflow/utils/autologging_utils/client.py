@@ -32,7 +32,9 @@ from mlflow.utils.validation import (
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"])
+_PendingCreateRun = namedtuple(
+    "_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"]
+)
 _PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
 
 

@@ -25,7 +25,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLatestMetric,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment, RunTag
+from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
@@ -55,7 +55,7 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _logger = logging.getLogger(__name__)
 

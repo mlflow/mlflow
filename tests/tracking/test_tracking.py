@@ -25,7 +25,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
-    MLFLOW_RUN_NAME,
 )
 from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,

@@ -167,7 +167,11 @@ class RestStore(AbstractStore):
         """Updates the metadata of the specified run."""
         req_body = message_to_json(
             UpdateRun(
-                run_uuid=run_id, run_id=run_id, status=run_status, end_time=end_time, run_name=run_name
+                run_uuid=run_id,
+                run_id=run_id,
+                status=run_status,
+                end_time=end_time,
+                run_name=run_name,
             )
         )
         response_proto = self._call_endpoint(UpdateRun, req_body)
