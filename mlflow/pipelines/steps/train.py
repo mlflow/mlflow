@@ -583,6 +583,9 @@ class TrainStep(BaseStep):
                 if "algorithm" not in step_config["tuning"]:
                     step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
 
+                if "parallelism" not in step_config["tuning"]:
+                    step_config["tuning"]["parallelism"] = 1
+
                 if "max_trials" not in step_config["tuning"]:
                     raise MlflowException(
                         "The 'max_trials' configuration in the train step must be provided.",
@@ -643,12 +646,19 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(hyperparameter_args):
+        def objective(X_train, y_train, validation_df, hyperparameter_args):
             with mlflow.start_run(nested=True) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
 
                 sample_fraction = self.step_config["sample_fraction"]
+
+                # if sparktrials, then read from broadcast
+                if tuning_params["parallelism"] > 1:
+                    X_train = X_train.value
+                    y_train = y_train.value
+                    validation_df = validation_df.value
+
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                 y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
@@ -699,17 +709,34 @@ class TrainStep(BaseStep):
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
         tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
         max_trials = tuning_params["max_trials"]
-        hp_trials = Trials()
+        parallelism = tuning_params["parallelism"]
+
+        if parallelism > 1:
+            from hyperopt import SparkTrials
+            from mlflow.utils._spark_utils import _get_active_spark_session
+
+            spark_session = _get_active_spark_session()
+            sc = spark_session.sparkContext
+
+            X_train = sc.broadcast(X_train)
+            y_train = sc.broadcast(y_train)
+            validation_df = sc.broadcast(validation_df)
+
+            hp_trials = SparkTrials(parallelism, spark_session=spark_session)
+        else:
+            hp_trials = Trials()
 
         best_hp_params = fmin(
-            objective,
+            lambda params: objective(X_train, y_train, validation_df, params),
             search_space,
             algo=tuning_algo,
             max_evals=max_trials,
             trials=hp_trials,
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
-        hardcoded_estimator_loss = objective(estimator_hardcoded_params)
+        hardcoded_estimator_loss = objective(
+            X_train, y_train, validation_df, estimator_hardcoded_params
+        )
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
             best_hardcoded_params = {
