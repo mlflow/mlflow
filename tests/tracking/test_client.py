@@ -98,7 +98,7 @@ def test_client_create_run(mock_store, mock_time):
 def test_client_create_run_with_name(mock_store, mock_time):
     experiment_id = mock.Mock()
 
-    MlflowClient().create_run(experiment_id, name="my name")
+    MlflowClient().create_run(experiment_id, run_name="my name")
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,

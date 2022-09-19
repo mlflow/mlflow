@@ -1453,7 +1453,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for end in [234, None, 456, -123, 789, 123]:
             run_id = create_run(start_time, end)
             self.store.update_run_info(
-                run_id, run_status=RunStatus.FINISHED, end_time=end, name=None
+                run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None
             )
             start_time += 1
 
