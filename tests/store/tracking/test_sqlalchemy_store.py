@@ -821,7 +821,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(run.info.experiment_id, experiment_id)
         self.assertEqual(run.info.run_name, configs["run_name"])
 
-        no_run_configs = configs.pop("run_name")
+        no_run_configs = {
+            "experiment_id": experiment_id,
+            "user_id": "Anderson",
+            "start_time": int(time.time()),
+            "tags": [],
+            "run_name": None,
+        }
         run_id = self.store.create_run(**no_run_configs).info.run_id
         run = self.store.get_run(run_id)
         assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
