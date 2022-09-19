@@ -531,7 +531,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             run_name = run_name if run_name is not None else _generate_random_name()
             run = SqlRun(
-                run_name=run_name,
+                name=run_name,
                 artifact_uri=artifact_location,
                 run_uuid=run_id,
                 experiment_id=experiment_id,
