@@ -278,7 +278,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-
     if "strategy" in dict_args:
         if dict_args["strategy"] == "None":
             dict_args["strategy"] = None
@@ -327,4 +326,4 @@ if __name__ == "__main__":
         logging.info("Active run exists.. ")
 
     trainer.fit(model, dm)
-    trainer.test(datamodule=dm, ckpt_path='best')
+    trainer.test(datamodule=dm, ckpt_path="best")
