@@ -1137,7 +1137,10 @@ def test_import_keras_model_trigger_import_tensorflow():
     # and then import keras, if keras does not trigger importing tensorflow,
     # then the keras autologging patching cannot be installed.
     py_executable = sys.executable
-    _exec_cmd([
-        py_executable, "-c",
-        "from keras import Model; import sys; assert 'tensorflow' in sys.modules"
-    ])
+    _exec_cmd(
+        [
+            py_executable,
+            "-c",
+            "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
+        ]
+    )

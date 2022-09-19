@@ -1,5 +1,3 @@
-import sys
-
 import collections
 import os
 import copy
@@ -218,6 +216,7 @@ with TempDir() as tmp:
 
     if args.task_type == "log_model":
         with mlflow.start_run() as run:
+            # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
             mlflow.tensorflow.log_model(
                 tf_saved_model_dir=saved_model.path,
                 tf_meta_graph_tags=saved_model.meta_graph_tags,
@@ -226,6 +225,7 @@ with TempDir() as tmp:
             )
             run_id = run.info.run_id
     elif args.task_type == "save_model":
+        # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
         mlflow.tensorflow.save_model(
             tf_saved_model_dir=saved_model.path,
             tf_meta_graph_tags=saved_model.meta_graph_tags,

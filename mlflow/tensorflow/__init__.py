@@ -51,7 +51,6 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _add_code_from_conf_to_system_path,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
@@ -514,6 +513,7 @@ def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kw
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     import tensorflow
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
@@ -712,6 +712,7 @@ class _TF2ModuleWrapper:
 
     def predict(self, data):
         import tensorflow
+
         if isinstance(data, (np.ndarray, list)):
             data = tensorflow.convert_to_tensor(data)
         else:

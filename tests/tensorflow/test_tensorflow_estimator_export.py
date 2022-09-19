@@ -18,7 +18,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.pyfunc.backend import _execute_in_conda_env
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -140,18 +139,14 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(tmpdir, model_path,
         for df_column_name in list(model_data_info.inference_df)
     }
     raw_preds = infer(**feed_dict)
-    pred_dict = {
-        column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
-    }
+    pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
     for key in pred_dict.keys():
         assert_array_almost_equal(pred_dict[key], model_data_info.raw_results[key])
 
 
 def test_log_and_load_model_persists_and_restores_model_successfully(tmpdir, monkeypatch):
     monkeypatch.chdir(str(tmpdir))
-    model_data_info = save_or_log_tf_model_by_mlflow128(
-        str(tmpdir), "iris", "log_model"
-    )
+    model_data_info = save_or_log_tf_model_by_mlflow128(str(tmpdir), "iris", "log_model")
     model_uri = f"runs:/{model_data_info.run_id}/model"
     mlflow.tensorflow.load_model(model_uri=model_uri)
 
@@ -222,9 +217,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmpdir, model_p
 
 def test_pyfunc_serve_and_score(tmpdir, monkeypatch):
     monkeypatch.chdir(str(tmpdir))
-    model_data_info = save_or_log_tf_model_by_mlflow128(
-        str(tmpdir), "iris", "log_model"
-    )
+    model_data_info = save_or_log_tf_model_by_mlflow128(str(tmpdir), "iris", "log_model")
     model_uri = f"runs:/{model_data_info.run_id}/model"
 
     resp = pyfunc_serve_and_score_model(

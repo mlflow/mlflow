@@ -2,7 +2,6 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
-import importlib
 import os
 
 import atexit
@@ -11,7 +10,6 @@ import logging
 import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
-from packaging.version import Version
 
 from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage

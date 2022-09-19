@@ -3,7 +3,6 @@ import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
-from packaging.version import Version
 
 import mlflow
 from mlflow.utils.autologging_utils import (

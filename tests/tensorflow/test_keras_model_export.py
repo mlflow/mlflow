@@ -9,9 +9,6 @@ import json
 import tensorflow as tf
 
 # pylint: disable=no-name-in-module
-from tensorflow.keras.models import Sequential as TfSequential
-from tensorflow.keras.layers import Dense as TfDense
-from tensorflow.keras.optimizers import SGD as TfSGD
 from sklearn import datasets
 import pandas as pd
 import numpy as np
@@ -25,7 +22,6 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -102,10 +98,10 @@ def model(data):
 
 def get_tf_keras_model(data):
     x, y = data
-    model = TfSequential()
-    model.add(TfDense(3, input_dim=4))
-    model.add(TfDense(1))
-    model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
+    model = Sequential()
+    model.add(Dense(3, input_dim=4))
+    model.add(Dense(1))
+    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
     model.fit(x.values, y.values)
     return model
 
@@ -622,7 +618,6 @@ def test_pyfunc_serve_and_score_transformers():
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            keras_module=tf.keras,
             extra_pip_requirements=extra_pip_requirements,
         )
         model_uri = mlflow.get_artifact_uri("model")
@@ -678,8 +673,5 @@ def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
     with mock.patch("mlflow.tensorflow._load_keras_model") as mock_load:
         mlflow.tensorflow.load_model(model_path, keras_model_kwargs=keras_model_kwargs)
         mock_load.assert_called_once_with(
-            model_path=mock.ANY,
-            keras_module=mock.ANY,
-            save_format=mock.ANY,
-            **keras_model_kwargs
+            model_path=mock.ANY, keras_module=mock.ANY, save_format=mock.ANY, **keras_model_kwargs
         )

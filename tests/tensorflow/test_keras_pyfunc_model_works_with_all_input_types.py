@@ -1,6 +1,5 @@
 import os
 import pytest
-from packaging.version import Version
 
 from sklearn import datasets
 import pandas as pd

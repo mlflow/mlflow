@@ -8,8 +8,10 @@ from unittest import mock
 import mlflow.tensorflow
 
 
+# pylint: disable=abstract-method
 class ToyModel(tf.Module):
     def __init__(self, w, b):
+        super().__init__()
         self.w = w
         self.b = b
 
