@@ -803,7 +803,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(actual.info.experiment_id, experiment_id)
         self.assertEqual(actual.info.user_id, expected["user_id"])
-        self.assertEqual(actual.info.run_name, expected["name"])
+        self.assertEqual(actual.info.run_name, expected["run_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
         self.assertEqual(len(actual.data.tags), len(tags))
@@ -819,7 +819,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self.store.get_run(run_id)
 
         self.assertEqual(run.info.experiment_id, experiment_id)
-        self.assertEqual(run.info.run_name, configs["name"])
+        self.assertEqual(run.info.run_name, configs["run_name"])
+
+        no_run_configs = configs.pop("run_name")
+        run_id = self.store.create_run(**no_run_configs).info.run_id
+        run = self.store.get_run(run_id)
+        assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
@@ -1155,9 +1160,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         assert tkey in run.data.tags and run.data.tags[tkey] == new_val
-        # test that unspecified run_name will generate a correct name
-        run_name = run.data.tags.get(MLFLOW_RUN_NAME)
-        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1258,7 +1260,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run_id = self.store.create_run(**configs).info.run_id
         run = self.store.get_run(run_id)
-        self.assertEqual(run.info.run_name, configs["name"])
+        self.assertEqual(run.info.run_name, configs["run_name"])
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
         run = self.store.get_run(run_id)
