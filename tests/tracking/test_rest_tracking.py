@@ -206,7 +206,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_version = "abc"
     create_run_kwargs = {
         "start_time": 456,
-        "name": "my name",
+        "run_name": "my name",
         "tags": {
             MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",

@@ -82,7 +82,7 @@ class TrackingServiceClient:
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None, name=None):
+    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -110,7 +110,7 @@ class TrackingServiceClient:
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
-            name=name,
+            run_name=run_name,
         )
 
     def list_run_infos(
@@ -471,7 +471,7 @@ class TrackingServiceClient:
             run_id,
             run_status=RunStatus.from_string(status),
             end_time=end_time,
-            name=None,
+            run_name=None,
         )
 
     def delete_run(self, run_id):

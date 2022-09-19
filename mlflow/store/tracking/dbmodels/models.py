@@ -119,7 +119,7 @@ class SqlRun(Base):
     """
     Run UUID: `String` (limit 32 characters). *Primary Key* for ``runs`` table.
     """
-    name = Column(String(250))
+    run_name = Column(String(250))
     """
     Run name: `String` (limit 250 characters).
     """
@@ -208,7 +208,7 @@ class SqlRun(Base):
         run_info = RunInfo(
             run_uuid=self.run_uuid,
             run_id=self.run_uuid,
-            run_name=self.name,
+            run_name=self.run_name,
             experiment_id=str(self.experiment_id),
             user_id=self.user_id,
             status=self.status,

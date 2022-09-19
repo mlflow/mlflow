@@ -683,7 +683,7 @@ def _create_run():
         user_id=request_message.user_id,
         start_time=request_message.start_time,
         tags=tags,
-        name=run_name,
+        run_name=run_name,
     )
 
     response_message = CreateRun.Response()

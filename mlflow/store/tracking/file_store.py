@@ -566,15 +566,15 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
 
-    def update_run_info(self, run_id, run_status, end_time, name):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=name)
+        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, start_time, tags, name):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Creates a run with the specified attributes.
         """
@@ -591,7 +591,7 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
-        run_name = name if name is not None else _generate_random_name()
+        run_name = run_name if run_name is not None else _generate_random_name()
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(

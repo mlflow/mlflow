@@ -221,7 +221,7 @@ class MlflowClient:
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
+        run_name: Optional[str] = None,
     ) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
@@ -234,7 +234,7 @@ class MlflowClient:
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
-        :param name: The name of this run.
+        :param run_name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
 
         .. code-block:: python
@@ -247,7 +247,7 @@ class MlflowClient:
             name = "platform-run-24"
             client = MlflowClient()
             experiment_id = "0"
-            run = client.create_run(experiment_id, tags=tags, name=name)
+            run = client.create_run(experiment_id, tags=tags, run_name=name)
 
             # Show newly created run metadata info
             print("Run tags: {}".format(run.data.tags))
@@ -267,7 +267,7 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(experiment_id, start_time, tags, name)
+        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
     @deprecated(alternative="search_runs()")
     def list_run_infos(

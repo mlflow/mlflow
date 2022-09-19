@@ -516,7 +516,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.last_update_time = int(time.time() * 1000)
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, start_time, tags, name):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -529,8 +529,9 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
+            run_name = run_name if run_name is not None else _generate_random_name()
             run = SqlRun(
-                name=name,
+                run_name=run_name,
                 artifact_uri=artifact_location,
                 run_uuid=run_id,
                 experiment_id=experiment_id,
@@ -546,12 +547,8 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            if tags is None:
-                tags = [RunTag(MLFLOW_RUN_NAME, _generate_random_name())]
-            elif MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-                tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
-
-            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
+            if tags is not None:
+                run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -613,14 +610,14 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def update_run_info(self, run_id, run_status, end_time, name):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
-            if name is not None:
-                run.name = name
+            if run_name is not None:
+                run.name = run_name
 
             self._save_to_db(objs=run, session=session)
             run = run.to_mlflow_entity()

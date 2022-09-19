@@ -651,7 +651,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
                 run = fs.create_run(
-                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], name="name"
+                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                 )
                 self.assertEqual(
                     run.info.artifact_uri,
@@ -673,7 +673,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name=None,
+            run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
         assert len(no_tags_run.data.tags) == 0
@@ -691,7 +691,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=tags_entities,
-            name=None,
+            run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
         assert tags_run.data.tags == tags_dict
@@ -703,7 +703,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="my name",
+            run_name="my name",
         )
 
         run_name = run.info.run_name
@@ -742,7 +742,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="my name",
+            run_name="my name",
         ).info.run_id
 
         get_run = fs.get_run(run_id)
@@ -785,7 +785,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="first name",
+            run_name="first name",
         ).info.run_id
         fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
         get_run = fs.get_run(run_id)
@@ -798,7 +798,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="first name",
+            run_name="first name",
         ).info.run_id
         fs.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
         get_run = fs.get_run(run_id)
@@ -1296,7 +1296,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="name",
+            run_name="name",
         )
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
@@ -1313,7 +1313,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=[],
-            name="name",
+            run_name="name",
         )
 
     def test_log_batch_max_length_value(self):

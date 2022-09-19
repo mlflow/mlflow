@@ -307,7 +307,7 @@ def start_run(
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, name=None
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
         )
         tags = tags or {}
         if description:
@@ -348,7 +348,7 @@ def start_run(
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = client.create_run(
-            experiment_id=exp_id_for_run, tags=resolved_tags, name=run_name
+            experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
