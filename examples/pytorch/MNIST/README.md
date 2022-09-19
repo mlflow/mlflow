@@ -48,7 +48,7 @@ The parameters can be overridden via the command line:
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. devices - Number of GPUs.
 3. strategy - [strategy](https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#trainer-class-api) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no strategy is used.
-4. strategy - [strategy](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.accelerators.Accelerator.html#pytorch_lightning.accelerators.Accelerator) (e.g. "gpu" - for running in GPU environment. Set to "cpu" by default)
+4. accelerator - [accelerator](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.accelerators.Accelerator.html#pytorch_lightning.accelerators.Accelerator) (e.g. "gpu" - for running in GPU environment. Set to "cpu" by default)
 5. batch_size - Input batch size for training
 6. num_workers - Number of worker threads to load training data
 7. lr - Learning rate
