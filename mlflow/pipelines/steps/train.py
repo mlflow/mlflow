@@ -765,7 +765,7 @@ class TrainStep(BaseStep):
         return search_space
 
     def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
-        best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
+        best_parameters_path = os.path.join(output_directory, "train", "best_parameters.yaml")
         if os.path.exists(best_parameters_path):
             os.remove(best_parameters_path)
         with open(best_parameters_path, "a") as file:
