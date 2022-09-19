@@ -6,7 +6,13 @@ import requests
 import uuid
 from collections import namedtuple
 
-from mlflow.azure.client import put_block, put_block_list
+from mlflow.azure.client import (
+    put_adls_file_creation,
+    patch_adls_file_upload,
+    patch_adls_flush,
+    put_block,
+    put_block_list,
+)
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -231,6 +237,68 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
+    def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
+        """
+        Uploads a file to a given Azure storage location using the ADLS gen2 API.
+        """
+        try:
+            headers = self._extract_headers_from_credentials(credentials.headers)
+
+            # try to create the file
+            try:
+                put_adls_file_creation(credentials.signed_uri, headers=headers)
+            except requests.HTTPError as e:
+                if e.response.status_code in [401, 403]:
+                    _logger.info(
+                        "Failed to authorize ADLS file creation request, possibly due "
+                        "to credential expiration. Refreshing credentials and trying again..."
+                    )
+                    credential_info = self._get_write_credential_infos(
+                        run_id=self.run_id, paths=[artifact_path]
+                    )[0]
+                    put_adls_file_creation(credential_info.signed_uri, headers=headers)
+                else:
+                    raise e
+
+            # next try to patch the file
+            offset = 0
+            for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
+                try:
+                    patch_adls_file_upload(credentials.signed_uri, chunk, offset, headers=headers)
+                    offset += len(chunk)
+                except requests.HTTPError as e:
+                    if e.response.status_code in [401, 403]:
+                        _logger.info(
+                            "Failed to authorize ADLS patch request, possibly due to "
+                            "credential expiration. Refreshing credentials and trying again..."
+                        )
+                        credential_info = self._get_write_credential_infos(
+                            run_id=self.run_id, paths=[artifact_path]
+                        )[0]
+                        patch_adls_file_upload(
+                            credential_info.signed_uri, chunk, offset, headers=headers
+                        )
+                    else:
+                        raise e
+
+            # finally flush the file
+            try:
+                patch_adls_flush(credentials.signed_uri, offset, headers=headers)
+            except requests.HTTPError as e:
+                if e.response.status_code in [401, 403]:
+                    _logger.info(
+                        "Failed to authorize flush request, possibly due to credential expiration."
+                        " Refreshing credentials and trying again..."
+                    )
+                    credential_info = self._get_write_credential_infos(
+                        run_id=self.run_id, paths=[artifact_path]
+                    )[0]
+                    patch_adls_flush(credential_info.signed_uri, offset, headers=headers)
+                else:
+                    raise e
+        except Exception as err:
+            raise MlflowException(err)
+
     def _signed_url_upload_file(self, credentials, local_file):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
@@ -261,6 +329,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
             self._azure_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
+        elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+            self._azure_adls_gen2_upload_file(
+                cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+            )
         elif cloud_credential_info.type in [
             ArtifactCredentialType.AWS_PRESIGNED_URL,
             ArtifactCredentialType.GCP_SIGNED_URL,
@@ -286,6 +358,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         if cloud_credential_info.type not in [
             ArtifactCredentialType.AZURE_SAS_URI,
+            ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             ArtifactCredentialType.AWS_PRESIGNED_URL,
             ArtifactCredentialType.GCP_SIGNED_URL,
         ]:
