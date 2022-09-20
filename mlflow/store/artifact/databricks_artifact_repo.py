@@ -52,7 +52,7 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
 )
 
-logging.basicConfig(filename="/databricks/driver/mlflow.log", encoding="utf-8", level=logging.DEBUG)
+# pylint: disable=print-function
 _logger = logging.getLogger(__name__)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
@@ -244,7 +244,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            _logger.warning("credential headers dict: %s", headers)
+            print("credential headers dict: ", headers)
             # try to create the file
             try:
                 put_adls_file_creation(credentials.signed_uri, headers=headers)
@@ -331,9 +331,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            _logger.warning("Got Gen 2 URL: [%s]", cloud_credential_info.signed_uri)
-            _logger.warning("src_file_path: [%s]", src_file_path)
-            _logger.warning("dst_run_relative_artifact_path: [%s]", dst_run_relative_artifact_path)
+            print("Got Gen 2 URL: ", cloud_credential_info.signed_uri)
+            print("src_file_path: ", src_file_path)
+            print("dst_run_relative_artifact_path: ", dst_run_relative_artifact_path)
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
