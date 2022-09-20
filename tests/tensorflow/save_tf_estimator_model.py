@@ -19,10 +19,10 @@ assert mlflow.__version__ == "1.28.0"
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("tracking_uri")
-parser.add_argument("mlflow_repo_path")
-parser.add_argument("model_type")
-parser.add_argument("task_type")
+parser.add_argument("--tracking_uri")
+parser.add_argument("--mlflow_repo_path")
+parser.add_argument("--model_type")
+parser.add_argument("--task_type")
 parser.add_argument("--save_path")
 
 args = parser.parse_args()

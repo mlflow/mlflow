@@ -73,7 +73,7 @@ tensorflow:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
       pytest \
-        tests/tensorflow/test_tensorflow_estimator_export.py \
+        tests/tensorflow/test_load_saved_tensorflow_estimator.py \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
         tests/tensorflow/test_keras_model_export.py \

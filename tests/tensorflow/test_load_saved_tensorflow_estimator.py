@@ -60,36 +60,14 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
 
     _execute_in_conda_env(
         conda_env,
-        f"python {exec_py_path} {tracking_uri} {mlflow_repo_path} {model_type} {task_type} "
+        f"python {exec_py_path} --tracking_uri {tracking_uri} "
+        f"--mlflow_repo_path {mlflow_repo_path} "
+        f"--model_type {model_type} --task_type {task_type} "
         f"{'--save_path ' + model_path if model_path else ''}",
         install_mlflow=False,
     )
     with open(output_data_file_path, "rb") as f:
         return ModelDataInfo(*pickle.load(f))
-
-
-def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
-    tf_tests_dir = os.path.dirname(__file__)
-    conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
-    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
-    tracking_uri = mlflow.get_tracking_uri()
-    exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
-
-    _execute_in_conda_env(
-        conda_env,
-        f"python {exec_py_path} {tracking_uri} {task_type} {save_as_type} "
-        f"{'--save_path ' + save_path if save_path else ''}",
-        install_mlflow=False,
-    )
-    with open(output_data_file_path, "rb") as f:
-        inference_df, expected_results_df, run_id = pickle.load(f)
-        return ModelDataInfo(
-            inference_df=inference_df,
-            expected_results_df=expected_results_df,
-            raw_results=None,
-            raw_df=None,
-            run_id=run_id,
-        )
 
 
 def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket, monkeypatch):
@@ -224,18 +202,6 @@ def test_pyfunc_serve_and_score(tmpdir, monkeypatch):
         model_data_info.expected_results_df["predictions"].map(iris_data_utils.SPECIES.index).values
     )
     np.testing.assert_array_almost_equal(actual, expected)
-
-
-def test_tf_saved_model_model_with_tf_keras_api(tmpdir, monkeypatch):
-    monkeypatch.chdir(str(tmpdir))
-    model_data_info = save_or_log_keras_model_by_mlflow128(
-        str(tmpdir), task_type="log_model", save_as_type="tf1-estimator"
-    )
-
-    model_uri = f"runs:/{model_data_info.run_id}/model"
-    mlflow_model = mlflow.pyfunc.load_model(model_uri)
-    predictions = mlflow_model.predict({"features": model_data_info.inference_df})
-    np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
 
 
 def test_saved_model_support_array_type_input():

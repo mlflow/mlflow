@@ -483,16 +483,6 @@ class AnyStringWith(str):
         return self in other
 
 
-@contextmanager
-def chdir(directory_path):
-    og_dir = os.getcwd()
-    try:
-        os.chdir(directory_path)
-        yield
-    finally:
-        os.chdir(og_dir)
-
-
 def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
     import numpy as np
 

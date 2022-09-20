@@ -348,11 +348,11 @@ def save_model(
             model.save(model_path, **keras_model_kwargs)
 
         pyfunc_options = {
-            "model_type": _MODEL_TYPE_KERAS,
             "data": data_subpath,
         }
         flavor_options = {
             **pyfunc_options,
+            "model_type": _MODEL_TYPE_KERAS,
             "keras_version": keras_module.__version__,
             "save_format": save_format,
         }
@@ -361,11 +361,11 @@ def save_model(
         model_dir_subpath = "tf2model"
         model_path = os.path.join(path, model_dir_subpath)
         tensorflow.saved_model.save(model, model_path, **saved_model_kwargs)
-        pyfunc_options = {
+        pyfunc_options = {}
+        flavor_options = {
             "saved_model_dir": model_dir_subpath,
             "model_type": _MODEL_TYPE_TF2_MODULE,
         }
-        flavor_options = pyfunc_options.copy()
     else:
         raise MlflowException(f"Unknown model type: {type(model)}")
 
@@ -550,7 +550,7 @@ def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kw
         tf_saved_model_dir = os.path.join(local_model_path, flavor_conf["saved_model_dir"])
         return tensorflow.saved_model.load(tf_saved_model_dir, **saved_model_kwargs)
 
-    raise MlflowException("Unknown model_type.")
+    raise MlflowException(f"Unknown model_type: {model_type}")
 
 
 def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
@@ -721,7 +721,7 @@ class _TF2ModuleWrapper:
                 "numpy array or a list."
             )
         result = self.model(data)
-        if isinstance(data, tensorflow.Tensor):
+        if isinstance(result, tensorflow.Tensor):
             return result.numpy()
         return result
 

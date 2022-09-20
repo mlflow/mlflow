@@ -5,6 +5,7 @@ import pytest
 import shutil
 import random
 import json
+import pickle
 
 import tensorflow as tf
 
@@ -35,9 +36,11 @@ from tests.helper_functions import (
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
-from tests.tensorflow.test_tensorflow_estimator_export import save_or_log_keras_model_by_mlflow128
+from tests.tensorflow.test_tensorflow_estimator_export import ModelDataInfo
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.pyfunc.backend import _execute_in_conda_env
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Layer, Dense
@@ -647,6 +650,31 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
     assert python_env_path.is_file()
 
 
+def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
+    tf_tests_dir = os.path.dirname(__file__)
+    conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
+    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    tracking_uri = mlflow.get_tracking_uri()
+    exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
+
+    _execute_in_conda_env(
+        conda_env,
+        f"python {exec_py_path} --tracking_uri {tracking_uri} "
+        f"--task_type {task_type} --save_as_type {save_as_type} "
+        f"{'--save_path ' + save_path if save_path else ''}",
+        install_mlflow=False,
+    )
+    with open(output_data_file_path, "rb") as f:
+        inference_df, expected_results_df, run_id = pickle.load(f)
+        return ModelDataInfo(
+            inference_df=inference_df,
+            expected_results_df=expected_results_df,
+            raw_results=None,
+            raw_df=None,
+            run_id=run_id,
+        )
+
+
 def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir, monkeypatch):
     monkeypatch.chdir(str(tmpdir))
     model_data_info = save_or_log_keras_model_by_mlflow128(
@@ -675,3 +703,15 @@ def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
         mock_load.assert_called_once_with(
             model_path=mock.ANY, keras_module=mock.ANY, save_format=mock.ANY, **keras_model_kwargs
         )
+
+
+def test_tf_saved_model_model_with_tf_keras_api(tmpdir, monkeypatch):
+    monkeypatch.chdir(str(tmpdir))
+    model_data_info = save_or_log_keras_model_by_mlflow128(
+        str(tmpdir), task_type="log_model", save_as_type="tf1-estimator"
+    )
+
+    model_uri = f"runs:/{model_data_info.run_id}/model"
+    mlflow_model = mlflow.pyfunc.load_model(model_uri)
+    predictions = mlflow_model.predict({"features": model_data_info.inference_df})
+    np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)

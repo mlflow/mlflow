@@ -8,9 +8,9 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("tracking_uri")
-parser.add_argument("task_type")
-parser.add_argument("save_as_type")
+parser.add_argument("--tracking_uri")
+parser.add_argument("--task_type")
+parser.add_argument("--save_as_type")
 parser.add_argument("--save_path")
 
 args = parser.parse_args()
