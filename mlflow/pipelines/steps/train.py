@@ -639,6 +639,8 @@ class TrainStep(BaseStep):
         tuning_params = self.step_config["tuning"]
         try:
             from hyperopt import fmin, Trials
+            from hyperopt.mlflow_utils import _MLflowLogging
+            _MLflowLogging._EN_WORKER_USER_LOGGING = False
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
@@ -726,7 +728,6 @@ class TrainStep(BaseStep):
         else:
             hp_trials = Trials()
 
-        mlflow.autolog(disable=True)
         best_hp_params = fmin(
             lambda params: objective(X_train, y_train, validation_df, params),
             search_space,
@@ -734,7 +735,6 @@ class TrainStep(BaseStep):
             max_evals=max_trials,
             trials=hp_trials,
         )
-        mlflow.autolog(disable=False)
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(
             X_train, y_train, validation_df, estimator_hardcoded_params
