@@ -145,6 +145,7 @@ class TrainStep(BaseStep):
             if self.step_config["tuning_enabled"]:
                 best_estimator_params = self._tune_and_get_best_estimator_params(
                     run.info.run_id,
+                    tags,
                     estimator_hardcoded_params,
                     estimator_fn,
                     X_train,
@@ -631,6 +632,7 @@ class TrainStep(BaseStep):
     def _tune_and_get_best_estimator_params(
         self,
         parent_run_id,
+        tags,
         estimator_hardcoded_params,
         estimator_fn,
         X_train,
@@ -657,7 +659,7 @@ class TrainStep(BaseStep):
 
                 client = MlflowClient()
                 child_run = client.create_run(
-                    _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
+                    _get_experiment_id(), tags={**tags, "mlflow.parentRunId": parent_run_id}
                 )
                 run_args = {"run_id": child_run.info.run_id}
             else:
