@@ -651,15 +651,18 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(X_train, y_train, validation_df, hyperparameter_args):
-            # from mlflow.tracking import MlflowClient
+        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=True):
+            if on_worker:
+                from mlflow.tracking import MlflowClient
 
-            # client = MlflowClient()
-            # child_run = client.create_run(
-            #     _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
-            # )
-            # with mlflow.start_run(run_id=child_run.info.run_id) as tuning_run:
-            with mlflow.start_run(nested=True) as tuning_run:
+                client = MlflowClient()
+                child_run = client.create_run(
+                    _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
+                )
+                run_args = {"run_id": child_run.info.run_id}
+            else:
+                run_args = {"nested": True}
+            with mlflow.start_run(**run_args) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
 
@@ -749,7 +752,7 @@ class TrainStep(BaseStep):
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(
-            X_train, y_train, validation_df, estimator_hardcoded_params
+            X_train, y_train, validation_df, estimator_hardcoded_params, on_worker=False
         )
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
