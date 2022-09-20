@@ -726,7 +726,6 @@ class TrainStep(BaseStep):
         else:
             hp_trials = Trials()
 
-        mlflow.autolog(disable=True)
         best_hp_params = fmin(
             lambda params: objective(X_train, y_train, validation_df, params),
             search_space,
@@ -738,7 +737,6 @@ class TrainStep(BaseStep):
         hardcoded_estimator_loss = objective(
             X_train, y_train, validation_df, estimator_hardcoded_params
         )
-        mlflow.autolog(disable=False)
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
             best_hardcoded_params = {
@@ -762,6 +760,7 @@ class TrainStep(BaseStep):
         if hasattr(estimator, "best_params_"):
             mlflow.log_params(estimator.best_params_)
 
+        mlflow.log_params(estimator.get_params())
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
