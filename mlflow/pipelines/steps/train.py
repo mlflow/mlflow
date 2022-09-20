@@ -641,10 +641,8 @@ class TrainStep(BaseStep):
         tuning_params = self.step_config["tuning"]
         try:
             import hyperopt
-            from hyperopt import fmin, Trials
-            from hyperopt.mlflow_utils import _MLflowLogging
 
-            _MLflowLogging._EN_WORKER_USER_LOGGING = False
+            hyperopt.mlflow_utils._MLflowLogging._EN_WORKER_USER_LOGGING = False
             hyperopt._mlflow = None
         except ModuleNotFoundError:
             raise MlflowException(
@@ -726,7 +724,6 @@ class TrainStep(BaseStep):
         parallelism = tuning_params["parallelism"]
 
         if parallelism > 1:
-            from hyperopt import SparkTrials
             from mlflow.utils._spark_utils import _get_active_spark_session
 
             spark_session = _get_active_spark_session()
@@ -736,11 +733,11 @@ class TrainStep(BaseStep):
             y_train = sc.broadcast(y_train)
             validation_df = sc.broadcast(validation_df)
 
-            hp_trials = SparkTrials(parallelism, spark_session=spark_session)
+            hp_trials = hyperopt.SparkTrials(parallelism, spark_session=spark_session)
         else:
-            hp_trials = Trials()
+            hp_trials = hyperopt.Trials()
 
-        best_hp_params = fmin(
+        best_hp_params = hyperopt.fmin(
             lambda params: objective(X_train, y_train, validation_df, params),
             search_space,
             algo=tuning_algo,
