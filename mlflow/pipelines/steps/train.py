@@ -744,11 +744,13 @@ class TrainStep(BaseStep):
             validation_df = sc.broadcast(validation_df)
 
             hp_trials = hyperopt.SparkTrials(parallelism, spark_session=spark_session)
+            on_worker = True
         else:
             hp_trials = hyperopt.Trials()
+            on_worker = False
 
         best_hp_params = hyperopt.fmin(
-            lambda params: objective(X_train, y_train, validation_df, params, on_worker=True),
+            lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
             search_space,
             algo=tuning_algo,
             max_evals=max_trials,
