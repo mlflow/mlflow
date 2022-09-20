@@ -253,7 +253,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import find_free_port
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
@@ -380,6 +380,7 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
         return self._predict_fn(data)
 
+    @experimental
     def unwrap_python_model(self):
         """
         Unwrap the underlying Python model object.
