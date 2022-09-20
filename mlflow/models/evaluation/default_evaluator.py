@@ -80,7 +80,7 @@ def _extract_raw_model(model):
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
         if model_loader_module == "mlflow.sklearn" and not isinstance(
-            model._model_impl, mlflow.pyfunc.ModelServerPyfunc
+            model, mlflow.pyfunc._ServedPyFuncModel
         ):
             raw_model = model._model_impl
         else:
@@ -1149,7 +1149,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.model = model
             self.is_baseline_model = is_baseline_model
 
-            self.is_model_server = isinstance(model._model_impl, mlflow.pyfunc.ModelServerPyfunc)
+            self.is_model_server = isinstance(model, mlflow.pyfunc._ServedPyFuncModel)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)

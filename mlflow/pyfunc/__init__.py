@@ -486,15 +486,16 @@ def load_model(
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
 
-class ModelServerPyfunc:
-    def __init__(self, client):
-        self._client = client
+class _ServedPyFuncModel(PyFuncModel):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int):
+        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="predict")
+        self._server_pid = server_pid
 
-    def predict(self, _input):
-        result = self._client.invoke(_input)
-        if isinstance(result, pandas.DataFrame):
-            result = result[result.columns[0]]
-        return result
+    @property
+    def pid(self):
+        if self._server_pid is None:
+            raise MlflowException("Served PyFunc Model is missing server process ID.")
+        return self._server_pid
 
 
 def _load_model_or_server(model_uri: str, env_manager: str):
@@ -508,7 +509,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
-        return None, load_model(model_uri)
+        return load_model(model_uri)
 
     _logger.info("Starting model server for model environment restoration.")
 
@@ -542,8 +543,8 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     except Exception:
         raise MlflowException("MLflow model server failed to launch")
 
-    return scoring_server_proc.pid, PyFuncModel(
-        model_meta=model_meta, model_impl=ModelServerPyfunc(client)
+    return _ServedPyFuncModel(
+        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
     )
 
 

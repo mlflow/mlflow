@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import pandas as pd
 
 from mlflow.pyfunc import scoring_server
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
@@ -55,3 +56,9 @@ class ScoringServerClient:
             )
 
         return scoring_server.infer_and_parse_json_input(response.text)
+
+    def _predict(self, data):
+        result = self.invoke(data)
+        if isinstance(result, pd.DataFrame):
+            result = result[result.columns[0]]
+        return result

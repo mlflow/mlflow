@@ -962,16 +962,18 @@ def evaluate(
         - The evaluation dataset label values must be numeric or boolean, all feature values
           must be numeric, and each feature column must only contain scalar values.
 
-     - Limitations when the model is loaded with a non-local ``env_manager``:
-        - When environment restoration is enabled, the model that is passed to the default evaluator
-          becomes a scoring server client, which invokes a model scoring server in an independent 
-          Python environment with the model's training time dependencies installed. As such, methods
-          like ``predict_proba`` (for probability outputs) or ``score`` (computes the evaluation 
-          criterian for sklearn models) of the model become inaccessible and the default evaluator 
-          does not compute metrics/artifacts that require those methods.
-        - Because the model is an MLflow Model Server process, SHAP explanations are slower to compute. As such, model 
-          explainaibility is disabled when a non-local ``env_manager`` specified, unless the 
-          ``evaluator_config`` option **log_model_explainability** is explicitly set to ``True``.
+     - Limitations when environment restoration is enabled:
+        - When environment restoration is enabled for the evaluated model (i.e. a non-local 
+          ``env_manager`` is specified), the model is loaded as a client that invokes a MLflow 
+          Model Scoring Server process in an independent Python environment with the model's 
+          training time dependencies installed. As such, methods like ``predict_proba`` (for 
+          probability outputs) or ``score`` (computes the evaluation criterian for sklearn models) 
+          of the model become inaccessible and the default evaluator does not compute metrics or 
+          artifacts that require those methods.
+        - Because the model is an MLflow Model Server process, SHAP explanations are slower to 
+          compute. As such, model explainaibility is disabled when a non-local ``env_manager`` 
+          specified, unless the ``evaluator_config`` option **log_model_explainability** is 
+          explicitly set to ``True``.
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
@@ -1153,10 +1155,10 @@ should be at least 0.05 greater than baseline model accuracy
                                       flavor. If specified, the candidate ``model`` is compared to
                                       this baseline for model validation purposes.
 
-    :param env_manager: Specify an environment manager to load the candidate ``model`` and
-                        ``baseline_model`` in isolated Python evironments and restore their dependencies.
-                        Default value is ``local``, and the following 
-                        values are supported:
+    :param env_manager: Specify an environment manager to load the candidate ``model`` and 
+                        ``baseline_model`` in isolated Python evironments and restore their 
+                        dependencies. Default value is ``local``, and the following values are 
+                        supported:
 
                          - ``virtualenv``: (Recommended) Use virtualenv to restore the python 
                            environment that was used to train the model.
@@ -1170,16 +1172,13 @@ should be at least 0.05 greater than baseline model accuracy
              metrics of candidate model and baseline model, and artifacts of candidate model.
     """
     import signal
-    from mlflow.pyfunc import PyFuncModel, _load_model_or_server
+    from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager
 
     _EnvManager.validate(env_manager)
 
-    candidate_model_server_pid = None
-    baseline_model_server_pid = None
-
     if isinstance(model, str):
-        candidate_model_server_pid, model = _load_model_or_server(model, env_manager)
+        model = _load_model_or_server(model, env_manager)
     elif env_manager != _EnvManager.LOCAL:
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model when a "
@@ -1196,9 +1195,7 @@ should be at least 0.05 greater than baseline model accuracy
         )
 
     if isinstance(baseline_model, str):
-        baseline_model_server_pid, baseline_model = _load_model_or_server(
-            baseline_model, env_manager
-        )
+        baseline_model = _load_model_or_server(baseline_model, env_manager)
     elif baseline_model is not None:
         raise MlflowException(
             message="The baseline model argument must be a string URI referring to an "
@@ -1239,10 +1236,10 @@ should be at least 0.05 greater than baseline model accuracy
                 baseline_model=baseline_model,
             )
         finally:
-            if candidate_model_server_pid:
-                os.kill(candidate_model_server_pid, signal.SIGTERM)
-            if baseline_model_server_pid:
-                os.kill(baseline_model_server_pid, signal.SIGTERM)
+            if isinstance(model, _ServedPyFuncModel):
+                os.kill(model.pid, signal.SIGTERM)
+            if isinstance(baseline_model, _ServedPyFuncModel):
+                os.kill(baseline_model.pid, signal.SIGTERM)
 
         if not validation_thresholds:
             return evaluate_result
