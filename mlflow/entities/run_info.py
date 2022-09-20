@@ -142,7 +142,8 @@ class RunInfo(_MLflowObject):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
         proto.run_id = self.run_id
-        proto.run_name = self.run_name
+        if self.run_name is not None:
+            proto.run_name = self.run_name
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
         proto.status = RunStatus.from_string(self.status)
