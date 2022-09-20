@@ -235,7 +235,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     try:
         process._exec_cmd(
-            [conda_path, "--help"], throw_on_error=False, capture_output=capture_output
+            [conda_path, "--help"], throw_on_error=False, capture_output=False
         )
     except EnvironmentError:
         raise ExecutionException(
