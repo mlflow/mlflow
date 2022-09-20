@@ -937,6 +937,8 @@ def evaluate(
           precision, recall, f1, etc. for multiclass classification models
           (default: ``'weighted'``). For binary classification and regression models, this
           parameter will be ignored.
+        - **sample_weights**: Weights for each sample to apply when computing model performance
+          metrics.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1109,23 +1111,13 @@ def evaluate(
                                                  from mlflow.models import MetricThreshold
 
                                                  thresholds = {
-                                                     # Metric value thresholds
-                                                     "f1_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         higher_is_better=True
-                                                     ),
-                                                     # Model comparison thresholds
-                                                     "log_loss": MetricThreshold(
-                                                         min_absolute_change=0.05,
-                                                         min_relative_change=0.1,
-                                                         higher_is_better=False
-                                                     ),
-                                                     # Both metric value and model comparison \
-thresholds
                                                      "accuracy_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         min_absolute_change=0.09,
-                                                         min_relative_change=0.05,
+                                                         threshold=0.8,            # accuracy \
+should be >=0.8
+                                                         min_absolute_change=0.05, # accuracy \
+should be at least 5 percent greater than baseline model accuracy
+                                                         min_relative_change=0.05, # accuracy \
+should be at least 0.05 greater than baseline model accuracy
                                                          higher_is_better=True
                                                      ),
                                                  }
@@ -1143,6 +1135,9 @@ thresholds
                                                          baseline_model=your_baseline_model
 
                                                      )
+                                            
+                                            See :ref:`the Model Validation documentation \
+<model-validation>` for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
                                       flavor. If specified, the candidate ``model`` is compared to
@@ -1208,9 +1203,12 @@ thresholds
         if not validation_thresholds:
             return evaluate_result
 
+        _logger.info("Validating generated model metrics")
         _validate(
             validation_thresholds,
             evaluate_result.metrics,
             evaluate_result.baseline_model_metrics,
         )
+        _logger.info("Model validation passed!")
+
         return evaluate_result

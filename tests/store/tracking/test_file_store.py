@@ -32,7 +32,6 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
@@ -76,7 +75,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
-            d = {"experiment_id": exp, "name": random_str(), "artifact_location": exp_folder}
+            d = {
+                "experiment_id": exp,
+                "name": random_str(),
+                "artifact_location": exp_folder,
+                "creation_time": int(time.time() * 1000),
+                "last_update_time": int(time.time() * 1000),
+            }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
             # add runs
@@ -89,6 +94,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 run_info = {
                     "run_uuid": run_id,
                     "run_id": run_id,
+                    "run_name": "name",
                     "experiment_id": exp,
                     "user_id": random_str(random_int(10, 25)),
                     "status": random.choice(RunStatus.all_status()),
@@ -389,10 +395,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
-
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
+        time_before_create = int(time.time() * 1000)
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
         self.assertEqual(created_id, next_id)
@@ -404,10 +410,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp1.artifact_location,
             path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
         )
+        assert exp1.creation_time >= time_before_create
+        assert exp1.last_update_time == exp1.creation_time
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
+        assert exp2.creation_time == exp1.creation_time
+        assert exp2.last_update_time == exp1.last_update_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -478,18 +488,28 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         exp_name = self.exp_data[exp_id]["name"]
 
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.01)
+
         # delete it
         fs.delete_experiment(exp_id)
+        deleted_exp1 = fs.get_experiment(exp_id)
+
         assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
+        self.assertEqual(deleted_exp1.lifecycle_stage, LifecycleStage.DELETED)
+        assert deleted_exp1.last_update_time > exp1.last_update_time
 
         # restore it
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.01)
         fs.restore_experiment(exp_id)
         restored_1 = fs.get_experiment(exp_id)
         self.assertEqual(restored_1.experiment_id, exp_id)
         self.assertEqual(restored_1.name, exp_name)
+        assert restored_1.last_update_time > exp1.last_update_time
+
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
@@ -532,10 +552,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
 
         # Restore the experiment, and confirm that we can now rename it.
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.01)
         fs.restore_experiment(exp_id)
-        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        restored_exp1 = fs.get_experiment(exp_id)
+        self.assertEqual(restored_exp1.name, new_name)
+        assert restored_exp1.last_update_time > exp1.last_update_time
+
+        exp1 = fs.get_experiment(exp_id)
+        time.sleep(0.01)
         fs.rename_experiment(exp_id, exp_name)
-        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        renamed_exp1 = fs.get_experiment(exp_id)
+        self.assertEqual(renamed_exp1.name, exp_name)
+        assert renamed_exp1.last_update_time > exp1.last_update_time
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -621,7 +650,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             with TempDir() as tmp:
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
-                run = fs.create_run(experiment_id=exp_id, user_id="user", start_time=0, tags=[])
+                run = fs.create_run(
+                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
+                )
                 self.assertEqual(
                     run.info.artifact_uri,
                     expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
@@ -633,21 +664,24 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete it
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception, match="Could not create run under non-active experiment"):
-            fs.create_run(exp_id, "user", 0, [])
+            fs.create_run(exp_id, "user", 0, [], "name")
 
     def test_create_run_returns_expected_run_data(self):
         fs = FileStore(self.test_root)
         no_tags_run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 1
+        assert len(no_tags_run.data.tags) == 0
 
-        run_name = no_tags_run.data.tags.get(MLFLOW_RUN_NAME)
+        run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
         tags_dict = {
-            MLFLOW_RUN_NAME: "my_run",
             "my_first_tag": "first",
             "my-second-tag": "2nd",
         }
@@ -657,9 +691,23 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             user_id="user",
             start_time=0,
             tags=tags_entities,
+            run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
         assert tags_run.data.tags == tags_dict
+
+    def test_create_run_sets_name(self):
+        fs = FileStore(self.test_root)
+        run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="my name",
+        )
+
+        run_name = run.info.run_name
+        assert run_name == "my name"
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -686,6 +734,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             runs = self.exp_data[exp_id]["runs"]
             for run_id in runs:
                 self._verify_run(fs, run_id)
+
+    def test_get_run_returns_name_in_info(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="my name",
+        ).info.run_id
+
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "my name"
 
     def test_get_run_retries_for_transient_empty_yaml_read(self):
         fs = FileStore(self.test_root)
@@ -716,6 +777,32 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         root_dir = os.path.join(self.test_root, exp_id, run_id)
         with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
             self._verify_run(fs, run_id)
+
+    def test_update_run_renames_run(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "new name"
+
+    def test_update_run_does_not_rename_run_with_none_name(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "first name"
 
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)
@@ -827,8 +914,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
-        r1 = fs.create_run(experiment_id, "user", 0, []).info.run_id
-        r2 = fs.create_run(experiment_id, "user", 0, []).info.run_id
+        r1 = fs.create_run(experiment_id, "user", 0, [], "name").info.run_id
+        r2 = fs.create_run(experiment_id, "user", 0, [], "name").info.run_id
 
         fs.set_tag(r1, RunTag("generic_tag", "p_val"))
         fs.set_tag(r2, RunTag("generic_tag", "p_val"))
@@ -884,7 +971,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("search_with_max_results")
 
-        runs = [fs.create_run(exp, "user", r, []).info.run_id for r in range(10)]
+        runs = [fs.create_run(exp, "user", r, [], "name").info.run_id for r in range(10)]
         runs.reverse()
 
         assert runs[:10] == self._search(fs, exp)
@@ -902,7 +989,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # Create 10 runs with the same start_time.
         # Sort based on run_id
-        runs = sorted([fs.create_run(exp, "user", 1000, []).info.run_id for r in range(10)])
+        runs = sorted([fs.create_run(exp, "user", 1000, [], "name").info.run_id for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert runs[: min(10, n)] == self._search(fs, exp, max_results=n)
 
@@ -910,7 +997,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("test_search_runs_pagination")
         # test returned token behavior
-        runs = sorted([fs.create_run(exp, "user", 1000, []).info.run_id for r in range(10)])
+        runs = sorted([fs.create_run(exp, "user", 1000, [], "name").info.run_id for r in range(10)])
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
         assert [r.info.run_id for r in result] == runs[0:4]
         assert result.token is not None
@@ -1205,7 +1292,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="name",
         )
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
@@ -1218,7 +1309,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="name",
         )
 
     def test_log_batch_max_length_value(self):

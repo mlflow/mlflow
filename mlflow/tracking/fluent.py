@@ -36,7 +36,6 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
-    MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
@@ -202,7 +201,7 @@ def start_run(
                           activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
                           environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
                           or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
+    :param run_name: Name of new run.
                      Used only when ``run_id`` is unspecified. If a new run is created and
                      ``run_name`` is not specified, a unique name will be generated for the run.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
@@ -308,7 +307,7 @@ def start_run(
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
         )
         tags = tags or {}
         if description:
@@ -345,12 +344,12 @@ def start_run(
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
-        if run_name is not None:
-            user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=resolved_tags)
+        active_run_obj = client.create_run(
+            experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
+        )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -1003,6 +1002,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1011,6 +1011,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -1034,6 +1035,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1042,6 +1044,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -1205,6 +1208,7 @@ def create_experiment(
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1214,6 +1218,7 @@ def create_experiment(
         Artifact Location: file:///.../mlruns
         Tags: {'version': 'v1', 'priority': 'P1'}
         Lifecycle_stage: active
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
 
@@ -1237,13 +1242,14 @@ def delete_experiment(experiment_id: str) -> None:
         print("Name: {}".format(experiment.name))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-
+        print("Last Updated timestamp: {}".format(experiment.last_update_time))
     .. code-block:: text
         :caption: Output
 
         Name: New Experiment
         Artifact Location: file:///.../mlruns/2
         Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
     """
     MlflowClient().delete_experiment(experiment_id)
 
