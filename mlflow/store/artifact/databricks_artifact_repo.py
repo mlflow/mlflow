@@ -52,6 +52,7 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
 )
 
+logging.basicConfig(filename="/databricks/driver/mlflow.log", encoding="utf-8", level=logging.DEBUG)
 _logger = logging.getLogger(__name__)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
