@@ -27,6 +27,7 @@ class TestRun(TestRunInfo, TestRunData):
         (
             run_info,
             run_id,
+            run_name,
             experiment_id,
             user_id,
             status,
@@ -43,6 +44,7 @@ class TestRun(TestRunInfo, TestRunData):
         expected_info_dict = {
             "run_uuid": run_id,
             "run_id": run_id,
+            "run_name": run_name,
             "experiment_id": experiment_id,
             "user_id": user_id,
             "status": status,
@@ -74,6 +76,7 @@ class TestRun(TestRunInfo, TestRunData):
         run_info = RunInfo(
             run_uuid="hi",
             run_id="hi",
+            run_name="name",
             experiment_id=0,
             user_id="user-id",
             status=RunStatus.FAILED,
@@ -88,7 +91,7 @@ class TestRun(TestRunInfo, TestRunData):
             "<Run: data=<RunData: metrics={'key-0': 0, 'key-1': 1, 'key-2': 2}, "
             "params={}, tags={}>, info=<RunInfo: artifact_uri=None, end_time=1, "
             "experiment_id=0, "
-            "lifecycle_stage='active', run_id='hi', run_uuid='hi', "
+            "lifecycle_stage='active', run_id='hi', run_name='name', run_uuid='hi', "
             "start_time=0, status=4, user_id='user-id'>>"
         )
         assert str(run1) == expected
