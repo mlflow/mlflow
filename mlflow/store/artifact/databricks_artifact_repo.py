@@ -2,6 +2,8 @@ import base64
 import logging
 import os
 import posixpath
+import time
+
 import requests
 import uuid
 from collections import namedtuple
@@ -244,7 +246,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            with open("/databricks/driver/mlflow.log", "a") as f:
+            now = time.time()
+            with open("/databricks/driver/mlflow{}.log".format(now), "w") as f:
                 f.write("credential headers dict: {}\n".format(headers))
             # try to create the file
             try:
@@ -332,7 +335,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            with open("/databricks/driver/mlflow.log", "a") as f:
+            now = time.time()
+            with open("/databricks/driver/mlflow{}.log".format(now), "w") as f:
                 f.write("Got Gen 2 URL: {}\n".format(cloud_credential_info.signed_uri))
                 f.write("src_file_path: {}\n".format(src_file_path))
                 f.write(
