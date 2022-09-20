@@ -72,7 +72,6 @@ class ShowArtifactPage extends Component {
             />
           );
         }
-        return getSelectFileView();
       } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
