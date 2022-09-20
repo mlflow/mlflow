@@ -638,9 +638,12 @@ class TrainStep(BaseStep):
     ):
         tuning_params = self.step_config["tuning"]
         try:
+            import hyperopt
             from hyperopt import fmin, Trials
             from hyperopt.mlflow_utils import _MLflowLogging
+
             _MLflowLogging._EN_WORKER_USER_LOGGING = False
+            hyperopt._mlflow = None    
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
