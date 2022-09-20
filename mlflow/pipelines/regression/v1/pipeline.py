@@ -62,7 +62,7 @@ The pipeline steps are defined as follows:
         an MLflow Run.
 
             .. note::
-                The **train** step supports hyperparameter tuning with hyperopt by changing 
+                The **train** step supports hyperparameter tuning with hyperopt by adding 
                 the configuration in the 
                 |'tuning' section of the 'train' step definition in pipeline.yaml|. 
 
