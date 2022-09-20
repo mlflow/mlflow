@@ -58,6 +58,9 @@ class ScoringServerClient:
         return scoring_server.infer_and_parse_json_input(response.text)
 
     def _predict(self, data):
+        """
+        Invoke inference on input data and return the predicted column as a pandas series
+        """
         result = self.invoke(data)
         if isinstance(result, pd.DataFrame):
             result = result[result.columns[0]]
