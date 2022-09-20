@@ -969,7 +969,7 @@ def evaluate(
           like ``predict_proba`` (for probability outputs) or ``score`` (computes the evaluation 
           criterian for sklearn models) of the model become inaccessible and the default evaluator 
           does not compute metrics/artifacts that require those methods.
-        - Because the model is a client, shap explainations become quite slow. As such, model 
+        - Because the model is an MLflow Model Server process, SHAP explanations are slower to compute. As such, model 
           explainaibility is disabled when a non-local ``env_manager`` specified, unless the 
           ``evaluator_config`` option **log_model_explainability** is explicitly set to `True`.
 
