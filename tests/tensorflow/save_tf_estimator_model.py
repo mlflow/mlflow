@@ -142,7 +142,7 @@ def save_tf_categorical_model(tmpdir):
     y_train = df.pop("price")
 
     # Create the required input training function
-    trainingFeatures = df.to_dict(orient="series")
+    training_features = df.to_dict(orient="series")
 
     # Create the feature columns required for the DNNRegressor
     body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
@@ -163,13 +163,13 @@ def save_tf_categorical_model(tmpdir):
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(
-        input_fn=lambda: iris_data_utils.train_input_fn(trainingFeatures, y_train, 1), steps=10
+        input_fn=lambda: iris_data_utils.train_input_fn(training_features, y_train, 1), steps=10
     )
     estimator_preds = np.array(
         [
             s["predictions"]
             for s in estimator.predict(
-                lambda: iris_data_utils.eval_input_fn(trainingFeatures, None, 1)
+                lambda: iris_data_utils.eval_input_fn(training_features, None, 1)
             )
         ]
     ).ravel()
@@ -193,7 +193,7 @@ def save_tf_categorical_model(tmpdir):
         path=saved_estimator_path,
         meta_graph_tags=["serve"],
         signature_def_key="predict",
-        inference_df=pd.DataFrame(trainingFeatures),
+        inference_df=pd.DataFrame(training_features),
         expected_results_df=estimator_preds_df,
         raw_results=None,
         raw_df=None,

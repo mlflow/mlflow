@@ -493,8 +493,3 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
         np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
     else:
         np.testing.assert_array_equal(actual_array, desired_array)
-
-
-def assert_pandas_dataframe_almost_equal(actual_df, desired_df, rtol=1e-6):
-    for key in actual_df.keys():
-        assert_array_almost_equal(list(actual_df[key]), list(desired_df[key]), rtol=rtol)

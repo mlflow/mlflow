@@ -36,7 +36,7 @@ from tests.helper_functions import (
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
-from tests.tensorflow.test_tensorflow_estimator_export import ModelDataInfo
+from tests.tensorflow.test_load_saved_tensorflow_estimator import ModelDataInfo
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.conda import get_or_create_conda_env
@@ -659,9 +659,11 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
 
     _execute_in_conda_env(
         conda_env,
-        f"python {exec_py_path} --tracking_uri {tracking_uri} "
-        f"--task_type {task_type} --save_as_type {save_as_type} "
-        f"{'--save_path ' + save_path if save_path else ''}",
+        f"python {exec_py_path} "
+        f"--tracking_uri {tracking_uri} "
+        f"--task_type {task_type} "
+        f"--save_as_type {save_as_type} "
+        f"--save_path {save_path if save_path else 'none'}",
         install_mlflow=False,
     )
     with open(output_data_file_path, "rb") as f:
