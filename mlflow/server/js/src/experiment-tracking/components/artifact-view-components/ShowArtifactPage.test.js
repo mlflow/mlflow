@@ -55,6 +55,7 @@ describe('ShowArtifactPage', () => {
   test('should render logged model view when path is in runs tag logged model history', () => {
     wrapper.setProps({
       path: 'somePath',
+      isDirectory: true,
       runTags: {
         'mlflow.log-model.history': RunTag.fromJs({
           key: 'mlflow.log-model.history',
