@@ -68,10 +68,14 @@ def get_feature_cols(
              for the pipeline/transformer plus any initial columns passed in.
     """
     feature_cols = set()
+    df_subset = df.limit(1).cache()
     for column in df.columns:
         try:
-            transformer.transform(df.drop(column).limit(1))
+            transformer.transform(df_subset.limit(1))
         except IllegalArgumentException as iae:
             if re.search("(.*) does not exist.", iae.desc, re.IGNORECASE):
                 feature_cols.add(column)
+                continue
+            raise
+    df_subset.unpersist()
     return feature_cols
