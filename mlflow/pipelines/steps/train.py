@@ -724,9 +724,11 @@ class TrainStep(BaseStep):
         parallelism = tuning_params["parallelism"]
 
         if parallelism > 1:
-            from mlflow.utils._spark_utils import _get_active_spark_session
+            from pyspark.sql import SparkSession
 
-            spark_session = _get_active_spark_session()
+            spark_session = SparkSession.builder.config(
+                "spark.databricks.mlflow.trackHyperopt.enabled", "false"
+            ).getOrCreate()
             sc = spark_session.sparkContext
 
             X_train = sc.broadcast(X_train)
