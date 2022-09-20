@@ -133,7 +133,7 @@ def estimator_fn(estimator_params={}):  # pylint: disable=dangerous-default-valu
     return SGDRegressor(random_state=42, **estimator_params)
 
 
-def early_stop_fn(trial, count=0): # pylint: disable=unused-argument
+def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
     return count + 1 <= 2, [count + 1]
 
 

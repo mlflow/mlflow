@@ -790,7 +790,9 @@ class TrainStep(BaseStep):
             train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             best_hp_params = fmin(
-                lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
+                lambda params: objective(
+                    X_train, y_train, validation_df, params, on_worker=on_worker
+                ),
                 search_space,
                 algo=tuning_algo,
                 max_evals=max_trials,
@@ -799,7 +801,9 @@ class TrainStep(BaseStep):
             )
         else:
             best_hp_params = fmin(
-                lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
+                lambda params: objective(
+                    X_train, y_train, validation_df, params, on_worker=on_worker
+                ),
                 search_space,
                 algo=tuning_algo,
                 max_evals=max_trials,
