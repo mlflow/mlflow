@@ -55,6 +55,7 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 logging.basicConfig(filename="mlflow_adl2.log", encoding="utf-8", level=logging.WARNING)
+_logger.warning("test logger output")
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
