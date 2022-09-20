@@ -235,7 +235,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     try:
         # Checks if Conda executable exists
-        process._exec_cmd([conda_path, "--help"], throw_on_error=False, capture_output=False)
+        process._exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Conda executable at {0}. "
@@ -249,9 +249,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     try:
         # Checks if executable for environment creation exists
-        process._exec_cmd(
-            [conda_env_create_path, "--help"], throw_on_error=False, capture_output=False
-        )
+        process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "You have set the env variable {0}, but {1} does not exist or "
