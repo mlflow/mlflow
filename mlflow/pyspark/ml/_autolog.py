@@ -67,11 +67,11 @@ def get_feature_cols(
     :return: A set of all the feature columns that are required
              for the pipeline/transformer plus any initial columns passed in.
     """
-    necessary_columns = set()
+    feature_cols = set()
     for column in df.columns:
         try:
             transformer.transform(df.drop(column).limit(1))
         except IllegalArgumentException as iae:
             if re.search("(.*) does not exist.", iae.desc, re.IGNORECASE):
-                necessary_columns.add(column)
-    return necessary_columns
+                feature_cols.add(column)
+    return feature_cols
