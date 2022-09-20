@@ -145,7 +145,6 @@ class TrainStep(BaseStep):
             if self.step_config["tuning_enabled"]:
                 best_estimator_params = self._tune_and_get_best_estimator_params(
                     run.info.run_id,
-                    tags,
                     estimator_hardcoded_params,
                     estimator_fn,
                     X_train,
@@ -632,7 +631,6 @@ class TrainStep(BaseStep):
     def _tune_and_get_best_estimator_params(
         self,
         parent_run_id,
-        tags,
         estimator_hardcoded_params,
         estimator_fn,
         X_train,
@@ -650,13 +648,14 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(X_train, y_train, validation_df, hyperparameter_args, tags, on_worker=False):
+        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
             if on_worker:
                 from mlflow.tracking import MlflowClient
 
                 client = MlflowClient()
+                parent_tags = client.get_run(parent_run_id).data.tags
                 child_run = client.create_run(
-                    _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
+                    _get_experiment_id(), tags={**parent_tags, "mlflow.parentRunId": parent_run_id}
                 )
                 run_args = {"run_id": child_run.info.run_id}
             else:
@@ -679,7 +678,7 @@ class TrainStep(BaseStep):
                 estimator.fit(X_train_sampled, y_train_sampled)
 
                 logged_estimator = self._log_estimator_to_mlflow(
-                    estimator, X_train_sampled, tags, on_worker=on_worker
+                    estimator, X_train_sampled, on_worker=on_worker
                 )
 
                 eval_result = mlflow.evaluate(
@@ -747,9 +746,7 @@ class TrainStep(BaseStep):
             on_worker = False
 
         best_hp_params = fmin(
-            lambda params: objective(
-                X_train, y_train, validation_df, params, tags, on_worker=on_worker
-            ),
+            lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
             search_space,
             algo=tuning_algo,
             max_evals=max_trials,
@@ -757,7 +754,7 @@ class TrainStep(BaseStep):
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(
-            X_train, y_train, validation_df, estimator_hardcoded_params, tags
+            X_train, y_train, validation_df, estimator_hardcoded_params
         )
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
@@ -774,7 +771,7 @@ class TrainStep(BaseStep):
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
-    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, tags, on_worker=False):
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
 
         if hasattr(estimator, "best_score_"):
@@ -783,7 +780,6 @@ class TrainStep(BaseStep):
             mlflow.log_params(estimator.best_params_)
 
         if on_worker:
-            mlflow.set_tags(tags)
             mlflow.log_params(estimator.get_params())
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
