@@ -244,7 +244,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            print("credential headers dict: ", headers)
+            with open("/databricks/driver/mlflow.log", "a") as f:
+                f.write("credential headers dict: {}\n".format(headers))
             # try to create the file
             try:
                 put_adls_file_creation(credentials.signed_uri, headers=headers)
@@ -331,9 +332,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            print("Got Gen 2 URL: ", cloud_credential_info.signed_uri)
-            print("src_file_path: ", src_file_path)
-            print("dst_run_relative_artifact_path: ", dst_run_relative_artifact_path)
+            with open("/databricks/driver/mlflow.log", "a") as f:
+                f.write("Got Gen 2 URL: {}\n".format(cloud_credential_info.signed_uri))
+                f.write("src_file_path: {}\n".format(src_file_path))
+                f.write(
+                    "dst_run_relative_artifact_path: {}\n".format(dst_run_relative_artifact_path)
+                )
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
