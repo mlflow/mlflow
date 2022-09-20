@@ -85,6 +85,7 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
                         enabled: true
                         max_trials: 2
                         sample_fraction: 0.5
+                        early_stop_fn: tests.pipelines.test_train_step.early_stop_fn
                         parameters:
                             alpha:
                                 distribution: "uniform"
@@ -130,6 +131,10 @@ def estimator_fn(estimator_params={}):  # pylint: disable=dangerous-default-valu
     from sklearn.linear_model import SGDRegressor
 
     return SGDRegressor(random_state=42, **estimator_params)
+
+
+def early_stop_fn(trial, count=0): # pylint: disable=unused-argument
+    return count + 1 <= 2, [count + 1]
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
@@ -243,7 +248,7 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
     assert "eta0" in parent_run_params
 
 
-def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
+def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
@@ -256,7 +261,7 @@ def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
 
     run = MlflowClient().get_run(run_id)
     child_runs = train_step._get_tuning_df(run, params=["alpha", "penalty", "eta0"])
-    assert len(child_runs) == 3
+    assert len(child_runs) == 2
     assert "params.alpha" in child_runs.columns
     assert "params.penalty" in child_runs.columns
     assert "params.eta0" in child_runs.columns

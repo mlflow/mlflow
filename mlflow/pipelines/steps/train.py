@@ -745,13 +745,25 @@ class TrainStep(BaseStep):
         max_trials = tuning_params["max_trials"]
         hp_trials = Trials()
 
-        best_hp_params = fmin(
-            objective,
-            search_space,
-            algo=tuning_algo,
-            max_evals=max_trials,
-            trials=hp_trials,
-        )
+        if "early_stop_fn" in tuning_params:
+            train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
+            early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
+            best_hp_params = fmin(
+                objective,
+                search_space,
+                algo=tuning_algo,
+                max_evals=max_trials,
+                trials=hp_trials,
+                early_stop_fn=early_stop_fn,
+            )
+        else:
+            best_hp_params = fmin(
+                objective,
+                search_space,
+                algo=tuning_algo,
+                max_evals=max_trials,
+                trials=hp_trials,
+            )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(estimator_hardcoded_params)
         best_hp_params = space_eval(search_space, best_hp_params)
