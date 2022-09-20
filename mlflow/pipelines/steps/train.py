@@ -650,8 +650,6 @@ class TrainStep(BaseStep):
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
             if on_worker:
-                from mlflow.tracking import MlflowClient
-
                 client = MlflowClient()
                 parent_tags = client.get_run(parent_run_id).data.tags
                 child_run = client.create_run(
