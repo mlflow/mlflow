@@ -13,6 +13,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
+from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
@@ -882,11 +883,12 @@ def evaluate(
 
      - For binary classifiers, the default evaluator additionally logs:
         - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
-          precision, f1_score, accuracy, example_count, log_loss, roc_auc, precision_recall_auc.
+          precision, f1_score, accuracy_score, example_count, log_loss, roc_auc, 
+          precision_recall_auc.
         - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
      - For multiclass classifiers, the default evaluator additionally logs:
-        - **metrics**: accuracy, example_count, f1_score_micro, f1_score_macro, log_loss
+        - **metrics**: accuracy_score, example_count, f1_score_micro, f1_score_macro, log_loss
         - **artifacts**: A CSV file for "per_class_metrics" (per-class metrics includes
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
@@ -927,6 +929,15 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
+        - **pos_label**: The positive label to use when computing classification metrics such as
+          precision, recall, f1, etc. for binary classification models (default: ``1``). For
+          multiclass classification and regression models, this parameter will be ignored.
+        - **average**: The averaging method to use when computing classification metrics such as
+          precision, recall, f1, etc. for multiclass classification models
+          (default: ``'weighted'``). For binary classification and regression models, this
+          parameter will be ignored.
+        - **sample_weights**: Weights for each sample to apply when computing model performance
+          metrics.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1099,23 +1110,13 @@ def evaluate(
                                                  from mlflow.models import MetricThreshold
 
                                                  thresholds = {
-                                                     # Metric value thresholds
-                                                     "f1_score": MetricThreshold(
-                                                         threshold=0.8,
-                                                         higher_is_better=True
-                                                     ),
-                                                     # Model comparison thresholds
-                                                     "log_loss": MetricThreshold(
-                                                         min_absolute_change=0.05,
-                                                         min_relative_change=0.1,
-                                                         higher_is_better=False
-                                                     ),
-                                                     # Both metric value and model comparison \
-thresholds
-                                                     "accuarcy": MetricThreshold(
-                                                         threshold=0.8,
-                                                         min_absolute_change=0.09,
-                                                         min_relative_change=0.05,
+                                                     "accuracy_score": MetricThreshold(
+                                                         threshold=0.8,            # accuracy \
+should be >=0.8
+                                                         min_absolute_change=0.05, # accuracy \
+should be at least 5 percent greater than baseline model accuracy
+                                                         min_relative_change=0.05, # accuracy \
+should be at least 0.05 greater than baseline model accuracy
                                                          higher_is_better=True
                                                      ),
                                                  }
@@ -1133,6 +1134,9 @@ thresholds
                                                          baseline_model=your_baseline_model
 
                                                      )
+                                            
+                                            See :ref:`the Model Validation documentation \
+<model-validation>` for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
                                       flavor. If specified, the candidate ``model`` is compared to
@@ -1145,8 +1149,9 @@ thresholds
         model = mlflow.pyfunc.load_model(model)
     else:
         raise MlflowException(
-            message="The model argument must be a string URI referring to an MLflow model",
-            error_code=INVALID_PARAMETER_VALUE,
+            message="The model argument must be a string URI referring to an MLflow model or "
+            "an instance of `mlflow.pyfunc.PyFuncModel`.",
+            erorr_code=INVALID_PARAMETER_VALUE,
         )
 
     if isinstance(baseline_model, str):
@@ -1193,9 +1198,12 @@ thresholds
         if not validation_thresholds:
             return evaluate_result
 
+        _logger.info("Validating generated model metrics")
         _validate(
             validation_thresholds,
             evaluate_result.metrics,
             evaluate_result.baseline_model_metrics,
         )
+        _logger.info("Model validation passed!")
+
         return evaluate_result

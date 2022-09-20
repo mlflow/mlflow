@@ -7132,6 +7132,35 @@ public final class Service {
 
     /**
      * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return Whether the runName field is set.
+     */
+    boolean hasRunName();
+    /**
+     * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The runName.
+     */
+    java.lang.String getRunName();
+    /**
+     * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The bytes for runName.
+     */
+    com.google.protobuf.ByteString
+        getRunNameBytes();
+
+    /**
+     * <pre>
      * The experiment ID.
      * </pre>
      *
@@ -7337,6 +7366,7 @@ public final class Service {
     private RunInfo() {
       runId_ = "";
       runUuid_ = "";
+      runName_ = "";
       experimentId_ = "";
       userId_ = "";
       status_ = 1;
@@ -7383,13 +7413,19 @@ public final class Service {
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               experimentId_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              runName_ = bs;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000010;
               userId_ = bs;
               break;
             }
@@ -7400,30 +7436,30 @@ public final class Service {
               if (value == null) {
                 unknownFields.mergeVarintField(7, rawValue);
               } else {
-                bitField0_ |= 0x00000010;
+                bitField0_ |= 0x00000020;
                 status_ = rawValue;
               }
               break;
             }
             case 64: {
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000040;
               startTime_ = input.readInt64();
               break;
             }
             case 72: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000080;
               endTime_ = input.readInt64();
               break;
             }
             case 106: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000100;
               artifactUri_ = bs;
               break;
             }
             case 114: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000200;
               lifecycleStage_ = bs;
               break;
             }
@@ -7589,6 +7625,66 @@ public final class Service {
       }
     }
 
+    public static final int RUN_NAME_FIELD_NUMBER = 3;
+    private volatile java.lang.Object runName_;
+    /**
+     * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return Whether the runName field is set.
+     */
+    @java.lang.Override
+    public boolean hasRunName() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The runName.
+     */
+    @java.lang.Override
+    public java.lang.String getRunName() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The bytes for runName.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRunNameBytes() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 2;
     private volatile java.lang.Object experimentId_;
     /**
@@ -7601,7 +7697,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasExperimentId() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
@@ -7663,7 +7759,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasUserId() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
@@ -7726,7 +7822,7 @@ public final class Service {
      * @return Whether the status field is set.
      */
     @java.lang.Override public boolean hasStatus() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
@@ -7754,7 +7850,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000040) != 0);
     }
     /**
      * <pre>
@@ -7781,7 +7877,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasEndTime() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000080) != 0);
     }
     /**
      * <pre>
@@ -7811,7 +7907,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasArtifactUri() {
-      return ((bitField0_ & 0x00000080) != 0);
+      return ((bitField0_ & 0x00000100) != 0);
     }
     /**
      * <pre>
@@ -7877,7 +7973,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasLifecycleStage() {
-      return ((bitField0_ & 0x00000100) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
@@ -7942,25 +8038,28 @@ public final class Service {
       if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000004) != 0)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentId_);
       }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, userId_);
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runName_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        output.writeEnum(7, status_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, userId_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        output.writeInt64(8, startTime_);
+        output.writeEnum(7, status_);
       }
       if (((bitField0_ & 0x00000040) != 0)) {
-        output.writeInt64(9, endTime_);
+        output.writeInt64(8, startTime_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 13, artifactUri_);
+        output.writeInt64(9, endTime_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 13, artifactUri_);
+      }
+      if (((bitField0_ & 0x00000200) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 14, lifecycleStage_);
       }
       if (((bitField0_ & 0x00000001) != 0)) {
@@ -7978,28 +8077,31 @@ public final class Service {
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000004) != 0)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, experimentId_);
       }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, userId_);
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runName_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(7, status_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, userId_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(8, startTime_);
+          .computeEnumSize(7, status_);
       }
       if (((bitField0_ & 0x00000040) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(9, endTime_);
+          .computeInt64Size(8, startTime_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, artifactUri_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(9, endTime_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, artifactUri_);
+      }
+      if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, lifecycleStage_);
       }
       if (((bitField0_ & 0x00000001) != 0)) {
@@ -8029,6 +8131,11 @@ public final class Service {
       if (hasRunUuid()) {
         if (!getRunUuid()
             .equals(other.getRunUuid())) return false;
+      }
+      if (hasRunName() != other.hasRunName()) return false;
+      if (hasRunName()) {
+        if (!getRunName()
+            .equals(other.getRunName())) return false;
       }
       if (hasExperimentId() != other.hasExperimentId()) return false;
       if (hasExperimentId()) {
@@ -8082,6 +8189,10 @@ public final class Service {
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
+      }
+      if (hasRunName()) {
+        hash = (37 * hash) + RUN_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getRunName().hashCode();
       }
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
@@ -8254,20 +8365,22 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000001);
         runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        experimentId_ = "";
+        runName_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        userId_ = "";
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        status_ = 1;
+        userId_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
-        startTime_ = 0L;
+        status_ = 1;
         bitField0_ = (bitField0_ & ~0x00000020);
-        endTime_ = 0L;
+        startTime_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000040);
-        artifactUri_ = "";
+        endTime_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000080);
-        lifecycleStage_ = "";
+        artifactUri_ = "";
         bitField0_ = (bitField0_ & ~0x00000100);
+        lifecycleStage_ = "";
+        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -8307,29 +8420,33 @@ public final class Service {
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.experimentId_ = experimentId_;
+        result.runName_ = runName_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.userId_ = userId_;
+        result.experimentId_ = experimentId_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.status_ = status_;
+        result.userId_ = userId_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
-          result.startTime_ = startTime_;
           to_bitField0_ |= 0x00000020;
         }
+        result.status_ = status_;
         if (((from_bitField0_ & 0x00000040) != 0)) {
-          result.endTime_ = endTime_;
+          result.startTime_ = startTime_;
           to_bitField0_ |= 0x00000040;
         }
         if (((from_bitField0_ & 0x00000080) != 0)) {
+          result.endTime_ = endTime_;
           to_bitField0_ |= 0x00000080;
         }
-        result.artifactUri_ = artifactUri_;
         if (((from_bitField0_ & 0x00000100) != 0)) {
           to_bitField0_ |= 0x00000100;
+        }
+        result.artifactUri_ = artifactUri_;
+        if (((from_bitField0_ & 0x00000200) != 0)) {
+          to_bitField0_ |= 0x00000200;
         }
         result.lifecycleStage_ = lifecycleStage_;
         result.bitField0_ = to_bitField0_;
@@ -8391,13 +8508,18 @@ public final class Service {
           runUuid_ = other.runUuid_;
           onChanged();
         }
-        if (other.hasExperimentId()) {
+        if (other.hasRunName()) {
           bitField0_ |= 0x00000004;
+          runName_ = other.runName_;
+          onChanged();
+        }
+        if (other.hasExperimentId()) {
+          bitField0_ |= 0x00000008;
           experimentId_ = other.experimentId_;
           onChanged();
         }
         if (other.hasUserId()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000010;
           userId_ = other.userId_;
           onChanged();
         }
@@ -8411,12 +8533,12 @@ public final class Service {
           setEndTime(other.getEndTime());
         }
         if (other.hasArtifactUri()) {
-          bitField0_ |= 0x00000080;
+          bitField0_ |= 0x00000100;
           artifactUri_ = other.artifactUri_;
           onChanged();
         }
         if (other.hasLifecycleStage()) {
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000200;
           lifecycleStage_ = other.lifecycleStage_;
           onChanged();
         }
@@ -8672,6 +8794,114 @@ public final class Service {
         return this;
       }
 
+      private java.lang.Object runName_ = "";
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return Whether the runName field is set.
+       */
+      public boolean hasRunName() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return The runName.
+       */
+      public java.lang.String getRunName() {
+        java.lang.Object ref = runName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return The bytes for runName.
+       */
+      public com.google.protobuf.ByteString
+          getRunNameBytes() {
+        java.lang.Object ref = runName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @param value The runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        runName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunName() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        runName_ = getDefaultInstance().getRunName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @param value The bytes for runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        runName_ = value;
+        onChanged();
+        return this;
+      }
+
       private java.lang.Object experimentId_ = "";
       /**
        * <pre>
@@ -8682,7 +8912,7 @@ public final class Service {
        * @return Whether the experimentId field is set.
        */
       public boolean hasExperimentId() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
@@ -8741,7 +8971,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         experimentId_ = value;
         onChanged();
         return this;
@@ -8755,7 +8985,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearExperimentId() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         experimentId_ = getDefaultInstance().getExperimentId();
         onChanged();
         return this;
@@ -8774,7 +9004,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         experimentId_ = value;
         onChanged();
         return this;
@@ -8792,7 +9022,7 @@ public final class Service {
        * @return Whether the userId field is set.
        */
       public boolean hasUserId() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -8857,7 +9087,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000010;
         userId_ = value;
         onChanged();
         return this;
@@ -8873,7 +9103,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearUserId() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         userId_ = getDefaultInstance().getUserId();
         onChanged();
         return this;
@@ -8894,7 +9124,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000010;
         userId_ = value;
         onChanged();
         return this;
@@ -8910,7 +9140,7 @@ public final class Service {
        * @return Whether the status field is set.
        */
       @java.lang.Override public boolean hasStatus() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <pre>
@@ -8939,7 +9169,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000020;
         status_ = value.getNumber();
         onChanged();
         return this;
@@ -8953,7 +9183,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000020);
         status_ = 1;
         onChanged();
         return this;
@@ -8970,7 +9200,7 @@ public final class Service {
        */
       @java.lang.Override
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000040) != 0);
       }
       /**
        * <pre>
@@ -8994,7 +9224,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000040;
         startTime_ = value;
         onChanged();
         return this;
@@ -9008,7 +9238,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000040);
         startTime_ = 0L;
         onChanged();
         return this;
@@ -9025,7 +9255,7 @@ public final class Service {
        */
       @java.lang.Override
       public boolean hasEndTime() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000080) != 0);
       }
       /**
        * <pre>
@@ -9049,7 +9279,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder setEndTime(long value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000080;
         endTime_ = value;
         onChanged();
         return this;
@@ -9063,7 +9293,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearEndTime() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000080);
         endTime_ = 0L;
         onChanged();
         return this;
@@ -9082,7 +9312,7 @@ public final class Service {
        * @return Whether the artifactUri field is set.
        */
       public boolean hasArtifactUri() {
-        return ((bitField0_ & 0x00000080) != 0);
+        return ((bitField0_ & 0x00000100) != 0);
       }
       /**
        * <pre>
@@ -9150,7 +9380,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000100;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -9167,7 +9397,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearArtifactUri() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000100);
         artifactUri_ = getDefaultInstance().getArtifactUri();
         onChanged();
         return this;
@@ -9189,7 +9419,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000100;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -9205,7 +9435,7 @@ public final class Service {
        * @return Whether the lifecycleStage field is set.
        */
       public boolean hasLifecycleStage() {
-        return ((bitField0_ & 0x00000100) != 0);
+        return ((bitField0_ & 0x00000200) != 0);
       }
       /**
        * <pre>
@@ -9264,7 +9494,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000200;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -9278,7 +9508,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearLifecycleStage() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000200);
         lifecycleStage_ = getDefaultInstance().getLifecycleStage();
         onChanged();
         return this;
@@ -9297,7 +9527,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000200;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -23303,6 +23533,35 @@ public final class Service {
 
     /**
      * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return Whether the runName field is set.
+     */
+    boolean hasRunName();
+    /**
+     * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The runName.
+     */
+    java.lang.String getRunName();
+    /**
+     * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The bytes for runName.
+     */
+    com.google.protobuf.ByteString
+        getRunNameBytes();
+
+    /**
+     * <pre>
      * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
@@ -23379,6 +23638,7 @@ public final class Service {
     private CreateRun() {
       experimentId_ = "";
       userId_ = "";
+      runName_ = "";
       tags_ = java.util.Collections.emptyList();
     }
 
@@ -23425,15 +23685,21 @@ public final class Service {
               userId_ = bs;
               break;
             }
-            case 56: {
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
+              runName_ = bs;
+              break;
+            }
+            case 56: {
+              bitField0_ |= 0x00000008;
               startTime_ = input.readInt64();
               break;
             }
             case 74: {
-              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000010) != 0)) {
                 tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>();
-                mutable_bitField0_ |= 0x00000008;
+                mutable_bitField0_ |= 0x00000010;
               }
               tags_.add(
                   input.readMessage(org.mlflow.api.proto.Service.RunTag.PARSER, extensionRegistry));
@@ -23454,7 +23720,7 @@ public final class Service {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+        if (((mutable_bitField0_ & 0x00000010) != 0)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
         }
         this.unknownFields = unknownFields.build();
@@ -24293,6 +24559,66 @@ public final class Service {
       }
     }
 
+    public static final int RUN_NAME_FIELD_NUMBER = 3;
+    private volatile java.lang.Object runName_;
+    /**
+     * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return Whether the runName field is set.
+     */
+    @java.lang.Override
+    public boolean hasRunName() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The runName.
+     */
+    @java.lang.Override
+    public java.lang.String getRunName() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 3;</code>
+     * @return The bytes for runName.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRunNameBytes() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     public static final int START_TIME_FIELD_NUMBER = 7;
     private long startTime_;
     /**
@@ -24305,7 +24631,7 @@ public final class Service {
      */
     @java.lang.Override
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
@@ -24401,6 +24727,9 @@ public final class Service {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, userId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runName_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
         output.writeInt64(7, startTime_);
       }
       for (int i = 0; i < tags_.size(); i++) {
@@ -24422,6 +24751,9 @@ public final class Service {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, userId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runName_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(7, startTime_);
       }
@@ -24454,6 +24786,11 @@ public final class Service {
         if (!getUserId()
             .equals(other.getUserId())) return false;
       }
+      if (hasRunName() != other.hasRunName()) return false;
+      if (hasRunName()) {
+        if (!getRunName()
+            .equals(other.getRunName())) return false;
+      }
       if (hasStartTime() != other.hasStartTime()) return false;
       if (hasStartTime()) {
         if (getStartTime()
@@ -24479,6 +24816,10 @@ public final class Service {
       if (hasUserId()) {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
         hash = (53 * hash) + getUserId().hashCode();
+      }
+      if (hasRunName()) {
+        hash = (37 * hash) + RUN_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getRunName().hashCode();
       }
       if (hasStartTime()) {
         hash = (37 * hash) + START_TIME_FIELD_NUMBER;
@@ -24627,11 +24968,13 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000001);
         userId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        startTime_ = 0L;
+        runName_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        startTime_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000008);
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000010);
         } else {
           tagsBuilder_.clear();
         }
@@ -24672,13 +25015,17 @@ public final class Service {
         }
         result.userId_ = userId_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
-          result.startTime_ = startTime_;
           to_bitField0_ |= 0x00000004;
         }
+        result.runName_ = runName_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          result.startTime_ = startTime_;
+          to_bitField0_ |= 0x00000008;
+        }
         if (tagsBuilder_ == null) {
-          if (((bitField0_ & 0x00000008) != 0)) {
+          if (((bitField0_ & 0x00000010) != 0)) {
             tags_ = java.util.Collections.unmodifiableList(tags_);
-            bitField0_ = (bitField0_ & ~0x00000008);
+            bitField0_ = (bitField0_ & ~0x00000010);
           }
           result.tags_ = tags_;
         } else {
@@ -24743,6 +25090,11 @@ public final class Service {
           userId_ = other.userId_;
           onChanged();
         }
+        if (other.hasRunName()) {
+          bitField0_ |= 0x00000004;
+          runName_ = other.runName_;
+          onChanged();
+        }
         if (other.hasStartTime()) {
           setStartTime(other.getStartTime());
         }
@@ -24750,7 +25102,7 @@ public final class Service {
           if (!other.tags_.isEmpty()) {
             if (tags_.isEmpty()) {
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000008);
+              bitField0_ = (bitField0_ & ~0x00000010);
             } else {
               ensureTagsIsMutable();
               tags_.addAll(other.tags_);
@@ -24763,7 +25115,7 @@ public final class Service {
               tagsBuilder_.dispose();
               tagsBuilder_ = null;
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000008);
+              bitField0_ = (bitField0_ & ~0x00000010);
               tagsBuilder_ = 
                 com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getTagsFieldBuilder() : null;
@@ -25030,6 +25382,114 @@ public final class Service {
         return this;
       }
 
+      private java.lang.Object runName_ = "";
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return Whether the runName field is set.
+       */
+      public boolean hasRunName() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return The runName.
+       */
+      public java.lang.String getRunName() {
+        java.lang.Object ref = runName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return The bytes for runName.
+       */
+      public com.google.protobuf.ByteString
+          getRunNameBytes() {
+        java.lang.Object ref = runName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @param value The runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        runName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunName() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        runName_ = getDefaultInstance().getRunName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 3;</code>
+       * @param value The bytes for runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        runName_ = value;
+        onChanged();
+        return this;
+      }
+
       private long startTime_ ;
       /**
        * <pre>
@@ -25041,7 +25501,7 @@ public final class Service {
        */
       @java.lang.Override
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
@@ -25065,7 +25525,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000008;
         startTime_ = value;
         onChanged();
         return this;
@@ -25079,7 +25539,7 @@ public final class Service {
        * @return This builder for chaining.
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         startTime_ = 0L;
         onChanged();
         return this;
@@ -25088,9 +25548,9 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.RunTag> tags_ =
         java.util.Collections.emptyList();
       private void ensureTagsIsMutable() {
-        if (!((bitField0_ & 0x00000008) != 0)) {
+        if (!((bitField0_ & 0x00000010) != 0)) {
           tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>(tags_);
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000010;
          }
       }
 
@@ -25284,7 +25744,7 @@ public final class Service {
       public Builder clearTags() {
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000010);
           onChanged();
         } else {
           tagsBuilder_.clear();
@@ -25389,7 +25849,7 @@ public final class Service {
           tagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               org.mlflow.api.proto.Service.RunTag, org.mlflow.api.proto.Service.RunTag.Builder, org.mlflow.api.proto.Service.RunTagOrBuilder>(
                   tags_,
-                  ((bitField0_ & 0x00000008) != 0),
+                  ((bitField0_ & 0x00000010) != 0),
                   getParentForChildren(),
                   isClean());
           tags_ = null;
@@ -25551,6 +26011,35 @@ public final class Service {
      * @return The endTime.
      */
     long getEndTime();
+
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return Whether the runName field is set.
+     */
+    boolean hasRunName();
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return The runName.
+     */
+    java.lang.String getRunName();
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return The bytes for runName.
+     */
+    com.google.protobuf.ByteString
+        getRunNameBytes();
   }
   /**
    * Protobuf type {@code mlflow.UpdateRun}
@@ -25568,6 +26057,7 @@ public final class Service {
       runId_ = "";
       runUuid_ = "";
       status_ = 1;
+      runName_ = "";
     }
 
     @java.lang.Override
@@ -25628,6 +26118,12 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               runId_ = bs;
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000010;
+              runName_ = bs;
               break;
             }
             default: {
@@ -26532,6 +27028,66 @@ public final class Service {
       return endTime_;
     }
 
+    public static final int RUN_NAME_FIELD_NUMBER = 5;
+    private volatile java.lang.Object runName_;
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return Whether the runName field is set.
+     */
+    @java.lang.Override
+    public boolean hasRunName() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return The runName.
+     */
+    @java.lang.Override
+    public java.lang.String getRunName() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Updated name of the run.
+     * </pre>
+     *
+     * <code>optional string run_name = 5;</code>
+     * @return The bytes for runName.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getRunNameBytes() {
+      java.lang.Object ref = runName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -26558,6 +27114,9 @@ public final class Service {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, runId_);
       }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, runName_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -26580,6 +27139,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, runId_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, runName_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -26615,6 +27177,11 @@ public final class Service {
         if (getEndTime()
             != other.getEndTime()) return false;
       }
+      if (hasRunName() != other.hasRunName()) return false;
+      if (hasRunName()) {
+        if (!getRunName()
+            .equals(other.getRunName())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -26642,6 +27209,10 @@ public final class Service {
         hash = (37 * hash) + END_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getEndTime());
+      }
+      if (hasRunName()) {
+        hash = (37 * hash) + RUN_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getRunName().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -26784,6 +27355,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000004);
         endTime_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000008);
+        runName_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -26828,6 +27401,10 @@ public final class Service {
           result.endTime_ = endTime_;
           to_bitField0_ |= 0x00000008;
         }
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.runName_ = runName_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -26892,6 +27469,11 @@ public final class Service {
         }
         if (other.hasEndTime()) {
           setEndTime(other.getEndTime());
+        }
+        if (other.hasRunName()) {
+          bitField0_ |= 0x00000010;
+          runName_ = other.runName_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -27255,6 +27837,114 @@ public final class Service {
       public Builder clearEndTime() {
         bitField0_ = (bitField0_ & ~0x00000008);
         endTime_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runName_ = "";
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @return Whether the runName field is set.
+       */
+      public boolean hasRunName() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @return The runName.
+       */
+      public java.lang.String getRunName() {
+        java.lang.Object ref = runName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @return The bytes for runName.
+       */
+      public com.google.protobuf.ByteString
+          getRunNameBytes() {
+        java.lang.Object ref = runName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @param value The runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        runName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearRunName() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        runName_ = getDefaultInstance().getRunName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Updated name of the run.
+       * </pre>
+       *
+       * <code>optional string run_name = 5;</code>
+       * @param value The bytes for runName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setRunNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        runName_ = value;
         onChanged();
         return this;
       }
@@ -53821,7 +54511,7 @@ public final class Service {
     internal_static_mlflow_RunInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunInfo_descriptor,
-        new java.lang.String[] { "RunId", "RunUuid", "ExperimentId", "UserId", "Status", "StartTime", "EndTime", "ArtifactUri", "LifecycleStage", });
+        new java.lang.String[] { "RunId", "RunUuid", "RunName", "ExperimentId", "UserId", "Status", "StartTime", "EndTime", "ArtifactUri", "LifecycleStage", });
     internal_static_mlflow_Experiment_descriptor =
       getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_Experiment_fieldAccessorTable = new
@@ -53917,7 +54607,7 @@ public final class Service {
     internal_static_mlflow_CreateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateRun_descriptor,
-        new java.lang.String[] { "ExperimentId", "UserId", "StartTime", "Tags", });
+        new java.lang.String[] { "ExperimentId", "UserId", "RunName", "StartTime", "Tags", });
     internal_static_mlflow_CreateRun_Response_descriptor =
       internal_static_mlflow_CreateRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_CreateRun_Response_fieldAccessorTable = new
@@ -53929,7 +54619,7 @@ public final class Service {
     internal_static_mlflow_UpdateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateRun_descriptor,
-        new java.lang.String[] { "RunId", "RunUuid", "Status", "EndTime", });
+        new java.lang.String[] { "RunId", "RunUuid", "Status", "EndTime", "RunName", });
     internal_static_mlflow_UpdateRun_Response_descriptor =
       internal_static_mlflow_UpdateRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_UpdateRun_Response_fieldAccessorTable = new

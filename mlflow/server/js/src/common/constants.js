@@ -30,7 +30,7 @@ export const RegisteringModelDocUrl =
 
 export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-syntax.html`;
+export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const ExperimentTrackingDocUrl = `${DOCS_ROOT}/tracking.html`;
 

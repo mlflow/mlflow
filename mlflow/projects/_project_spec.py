@@ -1,7 +1,6 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
-from shlex import quote
 import yaml
 
 from mlflow import data
