@@ -80,6 +80,7 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
                     estimator_params:
                         alpha: 0.1
                         penalty: l1
+                        eta0: 0.1
                     tuning:
                         enabled: true
                         max_trials: 2
@@ -89,6 +90,12 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
                                 distribution: "uniform"
                                 low: 0.0
                                 high: 0.01
+                            penalty:
+                                values: ["l2", "l1"]
+                            eta0:
+                                distribution: "normal"
+                                mu: 0.01
+                                sigma: 0.0001     
             """.format(
                 tracking_uri=mlflow.get_tracking_uri()
             )
@@ -224,6 +231,17 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
         train_step._run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
+    best_params_yaml = read_yaml(train_step_output_dir, "best_parameters.yaml")
+    assert "alpha" in best_params_yaml
+    assert "penalty" in best_params_yaml
+    assert "eta0" in best_params_yaml
+
+    run_id = open(train_step_output_dir / "run_id").read()
+    parent_run_params = MlflowClient().get_run(run_id).data.params
+    assert "alpha" in parent_run_params
+    assert "penalty" in parent_run_params
+    assert "eta0" in parent_run_params
+
 
 def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
     with mock.patch.dict(
@@ -237,8 +255,14 @@ def test_train_step_with_tuning_child_runs(tmp_pipeline_root_path):
         run_id = f.read()
 
     run = MlflowClient().get_run(run_id)
-    child_runs = train_step._get_tuning_df(run)
+    child_runs = train_step._get_tuning_df(run, params=["alpha", "penalty", "eta0"])
     assert len(child_runs) == 3
+    assert "params.alpha" in child_runs.columns
+    assert "params.penalty" in child_runs.columns
+    assert "params.eta0" in child_runs.columns
+
+    ordered_metrics = list(child_runs["metrics.root_mean_squared_error_on_data_validation"])
+    assert ordered_metrics == sorted(ordered_metrics)
 
 
 @pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")

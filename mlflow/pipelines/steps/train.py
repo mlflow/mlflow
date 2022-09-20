@@ -87,7 +87,8 @@ class TrainStep(BaseStep):
         search_space = {}
         for param_name, param_details in params.items():
             if "values" in param_details:
-                search_space[param_name] = hp.choice(param_name, **param_details)
+                param_details_to_pass = param_details["values"]
+                search_space[param_name] = hp.choice(param_name, param_details_to_pass)
             elif "distribution" in param_details:
                 hp_tuning_fn = getattr(hp, param_details["distribution"])
                 param_details_to_pass = param_details.copy()
@@ -103,7 +104,9 @@ class TrainStep(BaseStep):
 
     @classmethod
     def is_tuning_param_equal(cls, tuning_param, logged_param):
-        if isinstance(tuning_param, int):
+        if isinstance(tuning_param, bool):
+            return tuning_param == bool(logged_param)
+        elif isinstance(tuning_param, int):
             return tuning_param == int(logged_param)
         elif isinstance(tuning_param, float):
             return tuning_param == float(logged_param)
@@ -612,8 +615,8 @@ class TrainStep(BaseStep):
                             step_config["sample_fraction"] = sample_fraction
                         else:
                             raise MlflowException(
-                                "The 'sample_fraction' configuration in the train step must be "
-                                "between 0 and 1.",
+                                "The tuning 'sample_fraction' configuration in the train step "
+                                "must be between 0 and 1.",
                                 error_code=INVALID_PARAMETER_VALUE,
                             )
                     else:
@@ -624,13 +627,15 @@ class TrainStep(BaseStep):
 
                     if "max_trials" not in step_config["tuning"]:
                         raise MlflowException(
-                            "The 'max_trials' configuration in the train step must be provided.",
+                            "The 'max_trials' configuration in the train step must be provided "
+                            " when tuning is enabled.",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
 
                     if "parameters" not in step_config["tuning"]:
                         raise MlflowException(
-                            "The 'parameters' configuration in the train step must be provided.",
+                            "The 'parameters' configuration in the train step must be provided "
+                            " when tuning is enabled.",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
 
@@ -674,7 +679,7 @@ class TrainStep(BaseStep):
     ):
         tuning_params = self.step_config["tuning"]
         try:
-            from hyperopt import fmin, Trials
+            from hyperopt import fmin, Trials, space_eval
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
@@ -749,6 +754,7 @@ class TrainStep(BaseStep):
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(estimator_hardcoded_params)
+        best_hp_params = space_eval(search_space, best_hp_params)
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
             best_hardcoded_params = {
@@ -807,4 +813,6 @@ class TrainStep(BaseStep):
                 processed_data[key] = int(value)
             else:
                 processed_data[key] = value
-        return yaml.safe_dump(processed_data, file, **kwargs)
+
+        if len(processed_data) > 0:
+            yaml.safe_dump(processed_data, file, **kwargs)
