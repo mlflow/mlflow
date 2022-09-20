@@ -507,10 +507,15 @@ class _ServedPyFuncModel(PyFuncModel):
 
 def _load_model_or_server(model_uri: str, env_manager: str):
     """
+    Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
+    independent Python environment with the training time dependencies of the specified model
+    installed and start a MLflow Model Scoring Server process with that model in that environment.
+    Return a _ServedPyFuncModel that invokes the scoring server for prediction. Otherwise, load and
+    return the model locally as a PyFuncModel using :py:func:`mlflow.pyfunc.load_model`.
+
     :param model_uri: The uri of the model.
-    :param env_manager: The env_manager to load the model
-    :return: A tuple containing, in order: the PID of the model server (for non-local env managers),
-             and the loaded PyFuncModel.
+    :param env_manager: The environment manager to load the model.
+    :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
     from mlflow.models.cli import _get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
