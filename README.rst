@@ -1,3 +1,4 @@
+This project is tested with BrowserStack.
 =============================================
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
