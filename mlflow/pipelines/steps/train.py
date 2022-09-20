@@ -779,7 +779,13 @@ class TrainStep(BaseStep):
 
         if on_worker:
             mlflow.log_params(estimator.get_params())
-            mlflow.set_tags(mlflow.sklearn.utils._get_estimator_info_tags(estimator))
+            estimator_tags = {
+                "estimator_name": estimator.__class__.__name__,
+                "estimator_class": (
+                    estimator.__class__.__module__ + "." + estimator.__class__.__name__
+                ),
+            }
+            mlflow.set_tags(estimator_tags)
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
