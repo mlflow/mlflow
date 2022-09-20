@@ -642,10 +642,7 @@ class TrainStep(BaseStep):
     ):
         tuning_params = self.step_config["tuning"]
         try:
-            import hyperopt
-
-            hyperopt.mlflow_utils._MLflowLogging._EN_WORKER_USER_LOGGING = False
-            hyperopt._mlflow = None
+            from hyperopt import fmin, Trials, SparkTrials
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
@@ -653,7 +650,7 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
+        def objective(X_train, y_train, validation_df, hyperparameter_args, tags, on_worker=False):
             if on_worker:
                 from mlflow.tracking import MlflowClient
 
@@ -743,14 +740,16 @@ class TrainStep(BaseStep):
             y_train = sc.broadcast(y_train)
             validation_df = sc.broadcast(validation_df)
 
-            hp_trials = hyperopt.SparkTrials(parallelism, spark_session=spark_session)
+            hp_trials = SparkTrials(parallelism, spark_session=spark_session)
             on_worker = True
         else:
-            hp_trials = hyperopt.Trials()
+            hp_trials = Trials()
             on_worker = False
 
-        best_hp_params = hyperopt.fmin(
-            lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
+        best_hp_params = fmin(
+            lambda params: objective(
+                X_train, y_train, validation_df, params, tags, on_worker=on_worker
+            ),
             search_space,
             algo=tuning_algo,
             max_evals=max_trials,
@@ -758,7 +757,7 @@ class TrainStep(BaseStep):
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(
-            X_train, y_train, validation_df, estimator_hardcoded_params
+            X_train, y_train, validation_df, estimator_hardcoded_params, tags
         )
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
