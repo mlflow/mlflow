@@ -503,7 +503,10 @@ def load_model(
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     loader_module = conf[MAIN]
-    model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
+    if loader_module in ["mlflow.tensorflow", "mlflow.keras"]:
+        model_impl = mlflow.tensorflow._load_pyfunc(data_path)
+    else:
+        model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
