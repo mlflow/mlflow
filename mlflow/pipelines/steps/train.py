@@ -654,67 +654,70 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args):
-            with mlflow.start_run(run_id=parent_run_id):
-                with mlflow.start_run(nested=True) as tuning_run:
-                    estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
-                    estimator = estimator_fn(estimator_args)
+            from mlflow.tracking import MlflowClient
 
-                    sample_fraction = self.step_config["sample_fraction"]
+            client = MlflowClient()
+            child_run = client.create_run(
+                _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
+            )
+            with mlflow.start_run(run_id=child_run.info.run_id) as tuning_run:
+                estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
+                estimator = estimator_fn(estimator_args)
 
-                    # if sparktrials, then read from broadcast
-                    if tuning_params["parallelism"] > 1:
-                        X_train = X_train.value
-                        y_train = y_train.value
-                        validation_df = validation_df.value
+                sample_fraction = self.step_config["sample_fraction"]
 
-                    X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
-                    y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
+                # if sparktrials, then read from broadcast
+                if tuning_params["parallelism"] > 1:
+                    X_train = X_train.value
+                    y_train = y_train.value
+                    validation_df = validation_df.value
 
-                    estimator.fit(X_train_sampled, y_train_sampled)
+                X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
+                y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
-                    logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+                estimator.fit(X_train_sampled, y_train_sampled)
 
-                    eval_result = mlflow.evaluate(
-                        model=logged_estimator.model_uri,
-                        data=validation_df,
-                        targets=self.target_col,
-                        model_type="regressor",
-                        evaluators="default",
-                        dataset_name="validation",
-                        custom_metrics=_load_custom_metric_functions(
-                            self.pipeline_root,
-                            self.evaluation_metrics.values(),
-                        ),
-                        evaluator_config={
-                            "log_model_explainability": False,
-                        },
-                    )
-                    autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
-                    manual_log_params = {}
-                    for param_name, param_value in estimator_args.items():
-                        if param_name in autologged_params:
-                            if not self._is_tuning_param_equal(
-                                param_value, autologged_params[param_name]
-                            ):
-                                _logger.warning(
-                                    f"Failed to log search space parameter due to conflict. "
-                                    f"Attempted to log search space parameter {param_name} as "
-                                    f"{param_value}, but {param_name} is already logged as "
-                                    f"{autologged_params[param_name]} during training. "
-                                    f"Are you passing `estimator_params` properly to the "
-                                    f" estimator?"
-                                )
-                        else:
-                            manual_log_params[param_name] = param_value
+                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
 
-                    if len(manual_log_params) > 0:
-                        mlflow.log_params(manual_log_params)
+                eval_result = mlflow.evaluate(
+                    model=logged_estimator.model_uri,
+                    data=validation_df,
+                    targets=self.target_col,
+                    model_type="regressor",
+                    evaluators="default",
+                    dataset_name="validation",
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
+                    ),
+                    evaluator_config={
+                        "log_model_explainability": False,
+                    },
+                )
+                autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
+                manual_log_params = {}
+                for param_name, param_value in estimator_args.items():
+                    if param_name in autologged_params:
+                        if not self._is_tuning_param_equal(
+                            param_value, autologged_params[param_name]
+                        ):
+                            _logger.warning(
+                                f"Failed to log search space parameter due to conflict. "
+                                f"Attempted to log search space parameter {param_name} as "
+                                f"{param_value}, but {param_name} is already logged as "
+                                f"{autologged_params[param_name]} during training. "
+                                f"Are you passing `estimator_params` properly to the "
+                                f" estimator?"
+                            )
+                    else:
+                        manual_log_params[param_name] = param_value
 
-                    # return +/- metric
-                    sign = (
-                        -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
-                    )
-                    return sign * eval_result.metrics[self.primary_metric]
+                if len(manual_log_params) > 0:
+                    mlflow.log_params(manual_log_params)
+
+                # return +/- metric
+                sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
+                return sign * eval_result.metrics[self.primary_metric]
 
         search_space = self._construct_search_space_from_yaml(tuning_params["parameters"])
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
