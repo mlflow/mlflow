@@ -1154,8 +1154,8 @@ should be at least 0.05 greater than baseline model accuracy
                                       this baseline for model validation purposes.
 
     :param env_manager: Specify an environment manager to load the candidate ``model`` and
-                        ``baseline_model`` in isolated Python evironments where their training time 
-                        dependencies are restored. Default value is ``local``, and the following 
+                        ``baseline_model`` in isolated Python evironments and restore their dependencies.
+                        Default value is ``local``, and the following 
                         values are supported:
 
                          - ``virtualenv``: (Recommended) Use virtualenv to restore the python 
