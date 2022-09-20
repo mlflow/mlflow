@@ -159,7 +159,7 @@ class TrainStep(BaseStep):
 
             estimator.fit(X_train, y_train)
 
-            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+            logged_estimator = self._log_estimator_to_mlflow(estimator, tags, X_train)
 
             # Create a pipeline consisting of the transformer+model for test data evaluation
             with open(transformer_path, "rb") as f:
@@ -651,12 +651,13 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args, tags, on_worker=False):
+            print("tags in objective: ", tags)
             if on_worker:
                 from mlflow.tracking import MlflowClient
 
                 client = MlflowClient()
                 child_run = client.create_run(
-                    _get_experiment_id(), tags={**tags, "mlflow.parentRunId": parent_run_id}
+                    _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
                 )
                 run_args = {"run_id": child_run.info.run_id}
             else:
@@ -679,7 +680,7 @@ class TrainStep(BaseStep):
                 estimator.fit(X_train_sampled, y_train_sampled)
 
                 logged_estimator = self._log_estimator_to_mlflow(
-                    estimator, X_train_sampled, on_worker=on_worker
+                    estimator, X_train_sampled, tags, on_worker=on_worker
                 )
 
                 eval_result = mlflow.evaluate(
@@ -774,7 +775,7 @@ class TrainStep(BaseStep):
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
-    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, tags, on_worker=False):
         from mlflow.models.signature import infer_signature
 
         if hasattr(estimator, "best_score_"):
@@ -783,6 +784,7 @@ class TrainStep(BaseStep):
             mlflow.log_params(estimator.best_params_)
 
         if on_worker:
+            mlflow.set_tags(tags)
             mlflow.log_params(estimator.get_params())
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
