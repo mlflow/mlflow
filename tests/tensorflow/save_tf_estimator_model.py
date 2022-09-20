@@ -142,9 +142,7 @@ def save_tf_categorical_model(tmpdir):
     y_train = df.pop("price")
 
     # Create the required input training function
-    trainingFeatures = {}
-    for i in df:
-        trainingFeatures[i] = df[i].values
+    trainingFeatures = df.to_dict(orient="series")
 
     # Create the feature columns required for the DNNRegressor
     body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]

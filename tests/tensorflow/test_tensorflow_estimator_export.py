@@ -21,7 +21,6 @@ from mlflow.pyfunc.backend import _execute_in_conda_env
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
-    chdir,
     assert_pandas_dataframe_almost_equal,
     assert_array_almost_equal,
 )
@@ -59,17 +58,14 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, model_path=
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
 
-    with chdir(tmpdir):
-        # Change the current working directory to a temporary directory
-        # to avoid importing mlflow from the repository.
-        _execute_in_conda_env(
-            conda_env,
-            f"python {exec_py_path} {tracking_uri} {mlflow_repo_path} {model_type} {task_type} "
-            f"{'--save_path ' + model_path if model_path else ''}",
-            install_mlflow=False,
-        )
-        with open(output_data_file_path, "rb") as f:
-            return ModelDataInfo(*pickle.load(f))
+    _execute_in_conda_env(
+        conda_env,
+        f"python {exec_py_path} {tracking_uri} {mlflow_repo_path} {model_type} {task_type} "
+        f"{'--save_path ' + model_path if model_path else ''}",
+        install_mlflow=False,
+    )
+    with open(output_data_file_path, "rb") as f:
+        return ModelDataInfo(*pickle.load(f))
 
 
 def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
@@ -79,24 +75,21 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
 
-    with chdir(tmpdir):
-        # change current working directory to be a temporary directory,
-        # to prevent importing current repo mlflow module.
-        _execute_in_conda_env(
-            conda_env,
-            f"python {exec_py_path} {tracking_uri} {task_type} {save_as_type} "
-            f"{'--save_path ' + save_path if save_path else ''}",
-            install_mlflow=False,
+    _execute_in_conda_env(
+        conda_env,
+        f"python {exec_py_path} {tracking_uri} {task_type} {save_as_type} "
+        f"{'--save_path ' + save_path if save_path else ''}",
+        install_mlflow=False,
+    )
+    with open(output_data_file_path, "rb") as f:
+        inference_df, expected_results_df, run_id = pickle.load(f)
+        return ModelDataInfo(
+            inference_df=inference_df,
+            expected_results_df=expected_results_df,
+            raw_results=None,
+            raw_df=None,
+            run_id=run_id,
         )
-        with open(output_data_file_path, "rb") as f:
-            inference_df, expected_results_df, run_id = pickle.load(f)
-            return ModelDataInfo(
-                inference_df=inference_df,
-                expected_results_df=expected_results_df,
-                raw_results=None,
-                raw_df=None,
-                run_id=run_id,
-            )
 
 
 def test_load_model_from_remote_uri_succeeds(tmpdir, model_path, mock_s3_bucket, monkeypatch):
