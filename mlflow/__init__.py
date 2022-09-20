@@ -102,6 +102,8 @@ except ImportError as e:
     # not support them due to the pandas and numpy dependencies of MLflow Models
     pass
 
+# redirect ``mlflow.keras`` to ``mlflow.tensorflow``
+keras = tensorflow
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
