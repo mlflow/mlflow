@@ -784,6 +784,14 @@ class TrainStep(BaseStep):
             mlflow.log_params(estimator.best_params_)
 
         if on_worker:
+            tags = {
+                MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
+                MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+                MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
+                MLFLOW_PIPELINE_STEP_NAME: os.getenv(
+                    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
+                ),
+            }
             mlflow.set_tags(tags)
             mlflow.log_params(estimator.get_params())
         estimator_schema = infer_signature(
