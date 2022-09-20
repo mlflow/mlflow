@@ -2,7 +2,6 @@ import base64
 import logging
 import os
 import posixpath
-import time
 
 import requests
 import uuid
@@ -54,8 +53,8 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
 )
 
-# pylint: disable=print-function
 _logger = logging.getLogger(__name__)
+logging.basicConfig(filename="mlflow_adl2.log", encoding="utf-8", level=logging.WARNING)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
@@ -246,9 +245,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            now = time.time()
-            with open("/databricks/driver/mlflow{}.log".format(now), "w") as f:
-                f.write("credential headers dict: {}\n".format(headers))
+            _logger.warning("credential headers dict: %s", headers)
             # try to create the file
             try:
                 put_adls_file_creation(credentials.signed_uri, headers=headers)
@@ -330,18 +327,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
         Upload a local file to the specified run-relative `dst_run_relative_artifact_path` using
         the supplied `cloud_credential_info`.
         """
+        _logger.warning("Got URL: %s", cloud_credential_info.signed_uri)
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
+            _logger.warning("Got Gen 1 URL")
             self._azure_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            now = time.time()
-            with open("/databricks/driver/mlflow{}.log".format(now), "w") as f:
-                f.write("Got Gen 2 URL: {}\n".format(cloud_credential_info.signed_uri))
-                f.write("src_file_path: {}\n".format(src_file_path))
-                f.write(
-                    "dst_run_relative_artifact_path: {}\n".format(dst_run_relative_artifact_path)
-                )
+            _logger.warning("Got Gen 2 URL")
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
