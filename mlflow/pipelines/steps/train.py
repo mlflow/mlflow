@@ -187,7 +187,7 @@ class TrainStep(BaseStep):
                     output_directory,
                 )
                 estimator = estimator_fn(best_estimator_params)
-            elif estimator_hardcoded_params != {}:
+            elif len(estimator_hardcoded_params) > 0:
                 estimator = estimator_fn(estimator_hardcoded_params)
             else:
                 estimator = estimator_fn()
