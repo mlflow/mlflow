@@ -53,9 +53,9 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
 )
 
+# pylint: disable=unreachable
 _logger = logging.getLogger(__name__)
 logging.basicConfig(filename="mlflow_adl2.log", encoding="utf-8", level=logging.WARNING)
-_logger.warning("test logger output")
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
@@ -330,12 +330,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         _logger.warning("Got URL: %s", cloud_credential_info.signed_uri)
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            _logger.warning("Got Gen 1 URL")
+            raise MlflowException("Got Gen 1 URL: ", cloud_credential_info.signed_uri)
             self._azure_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            _logger.warning("Got Gen 2 URL")
+            raise MlflowException("Got Gen 2 URL: ", cloud_credential_info.signed_uri)
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
@@ -408,6 +408,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return run_relative_artifact_path
 
     def log_artifact(self, local_file, artifact_path=None):
+        _logger.warning("test logger output")
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
             src_file_path=local_file,
             dst_artifact_dir=artifact_path,
