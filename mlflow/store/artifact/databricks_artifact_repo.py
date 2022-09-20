@@ -330,12 +330,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         _logger.warning("Got URL: %s", cloud_credential_info.signed_uri)
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            raise MlflowException("Got Gen 1 URL: ", cloud_credential_info.signed_uri)
+            _logger.warning("Got Gen 1 URL: %s", cloud_credential_info.signed_uri)
             self._azure_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            raise MlflowException("Got Gen 2 URL: ", cloud_credential_info.signed_uri)
+            _logger.warning("Got Gen 2 URL: %s", cloud_credential_info.signed_uri)
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
@@ -416,7 +416,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         write_credential_info = self._get_write_credential_infos(
             run_id=self.run_id, paths=[run_relative_artifact_path]
         )[0]
-        raise MlflowException("Got URL: ", write_credential_info.signed_uri)
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,
