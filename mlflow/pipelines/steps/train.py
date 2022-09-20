@@ -179,6 +179,7 @@ class TrainStep(BaseStep):
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
                 best_estimator_params = self._tune_and_get_best_estimator_params(
+                    run.info.run_id,
                     estimator_hardcoded_params,
                     estimator_fn,
                     X_train,
@@ -194,7 +195,7 @@ class TrainStep(BaseStep):
 
             estimator.fit(X_train, y_train)
 
-            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train, tags)
 
             # Create a pipeline consisting of the transformer+model for test data evaluation
             with open(transformer_path, "rb") as f:
@@ -625,10 +626,12 @@ class TrainStep(BaseStep):
                     if "algorithm" not in step_config["tuning"]:
                         step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
 
+                    if "parallelism" not in step_config["tuning"]:
+                        step_config["tuning"]["parallelism"] = 1
+
                     if "max_trials" not in step_config["tuning"]:
                         raise MlflowException(
-                            "The 'max_trials' configuration in the train step must be provided "
-                            " when tuning is enabled.",
+                            "The 'max_trials' configuration in the train step must be provided.",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
 
@@ -670,6 +673,7 @@ class TrainStep(BaseStep):
 
     def _tune_and_get_best_estimator_params(
         self,
+        parent_run_id,
         estimator_hardcoded_params,
         estimator_fn,
         X_train,
@@ -679,7 +683,7 @@ class TrainStep(BaseStep):
     ):
         tuning_params = self.step_config["tuning"]
         try:
-            from hyperopt import fmin, Trials, space_eval
+            from hyperopt import fmin, Trials, SparkTrials, space_eval
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
@@ -687,18 +691,36 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(hyperparameter_args):
-            with mlflow.start_run(nested=True) as tuning_run:
+        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
+            if on_worker:
+                client = MlflowClient()
+                parent_tags = client.get_run(parent_run_id).data.tags
+                child_run = client.create_run(
+                    _get_experiment_id(), tags={**parent_tags, "mlflow.parentRunId": parent_run_id}
+                )
+                run_args = {"run_id": child_run.info.run_id}
+            else:
+                run_args = {"nested": True}
+            with mlflow.start_run(**run_args) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
 
                 sample_fraction = self.step_config["sample_fraction"]
+
+                # if sparktrials, then read from broadcast
+                if tuning_params["parallelism"] > 1:
+                    X_train = X_train.value
+                    y_train = y_train.value
+                    validation_df = validation_df.value
+
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                 y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
                 estimator.fit(X_train_sampled, y_train_sampled)
 
-                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+                logged_estimator = self._log_estimator_to_mlflow(
+                    estimator, X_train_sampled, on_worker=on_worker
+                )
 
                 eval_result = mlflow.evaluate(
                     model=logged_estimator.model_uri,
@@ -723,11 +745,12 @@ class TrainStep(BaseStep):
                             param_value, autologged_params[param_name]
                         ):
                             _logger.warning(
-                                f"Failed to log search space parameter due to conflict. Attempted "
-                                f"to log search space parameter {param_name} as {param_value}, "
-                                f"but {param_name} is already logged as "
+                                f"Failed to log search space parameter due to conflict. "
+                                f"Attempted to log search space parameter {param_name} as "
+                                f"{param_value}, but {param_name} is already logged as "
                                 f"{autologged_params[param_name]} during training. "
-                                f"Are you passing `estimator_params` properly to the estimator?"
+                                f"Are you passing `estimator_params` properly to the "
+                                f" estimator?"
                             )
                     else:
                         manual_log_params[param_name] = param_value
@@ -743,13 +766,31 @@ class TrainStep(BaseStep):
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
         tuning_algo = getattr(importlib.import_module(algo_type, "hyperopt"), algo_name)
         max_trials = tuning_params["max_trials"]
-        hp_trials = Trials()
+        parallelism = tuning_params["parallelism"]
+
+        if parallelism > 1:
+            from pyspark.sql import SparkSession
+
+            spark_session = SparkSession.builder.config(
+                "spark.databricks.mlflow.trackHyperopt.enabled", "false"
+            ).getOrCreate()
+            sc = spark_session.sparkContext
+
+            X_train = sc.broadcast(X_train)
+            y_train = sc.broadcast(y_train)
+            validation_df = sc.broadcast(validation_df)
+
+            hp_trials = SparkTrials(parallelism, spark_session=spark_session)
+            on_worker = True
+        else:
+            hp_trials = Trials()
+            on_worker = False
 
         if "early_stop_fn" in tuning_params:
             train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             best_hp_params = fmin(
-                objective,
+                lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
                 search_space,
                 algo=tuning_algo,
                 max_evals=max_trials,
@@ -758,14 +799,17 @@ class TrainStep(BaseStep):
             )
         else:
             best_hp_params = fmin(
-                objective,
+                lambda params: objective(X_train, y_train, validation_df, params, on_worker=on_worker),
                 search_space,
                 algo=tuning_algo,
                 max_evals=max_trials,
                 trials=hp_trials,
+                early_stop_fn=early_stop_fn,
             )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
-        hardcoded_estimator_loss = objective(estimator_hardcoded_params)
+        hardcoded_estimator_loss = objective(
+            X_train, y_train, validation_df, estimator_hardcoded_params
+        )
         best_hp_params = space_eval(search_space, best_hp_params)
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
@@ -782,7 +826,7 @@ class TrainStep(BaseStep):
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
-    def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
 
         if hasattr(estimator, "best_score_"):
@@ -790,6 +834,15 @@ class TrainStep(BaseStep):
         if hasattr(estimator, "best_params_"):
             mlflow.log_params(estimator.best_params_)
 
+        if on_worker:
+            mlflow.log_params(estimator.get_params())
+            estimator_tags = {
+                "estimator_name": estimator.__class__.__name__,
+                "estimator_class": (
+                    estimator.__class__.__module__ + "." + estimator.__class__.__name__
+                ),
+            }
+            mlflow.set_tags(estimator_tags)
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
