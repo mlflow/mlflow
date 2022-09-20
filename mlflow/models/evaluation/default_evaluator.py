@@ -17,6 +17,7 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from sklearn import metrics as sk_metrics
@@ -79,9 +80,7 @@ def _extract_raw_model(model):
     """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
-        if model_loader_module == "mlflow.sklearn" and not isinstance(
-            model, mlflow.pyfunc._ServedPyFuncModel
-        ):
+        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
             raw_model = model._model_impl
         else:
             raw_model = None
@@ -1149,7 +1148,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.model = model
             self.is_baseline_model = is_baseline_model
 
-            self.is_model_server = isinstance(model, mlflow.pyfunc._ServedPyFuncModel)
+            self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
