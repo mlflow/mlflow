@@ -971,7 +971,7 @@ def evaluate(
           does not compute metrics/artifacts that require those methods.
         - Because the model is an MLflow Model Server process, SHAP explanations are slower to compute. As such, model 
           explainaibility is disabled when a non-local ``env_manager`` specified, unless the 
-          ``evaluator_config`` option **log_model_explainability** is explicitly set to `True`.
+          ``evaluator_config`` option **log_model_explainability** is explicitly set to ``True``.
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
 
