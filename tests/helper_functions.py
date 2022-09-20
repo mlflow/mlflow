@@ -14,6 +14,7 @@ import subprocess
 import uuid
 import sys
 import yaml
+import numbers
 
 import pytest
 
@@ -480,3 +481,15 @@ class StartsWithMatcher:
 class AnyStringWith(str):
     def __eq__(self, other):
         return self in other
+
+
+def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
+    import numpy as np
+
+    elem0 = actual_array[0]
+    if isinstance(elem0, numbers.Number) or (
+        isinstance(elem0, (list, np.ndarray)) and isinstance(elem0[0], numbers.Number)
+    ):
+        np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
+    else:
+        np.testing.assert_array_equal(actual_array, desired_array)

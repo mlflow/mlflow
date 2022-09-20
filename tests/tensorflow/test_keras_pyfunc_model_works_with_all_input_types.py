@@ -1,6 +1,5 @@
 import os
 import pytest
-from packaging.version import Version
 
 from sklearn import datasets
 import pandas as pd
@@ -8,17 +7,9 @@ import numpy as np
 
 import mlflow
 
-import keras
-
-# pylint: disable=no-name-in-module,reimported
-if Version(keras.__version__) >= Version("2.6.0"):
-    from tensorflow.keras.models import Sequential, Model
-    from tensorflow.keras.layers import Dense, Input, Concatenate
-    from tensorflow.keras.optimizers import SGD
-else:
-    from keras.models import Sequential, Model
-    from keras.layers import Dense, Input, Concatenate
-    from keras.optimizers import SGD
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Input, Concatenate
+from tensorflow.keras.optimizers import SGD
 
 
 @pytest.fixture
@@ -64,7 +55,7 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
     x, _ = data
     model_path = os.path.join(model_path, "plain")
     expected = single_tensor_input_model.predict(x.values)
-    mlflow.keras.save_model(single_tensor_input_model, model_path)
+    mlflow.tensorflow.save_model(single_tensor_input_model, path=model_path)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
@@ -86,7 +77,7 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
 
     model_path = os.path.join(model_path, "plain")
     expected = multi_tensor_input_model.predict(test_input)
-    mlflow.keras.save_model(multi_tensor_input_model, model_path)
+    mlflow.tensorflow.save_model(multi_tensor_input_model, path=model_path)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)

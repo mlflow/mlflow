@@ -1,6 +1,0 @@
-python: '3.7'
-build_dependencies:
-- pip
-dependencies:
-- mlflow
-- tensorflow==2.0.0

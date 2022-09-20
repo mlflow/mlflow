@@ -6,7 +6,6 @@ The built-in flavors are:
 
 - :py:mod:`mlflow.pyfunc`
 - :py:mod:`mlflow.h2o`
-- :py:mod:`mlflow.keras`
 - :py:mod:`mlflow.lightgbm`
 - :py:mod:`mlflow.pytorch`
 - :py:mod:`mlflow.sklearn`

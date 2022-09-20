@@ -57,7 +57,6 @@ try:
     from mlflow import fastai
     from mlflow import gluon
     from mlflow import h2o
-    from mlflow import keras
     from mlflow import lightgbm
     from mlflow import mleap
     from mlflow import onnx
@@ -68,6 +67,7 @@ try:
     from mlflow import spark
     from mlflow import statsmodels
     from mlflow import tensorflow
+    from mlflow import keras
     from mlflow import xgboost
     from mlflow import shap
     from mlflow import pyspark
@@ -81,7 +81,6 @@ try:
         "fastai",
         "gluon",
         "h2o",
-        "keras",
         "lightgbm",
         "mleap",
         "onnx",
@@ -92,6 +91,7 @@ try:
         "spark",
         "statsmodels",
         "tensorflow",
+        "keras",
         "xgboost",
         "shap",
         "paddle",
