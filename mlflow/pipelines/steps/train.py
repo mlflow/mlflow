@@ -651,7 +651,7 @@ class TrainStep(BaseStep):
             )
 
         # wrap training in objective fn
-        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=True):
+        def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
             if on_worker:
                 from mlflow.tracking import MlflowClient
 
@@ -679,7 +679,9 @@ class TrainStep(BaseStep):
 
                 estimator.fit(X_train_sampled, y_train_sampled)
 
-                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train_sampled)
+                logged_estimator = self._log_estimator_to_mlflow(
+                    estimator, X_train_sampled, on_worker=on_worker
+                )
 
                 eval_result = mlflow.evaluate(
                     model=logged_estimator.model_uri,
@@ -744,7 +746,7 @@ class TrainStep(BaseStep):
             hp_trials = hyperopt.Trials()
 
         best_hp_params = hyperopt.fmin(
-            lambda params: objective(X_train, y_train, validation_df, params),
+            lambda params: objective(X_train, y_train, validation_df, params, on_worker=True),
             search_space,
             algo=tuning_algo,
             max_evals=max_trials,
@@ -752,7 +754,7 @@ class TrainStep(BaseStep):
         )
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         hardcoded_estimator_loss = objective(
-            X_train, y_train, validation_df, estimator_hardcoded_params, on_worker=False
+            X_train, y_train, validation_df, estimator_hardcoded_params
         )
 
         if best_hp_estimator_loss < hardcoded_estimator_loss:
@@ -769,7 +771,7 @@ class TrainStep(BaseStep):
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
-    def _log_estimator_to_mlflow(self, estimator, X_train_sampled):
+    def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
 
         if hasattr(estimator, "best_score_"):
@@ -777,7 +779,8 @@ class TrainStep(BaseStep):
         if hasattr(estimator, "best_params_"):
             mlflow.log_params(estimator.best_params_)
 
-        # mlflow.log_params(estimator.get_params())
+        if on_worker:
+            mlflow.log_params(estimator.get_params())
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
