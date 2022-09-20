@@ -652,13 +652,14 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args):
-            from mlflow.tracking import MlflowClient
+            # from mlflow.tracking import MlflowClient
 
-            client = MlflowClient()
-            child_run = client.create_run(
-                _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
-            )
-            with mlflow.start_run(run_id=child_run.info.run_id) as tuning_run:
+            # client = MlflowClient()
+            # child_run = client.create_run(
+            #     _get_experiment_id(), tags={"mlflow.parentRunId": parent_run_id}
+            # )
+            # with mlflow.start_run(run_id=child_run.info.run_id) as tuning_run:
+            with mlflow.start_run(nested=True) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
 
