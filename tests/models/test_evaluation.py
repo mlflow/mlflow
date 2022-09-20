@@ -35,6 +35,8 @@ from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.models.evaluation.base import _logger as _base_logger, _gen_md5_for_arraylike_obj
+from mlflow.pyfunc import _ServedPyFuncModel
+from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
 from sklearn.metrics import (
     accuracy_score,
@@ -1080,7 +1082,11 @@ def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
 
 
 def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_uri, iris_dataset):
+    # Mock the _load_model_or_server() results to avoid starting model servers
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    client = ScoringServerClient("127.0.0.1", "8080")
+    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
+    served_model_2 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=2)
 
     with mock.patch.object(
         _model_evaluation_registry,
@@ -1093,7 +1099,7 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
     ) as server_loader, mock.patch(
         "os.kill"
     ) as os_mock:
-        server_loader.side_effect = [(1, model), (2, model)]
+        server_loader.side_effect = [served_model_1, served_model_2]
         evaluate(
             multiclass_logistic_regressor_model_uri,
             iris_dataset._constructor_args["data"],

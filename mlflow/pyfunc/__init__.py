@@ -488,8 +488,15 @@ def load_model(
 
 class _ServedPyFuncModel(PyFuncModel):
     def __init__(self, model_meta: Model, client: Any, server_pid: int):
-        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="_predict")
+        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
+        self._client = client
         self._server_pid = server_pid
+
+    def predict(self, data):
+        result = self._client.invoke(data)
+        if isinstance(result, pandas.DataFrame):
+            result = result[result.columns[0]]
+        return result
 
     @property
     def pid(self):
