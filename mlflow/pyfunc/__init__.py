@@ -272,7 +272,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
+    _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
@@ -281,7 +281,6 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -801,7 +800,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         LongType,
         StringType,
     )
-    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     _EnvManager.validate(env_manager)
 
