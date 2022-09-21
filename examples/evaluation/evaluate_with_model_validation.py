@@ -69,6 +69,9 @@ with mlflow.start_run() as run:
         validation_thresholds=thresholds,
         custom_metrics=[double_positive],
         baseline_model=baseline_model_uri,
+        # set to env_manager to "virtualenv" or "conda" to score the candidate and baseline models
+        # in isolated Python environments where their dependencies are restored.
+        env_manager="local",
     )
     # If you would like to catch model validation failures, you can add try except clauses around
     # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top
