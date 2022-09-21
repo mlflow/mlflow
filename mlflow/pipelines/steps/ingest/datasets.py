@@ -26,7 +26,10 @@ from mlflow.utils.file_utils import (
     read_parquet_as_pandas_df,
     download_file_using_http_uri,
 )
-from mlflow.utils._spark_utils import _get_active_spark_session, _create_spark_session
+from mlflow.utils._spark_utils import (
+    _get_active_spark_session,
+    _create_local_spark_session_for_pipelines,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -506,7 +509,7 @@ class _SparkDatasetMixin:
             if spark_session:
                 _logger.info("Found active spark session")
             else:
-                spark_session = _create_spark_session()
+                spark_session = _create_local_spark_session_for_pipelines()
                 _logger.info("Creating new spark session")
             return spark_session
         except Exception as e:
