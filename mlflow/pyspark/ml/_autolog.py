@@ -71,7 +71,7 @@ def get_feature_cols(
     df_subset = df.limit(1).cache()
     for column in df.columns:
         try:
-            transformer.transform(df_subset)
+            transformer.transform(df_subset.drop(column))
         except IllegalArgumentException as iae:
             if re.search("(.*) does not exist.", iae.desc, re.IGNORECASE):
                 feature_cols.add(column)
