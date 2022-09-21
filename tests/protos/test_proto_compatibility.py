@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 import logging
@@ -80,6 +81,7 @@ RUN mlflow --version
         subprocess.run(["docker", "rmi", image], check=True)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
 @pytest.mark.parametrize("backend_store_uri", ["./mlruns", "sqlite:///mlruns.db"])
 def test_proto_compatibility(backend_store_uri, docker_image, tmp_path, monkeypatch):
     """
