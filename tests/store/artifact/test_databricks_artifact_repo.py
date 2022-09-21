@@ -354,20 +354,35 @@ class TestDatabricksArtifactRepository:
             )
 
     def test_log_artifact_adls_gen2_flush_error(self, databricks_artifact_repo, test_file):
+        mock_successful_response = Response()
+        mock_successful_response.status_code = 200
+        mock_successful_response.close = lambda: None
+        mock_error_response = MlflowException("MOCK ERROR")
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "azure.storage.blob.BlobClient.from_blob_url"
-        ) as mock_create_blob_client:
+            "mlflow.utils.rest_utils.cloud_storage_http_request",
+            side_effect=[mock_successful_response, mock_successful_response, mock_error_response],
+        ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
-            mock_create_blob_client.side_effect = MlflowException("MOCK ERROR")
             with pytest.raises(MlflowException, match=r".+"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
+            request_mock.assert_any_call(
+                "put",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
+                headers={},
+            )
+            request_mock.assert_any_call(
+                "patch",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
+                data=ANY,
+                headers={},
+            )
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_aws(
