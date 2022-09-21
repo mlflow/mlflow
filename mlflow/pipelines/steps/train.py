@@ -266,7 +266,7 @@ class TrainStep(BaseStep):
         except Exception as e:
             _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
         tuning_df = None
-        if best_estimator_params:
+        if self.step_config["tuning_enabled"]:
             try:
                 tuning_df = self._get_tuning_df(run, params=best_estimator_params.keys())
             except Exception as e:
@@ -285,7 +285,6 @@ class TrainStep(BaseStep):
             output_directory=output_directory,
             leaderboard_df=leaderboard_df,
             tuning_df=tuning_df,
-            best_estimator_params=best_estimator_params,
         )
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
@@ -425,7 +424,6 @@ class TrainStep(BaseStep):
         output_directory,
         leaderboard_df=None,
         tuning_df=None,
-        best_estimator_params=None,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -519,7 +517,7 @@ class TrainStep(BaseStep):
             )
 
         # Tab 7: Best Parameters
-        if best_estimator_params:
+        if self.step_config["tuning_enabled"]:
             best_parameters_card_tab = card.add_tab(
                 "Best Parameters",
                 "{{ BEST_PARAMETERS }} ",
