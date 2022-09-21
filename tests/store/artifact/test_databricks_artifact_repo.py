@@ -384,7 +384,7 @@ class TestDatabricksArtifactRepository:
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
-            with pytest.raises(MlflowException, match=r".+"):
+            with pytest.raises(MlflowException, match=r"MOCK ERROR"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
             request_mock.assert_any_call(
