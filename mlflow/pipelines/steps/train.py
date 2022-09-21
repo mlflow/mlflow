@@ -518,7 +518,46 @@ class TrainStep(BaseStep):
                 )
             )
 
-        # Tab 7: Run summary.
+        # Tab 7: Best Parameters
+        if best_estimator_params:
+            best_parameters_card_tab = card.add_tab(
+                "Best Parameters",
+                "{{ BEST_PARAMETERS }} ",
+            )
+            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+            if os.path.exists(best_parameters_yaml):
+                best_hardcoded_parameters = open(best_parameters_yaml).read()
+                best_parameters_card_tab.add_html(
+                    "BEST_PARAMETERS",
+                    f"<b>Best parameters:</b><br>"
+                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
+                )
+
+        # Tab 8: HP trials
+        if tuning_df is not None:
+            tuning_trials_card_tab = card.add_tab(
+                "Tuning Trials",
+                "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE_TITLE }}" + "{{ TUNING_TABLE }}",
+            )
+            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
+            tuning_trials_card_tab.add_html(
+                "SEARCH_SPACE",
+                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
+            )
+            tuning_trials_card_tab.add_html("TUNING_TABLE_TITLE", "<b>Tuning results:</b><br>")
+            tuning_trials_card_tab.add_html(
+                "TUNING_TABLE",
+                BaseCard.render_table(
+                    tuning_df.style.apply(
+                        lambda row: pd.Series("font-weight: bold", row.index),
+                        axis=1,
+                        subset=tuning_df.index[0],
+                    ),
+                    hide_index=True,
+                ),
+            )
+
+        # Tab 9: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
@@ -546,45 +585,6 @@ class TrainStep(BaseStep):
             )
         else:
             run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
-
-        # Tab 8: Best Parameters
-        if best_estimator_params:
-            best_parameters_card_tab = card.add_tab(
-                "Best Parameters",
-                "{{ BEST_PARAMETERS }} ",
-            )
-            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
-            if os.path.exists(best_parameters_yaml):
-                best_hardcoded_parameters = open(best_parameters_yaml).read()
-                best_parameters_card_tab.add_html(
-                    "BEST_PARAMETERS",
-                    f"<b>Best parameters:</b><br>"
-                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
-                )
-
-        # Tab 9: HP trials
-        if tuning_df is not None:
-            tuning_trials_card_tab = card.add_tab(
-                "Tuning Trials",
-                "{{ SEARCH_SPACE }}" + "{{ TUNING_TABLE_TITLE }}" + "{{ TUNING_TABLE }}",
-            )
-            tuning_params = yaml.dump(self.step_config["tuning"]["parameters"])
-            tuning_trials_card_tab.add_html(
-                "SEARCH_SPACE",
-                f"<b>Tuning search space:</b> <br><pre>{tuning_params}</pre><br><br>",
-            )
-            tuning_trials_card_tab.add_html("TUNING_TABLE_TITLE", "<b>Tuning results:</b><br>")
-            tuning_trials_card_tab.add_html(
-                "TUNING_TABLE",
-                BaseCard.render_table(
-                    tuning_df.style.apply(
-                        lambda row: pd.Series("font-weight: bold", row.index),
-                        axis=1,
-                        subset=tuning_df.index[0],
-                    ),
-                    hide_index=True,
-                ),
-            )
 
         return card
 
