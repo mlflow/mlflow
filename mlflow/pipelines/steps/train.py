@@ -410,6 +410,7 @@ class TrainStep(BaseStep):
         tuning_runs = tuning_runs.reset_index().rename(
             columns={"index": "Model Rank", primary_metric_tag: self.primary_metric}
         )
+        tuning_runs["Model Rank"] += 1
         return tuning_runs.head(10)
 
     def _build_step_card(
