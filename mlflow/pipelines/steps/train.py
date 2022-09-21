@@ -807,12 +807,12 @@ class TrainStep(BaseStep):
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             fmin_kwargs["early_stop_fn"] = early_stop_fn
         best_hp_params = fmin(**fmin_kwargs)
+        best_hp_params = space_eval(search_space, best_hp_params)
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
         if len(estimator_hardcoded_params) > 1:
             hardcoded_estimator_loss = objective(
                 X_train, y_train, validation_df, estimator_hardcoded_params
             )
-            best_hp_params = space_eval(search_space, best_hp_params)
 
             if best_hp_estimator_loss < hardcoded_estimator_loss:
                 best_hardcoded_params = {
