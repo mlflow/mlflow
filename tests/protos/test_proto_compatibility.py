@@ -136,6 +136,8 @@ for exp_index in range(2):
             "--rm",
             "-w",
             "/app",
+            # Mount the temporary directory (= current working directory) to the container
+            # to use the data logged in mlflow-latest later
             "-v",
             f"{tmp_path}:/app",
             "-p",
@@ -155,7 +157,7 @@ for exp_index in range(2):
             assert len(client.search_registered_models()) == 4
             assert len(client.search_model_versions(filter_string="")) == 4
 
-    # Ensure mlflow-latest can read the data logged in mlflow-latest
+    # Ensure mlflow-dev can read the data logged in mlflow-latest
     if is_db_uri:
         subprocess.run(["mlflow", "db", "upgrade", backend_store_uri], check=True)
     port = get_safe_port()
