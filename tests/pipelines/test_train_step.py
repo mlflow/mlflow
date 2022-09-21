@@ -266,7 +266,7 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
     assert "params.penalty" in child_runs.columns
     assert "params.eta0" in child_runs.columns
 
-    ordered_metrics = list(child_runs["metrics.root_mean_squared_error_on_data_validation"])
+    ordered_metrics = list(child_runs["root_mean_squared_error"])
     assert ordered_metrics == sorted(ordered_metrics)
 
 
