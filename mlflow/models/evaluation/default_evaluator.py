@@ -17,6 +17,7 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from sklearn import metrics as sk_metrics
@@ -79,7 +80,7 @@ def _extract_raw_model(model):
     """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
-        if model_loader_module == "mlflow.sklearn":
+        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
             raw_model = model._model_impl
         else:
             raw_model = None
@@ -583,6 +584,15 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.evaluator_config.get("log_model_explainability", True):
             return
 
+        if self.is_model_server and not self.evaluator_config.get(
+            "log_model_explainability", False
+        ):
+            _logger.warning(
+                "Skipping model explainability because a model server is used for environment "
+                "restoration."
+            )
+            return
+
         if self.model_loader_module == "mlflow.spark":
             # TODO: Shap explainer need to manipulate on each feature values,
             #  but spark model input dataframe contains Vector type feature column
@@ -779,7 +789,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_sklearn_model_score_if_scorable(self):
-        if self.model_loader_module == "mlflow.sklearn":
+        if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
             try:
                 score = self.raw_model.score(
                     self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
@@ -1137,6 +1147,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.temp_dir = temp_dir
             self.model = model
             self.is_baseline_model = is_baseline_model
+
+            self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
