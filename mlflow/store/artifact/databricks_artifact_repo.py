@@ -211,10 +211,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                             "Failed to authorize request, possibly due to credential expiration."
                             " Refreshing credentials and trying again..."
                         )
-                        credential_info = self._get_write_credential_infos(
+                        credentials = self._get_write_credential_infos(
                             run_id=self.run_id, paths=[artifact_path]
                         )[0]
-                        put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
+                        put_block(credentials.signed_uri, block_id, chunk, headers=headers)
                     else:
                         raise e
                 uploading_block_list.append(block_id)
@@ -226,12 +226,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(
+                    credentials = self._get_write_credential_infos(
                         run_id=self.run_id, paths=[artifact_path]
                     )[0]
-                    put_block_list(
-                        credential_info.signed_uri, uploading_block_list, headers=headers
-                    )
+                    put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
                 else:
                     raise e
         except Exception as err:
@@ -253,10 +251,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                         "Failed to authorize ADLS file creation request, possibly due "
                         "to credential expiration. Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(
+                    credentials = self._get_write_credential_infos(
                         run_id=self.run_id, paths=[artifact_path]
                     )[0]
-                    put_adls_file_creation(credential_info.signed_uri, headers=headers)
+                    put_adls_file_creation(credentials.signed_uri, headers=headers)
                 else:
                     raise e
 
@@ -272,11 +270,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
                             "Failed to authorize ADLS patch request, possibly due to "
                             "credential expiration. Refreshing credentials and trying again..."
                         )
-                        credential_info = self._get_write_credential_infos(
+                        credentials = self._get_write_credential_infos(
                             run_id=self.run_id, paths=[artifact_path]
                         )[0]
                         patch_adls_file_upload(
-                            credential_info.signed_uri, chunk, offset, headers=headers
+                            credentials.signed_uri, chunk, offset, headers=headers
                         )
                     else:
                         raise e
@@ -290,10 +288,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                         "Failed to authorize flush request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credential_info = self._get_write_credential_infos(
+                    credentials = self._get_write_credential_infos(
                         run_id=self.run_id, paths=[artifact_path]
                     )[0]
-                    patch_adls_flush(credential_info.signed_uri, offset, headers=headers)
+                    patch_adls_flush(credentials.signed_uri, offset, headers=headers)
                 else:
                     raise e
         except Exception as err:
