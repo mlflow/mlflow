@@ -29,7 +29,7 @@ DATABRICKS_ARTIFACT_REPOSITORY = (
 )
 
 MOCK_AZURE_SIGNED_URI = "http://this_is_a_mock_sas_for_azure"
-MOCK_ADL_GEN2_SIGNED_URI = "http://this_is_a_mock_sas_for_adl_gen2"
+MOCK_ADLS_GEN2_SIGNED_URI = "http://this_is_a_mock_sas_for_adls_gen2"
 MOCK_AWS_SIGNED_URI = "http://this_is_a_mock_presigned_uri_for_aws?"
 MOCK_GCP_SIGNED_URL = "http://this_is_a_mock_signed_url_for_gcp?"
 MOCK_RUN_ID = "MOCK-RUN-ID"
@@ -279,7 +279,7 @@ class TestDatabricksArtifactRepository:
         ("artifact_path", "expected_location"),
         [(None, "test.txt"), ("output", "output/test.txt"), ("", "test.txt")],
     )
-    def test_log_artifact_adl_gen2(
+    def test_log_artifact_adls_gen2(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
         with mock.patch(
@@ -288,7 +288,7 @@ class TestDatabricksArtifactRepository:
             DATABRICKS_ARTIFACT_REPOSITORY + "._azure_adls_gen2_upload_file"
         ) as azure_upload_mock:
             mock_credential_info = ArtifactCredentialInfo(
-                signed_uri=MOCK_ADL_GEN2_SIGNED_URI,
+                signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
@@ -302,7 +302,7 @@ class TestDatabricksArtifactRepository:
             )
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
-    def test_log_artifact_adl_gen2_with_headers(
+    def test_log_artifact_adls_gen2_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
         mock_azure_headers = {
@@ -323,7 +323,7 @@ class TestDatabricksArtifactRepository:
             "mlflow.utils.rest_utils.cloud_storage_http_request"
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
-                signed_uri=MOCK_ADL_GEN2_SIGNED_URI,
+                signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
                 headers=[
                     ArtifactCredentialInfo.HttpHeader(name=header_name, value=header_value)
@@ -338,18 +338,20 @@ class TestDatabricksArtifactRepository:
             )
             request_mock.assert_called_with(
                 "patch",
-                MOCK_ADL_GEN2_SIGNED_URI + "?action=flush&position=14",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=flush&position=14",
                 headers=filtered_azure_headers,
             )
 
-    def test_log_artifact_adl_gen2_blob_client_sas_error(self, databricks_artifact_repo, test_file):
+    def test_log_artifact_adls_gen2_blob_client_sas_error(
+        self, databricks_artifact_repo, test_file
+    ):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
             "azure.storage.blob.BlobClient.from_blob_url"
         ) as mock_create_blob_client:
             mock_credential_info = ArtifactCredentialInfo(
-                signed_uri=MOCK_ADL_GEN2_SIGNED_URI,
+                signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
