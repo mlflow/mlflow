@@ -508,7 +508,7 @@ class _SparkDatasetMixin:
             else:
                 spark_session = _create_spark_session()
                 _logger.info("Creating new spark session")
-                return spark_session
+            return spark_session
         except Exception as e:
             raise MlflowException(
                 message=(
