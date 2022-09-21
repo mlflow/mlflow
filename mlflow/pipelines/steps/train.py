@@ -808,20 +808,21 @@ class TrainStep(BaseStep):
             fmin_kwargs["early_stop_fn"] = early_stop_fn
         best_hp_params = fmin(**fmin_kwargs)
         best_hp_estimator_loss = hp_trials.best_trial["result"]["loss"]
-        hardcoded_estimator_loss = objective(
-            X_train, y_train, validation_df, estimator_hardcoded_params
-        )
-        best_hp_params = space_eval(search_space, best_hp_params)
+        if len(estimator_hardcoded_params) > 1:
+            hardcoded_estimator_loss = objective(
+                X_train, y_train, validation_df, estimator_hardcoded_params
+            )
+            best_hp_params = space_eval(search_space, best_hp_params)
 
-        if best_hp_estimator_loss < hardcoded_estimator_loss:
-            best_hardcoded_params = {
-                param_name: param_value
-                for param_name, param_value in estimator_hardcoded_params.items()
-                if param_name not in best_hp_params
-            }
-        else:
-            best_hp_params = {}
-            best_hardcoded_params = estimator_hardcoded_params
+            if best_hp_estimator_loss < hardcoded_estimator_loss:
+                best_hardcoded_params = {
+                    param_name: param_value
+                    for param_name, param_value in estimator_hardcoded_params.items()
+                    if param_name not in best_hp_params
+                }
+            else:
+                best_hp_params = {}
+                best_hardcoded_params = estimator_hardcoded_params
 
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
