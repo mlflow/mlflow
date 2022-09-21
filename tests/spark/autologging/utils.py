@@ -2,15 +2,12 @@ import os
 import pytest
 import shutil
 import tempfile
-import logging
 
 import mlflow
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
-
-_logger = logging.getLogger(__name__)
 
 
 def _get_mlflow_spark_jar_path():
@@ -53,9 +50,7 @@ def _get_or_create_spark_session(jars=None):
 @pytest.fixture(scope="module")
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
-    _logger.info("Using JAR path: %s", jar_path)
     session = SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
-    _logger.info("SparkSession %s", session)
     yield session
     session.stop()
 
