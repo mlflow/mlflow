@@ -109,7 +109,7 @@ for _ in range(2):
         assert len(client.search_experiments()) == 3
         assert len(client.search_runs(experiment_ids=["1", "2"])) == 4
         assert len(client.search_registered_models()) == 2
-        assert len(client.search_model_versions()) == 2
+        assert len(client.search_model_versions(filter_string="")) == 2
 
     port = get_safe_port()
     with Popen(
@@ -125,4 +125,4 @@ for _ in range(2):
         assert len(mlflow.search_experiments()) == 3
         assert len(mlflow.search_runs(experiment_ids=["1", "2"])) == 4
         assert len(client.search_registered_models()) == 2
-        assert len(client.search_model_versions()) == 2
+        assert len(client.search_model_versions(filter_string="")) == 2
