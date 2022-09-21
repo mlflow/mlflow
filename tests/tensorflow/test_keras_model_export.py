@@ -22,7 +22,6 @@ from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.store.db.utils import _upgrade_url
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -667,7 +666,6 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
         f"--save_path {save_path if save_path else 'none'}",
         install_mlflow=False,
     )
-    _upgrade_url(tracking_uri)
     with open(output_data_file_path, "rb") as f:
         inference_df, expected_results_df, run_id = pickle.load(f)
         return ModelDataInfo(

@@ -14,7 +14,6 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.store.db.utils import _upgrade_url
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
@@ -68,7 +67,6 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, save_path=N
         f"--save_path {save_path if save_path else 'none'}",
         install_mlflow=False,
     )
-    _upgrade_url(tracking_uri)
     with open(output_data_file_path, "rb") as f:
         return ModelDataInfo(*pickle.load(f))
 

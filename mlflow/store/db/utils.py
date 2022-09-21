@@ -153,10 +153,6 @@ def _upgrade_db(engine):
         command.upgrade(config, "heads")
 
 
-def _upgrade_url(url):
-    _upgrade_db(create_sqlalchemy_engine_with_retry(url))
-
-
 def _get_schema_version(engine):
     with engine.connect() as connection:
         mc = MigrationContext.configure(connection)

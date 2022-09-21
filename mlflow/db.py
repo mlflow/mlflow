@@ -22,6 +22,7 @@ def upgrade(url):
     large migrations and includes information about how to estimate their performance and
     recover from failures.
     """
-    from mlflow.store.db.utils import _upgrade_url
+    import mlflow.store.db.utils
 
-    _upgrade_url(url)
+    engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+    mlflow.store.db.utils._upgrade_db(engine)
