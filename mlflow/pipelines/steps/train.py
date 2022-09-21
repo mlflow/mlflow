@@ -823,7 +823,7 @@ class TrainStep(BaseStep):
             else:
                 best_hp_params = {}
                 best_hardcoded_params = estimator_hardcoded_params
-
+        best_hardcoded_params = {}
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
         self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
