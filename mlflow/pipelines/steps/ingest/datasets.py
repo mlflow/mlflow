@@ -504,10 +504,10 @@ class _SparkDatasetMixin:
         try:
             spark_session = _get_active_spark_session()
             if spark_session:
-                _logger.info("found active spark session")
+                _logger.info("Found active spark session")
             else:
                 spark_session = _create_spark_session()
-                _logger.info("creating new spark session")
+                _logger.info("Creating new spark session")
                 return spark_session
         except Exception as e:
             raise MlflowException(
