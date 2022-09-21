@@ -336,15 +336,24 @@ class TestDatabricksArtifactRepository:
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
+            request_mock.assert_any_call(
+                "put",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
+                headers=filtered_azure_headers,
+            )
+            request_mock.assert_any_call(
+                "patch",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
+                data=ANY,
+                headers=filtered_azure_headers,
+            )
             request_mock.assert_called_with(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=flush&position=14",
                 headers=filtered_azure_headers,
             )
 
-    def test_log_artifact_adls_gen2_blob_client_sas_error(
-        self, databricks_artifact_repo, test_file
-    ):
+    def test_log_artifact_adls_gen2_flush_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
