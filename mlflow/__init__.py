@@ -65,6 +65,7 @@ try:
     from mlflow import spark
     from mlflow import statsmodels
     from mlflow import tensorflow
+    from mlflow import keras
     from mlflow import xgboost
     from mlflow import shap
     from mlflow import pyspark
