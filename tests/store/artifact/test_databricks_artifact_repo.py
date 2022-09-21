@@ -321,7 +321,10 @@ class TestDatabricksArtifactRepository:
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
             "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as request_mock, mock.patch(
+            "mlflow.store.artifact.databricks_artifact_repo._AZURE_MAX_BLOCK_CHUNK_SIZE",
+            5,
+        ):
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
@@ -344,6 +347,18 @@ class TestDatabricksArtifactRepository:
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
+                data=ANY,
+                headers=filtered_azure_headers,
+            )
+            request_mock.assert_any_call(
+                "patch",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=5",
+                data=ANY,
+                headers=filtered_azure_headers,
+            )
+            request_mock.assert_any_call(
+                "patch",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=10",
                 data=ANY,
                 headers=filtered_azure_headers,
             )
