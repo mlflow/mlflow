@@ -29,12 +29,6 @@ def wait_until_tracking_server_ready(tracking_uri):
         raise Exception("Server failed to start")
 
 
-class Popen(subprocess.Popen):
-    def __exit__(self, exc_type, value, traceback):  # pylint: disable=arguments-differ
-        self.send_signal(signal.SIGINT)  # Terminate the tracking server
-        super().__exit__(exc_type, value, traceback)  # Wait for the process to complete
-
-
 def get_tracking_server_command(backend_store_uri):
     return [
         "mlflow",
@@ -131,7 +125,7 @@ for exp_index in range(2):
         ]
     )
     is_db_uri = backend_store_uri.startswith("sqlite")
-    with Popen(
+    with subprocess.Popen(
         [
             "docker",
             "run",
@@ -149,7 +143,7 @@ for exp_index in range(2):
             "-c",
             f"{cmd}",
         ],
-    ):
+    ) as proc:
         tracking_uri = f"http://localhost:{port}"
         wait_until_tracking_server_ready(tracking_uri)
         client = mlflow.MlflowClient(tracking_uri)
@@ -158,12 +152,13 @@ for exp_index in range(2):
         if is_db_uri:
             assert len(client.search_registered_models()) == 4
             assert len(client.search_model_versions(filter_string="")) == 4
+        proc.send_signal(signal.SIGINT)  # Terminate the tracking server
 
     # Ensure mlflow-dev can read the data logged in mlflow-latest
     if is_db_uri:
         subprocess.run(["mlflow", "db", "upgrade", backend_store_uri], check=True)
     port = get_safe_port()
-    with Popen([*tracking_server_command, "-p", str(port)]):
+    with subprocess.Popen([*tracking_server_command, "-p", str(port)]) as proc:
         tracking_uri = f"http://localhost:{port}"
         wait_until_tracking_server_ready(tracking_uri)
         client = mlflow.MlflowClient(tracking_uri)
@@ -172,3 +167,4 @@ for exp_index in range(2):
         if is_db_uri:
             assert len(client.search_registered_models()) == 4
             assert len(client.search_model_versions(filter_string="")) == 4
+        proc.send_signal(signal.SIGINT)
