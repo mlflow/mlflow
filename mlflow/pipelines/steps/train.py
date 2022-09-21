@@ -398,7 +398,7 @@ class TrainStep(BaseStep):
         tuning_runs = mlflow.search_runs(
             [exp_id],
             filter_string=f"tags.mlflow.parentRunId like '{run.info.run_id}'",
-            order_by=[f"{primary_metric_tag} {order_str}"],
+            order_by=[f"{primary_metric_tag} {order_str}", "start_time ASC"],
         )
         if params:
             params = [f"params.{param}" for param in params]
