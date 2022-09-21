@@ -85,6 +85,7 @@ tensorflow:
     maximum: "2.9.1"
     requirements:
       "== dev": ["scikit-learn"]
+      "< 2.6.0": ["protobuf<4.0.0"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
