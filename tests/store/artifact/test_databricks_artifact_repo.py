@@ -29,7 +29,7 @@ DATABRICKS_ARTIFACT_REPOSITORY = (
 )
 
 MOCK_AZURE_SIGNED_URI = "http://this_is_a_mock_sas_for_azure"
-MOCK_ADL_GEN2_SIGNED_URI = "http://this_is_a_mock_sas_for_ADL Gen2"
+MOCK_ADL_GEN2_SIGNED_URI = "http://this_is_a_mock_sas_for_adl_gen2"
 MOCK_AWS_SIGNED_URI = "http://this_is_a_mock_presigned_uri_for_aws?"
 MOCK_GCP_SIGNED_URL = "http://this_is_a_mock_signed_url_for_gcp?"
 MOCK_RUN_ID = "MOCK-RUN-ID"
