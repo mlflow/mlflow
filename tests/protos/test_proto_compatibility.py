@@ -1,9 +1,12 @@
 import subprocess
-import requests
 import time
 import logging
 import signal
+import uuid
+import tempfile
+from pathlib import Path
 
+import requests
 import pytest
 import mlflow
 from tests.helper_functions import get_safe_port
@@ -12,22 +15,23 @@ _logger = logging.getLogger(__name__)
 
 
 def wait_until_tracking_server_ready(tracking_uri):
-    for i in range(10):
+    for _ in range(10):
         try:
             resp = requests.get(f"{tracking_uri}/health")
             if resp.status_code == 200:
+                _logger.info("Server is ready")
                 break
         except requests.exceptions.ConnectionError:
-            _logger.info("Waiting for server to start...")
-            time.sleep(2**i)
+            _logger.info("Waiting for server to start")
+            time.sleep(3)
     else:
         raise Exception("Server failed to start")
 
 
 class Popen(subprocess.Popen):
     def __exit__(self, exc_type, value, traceback):  # pylint: disable=arguments-differ
-        self.send_signal(signal.SIGINT)
-        super().__exit__(exc_type, value, traceback)
+        self.send_signal(signal.SIGINT)  # Terminate the tracking server
+        super().__exit__(exc_type, value, traceback)  # Wait for the process to complete
 
 
 def get_tracking_server_command(backend_store_uri):
@@ -43,26 +47,60 @@ def get_tracking_server_command(backend_store_uri):
     ]
 
 
+@pytest.fixture(scope="module")
+def docker_image():
+    image = f"mlflow-{__name__}-{uuid.uuid4().hex}"
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir)
+        dockerfile = tmp_dir.joinpath("Dockerfile")
+        dockerfile.write_text(
+            """
+FROM python:3.7
+RUN pip install mlflow scikit-learn
+RUN mlflow --version
+"""
+        )
+        _logger.info(f"Building docker image {image}")
+        subprocess.run(
+            [
+                "docker",
+                "build",
+                "-t",
+                image,
+                "-f",
+                dockerfile,
+                tmp_dir,
+            ],
+            check=True,
+        )
+
+        yield image
+
+        _logger.info(f"Removing docker image {image}")
+        subprocess.run(["docker", "rmi", image], check=True)
+
+
 @pytest.mark.parametrize("backend_store_uri", ["./mlruns", "sqlite:///mlruns.db"])
-def test_proto_compatibility(backend_store_uri, tmp_path, monkeypatch):
+def test_proto_compatibility(backend_store_uri, docker_image, tmp_path, monkeypatch):
     """
-    This test checks proto compatibility between the latest version of MLflow on PyPI and the
-    development version of MLflow in the local repository to prevent issues such as
-    https://github.com/mlflow/mlflow/pull/6834.
+    This test checks proto compatibility between the latest version of MLflow on PyPI
+    (mlflow-latest) and the development version of MLflow in the local repository (mlflow-dev) to
+    prevent issues such as https://github.com/mlflow/mlflow/pull/6834.
     """
     monkeypatch.chdir(tmp_path)
     script = tmp_path.joinpath("script.py")
     script.write_text(
-        f"""
+        r"""
 import random
-import uuid
+import sys
 import mlflow
 from sklearn.linear_model import LogisticRegression
 
-mlflow.set_tracking_uri("{backend_store_uri}")
-for _ in range(2):
-    mlflow.set_experiment(uuid.uuid4().hex)
-    for _ in range(2):
+tracking_uri = sys.argv[1]
+mlflow.set_tracking_uri(tracking_uri)
+for exp_index in range(2):
+    mlflow.set_experiment(f"experiment_{exp_index}")
+    for run_index in range(2):
         with mlflow.start_run():
             mlflow.log_param("param", random.random())
             mlflow.log_metric("metric", random.random())
@@ -70,7 +108,11 @@ for _ in range(2):
             mlflow.sklearn.log_model(
                 LogisticRegression(),
                 artifact_path="model",
-                registered_model_name=uuid.uuid4().hex,
+                registered_model_name=(
+                    f"model_{exp_index}_{run_index}"
+                    if tracking_uri.startswith("sqlite")
+                    else None
+                ),
             )
 """
     )
@@ -78,13 +120,15 @@ for _ in range(2):
     tracking_server_command = get_tracking_server_command(backend_store_uri)
     cmd = " && ".join(
         [
-            "pip install mlflow scikit-learn",
-            f"python {script.name}",
-            # Modify permissions to allow the host to remove files generated in the container
+            # Log data for testing
+            f"python {script.name} {backend_store_uri}",
+            # Modify permissions to allow pytest to remove files generated in the container
             "chmod -R 777 " + backend_store_uri.split("/")[-1],
+            # Launch the tracking server
             " ".join(tracking_server_command),
         ]
     )
+    is_db_uri = backend_store_uri.startswith("sqlite")
     with Popen(
         [
             "docker",
@@ -96,7 +140,7 @@ for _ in range(2):
             f"{tmp_path}:/app",
             "-p",
             f"{port}:5000",
-            "python:3.8",
+            docker_image,
             "bash",
             "-c",
             f"{cmd}",
@@ -104,25 +148,23 @@ for _ in range(2):
     ):
         tracking_uri = f"http://localhost:{port}"
         wait_until_tracking_server_ready(tracking_uri)
-        mlflow.set_tracking_uri(tracking_uri)
         client = mlflow.MlflowClient(tracking_uri)
         assert len(client.search_experiments()) == 3
         assert len(client.search_runs(experiment_ids=["1", "2"])) == 4
-        assert len(client.search_registered_models()) == 2
-        assert len(client.search_model_versions(filter_string="")) == 2
+        if is_db_uri:
+            assert len(client.search_registered_models()) == 4
+            assert len(client.search_model_versions(filter_string="")) == 4
 
+    # Ensure mlflow-latest can read the data logged in mlflow-latest
+    if is_db_uri:
+        subprocess.run(["mlflow", "db", "upgrade", backend_store_uri], check=True)
     port = get_safe_port()
-    with Popen(
-        [
-            *tracking_server_command,
-            "-p",
-            str(port),
-        ]
-    ):
+    with Popen([*tracking_server_command, "-p", str(port)]):
         tracking_uri = f"http://localhost:{port}"
         wait_until_tracking_server_ready(tracking_uri)
-        mlflow.set_tracking_uri(tracking_uri)
-        assert len(mlflow.search_experiments()) == 3
-        assert len(mlflow.search_runs(experiment_ids=["1", "2"])) == 4
-        assert len(client.search_registered_models()) == 2
-        assert len(client.search_model_versions(filter_string="")) == 2
+        client = mlflow.MlflowClient(tracking_uri)
+        assert len(client.search_experiments()) == 3
+        assert len(client.search_runs(experiment_ids=["1", "2"])) == 4
+        if is_db_uri:
+            assert len(client.search_registered_models()) == 4
+            assert len(client.search_model_versions(filter_string="")) == 4
