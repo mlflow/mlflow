@@ -4,7 +4,7 @@ target-version = ['py37']
 force-exclude = '''
 /(
   | mlflow/protos
-  | tests/protos/test_message_pb2.py
+  | tests/protos
   | examples/pipelines/sklearn_regression
 )/
 '''
