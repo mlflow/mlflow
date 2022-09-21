@@ -72,6 +72,26 @@ describe('ShowArtifactPage', () => {
     expect(wrapper.find(ShowArtifactLoggedModelView).length).toBe(1);
   });
 
+  test('should render logged model view when path is nested in subdirectory', () => {
+    wrapper.setProps({
+      path: 'dir/somePath',
+      isDirectory: true,
+      runTags: {
+        'mlflow.log-model.history': RunTag.fromJs({
+          key: 'mlflow.log-model.history',
+          value: JSON.stringify([
+            {
+              run_id: 'run-uuid',
+              artifact_path: 'dir/somePath',
+              flavors: { keras: {}, python_function: {} },
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.find(ShowArtifactLoggedModelView).length).toBe(1);
+  });
+
   test('should render "select to preview" view when path has no extension', () => {
     wrapper.setProps({ path: 'file_without_extension', runUuid: 'runId' });
     expect(wrapper.text().includes('Select a file to preview')).toBe(true);
