@@ -38,6 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,

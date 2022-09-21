@@ -226,7 +226,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
-        all_experiments = [e.name for e in self.store.search_experiments(view_type=ViewType.ALL)]
+        all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
@@ -256,6 +256,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.assertEqual(len(self.store.search_experiments()), len(all_experiments) - 1)
+        assert updated_exp.last_update_time > exp.last_update_time
 
     def test_delete_restore_experiment_with_runs(self):
 
