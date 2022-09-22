@@ -695,7 +695,11 @@ class _TF2Wrapper:
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
-            if all(len(element) == 1 for element in pred_dict[col]):
+            # If the output tensor is not 1-dimensional
+            # AND all elements have length of 1, flatten the array with `ravel()`
+            if len(pred_dict[col].shape) != 1 and all(
+                len(element) == 1 for element in pred_dict[col]
+            ):
                 pred_dict[col] = pred_dict[col].ravel()
             else:
                 pred_dict[col] = pred_dict[col].tolist()

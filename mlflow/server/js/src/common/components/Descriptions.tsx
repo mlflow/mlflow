@@ -7,7 +7,7 @@ export interface DescriptionsProps {
 }
 
 export interface DescriptionsItemProps {
-  label: string;
+  label: string | React.ReactNode;
 }
 
 /**

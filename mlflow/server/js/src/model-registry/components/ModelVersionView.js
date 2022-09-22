@@ -5,8 +5,8 @@ import { modelListPageRoute, getModelPageRoute } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Modal, Alert, Descriptions, message } from 'antd';
-import { Button } from '@databricks/design-system';
+import { Alert, Descriptions, message } from 'antd';
+import { Modal, Button } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageTagComponents,

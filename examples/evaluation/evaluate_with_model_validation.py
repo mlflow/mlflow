@@ -30,15 +30,17 @@ def double_positive(_, builtin_metrics):
 # Define criteria for model to be validated against
 thresholds = {
     # Specify metric value threshold
-    "precision": MetricThreshold(threshold=0.7, higher_is_better=True),  # precision should be >=0.7
+    "precision_score": MetricThreshold(
+        threshold=0.7, higher_is_better=True
+    ),  # precision should be >=0.7
     # Specify model comparison thresholds
-    "recall": MetricThreshold(
+    "recall_score": MetricThreshold(
         min_absolute_change=0.1,  # recall should be at least 0.1 greater than baseline model recall
         min_relative_change=0.1,  # recall should be at least 10 percent greater than baseline model recall
         higher_is_better=True,
     ),
     # Specify both metric value and model comparison thresholds
-    "accuracy": MetricThreshold(
+    "accuracy_score": MetricThreshold(
         threshold=0.8,  # accuracy should be >=0.8
         min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
         min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
@@ -57,20 +59,17 @@ with mlflow.start_run() as run:
     # mlflow.evaluate() call via model URI.
     baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
 
-    try:
-        mlflow.evaluate(
-            candidate_model_uri,
-            eval_data,
-            targets="label",
-            model_type="classifier",
-            dataset_name="adult",
-            evaluators=["default"],
-            validation_thresholds=thresholds,
-            custom_metrics=[double_positive],
-            baseline_model=baseline_model_uri,
-        )
-    except ModelValidationFailedException as e:
-        print("Model failed to pass validation criteria! See detailed error message:")
-        print(e)
-    else:
-        print("Model passed validation criteria!")
+    mlflow.evaluate(
+        candidate_model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",
+        dataset_name="adult",
+        evaluators=["default"],
+        validation_thresholds=thresholds,
+        custom_metrics=[double_positive],
+        baseline_model=baseline_model_uri,
+    )
+    # If you would like to catch model validation failures, you can add try except clauses around
+    # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top
+    # of this file.
