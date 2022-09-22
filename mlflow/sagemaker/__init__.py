@@ -22,7 +22,7 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
-from mlflow.deployments import BaseDeploymentClient
+from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -2640,7 +2640,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         import json
         import boto3
         import pandas as pd
-        from mlflow.pyfunc.scoring_server import PredictionsResponse
         from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(

@@ -196,8 +196,8 @@ class BaseDeploymentClient(abc.ABC):
         :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
                        inference
         :param endpoint: Endpoint to predict against. May not be supported by all targets
-        :return: A :py:ref:`PredictionsResponse` instance representing the predictions and
-                 associated Model Server response metadata.
+        :return: A :py:class:`mlflow.deployments.PredictionsResponse` instance representing the
+                 predictions and associated Model Server response metadata.
         """
         pass
 
