@@ -302,10 +302,10 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
+    from mlflow.pyfunc.scoring_server import PredictionsResponse
 
     response_values = (
-        MlflowModelServerOutput.from_json(scoring_response.content.decode("utf-8"))
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
         .get_predictions()
         .values.astype(np.float32)
     )

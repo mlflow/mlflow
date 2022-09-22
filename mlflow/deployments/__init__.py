@@ -16,7 +16,7 @@ your own plugin for deployment to a custom serving tool, see
 
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.interface import get_deploy_client, run_local
-from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
+from mlflow.pyfunc.scoring_server import PredictionsResponse
 
 
-__all__ = ["get_deploy_client", "run_local", "BaseDeploymentClient", "MlflowModelServerOutput"]
+__all__ = ["get_deploy_client", "run_local", "BaseDeploymentClient", "PredictionsResponse"]

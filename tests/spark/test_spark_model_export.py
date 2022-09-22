@@ -296,11 +296,11 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
-    from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
+    from mlflow.pyfunc.scoring_server import PredictionsResponse
 
     np.testing.assert_array_almost_equal(
         spark_model_iris.predictions,
-        MlflowModelServerOutput.from_json(scoring_response.content).get_predictions(
+        PredictionsResponse.from_json(scoring_response.content).get_predictions(
             predictions_format="ndarray"
         ),
         decimal=4,

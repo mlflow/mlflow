@@ -338,10 +338,10 @@ def get_cmd(
     return command, command_env
 
 
-class MlflowModelServerOutput(dict):
+class PredictionsResponse(dict):
     """
-    Represents the predictions and response metadata from a scoring API request sent to an
-    MLflow Model Server, including Model Servers launched using MLflow Deployments.
+    Represents the predictions and metadata returned in response to a scoring request, such as a
+    REST API request sent to the ``/invocations`` endpoint of an MLflow Model Server.
     """
 
     def get_predictions(self, predictions_format="dataframe", dtype=None):
@@ -392,4 +392,4 @@ class MlflowModelServerOutput(dict):
                 f"Invalid MLflow Model Server response. Response contents must be a dictionary"
                 f" containing a 'predictions' field. Instead, received: {parsed_response}"
             )
-        return MlflowModelServerOutput(parsed_response)
+        return PredictionsResponse(parsed_response)

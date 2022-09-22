@@ -21,7 +21,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+from mlflow.pyfunc.scoring_server.client import PredictionsResponse
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -226,7 +226,7 @@ def test_pyfunc_serve_and_score(data):
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     actual_scoring_response = (
-        MlflowModelServerOutput.from_json(scoring_response.content.decode("utf-8"))
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
         .get_predictions()
         .values.astype(np.float32)
     )
@@ -630,7 +630,7 @@ def test_pyfunc_serve_and_score_transformers():
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    actual_scoring_response = MlflowModelServerOutput.from_json(
+    actual_scoring_response = PredictionsResponse.from_json(
         resp.content.decode("utf-8")
     ).get_predictions(predictions_format="ndarray")
     np.testing.assert_array_equal(actual_scoring_response, model.predict(dummy_inputs))

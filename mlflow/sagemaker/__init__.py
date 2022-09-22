@@ -2593,7 +2593,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while retrieving the deployment: {exc}\n")
             )
 
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> PredictionsResponse:
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2640,7 +2640,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         import json
         import boto3
         import pandas as pd
-        from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
+        from mlflow.pyfunc.scoring_server import PredictionsResponse
         from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
@@ -2661,7 +2661,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
-            return MlflowModelServerOutput.from_json(response_body)
+            return PredictionsResponse.from_json(response_body)
         except Exception as exc:
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")
