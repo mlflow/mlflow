@@ -286,18 +286,18 @@ class TestDatabricksArtifactRepository:
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._azure_adls_gen2_upload_file"
-        ) as azure_upload_mock:
+        ) as azure_adls_gen2_upload_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
             write_credential_infos_mock.return_value = [mock_credential_info]
-            azure_upload_mock.return_value = None
+            azure_adls_gen2_upload_mock.return_value = None
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
-            azure_upload_mock.assert_called_with(
+            azure_adls_gen2_upload_mock.assert_called_with(
                 mock_credential_info, test_file.strpath, expected_location
             )
 
