@@ -21,3 +21,5 @@ kaleido
 werkzeug>=2.2.0
 # Required by mlflow.keras / mlflow.pytorch tests.
 transformers
+# Required by tuning tests
+hyperopt

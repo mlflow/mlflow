@@ -61,6 +61,11 @@ The pipeline steps are defined as follows:
         performance metrics, and lineage information are logged to MLflow Tracking, producing
         an MLflow Run.
 
+            .. note::
+                The **train** step supports hyperparameter tuning with hyperopt by adding 
+                configurations in the 
+                |'tuning' section of the 'train' step definition in pipeline.yaml|. 
+
    - **evaluate**
       - The **evaluate** step evaluates the model pipeline created by the **train** step on
         the test dataset output from the **split** step, computing performance metrics and
@@ -99,6 +104,7 @@ The pipeline steps are defined as follows:
 .. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
 .. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L64-L73>`__
 .. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L47-L56>`__
+.. |'tuning' section of the 'train' step definition in pipeline.yaml| replace:: `'tuning' section of the 'train' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/d4ac7ee6ba7649f0d07138565e02402cd7a260c4/pipeline.yaml#L57-L78>`__
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/split.py>`__
 .. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/train.py>`__
@@ -586,6 +592,10 @@ class RegressionPipeline(_BasePipeline):
         elif artifact_name == "scored_data":
             return read_dataframe_from_path(artifact_path, predict_step.name)
 
+        elif artifact_name == "best_parameters":
+            if os.path.exists(artifact_path):
+                return open(artifact_path).read()
+
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
@@ -656,6 +666,9 @@ class RegressionPipeline(_BasePipeline):
                 self._pipeline_root_path, predict_step.name, ""
             )
             return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
+        elif artifact_name == "best_parameters":
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+            return os.path.join(train_output_dir, "best_parameters.yaml")
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
