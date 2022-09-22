@@ -365,6 +365,20 @@ class MlflowModelServerOutput(dict):
                 INVALID_PARAMETER_VALUE,
             )
 
+    def to_json(self, path=None):
+        """
+        Get the JSON representation of the MLflow Predictions Response.
+
+        :param path: If specified, the JSON representation is written to this file path.
+        :return: If ``path`` is unspecified, the JSON representation of the MLflow Predictions
+                 Response. Else, None.
+        """
+        if path is not None:
+            with open(path, "w") as f:
+                json.dump(dict(self), f)
+        else:
+            return json.dumps(dict(self))
+
     @classmethod
     def from_json(cls, json_str):
         try:

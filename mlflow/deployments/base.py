@@ -12,7 +12,7 @@ In particular, a valid deployment plugin module must implement:
 import abc
 
 from mlflow.exceptions import MlflowException
-from mlflow.deployments import MlflowModelServerOutput
+from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
 
 
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
