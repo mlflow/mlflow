@@ -148,7 +148,7 @@ def test_split_step_skips_profiling_when_specified(tmp_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch(
-        "mlflow.pipelines.utils.step.get_pandas_data_profile"
+        "mlflow.pipelines.utils.step.get_pandas_data_profiles"
     ) as mock_profiling, mock.patch(
         "mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"
     ):

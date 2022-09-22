@@ -6,7 +6,7 @@ from pathlib import Path
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df
 from mlflow.pipelines.steps.ingest.datasets import (
@@ -76,8 +76,8 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_dataset_profile = None
         if not self.skip_data_profiling:
             _logger.info("Profiling ingested dataset")
-            ingested_dataset_profile = get_pandas_data_profile(
-                ingested_df, "Profile of Ingested Dataset"
+            ingested_dataset_profile = get_pandas_data_profiles(
+                [["Profile of Ingested Dataset", ingested_df]]
             )
             dataset_profile_path = Path(
                 str(os.path.join(output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME))

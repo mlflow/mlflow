@@ -309,7 +309,7 @@ def test_predict_skips_profiling_when_specified(
 ):
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
         PredictStep.from_pipeline_config(
             {
                 "steps": {

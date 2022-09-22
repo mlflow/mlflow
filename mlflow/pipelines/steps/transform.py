@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config
 
 _logger = logging.getLogger(__name__)
@@ -127,13 +127,11 @@ class TransformStep(BaseStep):
 
         if not self.skip_data_profiling:
             # Tab 1 and 2: build profiles for train_transformed, validation_transformed
-            train_transformed_profile = get_pandas_data_profile(
-                train_transformed,
-                "Profile of Train Transformed Dataset",
+            train_transformed_profile = get_pandas_data_profiles(
+                [["Profile of Train Transformed Dataset", train_transformed]]
             )
-            validation_transformed_profile = get_pandas_data_profile(
-                validation_transformed,
-                "Profile of Validation Transformed Dataset",
+            validation_transformed_profile = get_pandas_data_profiles(
+                [["Profile of Validation Transformed Dataset", validation_transformed]]
             )
             card.add_tab("Data Profile (Train Transformed)", "{{PROFILE}}").add_pandas_profile(
                 "PROFILE", train_transformed_profile
