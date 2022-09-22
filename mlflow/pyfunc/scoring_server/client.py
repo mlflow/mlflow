@@ -26,7 +26,7 @@ class MlflowModelServerOutput(dict):
         :param dtype: The NumPy datatype to which to coerce the predictions. Only used when
                       the ``"ndarray"`` ``predictions_format`` is specified.
         :throws: Exception if the predictions cannot be represented in the specified format.
-        :return: The predictions, represented in the specified format. 
+        :return: The predictions, represented in the specified format.
         """
         if predictions_format == "dataframe":
             return pd.DataFrame(data=self["predictions"])

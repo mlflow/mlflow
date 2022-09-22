@@ -1384,9 +1384,7 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
-        result = sagemaker_deployment_client.predict(
-            "test", np.array(range(10))
-        ).get_predictions()
+        result = sagemaker_deployment_client.predict("test", np.array(range(10))).get_predictions()
 
         assert isinstance(result, pd.DataFrame)
         assert list(result[0]) == [1, 2, 3]
