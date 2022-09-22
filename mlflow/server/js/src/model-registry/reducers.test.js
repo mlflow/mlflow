@@ -12,7 +12,6 @@ import {
   DELETE_REGISTERED_MODEL,
   GET_MODEL_VERSION,
   GET_REGISTERED_MODEL,
-  LIST_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
   SET_REGISTERED_MODEL_TAG,
   DELETE_REGISTERED_MODEL_TAG,
@@ -34,73 +33,6 @@ const {
 describe('test modelByName', () => {
   test('initial state', () => {
     expect(modelByName(undefined, {})).toEqual({});
-  });
-
-  test('LIST_REGISTERED_MODELS handles empty state correctly', () => {
-    const modelA = mockRegisteredModelDetailed('modelA');
-    const modelB = mockRegisteredModelDetailed('modelB');
-    const state = {};
-    const action = {
-      type: fulfilled(LIST_REGISTERED_MODELS),
-      payload: {
-        registered_models: [modelA, modelB],
-      },
-    };
-    expect(modelByName(state, action)).toEqual({ modelA, modelB });
-  });
-
-  test('LIST_REGISTERED_MODELS flushes previous loaded models in state (1)', () => {
-    const modelA = mockRegisteredModelDetailed('modelA');
-    const modelB = mockRegisteredModelDetailed('modelB');
-    const modelC = mockRegisteredModelDetailed('modelC');
-    const state = { modelA };
-    const action = {
-      type: fulfilled(LIST_REGISTERED_MODELS),
-      payload: {
-        registered_models: [modelB, modelC],
-      },
-    };
-    expect(modelByName(state, action)).toEqual({ modelB, modelC });
-  });
-
-  test('LIST_REGISTERED_MODELS flushes previous loaded models in state (2)', () => {
-    const modelA = mockRegisteredModelDetailed('modelA');
-    const modelB = mockRegisteredModelDetailed('modelB');
-    const modelC = mockRegisteredModelDetailed('modelC');
-    const state = { modelA, modelB };
-    const action = {
-      type: fulfilled(LIST_REGISTERED_MODELS),
-      payload: {
-        registered_models: [modelB, modelC],
-      },
-    };
-    expect(modelByName(state, action)).toEqual({ modelB, modelC });
-  });
-
-  test('LIST_REGISTERED_MODELS flushes previous loaded models in state (3)', () => {
-    const modelA = mockRegisteredModelDetailed('modelA');
-    const modelB = mockRegisteredModelDetailed('modelB');
-    const state = { modelA, modelB };
-    const action = {
-      type: fulfilled(LIST_REGISTERED_MODELS),
-      payload: {
-        registered_models: [],
-      },
-    };
-    expect(modelByName(state, action)).toEqual({});
-  });
-
-  test('LIST_REGISTERED_MODELS should have no effect on valid state', () => {
-    const modelA = mockRegisteredModelDetailed('modelA');
-    const modelB = mockRegisteredModelDetailed('modelB');
-    const state = { modelA, modelB };
-    const action = {
-      type: fulfilled(LIST_REGISTERED_MODELS),
-      payload: {
-        registered_models: [modelB, modelA],
-      },
-    };
-    expect(modelByName(state, action)).toEqual({ modelB, modelA });
   });
 
   test('GET_REGISTERED_MODEL updates empty state correctly', () => {

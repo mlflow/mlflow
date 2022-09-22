@@ -135,7 +135,7 @@ class MLflowLogger(Callback):
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
             mlflow.log_metric("valid_{}".format(name), value)
-        log_model(keras_model=self._model, **self._pyfunc_params)
+        log_model(model=self._model, **self._pyfunc_params)
 
 
 def _imagenet_preprocess_tf(x):

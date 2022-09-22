@@ -351,7 +351,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
     keras_model, model_path
 ):
-    mlflow.keras.save_model(keras_model.model, model_path)
+    mlflow.tensorflow.save_model(keras_model.model, path=model_path)
 
     inp_dict = {
         "instances": [
@@ -370,7 +370,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instance
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
     keras_model, model_path
 ):
-    mlflow.keras.save_model(keras_model.model, model_path)
+    mlflow.tensorflow.save_model(keras_model.model, path=model_path)
 
     inp_dict = {
         "inputs": {

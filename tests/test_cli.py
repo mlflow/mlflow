@@ -375,9 +375,9 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
     _await_server_up_or_die(port, timeout=10)
-    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
+    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
-        "Endpoint: /api/2.0/mlflow/experiments/list disabled due to the mlflow server running "
+        "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
         "in `--artifacts-only` mode." in resp.text
     )
     process.kill()

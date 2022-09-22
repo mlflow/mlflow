@@ -28,10 +28,10 @@ export class MlflowService {
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/update', data });
 
   /**
-   * List mlflow experiments
+   * Search mlflow experiments
    */
-  static listExperiments = (data) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/list', data });
+  static searchExperiments = (data) =>
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data });
 
   /**
    * Get mlflow experiment

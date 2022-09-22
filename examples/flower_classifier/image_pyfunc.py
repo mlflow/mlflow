@@ -15,7 +15,6 @@ import yaml
 import tensorflow as tf
 
 import mlflow
-import mlflow.keras
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
@@ -118,7 +117,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
         with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
         keras_path = os.path.join(data_path, "keras_model")
-        mlflow.keras.save_model(keras_model, path=keras_path)
+        mlflow.tensorflow.save_model(model=keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
         with open(conda_env, "w") as f:
             f.write(
@@ -156,7 +155,7 @@ def _load_pyfunc(path):
     with tf.Graph().as_default() as g:
         with tf.Session().as_default() as sess:
             keras.backend.set_session(sess)
-            keras_model = mlflow.keras.load_model(keras_model_path)
+            keras_model = mlflow.tensorflow.load_model(keras_model_path)
     return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
 
 

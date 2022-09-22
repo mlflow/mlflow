@@ -177,8 +177,8 @@ Workflows
    The ``loader_module`` parameter specifies the name of your loader module.
 
    For an example loader module implementation, refer to the `loader module
-   implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
-   74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/keras.py#L157-L187>`_.
+   implementation in mlflow.sklearn <https://github.com/mlflow/mlflow/blob/
+   74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/sklearn.py#L200-L205>`_.
 
 .. _pyfunc-create-custom-selecting-workflow:
 
@@ -499,7 +499,8 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    loader_module = conf[MAIN]
+    model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 

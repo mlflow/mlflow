@@ -149,30 +149,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(Exception, match=r"does not exist"):
             second_file_store._check_root_dir()
 
-    def test_list_experiments(self):
-        fs = FileStore(self.test_root)
-        for exp in fs.list_experiments():
-            exp_id = exp.experiment_id
-            assert exp_id in self.experiments
-            self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
-            self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
-
-    def test_list_experiments_paginated(self):
-        fs = FileStore(self.test_root)
-        for _ in range(10):
-            fs.create_experiment(random_str(12))
-        exps1 = fs.list_experiments(max_results=4, page_token=None)
-        self.assertEqual(len(exps1), 4)
-        self.assertIsNotNone(exps1.token)
-        exps2 = fs.list_experiments(max_results=4, page_token=None)
-        self.assertEqual(len(exps2), 4)
-        self.assertIsNotNone(exps2.token)
-        self.assertNotEqual(exps1, exps2)
-        exps3 = fs.list_experiments(max_results=500, page_token=exps2.token)
-        self.assertLessEqual(len(exps3), 500)
-        if len(exps3) < 500:
-            self.assertIsNone(exps3.token)
-
     def test_search_experiments_view_type(self):
         self.initialize()
         experiment_names = ["a", "b"]
@@ -372,7 +348,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_first_experiment(self):
         fs = FileStore(self.test_root)
-        fs.list_experiments = mock.Mock(return_value=[])
+        fs._get_active_experiments = mock.Mock(return_value=[])
+        fs._get_deleted_experiments = mock.Mock(return_value=[])
         fs._create_experiment_with_id = mock.Mock()
         fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
@@ -478,9 +455,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # delete it
         fs.delete_experiment(exp_id)
-        assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
-        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
-        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
+        assert exp_id not in self._extract_ids(
+            fs.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        )
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
         # restore it
@@ -491,9 +470,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
-        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
-        assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
-        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+        assert exp_id not in self._extract_ids(
+            fs.search_experiments(view_type=ViewType.DELETED_ONLY)
+        )
+        assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
 
     def test_rename_experiment(self):
@@ -1119,7 +1100,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
-        experiments = len(fs.list_experiments(ViewType.ALL))
+        experiments = len(fs.search_experiments(view_type=ViewType.ALL))
 
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
@@ -1127,7 +1108,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(MissingConfigException, match="does not exist"):
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
 
-        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+        assert len(fs.search_experiments(view_type=ViewType.ALL)) == experiments - 1
 
     def test_malformed_run(self):
         fs = FileStore(self.test_root)
@@ -1156,7 +1137,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
-        experiments = len(fs.list_experiments(ViewType.ALL))
+        experiments = len(fs.search_experiments(view_type=ViewType.ALL))
 
         # mv experiment folder
         target = "1"
@@ -1169,7 +1150,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         with pytest.raises(MlflowException, match="does not exist"):
             fs.get_experiment(target)
-        assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
+        assert len(fs.search_experiments(view_type=ViewType.ALL)) == experiments - 1
 
     def test_bad_experiment_id_recorded_for_run(self):
         fs = FileStore(self.test_root)
