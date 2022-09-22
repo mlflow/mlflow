@@ -635,8 +635,6 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         def predict(self, context, model_input):
             # pylint: disable=unused-argument
             with torch.no_grad():
-                # context_tensor = context if context is not None else torch.empty(0)
-                # del context_tensor #pylint: disable=unused-variable
                 input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
                 output_tensor = self.pytorch_model(input_tensor)
                 return pd.DataFrame(output_tensor.numpy())
