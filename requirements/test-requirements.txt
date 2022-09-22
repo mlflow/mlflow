@@ -19,4 +19,5 @@ plotly
 kaleido
 # The latest flask version requires werkzeug>=2.2.0
 werkzeug>=2.2.0
-virtualenv
+# Required by mlflow.tensorflow tests.
+transformers

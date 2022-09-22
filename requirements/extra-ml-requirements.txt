@@ -50,5 +50,3 @@ prophet
 pmdarima
 # Required by mlflow.diviner
 diviner
-# Required by mlflow.tensorflow
-transformers
