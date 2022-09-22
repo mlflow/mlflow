@@ -38,6 +38,21 @@ def test_display_html_opens_html_file(tmp_path):
         patched_subprocess.assert_called_once()
 
 
+def test_display_html_throws_error_on_old_dbr():
+    html_data = "<!DOCTYPE html><html><body><p>Hey</p></body></html>"
+    with mock.patch(
+        "mlflow.pipelines.utils.step.is_running_in_ipython_environment", return_value=True
+    ), mock.patch(
+        "mlflow.pipelines.utils.step.is_in_databricks_runtime", return_value=True
+    ), mock.patch(
+        "mlflow.pipelines.utils.step.get_databricks_runtime",
+        return_value="10.4.x-snapshot-cpu-ml-scala2.12",
+    ), pytest.raises(
+        MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Pipelines"
+    ):
+        display_html(html_data=html_data)
+
+
 @pytest.mark.parametrize(
     ("eval_metrics", "ordered_metric_names", "expected_metric_names", "expected_columns"),
     [
