@@ -37,6 +37,7 @@ class ShowArtifactPage extends Component {
     size: PropTypes.number,
     runTags: PropTypes.object,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
+    showWaveform: PropTypes.bool,
   };
 
   render() {
@@ -68,7 +69,10 @@ class ShowArtifactPage extends Component {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
-        } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+        } else if (
+          AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase()) &&
+          this.props.showWaveform
+        ) {
           return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (
           this.props.runTags &&
