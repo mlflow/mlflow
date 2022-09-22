@@ -2,7 +2,7 @@ import logging
 import os
 from mlflow.pipelines.cards import pandas_renderer
 
-from mlflow.exceptions import MlflowException, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import (
     is_running_in_ipython_environment,
     is_in_databricks_runtime,
@@ -75,7 +75,7 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
                 raise MlflowException(
                     f"Use Databricks Runtime 11 or newer with MLflow Pipelines. "
                     f"Current version is {dbr_version} ",
-                    error_code=INTERNAL_ERROR,
+                    error_code=BAD_REQUEST,
                 )
             # Patch IPython display with Databricks display before showing the HTML.
             import IPython.core.display as icd
