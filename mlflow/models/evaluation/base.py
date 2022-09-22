@@ -811,7 +811,7 @@ def _evaluate(
 
         _last_failed_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
-            _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
+            _logger.debug(f"Evaluating the model with the {evaluator_name} evaluator.")
             eval_result = evaluator.evaluate(
                 model=model,
                 model_type=model_type,
