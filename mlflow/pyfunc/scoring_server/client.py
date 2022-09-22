@@ -8,7 +8,7 @@ from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
-from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
+from mlflow.pyfunc.scoring_server import PredictionsResponse
 
 
 class ScoringServerClient:
@@ -70,4 +70,4 @@ class ScoringServerClient:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
-        return MlflowModelServerOutput.from_json(response.text)
+        return PredictionsResponse.from_json(response.text)
