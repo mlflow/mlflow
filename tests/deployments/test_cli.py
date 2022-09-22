@@ -98,10 +98,20 @@ def test_predict(tmpdir):
     assert '{"predictions": [1, 2, 3]}' in res.stdout
 
     res = runner.invoke(
-        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path, "--output-path", temp_output_file_path]
+        cli.predict,
+        [
+            "--target",
+            f_target,
+            "--name",
+            f_name,
+            "--input-path",
+            temp_input_file_path,
+            "--output-path",
+            temp_output_file_path,
+        ],
     )
     with open(temp_output_file_path, "r") as f:
-        assert json.load(f) == {"predictions": [1,2,3]}
+        assert json.load(f) == {"predictions": [1, 2, 3]}
 
 
 def test_target_help():

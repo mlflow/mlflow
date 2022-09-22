@@ -318,7 +318,7 @@ def predict(target, name, input_path, output_path, endpoint):
     else:
         result = client.predict(name, df)
     if output_path is not None:
-        result.to_json(output_path) 
+        result.to_json(output_path)
     else:
         click.echo(result.to_json())
 
