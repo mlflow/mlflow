@@ -12,7 +12,6 @@ In particular, a valid deployment plugin module must implement:
 import abc
 
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.scoring_server import PredictionsResponse
 
 
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
@@ -187,7 +186,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> PredictionsResponse:
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Compute predictions on inputs using the specified deployment or model endpoint.
         Note that the input/output types of this method match those of `mlflow pyfunc predict`.

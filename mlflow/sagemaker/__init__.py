@@ -2593,7 +2593,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while retrieving the deployment: {exc}\n")
             )
 
-    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> PredictionsResponse:
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
