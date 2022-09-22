@@ -10,7 +10,10 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
-from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._spark_utils import (
+    _get_active_spark_session,
+    _create_local_spark_session_for_pipelines,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -80,6 +83,11 @@ class PredictStep(BaseStep):
         # Get or create spark session
         try:
             spark = _get_active_spark_session()
+            if spark:
+                _logger.info("Found active spark session")
+            else:
+                spark = _create_local_spark_session_for_pipelines()
+                _logger.info("Creating new spark session")
         except Exception as e:
             raise MlflowException(
                 message=(
