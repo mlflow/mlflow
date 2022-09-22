@@ -31,6 +31,8 @@ import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { Switch } from 'antd';
+import { ArtifactViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
+import LocalStorageUtils from 'src/common/utils/LocalStorageUtils';
 
 const { Text } = Typography;
 
@@ -53,8 +55,19 @@ export class ArtifactViewImpl extends Component {
     activeNodeId: undefined,
     toggledNodeIds: {},
     requestedNodeIds: new Set(),
-    showAudioWaveformSwitch: true,
+    persistedState: new ArtifactViewPersistedState({
+      ...ArtifactViewImpl.getLocalStore().loadComponentState(),
+    }).toJSON(),
   };
+
+  static getLocalStore() {
+    return LocalStorageUtils.getStoreForComponent('ArtifactPage');
+  }
+
+  snapshotComponentState() {
+    const store = ArtifactViewImpl.getLocalStore();
+    store.saveComponentState(new ArtifactViewPersistedState(this.state.persistedState));
+  }
 
   getExistingModelVersions() {
     const { modelVersionsBySource } = this.props;
@@ -136,8 +149,16 @@ export class ArtifactViewImpl extends Component {
     );
   }
 
-  handleShowWaveformSwitchChange = () => {
-    this.setState({ showAudioWaveformSwitch: !this.state.showAudioWaveformSwitch });
+  handleShowWaveformSwitchChange = (e) => {
+    this.setState(
+      {
+        persistedState: new ArtifactViewPersistedState({
+          ...this.state.persistedState,
+          showWaveformSelected: !this.state.persistedState.showWaveformSelected,
+        }).toJSON(),
+      },
+      () => this.snapshotComponentState(),
+    );
   };
 
   renderShowWaveformSwitch() {
@@ -145,7 +166,7 @@ export class ArtifactViewImpl extends Component {
       <div className='audio-artifact-toggle-waveform-switch'>
         <Switch
           css={{ margin: '5px' }}
-          checked={this.state.showAudioWaveformSwitch}
+          checked={this.state.persistedState.showWaveformSelected}
           onChange={this.handleShowWaveformSwitchChange}
         />
       </div>
@@ -357,7 +378,7 @@ export class ArtifactViewImpl extends Component {
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
               modelVersions={this.props.modelVersions}
-              showWaveform={this.state.showAudioWaveformSwitch}
+              showWaveform={this.state.persistedState.showWaveformSelected}
             />
           </div>
         </div>
