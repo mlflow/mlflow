@@ -16,8 +16,6 @@ import flask
 import json
 import logging
 import os
-import numpy as np
-import pandas as pd
 import sys
 import traceback
 
@@ -125,6 +123,7 @@ def parse_csv_input(csv_input, schema: Schema = None):
                       containing such a string representation.
     :param schema: Optional schema specification to be used during parsing.
     """
+    import pandas as pd
 
     try:
         if schema is None:
@@ -355,6 +354,9 @@ class PredictionsResponse(dict):
         :throws: Exception if the predictions cannot be represented in the specified format.
         :return: The predictions, represented in the specified format.
         """
+        import numpy as np
+        import pandas as pd
+
         if predictions_format == "dataframe":
             return pd.DataFrame(data=self["predictions"])
         elif predictions_format == "ndarray":
