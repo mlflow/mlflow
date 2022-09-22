@@ -17,7 +17,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.pyfunc.backend import _execute_in_conda_env
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -57,15 +56,13 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, save_path=N
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
 
-    _execute_in_conda_env(
-        conda_env,
+    conda_env.execute(
         f"python {exec_py_path} "
         f"--tracking_uri {tracking_uri} "
         f"--mlflow_repo_path {mlflow_repo_path} "
         f"--model_type {model_type} "
         f"--task_type {task_type} "
         f"--save_path {save_path if save_path else 'none'}",
-        install_mlflow=False,
     )
     with open(output_data_file_path, "rb") as f:
         return ModelDataInfo(*pickle.load(f))
