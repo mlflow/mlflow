@@ -60,8 +60,18 @@ def setup_train_dataset(pipeline_root: Path):
 
 
 # Sets up the constructed TrainStep instance
-def setup_train_step(pipeline_root: Path, use_tuning: bool):
+def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_params: bool = True):
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    if with_hardcoded_params:
+        estimator_params = """
+                    estimator_params:
+                        alpha: 0.1
+                        penalty: l1
+                        eta0: 0.1
+                        fit_intercept: true
+        """
+    else:
+        estimator_params = ""
     if use_tuning:
         pipeline_yaml.write_text(
             """
@@ -77,10 +87,7 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
                 train:
                     using: estimator_spec
                     estimator_method: tests.pipelines.test_train_step.estimator_fn
-                    estimator_params:
-                        alpha: 0.1
-                        penalty: l1
-                        eta0: 0.1
+                    {estimator_params}
                     tuning:
                         enabled: true
                         max_trials: 2
@@ -98,7 +105,7 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool):
                                 mu: 0.01
                                 sigma: 0.0001     
             """.format(
-                tracking_uri=mlflow.get_tracking_uri()
+                tracking_uri=mlflow.get_tracking_uri(), estimator_params=estimator_params
             )
         )
     else:
@@ -248,6 +255,30 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
     assert "eta0" in parent_run_params
 
 
+@pytest.mark.parametrize(
+    "with_hardcoded_params, expected_num_tuned, expected_num_hardcoded",
+    [(True, 3, 1), (False, 3, 0)],
+)
+def test_train_step_with_tuning_output_yaml_correct(
+    tmp_pipeline_root_path, with_hardcoded_params, expected_num_tuned, expected_num_hardcoded
+):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step = setup_train_step(
+            tmp_pipeline_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
+        )
+        train_step._run(str(train_step_output_dir))
+    assert (train_step_output_dir / "best_parameters.yaml").exists()
+
+    with open(os.path.join(train_step_output_dir, "best_parameters.yaml")) as f:
+        lines = f.readlines()
+        assert lines[0] == "# tuned hyperparameters\n"
+        assert lines[expected_num_tuned + 2] == "# hardcoded parameters\n"
+        assert len(lines) == expected_num_tuned + expected_num_hardcoded + 3
+
+
 def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
@@ -266,7 +297,7 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
     assert "params.penalty" in child_runs.columns
     assert "params.eta0" in child_runs.columns
 
-    ordered_metrics = list(child_runs["metrics.root_mean_squared_error_on_data_validation"])
+    ordered_metrics = list(child_runs["root_mean_squared_error"])
     assert ordered_metrics == sorted(ordered_metrics)
 
 
