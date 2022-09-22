@@ -141,8 +141,15 @@ describe('ShowArtifactPage', () => {
 
   test('should render audio view for common audio extensions', () => {
     AUDIO_EXTENSIONS.forEach((ext) => {
-      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', showWaveform: true });
       expect(wrapper.find(LazyShowArtifactAudioView).length).toBe(1);
+    });
+  });
+
+  test('should not render audio view if toggle is not set', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', showWaveform: false });
+      expect(wrapper.find('.preview-container').length).toBe(1);
     });
   });
 
