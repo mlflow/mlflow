@@ -40,6 +40,9 @@ div.artifact-view {
 }
 .artifact-info-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
 }
 
 .artifact-info-path {

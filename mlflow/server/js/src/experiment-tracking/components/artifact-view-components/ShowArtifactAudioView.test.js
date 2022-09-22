@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
+import WaveformView from './WaveformView';
 
 function minimalWaveFile() {
   const b64 =
@@ -44,8 +45,7 @@ describe('ShowArtifactAudioView', () => {
     wrapper = mount(<ShowArtifactAudioView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('wave').length).toBe(1);
+      expect(wrapper.find(WaveformView).length).toBe(1);
       done();
     });
   });
