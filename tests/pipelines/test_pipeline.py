@@ -336,9 +336,9 @@ def test_print_cached_steps_and_running_steps(capsys):
     captured = capsys.readouterr()
     output_info = captured.err
     cached_step_pattern = "{step}: No changes. Skipping."
-    for step in _STEP_NAMES:
-        # Check for printed message when every step is cached
-        assert re.search(cached_step_pattern.format(step=step), output_info) is not None
+    cached_steps = ", ".join(_STEP_NAMES)
+    # Check for printed message when steps are cached
+    assert re.search(cached_step_pattern.format(step=cached_steps), output_info) is not None
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
