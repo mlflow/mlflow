@@ -165,6 +165,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     DatabricksMlflowArtifactsService, request_message_class, json_body
                 )
                 credential_infos += response.credential_infos
+                _logger.warning("Get read/write credential infos: %s", response.credential_infos)
                 page_token = response.next_page_token
                 if not page_token or len(response.credential_infos) == 0:
                     break
@@ -374,7 +375,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         try:
             _logger.warning("Downloading from URL: %s", cloud_credential_info.signed_uri)
             _logger.warning(
-                "Passing headers: %s", self._convert_http_headers(cloud_credential_info.headers)
+                "Download URL headers: %s",
+                self._convert_http_headers(cloud_credential_info.headers),
             )
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
