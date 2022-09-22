@@ -27,6 +27,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -286,8 +287,6 @@ def test_model_save_load(build_model, save_format, model_path, data):
 
 
 def test_pyfunc_serve_and_score(data):
-    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
-
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
@@ -304,7 +303,7 @@ def test_pyfunc_serve_and_score(data):
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     actual_scoring_response = (
-        MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+        MlflowModelServerOutput.from_json(scoring_response.content.decode("utf-8"))
         .get_predictions()
         .values.astype(np.float32)
     )
@@ -664,7 +663,6 @@ def test_load_without_save_format(tf_keras_model, model_path):
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():
-    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
     from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
 
     bert = TFBertModel(
@@ -692,7 +690,7 @@ def test_pyfunc_serve_and_score_transformers():
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    actual_scoring_response = MlflowModelServerOutput.from_raw_json(
+    actual_scoring_response = MlflowModelServerOutput.from_json(
         resp.content.decode("utf-8")
     ).get_predictions(predictions_format="ndarray")
     np.testing.assert_array_equal(actual_scoring_response, model.predict(dummy_inputs))

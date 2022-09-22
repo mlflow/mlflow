@@ -746,11 +746,9 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
+    from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
 
-    actual = (
-        MlflowModelServerOutput.from_raw_json(resp.content).get_predictions()["class_ids"].values
-    )
+    actual = MlflowModelServerOutput.from_json(resp.content).get_predictions()["class_ids"].values
     expected = (
         saved_tf_iris_model.expected_results_df["predictions"]
         .map(iris_data_utils.SPECIES.index)

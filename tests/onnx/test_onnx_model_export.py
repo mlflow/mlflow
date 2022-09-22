@@ -20,6 +20,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
+from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
 from mlflow.utils.file_utils import TempDir
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -281,9 +282,8 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 
-    model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+    model_output = MlflowModelServerOutput.from_json(scoring_response.content.decode("utf-8"))
     np.testing.assert_allclose(
         model_output.get_predictions().values.flatten().astype(np.float32),
         predicted,
@@ -322,9 +322,8 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 
-    model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
+    model_output = MlflowModelServerOutput.from_json(scoring_response.content.decode("utf-8"))
 
     np.testing.assert_allclose(
         model_output.get_predictions().values,

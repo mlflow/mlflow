@@ -7,49 +7,8 @@ import pandas as pd
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
-
-
-class MlflowModelServerOutput(dict):
-    """
-    Represents the predictions and response metadata from a scoring API request sent to an
-    MLflow Model Server, including Model Servers launched using MLflow Deployments.
-    """
-
-    def get_predictions(self, predictions_format="dataframe", dtype=None):
-        """
-        Get the predictions returned from the MLflow Model Server in the specified format.
-
-        :param predictions_format: The format in which to return the predictions. Either
-                                   ``"dataframe"`` or ``"ndarray"``.
-        :param dtype: The NumPy datatype to which to coerce the predictions. Only used when
-                      the ``"ndarray"`` ``predictions_format`` is specified.
-        :throws: Exception if the predictions cannot be represented in the specified format.
-        :return: The predictions, represented in the specified format.
-        """
-        if predictions_format == "dataframe":
-            return pd.DataFrame(data=self["predictions"])
-        elif predictions_format == "ndarray":
-            return np.array(self["predictions"], dtype)
-        else:
-            raise MlflowException(
-                f"Unrecognized predictions format: '{predictions_format}'",
-                INVALID_PARAMETER_VALUE,
-            )
-
-    @classmethod
-    def from_raw_json(cls, json_str):
-        try:
-            parsed_response = json.loads(json_str)
-        except Exception as ex:
-            raise MlflowException(f"Model response is not a valid json. Error {ex}")
-        if not isinstance(parsed_response, dict) or "predictions" not in parsed_response:
-            raise MlflowException(
-                "Invalid predictions data. Prediction object must be a dictionary "
-                "with 'predictions' field."
-            )
-        return MlflowModelServerOutput(parsed_response)
+from mlflow.pyfunc.scoring_server import MlflowModelServerOutput
 
 
 class ScoringServerClient:
@@ -111,4 +70,4 @@ class ScoringServerClient:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
-        return MlflowModelServerOutput.from_raw_json(response.text)
+        return MlflowModelServerOutput.from_json(response.text)

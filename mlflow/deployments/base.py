@@ -12,6 +12,7 @@ In particular, a valid deployment plugin module must implement:
 import abc
 
 from mlflow.exceptions import MlflowException
+from mlflow.deployments import MlflowModelServerOutput
 
 
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
@@ -186,7 +187,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> MlflowModelServerOutput:
         """
         Compute predictions on inputs using the specified deployment or model endpoint.
         Note that the input/output types of this method match those of `mlflow pyfunc predict`.
@@ -195,7 +196,8 @@ class BaseDeploymentClient(abc.ABC):
         :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
                        inference
         :param endpoint: Endpoint to predict against. May not be supported by all targets
-        :return: A pandas DataFrame, pandas Series, or numpy array
+        :return: A :py:ref:`MlflowModelServerOutput` instance representing the predictions and
+                 associated Model Server response metadata.
         """
         pass
 

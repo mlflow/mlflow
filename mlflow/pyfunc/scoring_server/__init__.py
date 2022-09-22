@@ -16,6 +16,7 @@ import flask
 import json
 import logging
 import os
+import numpy as np
 import pandas as pd
 import sys
 import traceback
@@ -26,6 +27,7 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -334,3 +336,46 @@ def get_cmd(
     command_env[_SERVER_MODEL_PATH] = local_uri
 
     return command, command_env
+
+
+class MlflowModelServerOutput(dict):
+    """
+    Represents the predictions and response metadata from a scoring API request sent to an
+    MLflow Model Server, including Model Servers launched using MLflow Deployments.
+    """
+
+    def get_predictions(self, predictions_format="dataframe", dtype=None):
+        """
+        Get the predictions returned from the MLflow Model Server in the specified format.
+
+        :param predictions_format: The format in which to return the predictions. Either
+                                   ``"dataframe"`` or ``"ndarray"``.
+        :param dtype: The NumPy datatype to which to coerce the predictions. Only used when
+                      the ``"ndarray"`` ``predictions_format`` is specified.
+        :throws: Exception if the predictions cannot be represented in the specified format.
+        :return: The predictions, represented in the specified format.
+        """
+        if predictions_format == "dataframe":
+            return pd.DataFrame(data=self["predictions"])
+        elif predictions_format == "ndarray":
+            return np.array(self["predictions"], dtype)
+        else:
+            raise MlflowException(
+                f"Unrecognized predictions format: '{predictions_format}'",
+                INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
+    def from_json(cls, json_str):
+        try:
+            parsed_response = json.loads(json_str)
+        except Exception as e:
+            raise MlflowException(
+                f"MLflow Model Server response contents are not valid JSON"
+            ) from e
+        if not isinstance(parsed_response, dict) or "predictions" not in parsed_response:
+            raise MlflowException(
+                f"Invalid MLflow Model Server response. Response contents must be a dictionary"
+                f" containing a 'predictions' field. Instead, received: {parsed_response}"
+            )
+        return MlflowModelServerOutput(parsed_response)
