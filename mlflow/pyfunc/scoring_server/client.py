@@ -7,12 +7,36 @@ import pandas as pd
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
 
 
 class MlflowModelServerOutput(dict):
-    """Predictions returned from the MLflow scoring server. The predictions are presented as a
-    dictionary with convenience methods to access the predictions parsed as higher level type."""
+    """
+    Represents the predictions and response metadata from a scoring API request sent to an
+    MLflow Model Server, including Model Servers launched using MLflow Deployments.
+    """
+
+    def get_predictions(self, predictions_format="dataframe", dtype=None):
+        """
+        Get the predictions returned from the MLflow Model Server in the specified format.
+
+        :param predictions_format: The format in which to return the predictions. Either
+                                   ``"dataframe"`` or ``"ndarray"``.
+        :param dtype: The NumPy datatype to which to coerce the predictions. Only used when
+                      the ``"ndarray"`` ``predictions_format`` is specified.
+        :throws: Exception if the predictions cannot be represented in the specified format.
+        :return: The predictions, represented in the specified format. 
+        """
+        if predictions_format == "dataframe":
+            return pd.DataFrame(data=self["predictions"])
+        elif predictions_format == "ndarray":
+            return np.array(self["predictions"], dtype)
+        else:
+            raise MlflowException(
+                f"Unrecognized predictions format: '{predictions_format}'",
+                INVALID_PARAMETER_VALUE,
+            )
 
     @classmethod
     def from_raw_json(cls, json_str):
@@ -26,16 +50,6 @@ class MlflowModelServerOutput(dict):
                 "with 'predictions' field."
             )
         return MlflowModelServerOutput(parsed_response)
-
-    def get_predictions_dataframe(self):
-        """Get the predictions returned from the server as pandas.DataFrame. this method will fail
-        if the returned predictions is not a valid DataFrame representation."""
-        return pd.DataFrame(data=self["predictions"])
-
-    def get_predictions_nparray(self, dtype=None):
-        """Get the predictions returned from the server as a numpy array. this method will fail
-        if the returned predictions is not a valid numpy array"""
-        return np.array(self["predictions"], dtype)
 
 
 class ScoringServerClient:

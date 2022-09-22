@@ -451,7 +451,7 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_data):
     )
     scores = MlflowModelServerOutput.from_raw_json(
         resp.content.decode("utf-8")
-    ).get_predictions_dataframe()
+    ).get_predictions()
     scores["ds"] = pd.to_datetime(scores["ds"], format=DS_FORMAT)
     scores["multiplicative_terms"] = scores["multiplicative_terms"].astype("float64")
     pd.testing.assert_frame_equal(local_predict, scores)

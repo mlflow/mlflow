@@ -856,7 +856,7 @@ def test_pyfunc_serve_and_score(data):
     )
     from mlflow.pyfunc.scoring_server.client import MlflowModelServerOutput
 
-    scores = MlflowModelServerOutput.from_raw_json(resp.content).get_predictions_dataframe()
+    scores = MlflowModelServerOutput.from_raw_json(resp.content).get_predictions()
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 

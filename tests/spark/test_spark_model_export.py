@@ -300,7 +300,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 
     np.testing.assert_array_almost_equal(
         spark_model_iris.predictions,
-        MlflowModelServerOutput.from_raw_json(scoring_response.content).get_predictions_nparray(),
+        MlflowModelServerOutput.from_raw_json(scoring_response.content).get_predictions(predictions_format="ndarray"),
         decimal=4,
     )
 

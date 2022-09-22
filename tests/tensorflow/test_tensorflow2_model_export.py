@@ -750,7 +750,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
 
     actual = (
         MlflowModelServerOutput.from_raw_json(resp.content)
-        .get_predictions_dataframe()["class_ids"]
+        .get_predictions()["class_ids"]
         .values
     )
     expected = (

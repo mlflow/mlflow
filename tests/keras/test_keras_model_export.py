@@ -305,7 +305,7 @@ def test_pyfunc_serve_and_score(data):
     )
     actual_scoring_response = (
         MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
-        .get_predictions_dataframe()
+        .get_predictions()
         .values.astype(np.float32)
     )
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
@@ -694,7 +694,7 @@ def test_pyfunc_serve_and_score_transformers():
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
     actual_scoring_response = MlflowModelServerOutput.from_raw_json(
         resp.content.decode("utf-8")
-    ).get_predictions_nparray()
+    ).get_predictions(predictions_format="ndarray")
     np.testing.assert_array_equal(actual_scoring_response, model.predict(dummy_inputs))
 
 

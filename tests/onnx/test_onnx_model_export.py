@@ -285,7 +285,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
 
     model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
     np.testing.assert_allclose(
-        model_output.get_predictions_dataframe().values.flatten().astype(np.float32),
+        model_output.get_predictions().values.flatten().astype(np.float32),
         predicted,
         rtol=1e-05,
         atol=1e-05,
@@ -327,7 +327,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     model_output = MlflowModelServerOutput.from_raw_json(scoring_response.content.decode("utf-8"))
 
     np.testing.assert_allclose(
-        model_output.get_predictions_dataframe().values,
+        model_output.get_predictions().values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
         atol=1e-05,

@@ -221,7 +221,7 @@ def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
 
 
 def _create_virtualenv(
-    local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=True
+    local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=False
 ):
     # Created a command to activate the environment
     paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
@@ -267,7 +267,7 @@ _PYENV_ROOT_DIR = "pyenv_root"
 
 
 def _get_or_create_virtualenv(
-    local_model_path, env_id=None, env_root_dir=None, capture_output=True
+    local_model_path, env_id=None, env_root_dir=None, capture_output=False
 ):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command

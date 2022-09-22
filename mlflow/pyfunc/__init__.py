@@ -758,7 +758,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-    # Used in test to force install lcoal version of mlflow when starting a model server
+    # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
 
     _EnvManager.validate(env_manager)
@@ -989,7 +989,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
-                return client.invoke(pdf).get_predictions_dataframe()
+                return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:

@@ -7,7 +7,7 @@ import hashlib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.process import _exec_cmd, ShellCommandException
+from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
@@ -568,16 +568,13 @@ class Environment:
         else:
             command = ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
-        try:
-            return _exec_cmd(
-                command,
-                env=command_env,
-                capture_output=capture_output,
-                synchronous=synchronous,
-                preexec_fn=preexec_fn,
-                close_fds=True,
-                stdout=stdout,
-                stderr=stderr,
-            )
-        except ShellCommandException as ex:
-            raise ex
+        return _exec_cmd(
+            command,
+            env=command_env,
+            capture_output=capture_output,
+            synchronous=synchronous,
+            preexec_fn=preexec_fn,
+            close_fds=True,
+            stdout=stdout,
+            stderr=stderr,
+        )
