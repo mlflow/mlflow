@@ -372,6 +372,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
         try:
+            _logger.warning("Downloading from URL: %s", cloud_credential_info.signed_uri)
+            _logger.warning(
+                "Passing headers: %s", self._convert_http_headers(cloud_credential_info.headers)
+            )
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
                 dst_local_file_path,

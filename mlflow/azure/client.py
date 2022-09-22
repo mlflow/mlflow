@@ -40,11 +40,11 @@ def put_adls_file_creation(sas_url, headers):
 
 def patch_adls_file_upload(sas_url, data, position, headers):
     """
-    Performs an ADLS Azure file create `Put` operation
-    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
+    Performs an ADLS Azure file create `Patch` operation
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
 
     :param sas_url: A shared access signature URL referring to the Azure ADLS server
-                    to which the file creation command should be issued.
+                    to which the file update command should be issued.
     :param data: Data to include in the Patch request body.
     :param position: Positional offset of the data in the Patch request
     :param headers: Additional headers to include in the Patch request body
@@ -67,12 +67,12 @@ def patch_adls_file_upload(sas_url, data, position, headers):
 def patch_adls_flush(sas_url, position, headers):
     """
     Performs an ADLS Azure file flush `Patch` operation
-    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/create)
+    (https://docs.microsoft.com/en-us/rest/api/storageservices/datalakestoragegen2/path/update)
 
     :param sas_url: A shared access signature URL referring to the Azure ADLS server
-                    to which the file creation command should be issued.
+                    to which the file update command should be issued.
     :param position: The final size of the file to flush.
-    :param headers: Additional headers to include in the Put request body.
+    :param headers: Additional headers to include in the Patch request body.
     """
     request_url = _append_query_parameters(sas_url, {"action": "flush", "position": str(position)})
 
