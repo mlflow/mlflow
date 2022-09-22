@@ -557,7 +557,10 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         env_root_dir=env_root_dir,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
-    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=False)
+    # Set capture_output to True in Databricks so that when environment preparation fails, the
+    # exception message of the notebook cell output will include child process command execution
+    # stdout/stderr output.
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
     server_port = find_free_port()
     scoring_server_proc = pyfunc_backend.serve(
         model_uri=local_path,
