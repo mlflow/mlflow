@@ -104,7 +104,7 @@ The pipeline steps are defined as follows:
 .. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
 .. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L64-L73>`__
 .. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L47-L56>`__
-.. |'tuning' section of the 'train' step definition in pipeline.yaml| replace:: `'tuning' section of the 'train' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/e3f761cea0eada099c3d4d3ca558104a9df9a047/pipeline.yaml#L57-L77>`__
+.. |'tuning' section of the 'train' step definition in pipeline.yaml| replace:: `'tuning' section of the 'train' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/d4ac7ee6ba7649f0d07138565e02402cd7a260c4/pipeline.yaml#L57-L78>`__
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/split.py>`__
 .. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/train.py>`__
