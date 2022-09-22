@@ -82,7 +82,7 @@ class TrackingServiceClient:
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -90,10 +90,11 @@ class TrackingServiceClient:
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param experiment_id: The ID of then experiment to create a run in.
+        :param experiment_id: The ID of the experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
+        :param name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 
@@ -109,6 +110,7 @@ class TrackingServiceClient:
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
+            run_name=run_name,
         )
 
     def list_run_infos(
@@ -449,7 +451,10 @@ class TrackingServiceClient:
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
-            run_id, run_status=RunStatus.from_string(status), end_time=end_time
+            run_id,
+            run_status=RunStatus.from_string(status),
+            end_time=end_time,
+            run_name=None,
         )
 
     def delete_run(self, run_id):

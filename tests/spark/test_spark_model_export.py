@@ -670,7 +670,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "false",
             True,
             False,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -678,7 +678,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "",
             False,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -686,7 +686,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "",
             True,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -694,10 +694,10 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "true",
             True,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
         ),
-        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml/sparkml"),
-        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml/sparkml"),
+        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml"),
+        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml"),
     ],
 )
 def test_model_logged_via_mlflowdbfs_when_appropriate(
@@ -807,7 +807,7 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
             mock_save.assert_called_once_with(
                 f"mlflowdbfs:///artifacts?run_id={run_id}&path=/model/sparkml"
                 if dummy_read_shows_mlflowdbfs_available
-                else "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"
+                else "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
             )
 
 

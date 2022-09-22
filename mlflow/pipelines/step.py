@@ -110,6 +110,7 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  outputs should be stored.
         :return: None
         """
+        _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
         try:

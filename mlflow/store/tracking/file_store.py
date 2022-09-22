@@ -38,6 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -98,7 +99,6 @@ def _make_persisted_run_info_dict(run_info):
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict["tags"] = []
-    run_info_dict["name"] = ""
     if "status" in run_info_dict:
         # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
         # Convert from string to enum/int before storing.
@@ -308,7 +308,15 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
+        creation_time = int(time.time() * 1000)
+        experiment = Experiment(
+            experiment_id,
+            name,
+            artifact_uri,
+            LifecycleStage.ACTIVE,
+            creation_time=creation_time,
+            last_update_time=creation_time,
+        )
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
         # As such, we should not include them in the meta file.
@@ -407,6 +415,14 @@ class FileStore(AbstractStore):
                 "Could not find experiment with ID %s" % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
+        experiment = self._get_experiment(experiment_id)
+        experiment._set_last_update_time(int(time.time() * 1000))
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
         mv(experiment_dir, self.trash_folder)
 
     def restore_experiment(self, experiment_id):
@@ -424,6 +440,14 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
+        experiment = self._get_experiment(experiment_id)
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        experiment._set_last_update_time(int(time.time() * 1000))
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
 
     def rename_experiment(self, experiment_id, new_name):
         _validate_experiment_name(new_name)
@@ -437,6 +461,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
+        experiment._set_last_update_time(int(time.time() * 1000))
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
@@ -515,15 +540,15 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
 
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time)
+        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Creates a run with the specified attributes.
         """
@@ -540,11 +565,13 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
+        run_name = run_name if run_name is not None else _generate_random_name()
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
             run_uuid=run_uuid,
             run_id=run_uuid,
+            run_name=run_name,
             experiment_id=experiment_id,
             artifact_uri=artifact_uri,
             user_id=user_id,

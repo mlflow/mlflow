@@ -4,7 +4,6 @@ import functools
 from unittest import mock
 from contextlib import ExitStack, contextmanager
 
-
 import logging
 import requests
 import time
@@ -100,6 +99,29 @@ def score_model_in_sagemaker_docker_container(
         env=env,
     )
     return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
+
+
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
+    """
+    Builds a dockerfile for the specified model.
+    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+    :param output_directory: Output directory to generate Dockerfile and model artifacts
+    """
+    cmd = [
+        "mlflow",
+        "models",
+        "generate-dockerfile",
+        *(["-m", model_uri] if model_uri else []),
+        "-d",
+        output_directory,
+    ]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
+    if extra_args:
+        cmd += extra_args
+    subprocess.run(cmd, check=True)
 
 
 def pyfunc_build_image(model_uri=None, extra_args=None):

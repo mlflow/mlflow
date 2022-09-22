@@ -509,7 +509,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
-    assert "Profile of Ingested Dataset" in step_card_html_content
+    assert "facets-overview" in step_card_html_content
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -656,5 +656,5 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     expected_step_card_path = os.path.join(tmp_path, "card.html")
     with open(expected_step_card_path, "r") as f:
         step_card_html_content = f.read()
-    assert "Profile of Ingested Dataset" not in step_card_html_content
+    assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()

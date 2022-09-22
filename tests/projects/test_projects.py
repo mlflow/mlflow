@@ -361,7 +361,7 @@ def test_create_env_with_mamba():
                 mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
-def test_conda_environment_cleaned_up_when_pip_fails(tmp_path, capfd):
+def test_conda_environment_cleaned_up_when_pip_fails(tmp_path):
     conda_yaml = tmp_path / "conda.yaml"
     content = """
 name: {name}
@@ -381,13 +381,8 @@ dependencies:
     envs_before = mlflow.utils.conda._list_conda_environments()
 
     # `conda create` should fail because mlflow 999.999.999 doesn't exist
-    with pytest.raises(ShellCommandException, match=r".*"):
-        mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
-
-    # Ensure `conda create` failed because of pip failure
-    captured = capfd.readouterr()
-    assert "ERROR: No matching distribution found for mlflow==999.999.999" in captured.err
-    assert "CondaEnvException: Pip failed" in captured.err
+    with pytest.raises(ShellCommandException, match=r"No matching distribution found"):
+        mlflow.utils.conda.get_or_create_conda_env(conda_yaml, capture_output=True)
 
     # Ensure the environment is cleaned up
     envs_after = mlflow.utils.conda._list_conda_environments()

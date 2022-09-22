@@ -9,7 +9,6 @@ from mlflow.models.evaluation.base import (
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
 from mlflow.models.evaluation.artifacts import (
     ImageEvaluationArtifact,
@@ -117,17 +116,28 @@ def _extract_predict_fn(model, raw_model):
     return predict_fn, predict_proba_fn
 
 
-def _get_regressor_metrics(y, y_pred):
+def _get_regressor_metrics(y, y_pred, sample_weights):
+    sum_on_label = (
+        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
+    )
     return {
         "example_count": len(y),
-        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred),
-        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred),
-        "root_mean_squared_error": math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
-        "sum_on_label": sum(y),
-        "mean_on_label": sum(y) / len(y),
-        "r2_score": sk_metrics.r2_score(y, y_pred),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "root_mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights, squared=False
+        ),
+        "sum_on_label": sum_on_label,
+        "mean_on_label": sum_on_label / len(y),
+        "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
-        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
     }
 
 
@@ -147,52 +157,98 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred):
-    """
-    get classifier metrics which computing over a specific class.
-    For binary classifier, y/y_pred is for the positive class.
-    For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
-    """
-    metrics = {}
-    confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-    tn, fp, fn, tp = confusion_matrix.ravel()
-    metrics["true_negatives"] = tn
-    metrics["false_positives"] = fp
-    metrics["false_negatives"] = fn
-    metrics["true_positives"] = tp
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-    metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
+def _get_common_classifier_metrics(
+    *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
+):
+    metrics = {
+        "example_count": len(y_true),
+        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
+        "recall_score": sk_metrics.recall_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+        "precision_score": sk_metrics.precision_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+        "f1_score": sk_metrics.f1_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+    }
+    if y_proba is not None:
+        metrics["log_loss"] = sk_metrics.log_loss(
+            y_true, y_proba, labels=labels, sample_weight=sample_weights
+        )
+
     return metrics
 
 
-def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
-    """
-    get classifier metrics which computing over all classes examples.
-    """
-    metrics = {}
-    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["example_count"] = len(y)
+def _get_binary_classifier_metrics(
+    *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
+):
+    tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+    return {
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        **_get_common_classifier_metrics(
+            y_true=y_true,
+            y_pred=y_pred,
+            y_proba=y_proba,
+            labels=labels,
+            average="binary",
+            pos_label=pos_label,
+            sample_weights=sample_weights,
+        ),
+    }
 
-    if not is_binomial:
-        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro", labels=labels)
-        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro", labels=labels)
 
-    if y_probs is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
+def _get_multiclass_classifier_metrics(
+    *,
+    y_true,
+    y_pred,
+    y_proba=None,
+    labels=None,
+    average="weighted",
+    sample_weights=None,
+):
+    return _get_common_classifier_metrics(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_proba=y_proba,
+        labels=labels,
+        average=average,
+        pos_label=None,
+        sample_weights=sample_weights,
+    )
 
-    return metrics
 
-
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
-
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics.update(
+            _get_binary_classifier_metrics(
+                y_true=y_bin,
+                y_pred=y_pred_bin,
+                pos_label=1,
+                sample_weights=sample_weights,
+            )
+        )
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -223,7 +279,9 @@ def _gen_classifier_curve(
     y,
     y_probs,
     labels,
+    pos_label,
     curve_type,
+    sample_weights,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -232,49 +290,74 @@ def _gen_classifier_curve(
     :param y_probs: if binary classifier, the predicted probability for positive class.
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
+    :param pos_label: The label of the positive class.
     :param curve_type: "pr" or "roc"
+    :param sample_weights: Optional sample weights.
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob)
-            auc = sk_metrics.auc(fpr, tpr)
-            return fpr, tpr, f"AUC={auc:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
+            fpr, tpr, _ = sk_metrics.roc_curve(
+                _y,
+                _y_prob,
+                sample_weight=sample_weights,
+                # For multiclass classification where a one-vs-rest ROC curve is produced for each
+                # class, the positive label is binarized and should not be included in the plot
+                # legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
+            )
+            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
+        title = "ROC curve"
+        if pos_label:
+            xlabel = f"False Positive Rate (Positive label: {pos_label})"
+            ylabel = f"True Positive Rate (Positive label: {pos_label})"
     elif curve_type == "pr":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            ap = np.mean(precision)
-            return recall, precision, f"AP={ap:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
+            precision, recall, _ = sk_metrics.precision_recall_curve(
+                _y, _y_prob, sample_weight=sample_weights
+            )
+            # NB: We return average precision score (AP) instead of AUC because AP is more
+            # appropriate for summarizing a precision-recall curve
+            ap = sk_metrics.average_precision_score(
+                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+            )
+            return recall, precision, f"AP={ap:.3f}", ap
 
-        xlabel = "recall"
-        ylabel = "precision"
+        xlabel = "Recall"
+        ylabel = "Precision"
+        title = "Precision recall curve"
+        if pos_label:
+            xlabel = f"Recall (Positive label: {pos_label})"
+            ylabel = f"Precision (Positive label: {pos_label})"
     else:
         assert False, "illegal curve type"
 
     if is_binomial:
-        x_data, y_data, line_label = gen_line_x_y_label_fn(y, y_probs)
+        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, pos_label)
         data_series = [(line_label, x_data, y_data)]
-        auc = sk_metrics.auc(x_data, y_data)
     else:
         curve_list = []
         for positive_class_index, positive_class in enumerate(labels):
             y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
-                positive_class_index, positive_class, y, None, y_probs
+                positive_class_index, positive_class, y, labels, y_probs
             )
 
-            x_data, y_data, line_label = gen_line_x_y_label_fn(y_bin, y_prob_bin)
-            curve_list.append((positive_class, x_data, y_data, line_label))
+            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(
+                y_bin, y_prob_bin, _pos_label=1
+            )
+            curve_list.append((positive_class, x_data, y_data, line_label, auc))
 
         data_series = [
             (f"label={positive_class},{line_label}", x_data, y_data)
-            for positive_class, x_data, y_data, line_label in curve_list
+            for positive_class, x_data, y_data, line_label, _ in curve_list
         ]
-        auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
+        auc = [auc for _, _, _, _, auc in curve_list]
 
     def _do_plot(**kwargs):
         from matplotlib import pyplot
@@ -304,6 +387,7 @@ def _gen_classifier_curve(
             "xlabel": xlabel,
             "ylabel": ylabel,
             "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
+            "title": title,
         },
         auc=auc,
     )
@@ -474,7 +558,7 @@ class DefaultEvaluator(ModelEvaluator):
         try:
             pyplot.clf()
             do_plot()
-            pyplot.savefig(artifact_file_local_path)
+            pyplot.savefig(artifact_file_local_path, bbox_inches="tight")
         finally:
             pyplot.close(pyplot.gcf())
 
@@ -560,19 +644,7 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
-        for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
-                # For duplicated truncated name, attach "(f_{feature_index})" at the end
-                truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
-
-        truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
-
-        # For some shap explainer, the plot will use the DataFrame column names instead of
-        # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.copy_to_avoid_mutation().rename(
-            columns=truncated_feature_name_map, copy=False
-        )
+        X_df = self.X.copy_to_avoid_mutation()
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -614,7 +686,7 @@ class DefaultEvaluator(ModelEvaluator):
                     explainer = shap.Explainer(
                         shap_predict_fn,
                         sampled_X,
-                        feature_names=truncated_feature_names,
+                        feature_names=self.feature_names,
                         algorithm=algorithm,
                     )
             else:
@@ -627,19 +699,19 @@ class DefaultEvaluator(ModelEvaluator):
                     # for raw model, this case shap plot doesn't support it well, so exclude the
                     # multinomial_classifier case here.
                     explainer = shap.Explainer(
-                        self.raw_model, sampled_X, feature_names=truncated_feature_names
+                        self.raw_model, sampled_X, feature_names=self.feature_names
                     )
                 else:
                     # fallback to default explainer
                     explainer = shap.Explainer(
-                        shap_predict_fn, sampled_X, feature_names=truncated_feature_names
+                        shap_predict_fn, sampled_X, feature_names=self.feature_names
                     )
 
             _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
             if algorithm == "kernel":
                 shap_values = shap.Explanation(
-                    explainer.shap_values(sampled_X), feature_names=truncated_feature_names
+                    explainer.shap_values(sampled_X), feature_names=self.feature_names
                 )
             else:
                 shap_values = explainer(sampled_X)
@@ -669,9 +741,18 @@ class DefaultEvaluator(ModelEvaluator):
             )
             _logger.debug("", exc_info=True)
 
+        def _adjust_color_bar():
+            pyplot.gcf().axes[-1].set_aspect("auto")
+            pyplot.gcf().axes[-1].set_box_aspect(50)
+
+        def _adjust_axis_tick():
+            pyplot.xticks(fontsize=10)
+            pyplot.yticks(fontsize=10)
+
         def plot_beeswarm():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.plots.beeswarm(shap_values, show=False)
+            shap.plots.beeswarm(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_beeswarm,
@@ -679,8 +760,9 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_summary():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
-            shap.summary_plot(shap_values, show=False)
+            shap.summary_plot(shap_values, show=False, color_bar=True)
+            _adjust_color_bar()
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_summary,
@@ -688,8 +770,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         def plot_feature_importance():
-            pyplot.subplots_adjust(bottom=0.2, left=0.4)
             shap.plots.bar(shap_values, show=False)
+            _adjust_axis_tick()
 
         self._log_image_artifact(
             plot_feature_importance,
@@ -699,7 +781,9 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
             try:
-                score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y)
+                score = self.raw_model.score(
+                    self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
+                )
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
@@ -715,7 +799,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -724,14 +810,19 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, self.label_list
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            sample_weights=self.sample_weights,
         )
 
         log_roc_pr_curve = False
@@ -754,7 +845,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             def plot_roc_curve():
@@ -768,7 +861,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             def plot_pr_curve():
@@ -795,7 +890,7 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
 
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs),
+                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
                 "lift_curve_plot",
             )
 
@@ -911,7 +1006,11 @@ class DefaultEvaluator(ModelEvaluator):
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y, self.y_pred, labels=self.label_list, normalize="true"
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            normalize="true",
+            sample_weight=self.sample_weights,
         )
 
         def plot_confusion_matrix():
@@ -925,10 +1024,11 @@ class DefaultEvaluator(ModelEvaluator):
                 }
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
-                sk_metrics.ConfusionMatrixDisplay(
+                disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
                 ).plot(cmap="Blues", ax=ax)
+                disp.ax_.set_title("Normalized confusion matrix")
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
@@ -983,20 +1083,32 @@ class DefaultEvaluator(ModelEvaluator):
         """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
-            self.metrics.update(
-                _get_classifier_global_metrics(
-                    self.is_binomial,
-                    self.y,
-                    self.y_pred,
-                    self.y_probs,
-                    self.label_list,
-                )
-            )
             if self.is_binomial:
-                self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
+                self.metrics.update(
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=self.pos_label,
+                        sample_weights=self.sample_weights,
+                    )
+                )
                 self._compute_roc_and_pr_curve()
+            else:
+                average = self.evaluator_config.get("average", "weighted")
+                self.metrics.update(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                        sample_weights=self.sample_weights,
+                    )
+                )
         elif self.model_type == "regressor":
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
     def _log_metrics_and_artifacts(self):
         """
@@ -1079,6 +1191,8 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
+        self.pos_label = self.evaluator_config.get("pos_label", 1)
+        self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 
@@ -1092,11 +1206,14 @@ class DefaultEvaluator(ModelEvaluator):
         if evaluator_config.get("_disable_candidate_model", False):
             evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
         else:
+            if baseline_model:
+                _logger.info("Evaluating candidate model:")
             evaluation_result = self._evaluate(model, is_baseline_model=False)
 
         if not baseline_model:
             return evaluation_result
 
+        _logger.info("Evaluating baseline model:")
         baseline_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
 
         return EvaluationResult(

@@ -18,6 +18,11 @@ protoc -I="$PROTOS" \
     "$PROTOS"/mlflow_artifacts.proto \
     "$PROTOS"/scalapb/scalapb.proto
 
+PROTOS="mlflow/protos"
+protoc -I="$PROTOS" \
+    --python_out="$PROTOS" \
+    "$PROTOS"/facet_feature_statistics.proto \
+
 # Generate only Python classes (no Java classes) for test protos.
 TEST_PROTOS="tests/protos"
 protoc -I="$TEST_PROTOS" \

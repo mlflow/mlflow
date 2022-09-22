@@ -681,10 +681,11 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
         )
 
 
-def test_load_and_predict_keras_model_saved_by_mlflow128(tmpdir, monkeypatch):
-    monkeypatch.chdir(str(tmpdir))
+def test_load_and_predict_keras_model_saved_by_mlflow128(tmp_path, monkeypatch):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    monkeypatch.chdir(tmp_path)
     model_data_info = save_or_log_keras_model_by_mlflow128(
-        str(tmpdir), task_type="log_model", save_as_type="keras"
+        tmp_path, task_type="log_model", save_as_type="keras"
     )
 
     model_uri = f"runs:/{model_data_info.run_id}/model"
@@ -711,10 +712,11 @@ def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
         )
 
 
-def test_tf_saved_model_model_with_tf_keras_api(tmpdir, monkeypatch):
-    monkeypatch.chdir(str(tmpdir))
+def test_tf_saved_model_model_with_tf_keras_api(tmp_path, monkeypatch):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    monkeypatch.chdir(tmp_path)
     model_data_info = save_or_log_keras_model_by_mlflow128(
-        str(tmpdir), task_type="log_model", save_as_type="tf1-estimator"
+        tmp_path, task_type="log_model", save_as_type="tf1-estimator"
     )
 
     model_uri = f"runs:/{model_data_info.run_id}/model"
