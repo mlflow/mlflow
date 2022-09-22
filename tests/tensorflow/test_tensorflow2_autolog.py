@@ -408,7 +408,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15])
+    assert {metric.step for metric in all_epoch_acc} == {0, 5, 10, 15}
 
 
 def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
@@ -1115,7 +1115,7 @@ def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
     assert "loss" in run.data.metrics
     assert "steps" in run.data.params
     metrics = client.get_metric_history(run_id, "loss")
-    assert set([metric.step for metric in metrics]) == set([1, 6, 11, 16])
+    assert {metric.step for metric in metrics} == {1, 6, 11, 16}
 
 
 @pytest.mark.parametrize("export", [True])
@@ -1387,14 +1387,14 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
+    import tensorflow  # pylint: disable=unused-import,reimported
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
     # NB: In Tensorflow >= 2.6, we redirect keras autologging to tensorflow autologging
     # so the original keras autologging is disabled
     if Version(tf.__version__) >= Version("2.6"):
-        import keras  # pylint: disable=unused-variable,unused-import
+        import keras  # pylint: disable=unused-import
 
         assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
@@ -1402,7 +1402,7 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
-    import tensorflow.keras  # pylint: disable=unused-variable,unused-import
+    import tensorflow.keras  # pylint: disable=unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
@@ -1420,7 +1420,7 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import keras  # pylint: disable=unused-variable,unused-import
+    import keras  # pylint: disable=unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)

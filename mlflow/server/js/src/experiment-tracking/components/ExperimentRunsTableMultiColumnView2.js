@@ -91,6 +91,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
     versionCellRenderer: VersionCellRenderer,
     modelsCellRenderer: ModelsCellRenderer,
     dateCellRenderer: DateCellRenderer,
+    tagCellRenderer: TagCellRenderer,
     agColumnHeader: RunsTableCustomHeader,
     loadingOverlayComponent: Spinner,
     noRowsOverlayComponent: ExperimentRunsTableEmptyOverlay,
@@ -323,6 +324,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
           headerName: tagKey,
           headerTooltip: tagKey,
           field: `${TAG_PREFIX}-${tagKey}`,
+          cellRenderer: 'tagCellRenderer',
           ...(i >= MAX_TAG_COLS ? { columnGroupShow: 'open' } : null),
         })),
       },
@@ -426,6 +428,49 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
 
     return runs;
   }
+
+  /**
+   * A onRowSelected event handler that runs before onSelectionChanged.
+   * It checks if the currently (de)selected row contains any children
+   * and if true, (de)select them as well.
+   */
+  handleRowSelected = (event) => {
+    const selectedRows = event.api.getSelectedRows();
+
+    // Let's check if the actual number of selected rows have changed
+    // to avoid empty runs
+    if (this.prevSelectRunUuids && selectedRows.length !== this.prevSelectRunUuids.length) {
+      const isSelected = event.node.isSelected();
+
+      // We will continue only if the selected row has properly set runDateInfo
+      const { runDateInfo } = event.data;
+      if (!runDateInfo) {
+        return;
+      }
+      const { isParent, expanderOpen, childrenIds } = runDateInfo;
+
+      // We will continue only if the selected row is a parent containing
+      // children and is actually expanded
+      if (isParent && expanderOpen && childrenIds) {
+        const childrenIdsToSelect = childrenIds;
+
+        event.api.forEachNode((node) => {
+          const { runInfo, runDateInfo: childRunDateInfo } = node.data;
+
+          const childrenRunUuid = runInfo.run_uuid;
+          if (childrenIdsToSelect.includes(childrenRunUuid)) {
+            // If we found children being parents, mark their children
+            // to be selected as well.
+            if (childRunDateInfo?.childrenIds) {
+              childrenIdsToSelect.push(...childRunDateInfo.childrenIds);
+            }
+
+            node.setSelected(isSelected, false, true);
+          }
+        });
+      }
+    }
+  };
 
   handleSelectionChange = (event) => {
     // Avoid triggering event handlers while we are applying row selections from props
@@ -587,6 +632,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
           onColumnGroupOpened={this.persistGridState}
+          onRowSelected={this.handleRowSelected}
           suppressRowClickSelection
           suppressScrollOnNewData // retain scroll position after nested run toggling operations
           suppressFieldDotNotation
@@ -800,3 +846,17 @@ const styles = {
 };
 
 ModelsCellRenderer.propTypes = { value: PropTypes.object };
+
+export function TagCellRenderer(props) {
+  const tagValue = props.value;
+
+  return Utils.isValidHttpUrl(tagValue) ? (
+    <a href={tagValue} target='_blank' rel='noreferrer'>
+      {tagValue}
+    </a>
+  ) : (
+    tagValue
+  );
+}
+
+TagCellRenderer.propTypes = { value: PropTypes.string };

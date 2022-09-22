@@ -32,8 +32,8 @@ public class QuickStartDriver {
     GetExperiment.Response exp = client.getExperiment(expId);
     System.out.println("getExperiment: " + exp);
 
-    System.out.println("====== listExperiments");
-    List<Experiment> exps = client.listExperiments();
+    System.out.println("====== searchExperiments");
+    List<Experiment> exps = client.searchExperiments().getItems();
     System.out.println("#experiments: " + exps.size());
     exps.forEach(e -> System.out.println("  Exp: " + e));
 
@@ -46,6 +46,7 @@ public class QuickStartDriver {
     System.out.println("====== getExperiment by name");
     Optional<Experiment> exp3 = client.getExperimentByName(expName);
     System.out.println("getExperimentByName: " + exp3);
+    client.close();
   }
 
   void createRun(MlflowClient client, String expId) {

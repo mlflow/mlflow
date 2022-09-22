@@ -59,7 +59,9 @@ service MlflowService {
 
   // Get a list of all experiments.
   //
+  // Deprecated. Use Search Experiments instead.
   rpc listExperiments (ListExperiments) returns (ListExperiments.Response) {
+    option deprecated = true;
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -623,6 +625,9 @@ message RunInfo {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
+  // The name of the run.
+  optional string run_name = 3;
+
   // The experiment ID.
   optional string experiment_id = 2;
 
@@ -699,6 +704,7 @@ message CreateExperiment {
 
 message ListExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option deprecated = true;
 
   // Qualifier for type of experiments to be returned.
   // If unspecified, return only active experiments.
@@ -832,6 +838,9 @@ message CreateRun {
   // MLflow release. Use 'mlflow.user' tag instead.
   optional string user_id = 2;
 
+  // Name of the run.
+  optional string run_name = 3;
+
   // Unix timestamp in milliseconds of when the run started.
   optional int64 start_time = 7;
 
@@ -859,6 +868,9 @@ message UpdateRun {
 
   //Unix timestamp in milliseconds of when the run ended.
   optional int64 end_time = 3;
+
+  // Updated name of the run.
+  optional string run_name = 5;
 
   message Response {
     // Updated metadata of the run.

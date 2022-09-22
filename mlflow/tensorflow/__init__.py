@@ -147,6 +147,9 @@ def log_model(
     rather than lists of length one. All other model output types are included as-is in the output
     DataFrame.
 
+    Note that this method should not be used to log a ``tf.keras`` model. Use
+    :py:func:`mlflow.keras.log_model` instead.
+
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
@@ -540,7 +543,11 @@ class _TF2Wrapper:
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
-            if all(len(element) == 1 for element in pred_dict[col]):
+            # If the output tensor is not 1-dimensional
+            # AND all elements have length of 1, flatten the array with `ravel()`
+            if len(pred_dict[col].shape) != 1 and all(
+                len(element) == 1 for element in pred_dict[col]
+            ):
                 pred_dict[col] = pred_dict[col].ravel()
             else:
                 pred_dict[col] = pred_dict[col].tolist()

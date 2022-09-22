@@ -54,7 +54,7 @@ RunInfo createRun(CreateRun request)
 List<RunInfo> listRunInfos(String experimentId)
 
 
-List<Experiment> listExperiments()
+List<Experiment> searchExperiments()
 GetExperiment.Response getExperiment(String experimentId)
 Optional<Experiment> getExperimentByName(String experimentName)
 long createExperiment(String experimentName)
@@ -117,8 +117,8 @@ public class QuickStartDriver {
     GetExperiment.Response exp = client.getExperiment(expId);
     System.out.println("getExperiment: " + exp);
 
-    System.out.println("====== listExperiments");
-    List<Experiment> exps = client.listExperiments();
+    System.out.println("====== searchExperiments");
+    List<Experiment> exps = client.searchExperiments();
     System.out.println("#experiments: " + exps.size());
     exps.forEach(e -> System.out.println("  Exp: " + e));
 
@@ -157,6 +157,7 @@ public class QuickStartDriver {
     // Get run details
     Run run = client.getRun(runId);
     System.out.println("GetRun: " + run);
+    client.close();
   }
 }
 ```

@@ -16,6 +16,7 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
+    MLFLOW_SQLALCHEMYSTORE_ECHO,
 )
 
 _logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
         try:
             if db_type == SQLITE:
                 session.execute("PRAGMA foreign_keys = ON;")
+                session.execute("PRAGMA busy_timeout = 20000;")
                 session.execute("PRAGMA case_sensitive_like = true;")
             yield session
             session.commit()
@@ -183,15 +185,18 @@ def create_sqlalchemy_engine(db_uri):
     pool_size = MLFLOW_SQLALCHEMYSTORE_POOL_SIZE.get()
     pool_max_overflow = MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW.get()
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
+    echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
     pool_kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = int(pool_size)
+        pool_kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = int(pool_max_overflow)
+        pool_kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = int(pool_recycle)
+        pool_kwargs["pool_recycle"] = pool_recycle
+    if echo:
+        pool_kwargs["echo"] = echo
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
     return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)

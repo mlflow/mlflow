@@ -8,7 +8,10 @@ import mlflow
 import sklearn.compose
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.pipelines.utils.execution import (
+    _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+)
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.train import TrainStep
 from unittest import mock
@@ -56,6 +59,9 @@ def set_up_train_step(pipeline_root: Path):
         """
         template: "regression/v1"
         target_col: "y"
+        profile: "test_profile"
+        run_args:
+            step: "train"
         experiment:
           name: "demo"
           tracking_uri: {tracking_uri}
@@ -129,9 +135,13 @@ def test_train_steps_autologs(tmp_pipeline_root_path):
     assert "epsilon" in params
 
 
-def test_train_steps_with_correct_source_type(tmp_pipeline_root_path):
+def test_train_steps_with_correct_tags(tmp_pipeline_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ,
+        {
+            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
+            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+        },
     ):
         train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
         train_step._run(str(train_step_output_dir))
@@ -145,3 +155,5 @@ def test_train_steps_with_correct_source_type(tmp_pipeline_root_path):
     tags = MlflowClient().get_run(run_id).data.tags
     assert tags["mlflow.source.type"] == "PIPELINE"
     assert tags["mlflow.pipeline.template.name"] == "regression/v1"
+    assert tags["mlflow.pipeline.step.name"] == "train"
+    assert tags["mlflow.pipeline.profile.name"] == "test_profile"

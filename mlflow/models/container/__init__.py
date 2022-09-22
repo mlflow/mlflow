@@ -159,12 +159,10 @@ def _serve_pyfunc(model, env_manager):
                 enable_mlserver=enable_mlserver,
                 env_manager=env_manager,
             )
-        bash_cmds += (
-            ["source /miniconda/bin/activate custom_env"]
-            if env_manager == em.CONDA
-            else ["source /opt/activate"]
-        )
-
+        if env_manager == em.CONDA:
+            bash_cmds.append("source /miniconda/bin/activate custom_env")
+        elif env_manager == em.VIRTUALENV:
+            bash_cmds.append("source /opt/activate")
     procs = []
 
     start_nginx = True
@@ -187,9 +185,6 @@ def _serve_pyfunc(model, env_manager):
         procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
-    os.system("pip -V")
-    os.system("python -V")
-    os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
 
     inference_server = mlserver if enable_mlserver else scoring_server
     # Since MLServer will run without NGINX, expose the server in the `8080`

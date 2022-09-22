@@ -49,6 +49,8 @@ class Utils {
   static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
   static loggedModelsTag = 'mlflow.log-model.history';
+  static pipelineProfileNameTag = 'mlflow.pipeline.profile.name';
+  static pipeLineStepNameTag = 'mlflow.pipeline.step.name';
 
   static formatMetric(value) {
     if (value === 0) {
@@ -610,6 +612,22 @@ class Utils {
     return '';
   }
 
+  static getPipelineProfileName(runTags) {
+    const tag = runTags[Utils.pipelineProfileNameTag];
+    if (tag) {
+      return tag.value;
+    }
+    return '';
+  }
+
+  static getPipelineStepName(runTags) {
+    const tag = runTags[Utils.pipeLineStepNameTag];
+    if (tag) {
+      return tag.value;
+    }
+    return '';
+  }
+
   static getEntryPointName(runTags) {
     const entryPointTag = runTags[Utils.entryPointTag];
     if (entryPointTag) {
@@ -1044,6 +1062,16 @@ class Utils {
       return `${parentHrefBeforeMlflowHash}#mlflow${route}`;
     }
     return `./#${route}`; // issue-2213 use relative path in case there is a url prefix
+  }
+
+  static isValidHttpUrl(str) {
+    // The URL() constructor will throw on invalid URL
+    try {
+      const url = new URL(str);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (err) {
+      return false;
+    }
   }
 }
 

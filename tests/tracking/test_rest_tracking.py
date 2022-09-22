@@ -23,7 +23,6 @@ from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
-    MLFLOW_RUN_NAME,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
@@ -88,29 +87,27 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.tags["key2"] == "val2"
 
     experiments = mlflow_client.list_experiments()
-    assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
+    assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert set([e.name for e in mlflow_client.list_experiments()]) == {"Default"}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == {
-        "Default"
-    }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == {
+    assert {e.name for e in mlflow_client.list_experiments()} == {"Default"}
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)} == {"Default"}
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)} == {
         "My Experiment"
     }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == {
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.ALL)} == {
         "My Experiment",
         "Default",
     }
     active_exps_paginated = mlflow_client.list_experiments(max_results=1)
-    assert set([e.name for e in active_exps_paginated]) == {"Default"}
+    assert {e.name for e in active_exps_paginated} == {"Default"}
     assert active_exps_paginated.token is None
 
     all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
-    first_page_names = set([e.name for e in all_exps_paginated])
+    first_page_names = {e.name for e in all_exps_paginated}
     all_exps_second_page = mlflow_client.list_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )
-    second_page_names = set([e.name for e in all_exps_second_page])
+    second_page_names = {e.name for e in all_exps_second_page}
     assert len(first_page_names) == 1
     assert len(second_page_names) == 1
     assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
@@ -209,6 +206,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_version = "abc"
     create_run_kwargs = {
         "start_time": 456,
+        "run_name": "my name",
         "tags": {
             MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",
@@ -216,7 +214,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
             MLFLOW_GIT_COMMIT: source_version,
             MLFLOW_PARENT_RUN_ID: "7",
-            MLFLOW_RUN_NAME: "my name",
             "my": "tag",
             "other": "tag",
         },
@@ -234,10 +231,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         assert run.info.experiment_id == experiment_id
         assert run.info.user_id == user
         assert run.info.start_time == create_run_kwargs["start_time"]
+        assert run.info.run_name == "my name"
         for tag in create_run_kwargs["tags"]:
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
-        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
         assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
@@ -672,10 +669,10 @@ def test_artifacts(mlflow_client, tmp_path):
     mlflow_client.log_artifacts(run_id, src_dir, "dir")
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
-    assert set([a.path for a in root_artifacts_list]) == {"my.file", "dir"}
+    assert {a.path for a in root_artifacts_list} == {"my.file", "dir"}
 
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
-    assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
+    assert {a.path for a in dir_artifacts_list} == {"dir/my.file"}
 
     all_artifacts = mlflow_client.download_artifacts(run_id, ".")
     assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"

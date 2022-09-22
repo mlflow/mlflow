@@ -152,7 +152,8 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
                 ],
                 "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
-            }
+            },
+            "steps": {"ingest": {"skip_data_profiling": True}},
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -508,7 +509,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
-    assert "Profile of Ingested Dataset" in step_card_html_content
+    assert "facets-overview" in step_card_html_content
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -522,6 +523,26 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
     ), pytest.raises(
         MlflowException, match="Encountered an error while searching for an active Spark session"
     ):
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "delta",
+                    "location": str(dataset_path),
+                }
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spark_df, tmp_path):
+    dataset_path = tmp_path / "test.delta"
+    spark_df.write.format("delta").save(str(dataset_path))
+
+    with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+    ) as _get_active_spark_session:
+        _get_active_spark_session.return_value = None
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {
@@ -633,3 +654,27 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.parquet"
+    pandas_df.to_parquet(dataset_path)
+
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "parquet",
+                    "location": str(dataset_path),
+                },
+                "steps": {"ingest": {"skip_data_profiling": True}},
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+    expected_step_card_path = os.path.join(tmp_path, "card.html")
+    with open(expected_step_card_path, "r") as f:
+        step_card_html_content = f.read()
+    assert "facets-overview" not in step_card_html_content
+    mock_profiling.assert_not_called()

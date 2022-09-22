@@ -47,10 +47,11 @@ class EvaluateStep(BaseStep):
         self.target_col = self.step_config.get("target_col")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
+        self.user_defined_custom_metrics = {
+            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+        }
         self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
-        self.evaluation_metrics.update(
-            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
-        )
+        self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -81,8 +82,11 @@ class EvaluateStep(BaseStep):
             metric_name = val_criterion["metric"]
             metric_val = metrics.get(metric_name)
             if metric_val is None:
-                summary[metric_name] = False
-                continue
+                raise MlflowException(
+                    f"The metric {metric_name} is defined in the pipeline's validation criteria"
+                    " but was not returned from mlflow evaluation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             greater_is_better = self.evaluation_metrics[metric_name].greater_is_better
             comp_func = operator.ge if greater_is_better else operator.le
             threshold = val_criterion["threshold"]
@@ -210,13 +214,16 @@ class EvaluateStep(BaseStep):
         card = BaseCard(self.pipeline_name, self.name)
         # Tab 0: model performance summary.
         metric_df = (
-            get_merged_eval_metrics(eval_metrics, ordered_metric_names=[self.primary_metric])
+            get_merged_eval_metrics(
+                eval_metrics,
+                ordered_metric_names=[self.primary_metric, *self.user_defined_custom_metrics],
+            )
             .reset_index()
             .rename(columns={"index": "Metric"})
         )
 
         def row_style(row):
-            if row.Metric == self.primary_metric:
+            if row.Metric == self.primary_metric or row.Metric in self.user_defined_custom_metrics:
                 return pd.Series("font-weight: bold", row.index)
             else:
                 return pd.Series("", row.index)

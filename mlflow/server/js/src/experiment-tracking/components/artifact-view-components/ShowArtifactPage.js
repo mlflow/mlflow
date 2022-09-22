@@ -8,6 +8,7 @@ import {
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
   AUDIO_EXTENSIONS,
+  DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -17,6 +18,7 @@ import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
+import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
@@ -34,6 +36,7 @@ class ShowArtifactPage extends Component {
     artifactRootUri: PropTypes.string.isRequired,
     // If path is not defined don't render anything
     path: PropTypes.string,
+    isDirectory: PropTypes.bool,
     size: PropTypes.number,
     runTags: PropTypes.object,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
@@ -58,9 +61,25 @@ class ShowArtifactPage extends Component {
       }
       if (this.props.size > MAX_PREVIEW_ARTIFACT_SIZE_MB * ONE_MB) {
         return getFileTooLargeView();
+      } else if (this.props.isDirectory) {
+        if (
+          this.props.runTags &&
+          getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)
+        ) {
+          return (
+            <ShowArtifactLoggedModelView
+              runUuid={this.props.runUuid}
+              path={this.props.path}
+              artifactRootUri={this.props.artifactRootUri}
+              registeredModelLink={registeredModelLink}
+            />
+          );
+        }
       } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactTableView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {

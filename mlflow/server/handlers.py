@@ -80,6 +80,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
@@ -464,11 +465,23 @@ def catch_mlflow_exception(func):
 _TEXT_EXTENSIONS = [
     "txt",
     "log",
+    "err",
+    "cfg",
+    "conf",
+    "cnf",
+    "cf",
+    "ini",
+    "properties",
+    "prop",
+    "hocon",
+    "toml",
     "yaml",
     "yml",
+    "xml",
     "json",
     "js",
     "py",
+    "py3",
     "csv",
     "tsv",
     "md",
@@ -653,15 +666,24 @@ def _update_experiment():
 @_disable_if_artifacts_only
 def _create_run():
     request_message = _get_request_message(
-        CreateRun(), schema={"experiment_id": [_assert_string], "start_time": [_assert_intlike]}
+        CreateRun(),
+        schema={
+            "experiment_id": [_assert_string],
+            "start_time": [_assert_intlike],
+            "run_name": [_assert_string],
+        },
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
+    run_name = (
+        _generate_random_name() if request_message.run_name is None else request_message.run_name
+    )
     run = _get_tracking_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
         start_time=request_message.start_time,
         tags=tags,
+        run_name=run_name,
     )
 
     response_message = CreateRun.Response()
@@ -680,11 +702,12 @@ def _update_run():
             "run_id": [_assert_required, _assert_string],
             "end_time": [_assert_intlike],
             "status": [_assert_string],
+            "run_name": [_assert_string],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time
+        run_id, request_message.status, request_message.end_time, request_message.run_name
     )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
@@ -1063,9 +1086,8 @@ def _log_model():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
-        model.keys()
-    )
+    missing_fields = {"artifact_path", "flavors", "utc_time_created", "run_id"} - set(model.keys())
+
     if missing_fields:
         raise MlflowException(
             "Model json is missing mandatory fields: {}".format(missing_fields),
@@ -1459,12 +1481,11 @@ def _download_artifact(artifact_path):
     """
     basename = posixpath.basename(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
-    tmp_path = os.path.join(tmp_dir.name, basename)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    artifact_repo._download_file(artifact_path, tmp_path)
+    dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(tmp_path, "rb")
+    file_handle = open(dst, "rb")
 
     def stream_and_remove_file():
         yield from file_handle

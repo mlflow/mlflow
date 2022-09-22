@@ -13,7 +13,11 @@ const createCommitStatus = async (context, github, sha, state) => {
   });
 };
 
-const createStatus = async (context, github, core) => {
+const shouldAutoformat = (comment) => {
+  return /^@mlflow-automation\s+autoformat$/.test(comment.body.trim());
+};
+
+const getPullInformation = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
   const pr = await github.pulls.get({ owner, repo, pull_number });
@@ -22,16 +26,31 @@ const createStatus = async (context, github, core) => {
     ref,
     repo: { full_name },
   } = pr.data.head;
-  await createCommitStatus(context, github, sha, 'pending');
-  if (full_name === 'mlflow/mlflow' && ref === 'master') {
-    core.setFailed('Running autoformat bot against master branch of mlflow/mlflow is not allowed.');
-  }
   return {
     repository: full_name,
     pull_number,
     sha,
     ref,
   };
+};
+
+const createReaction = async (context, github) => {
+  const { owner, repo } = context.repo;
+  const { id: comment_id } = context.payload.comment;
+  await github.reactions.createForIssueComment({
+    owner,
+    repo,
+    comment_id,
+    content: 'rocket',
+  });
+};
+
+const createStatus = async (context, github, core) => {
+  const { sha, ref, repository } = await getPullInformation(context, github);
+  if (repository === 'mlflow/mlflow' && ref === 'master') {
+    core.setFailed('Running autoformat bot against master branch of mlflow/mlflow is not allowed.');
+  }
+  await createCommitStatus(context, github, sha, 'pending');
 };
 
 const updateStatus = async (context, github, sha, needs) => {
@@ -41,6 +60,9 @@ const updateStatus = async (context, github, sha, needs) => {
 };
 
 module.exports = {
+  shouldAutoformat,
+  getPullInformation,
+  createReaction,
   createStatus,
   updateStatus,
 };

@@ -15,14 +15,6 @@ def check_run_is_active(run_info):
         )
 
 
-def check_run_is_deleted(run_info):
-    if run_info.lifecycle_stage != LifecycleStage.DELETED:
-        raise MlflowException(
-            "The run {} must be in 'deleted' lifecycle_stage.".format(run_info.run_id),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
 class searchable_attribute(property):
     # Wrapper class over property to designate some of the properties as searchable
     # run attributes
@@ -51,9 +43,8 @@ class RunInfo(_MLflowObject):
         lifecycle_stage,
         artifact_uri=None,
         run_id=None,
+        run_name=None,
     ):
-        if run_uuid is None:
-            raise Exception("run_uuid cannot be None")
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if user_id is None:
@@ -74,6 +65,7 @@ class RunInfo(_MLflowObject):
         self._end_time = end_time
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
+        self._run_name = run_name
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -81,7 +73,7 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None):
+    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None, run_name=None):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
         if status:
@@ -90,6 +82,8 @@ class RunInfo(_MLflowObject):
             proto.end_time = end_time
         if lifecycle_stage:
             proto.lifecycle_stage = lifecycle_stage
+        if run_name:
+            proto.run_name = run_name
         return RunInfo.from_proto(proto)
 
     @property
@@ -106,6 +100,11 @@ class RunInfo(_MLflowObject):
     def experiment_id(self):
         """String ID of the experiment for the current run."""
         return self._experiment_id
+
+    @property
+    def run_name(self):
+        """String containing run name."""
+        return self._run_name
 
     @property
     def user_id(self):
@@ -143,6 +142,8 @@ class RunInfo(_MLflowObject):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
         proto.run_id = self.run_id
+        if self.run_name is not None:
+            proto.run_name = self.run_name
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
         proto.status = RunStatus.from_string(self.status)
@@ -164,6 +165,7 @@ class RunInfo(_MLflowObject):
         return cls(
             run_uuid=proto.run_uuid,
             run_id=proto.run_id,
+            run_name=proto.run_name,
             experiment_id=proto.experiment_id,
             user_id=proto.user_id,
             status=RunStatus.to_string(proto.status),

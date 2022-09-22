@@ -28,6 +28,7 @@ import yaml
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -75,8 +76,6 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "spark"
 
-# Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 
@@ -232,7 +231,7 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB),
+        append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -418,36 +417,43 @@ def _should_use_mlflowdbfs(root_uri):
     # the Hadoop FileSystem API until a read call has been issued.
     from mlflow.utils._spark_utils import _get_active_spark_session
 
+    if (
+        not is_valid_dbfs_uri(root_uri)
+        or not is_databricks_acled_artifacts_uri(root_uri)
+        or not databricks_utils.is_in_databricks_runtime()
+        or (environment_variables._DISABLE_MLFLOWDBFS.get() or "").lower() == "true"
+    ):
+        return False
+
+    try:
+        databricks_utils._get_dbutils()
+    except Exception:
+        # If dbutils is unavailable, indicate that mlflowdbfs is unavailable
+        # because usage of mlflowdbfs depends on dbutils
+        return False
+
+    mlflowdbfs_read_exception_str = None
     try:
         _get_active_spark_session().read.load("mlflowdbfs:///artifact?run_id=foo&path=/bar")
     except Exception as e:
         # The load invocation is expected to throw an exception.
-        if "MlflowdbfsClient" in str(e):
-            # The subsequent logic used to determine mlflowdbfs availability on Databricks
-            # clusters may not work on certain Databricks cluster types due to unavailability of
-            # the _HadoopFileSystem.is_filesystem_available() API. As a temporary workaround,
-            # we check the contents of the expected exception raised by a dummy mlflowdbfs
-            # read for evidence that mlflowdbfs is available. If "MlflowdbfsClient" is present
-            # in the exception contents, we can safely assume that mlflowdbfs is available because
-            # `MlflowdbfsClient` is exclusively used by mlflowdbfs for performing MLflow
-            # file storage operations
-            #
-            # TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check
-            # below is determined to work on all Databricks cluster types
-            return True
+        mlflowdbfs_read_exception_str = str(e)
 
     try:
-        return (
-            is_valid_dbfs_uri(root_uri)
-            and is_databricks_acled_artifacts_uri(root_uri)
-            and databricks_utils.is_in_databricks_runtime()
-            and environment_variables._DISABLE_MLFLOWDBFS.get() in ["", "False", "false"]
-            and _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
-        )
+        return _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
     except Exception:
+        # The HDFS filesystem logic used to determine mlflowdbfs availability on Databricks
+        # clusters may not work on certain Databricks cluster types due to unavailability of
+        # the _HadoopFileSystem.is_filesystem_available() API. As a temporary workaround,
+        # we check the contents of the expected exception raised by a dummy mlflowdbfs
+        # read for evidence that mlflowdbfs is available. If "MlflowdbfsClient" is present
+        # in the exception contents, we can safely assume that mlflowdbfs is available because
+        # `MlflowdbfsClient` is exclusively used by mlflowdbfs for performing MLflow
+        # file storage operations
+        #
         # TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check
-        # is determined to work on all Databricks cluster types
-        return False
+        # below is determined to work on all Databricks cluster types
+        return "MlflowdbfsClient" in (mlflowdbfs_read_exception_str or "")
 
 
 def _save_model_metadata(
@@ -646,7 +652,7 @@ def save_model(
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
-        dfs_tmpdir = DFS_TMP
+        dfs_tmpdir = MLFLOW_DFS_TMP.get()
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
@@ -713,7 +719,7 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or DFS_TMP)
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
@@ -722,7 +728,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return PipelineModel.load(model_uri)
 
 
-def load_model(model_uri, dfs_tmpdir=None):
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     """
     Load the Spark MLlib model from the path.
 
@@ -741,6 +747,9 @@ def load_model(model_uri, dfs_tmpdir=None):
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model is loaded from this
                        destination. Defaults to ``/tmp/mlflow``.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     :return: pyspark.ml.pipeline.PipelineModel
 
     .. code-block:: python
@@ -771,7 +780,7 @@ def load_model(model_uri, dfs_tmpdir=None):
 
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     if _should_use_mlflowdbfs(model_uri):

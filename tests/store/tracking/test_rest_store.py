@@ -173,11 +173,12 @@ class TestRestStore:
         ), mock.patch(
             "time.time", return_value=13579
         ), source_name_patch, source_type_patch:
-            with mlflow.start_run(experiment_id="43"):
+            with mlflow.start_run(experiment_id="43", run_name="my name"):
                 cr_body = message_to_json(
                     CreateRun(
                         experiment_id="43",
                         user_id=user_name,
+                        run_name="my name",
                         start_time=13579000,
                         tags=[
                             ProtoRunTag(key="mlflow.source.name", value=source_name),
@@ -195,6 +196,7 @@ class TestRestStore:
                 # Tag order is inconsistent on Python 2 and 3, but the order does not matter
                 expected_tags = expected_kwargs["json"].pop("tags")
                 actual_tags = actual_kwargs["json"].pop("tags")
+
                 assert sorted(expected_tags, key=lambda t: t["key"]) == sorted(
                     actual_tags, key=lambda t: t["key"]
                 )

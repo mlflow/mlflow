@@ -176,7 +176,7 @@ def test_get_workspace_info_from_dbutils_when_no_dbutils_available():
 
 
 @pytest.mark.parametrize(
-    "tracking_uri, result",
+    ("tracking_uri", "result"),
     [
         ("databricks", True),
         ("databricks://profile:prefix", False),
@@ -250,7 +250,7 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId2"
 
 
-def test_use_repl_context_if_available(tmpdir):
+def test_use_repl_context_if_available(tmpdir, monkeypatch):
     # Simulate a case where `dbruntime.databricks_repl_context.get_context` is unavailable.
     with pytest.raises(ModuleNotFoundError, match="No module named 'dbruntime'"):
         from dbruntime.databricks_repl_context import get_context  # pylint: disable=unused-import
@@ -273,7 +273,7 @@ def get_context():
     pass
 """
     )
-    sys.path.append(tmpdir.strpath)
+    monkeypatch.syspath_prepend(tmpdir.strpath)
 
     # Simulate a case where the REPL context object is not initialized.
     with mock.patch(

@@ -12,7 +12,10 @@ from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.execution import (
+    get_step_output_path,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+)
 from mlflow.pipelines.utils.metrics import (
     BUILTIN_PIPELINE_METRICS,
     _get_primary_metric,
@@ -31,7 +34,12 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_run_url
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLATE_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_PIPELINE_TEMPLATE_NAME,
+    MLFLOW_PIPELINE_PROFILE_NAME,
+    MLFLOW_PIPELINE_STEP_NAME,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -45,14 +53,16 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
         ].rsplit(".", 1)
         self.primary_metric = _get_primary_metric(self.step_config)
+        self.user_defined_custom_metrics = {
+            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+        }
         self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
-        self.evaluation_metrics.update(
-            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
-        )
+        self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -114,6 +124,10 @@ class TrainStep(BaseStep):
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+            MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
+            MLFLOW_PIPELINE_STEP_NAME: os.getenv(
+                _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
+            ),
         }
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
@@ -329,13 +343,19 @@ class TrainStep(BaseStep):
         card = BaseCard(self.pipeline_name, self.name)
         # Tab 0: model performance summary.
         metric_df = (
-            get_merged_eval_metrics(eval_metrics, ordered_metric_names=[self.primary_metric])
+            get_merged_eval_metrics(
+                eval_metrics,
+                ordered_metric_names=[
+                    self.primary_metric,
+                    *self.user_defined_custom_metrics.keys(),
+                ],
+            )
             .reset_index()
             .rename(columns={"index": "Metric"})
         )
 
         def row_style(row):
-            if row.Metric == self.primary_metric:
+            if row.Metric == self.primary_metric or row.Metric in self.user_defined_custom_metrics:
                 return pd.Series("font-weight: bold", row.index)
             else:
                 return pd.Series("", row.index)
@@ -352,14 +372,15 @@ class TrainStep(BaseStep):
             "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
-        # Tab 2: Prediction and error data profile.
-        pred_and_error_df_profile = get_pandas_data_profile(
-            pred_and_error_df.reset_index(drop=True),
-            "Predictions and Errors (Validation Dataset)",
-        )
-        card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", pred_and_error_df_profile
-        )
+        if not self.skip_data_profiling:
+            # Tab 2: Prediction and error data profile.
+            pred_and_error_df_profile = get_pandas_data_profile(
+                pred_and_error_df.reset_index(drop=True),
+                "Predictions and Errors (Validation Dataset)",
+            )
+            card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", pred_and_error_df_profile
+            )
         # Tab 3: Model architecture.
         set_config(display="diagram")
         model_repr = estimator_html_repr(model)
@@ -443,6 +464,7 @@ class TrainStep(BaseStep):
             step_config = pipeline_config["steps"]["train"]
             step_config["metrics"] = pipeline_config.get("metrics")
             step_config["template_name"] = pipeline_config.get("template")
+            step_config["profile"] = pipeline_config.get("profile")
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,

@@ -71,6 +71,14 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
+    creation_time = Column(BigInteger(), default=int(time.time() * 1000))
+    """
+    Creation time of experiment: `BigInteger`.
+    """
+    last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
+    """
+    Last Update time of experiment: `BigInteger`.
+    """
 
     __table_args__ = (
         CheckConstraint(
@@ -95,6 +103,8 @@ class SqlExperiment(Base):
             artifact_location=self.artifact_location,
             lifecycle_stage=self.lifecycle_stage,
             tags=[t.to_mlflow_entity() for t in self.tags],
+            creation_time=self.creation_time,
+            last_update_time=self.last_update_time,
         )
 
 
@@ -135,7 +145,7 @@ class SqlRun(Base):
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
     """
-    start_time = Column(BigInteger, default=int(time.time()))
+    start_time = Column(BigInteger, default=int(time.time() * 1000))
     """
     Run start time: `BigInteger`. Defaults to current system time.
     """
@@ -198,6 +208,7 @@ class SqlRun(Base):
         run_info = RunInfo(
             run_uuid=self.run_uuid,
             run_id=self.run_uuid,
+            run_name=self.name,
             experiment_id=str(self.experiment_id),
             user_id=self.user_id,
             status=self.status,

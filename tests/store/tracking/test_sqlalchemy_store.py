@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 import unittest
-import warnings
 
 import math
 import random
@@ -46,6 +45,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
@@ -105,7 +106,7 @@ class TestParseDbUri(unittest.TestCase):
 
     def _db_uri_error(self, db_uris, expected_message_regex):
         for db_uri in db_uris:
-            with self.assertRaisesRegex(MlflowException, expected_message_regex):
+            with pytest.raises(MlflowException, match=expected_message_regex):
                 extract_db_type_from_uri(db_uri)
 
     def test_fail_on_unsupported_db_type(self):
@@ -204,7 +205,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.list_experiments()]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         self.store.delete_experiment(0)
 
@@ -227,18 +228,18 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
     def test_raise_duplicate_experiments(self):
-        with self.assertRaisesRegex(Exception, r"Experiment\(name=.+\) already exists"):
+        with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
             self._experiment_factory(["test", "test"])
 
     def test_raise_experiment_dont_exist(self):
-        with self.assertRaisesRegex(Exception, r"No Experiment with id=.+ exists"):
+        with pytest.raises(Exception, match=r"No Experiment with id=.+ exists"):
             self.store.get_experiment(experiment_id=100)
 
     def test_delete_experiment(self):
@@ -248,18 +249,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
 
         exp_id = experiments[0]
+        exp = self.store.get_experiment(exp_id)
+        time.sleep(0.01)
         self.store.delete_experiment(exp_id)
 
         updated_exp = self.store.get_experiment(exp_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
+        assert updated_exp.last_update_time > exp.last_update_time
 
     def test_delete_restore_experiment_with_runs(self):
 
         experiment_id = self._experiment_factory("test exp")
         run1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
         run2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
+        self.store.delete_run(run1)
         run_ids = [run1, run2]
 
         self.store.delete_experiment(experiment_id)
@@ -272,8 +277,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(deleted_run_list), 2)
         for deleted_run in deleted_run_list:
             self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
-            self.assertTrue(deleted_run.experiment_id in experiment_id)
-            self.assertTrue(deleted_run.run_id in run_ids)
+            assert deleted_run.experiment_id in experiment_id
+            assert deleted_run.run_id in run_ids
             with self.store.ManagedSessionMaker() as session:
                 assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
 
@@ -288,8 +293,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
             with self.store.ManagedSessionMaker() as session:
                 assert self.store._get_run(session, restored_run.run_id).deleted_time is None
-            self.assertTrue(restored_run.experiment_id in experiment_id)
-            self.assertTrue(restored_run.run_id in run_ids)
+            assert restored_run.experiment_id in experiment_id
+            assert restored_run.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
@@ -338,7 +343,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             returned_experiments.extend(result)
         self.assertEqual(result.token, None)
         # make sure that at least all the experiments created in this test are found
-        returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
+        returned_exp_id_set = {exp.experiment_id for exp in returned_experiments}
         self.assertEqual(set(experiments) - returned_exp_id_set, set())
 
     def test_list_experiments_paginated_returns_in_correct_order(self):
@@ -366,18 +371,18 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_list_experiments_paginated_errors(self):
         # test that providing a completely invalid page token throws
-        with self.assertRaisesRegex(
-            MlflowException, r"Invalid page token, could not base64-decode"
+        with pytest.raises(
+            MlflowException, match=r"Invalid page token, could not base64-decode"
         ) as exception_context:
             self.store.list_experiments(page_token="evilhax", max_results=20)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
-        with self.assertRaisesRegex(
-            MlflowException, r"Invalid value for request parameter max_results"
+        with pytest.raises(
+            MlflowException, match=r"Invalid value for request parameter max_results"
         ) as exception_context:
             self.store.list_experiments(page_token=None, max_results=int(1e15))
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_search_experiments_view_type(self):
         experiment_names = ["a", "b"]
@@ -514,7 +519,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
-
+        time_before_create = int(time.time() * 1000)
         experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
@@ -528,6 +533,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, "test exp")
+        assert actual.creation_time >= time_before_create
+        assert actual.last_update_time == actual.creation_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -637,7 +644,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     )
                     exp_id = store.create_experiment(name="exp")
                     run = store.create_run(
-                        experiment_id=exp_id, user_id="user", start_time=0, tags=[]
+                        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                     )
                     self.assertEqual(
                         run.info.artifact_uri,
@@ -707,12 +714,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Depending on the implementation, a NULL identity key may result in different
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
-        with self.assertRaisesRegex(MlflowException, regex) as exception_context:
+        with pytest.raises(MlflowException, match=regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
                 run = models.SqlRun()
                 session.add(run)
-                warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
+        assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
@@ -768,12 +774,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             else:
                 self.assertEqual(v, v2)
 
-    def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
+    def _get_run_configs(self, experiment_id=None, tags=None, start_time=None):
         return {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
             "start_time": start_time if start_time is not None else int(time.time()),
             "tags": tags,
+            "run_name": "name",
         }
 
     def _run_factory(self, config=None):
@@ -796,11 +803,34 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(actual.info.experiment_id, experiment_id)
         self.assertEqual(actual.info.user_id, expected["user_id"])
+        self.assertEqual(actual.info.run_name, expected["run_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
         self.assertEqual(len(actual.data.tags), len(tags))
         expected_tags = {tag.key: tag.value for tag in tags}
         self.assertEqual(actual.data.tags, expected_tags)
+
+    def test_get_run_with_name(self):
+        experiment_id = self._experiment_factory("test_get_run")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+
+        run_id = self.store.create_run(**configs).info.run_id
+
+        run = self.store.get_run(run_id)
+
+        self.assertEqual(run.info.experiment_id, experiment_id)
+        self.assertEqual(run.info.run_name, configs["run_name"])
+
+        no_run_configs = {
+            "experiment_id": experiment_id,
+            "user_id": "Anderson",
+            "start_time": int(time.time()),
+            "tags": [],
+            "run_name": None,
+        }
+        run_id = self.store.create_run(**no_run_configs).info.run_id
+        run = self.store.get_run(run_id)
+        assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
@@ -837,7 +867,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
-            self.assertTrue(
+            assert (
                 actual.deleted_time is not None
             )  # deleted time should be updated and thus not None anymore
 
@@ -895,7 +925,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -904,9 +934,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(5, len(sql_run_metrics))
             self.assertEqual(4, len(run.data.metrics))
-            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
-            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+            assert math.isnan(run.data.metrics["NaN"])
+            assert run.data.metrics["PosInf"] == 1.7976931348623157e308
+            assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
     def test_log_metric_concurrent_logging_succeeds(self):
         """
@@ -1004,12 +1034,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tval = None
         metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
-        with self.assertRaisesRegex(
-            MlflowException, r"Got invalid value None for metric"
+        with pytest.raises(
+            MlflowException, match=r"Got invalid value None for metric"
         ) as exception_context:
             self.store.log_metric(run.info.run_id, metric)
-            warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -1024,7 +1053,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
-        self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
+        assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_param_uniqueness(self):
         run = self._run_factory()
@@ -1035,7 +1064,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         param2 = entities.Param(tkey, "newval")
         self.store.log_param(run.info.run_id, param)
 
-        with self.assertRaisesRegex(MlflowException, r"Changing param values is not allowed"):
+        with pytest.raises(MlflowException, match=r"Changing param values is not allowed"):
             self.store.log_param(run.info.run_id, param2)
 
     def test_log_empty_str(self):
@@ -1050,7 +1079,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
-        self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
+        assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_null_param(self):
         run = self._run_factory()
@@ -1065,9 +1094,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             MYSQL: r"Column .+ cannot be null",
             MSSQL: r"Cannot insert the value NULL into column .+, table .+",
         }[self.store._get_dialect()]
-        with self.assertRaisesRegex(MlflowException, regex) as exception_context:
+        with pytest.raises(MlflowException, match=regex) as exception_context:
             self.store.log_param(run.info.run_id, param)
-        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
+        assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_log_param_max_length_value(self):
         run = self._run_factory()
@@ -1086,27 +1115,27 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         new_tag = entities.RunTag("tag0", "value00000")
         self.store.set_experiment_tag(exp_id, tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value0")
+        assert experiment.tags["tag0"] == "value0"
         # test that updating a tag works
         self.store.set_experiment_tag(exp_id, new_tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        assert experiment.tags["tag0"] == "value00000"
         # test that setting a tag on 1 experiment does not impact another experiment.
         exp_id_2 = self._experiment_factory("setExperimentTagExp2")
         experiment2 = self.store.get_experiment(exp_id_2)
-        self.assertTrue(len(experiment2.tags) == 0)
+        assert len(experiment2.tags) == 0
         # setting a tag on different experiments maintains different values across experiments
         different_tag = entities.RunTag("tag0", "differentValue")
         self.store.set_experiment_tag(exp_id_2, different_tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        assert experiment.tags["tag0"] == "value00000"
         experiment2 = self.store.get_experiment(exp_id_2)
-        self.assertTrue(experiment2.tags["tag0"] == "differentValue")
+        assert experiment2.tags["tag0"] == "differentValue"
         # test can set multi-line tags
         multiLineTag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
         self.store.set_experiment_tag(exp_id, multiLineTag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+        assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
         # test cannot set tags that are too long
         longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
         with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
@@ -1136,7 +1165,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
+        assert tkey in run.data.tags and run.data.tags[tkey] == new_val
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1149,8 +1178,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # delete a tag and check whether it is correctly deleted.
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(k0 not in run.data.tags)
-        self.assertTrue(k1 in run.data.tags and run.data.tags[k1] == v1)
+        assert k0 not in run.data.tags
+        assert k1 in run.data.tags and run.data.tags[k1] == v1
 
         # test that deleting a tag works correctly with multiple runs having the same tag.
         run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
@@ -1159,8 +1188,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
         run2 = self.store.get_run(run2.info.run_id)
-        self.assertTrue(k0 not in run.data.tags)
-        self.assertTrue(k0 in run2.data.tags)
+        assert k0 not in run.data.tags
+        assert k0 in run2.data.tags
         # test that you cannot delete tags that don't exist.
         with pytest.raises(MlflowException, match="No tag with name"):
             self.store.delete_tag(run.info.run_id, "fakeTag")
@@ -1211,11 +1240,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_rename_experiment(self):
         new_name = "new name"
         experiment_id = self._experiment_factory("test name")
+        experiment = self.store.get_experiment(experiment_id)
+        time.sleep(0.01)
         self.store.rename_experiment(experiment_id, new_name)
 
         renamed_experiment = self.store.get_experiment(experiment_id)
 
         self.assertEqual(renamed_experiment.name, new_name)
+        assert renamed_experiment.last_update_time > experiment.last_update_time
 
     def test_update_run_info(self):
         experiment_id = self._experiment_factory("test_update_run_info")
@@ -1223,10 +1255,26 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
             endtime = int(time.time())
             actual = self.store.update_run_info(
-                run.info.run_id, RunStatus.from_string(new_status_string), endtime
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
             )
             self.assertEqual(actual.status, new_status_string)
             self.assertEqual(actual.end_time, endtime)
+
+    def test_update_run_name(self):
+        experiment_id = self._experiment_factory("test_update_run_name")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+
+        run_id = self.store.create_run(**configs).info.run_id
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, configs["run_name"])
+
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory("helloexp")
@@ -1239,31 +1287,32 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         deleted = self.store.get_experiment(experiment_id)
         self.assertEqual(deleted.experiment_id, experiment_id)
         self.assertEqual(deleted.lifecycle_stage, entities.LifecycleStage.DELETED)
-
+        time.sleep(0.01)
         self.store.restore_experiment(exp.experiment_id)
         restored = self.store.get_experiment(exp.experiment_id)
         self.assertEqual(restored.experiment_id, experiment_id)
         self.assertEqual(restored.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        assert restored.last_update_time > deleted.last_update_time
 
     def test_delete_restore_run(self):
         run = self._run_factory()
         self.assertEqual(run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
-            self.store.restore_run(run.info.run_id)
+        # Verify that active runs can be restored (run restoration is idempotent)
+        self.store.restore_run(run.info.run_id)
 
+        # Verify that run deletion is idempotent
         self.store.delete_run(run.info.run_id)
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
-            self.store.delete_run(run.info.run_id)
+        self.store.delete_run(run.info.run_id)
 
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
         with self.store.ManagedSessionMaker() as session:
             assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
+        # Verify that restoration of a deleted run is idempotent
         self.store.restore_run(run.info.run_id)
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
-            self.store.restore_run(run.info.run_id)
+        self.store.restore_run(run.info.run_id)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
@@ -1278,13 +1327,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(
             self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.DELETED
         )
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
+        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
 
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
+        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
             self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
 
-        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
+        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
             self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
 
         # restore this run and try again
@@ -1306,7 +1355,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(metric_obj.value, 34.0)
         self.assertEqual(metric_obj.timestamp, 85)
         self.assertEqual(metric_obj.step, 1)
-        self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
+        assert {("t1345", "tv44")} <= set(run.data.tags.items())
 
     # Tests for Search API
     def _search(
@@ -1346,6 +1395,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
                     entities.RunTag("metric", names[1]),
                 ],
+                run_name="name",
             ).info.run_id
             if names[0] is not None:
                 self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
@@ -1404,12 +1454,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 user_id="MrDuck",
                 start_time=start_time,
                 tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)],
+                run_name="name",
             ).info.run_id
 
         start_time = 123
         for end in [234, None, 456, -123, 789, 123]:
             run_id = create_run(start_time, end)
-            self.store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end)
+            self.store.update_run_info(
+                run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None
+            )
             start_time += 1
 
         # asc
@@ -1682,7 +1735,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         # change status for one of the runs
-        self.store.update_run_info(r2, RunStatus.FAILED, 300)
+        self.store.update_run_info(r2, RunStatus.FAILED, 300, None)
 
         filter_string = "attribute.status = 'RUNNING'"
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
@@ -1738,7 +1791,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "run_id": r1,
             "run_uuid": r2,
         }.items():
-            with self.assertRaisesRegex(MlflowException, r"Invalid attribute key '.+' specified"):
+            with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
 
     def test_search_full(self):
@@ -1816,8 +1869,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 continue
             assert runs[: min(1200, n)] == self._search(exp, max_results=n)
 
-        with self.assertRaisesRegex(
-            MlflowException, r"Invalid value for request parameter max_results"
+        with pytest.raises(
+            MlflowException, match=r"Invalid value for request parameter max_results"
         ):
             self._search(exp, max_results=int(1e10))
 
@@ -1866,18 +1919,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
-        tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        tag_entities = [
+            RunTag("t1", "t1val"),
+            RunTag("t2", "t2val"),
+            RunTag(MLFLOW_RUN_NAME, "my_run"),
+        ]
         self.store.log_batch(
             run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities
         )
         run = self.store.get_run(run_id)
-        assert run.data.tags == {"t1": "t1val", "t2": "t2val"}
+        assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "my_run"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
             [self.store.get_metric_history(run_id, key) for key in run.data.metrics], []
         )
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
-        assert set(metrics) == set([("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)])
+        assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
     def test_log_batch_limits(self):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
@@ -1905,13 +1962,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         overwrite_param = entities.Param(tkey, "newval")
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
-        with self.assertRaisesRegex(
-            MlflowException, r"Changing param values is not allowed"
+        with pytest.raises(
+            MlflowException, match=r"Changing param values is not allowed"
         ) as exception_context:
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
@@ -1922,13 +1979,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         param1 = entities.Param(pkey, "newval")
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
-        with self.assertRaisesRegex(
-            MlflowException, r"Duplicate parameter keys have been submitted"
+        with pytest.raises(
+            MlflowException, match=r"Duplicate parameter keys have been submitted"
         ) as exception_context:
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[param0, param1], tags=[tag]
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
@@ -1958,19 +2015,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
-                with self.assertRaisesRegex(
-                    MlflowException, r"Some internal error"
-                ) as exception_context:
+                with pytest.raises(MlflowException, match=r"Some internal error"):
                     self.store.log_batch(run.info.run_id, **log_batch_kwargs)
-                self.assertIn(str(exception_context.exception.message), "Some internal error")
 
     def test_log_batch_nonexistent_run(self):
         nonexistent_run_id = uuid.uuid4().hex
-        with self.assertRaisesRegex(
-            MlflowException, rf"Run with id={nonexistent_run_id} not found"
+        with pytest.raises(
+            MlflowException, match=rf"Run with id={nonexistent_run_id} not found"
         ) as exception_context:
             self.store.log_batch(nonexistent_run_id, [], [], [])
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     def test_log_batch_params_idempotency(self):
         run = self._run_factory()
@@ -2023,7 +2077,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store._log_metrics(run.info.run_id, metrics)
 
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -2032,9 +2086,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(5, len(sql_run_metrics))
             self.assertEqual(4, len(run.data.metrics))
-            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
-            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+            assert math.isnan(run.data.metrics["NaN"])
+            assert run.data.metrics["PosInf"] == 1.7976931348623157e308
+            assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
@@ -2082,11 +2136,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         metrics = [metric_1, metric_2]
 
-        with self.assertRaisesRegex(
-            MlflowException, r"Got invalid value None for metric"
+        with pytest.raises(
+            MlflowException, match=r"Got invalid value None for metric"
         ) as exception_context:
             self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_log_batch_params_max_length_value(self):
         run = self._run_factory()
@@ -2185,7 +2239,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
+                experiment_id=experiment_id,
+                start_time=current_run,
+                tags=[],
+                user_id="Anderson",
+                run_name="name",
             ).info.run_uuid
 
             run_ids.append(run_id)
@@ -2282,10 +2340,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self.store.create_experiment("test_experiment1")
 
         r1 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
         ).info.run_uuid
         r2 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=[], user_id="Me", run_name="name"
         ).info.run_uuid
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))
@@ -2300,7 +2358,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
-    run = store.create_run(experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[], run_name="name"
+    )
     run_id = run.info.run_id
     metric = entities.Metric("mymetric", 1, 0, 0)
     store.log_metric(run_id=run_id, metric=metric)

@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 class LifecycleStage:
     ACTIVE = "active"
     DELETED = "deleted"
-    _VALID_STAGES = set([ACTIVE, DELETED])
+    _VALID_STAGES = {ACTIVE, DELETED}
 
     @classmethod
     def view_type_to_stages(cls, view_type=ViewType.ALL):

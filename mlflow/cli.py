@@ -11,7 +11,6 @@ from datetime import timedelta
 import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
-import mlflow.pipelines.cli
 from mlflow import projects
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
@@ -244,6 +243,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli.command()
 @click.option(
     "--backend-store-uri",
+    envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
@@ -254,6 +254,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 )
 @click.option(
     "--registry-store-uri",
+    envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
@@ -262,6 +263,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 )
 @click.option(
     "--default-artifact-root",
+    envvar="MLFLOW_DEFAULT_ARTIFACT_ROOT",
     metavar="URI",
     default=None,
     help="Directory in which to store artifacts for any new experiments created. For tracking "
@@ -352,6 +354,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli.command()
 @click.option(
     "--backend-store-uri",
+    envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
@@ -362,6 +365,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--registry-store-uri",
+    envvar="MLFLOW_REGISTRY_STORE_URI",
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
@@ -370,6 +374,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--default-artifact-root",
+    envvar="MLFLOW_DEFAULT_ARTIFACT_ROOT",
     metavar="URI",
     default=None,
     help="Directory in which to store artifacts for any new experiments created. For tracking "
@@ -383,6 +388,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli_args.SERVE_ARTIFACTS
 @click.option(
     "--artifacts-only",
+    envvar="MLFLOW_ARTIFACTS_ONLY",
     is_flag=True,
     default=False,
     help="If specified, configures the mlflow server to be used only for proxied artifact serving. "
@@ -397,12 +403,14 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli_args.WORKERS
 @click.option(
     "--static-prefix",
+    envvar="MLFLOW_STATIC_PREFIX",
     default=None,
     callback=_validate_static_prefix,
     help="A prefix which will be prepended to the path of all static paths.",
 )
 @click.option(
     "--gunicorn-opts",
+    envvar="MLFLOW_GUNICORN_OPTS",
     default=None,
     help="Additional command line options forwarded to gunicorn processes.",
 )
@@ -411,6 +419,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 @click.option(
     "--expose-prometheus",
+    envvar="MLFLOW_EXPOSE_PROMETHEUS",
     default=None,
     help="Path to the directory where metrics will be stored. If the directory "
     "doesn't exist, it will be created. "
@@ -570,7 +579,6 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
-cli.add_command(mlflow.pipelines.cli.commands)
 
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
@@ -588,6 +596,14 @@ try:
     cli.add_command(mlflow.azureml.cli.commands)
 except ImportError as e:
     pass
+
+try:
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.pipelines.cli.commands)
+except ImportError as e:
+    pass
+
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import

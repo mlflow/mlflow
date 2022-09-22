@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
@@ -146,6 +148,88 @@ public class MlflowClientTest {
 
     GetExperiment.Response expGet = client.getExperiment(expId);
     Assert.assertEquals(expGet.getExperiment(), expList);
+  }
+
+  @Test
+  public void searchExperimentsTest() {
+    List<Experiment> expsBefore = client.searchExperiments().getItems();
+
+    String expName1 = createExperimentName();
+    String expId1 = client.createExperiment(expName1);
+    client.setExperimentTag(expId1, "test", "test");
+    client.setExperimentTag(expId1, "expgroup", "group1");
+
+    String expName2 = createExperimentName();
+    String expId2 = client.createExperiment(expName2);
+    client.setExperimentTag(expId2, "test", "test");
+
+    String expName3 = createExperimentName();
+    String expId3 = client.createExperiment(expName3);
+    client.setExperimentTag(expId3, "test", "test");
+    client.setExperimentTag(expId3, "expgroup", "group1");
+
+    List<Experiment> exps = client.searchExperiments().getItems();
+    Assert.assertEquals(exps.size(), 3 + expsBefore.size());
+
+    String exp1Filter = String.format("attribute.name = '%s'", expName1);
+    List<Experiment> exps1 = client.searchExperiments(exp1Filter).getItems();
+    Assert.assertEquals(exps1.size(), 1);
+    Assert.assertEquals(exps1.get(0).getExperimentId(), expId1);
+
+    String exp2Filter = String.format("attribute.name = '%s'", expName2);
+    List<Experiment> exps2 = client.searchExperiments(exp2Filter).getItems();
+    Assert.assertEquals(exps2.size(), 1);
+    Assert.assertEquals(exps2.get(0).getExperimentId(), expId2);
+
+    String expGroupFilter = String.format("tags.expgroup = 'group1'");
+    List<Experiment> expGroup = client.searchExperiments(expGroupFilter).getItems();
+    Assert.assertEquals(
+      expGroup.stream().map(exp -> exp.getExperimentId()).collect(Collectors.toSet()),
+      new HashSet<>(Arrays.asList(expId1, expId3))
+    );
+
+    client.deleteExperiment(expId2);
+
+    List<Experiment> activeExps = client.searchExperiments("").getItems();
+    Set<String> activeExpIds = activeExps.stream().map(
+        exp -> exp.getExperimentId()
+    ).collect(Collectors.toSet());
+    Assert.assertTrue(activeExpIds.contains(expId1));
+    Assert.assertTrue(activeExpIds.contains(expId3));
+    Assert.assertFalse(activeExpIds.contains(expId2));
+
+    List<Experiment> deletedExps = client.searchExperiments(
+        "", ViewType.DELETED_ONLY, 10, new ArrayList<>()
+    ).getItems();
+    Assert.assertEquals(deletedExps.size(), 1);
+    Assert.assertEquals(deletedExps.get(0).getExperimentId(), expId2);
+
+    List<String> orderedExpNames = Arrays.asList(expName1, expName2, expName3);
+    Collections.sort(orderedExpNames);
+
+    ExperimentsPage page1 = client.searchExperiments(
+      "tags.test = 'test'", ViewType.ALL, 1, Arrays.asList("attribute.name")
+    );
+    Assert.assertEquals(page1.getItems().size(), 1);
+    Assert.assertEquals(page1.getItems().get(0).getName(), orderedExpNames.get(0));
+    Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+    ExperimentsPage page2 = client.searchExperiments(
+      "tags.test = 'test'",
+      ViewType.ALL,
+      2,
+      Arrays.asList("attribute.name"),
+      page1.getNextPageToken().get()
+    );
+    Assert.assertEquals(page2.getItems().size(), 2);
+    Assert.assertEquals(page2.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertEquals(page2.getItems().get(1).getName(), orderedExpNames.get(2));
+    Assert.assertFalse(page2.getNextPageToken().isPresent());
+
+    ExperimentsPage nextPageFromPrevPage = (ExperimentsPage) page1.getNextPage();
+    Assert.assertEquals(nextPageFromPrevPage.getItems().size(), 1);
+    Assert.assertEquals(nextPageFromPrevPage.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
   }
 
   @Test
@@ -403,7 +487,7 @@ public class MlflowClientTest {
     Assert.assertEquals(page2.getPageSize(), 1);
     Assert.assertEquals(page2.hasNextPage(), false);
     Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
-    
+
     Page<Run> page3 = page2.getNextPage();
     Assert.assertEquals(page3.getPageSize(), 0);
     Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
@@ -522,14 +606,16 @@ public class MlflowClientTest {
 
       Stack<RunTag> tags = new Stack();
       tags.push(createTag("t1", "tagtagtag"));
+      tags.push(createTag("mlflow.runName", "myRun"));
       client.logBatch(runUuid, null, null, tags);
 
       Run run = client.getRun(runUuid);
       Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 1);
+      Assert.assertEquals(loggedTags.size(), 2);
       assertTag(loggedTags, "t1", "tagtagtag");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
 
     // All
@@ -543,7 +629,8 @@ public class MlflowClientTest {
         createParam("p2", "another param")));
       Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
         createTag("t2", "xx"),
-        createTag("t3", "xx")));
+        createTag("t3", "xx"),
+        createTag("mlflow.runName", "myRun")));
       client.logBatch(runUuid, metrics, params, tags);
 
       Run run = client.getRun(runUuid);
@@ -559,10 +646,11 @@ public class MlflowClientTest {
       assertParam(loggedParams, "p2", "another param");
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 3);
+      Assert.assertEquals(loggedTags.size(), 4);
       assertTag(loggedTags, "t1", "t1");
       assertTag(loggedTags, "t2", "xx");
       assertTag(loggedTags, "t3", "xx");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
   }
 
