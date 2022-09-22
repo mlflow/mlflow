@@ -63,7 +63,7 @@ The pipeline steps are defined as follows:
 
             .. note::
                 The **train** step supports hyperparameter tuning with hyperopt by adding 
-                the configuration in the 
+                configurations in the 
                 |'tuning' section of the 'train' step definition in pipeline.yaml|. 
 
    - **evaluate**
