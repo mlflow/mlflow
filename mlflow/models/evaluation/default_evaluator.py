@@ -321,7 +321,13 @@ def _gen_classifier_curve(
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
             precision, recall, _ = sk_metrics.precision_recall_curve(
-                _y, _y_prob, sample_weight=sample_weights
+                _y,
+                _y_prob,
+                sample_weight=sample_weights,
+                # For multiclass classification where a one-vs-rest ROC curve is produced for each
+                # class, the positive label is binarized and should not be included in the plot
+                # legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
             )
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
