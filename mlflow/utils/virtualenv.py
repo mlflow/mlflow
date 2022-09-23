@@ -216,7 +216,7 @@ def _create_virtualenv(
         tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
         local_model_path.joinpath(tmp_req_file).write_text("\n".join(deps))
         try:
-            cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
+            cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
             _exec_cmd(cmd, capture_output=capture_output, cwd=local_model_path, extra_env=extra_env)
         finally:
             local_model_path.joinpath(tmp_req_file).unlink()
