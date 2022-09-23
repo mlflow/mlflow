@@ -272,7 +272,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         deleted_run_list = self.store.search_runs(
-            [experiment_id], run_view_type=ViewType.DELETED_ONLY
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.DELETED_ONLY,
         )
 
         self.assertEqual(len(deleted_run_list), 2)
@@ -289,8 +291,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         restored_run_list = self.store.search_runs(
-            [experiment_id], run_view_type=ViewType.ACTIVE_ONLY
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ACTIVE_ONLY,
         )
+
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
             self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)

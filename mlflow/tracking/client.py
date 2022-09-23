@@ -13,7 +13,7 @@ import tempfile
 import yaml
 from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
