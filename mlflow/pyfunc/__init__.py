@@ -207,45 +207,55 @@ You may prefer the second, lower-level workflow for the following reasons:
   artifacts.
 """
 
+import collections
 import importlib
-import tempfile
+import logging
+import os
 import signal
+import subprocess
 import sys
+import tempfile
+import threading
+from copy import deepcopy
+from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
-import os
 import pandas
 import yaml
-from copy import deepcopy
-import logging
-import threading
-import collections
-import subprocess
 
-from typing import Any, Union, Iterator, Tuple
 import mlflow
 import mlflow.pyfunc.model
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import PyFuncInput, PyFuncOutput, _enforce_schema, _save_example
+from mlflow.models.utils import (
+    PyFuncInput,
+    PyFuncOutput,
+    _enforce_schema,
+    _save_example,
+)
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.pyfunc.model import (  # pylint: disable=unused-import
     PythonModel,
     PythonModelContext,
     get_default_conda_env,
 )
 from mlflow.pyfunc.model import get_default_pip_requirements
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version, _is_in_ipython_notebook
-from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import _copy_file_or_tree, write_to
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
-    _validate_and_prepare_target_save_path,
+from mlflow.utils import (
+    PYTHON_VERSION,
+    get_major_minor_py_version,
+    _is_in_ipython_notebook,
 )
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils import find_free_port
+from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -256,24 +266,22 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import _copy_file_or_tree, write_to
 from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
-from mlflow.utils.process import cache_return_value_per_process
-from mlflow.exceptions import MlflowException
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
+    _validate_and_prepare_target_save_path,
 )
-
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.utils import find_free_port
-from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -371,6 +379,19 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
         return self._predict_fn(data)
+
+    @experimental
+    def unwrap_python_model(self):
+        """
+        Unwrap the underlying Python model object.
+        """
+        try:
+            python_model = self._model_impl.python_model
+            if python_model is None:
+                raise AttributeError("Expected python_model attribute not to be None.")
+        except AttributeError as e:
+            raise MlflowException("Unable to retrieve base model object from pyfunc.") from e
+        return python_model
 
     def __eq__(self, other):
         if not isinstance(other, PyFuncModel):
@@ -484,6 +505,80 @@ def load_model(
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+
+
+class _ServedPyFuncModel(PyFuncModel):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int):
+        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
+        self._client = client
+        self._server_pid = server_pid
+
+    def predict(self, data):
+        result = self._client.invoke(data)
+        if isinstance(result, pandas.DataFrame):
+            result = result[result.columns[0]]
+        return result
+
+    @property
+    def pid(self):
+        if self._server_pid is None:
+            raise MlflowException("Served PyFunc Model is missing server process ID.")
+        return self._server_pid
+
+
+def _load_model_or_server(model_uri: str, env_manager: str):
+    """
+    Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
+    independent Python environment with the training time dependencies of the specified model
+    installed and start a MLflow Model Scoring Server process with that model in that environment.
+    Return a _ServedPyFuncModel that invokes the scoring server for prediction. Otherwise, load and
+    return the model locally as a PyFuncModel using :py:func:`mlflow.pyfunc.load_model`.
+
+    :param model_uri: The uri of the model.
+    :param env_manager: The environment manager to load the model.
+    :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
+    """
+    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+    if env_manager == _EnvManager.LOCAL:
+        return load_model(model_uri)
+
+    _logger.info("Starting model server for model environment restoration.")
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    env_root_dir = _get_or_create_env_root_dir(False)
+    pyfunc_backend = _get_flavor_backend(
+        local_path,
+        install_mlflow=False,
+        env_manager=env_manager,
+        env_root_dir=env_root_dir,
+    )
+    _logger.info("Restoring model environment. This can take a few minutes.")
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=False)
+    server_port = find_free_port()
+    scoring_server_proc = pyfunc_backend.serve(
+        model_uri=local_path,
+        port=server_port,
+        host="127.0.0.1",
+        timeout=60,
+        enable_mlserver=False,
+        synchronous=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+    client = ScoringServerClient("127.0.0.1", server_port)
+    try:
+        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+    except Exception:
+        raise MlflowException("MLflow model server failed to launch")
+
+    return _ServedPyFuncModel(
+        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
+    )
 
 
 def _download_model_conda_env(model_uri):
@@ -750,7 +845,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         DataType as SparkDataType,
         StructType as SparkStructType,
     )
-    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+    from pyspark.sql.types import (
+        DoubleType,
+        IntegerType,
+        FloatType,
+        LongType,
+        StringType,
+    )
     from mlflow.models.cli import _get_flavor_backend
 
     _EnvManager.validate(env_manager)
@@ -781,7 +882,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
+        artifact_uri=model_uri,
+        output_path=_create_model_downloading_tmp_dir(should_use_nfs),
     )
 
     if env_manager == _EnvManager.LOCAL:
@@ -972,7 +1074,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     sys.stdout.write("[model server] " + decoded)
 
             server_redirect_log_thread = threading.Thread(
-                target=server_redirect_log_thread_func, args=(scoring_server_proc.stdout,)
+                target=server_redirect_log_thread_func,
+                args=(scoring_server_proc.stdout,),
             )
             server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()

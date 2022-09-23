@@ -176,7 +176,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         """
         Update the metadata of the specified run.
 
@@ -185,7 +185,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.

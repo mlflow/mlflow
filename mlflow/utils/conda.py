@@ -132,6 +132,7 @@ def _create_conda_env(
                 project_env_name,
                 "--file",
                 conda_env_path,
+                "--quiet",
             ],
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
@@ -234,6 +235,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     conda_env_create_path = _get_conda_executable_for_create_env()
 
     try:
+        # Checks if Conda executable exists
         process._exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
@@ -247,6 +249,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         )
 
     try:
+        # Checks if executable for environment creation exists
         process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(

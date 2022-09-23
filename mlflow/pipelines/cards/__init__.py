@@ -92,24 +92,18 @@ class CardTab:
         )
         self.add_html(name, img_html)
 
-    def add_pandas_profile(self, name: str, profile) -> CardTab:
+    def add_pandas_profile(self, name: str, profile: str) -> CardTab:
         """
         Add a new tab representing the provided pandas profile to the card.
 
         :param name: name of the variable in the Jinja2 template
-        :param profile: the pandas profile object
+        :param profile: html string to render profile in the step card
         :return: the updated card instance
         """
         try:
-            # Add "anchor" class to variable links to override their click behaviors using
-            # this jQuery code in pandas-profiling:
-            # https://github.com/ydataai/pandas-profiling/blob/v3.2.0/src/pandas_profiling/report/presentation/flavours/html/templates/wrapper/assets/script.js#L5-L23
-            profile_html = _PP_VARIABLE_LINK_REGEX.sub(
-                r'<a class="anchor" href="\g<href>">', profile.to_html()
-            )
             profile_iframe = (
                 "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-            ).format(src=html.escape(profile_html))
+            ).format(src=html.escape(profile))
         except Exception as e:
             profile_iframe = f"Unable to create data profile. Error found:\n{e}"
         self.add_html(name, profile_iframe)

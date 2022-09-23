@@ -1,10 +1,12 @@
 import logging
 import os
+from mlflow.pipelines.cards import pandas_renderer
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import (
     is_running_in_ipython_environment,
     is_in_databricks_runtime,
+    get_databricks_runtime,
 )
 from typing import Dict, List
 
@@ -65,6 +67,16 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         html_file_path = html_file_path if html_data is None else None
 
         if is_in_databricks_runtime():
+            from packaging import version
+
+            dbr_version_image_key = get_databricks_runtime()
+            dbr_version = dbr_version_image_key.split("-")[0]
+            if version.parse(dbr_version) < version.parse("11.x"):
+                raise MlflowException(
+                    f"Use Databricks Runtime 11 or newer with MLflow Pipelines. "
+                    f"Current version is {dbr_version} ",
+                    error_code=BAD_REQUEST,
+                )
             # Patch IPython display with Databricks display before showing the HTML.
             import IPython.core.display as icd
 
@@ -111,16 +123,8 @@ def get_pandas_data_profile(data_frame, title: str):
     :param title: String, the title of the data profile.
     :return: a data profiling object such as Pandas profiling ProfileReport.
     """
-    from pandas_profiling import ProfileReport
-
     if len(data_frame) == 0:
-        return ProfileReport(
-            data_frame,
-            title=title,
-            minimal=True,
-            progress_bar=False,
-            pool_size=_get_pool_size(),
-        )
+        pandas_renderer.get_html([[title, data_frame]])
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
@@ -140,10 +144,4 @@ def get_pandas_data_profile(data_frame, title: str):
             max_cols,
             max_rows,
         )
-    return ProfileReport(
-        truncated_df,
-        title=title,
-        minimal=True,
-        progress_bar=False,
-        pool_size=_get_pool_size(),
-    )
+    return pandas_renderer.get_html([[title, truncated_df]])

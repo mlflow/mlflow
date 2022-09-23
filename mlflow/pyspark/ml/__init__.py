@@ -1003,7 +1003,7 @@ def autolog(
                 spark = SparkSession.builder.getOrCreate()
 
                 def _get_input_example_as_pd_df():
-                    feature_cols = list(get_feature_cols(input_df.schema, spark_model))
+                    feature_cols = list(get_feature_cols(input_df, spark_model))
                     limited_input_df = input_df.select(feature_cols).limit(
                         INPUT_EXAMPLE_SAMPLE_ROWS
                     )
