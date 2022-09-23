@@ -572,7 +572,6 @@ def gc(older_than, backend_store_uri, run_ids):
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
 
-cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
@@ -594,6 +593,12 @@ try:
 except ImportError as e:
     pass
 
+try:
+    import mlflow.deployments.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.deployments.cli.commands)
+except ImportError as e:
+    pass
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import
