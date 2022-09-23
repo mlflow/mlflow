@@ -622,7 +622,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
 
         python_exec_path = str(env_path / "bin" / "python")
 
-        # Test `_execute_in_conda_env` run command under the correct activated python env.
+        # Test execution of command under the correct activated python env.
         env.execute(
             command=f"python -c \"import sys; assert sys.executable == '{python_exec_path}'; "
             f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",

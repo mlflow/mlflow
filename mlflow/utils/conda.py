@@ -124,7 +124,7 @@ def _create_conda_env(
     capture_output,
 ):
     if conda_env_path:
-        return process._exec_cmd(
+        process._exec_cmd(
             [
                 conda_env_create_path,
                 "env",
@@ -138,7 +138,7 @@ def _create_conda_env(
             capture_output=capture_output,
         )
     else:
-        return process._exec_cmd(
+        process._exec_cmd(
             [
                 conda_env_create_path,
                 "create",
