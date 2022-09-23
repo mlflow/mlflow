@@ -67,6 +67,7 @@ from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
+from mlflow.exceptions import INVALID_PARAMETER_VALUE
 
 
 FLAVOR_NAME = "tensorflow"
@@ -123,10 +124,10 @@ def get_default_conda_env():
 def log_model(
     model,
     artifact_path,
+    signature: ModelSignature,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
-    signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     registered_model_name=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -140,19 +141,6 @@ def log_model(
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -166,6 +154,19 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
+    :param registered_model_name: If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
@@ -184,19 +185,6 @@ def log_model(
     """
 
     from tensorflow.keras.models import Model as KerasModel
-
-    if isinstance(model, KerasModel) and signature is not None:
-        warnings.warn(
-            "The pyfunc inference behavior of Keras models logged "
-            "with signatures differs from the behavior of Keras "
-            "models logged without signatures. Specifically, when a "
-            "signature is present, passing a Pandas DataFrame as "
-            "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`: "
-            "(for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces "
-            "a Pandas DataFrame output in response to a Pandas DataFrame input."
-        )
 
     return Model.log(
         artifact_path=artifact_path,
@@ -293,6 +281,12 @@ def save_model(
     """
     import tensorflow
     from tensorflow.keras.models import Model as KerasModel
+
+    if signature is None:
+        raise MlflowException(
+            "Saving TF2 core model or Keras Model requires ``signature`` param specified.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -633,7 +627,7 @@ def _load_pyfunc(path):
             m = _load_keras_model(
                 path, keras_module=keras_module, save_format=save_format, compile=should_compile
             )
-            return _KerasModelWrapper(m, None, None)
+            return _KerasModelWrapper(m, model_meta.signature)
         else:
             raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
     if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
@@ -651,7 +645,7 @@ def _load_pyfunc(path):
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
         tf_saved_model_dir = os.path.join(path, flavor_conf["saved_model_dir"])
         loaded_model = tensorflow.saved_model.load(tf_saved_model_dir)
-        return _TF2ModuleWrapper(model=loaded_model)
+        return _TF2ModuleWrapper(model=loaded_model, signature=model_meta.signature)
 
     raise MlflowException("Unknown model_type.")
 
@@ -714,8 +708,9 @@ class _TF2Wrapper:
 
 
 class _TF2ModuleWrapper:
-    def __init__(self, model):
+    def __init__(self, model, signature):
         self.model = model
+        self.signature = signature
 
     def predict(self, data):
         import tensorflow
@@ -734,22 +729,12 @@ class _TF2ModuleWrapper:
 
 
 class _KerasModelWrapper:
-    def __init__(self, keras_model, graph, sess):
+    def __init__(self, keras_model, signature):
         self.keras_model = keras_model
-        self._graph = graph
-        self._sess = sess
+        self.signature = signature
 
     def predict(self, data):
-        def _predict(data):
-            if isinstance(data, pandas.DataFrame):
-                predicted = pandas.DataFrame(self.keras_model.predict(data.values))
-                predicted.index = data.index
-            else:
-                predicted = self.keras_model.predict(data)
-            return predicted
-
-        predicted = _predict(data)
-        return predicted
+        return self.keras_model.predict(data)
 
 
 def _assoc_list_to_map(lst):
