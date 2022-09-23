@@ -132,6 +132,7 @@ def _create_conda_env(
                 project_env_name,
                 "--file",
                 conda_env_path,
+                "--quiet",
             ],
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
