@@ -235,7 +235,7 @@ class EvaluateStep(BaseStep):
         )
 
         card.add_tab(
-            "Model Performance (Test Data)",
+            "Model Performance (Test)",
             "<h3 class='section-title'>Summary Metrics</h3>"
             "<b>NOTE</b>: Use evaluation metrics over test dataset with care. "
             "Fine-tuning model over the test dataset is not advised."
