@@ -40,7 +40,7 @@ from tests.pipelines.helper_functions import (
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
 # `pipeline.run(step=None)` is called
-_STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate", "register"]
+_STEP_NAMES = ["ingest", "split", "transform", "train", "evaluate", "register"]
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
