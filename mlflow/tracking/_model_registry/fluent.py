@@ -1,11 +1,14 @@
+import logging
+
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.utils.logging_utils import eprint
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from typing import Any, Dict, Optional
+
+_logger = logging.getLogger(__name__)
 
 
 def register_model(
@@ -63,12 +66,12 @@ def register_model(
     client = MlflowClient()
     try:
         create_model_response = client.create_registered_model(name)
-        eprint("Successfully registered model '%s'." % create_model_response.name)
+        _logger.debug("Successfully registered model '%s'.", create_model_response.name)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            eprint(
-                "Registered model '%s' already exists. Creating a new version of this model..."
-                % name
+            _logger.debug(
+                "Registered model '%s' already exists. Creating a new version of this model...",
+                name,
             )
         else:
             raise e
@@ -87,9 +90,8 @@ def register_model(
             tags=tags,
             await_creation_for=await_registration_for,
         )
-    eprint(
-        "Created version '{version}' of model '{model_name}'.".format(
-            version=create_version_response.version, model_name=create_version_response.name
-        )
+    _logger.info(
+        f"Created version '{create_version_response.version}' of model "
+        f"'{create_version_response.name}'."
     )
     return create_version_response
