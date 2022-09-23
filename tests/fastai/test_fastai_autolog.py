@@ -118,7 +118,7 @@ def fastai_random_tabular_data_run(iris_data, fit_variant):
         model.fit(NUM_EPOCHS)
 
     client = MlflowClient()
-    return model, client.get_run(client.search_runs(["0"])[0].run_id)
+    return model, client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
