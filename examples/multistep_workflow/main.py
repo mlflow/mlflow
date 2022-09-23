@@ -25,7 +25,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
     """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
     client = MlflowClient()
-    all_run_infos = reversed(client.list_run_infos(experiment_id))
+    all_run_infos = reversed(client.search_runs([experiment_id]))
     for run_info in all_run_infos:
         full_run = client.get_run(run_info.run_id)
         tags = full_run.data.tags
