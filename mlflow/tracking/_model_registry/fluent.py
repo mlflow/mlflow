@@ -90,7 +90,7 @@ def register_model(
             tags=tags,
             await_creation_for=await_registration_for,
         )
-    _logger.info(
+    _logger.debug(
         f"Created version '{create_version_response.version}' of model "
         f"'{create_version_response.name}'."
     )
