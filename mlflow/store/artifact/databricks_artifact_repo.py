@@ -55,7 +55,6 @@ from mlflow.utils.uri import (
 
 # pylint: disable=unreachable
 _logger = logging.getLogger(__name__)
-logging.basicConfig(filename="mlflow_adl2.log", encoding="utf-8", level=logging.WARNING)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
@@ -376,13 +375,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
             _logger.warning("Downloading from URL: %s", cloud_credential_info.signed_uri)
             _logger.warning(
                 "Download URL headers: %s",
-                self._convert_http_headers(cloud_credential_info.headers),
+                self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
                 dst_local_file_path,
                 _DOWNLOAD_CHUNK_SIZE,
-                self._convert_http_headers(cloud_credential_info.headers),
+                self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
         except Exception as err:
             raise MlflowException(err)
