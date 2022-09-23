@@ -1,5 +1,4 @@
 from typing import Any
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -143,22 +142,10 @@ def _infer_schema(data: Any) -> Schema:
             "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
             "but got '{}'".format(type(data))
         )
-    if not schema.is_tensor_spec() and any(
-        t in (DataType.integer, DataType.long) for t in schema.input_types()
-    ):
-        warnings.warn(
-            "Hint: Inferred schema contains integer column(s). Integer columns in "
-            "Python cannot represent missing values. If your input data contains "
-            "missing values at inference time, it will be encoded as floats and will "
-            "cause a schema enforcement error. The best way to avoid this problem is "
-            "to infer the model schema based on a realistic data sample (training "
-            "dataset) that includes missing values. Alternatively, you can declare "
-            "integer columns as doubles (float64) whenever these columns may have "
-            "missing values. See `Handling Integers With Missing Values "
-            "<https://www.mlflow.org/docs/latest/models.html#"
-            "handling-integers-with-missing-values>`_ for more details.",
-            stacklevel=2,
-        )
+    if not schema.is_tensor_spec():
+        for idx, input_col in enumerate(schema.inputs):
+            if input_col.type in (DataType.integer, DataType.long):
+                schema.inputs[idx] = ColSpec(type=DataType.double, name=input_col.name)
     return schema
 
 
