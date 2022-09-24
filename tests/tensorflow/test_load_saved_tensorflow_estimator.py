@@ -200,7 +200,7 @@ def test_pyfunc_serve_and_score(tmp_path, monkeypatch):
     resp = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=model_data_info.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
