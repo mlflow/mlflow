@@ -302,9 +302,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for restored_run in restored_run_list:
             self.assertEqual(restored_run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
+                assert self.store._get_run(session, restored_run.info.run_id).deleted_time is None
             assert restored_run.experiment_id in experiment_id
-            assert restored_run.run_id in run_ids
+            assert restored_run.info.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
