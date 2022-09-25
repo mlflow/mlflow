@@ -279,11 +279,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(len(deleted_run_list), 2)
         for deleted_run in deleted_run_list:
-            self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
-            assert deleted_run.experiment_id in experiment_id
-            assert deleted_run.run_id in run_ids
+            self.assertEqual(deleted_run.info.lifecycle_stage, entities.LifecycleStage.DELETED)
+            assert deleted_run.info.experiment_id in experiment_id
+            assert deleted_run.info.run_id in run_ids
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
+                assert (
+                    self.store._get_run(session, deleted_run.info.run_id).deleted_time is not None
+                )
 
         self.store.restore_experiment(experiment_id)
 
@@ -298,11 +300,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
-            self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            self.assertEqual(restored_run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
-            assert restored_run.experiment_id in experiment_id
-            assert restored_run.run_id in run_ids
+                assert self.store._get_run(session, restored_run.info.run_id).deleted_time is None
+            assert restored_run.info.experiment_id in experiment_id
+            assert restored_run.info.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
