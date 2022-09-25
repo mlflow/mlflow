@@ -183,7 +183,7 @@ def test_tf_keras_autolog_log_models_configuration(
     model.fit(data, labels, epochs=10)
 
     client = MlflowClient()
-    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert ("model" in artifacts) == log_models
@@ -216,7 +216,7 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, initial_e
     )
 
     client = MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
+    return client.get_run(client.search_runs(["0"])[0].info.run_id), history
 
 
 @pytest.mark.parametrize("initial_epoch", [0, 10])
@@ -502,7 +502,7 @@ def get_tf_keras_random_data_run_with_callback(
     )
 
     client = MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
+    return client.get_run(client.search_runs(["0"])[0].info.run_id), history, callback
 
 
 @pytest.fixture

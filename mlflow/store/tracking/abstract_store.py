@@ -292,36 +292,6 @@ class AbstractStore:
         """
         pass
 
-    def list_run_infos(
-        self,
-        experiment_id,
-        run_view_type,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
-        """
-        Return run information for runs which belong to the experiment_id.
-
-        :param experiment_id: The experiment id which to search
-        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-        :param max_results: Maximum number of results desired.
-        :param order_by: List of order_by clauses.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-            a ``list_run_infos`` call.
-
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for the
-            next page may be obtained via the ``token`` attribute of the returned object; however,
-            some store implementations may not support pagination and thus the returned token would
-            not be meaningful in such cases.
-        """
-        search_result = self.search_runs(
-            [experiment_id], None, run_view_type, max_results, order_by, page_token
-        )
-        return PagedList([run.info for run in search_result], search_result.token)
-
     @abstractmethod
     def log_batch(self, run_id, metrics, params, tags):
         """

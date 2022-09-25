@@ -271,29 +271,40 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         updated_exp = self.store.get_experiment(experiment_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        deleted_run_list = self.store.list_run_infos(experiment_id, ViewType.DELETED_ONLY)
+        deleted_run_list = self.store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.DELETED_ONLY,
+        )
 
         self.assertEqual(len(deleted_run_list), 2)
         for deleted_run in deleted_run_list:
-            self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
-            assert deleted_run.experiment_id in experiment_id
-            assert deleted_run.run_id in run_ids
+            self.assertEqual(deleted_run.info.lifecycle_stage, entities.LifecycleStage.DELETED)
+            assert deleted_run.info.experiment_id in experiment_id
+            assert deleted_run.info.run_id in run_ids
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
+                assert (
+                    self.store._get_run(session, deleted_run.info.run_id).deleted_time is not None
+                )
 
         self.store.restore_experiment(experiment_id)
 
         updated_exp = self.store.get_experiment(experiment_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        restored_run_list = self.store.list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)
+        restored_run_list = self.store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
-            self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            self.assertEqual(restored_run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
-            assert restored_run.experiment_id in experiment_id
-            assert restored_run.run_id in run_ids
+                assert self.store._get_run(session, restored_run.info.run_id).deleted_time is None
+            assert restored_run.info.experiment_id in experiment_id
+            assert restored_run.info.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
@@ -1142,23 +1153,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [(m.key, m.value, m.timestamp) for m in expected],
             [(m.key, m.value, m.timestamp) for m in actual],
         )
-
-    def test_list_run_infos(self):
-        experiment_id = self._experiment_factory("test_exp")
-        r1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-
-        def _runs(experiment_id, view_type):
-            return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
-
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
-
-        self.store.delete_run(r1)
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
-        self.assertCountEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        self.assertCountEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = "new name"

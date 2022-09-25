@@ -238,7 +238,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
-        assert mlflow_client.list_run_infos(experiment_id) == [run.info]
+        assert [run.info for run in mlflow_client.search_runs([experiment_id])] == [run.info]
 
 
 def test_create_run_defaults(mlflow_client):

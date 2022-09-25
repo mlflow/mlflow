@@ -764,7 +764,7 @@ def test_search_runs():
     experiment_id = MlflowClient().get_experiment_by_name("exp-for-search").experiment_id
 
     # 2 runs in this experiment
-    assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
+    assert len(MlflowClient().search_runs([experiment_id], run_view_type=ViewType.ACTIVE_ONLY)) == 2
 
     # 2 runs that have metric "m1" > 0.001
     runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.0001")

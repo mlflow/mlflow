@@ -45,11 +45,11 @@ def test_docker_project_execution(
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
     mlflow_service = MlflowClient()
-    run_infos = mlflow_service.list_run_infos(
-        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
+    runs = mlflow_service.search_runs(
+        [file_store.FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
     )
-    assert len(run_infos) == 1
-    store_run_id = run_infos[0].run_id
+    assert len(runs) == 1
+    store_run_id = runs[0].info.run_id
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
     assert run.data.params == expected_params

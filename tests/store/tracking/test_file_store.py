@@ -782,24 +782,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         get_run = fs.get_run(run_id)
         assert get_run.info.run_name == "first name"
 
-    def test_list_run_infos(self):
-        fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
-            run_infos = fs.list_run_infos(exp_id, run_view_type=ViewType.ALL)
-            for run_info in run_infos:
-                run_id = run_info.run_id
-                dict_run_info = self.run_data[run_id]
-                dict_run_info.pop("metrics")
-                dict_run_info.pop("params")
-                dict_run_info.pop("tags")
-                dict_run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
-                dict_run_info["status"] = RunStatus.to_string(dict_run_info["status"])
-                # get a copy of run_info as we need to remove the `deleted_time`
-                # key without actually deleting it from self.run_data
-                _dict_run_info = dict_run_info.copy()
-                _dict_run_info.pop("deleted_time")
-                self.assertEqual(_dict_run_info, dict(run_info))
-
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
         run_id = self._create_run(fs).info.run_id
