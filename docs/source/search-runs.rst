@@ -98,6 +98,7 @@ You can search using two run attributes contained in :py:class:`mlflow.entities.
 .. code-block:: sql
 
   attributes.artifact_uri
+  attributes.user_id
 
 
 .. _mlflow_tags:
