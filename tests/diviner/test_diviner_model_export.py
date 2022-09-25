@@ -441,7 +441,7 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_data):
 
     inference_data = pd.DataFrame({"groups": [groups], "horizon": 10, "frequency": "W"}, index=[0])
 
-    from mlflow.pyfunc.scoring_server import PredictionsResponse
+    from mlflow.deployments import PredictionsResponse
 
     resp = pyfunc_serve_and_score_model(
         model_uri,

@@ -17,10 +17,10 @@ import yaml
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
-from mlflow.pyfunc.scoring_server import PredictionsResponse
 from mlflow.utils.file_utils import TempDir
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,

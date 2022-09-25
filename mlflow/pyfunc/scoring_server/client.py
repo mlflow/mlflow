@@ -8,7 +8,7 @@ from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
-from mlflow.pyfunc.scoring_server import PredictionsResponse
+from mlflow.deployments import PredictionsResponse
 
 
 class ScoringServerClient:

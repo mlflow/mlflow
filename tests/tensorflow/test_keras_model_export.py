@@ -19,9 +19,9 @@ from unittest import mock
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.pyfunc.scoring_server.client import PredictionsResponse
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
