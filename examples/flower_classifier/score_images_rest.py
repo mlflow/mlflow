@@ -40,8 +40,10 @@ def score_model(path, host, port):
 
     response = requests.post(
         url="{host}:{port}/invocations".format(host=host, port=port),
-        data=data,
-        headers={"Content-Type": "application/json; format=pandas-split"},
+        data={
+          "dataframe_split": data,
+        },
+        headers={"Content-Type": "application/json"},
     )
 
     if response.status_code != 200:
