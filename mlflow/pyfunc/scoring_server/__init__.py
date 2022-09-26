@@ -91,7 +91,9 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     if isinstance(decoded_input, dict):
         format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
         if len(format_keys) != 1:
-            message = f"Received dictionary with input fields: {format_keys}"
+            message = "Received dictionary with input fields: {input_fields}".format(
+                input_fields=[field for field in decoded_input.keys()],
+            )
             raise MlflowException(
                 message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
             )
