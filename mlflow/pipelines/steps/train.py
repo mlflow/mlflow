@@ -167,7 +167,6 @@ class TrainStep(BaseStep):
         estimator_fn = getattr(
             importlib.import_module(self.train_module_name), self.estimator_method_name
         )
-        mlflow.autolog(log_models=False, silent=True)
 
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
@@ -179,7 +178,7 @@ class TrainStep(BaseStep):
         }
 
         best_estimator_params = None
-        mlflow.autolog(log_models=False)
+        mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
