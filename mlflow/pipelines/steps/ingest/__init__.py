@@ -70,12 +70,12 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
         )
-        _logger.info("Successfully stored data in parquet format at '%s'", dataset_dst_path)
+        _logger.debug("Successfully stored data in parquet format at '%s'", dataset_dst_path)
 
         ingested_df = read_parquet_as_pandas_df(data_parquet_path=dataset_dst_path)
         ingested_dataset_profile = None
         if not self.skip_data_profiling:
-            _logger.info("Profiling ingested dataset")
+            _logger.debug("Profiling ingested dataset")
             ingested_dataset_profile = get_pandas_data_profiles(
                 [["Profile of Ingested Dataset", ingested_df]]
             )
@@ -83,7 +83,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 str(os.path.join(output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME))
             )
             dataset_profile_path.write_text(ingested_dataset_profile, encoding="utf-8")
-            _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
+            _logger.debug(f"Wrote dataset profile to '{dataset_profile_path}'")
 
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
 

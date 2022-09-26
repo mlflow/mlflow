@@ -178,7 +178,7 @@ class TrainStep(BaseStep):
         }
 
         best_estimator_params = None
-        mlflow.autolog(log_models=False)
+        mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
