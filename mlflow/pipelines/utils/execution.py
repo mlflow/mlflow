@@ -328,8 +328,8 @@ class _ExecutionPlan:
         return pipeline_step_names[:first_step_index]
 
     def print(self) -> None:
-        for step in self.steps_cached:
-            _logger.info(self._FORMAT_STEPS_CACHED, step)
+        steps_cached_str = ", ".join(self.steps_cached)
+        _logger.info(self._FORMAT_STEPS_CACHED, steps_cached_str)
 
 
 def _run_make(
