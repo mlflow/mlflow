@@ -7,6 +7,8 @@ import logging
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
 import sqlalchemy
+from sqlalchemy.pool import NullPool
+
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
@@ -17,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
+    MLFLOW_SQLALCHEMYSTORE_DISABLE_POOLING,
 )
 
 _logger = logging.getLogger(__name__)
@@ -186,6 +189,7 @@ def create_sqlalchemy_engine(db_uri):
     pool_max_overflow = MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW.get()
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
     echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
+    disable_pooling = MLFLOW_SQLALCHEMYSTORE_DISABLE_POOLING.get()
     pool_kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
@@ -197,6 +201,8 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["pool_recycle"] = pool_recycle
     if echo:
         pool_kwargs["echo"] = echo
+    if disable_pooling:
+        pool_kwargs["poolclass"] = NullPool
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
     return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
