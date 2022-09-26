@@ -16,6 +16,7 @@ from mlflow.pipelines.steps.ingest.datasets import (
     CustomDataset,
 )
 from typing import Dict, Any
+import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +65,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             )
 
     def _run(self, output_directory: str) -> BaseCard:
-        import pandas as pd
 
         dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
@@ -91,6 +91,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             ingested_dataset_profile=ingested_dataset_profile,
             ingested_rows=ingested_df.size,
             schema=schema,
+            data_preview=ingested_df.head(),
             dataset_src_location=getattr(self.dataset, "location", None),
             dataset_sql=getattr(self.dataset, "sql", None),
         )
@@ -101,6 +102,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_dataset_profile: str,
         ingested_rows: int,
         schema: Dict,
+        data_preview: pd.DataFrame = None,
         dataset_src_location: str = None,
         dataset_sql: str = None,
     ) -> BaseCard:
@@ -138,7 +140,14 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         # Tab #2 -- Ingested dataset schema.
         schema_html = BaseCard.render_table(schema["fields"])
         card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
-        (  # Tab #3 -- Step run summary.
+
+        if data_preview is not None:
+            # Tab #2 -- Ingested dataset schema.
+            card.add_tab("Data Preview", "{{DATA_PREVIEW}}").add_html(
+                "DATA_PREVIEW", BaseCard.render_table(data_preview)
+            )
+
+        (  # Tab #4 -- Step run summary.
             card.add_tab(
                 "Run Summary",
                 "{{ INGESTED_ROWS }}"
