@@ -7,7 +7,8 @@ from mlflow.pipelines.cards import pandas_renderer
 from mlflow.pipelines.utils.step import (
     display_html,
     get_merged_eval_metrics,
-    get_pandas_data_profile,
+    truncate_pandas_data_profile,
+    get_pandas_data_profiles,
 )
 from pandas import DataFrame
 from unittest import mock
@@ -103,19 +104,23 @@ def test_get_data_profile_truncates_large_data_frame(
     step_utils._MAX_PROFILE_COL_SIZE = max_cols
     step_utils._MAX_PROFILE_ROW_SIZE = max_rows
     with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
-        get_pandas_data_profile(data_frame, "fake profile")
+        truncated_df = truncate_pandas_data_profile("fake profile", data_frame)
+        assert truncated_df[1].shape == (expected_rows, expected_cols)
+        get_pandas_data_profiles([["fake profile", data_frame]])
         # Initial index of [0][0][0] are from call_args_list to get the 0th call.
         # The next [0][1] are because of the pandas_renderer get_html API
-        # pandas_renderer.get_html([[title, truncated_df]])
-        truncated_df = mock_pandas_renderer_html.call_args_list[0][0][0][0][1]
-        assert truncated_df.shape == (expected_rows, expected_cols)
+        assert mock_pandas_renderer_html.call_args_list[0][0][0][0][1].shape == (
+            expected_rows,
+            expected_cols,
+        )
 
 
 def test_get_data_profile_works_for_empty_data_frame():
     with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
-        get_pandas_data_profile(DataFrame(), "fake profile")
+        data_frame = DataFrame()
+        truncated_df = truncate_pandas_data_profile("fake profile", data_frame)
+        assert truncated_df[1].shape == (0, 0)
+        get_pandas_data_profiles([["fake profile", data_frame]])
         # Initial index of [0][0][0] are from call_args_list to get the 0th call.
         # The next [0][1] are because of the pandas_renderer get_html API
-        # pandas_renderer.get_html([[title, truncated_df]])
-        truncated_df = mock_pandas_renderer_html.call_args_list[0][0][0][0][1]
-        assert truncated_df.shape == (0, 0)
+        assert mock_pandas_renderer_html.call_args_list[0][0][0][0][1].shape == (0, 0)

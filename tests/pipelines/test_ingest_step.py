@@ -661,7 +661,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {
