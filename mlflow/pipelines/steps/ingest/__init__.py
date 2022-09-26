@@ -76,8 +76,8 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_dataset_profile = None
         if not self.skip_data_profiling:
             _logger.debug("Profiling ingested dataset")
-            ingested_dataset_profile = get_pandas_data_profile(
-                ingested_df, "Profile of Ingested Dataset"
+            ingested_dataset_profile = get_pandas_data_profiles(
+                [["Profile of Ingested Dataset", ingested_df]]
             )
             dataset_profile_path = Path(
                 str(os.path.join(output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME))
