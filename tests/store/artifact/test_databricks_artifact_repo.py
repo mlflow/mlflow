@@ -308,7 +308,7 @@ class TestDatabricksArtifactRepository:
         mock_azure_headers = {
             "x-ms-content-type": "test-type",
             "x-ms-owner": "some-owner",
-            "x-ms-blob-type": "some-type",
+            "x-ms-something_not_supported": "some-value",
         }
         filtered_azure_headers = {
             "x-ms-content-type": "test-type",
@@ -339,6 +339,7 @@ class TestDatabricksArtifactRepository:
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
+            # test with block size 5
             request_mock.assert_any_call(
                 "put",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
@@ -392,6 +393,7 @@ class TestDatabricksArtifactRepository:
                 MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
                 headers={},
             )
+            # test with asure max block size
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
