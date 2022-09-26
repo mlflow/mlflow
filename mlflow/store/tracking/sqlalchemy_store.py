@@ -11,6 +11,7 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 from sqlalchemy.future import select
 
+from mlflow.entities import RunTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -547,11 +548,9 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags = (
-                (tags or []) + [SqlTag(key=MLFLOW_RUN_NAME, value=run_name)]
-                if run_name is not None
-                else []
-            )
+            tags = tags or []
+            if run_name is not None:
+                tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 

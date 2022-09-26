@@ -617,7 +617,9 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
-        tags = (tags or []) + ([RunTag(MLFLOW_RUN_NAME, run_name)] if run_name is not None else [])
+        tags = tags or []
+        if run_name is not None:
+            tags.append(RunTag(MLFLOW_RUN_NAME, run_name))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)
