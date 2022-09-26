@@ -137,3 +137,22 @@ def mock_s3_bucket():
         s3_client = boto3.client("s3")
         s3_client.create_bucket(Bucket=bucket_name)
         yield bucket_name
+
+
+class ExtendedMonkeyPatch(pytest.MonkeyPatch):  # type: ignore
+    def setenvs(self, envs, prepend=None):
+        for name, value in envs.items():
+            self.setenv(name, value, prepend)
+
+    def delenvs(self, names, raising=True):
+        for name in names:
+            self.delenv(name, raising)
+
+
+@pytest.fixture
+def monkeypatch():
+    """
+    Overrides the default monkeypatch fixture to use `ExtendedMonkeyPatch`.
+    """
+    with ExtendedMonkeyPatch().context() as mp:
+        yield mp
