@@ -35,6 +35,17 @@ def _make_elem_hashable(elem):
         return elem
 
 
+def is_subset(df1, df2):
+    """True if df1 is a subset of df2"""
+    # check for new columns added to df1
+    new_cols = df1.columns.difference(df2.columns)
+    if len(new_cols):
+        return False
+
+    # check for new rows added to df1
+    return len(df1.merge(df2)) == len(df1)
+
+
 def _get_split_df(input_df, hash_buckets, split_ratios):
     # split dataset into train / validation / test splits
     train_ratio, validation_ratio, test_ratio = split_ratios
@@ -191,7 +202,22 @@ class SplitStep(BaseStep):
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
             _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
-            (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
+            (post_split_train_df, post_split_validation_df, post_split_test_df) = post_split(
+                train_df, validation_df, test_df
+            )
+            if (
+                is_subset(post_split_train_df, train_df)
+                and is_subset(post_split_validation_df, validation_df)
+                and is_subset(post_split_test_df, test_df)
+            ):
+                train_df = post_split_train_df
+                validation_df = post_split_validation_df
+                test_df = post_split_test_df
+            else:
+                raise MlflowException(
+                    f"Attempting to perform arbitrary ETL transform in {post_split_fn_name}. "
+                    f"Arbitrary transformations should go into the transform step."
+                )
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
