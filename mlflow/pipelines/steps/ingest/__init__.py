@@ -142,7 +142,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
 
         if data_preview is not None:
-            # Tab #2 -- Ingested dataset schema.
+            # Tab #3 -- Ingested dataset preview.
             card.add_tab("Data Preview", "{{DATA_PREVIEW}}").add_html(
                 "DATA_PREVIEW", BaseCard.render_table(data_preview)
             )
