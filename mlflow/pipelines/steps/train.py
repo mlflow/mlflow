@@ -23,7 +23,10 @@ from mlflow.pipelines.utils.metrics import (
     _get_custom_metrics,
     _load_custom_metric_functions,
 )
-from mlflow.pipelines.utils.step import get_merged_eval_metrics, get_pandas_data_profile
+from mlflow.pipelines.utils.step import (
+    get_merged_eval_metrics,
+    get_pandas_data_profiles,
+)
 from mlflow.pipelines.utils.tracking import (
     get_pipeline_tracking_config,
     apply_pipeline_tracking_config,
@@ -466,9 +469,13 @@ class TrainStep(BaseStep):
 
         if not self.skip_data_profiling:
             # Tab 2: Prediction and error data profile.
-            pred_and_error_df_profile = get_pandas_data_profile(
-                pred_and_error_df.reset_index(drop=True),
-                "Predictions and Errors (Validation Dataset)",
+            pred_and_error_df_profile = get_pandas_data_profiles(
+                [
+                    [
+                        "Predictions and Errors (Validation Dataset)",
+                        pred_and_error_df.reset_index(drop=True),
+                    ]
+                ]
             )
             card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
                 "PROFILE", pred_and_error_df_profile
