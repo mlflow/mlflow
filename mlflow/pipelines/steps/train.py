@@ -167,7 +167,6 @@ class TrainStep(BaseStep):
         estimator_fn = getattr(
             importlib.import_module(self.train_module_name), self.estimator_method_name
         )
-        estimator = estimator_fn()
         mlflow.autolog(log_models=False, silent=True)
 
         tags = {
