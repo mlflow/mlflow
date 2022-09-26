@@ -99,6 +99,7 @@ You can search using these run attributes contained in :py:class:`mlflow.entitie
 
   attributes.artifact_uri = 'models:/mymodel/1'
   attributes.status = 'ACTIVE'
+  # RHS value for start_time and end_time are unix timestamp
   attributes.start_time >= 1664067852747
   attributes.end_time < 1664067852747
 
