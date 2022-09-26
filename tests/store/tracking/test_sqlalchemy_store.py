@@ -810,6 +810,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         expected_tags = {tag.key: tag.value for tag in tags}
         self.assertEqual(actual.data.tags, expected_tags)
 
+    def test_create_run_sets_name(self):
+        experiment_id = self._experiment_factory("test_create_run_run_name")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+        run_id = self.store.create_run(**configs).info.run_id
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, configs["run_name"])
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), configs["run_name"])
+
     def test_get_run_with_name(self):
         experiment_id = self._experiment_factory("test_get_run")
         configs = self._get_run_configs(experiment_id=experiment_id)
@@ -1271,10 +1279,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
+
+        self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), None)
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "newer name")
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory("helloexp")
