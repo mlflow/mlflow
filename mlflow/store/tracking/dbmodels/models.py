@@ -225,9 +225,10 @@ class SqlRun(Base):
             params=[p.to_mlflow_entity() for p in self.params],
             tags=tags,
         )
-        run_name = _get_run_name_from_tags(tags)
-        if not run_info.run_name and run_name:
-            run_info._set_run_name(run_name)
+        if not run_info.run_name:
+            run_name = _get_run_name_from_tags(tags)
+            if run_name:
+                run_info._set_run_name(run_name)
 
         return Run(run_info=run_info, run_data=run_data)
 
