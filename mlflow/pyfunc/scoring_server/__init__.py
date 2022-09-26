@@ -25,7 +25,6 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -91,9 +90,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     if isinstance(decoded_input, dict):
         format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
         if len(format_keys) != 1:
-            message = "Received dictionary with input fields: {input_fields}".format(
-                input_fields=[field for field in decoded_input.keys()],
-            )
+            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
             raise MlflowException(
                 message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
             )
