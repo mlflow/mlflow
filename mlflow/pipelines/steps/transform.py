@@ -115,29 +115,19 @@ class TransformStep(BaseStep):
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
 
-        return self._build_profiles_and_card(
-            train_df, train_transformed, validation_transformed, transformer
-        )
+        return self._build_profiles_and_card(train_df, train_transformed, transformer)
 
-    def _build_profiles_and_card(
-        self, train_df, train_transformed, validation_transformed, transformer
-    ) -> BaseCard:
+    def _build_profiles_and_card(self, train_df, train_transformed, transformer) -> BaseCard:
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
         if not self.skip_data_profiling:
-            # Tab 1 and 2: build profiles for train_transformed, validation_transformed
+            # Tab 1: build profiles for train_transformed
             train_transformed_profile = get_pandas_data_profiles(
                 [["Profile of Train Transformed Dataset", train_transformed]]
             )
-            validation_transformed_profile = get_pandas_data_profiles(
-                [["Profile of Validation Transformed Dataset", validation_transformed]]
-            )
             card.add_tab("Data Profile (Train Transformed)", "{{PROFILE}}").add_pandas_profile(
                 "PROFILE", train_transformed_profile
-            )
-            card.add_tab("Data Profile (Validation Transformed)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", validation_transformed_profile
             )
 
         # Tab 3: transformer diagram
