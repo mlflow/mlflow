@@ -1595,7 +1595,7 @@ Example requests:
     }'
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '{
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
       "dataframe_records": {
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
@@ -1692,14 +1692,14 @@ Example requests:
 .. code-block:: bash
 
     # record-oriented DataFrame input with binary column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
         {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
         {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
     ]'
 
     # record-oriented DataFrame input with datetime column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "2020-01-01T00:00:00Z"},
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
