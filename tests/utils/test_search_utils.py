@@ -352,7 +352,7 @@ def test_filter_runs_by_user_id():
             run_data=RunData(),
         ),
     ]
-    assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'") == runs[1]
+    assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'")[0] == runs[1]
 
 
 @pytest.mark.parametrize(
