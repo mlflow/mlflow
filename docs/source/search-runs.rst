@@ -86,7 +86,7 @@ that have a leading number. If an entity name contains a leading number, enclose
 Run Attributes
 ~~~~~~~~~~~~~~
 
-You can search using these run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status``, ``artifact_uri``, ``start_time``, ``end_time``. ``status``, ``artifact_uri`` attributes have string values. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
+You can search using the following run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status``, ``artifact_uri``, ``start_time`` and ``end_time``. The ``status`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
 
 .. note::
 
