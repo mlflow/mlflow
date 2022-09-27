@@ -549,8 +549,7 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             tags = tags or []
-            if run_name is not None:
-                tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
