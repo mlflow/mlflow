@@ -1609,9 +1609,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'")
-        )
-        self.assertCountEqual(
             [r1, r2],
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
@@ -1773,7 +1770,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
             ARTIFACT_URI, e1.upper(), r1.upper()
         )
-        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
         self.assertCountEqual([], self._search([e1, e2], filter_string))
