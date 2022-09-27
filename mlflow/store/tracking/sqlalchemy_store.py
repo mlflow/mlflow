@@ -1221,12 +1221,9 @@ def _get_attributes_filtering_clauses(parsed, dialect):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator, dialect)
-                clauses.append(op(value))
-            elif comparator in SearchUtils.filter_ops:
-                op = SearchUtils.filter_ops.get(comparator)
-                clauses.append(op(attribute, value))
+            clauses.append(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attribute, value)
+            )
     return clauses
 
 
@@ -1252,16 +1249,9 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
             "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
         )
 
-    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator, dialect)
-        return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
-    elif comparator in SearchUtils.filter_ops:
-        op = SearchUtils.filter_ops.get(comparator)
-        return (
-            session.query(entity).filter(entity.key == key_name, op(entity.value, value)).subquery()
-        )
-    else:
-        return None
+    key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(entity.value, value)
+    return session.query(entity).filter(key_filter, val_filter).subquery()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
@@ -1373,17 +1363,19 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for attribute: {comparator}"
                 )
-            f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-            attribute_filters.append(f)
+            attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            attribute_filters.append(attr_filter)
         elif type_ == "tag":
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            val_filter = SearchUtils.get_sql_filter_ops(
-                SqlExperimentTag.value, comparator, dialect
-            )(value)
-            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                SqlExperimentTag.value, value
+            )
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                SqlExperimentTag.key, key
+            )
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
             )

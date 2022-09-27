@@ -1547,7 +1547,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_a != 'ABC'"
-        self.assertCountEqual([], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_b = 'ABC'"
         self.assertCountEqual([r2], self._search(experiment_id, filter_string))
