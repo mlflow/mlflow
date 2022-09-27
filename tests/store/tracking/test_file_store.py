@@ -26,6 +26,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
+from mlflow.utils.time_utils import get_time_in_milliseconds
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -126,7 +127,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 metrics = {}
                 for _ in range(3):
                     metric_name = random_str(random_int(10, 12))
-                    timestamp = int(time.time())
+                    timestamp = get_time_in_milliseconds()
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
                     for _ in range(10):

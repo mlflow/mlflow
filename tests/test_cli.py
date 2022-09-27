@@ -23,6 +23,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.time_utils import get_time_in_milliseconds
 
 from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -172,7 +173,7 @@ def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
         "user_id": "Anderson",
-        "start_time": int(time.time()),
+        "start_time": get_time_in_milliseconds(),
         "tags": [],
         "run_name": "name",
     }

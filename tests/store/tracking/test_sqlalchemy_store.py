@@ -48,6 +48,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.time_utils import get_time_in_milliseconds
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
@@ -755,8 +756,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "source_type": SourceType.to_string(SourceType.LOCAL),
             "source_name": "Python application",
             "entry_point_name": "main.py",
-            "start_time": int(time.time()),
-            "end_time": int(time.time()),
+            "start_time": get_time_in_milliseconds(),
+            "end_time": get_time_in_milliseconds(),
             "source_version": mlflow.__version__,
             "lifecycle_stage": entities.LifecycleStage.ACTIVE,
             "artifact_uri": "//",
@@ -778,7 +779,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
-            "start_time": start_time if start_time is not None else int(time.time()),
+            "start_time": start_time if start_time is not None else get_time_in_milliseconds(),
             "tags": tags,
             "run_name": "name",
         }
@@ -824,7 +825,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         no_run_configs = {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
-            "start_time": int(time.time()),
+            "start_time": get_time_in_milliseconds(),
             "tags": [],
             "run_name": None,
         }
@@ -1253,7 +1254,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self._experiment_factory("test_update_run_info")
         for new_status_string in models.RunStatusTypes:
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
-            endtime = int(time.time())
+            endtime = get_time_in_milliseconds()
             actual = self.store.update_run_info(
                 run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
             )

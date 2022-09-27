@@ -30,6 +30,7 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_time_in_milliseconds
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
@@ -297,7 +298,7 @@ def test_log_batch():
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
     approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE}
 
-    t = int(time.time())
+    t = get_time_in_milliseconds()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
@@ -349,7 +350,7 @@ def test_log_batch_with_many_elements():
     expected_params = {f"param-key{i}": f"param-val{i}" for i in range(num_params)}
     exact_expected_tags = {f"tag-key{i}": f"tag-val{i}" for i in range(num_tags)}
 
-    t = int(time.time())
+    t = get_time_in_milliseconds()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[1])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
