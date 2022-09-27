@@ -343,15 +343,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
 
-    def _convert_http_headers(self, artifact_service_headers):
-        if artifact_service_headers == None or len(artifact_service_headers) == 0:
-            return {}
-        ret_val = {}
-        for cur_header in artifact_service_headers:
-            if "name" in cur_header and "value" in cur_header:
-                ret_val[cur_header["name"]] = cur_header["value"]
-        return ret_val
-
     def _download_from_cloud(self, cloud_credential_info, dst_local_file_path):
         """
         Download a file from the input `cloud_credential_info` and save it to `dst_local_file_path`.
@@ -370,7 +361,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 cloud_credential_info.signed_uri,
                 dst_local_file_path,
                 _DOWNLOAD_CHUNK_SIZE,
-                self._convert_http_headers(cloud_credential_info.headers),
+                self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
         except Exception as err:
             raise MlflowException(err)
