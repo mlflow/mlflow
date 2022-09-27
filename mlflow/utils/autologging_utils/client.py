@@ -27,7 +27,7 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
 )
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 
 _logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ class MlflowAutologgingQueueingClient:
         step specified by `step`.
         """
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
-        timestamp_ms = get_time_in_milliseconds()
+        timestamp_ms = get_current_time_millis()
         metrics_arr = [
             Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
         ]

@@ -1,7 +1,7 @@
 import unittest
 
 from mlflow.entities import Experiment, LifecycleStage
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 from tests.helper_functions import random_int, random_file
 
 
@@ -20,8 +20,8 @@ class TestExperiment(unittest.TestCase):
         name = "exp_%d_%d" % (random_int(), random_int())
         lifecycle_stage = LifecycleStage.ACTIVE
         location = random_file(".json")
-        creation_time = get_time_in_milliseconds()
-        last_update_time = get_time_in_milliseconds()
+        creation_time = get_current_time_millis()
+        last_update_time = get_current_time_millis()
 
         exp = Experiment(
             exp_id,

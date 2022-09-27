@@ -15,7 +15,7 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
 # pylint: disable=unused-argument
@@ -95,9 +95,9 @@ def assert_is_between(start_time, end_time, expected_time):
 def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri):
     name = "CreateRMTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
-    start_time = get_time_in_milliseconds()
+    start_time = get_current_time_millis()
     registered_model = mlflow_client.create_registered_model(name, tags)
-    end_time = get_time_in_milliseconds()
+    end_time = get_current_time_millis()
     assert isinstance(registered_model, RegisteredModel)
     assert registered_model.name == name
     assert registered_model.tags == {
@@ -214,9 +214,9 @@ def test_search_registered_model_flow_paginated(
 
 def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     name = "UpdateRMTest"
-    start_time_1 = get_time_in_milliseconds()
+    start_time_1 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
-    end_time_1 = get_time_in_milliseconds()
+    end_time_1 = get_current_time_millis()
     registered_model_detailed_1 = mlflow_client.get_registered_model(name)
     assert registered_model_detailed_1.name == name
     assert str(registered_model_detailed_1.description) == ""
@@ -231,9 +231,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
     # update name
     new_name = "UpdateRMTest 2"
-    start_time_2 = get_time_in_milliseconds()
+    start_time_2 = get_current_time_millis()
     mlflow_client.rename_registered_model(name=name, new_name=new_name)
-    end_time_2 = get_time_in_milliseconds()
+    end_time_2 = get_current_time_millis()
     with pytest.raises(MlflowException, match="Registered Model with name=UpdateRMTest not found"):
         mlflow_client.get_registered_model(name)
     registered_model_detailed_2 = mlflow_client.get_registered_model(new_name)
@@ -243,9 +243,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
 
     # update description
-    start_time_3 = get_time_in_milliseconds()
+    start_time_3 = get_current_time_millis()
     mlflow_client.update_registered_model(name=new_name, description="This is a test")
-    end_time_3 = get_time_in_milliseconds()
+    end_time_3 = get_current_time_millis()
     registered_model_detailed_3 = mlflow_client.get_registered_model(new_name)
     assert registered_model_detailed_3.name == new_name
     assert registered_model_detailed_3.description == "This is a test"
@@ -254,10 +254,10 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
     # update name and description
     another_new = "UpdateRMTest 4"
-    start_time_4 = get_time_in_milliseconds()
+    start_time_4 = get_current_time_millis()
     mlflow_client.update_registered_model(new_name, "4th update")
     mlflow_client.rename_registered_model(new_name, another_new)
-    end_time_4 = get_time_in_milliseconds()
+    end_time_4 = get_current_time_millis()
     registered_model_detailed_4 = mlflow_client.get_registered_model(another_new)
     assert registered_model_detailed_4.name == another_new
     assert registered_model_detailed_4.description == "4th update"
@@ -267,9 +267,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     # using rename
     previous_name = another_new
     another_new = "UpdateRMTest 5"
-    start_time_5 = get_time_in_milliseconds()
+    start_time_5 = get_current_time_millis()
     mlflow_client.rename_registered_model(previous_name, another_new)
-    end_time_5 = get_time_in_milliseconds()
+    end_time_5 = get_current_time_millis()
     registered_model_detailed_5 = mlflow_client.get_registered_model(another_new)
     assert registered_model_detailed_5.name == another_new
     assert registered_model_detailed_5.description == "4th update"
@@ -286,9 +286,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
 def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     name = "DeleteRMTest"
-    start_time_1 = get_time_in_milliseconds()
+    start_time_1 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
-    end_time_1 = get_time_in_milliseconds()
+    end_time_1 = get_current_time_millis()
     registered_model_detailed_1 = mlflow_client.get_registered_model(name)
     assert registered_model_detailed_1.name == name
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
@@ -314,9 +314,9 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert [] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
     # recreate model with same name
-    start_time_2 = get_time_in_milliseconds()
+    start_time_2 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
-    end_time_2 = get_time_in_milliseconds()
+    end_time_2 = get_current_time_millis()
     registered_model_detailed_2 = mlflow_client.get_registered_model(name)
     assert registered_model_detailed_2.name == name
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.creation_timestamp)
@@ -399,16 +399,16 @@ def test_get_model_version(mlflow_client, backend_store_uri):
 
 def test_update_model_version_flow(mlflow_client, backend_store_uri):
     name = "UpdateMVTest"
-    start_time_0 = get_time_in_milliseconds()
+    start_time_0 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
-    end_time_0 = get_time_in_milliseconds()
+    end_time_0 = get_current_time_millis()
     rmd1 = mlflow_client.get_registered_model(name)
     assert_is_between(start_time_0, end_time_0, rmd1.creation_timestamp)
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
-    start_time_1 = get_time_in_milliseconds()
+    start_time_1 = get_current_time_millis()
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
-    end_time_1 = get_time_in_milliseconds()
+    end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
     mvd1 = mlflow_client.get_model_version(name, "1")
@@ -432,9 +432,9 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
         rm.latest_versions for rm in mlflow_client.list_registered_models() if rm.name == name
     ]
 
-    start_time_2 = get_time_in_milliseconds()
+    start_time_2 = get_current_time_millis()
     mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
-    end_time_2 = get_time_in_milliseconds()
+    end_time_2 = get_current_time_millis()
     mvd1b = mlflow_client.get_model_version(name, 1)
     assert_is_between(start_time_1, end_time_1, mvd1b.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, mvd1b.last_updated_timestamp)
@@ -452,9 +452,9 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
     assert {name} == {mvd.name for mvd in model_versions_detailed[0]}
 
     # update description
-    start_time_3 = get_time_in_milliseconds()
+    start_time_3 = get_current_time_millis()
     mlflow_client.update_model_version(name=name, version=1, description="This is a test model")
-    end_time_3 = get_time_in_milliseconds()
+    end_time_3 = get_current_time_millis()
     mvd1c = mlflow_client.get_model_version(name, "1")
     assert str(mvd1c.description) == "This is a test model"
     assert_is_between(start_time_1, end_time_1, mvd1c.creation_timestamp)
@@ -501,16 +501,16 @@ def test_latest_models(mlflow_client, backend_store_uri):
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     name = "DeleteMVTest"
-    start_time_0 = get_time_in_milliseconds()
+    start_time_0 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
-    end_time_0 = get_time_in_milliseconds()
+    end_time_0 = get_current_time_millis()
     rmd1 = mlflow_client.get_registered_model(name)
     assert_is_between(start_time_0, end_time_0, rmd1.creation_timestamp)
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
-    start_time_1 = get_time_in_milliseconds()
+    start_time_1 = get_current_time_millis()
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
-    end_time_1 = get_time_in_milliseconds()
+    end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
     mvd1 = mlflow_client.get_model_version(name, 1)
@@ -537,9 +537,9 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
         mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
     }
 
-    start_time_2 = get_time_in_milliseconds()
+    start_time_2 = get_current_time_millis()
     mlflow_client.delete_model_version(name, "1")
-    end_time_2 = get_time_in_milliseconds()
+    end_time_2 = get_current_time_millis()
     assert {"2", "3"} == {
         mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
     }

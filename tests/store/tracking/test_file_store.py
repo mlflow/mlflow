@@ -26,7 +26,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -80,8 +80,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 "experiment_id": exp,
                 "name": random_str(),
                 "artifact_location": exp_folder,
-                "creation_time": get_time_in_milliseconds(),
-                "last_update_time": get_time_in_milliseconds(),
+                "creation_time": get_current_time_millis(),
+                "last_update_time": get_current_time_millis(),
             }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -127,7 +127,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 metrics = {}
                 for _ in range(3):
                     metric_name = random_str(random_int(10, 12))
-                    timestamp = get_time_in_milliseconds()
+                    timestamp = get_current_time_millis()
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
                     for _ in range(10):
@@ -399,7 +399,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
-        time_before_create = get_time_in_milliseconds()
+        time_before_create = get_current_time_millis()
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
         self.assertEqual(created_id, next_id)

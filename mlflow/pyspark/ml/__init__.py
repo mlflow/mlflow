@@ -38,7 +38,7 @@ from mlflow.utils.validation import (
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 _SparkTrainingSession = _get_new_training_session_class()
@@ -386,7 +386,7 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
     child_run_start_time = parent_run.info.start_time
-    child_run_end_time = get_time_in_milliseconds()
+    child_run_end_time = get_current_time_millis()
 
     estimator_param_maps = parent_estimator.getEstimatorParamMaps()
     tuned_estimator = parent_estimator.getEstimator()

@@ -40,7 +40,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 
 if TYPE_CHECKING:
@@ -641,7 +641,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
             mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, get_time_in_milliseconds(), step or 0)
+    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
 
 
 def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
@@ -670,7 +670,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
             mlflow.log_metrics(metrics)
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = get_time_in_milliseconds()
+    timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 

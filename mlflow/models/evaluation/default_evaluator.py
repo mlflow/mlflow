@@ -19,7 +19,7 @@ from mlflow.models.evaluation.artifacts import (
 )
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
@@ -538,7 +538,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method to log metrics into specified run.
         """
-        timestamp = get_time_in_milliseconds()
+        timestamp = get_current_time_millis()
         self.client.log_batch(
             self.run_id,
             metrics=[

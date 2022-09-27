@@ -13,7 +13,7 @@ import argparse
 import os
 import requests
 
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -30,7 +30,7 @@ class MLflowTrackingRestApi:
         # user_id is deprecated and will be removed from the API in a future release
         payload = {
             "experiment_id": self.experiment_id,
-            "start_time": get_time_in_milliseconds(),
+            "start_time": get_current_time_millis(),
             "user_id": _get_user_id(),
         }
         r = requests.post(url, json=payload)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     metric = {
         "key": "precision",
         "value": 0.769,
-        "timestamp": get_time_in_milliseconds(),
+        "timestamp": get_current_time_millis(),
         "step": 1,
     }
     status_code = mlflow_rest.log_metric(metric)

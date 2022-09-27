@@ -76,7 +76,7 @@ from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
-from mlflow.utils.time_utils import get_time_in_milliseconds
+from mlflow.utils.time_utils import get_current_time_millis
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -338,7 +338,7 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        creation_time = get_time_in_milliseconds()
+        creation_time = get_current_time_millis()
         experiment = Experiment(
             experiment_id,
             name,
@@ -443,7 +443,7 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         experiment = self._get_experiment(experiment_id)
-        experiment._set_last_update_time(get_time_in_milliseconds())
+        experiment._set_last_update_time(get_current_time_millis())
         meta_dir = os.path.join(self.root_directory, experiment_id)
         FileStore._overwrite_yaml(
             root=meta_dir,
@@ -469,7 +469,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
-        experiment._set_last_update_time(get_time_in_milliseconds())
+        experiment._set_last_update_time(get_current_time_millis())
         FileStore._overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
@@ -488,7 +488,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
-        experiment._set_last_update_time(get_time_in_milliseconds())
+        experiment._set_last_update_time(get_current_time_millis())
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
@@ -507,7 +507,7 @@ class FileStore(AbstractStore):
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info, deleted_time=get_time_in_milliseconds())
+        self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
 
     def _hard_delete_run(self, run_id):
         """
@@ -524,7 +524,7 @@ class FileStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = get_time_in_milliseconds()
+        current_time = get_current_time_millis()
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
             experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
