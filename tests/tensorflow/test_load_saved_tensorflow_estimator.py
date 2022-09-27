@@ -168,7 +168,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         results_df.sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-5,
+        rtol=1e-3,
     )
 
     # can also call predict with a dict
@@ -180,7 +180,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         pandas.DataFrame.from_dict(data=results).sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-5,
+        rtol=1e-3,
     )
 
     # can not call predict with a list
