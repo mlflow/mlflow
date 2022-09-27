@@ -53,10 +53,6 @@ _logger = logging.getLogger(__name__)
 sqlalchemy.orm.configure_mappers()
 
 
-def now():
-    return get_time_in_milliseconds()
-
-
 class SqlAlchemyStore(AbstractStore):
     """
     This entity may change or be removed in a future release without warning.
@@ -172,7 +168,7 @@ class SqlAlchemyStore(AbstractStore):
             _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = now()
+                creation_time = get_time_in_milliseconds()
                 registered_model = SqlRegisteredModel(
                     name=name,
                     creation_time=creation_time,
@@ -233,7 +229,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
-            updated_time = now()
+            updated_time = get_time_in_milliseconds()
             sql_registered_model.description = description
             sql_registered_model.last_updated_time = updated_time
             self._save_to_db(session, [sql_registered_model])
@@ -252,7 +248,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
-                updated_time = now()
+                updated_time = get_time_in_milliseconds()
                 sql_registered_model.name = new_name
                 for sql_model_version in sql_registered_model.model_versions:
                     sql_model_version.name = new_name
@@ -632,7 +628,7 @@ class SqlAlchemyStore(AbstractStore):
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
-            creation_time = now()
+            creation_time = get_time_in_milliseconds()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
@@ -733,7 +729,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         with self.ManagedSessionMaker() as session:
-            updated_time = now()
+            updated_time = get_time_in_milliseconds()
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
@@ -762,7 +758,7 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
         with self.ManagedSessionMaker() as session:
-            last_updated_time = now()
+            last_updated_time = get_time_in_milliseconds()
 
             model_versions = []
             if archive_existing_versions:
@@ -796,7 +792,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         # currently delete model version still keeps the tags associated with the version
         with self.ManagedSessionMaker() as session:
-            updated_time = now()
+            updated_time = get_time_in_milliseconds()
             sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = updated_time
