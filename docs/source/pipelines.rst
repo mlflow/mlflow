@@ -33,7 +33,6 @@ from PyPI as follows:
 .. code-block:: sh
 
     pip install mlflow[pipelines]  # for pip
-    conda install -c conda-forge mlflow-pipelines  # for conda
 
 .. note::
   MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).

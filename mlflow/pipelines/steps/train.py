@@ -23,7 +23,10 @@ from mlflow.pipelines.utils.metrics import (
     _get_custom_metrics,
     _load_custom_metric_functions,
 )
-from mlflow.pipelines.utils.step import get_merged_eval_metrics, get_pandas_data_profile
+from mlflow.pipelines.utils.step import (
+    get_merged_eval_metrics,
+    get_pandas_data_profiles,
+)
 from mlflow.pipelines.utils.tracking import (
     get_pipeline_tracking_config,
     apply_pipeline_tracking_config,
@@ -175,7 +178,7 @@ class TrainStep(BaseStep):
         }
 
         best_estimator_params = None
-        mlflow.autolog(log_models=False)
+        mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
@@ -456,19 +459,23 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 1: Model performance summary metrics.
+        # Tab 1: Model performance.
         card.add_tab(
-            "Model Performance Summary Metrics",
-            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
+            "Model Performance",
+            "<h3 class='section-title'>Summary Metrics (Validation)</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
         if not self.skip_data_profiling:
             # Tab 2: Prediction and error data profile.
-            pred_and_error_df_profile = get_pandas_data_profile(
-                pred_and_error_df.reset_index(drop=True),
-                "Predictions and Errors (Validation Dataset)",
+            pred_and_error_df_profile = get_pandas_data_profiles(
+                [
+                    [
+                        "Predictions and Errors (Validation Dataset)",
+                        pred_and_error_df.reset_index(drop=True),
+                    ]
+                ]
             )
-            card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
+            card.add_tab("Data Profile (Predictions)", "{{PROFILE}}").add_pandas_profile(
                 "PROFILE", pred_and_error_df_profile
             )
         # Tab 3: Model architecture.
@@ -504,9 +511,9 @@ class TrainStep(BaseStep):
 
         # Tab 5: Examples with Largest Prediction Error
         (
-            card.add_tab(
-                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
-            ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
+            card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
+                "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+            )
         )
 
         # Tab 6: Leaderboard

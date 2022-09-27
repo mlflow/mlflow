@@ -235,7 +235,7 @@ class EvaluateStep(BaseStep):
         )
 
         card.add_tab(
-            "Model Performance Summary Metrics",
+            "Model Performance (Test)",
             "<h3 class='section-title'>Summary Metrics</h3>"
             "<b>NOTE</b>: Use evaluation metrics over test dataset with care. "
             "Fine-tuning model over the test dataset is not advised."
@@ -261,7 +261,7 @@ class EvaluateStep(BaseStep):
             criteria_html = BaseCard.render_table(
                 result_df.style.format({"value": "{:.6g}", "threshold": "{:.6g}"})
             )
-            card.add_tab("Model Validation Results", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
+            card.add_tab("Model Validation", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
                 "METRIC_VALIDATION_RESULTS",
                 "<h3 class='section-title'>Model Validation Results (Test Dataset)</h3> "
                 + criteria_html,
@@ -269,7 +269,8 @@ class EvaluateStep(BaseStep):
 
         # Tab 2: SHAP plots.
         shap_plot_tab = card.add_tab(
-            "Feature Importance (Validation Dataset)",
+            "Feature Importance",
+            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
             '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
             '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
         )
