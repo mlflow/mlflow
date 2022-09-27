@@ -129,7 +129,7 @@ class SearchUtils:
                 column = f"{column.class_.__tablename__}.{column.key}"
                 return sa.text(templates[comparator].format(column=column)).bindparams(
                     sa.bindparam("value", value=value, unique=True)
-                )(value)
+                )
 
             return comparison_func(column, value)
 
