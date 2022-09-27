@@ -11,7 +11,16 @@ from tests.pipelines.helper_functions import (
     enter_pipeline_example_directory,
 )  # pylint: enable=unused-import
 
-_STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate", "register"]
+_STEP_NAMES = [
+    "ingest",
+    "split",
+    "train",
+    "transform",
+    "evaluate",
+    "register",
+    "ingest_scoring",
+    "predict",
+]
 
 
 @pytest.fixture
