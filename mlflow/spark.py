@@ -787,7 +787,6 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         mlflowdbfs_path = _mlflowdbfs_path(
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
-        _logger.warning("mlflowdbfs path %s", mlflowdbfs_path)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
