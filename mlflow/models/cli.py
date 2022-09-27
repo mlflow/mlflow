@@ -83,18 +83,6 @@ def serve(
     default="json",
     help="Content type of the input file. Can be one of {'json', 'csv'}.",
 )
-@click.option(
-    "--json-format",
-    "-j",
-    default="split",
-    help="Only applies if the content type is 'json'. Specify how the data is encoded.  "
-    "Can be one of {'split', 'records'} mirroring the behavior of Pandas orient "
-    "attribute. The default is 'split' which expects dict like data: "
-    "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, "
-    "where index  is optional. For more information see "
-    "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
-    ".html",
-)
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def predict(
@@ -102,7 +90,6 @@ def predict(
     input_path,
     output_path,
     content_type,
-    json_format,
     env_manager,
     install_mlflow,
 ):
@@ -112,8 +99,6 @@ def predict(
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    if content_type == "json" and json_format not in ("split", "records"):
-        raise Exception("Unsupported json format '{}'.".format(json_format))
     return get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).predict(
@@ -121,7 +106,6 @@ def predict(
         input_path=input_path,
         output_path=output_path,
         content_type=content_type,
-        json_format=json_format,
     )
 
 

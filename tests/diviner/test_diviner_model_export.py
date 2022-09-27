@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from unittest import mock
 
+import json
 import yaml
 import numpy as np
 import pandas as pd
@@ -410,10 +411,10 @@ def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_data,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
     scores["ds"] = pd.to_datetime(scores["ds"], format=DS_FORMAT)
     scores["multiplicative_terms"] = scores["multiplicative_terms"].astype("float64")
     pd.testing.assert_frame_equal(local_predict, scores)
@@ -440,13 +441,15 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_data):
 
     inference_data = pd.DataFrame({"groups": [groups], "horizon": 10, "frequency": "W"}, index=[0])
 
+    from mlflow.deployments import PredictionsResponse
+
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_data,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions()
     scores["ds"] = pd.to_datetime(scores["ds"], format=DS_FORMAT)
     scores["multiplicative_terms"] = scores["multiplicative_terms"].astype("float64")
     pd.testing.assert_frame_equal(local_predict, scores)

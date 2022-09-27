@@ -7,6 +7,7 @@ import hashlib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
@@ -34,6 +35,8 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<operator><|>|<=|>=|=|==|!=)?"
     r"(?P<version>[\d.]+)?$"
 )
+
+_IS_UNIX = os.name != "nt"
 
 
 class _PythonEnv:
@@ -526,3 +529,52 @@ def _get_pip_install_mlflow():
         return "pip install -e {} 1>&2".format(mlflow_home)
     else:
         return "pip install mlflow=={} 1>&2".format(VERSION)
+
+
+class Environment:
+    def __init__(self, activate_cmd, extra_env=None):
+        if not isinstance(activate_cmd, list):
+            activate_cmd = [activate_cmd]
+        self._activate_cmd = activate_cmd
+        self._extra_env = extra_env or {}
+
+    def get_activate_command(self):
+        return self._activate_cmd
+
+    def execute(
+        self,
+        command,
+        command_env=None,
+        preexec_fn=None,
+        capture_output=False,
+        stdout=None,
+        stderr=None,
+        synchronous=True,
+    ):
+        if command_env is None:
+            command_env = os.environ.copy()
+        command_env = {**self._extra_env, **command_env}
+        if not isinstance(command, list):
+            command = [command]
+
+        if _IS_UNIX:
+            separator = " && "
+        else:
+            separator = " & "
+
+        command = separator.join(self._activate_cmd + command)
+        if _IS_UNIX:
+            command = ["bash", "-c", command]
+        else:
+            command = ["cmd", "/c", command]
+        _logger.info("=== Running command '%s'", command)
+        return _exec_cmd(
+            command,
+            env=command_env,
+            capture_output=capture_output,
+            synchronous=synchronous,
+            preexec_fn=preexec_fn,
+            close_fds=True,
+            stdout=stdout,
+            stderr=stderr,
+        )

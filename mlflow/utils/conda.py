@@ -7,6 +7,7 @@ import yaml
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
+from mlflow.utils.environment import Environment
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -123,7 +124,7 @@ def _create_conda_env(
     capture_output,
 ):
     if conda_env_path:
-        return process._exec_cmd(
+        process._exec_cmd(
             [
                 conda_env_create_path,
                 "env",
@@ -137,7 +138,7 @@ def _create_conda_env(
             capture_output=capture_output,
         )
     else:
-        return process._exec_cmd(
+        process._exec_cmd(
             [
                 conda_env_create_path,
                 "create",
@@ -152,6 +153,8 @@ def _create_conda_env(
             extra_env=conda_extra_env_vars,
             capture_output=capture_output,
         )
+
+    return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 
 
 def _create_conda_env_retry(
@@ -272,7 +275,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     if project_env_name in _list_conda_environments(conda_extra_env_vars):
         _logger.info("Conda environment %s already exists.", project_env_path)
-        return project_env_name
+        return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 
     _logger.info("=== Creating conda environment %s ===", project_env_path)
     try:
@@ -282,14 +285,13 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
             if "PYTEST_CURRENT_TEST" in os.environ
             else _create_conda_env
         )
-        _create_conda_env_func(
+        return _create_conda_env_func(
             conda_env_path,
             conda_env_create_path,
             project_env_name,
             conda_extra_env_vars,
             capture_output,
         )
-        return project_env_name
     except Exception:
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):

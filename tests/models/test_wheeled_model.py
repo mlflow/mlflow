@@ -1,3 +1,4 @@
+import json
 from collections import namedtuple
 
 import pytest
@@ -327,10 +328,11 @@ def test_serving_wheeled_model(sklearn_knn_model):
     with mlflow.start_run():
         WheeledModel.log_model(model_uri=model_uri)
 
+    data = json.dumps({"dataframe_split": pd.DataFrame(inference_data).to_dict(orient="split")})
     resp = pyfunc_serve_and_score_model(
         wheeled_model_uri,
-        data=pd.DataFrame(inference_data),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        data=data,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()

@@ -299,12 +299,16 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records"
-    ).values.astype(np.float32)
+    from mlflow.deployments import PredictionsResponse
+
+    response_values = (
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        .get_predictions()
+        .values.astype(np.float32)
+    )
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
 
 

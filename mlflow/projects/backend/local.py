@@ -26,7 +26,7 @@ from mlflow.projects.utils import (
     PROJECT_STORAGE_DIR,
 )
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
+from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.virtualenv import (
     _install_python,
     _create_virtualenv,
@@ -142,8 +142,8 @@ class LocalBackend(AbstractBackend):
         elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
-            conda_env_name = get_or_create_conda_env(project.env_config_path)
-            command_args += get_conda_command(conda_env_name)
+            conda_env = get_or_create_conda_env(project.env_config_path)
+            command_args += conda_env.get_activate_command()
 
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be

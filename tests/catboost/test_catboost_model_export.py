@@ -5,6 +5,7 @@ from packaging.version import Version
 import os
 import pytest
 import yaml
+import json
 
 import catboost as cb
 import numpy as np
@@ -406,10 +407,12 @@ def test_pyfunc_serve_and_score(reg_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
@@ -424,10 +427,12 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         inference_dataframe.head(3),
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
 
 

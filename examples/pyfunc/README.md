@@ -34,7 +34,9 @@ $ mlflow models serve -m "runs:/<pyfunc_run_id>/model" -p 5001
 3. Send a request
 
 ```
-$ curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1,1,1,1]]'
+$ curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json' -d '{
+  "dataframe_records": [[1, 1, 1, 1]]
+}'
 ```
 
 The response should look like this:

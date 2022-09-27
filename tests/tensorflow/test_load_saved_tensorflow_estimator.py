@@ -17,7 +17,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tensorflow import _TF2Wrapper
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.pyfunc.backend import _execute_in_conda_env
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -57,15 +56,13 @@ def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, save_path=N
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
 
-    _execute_in_conda_env(
-        conda_env,
+    conda_env.execute(
         f"python {exec_py_path} "
         f"--tracking_uri {tracking_uri} "
         f"--mlflow_repo_path {mlflow_repo_path} "
         f"--model_type {model_type} "
         f"--task_type {task_type} "
         f"--save_path {save_path if save_path else 'none'}",
-        install_mlflow=False,
     )
     with open(output_data_file_path, "rb") as f:
         return ModelDataInfo(*pickle.load(f))
@@ -171,7 +168,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         results_df.sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-5,
+        rtol=1e-3,
     )
 
     # can also call predict with a dict
@@ -183,7 +180,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         pandas.DataFrame.from_dict(data=results).sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-5,
+        rtol=1e-3,
     )
 
     # can not call predict with a list
@@ -203,10 +200,10 @@ def test_pyfunc_serve_and_score(tmp_path, monkeypatch):
     resp = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=model_data_info.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
+    actual = pd.DataFrame(json.loads(resp.content)["predictions"])["class_ids"].values
     expected = (
         model_data_info.expected_results_df["predictions"].map(iris_data_utils.SPECIES.index).values
     )

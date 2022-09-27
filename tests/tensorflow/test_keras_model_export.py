@@ -19,6 +19,7 @@ from unittest import mock
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -40,7 +41,6 @@ from tests.tensorflow.test_load_saved_tensorflow_estimator import ModelDataInfo
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.conda import get_or_create_conda_env
-from mlflow.pyfunc.backend import _execute_in_conda_env
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Layer, Dense
@@ -221,12 +221,14 @@ def test_pyfunc_serve_and_score(data):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
         data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    actual_scoring_response = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
-    ).values.astype(np.float32)
+    actual_scoring_response = (
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        .get_predictions()
+        .values.astype(np.float32)
+    )
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
 
@@ -627,7 +629,10 @@ def test_pyfunc_serve_and_score_transformers():
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
+    actual_scoring_response = PredictionsResponse.from_json(
+        resp.content.decode("utf-8")
+    ).get_predictions(predictions_format="ndarray")
+    np.testing.assert_array_equal(actual_scoring_response, model.predict(dummy_inputs))
 
 
 def test_log_model_with_code_paths(model):
@@ -657,15 +662,14 @@ def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_p
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
 
-    _execute_in_conda_env(
-        conda_env,
+    conda_env.execute(
         f"python {exec_py_path} "
         f"--tracking_uri {tracking_uri} "
         f"--task_type {task_type} "
         f"--save_as_type {save_as_type} "
         f"--save_path {save_path if save_path else 'none'}",
-        install_mlflow=False,
     )
+
     with open(output_data_file_path, "rb") as f:
         inference_df, expected_results_df, run_id = pickle.load(f)
         return ModelDataInfo(

@@ -564,12 +564,12 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
@@ -599,12 +599,12 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=main_scoped_subclassed_model, data=data),
@@ -631,7 +631,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
-        def predict(self, context, model_input):
+        def predict(self, _, model_input):
             with torch.no_grad():
                 input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
                 output_tensor = self.pytorch_model(input_tensor)
@@ -655,12 +655,12 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
@@ -851,10 +851,12 @@ def test_pyfunc_serve_and_score(data):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data[0],
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.DataFrame(json.loads(resp.content))
+    from mlflow.deployments import PredictionsResponse
+
+    scores = PredictionsResponse.from_json(resp.content).get_predictions()
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 

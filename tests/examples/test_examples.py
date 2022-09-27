@@ -165,4 +165,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
 )
 def test_command_example(directory, command):
     cwd_dir = Path(EXAMPLES_DIR, directory)
-    process._exec_cmd(command, cwd=cwd_dir)
+    import os
+
+    assert os.environ.get("MLFLOW_HOME") is not None
+    process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

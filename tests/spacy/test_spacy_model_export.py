@@ -8,6 +8,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 import spacy
+import json
 import yaml
 from spacy.util import compounding, minibatch
 
@@ -406,10 +407,10 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
     pd.testing.assert_frame_equal(scores, _predict(model, inference_dataframe))
 
 

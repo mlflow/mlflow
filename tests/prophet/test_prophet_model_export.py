@@ -7,6 +7,7 @@ import pandas as pd
 from collections import namedtuple
 from datetime import datetime, timedelta, date
 from unittest import mock
+import json
 
 from prophet import Prophet
 
@@ -396,11 +397,11 @@ def test_pyfunc_serve_and_score(prophet_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_data,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
 
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
     # stan build underlying environment. Seed value only works for reproducibility of yhat.

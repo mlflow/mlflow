@@ -6,6 +6,7 @@ from unittest import mock
 import pmdarima
 import numpy as np
 import pandas as pd
+import json
 import yaml
 
 import mlflow.pmdarima
@@ -356,10 +357,14 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_data,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").to_numpy().flatten()
+    scores = (
+        pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
+        .to_numpy()
+        .flatten()
+    )
     np.testing.assert_array_almost_equal(scores, local_predict)
 
 

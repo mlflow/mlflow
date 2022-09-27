@@ -1,5 +1,5 @@
 import os
-from mlflow.deployments import BaseDeploymentClient
+from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 
 f_deployment_name = "fake_deployment_name"
 f_endpoint_name = "fake_endpoint_name"
@@ -28,7 +28,7 @@ class PluginDeploymentClient(BaseDeploymentClient):
         return {"key1": "val1", "key2": "val2"}
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        return "1"
+        return PredictionsResponse.from_json('{"predictions": [1,2,3]}')
 
     def explain(self, deployment_name=None, df=None, endpoint=None):
         return "1"

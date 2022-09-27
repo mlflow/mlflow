@@ -1551,29 +1551,30 @@ be used to safely deploy the model to various environments such as Kubernetes.
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
-The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
+The REST API server accepts csv or json input. The input format must be specified in
+``Content-Type`` header. The value of the header must be either ``application/json`` or
+``application/csv``.
 
-* JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
-  ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-  request header value of ``application/json`` or ``application/json; format=pandas-split``.
+The csv input must be a valid pandas.DataFrame csv representation. For example,
+``data = pandas_df.to_csv()``.
 
-* JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
-  this format because it is not guaranteed to preserve column ordering.* This format is
-  specified using a ``Content-Type`` request header value of
-  ``application/json; format=pandas-records``.
+The json input must be a dictionary with exactly one of the following fields that further specify
+the type and encoding of the input data
 
-* CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
-  specified using a ``Content-Type`` request header value of ``text/csv``.
+* ``dataframe_split`` field with pandas DataFrames in the ``split`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='split')``.
 
-* Tensor input formatted as described in `TF Serving's API docs
+* ``dataframe_records`` field with pandas DataFrame in the ``records`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='records')``.*We do not
+  recommend using this format because it is not guaranteed to preserve column ordering.*
+
+* ``instances`` field with tensor input formatted as described in `TF Serving's API docs
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
-  will be cast to Numpy arrays. This format is specified using a ``Content-Type`` request header
-  value of ``application/json`` and the ``instances`` or ``inputs`` key in the request body dictionary.
+  will be cast to Numpy arrays.
 
-If the ``Content-Type`` request header has a value of ``application/json``, MLflow will infer whether
-the input format is a pandas DataFrame or TF serving (i.e tensor) input based on the data in the request
-body. For pandas DataFrame input, the orient can  also be provided explicitly by specifying the format
-in the request header as shown in the record-oriented example below.
+* ``inputs`` field with tensor input formatted as described in `TF Serving's API docs
+  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
+  will be cast to Numpy arrays.
 
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
@@ -1587,15 +1588,19 @@ Example requests:
 
     # split-oriented DataFrame input
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-        "columns": ["a", "b", "c"],
-        "data": [[1, 2, 3], [4, 5, 6]]
+      "dataframe_split": {
+          "columns": ["a", "b", "c"],
+          "data": [[1, 2, 3], [4, 5, 6]]
+      }
     }'
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_records": {
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
-    ]'
+      }
+    }'
 
     # numpy/tensor input using TF serving's "instances" format
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
@@ -1687,14 +1692,14 @@ Example requests:
 .. code-block:: bash
 
     # record-oriented DataFrame input with binary column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
         {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
         {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
     ]'
 
     # record-oriented DataFrame input with datetime column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "2020-01-01T00:00:00Z"},
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}

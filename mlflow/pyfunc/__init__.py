@@ -276,7 +276,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
@@ -675,18 +674,6 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     return tmp_model_dir
 
 
-@cache_return_value_per_process
-def _get_or_create_env_root_dir(should_use_nfs):
-    if should_use_nfs:
-        root_tmp_dir = get_or_create_nfs_tmp_dir()
-    else:
-        root_tmp_dir = get_or_create_tmp_dir()
-
-    env_root_dir = os.path.join(root_tmp_dir, "envs")
-    os.makedirs(env_root_dir, exist_ok=True)
-    return env_root_dir
-
-
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
@@ -802,6 +789,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     )
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
+    # Used in test to force install local version of mlflow when starting a model server
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+
     _EnvManager.validate(env_manager)
 
     # Check whether spark is in local or local-cluster mode
@@ -811,7 +801,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -859,7 +848,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 "limitations with handling SIGKILL signals, these MLflow Model server child "
                 "processes cannot be cleaned up if the Spark Job is canceled."
             )
-
+    pyfunc_backend = pyfunc_backend = get_flavor_backend(
+        local_model_path,
+        env_manager=env_manager,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=True,
+    )
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         # Note: In databricks runtime, because databricks notebook cell output cannot capture
@@ -871,15 +865,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
         if env_manager != _EnvManager.LOCAL:
-            get_flavor_backend(
-                local_model_path,
-                env_manager=env_manager,
-                install_mlflow=False,
-                env_root_dir=env_root_dir,
-            ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
-
-    # Broadcast local model directory to remote worker if needed.
-    if should_use_spark_to_broadcast_file:
+            pyfunc_backend.prepare_env(
+                model_uri=local_model_path, capture_output=is_in_databricks_runtime()
+            )
+    else:
+        # Broadcast local model directory to remote worker if needed.
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
@@ -962,7 +952,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
-
+        if mlflow_home is not None:
+            os.environ["MLFLOW_HOME"] = mlflow_home
         scoring_server_proc = None
 
         if env_manager != _EnvManager.LOCAL:
@@ -970,21 +961,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
-                # Create individual conda_env_root_dir for each spark UDF task process.
-                env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
-            else:
-                local_model_path_on_executor = local_model_path
-                env_root_dir_on_executor = env_root_dir
-
-            pyfunc_backend = get_flavor_backend(
-                local_model_path_on_executor,
-                workers=1,
-                install_mlflow=False,
-                env_manager=env_manager,
-                env_root_dir=env_root_dir_on_executor,
-            )
-
-            if should_use_spark_to_broadcast_file:
                 # Call "prepare_env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
@@ -996,11 +972,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 pyfunc_backend.prepare_env(
                     model_uri=local_model_path_on_executor, capture_output=True
                 )
-
+            else:
+                local_model_path_on_executor = None
             # launch scoring server
             server_port = find_free_port()
             scoring_server_proc = pyfunc_backend.serve(
-                model_uri=local_model_path_on_executor,
+                model_uri=local_model_path_on_executor or local_model_path,
                 port=server_port,
                 host="127.0.0.1",
                 timeout=60,
@@ -1045,7 +1022,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
-                return client.invoke(pdf)
+                return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:

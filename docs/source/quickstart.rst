@@ -200,7 +200,7 @@ the pyfunc model server, see the :ref:`MLflow deployment tools documentation <lo
 
 .. code-block:: bash
 
-    curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; format=pandas-split' -X POST localhost:5000/invocations
+    curl -d '{"dataframe_split": {"columns": ["x"], "data": [[1], [-1]]}}' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
 
 which returns::
 

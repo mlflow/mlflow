@@ -22,7 +22,7 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
-from mlflow.deployments import BaseDeploymentClient
+from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -2639,7 +2639,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         """
         import json
         import boto3
-        from mlflow.pyfunc.scoring_server import infer_and_parse_json_input
+        import pandas as pd
         from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
@@ -2650,14 +2650,17 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             sage_client = boto3.client(
                 "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
             )
+            if isinstance(inputs, pd.DataFrame):
+                body = (json.dumps({"dataframe_split": inputs.to_dict(orient="split")}),)
+            else:
+                body = json.dumps({"instances": _get_jsonable_obj(inputs)})
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=json.dumps(_get_jsonable_obj(inputs, pandas_orient="split")),
+                Body=body,
                 ContentType="application/json",
             )
-
             response_body = response["Body"].read().decode("utf-8")
-            return infer_and_parse_json_input(response_body)
+            return PredictionsResponse.from_json(response_body)
         except Exception as exc:
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")

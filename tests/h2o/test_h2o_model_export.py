@@ -3,6 +3,7 @@
 import os
 import pytest
 import yaml
+import json
 import pandas as pd
 from collections import namedtuple
 from unittest import mock
@@ -314,9 +315,10 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe.as_data_frame(),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").drop("predict", axis=1)
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).drop("predict", axis=1)
     preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
     np.testing.assert_array_almost_equal(scores, preds)
 

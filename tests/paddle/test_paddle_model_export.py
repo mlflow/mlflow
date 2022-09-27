@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 from unittest import mock
+import json
 import yaml
 
 import paddle
@@ -540,9 +541,11 @@ def test_pyfunc_serve_and_score(pd_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(inference_dataframe),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
 
 

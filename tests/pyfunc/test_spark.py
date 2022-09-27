@@ -172,12 +172,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         def predict(self, context, model_input):
             import sklearn
 
-            if sklearn.__version__ == sklearn_version:
-                pred_value = 1
-            else:
-                pred_value = 0
-
-            return model_input.apply(lambda row: pred_value, axis=1)
+            return model_input.apply(lambda row: sklearn.__version__, axis=1)
 
     infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=["a", "b"]))
 
@@ -191,11 +186,15 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
             "pytest==6.2.5",
         ],
     )
+    # tests/helper_functions.py
+    from tests.helper_functions import _get_mlflow_home
 
-    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager=env_manager)
+    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
+    python_udf = mlflow.pyfunc.spark_udf(
+        spark, model_path, env_manager=env_manager, result_type="string"
+    )
     result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
-
-    assert result == 1
+    assert result == sklearn_version
 
 
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
