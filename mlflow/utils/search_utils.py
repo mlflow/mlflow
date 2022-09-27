@@ -460,7 +460,7 @@ class SearchUtils:
         ttype_for_timestamp = (
             TokenType.Name.Builtin
             if Version(sqlparse.__version__) >= Version("0.4.3")
-            else TokenType.keyword
+            else TokenType.Keyword
         )
 
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
