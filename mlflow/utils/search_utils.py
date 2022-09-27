@@ -25,7 +25,7 @@ from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
 import math
 
 
-def _convert_like_pattern_to_regex(pattern, flags=None):
+def _convert_like_pattern_to_regex(pattern, flags=0):
     if not pattern.startswith("%"):
         pattern = "^" + pattern
     if not pattern.endswith("%"):
