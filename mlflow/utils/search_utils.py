@@ -5,7 +5,6 @@ import re
 import ast
 import shlex
 
-import sqlalchemy as sa
 import sqlparse
 from sqlparse.sql import (
     Identifier,
@@ -123,6 +122,8 @@ class SearchUtils:
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
+            import sqlalchemy as sa
+
             # MySQL is case insensitive by default, so we need to use the binary operator to
             # perform case sensitive comparisons.
             templates = {
