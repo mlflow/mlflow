@@ -276,7 +276,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
@@ -560,7 +559,6 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     :param env_manager: The environment manager to load the model.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.models.cli import _get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
@@ -571,12 +569,11 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
-    env_root_dir = _get_or_create_env_root_dir(False)
-    pyfunc_backend = _get_flavor_backend(
+    pyfunc_backend = get_flavor_backend(
         local_path,
-        install_mlflow=False,
         env_manager=env_manager,
-        env_root_dir=env_root_dir,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=True,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the

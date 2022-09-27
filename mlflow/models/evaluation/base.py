@@ -1171,7 +1171,7 @@ should be at least 0.05 greater than baseline model accuracy
              metrics of candidate model and baseline model, and artifacts of candidate model.
     """
     import signal
-    from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
+    from mlflow.pyfunc import _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager
 
     _EnvManager.validate(env_manager)
