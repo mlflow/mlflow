@@ -2,7 +2,6 @@ import base64
 import logging
 import os
 import posixpath
-
 import requests
 import uuid
 from collections import namedtuple
@@ -53,7 +52,6 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
 )
 
-# pylint: disable=unreachable
 _logger = logging.getLogger(__name__)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
@@ -164,7 +162,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     DatabricksMlflowArtifactsService, request_message_class, json_body
                 )
                 credential_infos += response.credential_infos
-                _logger.warning("Get read/write credential infos: %s", response.credential_infos)
                 page_token = response.next_page_token
                 if not page_token or len(response.credential_infos) == 0:
                     break
@@ -246,7 +243,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            _logger.warning("credential headers dict: %s", headers)
+
             # try to create the file
             try:
                 put_adls_file_creation(credentials.signed_uri, headers=headers)
@@ -328,14 +325,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         Upload a local file to the specified run-relative `dst_run_relative_artifact_path` using
         the supplied `cloud_credential_info`.
         """
-        _logger.warning("Got URL: %s", cloud_credential_info.signed_uri)
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            _logger.warning("Got Gen 1 URL: %s", cloud_credential_info.signed_uri)
             self._azure_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
-            _logger.warning("Got Gen 2 URL: %s", cloud_credential_info.signed_uri)
             self._azure_adls_gen2_upload_file(
                 cloud_credential_info, src_file_path, dst_run_relative_artifact_path
             )
@@ -372,11 +366,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
         try:
-            _logger.warning("Downloading from URL: %s", cloud_credential_info.signed_uri)
-            _logger.warning(
-                "Download URL headers: %s",
-                self._extract_headers_from_credentials(cloud_credential_info.headers),
-            )
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
                 dst_local_file_path,
@@ -413,7 +402,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return run_relative_artifact_path
 
     def log_artifact(self, local_file, artifact_path=None):
-        _logger.warning("test logger output")
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
             src_file_path=local_file,
             dst_artifact_dir=artifact_path,
