@@ -183,6 +183,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
     def _extract_headers_from_credentials(self, headers):
+        """
+        :return: A python dictionary of http headers converted from the protobuf credentials
+        """
         return {header.name: header.value for header in headers}
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
