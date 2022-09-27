@@ -57,6 +57,7 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -241,7 +242,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = int(time.time() * 1000)
+                creation_time = get_current_time_millis()
                 experiment = SqlExperiment(
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
@@ -477,7 +478,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_deleted(session, run)
@@ -485,7 +486,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
-        run.deleted_time = int(time.time() * 1000)
+        run.deleted_time = get_current_time_millis()
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
@@ -501,7 +502,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_active(session, run)
@@ -514,7 +515,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
 
             experiment.name = new_name
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             self._save_to_db(objs=experiment, session=session)
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
@@ -661,7 +662,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.DELETED
-            run.deleted_time = int(time.time() * 1000)
+            run.deleted_time = get_current_time_millis()
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -680,7 +681,7 @@ class SqlAlchemyStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = int(time.time() * 1000)
+        current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             runs = (
                 session.query(SqlRun)
