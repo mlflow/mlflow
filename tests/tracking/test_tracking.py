@@ -5,7 +5,6 @@ import os
 import posixpath
 import random
 import tempfile
-import time
 import yaml
 import re
 
@@ -31,6 +30,7 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
@@ -298,7 +298,7 @@ def test_log_batch():
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
     approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_RUN_NAME}
 
-    t = int(time.time())
+    t = get_current_time_millis()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
@@ -350,7 +350,7 @@ def test_log_batch_with_many_elements():
     expected_params = {f"param-key{i}": f"param-val{i}" for i in range(num_params)}
     exact_expected_tags = {f"tag-key{i}": f"tag-val{i}" for i in range(num_tags)}
 
-    t = int(time.time())
+    t = get_current_time_millis()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[1])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
@@ -721,11 +721,11 @@ def test_log_dict(subdir, extension):
 
 def test_with_startrun():
     run_id = None
-    t0 = int(time.time() * 1000)
+    t0 = get_current_time_millis()
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
         run_id = active_run.info.run_id
-    t1 = int(time.time() * 1000)
+    t1 = get_current_time_millis()
     run_info = mlflow.tracking._get_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
