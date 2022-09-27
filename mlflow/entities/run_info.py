@@ -109,7 +109,7 @@ class RunInfo(_MLflowObject):
     def _set_run_name(self, new_name):
         self._run_name = new_name
 
-    @property
+    @searchable_attribute
     def user_id(self):
         """String ID of the user who initiated this run."""
         return self._user_id
