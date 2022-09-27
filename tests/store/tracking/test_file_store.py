@@ -80,8 +80,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 "experiment_id": exp,
                 "name": random_str(),
                 "artifact_location": exp_folder,
-                "creation_time": int(time.time() * 1000),
-                "last_update_time": int(time.time() * 1000),
+                "creation_time": get_time_in_milliseconds(),
+                "last_update_time": get_time_in_milliseconds(),
             }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -399,7 +399,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
-        time_before_create = int(time.time() * 1000)
+        time_before_create = get_time_in_milliseconds()
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
         self.assertEqual(created_id, next_id)

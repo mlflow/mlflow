@@ -8,7 +8,6 @@ import sys
 import posixpath
 import pytest
 import logging
-import time
 import tempfile
 import urllib.parse
 from unittest import mock
@@ -30,6 +29,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.time_utils import get_time_in_milliseconds
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -637,7 +637,7 @@ def test_set_terminated_defaults(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
     assert mlflow_client.get_run(run_id).info.status == "FINISHED"
-    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
+    assert mlflow_client.get_run(run_id).info.end_time <= get_time_in_milliseconds()
 
 
 def test_set_terminated_status(mlflow_client):
@@ -648,7 +648,7 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, "FAILED")
     assert mlflow_client.get_run(run_id).info.status == "FAILED"
-    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
+    assert mlflow_client.get_run(run_id).info.end_time <= get_time_in_milliseconds()
 
 
 def test_artifacts(mlflow_client, tmp_path):

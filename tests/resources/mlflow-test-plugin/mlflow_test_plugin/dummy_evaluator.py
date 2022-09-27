@@ -7,8 +7,8 @@ from mlflow.models.evaluation import (
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.entities import Metric
+from mlflow.utils.time_utils import get_time_in_milliseconds
 from sklearn import metrics as sk_metrics
-import time
 import pandas as pd
 import io
 from PIL import Image
@@ -34,7 +34,7 @@ class DummyEvaluator(ModelEvaluator):
         Helper method to log metrics into specified run.
         """
         client = MlflowClient()
-        timestamp = int(time.time() * 1000)
+        timestamp = get_time_in_milliseconds()
         client.log_batch(
             run_id,
             metrics=[

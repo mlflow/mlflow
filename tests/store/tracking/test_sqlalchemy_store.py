@@ -520,7 +520,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
-        time_before_create = int(time.time() * 1000)
+        time_before_create = get_time_in_milliseconds()
         experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
@@ -877,7 +877,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_hard_delete_run(self):
         run = self._run_factory()
-        metric = entities.Metric("blahmetric", 100.0, int(1000 * time.time()), 0)
+        metric = entities.Metric("blahmetric", 100.0, get_time_in_milliseconds(), 0)
         self.store.log_metric(run.info.run_id, metric)
         param = entities.Param("blahparam", "100.0")
         self.store.log_param(run.info.run_id, param)
@@ -914,8 +914,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, get_time_in_milliseconds(), 0)
+        metric2 = entities.Metric(tkey, tval, get_time_in_milliseconds() + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -952,7 +952,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         def log_metrics(run):
             for metric_val in range(100):
                 self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                    run.info.run_id, Metric("metric_key", metric_val, get_time_in_milliseconds(), 0)
                 )
             for batch_idx in range(5):
                 self.store.log_batch(
@@ -961,7 +961,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         Metric(
                             f"metric_batch_{batch_idx}",
                             (batch_idx * 100) + val_offset,
-                            int(1000 * time.time()),
+                            get_time_in_milliseconds(),
                             0,
                         )
                         for val_offset in range(100)
@@ -971,7 +971,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 )
             for metric_val in range(100):
                 self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                    run.info.run_id, Metric("metric_key", metric_val, get_time_in_milliseconds(), 0)
                 )
             return "success"
 
@@ -1033,7 +1033,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = None
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric = entities.Metric(tkey, tval, get_time_in_milliseconds(), 0)
 
         with pytest.raises(
             MlflowException, match=r"Got invalid value None for metric"
@@ -2067,8 +2067,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, get_time_in_milliseconds(), 0)
+        metric2 = entities.Metric(tkey, tval, get_time_in_milliseconds() + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -2129,11 +2129,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = None
-        metric_1 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric_1 = entities.Metric(tkey, tval, get_time_in_milliseconds(), 0)
 
         tkey = "blahmetric2"
         tval = None
-        metric_2 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric_2 = entities.Metric(tkey, tval, get_time_in_milliseconds(), 0)
 
         metrics = [metric_1, metric_2]
 

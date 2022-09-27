@@ -5,7 +5,6 @@ import os
 import posixpath
 import random
 import tempfile
-import time
 import yaml
 import re
 
@@ -721,11 +720,11 @@ def test_log_dict(subdir, extension):
 
 def test_with_startrun():
     run_id = None
-    t0 = int(time.time() * 1000)
+    t0 = get_time_in_milliseconds()
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
         run_id = active_run.info.run_id
-    t1 = int(time.time() * 1000)
+    t1 = get_time_in_milliseconds()
     run_info = mlflow.tracking._get_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1

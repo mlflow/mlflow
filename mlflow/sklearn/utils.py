@@ -2,7 +2,6 @@ import collections
 import inspect
 import logging
 import numpy as np
-import time
 import warnings
 from copy import deepcopy
 from numbers import Number
@@ -12,6 +11,7 @@ from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.arguments_utils import _get_arg_names
+from mlflow.utils.time_utils import get_time_in_milliseconds
 
 _logger = logging.getLogger(__name__)
 
@@ -723,7 +723,7 @@ def _create_child_runs_for_parameter_search(
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
     child_run_start_time = parent_run.info.start_time
-    child_run_end_time = int(time.time() * 1000)
+    child_run_end_time = get_time_in_milliseconds()
 
     seed_estimator = cv_estimator.estimator
     # In the unlikely case that a seed of a parameter search estimator is,

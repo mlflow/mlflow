@@ -1,5 +1,3 @@
-import time
-
 import logging
 import sqlalchemy
 
@@ -42,6 +40,7 @@ from mlflow.utils.validation import (
     _validate_model_version,
     _validate_tag_name,
 )
+from mlflow.utils.time_utils import get_time_in_milliseconds
 
 _logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ sqlalchemy.orm.configure_mappers()
 
 
 def now():
-    return int(time.time() * 1000)
+    return get_time_in_milliseconds()
 
 
 class SqlAlchemyStore(AbstractStore):

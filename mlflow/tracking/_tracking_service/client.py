@@ -4,7 +4,6 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import time
 import os
 from itertools import zip_longest
 
@@ -29,6 +28,7 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_time_in_milliseconds
 from collections import OrderedDict
 
 
@@ -108,7 +108,7 @@ class TrackingServiceClient:
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
-            start_time=start_time or int(time.time() * 1000),
+            start_time=start_time or get_time_in_milliseconds(),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
@@ -287,7 +287,7 @@ class TrackingServiceClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
+        timestamp = timestamp if timestamp is not None else get_time_in_milliseconds()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
@@ -465,7 +465,7 @@ class TrackingServiceClient:
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
-        end_time = end_time if end_time else int(time.time() * 1000)
+        end_time = end_time if end_time else get_time_in_milliseconds()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
             run_id,
