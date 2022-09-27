@@ -1543,6 +1543,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "params.p_a = 'abc'"
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
+        filter_string = "params.p_a = 'ABC'"
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
+
+        filter_string = "params.p_a != 'ABC'"
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
+
         filter_string = "params.p_b = 'ABC'"
         self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
@@ -1582,6 +1588,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual(
             [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
         )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'")
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'")
+        )
         # test search returns appropriate run (same key different values per run)
         self.assertCountEqual(
             [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
@@ -1595,6 +1607,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         self.assertCountEqual(
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'")
         )
         self.assertCountEqual(
             [r1, r2],
@@ -1753,6 +1768,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
