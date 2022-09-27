@@ -103,6 +103,8 @@ class SearchUtils:
 
     @staticmethod
     def get_sql_comparison_func(comparator, dialect):
+        import sqlalchemy as sa
+
         def comparison_func(column, value):
             if comparator == "LIKE":
                 return column.like(value)
@@ -111,11 +113,15 @@ class SearchUtils:
             return SearchUtils.get_comparison_func(comparator)(column, value)
 
         def mssql_comparison_func(column, value):
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
+
             collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
-            import sqlalchemy as sa
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
 
             # MySQL is case insensitive by default, so we need to use the binary operator to
             # perform case sensitive comparisons.
