@@ -105,8 +105,6 @@ You can search using the following run attributes contained in :py:class:`mlflow
   attributes.user_id = 'user1'
 
 
-
-
 .. _mlflow_tags:
 
 MLflow Tags

@@ -353,6 +353,7 @@ def test_filter_runs_by_user_id():
     ]
     assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'")[0] == runs[1]
 
+
 def test_filter_runs_by_end_time():
     runs = [
         Run(
@@ -373,7 +374,6 @@ def test_filter_runs_by_end_time():
     assert SearchUtils.filter(runs, "attribute.end_time >= 0") == runs
     assert SearchUtils.filter(runs, "attribute.end_time > 1") == runs[2:]
     assert SearchUtils.filter(runs, "attribute.end_time = 2") == runs[2:]
-
 
 
 @pytest.mark.parametrize(
