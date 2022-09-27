@@ -25,12 +25,12 @@ from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
 import math
 
 
-def _convert_like_pattern_to_regex(pattern):
+def _convert_like_pattern_to_regex(pattern, flags=None):
     if not pattern.startswith("%"):
         pattern = "^" + pattern
     if not pattern.endswith("%"):
         pattern = pattern + "$"
-    return re.compile(pattern.replace("_", ".").replace("%", ".*"))
+    return re.compile(pattern.replace("_", ".").replace("%", ".*"), flags)
 
 
 def _like(string, pattern):
@@ -38,7 +38,7 @@ def _like(string, pattern):
 
 
 def _ilike(string, pattern):
-    return _convert_like_pattern_to_regex(pattern).match(string, flags=re.IGNORECASE) is not None
+    return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
 class SearchUtils:
