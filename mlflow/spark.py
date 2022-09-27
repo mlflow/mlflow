@@ -385,7 +385,7 @@ class _HadoopFileSystem:
         return False
 
     @classmethod
-    def maybe_copy_from_uri(cls, src_uri, dst_path):
+    def maybe_copy_from_uri(cls, src_uri, dst_path, local_model_path=None):
         """
         Conditionally copy the file to the Hadoop DFS from the source uri.
         In case the file is already on the Hadoop DFS do nothing.
@@ -401,7 +401,9 @@ class _HadoopFileSystem:
         except Exception:
             _logger.info("URI '%s' does not point to the current DFS.", src_uri)
         _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
-        return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
+        return cls.maybe_copy_from_local_file(
+            local_model_path or _download_artifact_from_uri(src_uri), dst_path
+        )
 
     @classmethod
     def delete(cls, path):
@@ -724,7 +726,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
         )
-    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
+    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
     return PipelineModel.load(model_uri)
 
 

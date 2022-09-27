@@ -15,6 +15,7 @@ from sqlparse.sql import (
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
+from packaging.version import Version
 
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
@@ -43,7 +44,7 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = {"start_time"}
+    NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = {LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
@@ -456,14 +457,22 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
+        ttype_for_timestamp = (
+            TokenType.Name.Builtin
+            if Version(sqlparse.__version__) >= Version("0.4.3")
+            else TokenType.keyword
+        )
+
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
         elif len(statement.tokens) == 1 and statement.tokens[0].match(
-            ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
+            statement.tokens[0].match(
+                ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            )
             and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):

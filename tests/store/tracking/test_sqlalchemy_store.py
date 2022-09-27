@@ -48,6 +48,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
@@ -519,7 +520,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
-        time_before_create = int(time.time() * 1000)
+        time_before_create = get_current_time_millis()
         experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
@@ -755,8 +756,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "source_type": SourceType.to_string(SourceType.LOCAL),
             "source_name": "Python application",
             "entry_point_name": "main.py",
-            "start_time": int(time.time()),
-            "end_time": int(time.time()),
+            "start_time": get_current_time_millis(),
+            "end_time": get_current_time_millis(),
             "source_version": mlflow.__version__,
             "lifecycle_stage": entities.LifecycleStage.ACTIVE,
             "artifact_uri": "//",
@@ -778,7 +779,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
-            "start_time": start_time if start_time is not None else int(time.time()),
+            "start_time": start_time if start_time is not None else get_current_time_millis(),
             "tags": tags,
             "run_name": "name",
         }
@@ -810,6 +811,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         expected_tags = {tag.key: tag.value for tag in tags}
         self.assertEqual(actual.data.tags, expected_tags)
 
+    def test_create_run_sets_name(self):
+        experiment_id = self._experiment_factory("test_create_run_run_name")
+        configs = self._get_run_configs(experiment_id=experiment_id)
+        run_id = self.store.create_run(**configs).info.run_id
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, configs["run_name"])
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), configs["run_name"])
+
     def test_get_run_with_name(self):
         experiment_id = self._experiment_factory("test_get_run")
         configs = self._get_run_configs(experiment_id=experiment_id)
@@ -824,7 +833,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         no_run_configs = {
             "experiment_id": experiment_id,
             "user_id": "Anderson",
-            "start_time": int(time.time()),
+            "start_time": get_current_time_millis(),
             "tags": [],
             "run_name": None,
         }
@@ -876,7 +885,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_hard_delete_run(self):
         run = self._run_factory()
-        metric = entities.Metric("blahmetric", 100.0, int(1000 * time.time()), 0)
+        metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
         self.store.log_metric(run.info.run_id, metric)
         param = entities.Param("blahparam", "100.0")
         self.store.log_param(run.info.run_id, param)
@@ -913,8 +922,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
+        metric2 = entities.Metric(tkey, tval, get_current_time_millis() + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -951,7 +960,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         def log_metrics(run):
             for metric_val in range(100):
                 self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                    run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
                 )
             for batch_idx in range(5):
                 self.store.log_batch(
@@ -960,7 +969,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         Metric(
                             f"metric_batch_{batch_idx}",
                             (batch_idx * 100) + val_offset,
-                            int(1000 * time.time()),
+                            get_current_time_millis(),
                             0,
                         )
                         for val_offset in range(100)
@@ -970,7 +979,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 )
             for metric_val in range(100):
                 self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                    run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
                 )
             return "success"
 
@@ -1032,7 +1041,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = None
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
 
         with pytest.raises(
             MlflowException, match=r"Got invalid value None for metric"
@@ -1253,7 +1262,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self._experiment_factory("test_update_run_info")
         for new_status_string in models.RunStatusTypes:
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
-            endtime = int(time.time())
+            endtime = get_current_time_millis()
             actual = self.store.update_run_info(
                 run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
             )
@@ -1271,10 +1280,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
+
+        self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), None)
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "newer name")
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory("helloexp")
@@ -1391,11 +1409,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=123,
-                tags=[
-                    entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
-                    entities.RunTag("metric", names[1]),
-                ],
-                run_name="name",
+                tags=[entities.RunTag("metric", names[1])],
+                run_name=name,
             ).info.run_id
             if names[0] is not None:
                 self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
@@ -1453,8 +1468,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=start_time,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)],
-                run_name="name",
+                tags=[],
+                run_name=str(end),
             ).info.run_id
 
         start_time = 123
@@ -1467,19 +1482,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         # asc
         self.assertListEqual(
-            ["-123", "123", "234", "456", "789", None],
+            ["-123", "123", "234", "456", "789", "None"],
             self.get_ordered_runs(["attribute.end_time asc"], experiment_id),
         )
 
         # desc
         self.assertListEqual(
-            ["789", "456", "234", "123", "-123", None],
+            ["789", "456", "234", "123", "-123", "None"],
             self.get_ordered_runs(["attribute.end_time desc"], experiment_id),
         )
 
         # Sort priority correctly handled
         self.assertListEqual(
-            ["234", None, "456", "-123", "789", "123"],
+            ["234", "None", "456", "-123", "789", "123"],
             self.get_ordered_runs(
                 ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
             ),
@@ -2066,8 +2081,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
+        metric2 = entities.Metric(tkey, tval, get_current_time_millis() + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -2128,11 +2143,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         tkey = "blahmetric"
         tval = None
-        metric_1 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric_1 = entities.Metric(tkey, tval, get_current_time_millis(), 0)
 
         tkey = "blahmetric2"
         tval = None
-        metric_2 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric_2 = entities.Metric(tkey, tval, get_current_time_millis(), 0)
 
         metrics = [metric_1, metric_2]
 
