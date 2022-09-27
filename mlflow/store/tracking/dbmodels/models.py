@@ -26,6 +26,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
+from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time_utils import get_current_time_millis
 
 SourceTypes = [
@@ -218,11 +219,16 @@ class SqlRun(Base):
             artifact_uri=self.artifact_uri,
         )
 
+        tags = [t.to_mlflow_entity() for t in self.tags]
         run_data = RunData(
             metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
             params=[p.to_mlflow_entity() for p in self.params],
-            tags=[t.to_mlflow_entity() for t in self.tags],
+            tags=tags,
         )
+        if not run_info.run_name:
+            run_name = _get_run_name_from_tags(tags)
+            if run_name:
+                run_info._set_run_name(run_name)
 
         return Run(run_info=run_info, run_data=run_data)
 

@@ -106,6 +106,9 @@ class RunInfo(_MLflowObject):
         """String containing run name."""
         return self._run_name
 
+    def _set_run_name(self, new_name):
+        self._run_name = new_name
+
     @property
     def user_id(self):
         """String ID of the user who initiated this run."""
