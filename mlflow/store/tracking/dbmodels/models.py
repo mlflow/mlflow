@@ -198,7 +198,7 @@ class SqlRun(Base):
         # Currently, MLflow Search attributes defined in `SearchUtils.VALID_SEARCH_ATTRIBUTE_KEYS`
         # share the same names as their corresponding `SqlRun` attributes. Therefore, this function
         # returns the same attribute name
-        return mlflow_attribute_name
+        return "name" if mlflow_attribute_name == "run_name" else mlflow_attribute_name
 
     def to_mlflow_entity(self):
         """

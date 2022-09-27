@@ -1914,6 +1914,23 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
 
+    def test_search_runs_run_name(self):
+        exp_id = self._experiment_factory("test_search_runs_pagination")
+        run = self._run_factory(dict(self._get_run_configs(exp_id), run_name="run_name"))
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run.info.run_id]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run.info.run_id]
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id

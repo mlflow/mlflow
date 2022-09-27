@@ -101,7 +101,7 @@ class RunInfo(_MLflowObject):
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
-    @property
+    @searchable_attribute
     def run_name(self):
         """String containing run name."""
         return self._run_name
