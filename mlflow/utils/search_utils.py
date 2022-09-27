@@ -30,17 +30,15 @@ def _convert_like_pattern_to_regex(pattern):
         pattern = "^" + pattern
     if not pattern.endswith("%"):
         pattern = pattern + "$"
-    return pattern.replace("_", ".").replace("%", ".*")
+    return re.compile(pattern.replace("_", ".").replace("%", ".*"))
 
 
 def _like(string, pattern):
-    return re.match(_convert_like_pattern_to_regex(pattern), string) is not None
+    return _convert_like_pattern_to_regex(pattern).match(string) is not None
 
 
 def _ilike(string, pattern):
-    return (
-        re.match(_convert_like_pattern_to_regex(pattern), string, flags=re.IGNORECASE) is not None
-    )
+    return _convert_like_pattern_to_regex(pattern).match(string, flags=re.IGNORECASE) is not None
 
 
 class SearchUtils:
