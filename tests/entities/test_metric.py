@@ -1,6 +1,5 @@
-import time
-
 from mlflow.entities import Metric
+from mlflow.utils.time_utils import get_current_time_millis
 from tests.helper_functions import random_str, random_int
 
 
@@ -15,7 +14,7 @@ def _check(metric, key, value, timestamp, step):
 def test_creation_and_hydration():
     key = random_str()
     value = 10000
-    ts = int(1000 * time.time())
+    ts = get_current_time_millis()
     step = random_int()
 
     metric = Metric(key, value, ts, step)
