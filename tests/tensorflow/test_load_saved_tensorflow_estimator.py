@@ -203,8 +203,7 @@ def test_pyfunc_serve_and_score(tmp_path, monkeypatch):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    print("CONTENT", resp.content)
-    actual = pd.DataFrame(json.loads(resp.content))["predictions"]["class_ids"].values
+    actual = pd.DataFrame(json.loads(resp.content)["predictions"])["class_ids"].values
     expected = (
         model_data_info.expected_results_df["predictions"].map(iris_data_utils.SPECIES.index).values
     )
