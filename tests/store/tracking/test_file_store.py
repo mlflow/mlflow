@@ -26,6 +26,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -676,7 +677,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 0
+        assert len(no_tags_run.data.tags) == 1
 
         run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
@@ -694,7 +695,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
-        assert tags_run.data.tags == tags_dict
+        assert tags_run.data.tags == {**tags_dict, MLFLOW_RUN_NAME: tags_run.info.run_name}
 
     def test_create_run_sets_name(self):
         fs = FileStore(self.test_root)
@@ -706,8 +707,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="my name",
         )
 
-        run_name = run.info.run_name
-        assert run_name == "my name"
+        run = fs.get_run(run.info.run_id)
+        assert run.info.run_name == "my name"
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -788,8 +790,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="first name",
         ).info.run_id
         fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
-        get_run = fs.get_run(run_id)
-        assert get_run.info.run_name == "new name"
+        run = fs.get_run(run_id)
+        assert run.info.run_name == "new name"
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
 
     def test_update_run_does_not_rename_run_with_none_name(self):
         fs = FileStore(self.test_root)
