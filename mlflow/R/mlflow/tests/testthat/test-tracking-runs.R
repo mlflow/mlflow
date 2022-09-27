@@ -24,6 +24,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
         list(key = "mlflow.user", value = "user1"),
+        list(key = "mlflow.runName", value = run$run_name)),
       )
     )
   )
@@ -110,6 +111,7 @@ test_that("mlflow_restore_run() work properly", {
           list(key = "foz", value = "baz"),
           list(key = "foo", value = "bar"),
           list(key = "mlflow.user", value = "user1"),
+          list(key = "mlflow.runName", value = run$run_name)
         )
       )
     )
