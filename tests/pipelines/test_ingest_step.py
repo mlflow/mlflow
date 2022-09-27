@@ -509,6 +509,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
+    assert "Data Preview" in step_card_html_content
     assert "facets-overview" in step_card_html_content
 
 

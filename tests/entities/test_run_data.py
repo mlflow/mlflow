@@ -1,7 +1,7 @@
-import time
 import unittest
 
 from mlflow.entities import Metric, RunData, Param, RunTag
+from mlflow.utils.time_utils import get_current_time_millis
 from tests.helper_functions import random_str, random_int
 
 
@@ -44,7 +44,7 @@ class TestRunData(unittest.TestCase):
             Metric(
                 key=random_str(10),
                 value=random_int(0, 1000),
-                timestamp=int(time.time()) + random_int(-1e4, 1e4),
+                timestamp=get_current_time_millis() + random_int(-1e4, 1e4),
                 step=random_int(),
             )
         ]

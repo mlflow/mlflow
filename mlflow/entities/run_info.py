@@ -109,7 +109,7 @@ class RunInfo(_MLflowObject):
     def _set_run_name(self, new_name):
         self._run_name = new_name
 
-    @property
+    @searchable_attribute
     def user_id(self):
         """String ID of the user who initiated this run."""
         return self._user_id
@@ -127,7 +127,7 @@ class RunInfo(_MLflowObject):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
-    @orderable_attribute
+    @searchable_attribute
     def end_time(self):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time

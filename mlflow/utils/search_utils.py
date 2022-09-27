@@ -52,7 +52,7 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = {"start_time"}
+    NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -461,7 +461,7 @@ class SearchUtils:
         ttype_for_timestamp = (
             TokenType.Name.Builtin
             if Version(sqlparse.__version__) >= Version("0.4.3")
-            else TokenType.keyword
+            else TokenType.Keyword
         )
 
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
