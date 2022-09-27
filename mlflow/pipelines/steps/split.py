@@ -8,7 +8,7 @@ from typing import Dict, Any
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 
@@ -76,7 +76,7 @@ def _create_hash_buckets(input_df):
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
-    _logger.info(
+    _logger.debug(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
@@ -117,28 +117,17 @@ class SplitStep(BaseStep):
 
         if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
-            train_profile = get_pandas_data_profile(
-                train_df.reset_index(drop=True),
-                "Profile of Train Dataset",
-            )
-            validation_profile = get_pandas_data_profile(
-                validation_df.reset_index(drop=True),
-                "Profile of Validation Dataset",
-            )
-            test_profile = get_pandas_data_profile(
-                test_df.reset_index(drop=True),
-                "Profile of Test Dataset",
+            data_profile = get_pandas_data_profiles(
+                [
+                    ["Train", train_df.reset_index(drop=True)],
+                    ["Validation", validation_df.reset_index(drop=True)],
+                    ["Test", test_df.reset_index(drop=True)],
+                ]
             )
 
             # Tab #1 - #3: data profiles for train/validation and test.
-            card.add_tab("Data Profile (Train)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", train_profile
-            )
-            card.add_tab("Data Profile (Validation)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", validation_profile
-            )
-            card.add_tab("Data Profile (Test)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", test_profile
+            card.add_tab("Compare Splits", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", data_profile
             )
 
         # Tab #4: run summary.
@@ -201,7 +190,7 @@ class SplitStep(BaseStep):
             post_split = getattr(
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
-            _logger.info(f"Running {post_split_fn_name} on train, validation and test datasets.")
+            _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
             (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))

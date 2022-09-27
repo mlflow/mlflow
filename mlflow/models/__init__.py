@@ -30,7 +30,6 @@ from .evaluation import (
     list_evaluators,
     MetricThreshold,
 )
-
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 

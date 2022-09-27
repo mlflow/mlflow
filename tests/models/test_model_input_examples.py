@@ -176,6 +176,7 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
+
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
 
         # by definition of NaN, NaN == NaN is False but NaN != NaN is True

@@ -3,7 +3,7 @@ build_dependencies:
 - pip
 dependencies:
 - mlflow
-- pytorch-lightning==1.6.1
+- pytorch-lightning==1.7.6
 - ax-platform
 - torchvision>=0.9.1
 - torch>=1.9.0
@@ -11,3 +11,5 @@ dependencies:
 # required by many versions of pytorch
 - gpytorch!=1.9.0
 - protobuf<4.0.0
+# Pinning pandas version less than 1.4.4 due to https://github.com/facebook/Ax/issues/1153
+- pandas<=1.4.4

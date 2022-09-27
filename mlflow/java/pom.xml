@@ -59,7 +59,8 @@
   </distributionManagement>
 
   <properties>
-    <mlflow-version>1.28.1-SNAPSHOT</mlflow-version>
+<<<<<<< HEAD
+    <mlflow-version>2.0.0-SNAPSHOT</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <scala.version>2.11.12</scala.version>

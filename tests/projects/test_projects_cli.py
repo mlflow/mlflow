@@ -125,6 +125,22 @@ def test_run_git_ssh():
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
 
 
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ, reason="SSH keys are unavailable in GitHub Actions"
+)
+def test_run_git_ssh_from_release_version():
+    # Note: this test requires SSH authentication to GitHub, and so is disabled in GitHub Actions,
+    # where SSH keys are unavailable. However it should be run locally whenever logic related to
+    # running Git projects is modified.
+    assert SSH_PROJECT_URI.startswith("git@")
+    invoke_cli_runner(
+        cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5", "-v", "version_testing"]
+    )
+    invoke_cli_runner(
+        cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5", "-v", "version_testing"]
+    )
+
+
 @pytest.mark.notrackingurimock
 def test_run_databricks_cluster_spec(tmpdir):
     cluster_spec = {

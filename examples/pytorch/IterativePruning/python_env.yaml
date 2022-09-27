@@ -5,7 +5,7 @@ dependencies:
 - mlflow
 - torchvision>=0.9.1
 - cloudpickle==1.6.0
-- pytorch_lightning==1.6.1
+- pytorch_lightning==1.7.6
 - ax-platform
 - prettytable
 - torch>=1.9.0
@@ -13,3 +13,5 @@ dependencies:
 # required by many versions of pytorch
 - gpytorch!=1.9.0
 - protobuf<4.0.0
+# Pinning pandas version less than 1.4.4 due to https://github.com/facebook/Ax/issues/1153
+- pandas<=1.4.4

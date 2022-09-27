@@ -1,5 +1,5 @@
 from pyspark.sql.utils import IllegalArgumentException
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame
 import re
 from functools import reduce
 from pyspark.ml.functions import vector_to_array
@@ -53,10 +53,8 @@ def _get_struct_type_by_cols(input_fields: Set[str], df_schema: t.StructType) ->
 
 
 def get_feature_cols(
-    df_schema: t.StructType,
+    df: DataFrame,
     transformer: Union[Transformer, PipelineModel],
-    input_fields: Set[str] = None,
-    spark: SparkSession = None,
 ) -> Set[str]:
     """
     Finds feature columns from an input dataset. If a dataset
@@ -64,32 +62,20 @@ def get_feature_cols(
     if `input_fields` is set to include non-feature columns those
     will be included in the return set of column names.
 
-    :param df_schema: An input spark schema to look for the feature columns
+    :param df: An input spark dataframe.
     :param transformer: A pipeline/transformer to get the required feature columns
-    :param input_fields: Initial columns to keep in the returned list
-    :param spark: A spark session
     :return: A set of all the feature columns that are required
              for the pipeline/transformer plus any initial columns passed in.
     """
-    if spark is None:
-        spark = SparkSession.builder.getOrCreate()
-    if input_fields is None:
-        input_fields = set()
-        # Using an empty dataset doesn't work for all estimators
-        # such as: pyspark.ml.classification.OneVsRest, so set
-        # a single row and column of double type
-        df = spark.createDataFrame([(1.0,)])
-    else:
-        df = spark.createDataFrame(
-            spark.sparkContext.emptyRDD(),
-            _get_struct_type_by_cols(input_fields, df_schema),
-        )
-    try:
-        _do_pipeline_transform(df, transformer)
-    except IllegalArgumentException as iae:
-        col_name_search = re.search("(.*) does not exist.", iae.desc, re.IGNORECASE)
-        if col_name_search:
-            col_name = col_name_search.group(1)
-            input_fields.add(col_name)
-            get_feature_cols(df_schema, transformer, input_fields, spark)
-    return input_fields
+    feature_cols = set()
+    df_subset = df.limit(1).cache()
+    for column in df.columns:
+        try:
+            transformer.transform(df_subset.drop(column))
+        except IllegalArgumentException as iae:
+            if re.search("(.*) does not exist.", iae.desc, re.IGNORECASE):
+                feature_cols.add(column)
+                continue
+            raise
+    df_subset.unpersist()
+    return feature_cols

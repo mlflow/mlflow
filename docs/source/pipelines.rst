@@ -217,6 +217,7 @@ The main components of the pipeline repository layout, which are common across a
       transform:
         transformer_method: steps.transform.transformer_fn
       train:
+        using: estimator_spec
         estimator_method: steps.train.estimator_fn
       evaluate:
         validation_criteria:

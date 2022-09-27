@@ -1,13 +1,15 @@
 import logging
 import os
+import pandas as pd
 from mlflow.pipelines.cards import pandas_renderer
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import (
     is_running_in_ipython_environment,
     is_in_databricks_runtime,
+    get_databricks_runtime,
 )
-from typing import Dict, List
+from typing import Dict, List, Iterable, Tuple
 
 _logger = logging.getLogger(__name__)
 
@@ -66,6 +68,16 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         html_file_path = html_file_path if html_data is None else None
 
         if is_in_databricks_runtime():
+            from packaging import version
+
+            dbr_version_image_key = get_databricks_runtime()
+            dbr_version = dbr_version_image_key.split("-")[0]
+            if version.parse(dbr_version) < version.parse("11.x"):
+                raise MlflowException(
+                    f"Use Databricks Runtime 11 or newer with MLflow Pipelines. "
+                    f"Current version is {dbr_version} ",
+                    error_code=BAD_REQUEST,
+                )
             # Patch IPython display with Databricks display before showing the HTML.
             import IPython.core.display as icd
 
@@ -105,15 +117,28 @@ def _get_pool_size():
     return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
 
 
-def get_pandas_data_profile(data_frame, title: str):
-    """Returns a data profiling object over input data frame.
+def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
+    """
+    Returns a data profiling string over input data frame.
 
-    :param data_frame: DataFrame, contains data to be profiled.
+    :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
+    collection of (title, DataFrame) pairs where each pair names a separate "glimpse"
+    and they are all visualized in comparison mode.
+    :return: a data profiling string such as Pandas profiling ProfileReport.
+    """
+    truncated_input = list(map(lambda input: truncate_pandas_data_profile(*input), inputs))
+    return pandas_renderer.get_html(truncated_input)
+
+
+def truncate_pandas_data_profile(title: str, data_frame) -> str:
+    """Returns a data profiling string over input data frame.
+
     :param title: String, the title of the data profile.
-    :return: a data profiling object such as Pandas profiling ProfileReport.
+    :param data_frame: DataFrame, contains data to be profiled.
+    :return: a data profiling string such as Pandas profiling ProfileReport.
     """
     if len(data_frame) == 0:
-        pandas_renderer.get_html([[title, data_frame]])
+        return (title, data_frame)
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
@@ -133,4 +158,4 @@ def get_pandas_data_profile(data_frame, title: str):
             max_cols,
             max_rows,
         )
-    return pandas_renderer.get_html([[title, truncated_df]])
+    return (title, truncated_df)

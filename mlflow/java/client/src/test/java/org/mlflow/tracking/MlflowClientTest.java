@@ -213,6 +213,88 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void searchExperimentsTest() {
+    List<Experiment> expsBefore = client.searchExperiments().getItems();
+
+    String expName1 = createExperimentName();
+    String expId1 = client.createExperiment(expName1);
+    client.setExperimentTag(expId1, "test", "test");
+    client.setExperimentTag(expId1, "expgroup", "group1");
+
+    String expName2 = createExperimentName();
+    String expId2 = client.createExperiment(expName2);
+    client.setExperimentTag(expId2, "test", "test");
+
+    String expName3 = createExperimentName();
+    String expId3 = client.createExperiment(expName3);
+    client.setExperimentTag(expId3, "test", "test");
+    client.setExperimentTag(expId3, "expgroup", "group1");
+
+    List<Experiment> exps = client.searchExperiments().getItems();
+    Assert.assertEquals(exps.size(), 3 + expsBefore.size());
+
+    String exp1Filter = String.format("attribute.name = '%s'", expName1);
+    List<Experiment> exps1 = client.searchExperiments(exp1Filter).getItems();
+    Assert.assertEquals(exps1.size(), 1);
+    Assert.assertEquals(exps1.get(0).getExperimentId(), expId1);
+
+    String exp2Filter = String.format("attribute.name = '%s'", expName2);
+    List<Experiment> exps2 = client.searchExperiments(exp2Filter).getItems();
+    Assert.assertEquals(exps2.size(), 1);
+    Assert.assertEquals(exps2.get(0).getExperimentId(), expId2);
+
+    String expGroupFilter = String.format("tags.expgroup = 'group1'");
+    List<Experiment> expGroup = client.searchExperiments(expGroupFilter).getItems();
+    Assert.assertEquals(
+      expGroup.stream().map(exp -> exp.getExperimentId()).collect(Collectors.toSet()),
+      new HashSet<>(Arrays.asList(expId1, expId3))
+    );
+
+    client.deleteExperiment(expId2);
+
+    List<Experiment> activeExps = client.searchExperiments("").getItems();
+    Set<String> activeExpIds = activeExps.stream().map(
+        exp -> exp.getExperimentId()
+    ).collect(Collectors.toSet());
+    Assert.assertTrue(activeExpIds.contains(expId1));
+    Assert.assertTrue(activeExpIds.contains(expId3));
+    Assert.assertFalse(activeExpIds.contains(expId2));
+
+    List<Experiment> deletedExps = client.searchExperiments(
+        "", ViewType.DELETED_ONLY, 10, new ArrayList<>()
+    ).getItems();
+    Assert.assertEquals(deletedExps.size(), 1);
+    Assert.assertEquals(deletedExps.get(0).getExperimentId(), expId2);
+
+    List<String> orderedExpNames = Arrays.asList(expName1, expName2, expName3);
+    Collections.sort(orderedExpNames);
+
+    ExperimentsPage page1 = client.searchExperiments(
+      "tags.test = 'test'", ViewType.ALL, 1, Arrays.asList("attribute.name")
+    );
+    Assert.assertEquals(page1.getItems().size(), 1);
+    Assert.assertEquals(page1.getItems().get(0).getName(), orderedExpNames.get(0));
+    Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+    ExperimentsPage page2 = client.searchExperiments(
+      "tags.test = 'test'",
+      ViewType.ALL,
+      2,
+      Arrays.asList("attribute.name"),
+      page1.getNextPageToken().get()
+    );
+    Assert.assertEquals(page2.getItems().size(), 2);
+    Assert.assertEquals(page2.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertEquals(page2.getItems().get(1).getName(), orderedExpNames.get(2));
+    Assert.assertFalse(page2.getNextPageToken().isPresent());
+
+    ExperimentsPage nextPageFromPrevPage = (ExperimentsPage) page1.getNextPage();
+    Assert.assertEquals(nextPageFromPrevPage.getItems().size(), 1);
+    Assert.assertEquals(nextPageFromPrevPage.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
+  }
+
+  @Test
   public void addGetRun() {
     // Create exp
     String expName = createExperimentName();

@@ -6,8 +6,29 @@ R API
 
 The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
+<<<<<<< HEAD
 Prerequisites
 =============
+=======
+You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `search experiments <mlflow_search_experiments>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
+
+.. contents:: Table of Contents
+    :local:
+    :depth: 1
+
+``install_mlflow``
+==================
+
+Install MLflow
+
+Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+one-time setup step, you must run install_mlflow() to install these
+dependencies before calling other MLflow APIs.
+
+.. code:: r
+
+   install_mlflow(python_version = "3.7")
+>>>>>>> origin/master
 
 To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_.
 
@@ -15,7 +36,13 @@ To use the MLflow R API, you must install `the MLflow Python package <https://py
 
     pip install mlflow
 
+<<<<<<< HEAD
 Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
+=======
+install_mlflow() requires Python and Conda to be installed. See
+https://www.python.org/downloads/ and
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
+>>>>>>> origin/master
 
 .. code-block:: bash
 
@@ -1582,7 +1609,11 @@ Search for experiments that satisfy specified criteria.
      client = NULL
    )
 
+<<<<<<< HEAD
 .. _arguments-36:
+=======
+.. _arguments-41:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1622,6 +1653,7 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+<<<<<<< HEAD
 ``mlflow_search_registered_models``
 ===================================
 
@@ -1675,6 +1707,8 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+=======
+>>>>>>> origin/master
 ``mlflow_search_runs``
 ======================
 
@@ -1693,7 +1727,11 @@ Metric and Param keys.
      client = NULL
    )
 
+<<<<<<< HEAD
 .. _arguments-38:
+=======
+.. _arguments-42:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1749,7 +1787,11 @@ Wrapper for ``mlflow server``.
      serve_artifacts = FALSE
    )
 
+<<<<<<< HEAD
 .. _arguments-39:
+=======
+.. _arguments-43:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1792,7 +1834,11 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
+<<<<<<< HEAD
 .. _arguments-40:
+=======
+.. _arguments-44:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1842,7 +1888,11 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
+<<<<<<< HEAD
 .. _arguments-41:
+=======
+.. _arguments-45:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1872,7 +1922,11 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
+<<<<<<< HEAD
 .. _arguments-42:
+=======
+.. _arguments-46:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1912,7 +1966,11 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
+<<<<<<< HEAD
 .. _arguments-43:
+=======
+.. _arguments-47:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1935,7 +1993,11 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
+<<<<<<< HEAD
 .. _arguments-44:
+=======
+.. _arguments-48:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -1968,7 +2030,11 @@ can be provided.
      nested = FALSE
    )
 
+<<<<<<< HEAD
 .. _arguments-45:
+=======
+.. _arguments-49:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -2041,7 +2107,11 @@ Transition a model version to a different stage.
      client = NULL
    )
 
+<<<<<<< HEAD
 .. _arguments-46:
+=======
+.. _arguments-50:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -2080,7 +2150,11 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
+<<<<<<< HEAD
 .. _arguments-47:
+=======
+.. _arguments-51:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -2130,7 +2204,11 @@ Updates a model version
 
    mlflow_update_model_version(name, version, description, client = NULL)
 
+<<<<<<< HEAD
 .. _arguments-48:
+=======
+.. _arguments-52:
+>>>>>>> origin/master
 
 Arguments
 ---------
@@ -2166,7 +2244,11 @@ Updates a model in the Model Registry.
 
    mlflow_update_registered_model(name, description, client = NULL)
 
+<<<<<<< HEAD
 .. _arguments-49:
+=======
+.. _arguments-53:
+>>>>>>> origin/master
 
 Arguments
 ---------

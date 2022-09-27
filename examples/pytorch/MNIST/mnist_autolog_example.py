@@ -231,7 +231,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average test loss
         """
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        self.log("avg_test_acc", avg_test_acc)
+        self.log("avg_test_acc", avg_test_acc, sync_dist=True)
 
     def configure_optimizers(self):
         """
@@ -282,6 +282,10 @@ if __name__ == "__main__":
         if dict_args["strategy"] == "None":
             dict_args["strategy"] = None
 
+    if "devices" in dict_args:
+        if dict_args["devices"] == "None":
+            dict_args["devices"] = None
+
     model = LightningMNISTClassifier(**dict_args)
 
     dm = MNISTDataModule(**dict_args)
@@ -300,16 +304,16 @@ if __name__ == "__main__":
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
+        args, callbacks=[lr_logger, early_stopping, checkpoint_callback]
     )
 
     # It is safe to use `mlflow.pytorch.autolog` in DDP training, as below condition invokes
     # autolog with only rank 0 gpu.
 
     # For CPU Training
-    if dict_args["gpus"] is None or int(dict_args["gpus"]) == 0:
+    if dict_args["devices"] is None or int(dict_args["devices"]) == 0:
         mlflow.pytorch.autolog()
-    elif int(dict_args["gpus"]) >= 1 and trainer.global_rank == 0:
+    elif int(dict_args["devices"]) >= 1 and trainer.global_rank == 0:
         # In case of multi gpu training, the training script is invoked multiple times,
         # The following condition is needed to avoid multiple copies of mlflow runs.
         # When one or more gpus are used for training, it is enough to save
@@ -322,4 +326,4 @@ if __name__ == "__main__":
         logging.info("Active run exists.. ")
 
     trainer.fit(model, dm)
-    trainer.test(datamodule=dm)
+    trainer.test(datamodule=dm, ckpt_path="best")

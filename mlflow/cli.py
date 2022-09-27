@@ -596,6 +596,14 @@ except ImportError as e:
 
 
 try:
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.pipelines.cli.commands)
+except ImportError as e:
+    pass
+
+
+try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import
 
     cli.add_command(mlflow.sagemaker.cli.commands)
