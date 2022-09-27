@@ -41,7 +41,7 @@ def score_model(path, host, port):
     response = requests.post(
         url="{host}:{port}/invocations".format(host=host, port=port),
         data={
-          "dataframe_split": data,
+            "dataframe_split": data,
         },
         headers={"Content-Type": "application/json"},
     )
