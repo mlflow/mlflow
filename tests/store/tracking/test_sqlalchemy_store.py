@@ -1408,11 +1408,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=123,
-                tags=[
-                    entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
-                    entities.RunTag("metric", names[1]),
-                ],
-                run_name="name",
+                tags=[entities.RunTag("metric", names[1])],
+                run_name=name,
             ).info.run_id
             if names[0] is not None:
                 self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
@@ -1470,8 +1467,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=start_time,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)],
-                run_name="name",
+                tags=[],
+                run_name=str(end),
             ).info.run_id
 
         start_time = 123
@@ -1484,19 +1481,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         # asc
         self.assertListEqual(
-            ["-123", "123", "234", "456", "789", None],
+            ["-123", "123", "234", "456", "789", "None"],
             self.get_ordered_runs(["attribute.end_time asc"], experiment_id),
         )
 
         # desc
         self.assertListEqual(
-            ["789", "456", "234", "123", "-123", None],
+            ["789", "456", "234", "123", "-123", "None"],
             self.get_ordered_runs(["attribute.end_time desc"], experiment_id),
         )
 
         # Sort priority correctly handled
         self.assertListEqual(
-            ["234", None, "456", "-123", "789", "123"],
+            ["234", "None", "456", "-123", "789", "123"],
             self.get_ordered_runs(
                 ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
             ),

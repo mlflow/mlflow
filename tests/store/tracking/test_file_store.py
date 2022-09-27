@@ -677,7 +677,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 0
+        assert len(no_tags_run.data.tags) == 1
 
         run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
@@ -695,7 +695,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
-        assert tags_run.data.tags == tags_dict
+        assert tags_run.data.tags == {**tags_dict, MLFLOW_RUN_NAME: tags_run.info.run_name}
 
     def test_create_run_sets_name(self):
         fs = FileStore(self.test_root)
