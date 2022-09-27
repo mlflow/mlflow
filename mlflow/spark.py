@@ -780,8 +780,6 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
 
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     if _should_use_mlflowdbfs(model_uri):
         from pyspark.ml.pipeline import PipelineModel
@@ -794,6 +792,8 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     return _load_model(
         model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir, local_model_path=local_model_path
     )
