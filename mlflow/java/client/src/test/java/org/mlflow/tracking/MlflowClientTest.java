@@ -544,7 +544,7 @@ public class MlflowClientTest {
       Arrays.asList(1L, -5L, 4L, 4L));
 
     List<RunTag> tags = run.getData().getTagsList();
-    Assert.assertEquals(tags.size(), 1);
+    Assert.assertEquals(tags.size(), 2);
     assertTag(tags, "user_email", USER_EMAIL);
   }
 

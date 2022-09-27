@@ -75,7 +75,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -571,6 +571,8 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
+        if run_name is not None:
+            self.set_tag(run_id, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
         return new_info
 
@@ -615,6 +617,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        tags = tags or []
+        tags.append(RunTag(MLFLOW_RUN_NAME, run_name))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)

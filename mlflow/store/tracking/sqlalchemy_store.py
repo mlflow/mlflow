@@ -11,6 +11,7 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 from sqlalchemy.future import select
 
+from mlflow.entities import RunTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -55,7 +56,7 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -547,8 +548,9 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            if tags is not None:
-                run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
+            tags = tags or []
+            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -618,6 +620,11 @@ class SqlAlchemyStore(AbstractStore):
             run.end_time = end_time
             if run_name is not None:
                 run.name = run_name
+                run_name_tag = self._try_get_run_tag(session, run_id, MLFLOW_RUN_NAME)
+                if run_name_tag is None:
+                    run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
+                else:
+                    run_name_tag.value = run_name
 
             self._save_to_db(objs=run, session=session)
             run = run.to_mlflow_entity()
