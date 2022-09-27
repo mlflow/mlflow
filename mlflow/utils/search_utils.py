@@ -112,31 +112,28 @@ class SearchUtils:
     @staticmethod
     def get_sql_comparison_func(comparator, dialect):
         def comparison_func(column, value):
-            return {
-                ">": column.__gt__,
-                ">=": column.__ge__,
-                "<=": column.__le__,
-                "<": column.__lt__,
-                "=": column.__eq__,
-                "!=": column.__ne__,
-                "LIKE": column.like,
-                "ILIKE": column.ilike,
-            }[comparator](value)
+            if comparator == "LIKE":
+                return column.like(value)
+            elif comparator == "ILIKE":
+                return column.ilike(value)
+            return SearchUtils.get_comparison_func(comparator)(column, value)
 
         def mssql_comparison_func(column, value):
             collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
-            template = {
+            # MySQL is case insensitive by default, so we need to use the binary operator to
+            # perform case sensitive comparisons.
+            templates = {
                 # Use non-binary ahead of binary comparison for runtime performance
                 "=": "({column} = :value AND BINARY {column} = :value)",
                 "!=": "({column} != :value OR BINARY {column} != :value)",
                 "LIKE": "({column} LIKE :value AND BINARY {column} LIKE :value)",
-            }.get(comparator)
-            if template:
+            }
+            if comparator in templates:
                 column = f"{column.class_.__tablename__}.{column.key}"
-                return sa.text(template.format(column=column)).bindparams(
+                return sa.text(templates[comparator].format(column=column)).bindparams(
                     sa.bindparam("value", value=value, unique=True)
                 )
 
