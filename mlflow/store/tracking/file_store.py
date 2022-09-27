@@ -75,7 +75,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -635,6 +635,10 @@ class FileStore(AbstractStore):
         metrics = self._get_all_metrics(run_info)
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
+        if not run_info.run_name:
+            run_name = _get_run_name_from_tags(tags)
+            if run_name:
+                run_info._set_run_name(run_name)
         return Run(run_info, RunData(metrics, params, tags))
 
     def _get_run_info(self, run_uuid):
