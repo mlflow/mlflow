@@ -4,6 +4,7 @@ from unittest import mock, TestCase
 
 from mlflow.store.db import utils
 from sqlalchemy.pool import NullPool
+from sqlalchemy.pool.impl import QueuePool
 
 
 def test_create_sqlalchemy_engine_inject_pool_options():
@@ -14,7 +15,7 @@ def test_create_sqlalchemy_engine_inject_pool_options():
             "MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE": "3600",
             "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW": "4",
             "MLFLOW_SQLALCHEMYSTORE_ECHO": "TRUE",
-            "MLFLOW_SQLALCHEMYSTORE_DISABLE_POOLING": "TRUE",
+            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "QueuePool",
         },
     ):
         with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
@@ -26,8 +27,36 @@ def test_create_sqlalchemy_engine_inject_pool_options():
                 max_overflow=4,
                 pool_recycle=3600,
                 echo=True,
+                poolclass=QueuePool,
+            )
+
+
+def test_create_sqlalchemy_engine_null_pool():
+    with mock.patch.dict(
+        os.environ,
+        {
+            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "NullPool",
+        },
+    ):
+        with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+            utils.create_sqlalchemy_engine("mydb://host:port/")
+            mock_create_engine.assert_called_once_with(
+                "mydb://host:port/",
+                pool_pre_ping=True,
                 poolclass=NullPool,
             )
+
+
+def test_create_sqlalchemy_engine_invalid_pool():
+    with mock.patch.dict(
+        os.environ,
+        {
+            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "SomethingInvalid",
+        },
+    ):
+        with mock.patch("sqlalchemy.create_engine"):
+            with pytest.raises(Exception, match=r"Invalid poolclass parameter.*"):
+                utils.create_sqlalchemy_engine("mydb://host:port/")
 
 
 def test_create_sqlalchemy_engine_no_pool_options():

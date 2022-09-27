@@ -157,10 +157,10 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
 
-#: Specifies whether to set the poolclass parameter to NullPool to disable pooling.
-#: See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass
+#: Specifies the ``poolclass`` parameter to use for ``sqlalchemy.create_engine`` in the
+#: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass
 #: for more information.
-#: (default: ``False``)
-MLFLOW_SQLALCHEMYSTORE_DISABLE_POOLING = _BooleanEnvironmentVariable(
-    "MLFLOW_SQLALCHEMYSTORE_DISABLE_POOLING", False
+#: (default: ``None``)
+MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_POOLCLASS", str, None
 )
