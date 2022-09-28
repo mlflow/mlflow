@@ -1139,9 +1139,28 @@ def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
 
 def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
-    assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == {
+    assert get_feature_cols(input_df_with_non_features, pipeline_model) == {
         "id"
     }, "Wrong feature columns returned"
+
+
+def test_get_feature_cols_with_indexer_and_assembler(spark_session):
+    df = spark_session.createDataFrame(
+        [
+            (0, "a", 0),
+            (1, "b", 0),
+            (0, "c", 0),
+            (1, "a", 0),
+            (0, "a", 0),
+            (1, "c", 0),
+        ]
+    ).toDF("label", "categorical", "unused")
+    indexer = StringIndexer(inputCol="categorical", outputCol="indexed")
+    assembler = VectorAssembler(inputCols=["indexed"], outputCol="features")
+    lr = LogisticRegression()
+    pipeline = Pipeline(stages=[indexer, assembler, lr])
+    pipeline_model = pipeline.fit(df)
+    assert get_feature_cols(df, pipeline_model) == {"categorical"}
 
 
 def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):

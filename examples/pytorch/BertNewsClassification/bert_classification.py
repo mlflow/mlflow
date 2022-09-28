@@ -429,6 +429,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
+    if "devices" in dict_args:
+        if dict_args["devices"] == "None":
+            dict_args["devices"] = None
+
     if "strategy" in dict_args:
         if dict_args["strategy"] == "None":
             dict_args["strategy"] = None
@@ -459,9 +463,9 @@ if __name__ == "__main__":
     # autolog with only rank 0 gpu.
 
     # For CPU Training
-    if dict_args["gpus"] is None or int(dict_args["gpus"]) == 0:
+    if dict_args["devices"] is None or int(dict_args["devices"]) == 0:
         mlflow.pytorch.autolog()
-    elif int(dict_args["gpus"]) >= 1 and trainer.global_rank == 0:
+    elif int(dict_args["devices"]) >= 1 and trainer.global_rank == 0:
         # In case of multi gpu training, the training script is invoked multiple times,
         # The following condition is needed to avoid multiple copies of mlflow runs.
         # When one or more gpus are used for training, it is enough to save

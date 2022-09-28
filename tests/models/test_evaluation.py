@@ -18,6 +18,7 @@ import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
 import os
+import signal
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
@@ -34,6 +35,8 @@ from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.models.evaluation.base import _logger as _base_logger, _gen_md5_for_arraylike_obj
+from mlflow.pyfunc import _ServedPyFuncModel
+from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
 from sklearn.metrics import (
     accuracy_score,
@@ -1001,3 +1004,117 @@ def test_normalize_evaluators_and_evaluator_config_args():
         match="evaluator_config must be a dict contains mapping from evaluator name to",
     ):
         _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})
+
+
+def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, iris_dataset):
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+    ):
+        with pytest.raises(MlflowException, match="The model argument must be a string URI"):
+            evaluate(
+                model,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators=None,
+                baseline_model=multiclass_logistic_regressor_model_uri,
+                env_manager="virtualenv",
+            )
+
+        with pytest.raises(MlflowException, match="Invalid value for `env_manager`"):
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators=None,
+                baseline_model=multiclass_logistic_regressor_model_uri,
+                env_manager="manager",
+            )
+
+
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
+    class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            pass
+
+        def predict(self, context, model_input):
+
+            if sklearn.__version__ == "0.22.1":
+                pred_value = 1
+            else:
+                pred_value = 0
+
+            return model_input.apply(lambda row: pred_value, axis=1)
+
+    class FakeEvauatorEnv(ModelEvaluator):
+        def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+            return True
+
+        def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+            y = model.predict(pd.DataFrame(dataset.features_data))
+            return EvaluationResult(metrics={"test": y[0]}, artifacts={})
+
+    model_path = os.path.join(str(tmpdir), "model")
+
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=EnvRestoringTestModel(),
+        pip_requirements=[
+            "scikit-learn==0.22.1",
+        ],
+    )
+
+    with mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"test_evaluator_env": FakeEvauatorEnv},
+    ):
+        result = evaluate(
+            model_path,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators=None,
+            env_manager=env_manager,
+        )
+        assert result.metrics["test"] == 1
+
+
+def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_uri, iris_dataset):
+    # Mock the _load_model_or_server() results to avoid starting model servers
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    client = ScoringServerClient("127.0.0.1", "8080")
+    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
+    served_model_2 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=2)
+
+    with mock.patch.object(
+        _model_evaluation_registry,
+        "_registry",
+        {"test_evaluator1": FakeEvauator1},
+    ), mock.patch.object(FakeEvauator1, "can_evaluate", return_value=True), mock.patch.object(
+        FakeEvauator1, "evaluate", return_value=EvaluationResult(metrics={}, artifacts={})
+    ), mock.patch(
+        "mlflow.pyfunc._load_model_or_server"
+    ) as server_loader, mock.patch(
+        "os.kill"
+    ) as os_mock:
+        server_loader.side_effect = [served_model_1, served_model_2]
+        evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators=None,
+            baseline_model=multiclass_logistic_regressor_model_uri,
+            env_manager="virtualenv",
+        )
+        assert os_mock.call_count == 2
+        os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])

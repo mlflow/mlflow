@@ -55,6 +55,7 @@ describe('ShowArtifactPage', () => {
   test('should render logged model view when path is in runs tag logged model history', () => {
     wrapper.setProps({
       path: 'somePath',
+      isDirectory: true,
       runTags: {
         'mlflow.log-model.history': RunTag.fromJs({
           key: 'mlflow.log-model.history',
@@ -62,6 +63,26 @@ describe('ShowArtifactPage', () => {
             {
               run_id: 'run-uuid',
               artifact_path: 'somePath',
+              flavors: { keras: {}, python_function: {} },
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.find(ShowArtifactLoggedModelView).length).toBe(1);
+  });
+
+  test('should render logged model view when path is nested in subdirectory', () => {
+    wrapper.setProps({
+      path: 'dir/somePath',
+      isDirectory: true,
+      runTags: {
+        'mlflow.log-model.history': RunTag.fromJs({
+          key: 'mlflow.log-model.history',
+          value: JSON.stringify([
+            {
+              run_id: 'run-uuid',
+              artifact_path: 'dir/somePath',
               flavors: { keras: {}, python_function: {} },
             },
           ]),

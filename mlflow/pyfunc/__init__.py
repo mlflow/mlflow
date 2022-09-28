@@ -227,6 +227,7 @@ import mlflow
 import mlflow.pyfunc.model
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
     PyFuncInput,
@@ -523,10 +524,84 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    loader_module = conf[MAIN]
-    model_impl = importlib.import_module(loader_module)._load_pyfunc(data_path)
+    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+
+
+class _ServedPyFuncModel(PyFuncModel):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int):
+        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
+        self._client = client
+        self._server_pid = server_pid
+
+    def predict(self, data):
+        result = self._client.invoke(data).get_predictions()
+        if isinstance(result, pandas.DataFrame):
+            result = result[result.columns[0]]
+        return result
+
+    @property
+    def pid(self):
+        if self._server_pid is None:
+            raise MlflowException("Served PyFunc Model is missing server process ID.")
+        return self._server_pid
+
+
+def _load_model_or_server(model_uri: str, env_manager: str):
+    """
+    Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
+    independent Python environment with the training time dependencies of the specified model
+    installed and start a MLflow Model Scoring Server process with that model in that environment.
+    Return a _ServedPyFuncModel that invokes the scoring server for prediction. Otherwise, load and
+    return the model locally as a PyFuncModel using :py:func:`mlflow.pyfunc.load_model`.
+
+    :param model_uri: The uri of the model.
+    :param env_manager: The environment manager to load the model.
+    :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
+    """
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+    if env_manager == _EnvManager.LOCAL:
+        return load_model(model_uri)
+
+    _logger.info("Starting model server for model environment restoration.")
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    pyfunc_backend = get_flavor_backend(
+        local_path,
+        env_manager=env_manager,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=True,
+    )
+    _logger.info("Restoring model environment. This can take a few minutes.")
+    # Set capture_output to True in Databricks so that when environment preparation fails, the
+    # exception message of the notebook cell output will include child process command execution
+    # stdout/stderr output.
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
+    server_port = find_free_port()
+    scoring_server_proc = pyfunc_backend.serve(
+        model_uri=local_path,
+        port=server_port,
+        host="127.0.0.1",
+        timeout=60,
+        enable_mlserver=False,
+        synchronous=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+    client = ScoringServerClient("127.0.0.1", server_port)
+    try:
+        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+    except Exception:
+        raise MlflowException("MLflow model server failed to launch")
+
+    return _ServedPyFuncModel(
+        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
+    )
 
 
 def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
@@ -787,7 +862,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         LongType,
         StringType,
     )
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")

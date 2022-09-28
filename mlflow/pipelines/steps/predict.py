@@ -8,9 +8,12 @@ from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VA
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
-from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._spark_utils import (
+    _get_active_spark_session,
+    _create_local_spark_session_for_pipelines,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,7 +50,9 @@ class PredictStep(BaseStep):
                 sample_percentage = _MAX_PROFILE_SIZE / scored_size
                 scored_sdf = scored_sdf.sample(sample_percentage)
             scored_df = scored_sdf.toPandas()
-            scored_dataset_profile = get_pandas_data_profile(scored_df, "Profile of Scored Dataset")
+            scored_dataset_profile = get_pandas_data_profiles(
+                [["Profile of Scored Dataset", scored_df]]
+            )
 
             # Optional tab : data profile for scored data:
             card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
@@ -80,6 +85,11 @@ class PredictStep(BaseStep):
         # Get or create spark session
         try:
             spark = _get_active_spark_session()
+            if spark:
+                _logger.info("Found active spark session")
+            else:
+                spark = _create_local_spark_session_for_pipelines()
+                _logger.info("Creating new spark session")
         except Exception as e:
             raise MlflowException(
                 message=(

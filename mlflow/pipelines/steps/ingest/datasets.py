@@ -26,7 +26,10 @@ from mlflow.utils.file_utils import (
     read_parquet_as_pandas_df,
     download_file_using_http_uri,
 )
-from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._spark_utils import (
+    _get_active_spark_session,
+    _create_local_spark_session_for_pipelines,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -234,7 +237,7 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
 
     def resolve_to_parquet(self, dst_path: str):
         with TempDir(chdr=True) as tmpdir:
-            _logger.info("Resolving input data from '%s'", self.location)
+            _logger.debug("Resolving input data from '%s'", self.location)
             local_dataset_path = _DownloadThenConvertDataset._download_dataset(
                 dataset_location=self.location,
                 dst_path=tmpdir.path(),
@@ -267,8 +270,8 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                     )
                 dataset_file_paths = [local_dataset_path]
 
-            _logger.info("Resolved input data to '%s'", local_dataset_path)
-            _logger.info("Converting dataset to parquet format, if necessary")
+            _logger.debug("Resolved input data to '%s'", local_dataset_path)
+            _logger.debug("Converting dataset to parquet format, if necessary")
             return self._convert_to_parquet(
                 dataset_file_paths=dataset_file_paths,
                 dst_path=dst_path,
@@ -495,14 +498,20 @@ class _SparkDatasetMixin:
     and conversion to parquet format.
     """
 
-    def _get_spark_session(self):
+    def _get_or_create_spark_session(self):
         """
         Obtains the active Spark session, throwing if a session does not exist.
 
         :return: The active Spark session.
         """
         try:
-            return _get_active_spark_session()
+            spark_session = _get_active_spark_session()
+            if spark_session:
+                _logger.debug("Found active spark session")
+            else:
+                spark_session = _create_local_spark_session_for_pipelines()
+                _logger.debug("Creating new spark session")
+            return spark_session
         except Exception as e:
             raise MlflowException(
                 message=(
@@ -543,7 +552,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         self.timestamp = timestamp
 
     def resolve_to_parquet(self, dst_path: str):
-        spark_session = self._get_spark_session()
+        spark_session = self._get_or_create_spark_session()
         spark_read_op = spark_session.read.format("delta")
         if self.version is not None:
             spark_read_op = spark_read_op.option("versionAsOf", self.version)
@@ -584,7 +593,7 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
         self.sql = sql
 
     def resolve_to_parquet(self, dst_path: str):
-        spark_session = self._get_spark_session()
+        spark_session = self._get_or_create_spark_session()
         spark_df = spark_session.sql(self.sql)
         pandas_df = spark_df.toPandas()
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)

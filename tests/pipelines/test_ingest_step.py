@@ -535,6 +535,26 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spark_df, tmp_path):
+    dataset_path = tmp_path / "test.delta"
+    spark_df.write.format("delta").save(str(dataset_path))
+
+    with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+    ) as _get_active_spark_session:
+        _get_active_spark_session.return_value = None
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "delta",
+                    "location": str(dataset_path),
+                }
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_dataset_format_unspecified():
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
         IngestStep.from_pipeline_config(
@@ -641,7 +661,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {

@@ -47,10 +47,11 @@ class EvaluateStep(BaseStep):
         self.target_col = self.step_config.get("target_col")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
+        self.user_defined_custom_metrics = {
+            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+        }
         self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
-        self.evaluation_metrics.update(
-            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
-        )
+        self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -213,13 +214,16 @@ class EvaluateStep(BaseStep):
         card = BaseCard(self.pipeline_name, self.name)
         # Tab 0: model performance summary.
         metric_df = (
-            get_merged_eval_metrics(eval_metrics, ordered_metric_names=[self.primary_metric])
+            get_merged_eval_metrics(
+                eval_metrics,
+                ordered_metric_names=[self.primary_metric, *self.user_defined_custom_metrics],
+            )
             .reset_index()
             .rename(columns={"index": "Metric"})
         )
 
         def row_style(row):
-            if row.Metric == self.primary_metric:
+            if row.Metric == self.primary_metric or row.Metric in self.user_defined_custom_metrics:
                 return pd.Series("font-weight: bold", row.index)
             else:
                 return pd.Series("", row.index)
@@ -231,7 +235,7 @@ class EvaluateStep(BaseStep):
         )
 
         card.add_tab(
-            "Model Performance Summary Metrics",
+            "Model Performance (Test)",
             "<h3 class='section-title'>Summary Metrics</h3>"
             "<b>NOTE</b>: Use evaluation metrics over test dataset with care. "
             "Fine-tuning model over the test dataset is not advised."
@@ -257,7 +261,7 @@ class EvaluateStep(BaseStep):
             criteria_html = BaseCard.render_table(
                 result_df.style.format({"value": "{:.6g}", "threshold": "{:.6g}"})
             )
-            card.add_tab("Model Validation Results", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
+            card.add_tab("Model Validation", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
                 "METRIC_VALIDATION_RESULTS",
                 "<h3 class='section-title'>Model Validation Results (Test Dataset)</h3> "
                 + criteria_html,
@@ -265,7 +269,8 @@ class EvaluateStep(BaseStep):
 
         # Tab 2: SHAP plots.
         shap_plot_tab = card.add_tab(
-            "Feature Importance (Validation Dataset)",
+            "Feature Importance",
+            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
             '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
             '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
         )
@@ -304,6 +309,30 @@ class EvaluateStep(BaseStep):
             run_id=run_id,
             artifact_path=f"train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}",
         )
+        run_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+        )
+        model_uri = f"runs:/{run_id}/train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}"
+        model_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+            artifact_path=f"train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}",
+        )
+
+        if run_url is not None:
+            run_summary_card_tab.add_html(
+                "RUN_ID", f"<b>MLflow Run ID:</b> <a href={run_url}>{run_id}</a><br><br>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("RUN_ID", f"**MLflow Run ID:** `{run_id}`")
+
+        if model_url is not None:
+            run_summary_card_tab.add_html(
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
         if run_url is not None:
             run_summary_card_tab.add_html(
