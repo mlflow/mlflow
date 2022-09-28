@@ -1,5 +1,4 @@
 import os
-import sys
 import cloudpickle
 from pathlib import Path
 import pytest
