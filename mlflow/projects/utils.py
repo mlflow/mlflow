@@ -251,14 +251,16 @@ def _fetch_zip_repo(uri):
     return BytesIO(response.content)
 
 
-def get_or_create_run(run_id, uri, experiment_id, work_dir, version, entry_point, parameters):
+def get_or_create_run(
+    run_id, uri, experiment_id, work_dir, version, entry_point, parameters, run_name
+):
     if run_id:
         return tracking.MlflowClient().get_run(run_id)
     else:
-        return _create_run(uri, experiment_id, work_dir, version, entry_point, parameters)
+        return _create_run(uri, experiment_id, work_dir, version, entry_point, parameters, run_name)
 
 
-def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
+def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters, run_name):
     """
     Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
@@ -295,7 +297,9 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     if _is_valid_branch_name(work_dir, version):
         tags[MLFLOW_GIT_BRANCH] = version
         tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = version
-    active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
+    active_run = tracking.MlflowClient().create_run(
+        experiment_id=experiment_id, tags=tags, run_name=run_name
+    )
 
     project = _project_spec.load_project(work_dir)
     # Consolidate parameters for logging.

@@ -26,7 +26,7 @@ from mlflow.projects.utils import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
 from mlflow.utils import env_manager as _EnvManager
 import mlflow.utils.uri
 
@@ -100,12 +100,11 @@ def _run(
                 backend_config,
                 tracking_store_uri,
                 experiment_id,
+                run_name,
             )
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name
             )
-            if run_name is not None:
-                tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
             return submitted_run
 
     work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
@@ -113,11 +112,8 @@ def _run(
     _validate_execution_environment(project, backend_name)
 
     active_run = get_or_create_run(
-        None, uri, experiment_id, work_dir, version, entry_point, parameters
+        None, uri, experiment_id, work_dir, version, entry_point, parameters, run_name
     )
-
-    if run_name is not None:
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(
@@ -252,7 +248,7 @@ def run(
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
     :param run_name: The name to give the MLflow Run associated with the project execution.
-                     If ``None``, the MLflow Run name is left unset.
+                     If ``None``, the MLflow Run name will be automatically generated.
     :param env_manager: Specify an environment manager to create a new environment for the run and
                         install project dependencies within that environment. The following values
                         are supported:

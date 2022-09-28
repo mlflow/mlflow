@@ -30,6 +30,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PROJECT_BACKEND,
     MLFLOW_PROJECT_ENV,
+    MLFLOW_RUN_NAME,
 )
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.conda import get_or_create_conda_env
@@ -130,6 +131,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
         parameters={"use_start_run": use_start_run},
         use_conda=False,
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        run_name="my_project",
     )
 
     # Blocking runs should be finished when they return
@@ -150,13 +152,14 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
-
+    assert run.info.run_name == "my_project"
     assert run.data.params == {
         "use_start_run": use_start_run,
     }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
+    assert tags[MLFLOW_RUN_NAME] == "my_project"
     assert tags[MLFLOW_USER] == MOCK_USER
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
@@ -191,6 +194,7 @@ def test_run(use_start_run):
         parameters={"use_start_run": use_start_run},
         use_conda=False,
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        run_name="my_project",
     )
     assert submitted_run.run_id is not None
     # Blocking runs should be finished when they return
@@ -212,13 +216,14 @@ def test_run(use_start_run):
     run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
-
+    assert run.info.run_name == "my_project"
     assert run.data.params == {
         "use_start_run": use_start_run,
     }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
+    assert tags[MLFLOW_RUN_NAME] == "my_project"
     assert tags[MLFLOW_USER] == MOCK_USER
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
@@ -235,12 +240,14 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
             parameters={"use_start_run": "1"},
             use_conda=False,
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            run_name="my_nested_project",
         )
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     run_id = submitted_run.run_id
     run = MlflowClient().get_run(run_id)
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
+    assert run.info.run_name == "my_nested_project"
 
 
 def test_run_with_artifact_path(tmpdir):

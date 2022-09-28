@@ -196,6 +196,7 @@ def test_fetch_create_and_log(tmpdir):
     expected_dir = tmpdir
     project_uri = "http://someuri/myproject.git"
     user_param = {"method_name": "newton"}
+    run_name = "my_project"
     with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
         with mock.patch(
             "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
@@ -213,6 +214,7 @@ def test_fetch_create_and_log(tmpdir):
                 version=None,
                 entry_point=entry_point_name,
                 parameters=user_param,
+                run_name=run_name,
             )
 
             # check tags
@@ -222,3 +224,4 @@ def test_fetch_create_and_log(tmpdir):
             assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
             assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
             assert user_param == run.data.params
+            assert run_name == run.info.run_name

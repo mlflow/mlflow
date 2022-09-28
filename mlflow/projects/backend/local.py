@@ -64,7 +64,15 @@ def _env_type_to_env_manager(env_typ):
 
 class LocalBackend(AbstractBackend):
     def run(
-        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
+        self,
+        project_uri,
+        entry_point,
+        params,
+        version,
+        backend_config,
+        tracking_uri,
+        experiment_id,
+        run_name,
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)
@@ -73,7 +81,7 @@ class LocalBackend(AbstractBackend):
         else:
             run_id = None
         active_run = get_or_create_run(
-            run_id, project_uri, experiment_id, work_dir, version, entry_point, params
+            run_id, project_uri, experiment_id, work_dir, version, entry_point, params, run_name
         )
         command_args = []
         command_separator = " "
