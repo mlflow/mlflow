@@ -113,7 +113,11 @@ class PredictStep(BaseStep):
         if output_format == "parquet" or output_format == "delta":
             output_populated = os.path.exists(output_location)
         else:
-            output_populated = spark.catalog.tableExists(output_location)
+            try:
+                output_populated = spark._jsparkSession.catalog().tableExists(output_location)
+            except Exception:
+                # swallow spark failures
+                output_populated = False
         if output_populated:
             raise MlflowException(
                 message=(
