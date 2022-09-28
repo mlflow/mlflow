@@ -45,7 +45,7 @@ from pyspark.sql.functions import pandas_udf
 from pyspark.sql.functions import col, struct
 
 
-prediction = [int(1), int(2), "class1", float(0.1), 0.2]
+prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
 
 
@@ -152,12 +152,12 @@ def test_spark_udf(spark, model_path):
             t = ArrayType(spark_type) if is_array else spark_type
             if tname == "string":
                 expected = prediction_df.applymap(str)
-            elif tname == "bool":
-                expected = prediction_df.astype(bool)
             else:
                 expected = prediction_df.select_dtypes(np_type)
                 if tname == "float":
                     expected = expected.astype(np.float32)
+                if tname == "bool":
+                    expected = expected.astype(bool)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
             pyfunc_udf = spark_udf(spark, model_path, result_type=t)
