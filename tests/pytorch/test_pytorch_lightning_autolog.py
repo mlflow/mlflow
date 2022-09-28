@@ -45,7 +45,9 @@ def pytorch_model_without_validation():
 @pytest.fixture(params=[(1, 1), (1, 10), (2, 1)])
 def pytorch_model_with_steps_logged(request):
     log_every_n_epoch, log_every_n_step = request.param
-    mlflow.pytorch_lightning.autolog(log_every_n_epoch=log_every_n_epoch, log_every_n_step=log_every_n_step)
+    mlflow.pytorch_lightning.autolog(
+        log_every_n_epoch=log_every_n_epoch, log_every_n_step=log_every_n_step
+    )
     model = IrisClassification()
     dm = IrisDataModule()
     dm.setup(stage="fit")

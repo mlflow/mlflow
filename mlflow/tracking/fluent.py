@@ -1682,7 +1682,7 @@ def autolog(
         sklearn,
         fastai,
         pytorch,
-        pytorch_lightning
+        pytorch_lightning,
     )
 
     locals_copy = locals().items()

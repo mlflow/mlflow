@@ -31,4 +31,3 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
     run = client.get_run(run_id)
     assert run.data.params == dict(hparam1="42", hparam2="foo")
     assert run.data.metrics == dict(loss=64.0, final_loss=8)
-
