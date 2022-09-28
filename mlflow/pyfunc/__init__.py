@@ -227,6 +227,7 @@ import mlflow
 import mlflow.pyfunc.model
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
     PyFuncInput,
@@ -861,7 +862,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         LongType,
         StringType,
     )
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
