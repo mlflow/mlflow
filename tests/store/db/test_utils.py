@@ -31,13 +31,8 @@ def test_create_sqlalchemy_engine_inject_pool_options():
             )
 
 
-def test_create_sqlalchemy_engine_null_pool():
-    with mock.patch.dict(
-        os.environ,
-        {
-            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "NullPool",
-        },
-    ):
+def test_create_sqlalchemy_engine_null_pool(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "NullPool")
         with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
             utils.create_sqlalchemy_engine("mydb://host:port/")
             mock_create_engine.assert_called_once_with(
