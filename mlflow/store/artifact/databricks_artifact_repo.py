@@ -265,10 +265,22 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
             # next try to patch the file
             offset = 0
+            is_first_chunk = True
+            use_single_part_upload = False
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 try:
-                    patch_adls_file_upload(credentials.signed_uri, chunk, offset, headers=headers)
-                    offset += len(chunk)
+                    cur_offset = len(chunk)
+                    if is_first_chunk and cur_offset < _AZURE_MAX_BLOCK_CHUNK_SIZE:
+                        use_single_part_upload = True
+                    patch_adls_file_upload(
+                        credentials.signed_uri,
+                        chunk,
+                        offset,
+                        headers=headers,
+                        is_single=use_single_part_upload,
+                    )
+                    is_first_chunk = False
+                    offset += cur_offset
                 except requests.HTTPError as e:
                     if e.response.status_code in [401, 403]:
                         _logger.info(
@@ -279,14 +291,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
                             run_id=self.run_id, paths=[artifact_path]
                         )[0]
                         patch_adls_file_upload(
-                            credential_info.signed_uri, chunk, offset, headers=headers
+                            credential_info.signed_uri,
+                            chunk,
+                            offset,
+                            headers=headers,
+                            is_single=use_single_part_upload,
                         )
                     else:
                         raise e
 
             # finally flush the file
             try:
-                patch_adls_flush(credentials.signed_uri, offset, headers=headers)
+                if not use_single_part_upload:
+                    patch_adls_flush(credentials.signed_uri, offset, headers=headers)
             except requests.HTTPError as e:
                 if e.response.status_code in [401, 403]:
                     _logger.info(
