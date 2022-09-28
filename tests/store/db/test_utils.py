@@ -47,13 +47,8 @@ def test_create_sqlalchemy_engine_null_pool():
             )
 
 
-def test_create_sqlalchemy_engine_invalid_pool():
-    with mock.patch.dict(
-        os.environ,
-        {
-            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "SomethingInvalid",
-        },
-    ):
+def test_create_sqlalchemy_engine_invalid_pool(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "SomethingInvalid")
         with mock.patch("sqlalchemy.create_engine"):
             with pytest.raises(Exception, match=r"Invalid poolclass parameter.*"):
                 utils.create_sqlalchemy_engine("mydb://host:port/")
