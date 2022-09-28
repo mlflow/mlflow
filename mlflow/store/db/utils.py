@@ -224,8 +224,8 @@ def create_sqlalchemy_engine(db_uri):
         if poolclass not in pool_class_map:
             list_str = " ".join(pool_class_map.keys())
             err_str = (
-                "Invalid poolclass parameter. Provide set environment variable "
-                "poolclass to empty or one of the following values: " + list_str
+                f"Invalid poolclass parameter: {poolclass}. Provide set environment variable "
+                f"poolclass to empty or one of the following values: {list_str}"
             )
             _logger.warning(err_str)
             raise ValueError(err_str)
