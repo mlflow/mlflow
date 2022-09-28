@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from pathlib import Path
 
 import pytest
 from unittest import mock
@@ -1029,6 +1030,23 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        # Test run_name filter works for runs logged in MLflow <= 1.29.0
+        run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
+        without_run_name = run_meta_path.read_text().replace("run_name: run_name1\n", "")
+        run_meta_path.write_text(without_run_name)
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
