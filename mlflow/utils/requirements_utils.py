@@ -6,6 +6,7 @@ This module provides a set of utilities for interpreting and creating requiremen
 import json
 import sys
 import subprocess
+from threading import Timer
 import tempfile
 import os
 import pkg_resources
@@ -198,24 +199,29 @@ def _prune_packages(packages):
     return packages - requires
 
 
-def _run_command(cmd, env=None):
+def _run_command(cmd, timeout_seconds, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-    stdout, stderr = proc.communicate()
-    stdout = stdout.decode("utf-8")
-    stderr = stderr.decode("utf-8")
-    if proc.returncode != 0:
-        msg = "\n".join(
-            [
-                f"Encountered an unexpected error while running {cmd}",
-                f"exit status: {proc.returncode}",
-                f"stdout: {stdout}",
-                f"stderr: {stderr}",
-            ]
-        )
-        raise MlflowException(msg)
+    timer = Timer(timeout_seconds, proc.kill)
+    try:
+        timer.start()
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        stderr = stderr.decode("utf-8")
+        if proc.returncode != 0:
+            msg = "\n".join(
+                [
+                    f"Encountered an unexpected error while running {cmd}",
+                    f"exit status: {proc.returncode}",
+                    f"stdout: {stdout}",
+                    f"stderr: {stderr}",
+                ]
+            )
+            raise MlflowException(msg)
+    finally:
+        timer.cancel()
 
 
 def _get_installed_version(package, module=None):
@@ -260,6 +266,8 @@ def _capture_imported_modules(model_uri, flavor):
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
+    process_timeout = os.environ.get("REQUIREMENTS_INFERENCE_TIMEOUT", 300)
+
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
         output_file = os.path.join(tmpdir, "imported_modules.txt")
@@ -280,6 +288,7 @@ def _capture_imported_modules(model_uri, flavor):
                 "--sys-path",
                 json.dumps(sys.path),
             ],
+            timeout_seconds=process_timeout,
             env=main_env,
         )
         with open(output_file) as f:

@@ -122,7 +122,7 @@ def main():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
     if flavor == mlflow.spark.FLAVOR_NAME and not is_in_databricks_runtime():
-        # Create a local spark environment within the subprocess
+        # Create a local spark environment within the subprocess if using OSS Spark
         from pyspark.sql import SparkSession
 
         SparkSession.builder.config("spark.python.worker.reuse", "true").config(
