@@ -536,7 +536,7 @@ class _ServedPyFuncModel(PyFuncModel):
         self._server_pid = server_pid
 
     def predict(self, data):
-        result = self._client.invoke(data)
+        result = self._client.invoke(data).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
         return result
