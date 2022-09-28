@@ -121,6 +121,21 @@ def main():
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
+    if flavor == mlflow.spark.FLAVOR_NAME and not is_in_databricks_runtime():
+        # Create a local spark environment within the subprocess
+        from pyspark.sql import SparkSession
+
+        SparkSession.builder.config("spark.python.worker.reuse", "true").config(
+            "spark.databricks.io.cache.enabled", "false"
+        ).config("spark.executor.allowSparkContext", "true").config(
+            "spark.driver.bindAddress", "127.0.0.1"
+        ).config(
+            "spark.driver.extraJavaOptions",
+            "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
+        ).master(
+            "local[1]"
+        ).getOrCreate()
+
     cap_cm = _CaptureImportedModules()
 
     # If `model_path` refers to an MLflow model directory, load the model using

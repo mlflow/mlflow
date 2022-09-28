@@ -198,11 +198,11 @@ def _prune_packages(packages):
     return packages - requires
 
 
-def _run_command(cmd):
+def _run_command(cmd, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     stdout, stderr = proc.communicate()
     stdout = stdout.decode("utf-8")
     stderr = stderr.decode("utf-8")
@@ -263,6 +263,10 @@ def _capture_imported_modules(model_uri, flavor):
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
         output_file = os.path.join(tmpdir, "imported_modules.txt")
+        # Pass the main environment variables to the subprocess for environment variable mapping
+        main_env = os.environ.copy()
+        main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+
         _run_command(
             [
                 sys.executable,
@@ -276,6 +280,7 @@ def _capture_imported_modules(model_uri, flavor):
                 "--sys-path",
                 json.dumps(sys.path),
             ],
+            env=main_env,
         )
         with open(output_file) as f:
             return f.read().splitlines()
