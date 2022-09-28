@@ -1,20 +1,20 @@
-import subprocess
-
 import pytest
+from click.testing import CliRunner
+
+from mlflow.sagemaker.cli import build_and_push_container
 
 
 @pytest.mark.parametrize("env_manager", ["conda", "virtualenv"])
 def test_build_docker(env_manager):
-    subprocess.run(
+    res = CliRunner().invoke(
+        build_and_push_container,
         [
-            "mlflow",
-            "sagemaker",
-            "build-and-push-container",
             "--no-push",
             "--mlflow-home",
             ".",
             "--env-manager",
             env_manager,
         ],
-        check=True,
+        catch_exceptions=False,
     )
+    assert res.exit_code == 0
