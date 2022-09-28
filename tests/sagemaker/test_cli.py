@@ -5,7 +5,7 @@ from mlflow.sagemaker.cli import build_and_push_container
 
 
 @pytest.mark.parametrize("env_manager", ["conda", "virtualenv"])
-def test_build_docker(env_manager):
+def test_build_and_push_container(env_manager):
     res = CliRunner().invoke(
         build_and_push_container,
         [
