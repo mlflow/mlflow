@@ -990,7 +990,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         elif type(elem_type) == BooleanType:
-            result = result.select_dtypes([np.bool, bool])
+            result = result.select_dtypes([bool, np.bool_])
 
         if len(result.columns) == 0:
             raise MlflowException(

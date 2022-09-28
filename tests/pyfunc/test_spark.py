@@ -142,7 +142,7 @@ def test_spark_udf(spark, model_path):
         "double": (DoubleType(), np.number),
         "long": (LongType(), int),
         "string": (StringType(), None),
-        "bool": (BooleanType(), np.bool),
+        "bool": (BooleanType(), bool),
     }
 
     for tname, tdef in type_map.items():
@@ -152,6 +152,8 @@ def test_spark_udf(spark, model_path):
             t = ArrayType(spark_type) if is_array else spark_type
             if tname == "string":
                 expected = prediction_df.applymap(str)
+            elif tname == "bool":
+                expected = prediction_df.astype(bool)
             else:
                 expected = prediction_df.select_dtypes(np_type)
                 if tname == "float":
