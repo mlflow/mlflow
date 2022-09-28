@@ -12,6 +12,8 @@ from mlflow.utils.autologging_utils import (
 )
 
 import tensorflow
+import keras
+import torch
 import fastai
 import sklearn
 import xgboost
@@ -36,6 +38,7 @@ library_to_mlflow_module_without_spark_datasource = {
     mxnet.gluon: mlflow.gluon,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
+    torch: mlflow.pytorch,
 }
 
 library_to_mlflow_module = {

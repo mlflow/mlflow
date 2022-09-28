@@ -1,5 +1,5 @@
 ## BERT news classification example
-In this example, we train a Pytorch Lightning model to classify news articles into "World", "Sports", "Business" and "Sci/Tech" categories. The code, adapted from this [repository](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, and models.
+In this example, we train a Pytorch Lightning model to classify news articles into "World", "Sports", "Business" and "Sci/Tech" categories. The code, adapted from this [repository](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch_lightning.autolog()`` call to enable automatic logging of params, metrics, and models.
 
 
 ### Running the code

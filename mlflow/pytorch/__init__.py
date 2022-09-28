@@ -7,9 +7,11 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import atexit
 import importlib
 import logging
 import os
+import time
 import yaml
 import warnings
 
@@ -21,12 +23,14 @@ import posixpath
 import mlflow
 import shutil
 from mlflow import pyfunc
+from mlflow.entities import Param, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
+from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -874,10 +878,11 @@ def load_state_dict(state_dict_uri, **kwargs):
     return torch.load(state_dict_path, **kwargs)
 
 
+# by default log only tensorboard metrics
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,
-    log_every_n_step=None,
+    log_every_n_step=1,
     log_models=True,
     disable=False,
     exclusive=False,
@@ -886,24 +891,12 @@ def autolog(
     registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
-    Enables (or disables) and configures autologging from `PyTorch Lightning
-    <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
+    Enables (or disables) and configures autologging from PyTorch's
+    integrated tensorboard SummaryWriter to MLflow.
 
-    Autologging is performed when you call the `fit` method of
-    `pytorch_lightning.Trainer() \
-    <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
-
-    Explore the complete `PyTorch MNIST \
-    <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
-    an expansive example with implementation of additional lightening steps.
-
-    **Note**: Autologging is only supported for PyTorch Lightning models,
-    i.e., models that subclass
-    `pytorch_lightning.LightningModule \
-    <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla PyTorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
-    is not yet available.
+    Autologging is performed when you call the `add_scalar` method of
+    `torch.utils.tensorboard.SummaryWriter \
+    <https://pytorch.org/docs/stable/tensorboard.html#torch.utils.tensorboard.writer.SummaryWriter>`_.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
@@ -912,17 +905,17 @@ def autolog(
                        cause performance issues and is not recommended.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
-                    If ``False``, enables the PyTorch Lightning autologging integration.
+    :param disable: If ``True``, disables the PyTorch autologging integration.
+                    If ``False``, enables the PyTorch autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      pytorch and pytorch-lightning that have not been tested against this version
+                      pytorch that have not been tested against this version
                       of the MLflow client or are incompatible.
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
-                   Lightning autologging. If ``False``, show all events and warnings during
-                   PyTorch Lightning autologging.
+                   autologging. If ``False``, show all events and warnings during
+                   PyTorch autologging.
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
@@ -930,77 +923,27 @@ def autolog(
     .. code-block:: python
         :caption: Example
 
-        import os
+        import tempfile
 
-        import pytorch_lightning as pl
+        # Auto tensorboard metrics to MLFlow
+        import mlflow
+        mlflow.pytorch.autolog()
+
         import torch
-        from torch.nn import functional as F
-        from torch.utils.data import DataLoader
-        from torchvision import transforms
-        from torchvision.datasets import MNIST
-
-        try:
-            from torchmetrics.functional import accuracy
-        except ImportError:
-            from pytorch_lightning.metrics.functional import accuracy
+        from torch.utils.tensorboard import SummaryWriter
 
         import mlflow.pytorch
-        from mlflow import MlflowClient
-
-        # For brevity, here is the simplest most minimal example with just a training
-        # loop step, (no validation, no testing). It illustrates how you can use MLflow
-        # to auto log parameters, metrics, and models.
-
-        class MNISTModel(pl.LightningModule):
-            def __init__(self):
-                super().__init__()
-                self.l1 = torch.nn.Linear(28 * 28, 10)
-
-            def forward(self, x):
-                return torch.relu(self.l1(x.view(x.size(0), -1)))
-
-            def training_step(self, batch, batch_nb):
-                x, y = batch
-                logits = self(x)
-                loss = F.cross_entropy(logits, y)
-                pred = logits.argmax(dim=1)
-                acc = accuracy(pred, y)
-
-                # Use the current of PyTorch logger
-                self.log("train_loss", loss, on_epoch=True)
-                self.log("acc", acc, on_epoch=True)
-                return loss
-
-            def configure_optimizers(self):
-                return torch.optim.Adam(self.parameters(), lr=0.02)
+        from mlflow.tracking import MlflowClient
 
         def print_auto_logged_info(r):
 
-            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
-            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))
-            print("artifacts: {}".format(artifacts))
-            print("params: {}".format(r.data.params))
             print("metrics: {}".format(r.data.metrics))
-            print("tags: {}".format(tags))
-
-        # Initialize our model
-        mnist_model = MNISTModel()
-
-        # Initialize DataLoader from MNIST Dataset
-        train_ds = MNIST(os.getcwd(), train=True,
-            download=True, transform=transforms.ToTensor())
-        train_loader = DataLoader(train_ds, batch_size=32)
-
-        # Initialize a trainer
-        trainer = pl.Trainer(max_epochs=20, progress_bar_refresh_rate=20)
-
-        # Auto log all MLflow entities
-        mlflow.pytorch.autolog()
 
         # Train the model
+        writer = SummaryWriter(tempfile.mkdtemp())
         with mlflow.start_run() as run:
-            trainer.fit(mnist_model, train_loader)
+            writer.add_scalar('loss', 42.)
 
         # fetch the auto logged parameters and metrics
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
@@ -1009,27 +952,78 @@ def autolog(
         :caption: Output
 
         run_id: 42caa17b60cb489c8083900fb52506a7
-        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/data']
-        params: {'betas': '(0.9, 0.999)',
-                 'weight_decay': '0',
-                 'epochs': '20',
-                 'eps': '1e-08',
-                 'lr': '0.02',
-                 'optimizer_name': 'Adam', '
-                 amsgrad': 'False'}
-        metrics: {'acc_step': 0.0,
-                  'train_loss_epoch': 1.0917967557907104,
-                  'train_loss_step': 1.0794280767440796,
-                  'train_loss': 1.0794280767440796,
-                  'acc_epoch': 0.0033333334140479565,
-                  'acc': 0.0}
-        tags: {'Mode': 'training'}
+        metrics: {'loss': 42.0}
 
-    .. figure:: ../_static/images/pytorch_lightening_autolog.png
-
-        PyTorch autologged MLflow entities
     """
-    import pytorch_lightning as pl
-    from mlflow.pytorch._pytorch_autolog import patched_fit
+    from mlflow.tensorflow import _add_to_queue, _flush_queue
 
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    FAILED = object()
+    autolog_run = None
+
+    def _get_run():
+        nonlocal autolog_run
+        if autolog_run is None:
+            autolog_run = mlflow.active_run()
+        if autolog_run is None:
+            try:
+                autolog_run = mlflow.start_run()
+            except Exception:
+                # don't try again.
+                autolog_run = FAILED
+        if autolog_run not in (None, FAILED):
+            return autolog_run
+        return None
+
+    def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwargs):
+        """use a synchronous call here since this is going to get called very infrequently."""
+
+        run = _get_run()
+
+        if run is not None and hparam_dict:
+            run_id = run.info.run_id
+            # str() is required by mlflow :(
+            params_arr = [Param(key, str(value)) for key, value in hparam_dict.items()]
+            metrics_arr = [
+                Metric(key, value, int(time.time() * 1000), 0) for key, value in metric_dict.items()
+            ]
+            MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=params_arr, tags=[])
+
+        original(self, hparam_dict, metric_dict, *args, **kwargs)
+
+    def patched_add_event(original, self, event, *args, **kwargs):
+        run = _get_run()
+        if run is not None and event.WhichOneof("what") == "summary":
+            summary = event.summary
+            global_step = args[0] if len(args) > 0 else kwargs.get("global_step", None)
+            global_step = global_step or 0
+            for v in summary.value:
+                if v.HasField("simple_value"):
+                    if global_step % log_every_n_step == 0:
+                        _add_to_queue(
+                            key=v.tag,
+                            value=v.simple_value,
+                            step=global_step,
+                            time=int((event.wall_time or time.time()) * 1000),
+                            run_id=run.info.run_id,
+                        )
+
+        return original(self, event, *args, **kwargs)
+
+    def patched_add_summary(original, self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        return result
+
+    import torch.utils.tensorboard.writer
+
+    safe_patch(
+        FLAVOR_NAME, torch.utils.tensorboard.writer.FileWriter, "add_event", patched_add_event
+    )
+    safe_patch(
+        FLAVOR_NAME, torch.utils.tensorboard.writer.FileWriter, "add_summary", patched_add_summary
+    )
+    safe_patch(
+        FLAVOR_NAME, torch.utils.tensorboard.SummaryWriter, "add_hparams", patched_add_hparams
+    )
+
+    atexit.register(_flush_queue)

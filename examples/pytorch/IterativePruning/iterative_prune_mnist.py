@@ -30,7 +30,7 @@ class IterativePrune:
         parser_dict = vars(self.parser_args)
         if base:
             mlflow.start_run(run_name="BaseModel")
-        mlflow.pytorch.autolog()
+        mlflow.pytorch_lightning.autolog()
         dm = MNISTDataModule(**parser_dict)
         dm.setup(stage="fit")
 

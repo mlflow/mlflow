@@ -1682,6 +1682,7 @@ def autolog(
         sklearn,
         fastai,
         pytorch,
+        pytorch_lightning
     )
 
     locals_copy = locals().items()
@@ -1700,7 +1701,8 @@ def autolog(
         "pyspark.ml": pyspark.ml.autolog,
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
+        "torch": pytorch.autolog,
+        "pytorch_lightning": pytorch_lightning.autolog,
     }
 
     def get_autologging_params(autolog_fn):

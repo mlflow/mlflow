@@ -11,7 +11,7 @@ def train_evaluate(params, max_epochs=100):
     dm = IrisDataModule()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=max_epochs)
-    mlflow.pytorch.autolog()
+    mlflow.pytorch_lightning.autolog()
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
     test_accuracy = trainer.callback_metrics.get("test_acc")

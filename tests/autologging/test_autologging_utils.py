@@ -710,6 +710,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "scikit-learn"},
         "autologging": {"minimum": "0.20.3", "maximum": "0.23.2"},
     },
+    "pytorch": {
+        "package_info": {"pip_release": "torch"},
+        "autologging": {"minimum": "1.4.0", "maximum": "1.11.0"},
+    },
     "pytorch-lightning": {
         "package_info": {"pip_release": "pytorch-lightning"},
         "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
@@ -772,8 +776,10 @@ _module_version_info_dict_patch = {
         ("sklearn", "0.23.0rc1", False),
         ("sklearn", "0.23.0dev0", False),
         ("sklearn", "0.23.0-SNAPSHOT", False),
-        ("pytorch", "1.0.5", True),
-        ("pytorch", "1.0.4", False),
+        ("pytorch_lightning", "1.0.5", True),
+        ("pytorch_lightning", "1.0.4", False),
+        ("pytorch", "1.4.0", True),
+        ("pytorch", "1.3.9", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
     ],
