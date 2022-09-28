@@ -378,7 +378,7 @@ class TestDatabricksArtifactRepository:
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
             "mlflow.utils.rest_utils.cloud_storage_http_request",
-            side_effect=[mock_successful_response, mock_successful_response, mock_error_response],
+            side_effect=[mock_successful_response, mock_error_response],
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
@@ -396,7 +396,7 @@ class TestDatabricksArtifactRepository:
             # test with asure max block size
             request_mock.assert_any_call(
                 "patch",
-                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
+                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
                 data=ANY,
                 headers={},
             )
