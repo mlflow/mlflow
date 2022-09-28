@@ -110,14 +110,15 @@ class PredictStep(BaseStep):
         # check if output location is already populated as we allow no overwrites
         output_format = self.step_config["output_format"]
         output_location = self.step_config["output_location"]
-        if output_format == "parquet" or output_format == "delta":
+        output_populated = False
+        if output_format in ["parquet", "delta"]:
             output_populated = os.path.exists(output_location)
-        else:
+        elif output_format == "table":
             try:
                 output_populated = spark._jsparkSession.catalog().tableExists(output_location)
             except Exception:
                 # swallow spark failures
-                output_populated = False
+                pass
         if output_populated:
             raise MlflowException(
                 message=(
