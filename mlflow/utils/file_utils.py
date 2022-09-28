@@ -582,15 +582,11 @@ def get_or_create_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
-        # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
-        # detaches.
-        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # The directory returned by `dbutils.entry_point.getReplLocalTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-
-        try:
-            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
-        except Exception:
-            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+        repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
 
         tmp_dir = os.path.join(repl_local_tmp_dir, "mlflow")
         os.makedirs(tmp_dir, exist_ok=True)
@@ -616,15 +612,11 @@ def get_or_create_nfs_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: In databricks, atexit hook does not work.
-        # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
-        # notebook detaches.
-        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-
-        try:
-            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
-        except Exception:
-            repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+        repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
 
         tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
