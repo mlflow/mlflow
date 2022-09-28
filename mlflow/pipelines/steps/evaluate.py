@@ -12,9 +12,10 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
-    BUILTIN_PIPELINE_METRICS,
+    _get_builtin_metrics,
     _get_custom_metrics,
     _get_primary_metric,
+    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
@@ -45,12 +46,15 @@ class EvaluateStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.target_col = self.step_config.get("target_col")
+        self.template = self.step_config.get("template_name")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
-        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
+        self.evaluation_metrics = {
+            metric.name: metric for metric in _get_builtin_metrics(self.template)
+        }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
@@ -159,7 +163,7 @@ class EvaluateStep(BaseStep):
                     model=model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.template),
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -342,6 +346,7 @@ class EvaluateStep(BaseStep):
                 pipeline_config=pipeline_config,
             ).to_dict()
         )
+        step_config["template_name"] = pipeline_config.get("template")
         return cls(step_config, pipeline_root)
 
     @property

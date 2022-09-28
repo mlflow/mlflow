@@ -321,6 +321,7 @@ class BaseStep(metaclass=abc.ABCMeta):
     def _generate_worst_examples_dataframe(
         dataframe,
         predictions,
+        error,
         target_col,
         worst_k=10,
     ):
@@ -333,7 +334,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         import numpy as np
 
         predictions = np.array(predictions)
-        abs_error = np.absolute(predictions - dataframe[target_col].to_numpy())
+        abs_error = np.absolute(error)
         worst_k_indexes = np.argsort(abs_error)[::-1][:worst_k]
         result_df = dataframe.iloc[worst_k_indexes].assign(
             prediction=predictions[worst_k_indexes],
