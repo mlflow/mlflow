@@ -272,7 +272,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     cur_offset = len(chunk)
                     if is_first_chunk and cur_offset < _AZURE_MAX_BLOCK_CHUNK_SIZE:
                         use_single_part_upload = True
-                    patch_adls_file_upload(credentials.signed_uri, chunk, offset, headers=headers, is_single=use_single_part_upload)
+                    patch_adls_file_upload(
+                        credentials.signed_uri,
+                        chunk,
+                        offset,
+                        headers=headers,
+                        is_single=use_single_part_upload,
+                    )
                     is_first_chunk = False
                     offset += cur_offset
                 except requests.HTTPError as e:
