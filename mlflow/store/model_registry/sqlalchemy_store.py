@@ -372,22 +372,22 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 attr = getattr(SqlRegisteredModel, key)
-                f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-                attribute_filters.append(f)
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+                attribute_filters.append(attr_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for tag: {comparator}"
                     )
                 if key not in tag_filters:
-                    key_filter = SearchUtils.get_sql_filter_ops(
-                        SqlRegisteredModelTag.key, "=", dialect
-                    )(key)
+                    key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                        SqlRegisteredModelTag.key, key
+                    )
                     tag_filters[key] = [key_filter]
 
-                val_filter = SearchUtils.get_sql_filter_ops(
-                    SqlRegisteredModelTag.value, comparator, dialect
-                )(value)
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlRegisteredModelTag.value, value
+                )
                 tag_filters[key].append(val_filter)
             else:
                 raise MlflowException(
@@ -438,24 +438,26 @@ class SqlAlchemyStore(AbstractStore):
                     # so we already filter out comparison values containing upper case letters
                     # in `SearchModelUtils._get_value`. This addresses MySQL IN clause case
                     # in-sensitive issue.
-                    f = attr.in_(value)
+                    val_filter = attr.in_(value)
                 else:
-                    f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-                attribute_filters.append(f)
+                    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                        attr, value
+                    )
+                attribute_filters.append(val_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for tag: {comparator}",
                     )
                 if key not in tag_filters:
-                    key_filter = SearchUtils.get_sql_filter_ops(
-                        SqlModelVersionTag.key, "=", dialect
-                    )(key)
+                    key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                        SqlModelVersionTag.key, key
+                    )
                     tag_filters[key] = [key_filter]
 
-                val_filter = SearchUtils.get_sql_filter_ops(
-                    SqlModelVersionTag.value, comparator, dialect
-                )(value)
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlModelVersionTag.value, value
+                )
                 tag_filters[key].append(val_filter)
             else:
                 raise MlflowException(
