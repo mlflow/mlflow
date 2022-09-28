@@ -301,7 +301,6 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
     assert ordered_metrics == sorted(ordered_metrics)
 
 
-@pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
 def test_search_space(tmp_pipeline_root_path):
     tuning_params_yaml = tmp_pipeline_root_path.joinpath("tuning_params.yaml")
     tuning_params_yaml.write_text(
