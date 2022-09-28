@@ -117,8 +117,9 @@ class PredictStep(BaseStep):
         if output_populated:
             raise MlflowException(
                 message=(
-                    "Output location is already populated and overwrites are not allowed. "
-                    "Please clear or modify the output location and try again."
+                    f"Output location `{output_location}` of format `{output_format}` is already "
+                    "populated and overwrites are not allowed. Please clear or modify the output "
+                    "location and try again."
                 ),
                 error_code=BAD_REQUEST,
             )

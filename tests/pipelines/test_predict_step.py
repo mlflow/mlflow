@@ -237,7 +237,7 @@ def test_predict_throws_when_overwriting_data(
     }
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    with pytest.raises(MlflowException, match="Output location is already populated"):
+    with pytest.raises(MlflowException, match="already populated"):
         predict_step._run(str(predict_step_output_dir))
 
 
