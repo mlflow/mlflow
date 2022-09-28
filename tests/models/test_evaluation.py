@@ -1085,8 +1085,12 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
     # Mock the _load_model_or_server() results to avoid starting model servers
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
     client = ScoringServerClient("127.0.0.1", "8080")
-    served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
-    served_model_2 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=2)
+    served_model_1 = _ServedPyFuncModel(
+        model_meta=model.metadata, client=client, server_pid=1, env_manager="virtualenv"
+    )
+    served_model_2 = _ServedPyFuncModel(
+        model_meta=model.metadata, client=client, server_pid=2, env_manager="virtualenv"
+    )
 
     with mock.patch.object(
         _model_evaluation_registry,
