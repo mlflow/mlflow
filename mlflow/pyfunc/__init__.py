@@ -508,8 +508,10 @@ def load_model(
 
 
 class _ServedPyFuncModel(PyFuncModel):
-    def __init__(self, model_meta: Model, client: Any, server_pid: int):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int, env_manager: str):
         super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
+        _EnvManager.validate(env_manager)
+        self._env_manager = env_manager
         self._client = client
         self._server_pid = server_pid
 
@@ -524,6 +526,10 @@ class _ServedPyFuncModel(PyFuncModel):
         if self._server_pid is None:
             raise MlflowException("Served PyFunc Model is missing server process ID.")
         return self._server_pid
+
+    @property
+    def env_manager(self):
+        return self._env_manager
 
 
 def _load_model_or_server(model_uri: str, env_manager: str):
@@ -580,7 +586,10 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         raise MlflowException("MLflow model server failed to launch")
 
     return _ServedPyFuncModel(
-        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
+        model_meta=model_meta,
+        client=client,
+        server_pid=scoring_server_proc.pid,
+        env_manager=env_manager,
     )
 
 
