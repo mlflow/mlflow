@@ -2504,11 +2504,12 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("start_time") == "start_time"
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
     assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
+    assert models.SqlRun.get_attribute_name("run_name") == "name"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attributes are also orderable
-    assert len(entities.RunInfo.get_orderable_attributes()) == 5
+    assert len(entities.RunInfo.get_orderable_attributes()) == 6
 
 
 def test_get_orderby_clauses():
