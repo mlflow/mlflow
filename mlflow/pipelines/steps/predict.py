@@ -107,6 +107,22 @@ class PredictStep(BaseStep):
                 error_code=BAD_REQUEST,
             )
 
+        # check if output location is already populated as we allow no overwrites
+        output_format = self.step_config["output_format"]
+        output_location = self.step_config["output_location"]
+        if output_format == "parquet" or output_format == "delta":
+            output_populated = os.path.exists(output_location)
+        else:
+            output_populated = spark.catalog.tableExists(output_location)
+        if output_populated:
+            raise MlflowException(
+                message=(
+                    "Output location is already populated and overwrites are not allowed. "
+                    "Please clear or modify the output location and try again."
+                ),
+                error_code=BAD_REQUEST,
+            )
+
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
             pipeline_root_path=self.pipeline_root,
@@ -130,14 +146,10 @@ class PredictStep(BaseStep):
         )
 
         # save predictions
-        # note: the current output writing logic allows no overwrites
-        output_format = self.step_config["output_format"]
         if output_format == "parquet" or output_format == "delta":
-            scored_sdf.coalesce(1).write.format(output_format).save(
-                self.step_config["output_location"]
-            )
+            scored_sdf.coalesce(1).write.format(output_format).save(output_location)
         else:
-            scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
+            scored_sdf.write.format("delta").saveAsTable(output_location)
 
         # predict step artifacts
         write_spark_dataframe_to_parquet_on_local_disk(

@@ -4,7 +4,6 @@ import pandas as pd
 from pathlib import Path
 import pytest
 from pyspark.sql import SparkSession
-from pyspark.sql.utils import AnalysisException
 from sklearn.datasets import load_diabetes
 from unittest import mock
 
@@ -238,7 +237,7 @@ def test_predict_throws_when_overwriting_data(
     }
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    with pytest.raises(AnalysisException, match="already exists"):
+    with pytest.raises(MlflowException, match="Output location is already populated"):
         predict_step._run(str(predict_step_output_dir))
 
 
