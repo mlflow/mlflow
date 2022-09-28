@@ -854,6 +854,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         FloatType,
         LongType,
         StringType,
+        BooleanType,
     )
     from mlflow.models.cli import _get_flavor_backend
 
@@ -875,7 +876,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType, BooleanType]
 
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
@@ -988,9 +989,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         elif type(elem_type) == DoubleType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
+        elif type(elem_type) == BooleanType:
+            result = result.select_dtypes([np.bool, bool])
+
         if len(result.columns) == 0:
             raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
+                message="The model did not produce any values compatible with the requested "
                 "type '{}'. Consider requesting udf with StringType or "
                 "Arraytype(StringType).".format(str(elem_type)),
                 error_code=INVALID_PARAMETER_VALUE,
