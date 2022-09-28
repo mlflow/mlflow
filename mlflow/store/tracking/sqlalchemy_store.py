@@ -58,6 +58,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -1148,8 +1149,11 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
-                stmt = stmt.join(j)
+            attribute_filters, non_attribute_filters = _get_sqlalchemy_filter_clauses(
+                parsed_filters, session, self._get_dialect()
+            )
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -1163,7 +1167,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters, self._get_dialect()),
+                    *attribute_filters,
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -1235,42 +1239,57 @@ def _get_attributes_filtering_clauses(parsed, dialect):
     return clauses
 
 
-def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
-    key_type = sql_statement.get("type")
-    key_name = sql_statement.get("key")
-    value = sql_statement.get("value")
-    comparator = sql_statement.get("comparator").upper()
-
-    if SearchUtils.is_metric(key_type, comparator):
-        entity = SqlLatestMetric
-        value = float(value)
-    elif SearchUtils.is_param(key_type, comparator):
-        entity = SqlParam
-    elif SearchUtils.is_tag(key_type, comparator):
-        entity = SqlTag
-    elif SearchUtils.is_string_attribute(
-        key_type, key_name, comparator
-    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
-        return None
-    else:
-        raise MlflowException(
-            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
-        )
-
-    key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
-    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(entity.value, value)
-    return session.query(entity).filter(key_filter, val_filter).subquery()
-
-
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
-    """creates SqlAlchemy subqueries
-    that will be inner-joined to SQLRun to act as multi-clause filters."""
-    filters = []
+    """
+    Creates run attribute filters and subqueries that will be inner-joined to SqlRun to act as
+    multi-clause filters and return them as a tuple.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
     for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session, dialect)
-        if filter_query is not None:
-            filters.append(filter_query)
-    return filters
+        key_type = sql_statement.get("type")
+        key_name = sql_statement.get("key")
+        value = sql_statement.get("value")
+        comparator = sql_statement.get("comparator").upper()
+
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
+            if key_name == "run_name":
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                    SqlTag.key, MLFLOW_RUN_NAME
+                )
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlTag.value, value
+                )
+                non_attribute_filters.append(
+                    session.query(SqlTag).filter(key_filter, val_filter).subquery()
+                )
+            else:
+                attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    attribute, value
+                )
+                attribute_filters.append(attr_filter)
+        else:
+            if SearchUtils.is_metric(key_type, comparator):
+                entity = SqlLatestMetric
+                value = float(value)
+            elif SearchUtils.is_param(key_type, comparator):
+                entity = SqlParam
+            elif SearchUtils.is_tag(key_type, comparator):
+                entity = SqlTag
+
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                entity.value, value
+            )
+            non_attribute_filters.append(
+                session.query(entity).filter(key_filter, val_filter).subquery()
+            )
+
+    return attribute_filters, non_attribute_filters
 
 
 def _get_orderby_clauses(order_by_list, session):
