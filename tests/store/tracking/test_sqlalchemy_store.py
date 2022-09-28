@@ -1968,7 +1968,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run2.info.run_id]
 
-        # Test run_name filter works for runs logged in MLflow < 1.29.0
+        # Test run_name filter works for runs logged in MLflow <= 1.29.0
         with self.store.ManagedSessionMaker() as session:
             sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
             sql_run1.name = ""
