@@ -58,7 +58,6 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 _logger = logging.getLogger(__name__)
 
