@@ -322,6 +322,38 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
 
 
+def test_filter_runs_by_user_id():
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_uuid="a",
+                run_id="a",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=1,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        ),
+        Run(
+            run_info=RunInfo(
+                run_uuid="b",
+                run_id="b",
+                experiment_id=0,
+                user_id="user-id2",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=1,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        ),
+    ]
+    assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'")[0] == runs[1]
+
+
 def test_filter_runs_by_end_time():
     runs = [
         Run(

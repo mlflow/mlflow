@@ -1558,6 +1558,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "params.p_a = 'abc'"
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
+        filter_string = "params.p_a = 'ABC'"
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
+
+        filter_string = "params.p_a != 'ABC'"
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
+
         filter_string = "params.p_b = 'ABC'"
         self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
@@ -1596,6 +1602,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test search returns both runs
         self.assertCountEqual(
             [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'")
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'")
         )
         # test search returns appropriate run (same key different values per run)
         self.assertCountEqual(
@@ -1769,6 +1781,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
         self.assertCountEqual([], self._search([e1, e2], filter_string))
@@ -2467,7 +2489,7 @@ def test_get_attribute_name():
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attributes are also orderable
-    assert len(entities.RunInfo.get_orderable_attributes()) == 4
+    assert len(entities.RunInfo.get_orderable_attributes()) == 5
 
 
 def test_get_orderby_clauses():
