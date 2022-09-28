@@ -32,21 +32,21 @@ def test_create_sqlalchemy_engine_inject_pool_options():
 
 
 def test_create_sqlalchemy_engine_null_pool(monkeypatch):
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "NullPool")
-        with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
-            utils.create_sqlalchemy_engine("mydb://host:port/")
-            mock_create_engine.assert_called_once_with(
-                "mydb://host:port/",
-                pool_pre_ping=True,
-                poolclass=NullPool,
-            )
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mydb://host:port/")
+        mock_create_engine.assert_called_once_with(
+            "mydb://host:port/",
+            pool_pre_ping=True,
+            poolclass=NullPool,
+        )
 
 
 def test_create_sqlalchemy_engine_invalid_pool(monkeypatch):
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "SomethingInvalid")
-        with mock.patch("sqlalchemy.create_engine"):
-            with pytest.raises(ValueError, match=r"Invalid poolclass parameter.*"):
-                utils.create_sqlalchemy_engine("mydb://host:port/")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SomethingInvalid")
+    with mock.patch("sqlalchemy.create_engine"):
+        with pytest.raises(ValueError, match=r"Invalid poolclass parameter.*"):
+            utils.create_sqlalchemy_engine("mydb://host:port/")
 
 
 def test_create_sqlalchemy_engine_no_pool_options():
