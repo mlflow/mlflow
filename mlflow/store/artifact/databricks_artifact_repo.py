@@ -291,7 +291,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
                             run_id=self.run_id, paths=[artifact_path]
                         )[0]
                         patch_adls_file_upload(
-                            credential_info.signed_uri, chunk, offset, headers=headers
+                            credential_info.signed_uri,
+                            chunk,
+                            offset,
+                            headers=headers,
+                            is_single=use_single_part_upload,
                         )
                     else:
                         raise e

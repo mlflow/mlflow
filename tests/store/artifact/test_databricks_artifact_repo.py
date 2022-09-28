@@ -393,7 +393,7 @@ class TestDatabricksArtifactRepository:
                 MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
                 headers={},
             )
-            # test with asure max block size
+            # test with azure max block size
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
