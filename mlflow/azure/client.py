@@ -51,7 +51,8 @@ def patch_adls_file_upload(sas_url, data, position, headers, is_single):
     """
     new_params = {"action": "append", "position": str(position)}
     if is_single:
-    request_url = _append_query_parameters(sas_url, {"action": "append", "position": str(position)})
+        new_params["flush"] = "true"
+    request_url = _append_query_parameters(sas_url, new_params)
 
     request_headers = {}
     for name, value in headers.items():
