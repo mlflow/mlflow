@@ -1256,6 +1256,8 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
             key_type, key_name, comparator
         ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
             if key_name == "run_name":
+                # Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
+                # The name column in the runs table is empty for runs logged in MLflow <= 1.29.0.
                 key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
                     SqlTag.key, MLFLOW_RUN_NAME
                 )
