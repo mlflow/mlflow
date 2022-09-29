@@ -1599,13 +1599,13 @@ You deploy MLflow model locally or generate a Docker image using the CLI interfa
 
 The REST API defines 4 endpoints:
 
-* /ping used for health check
+* `/ping` used for health check
 
-* /health (same as /ping)
+* `/health` (same as /ping)
 
-* /version used for getting the mlflow version
+* `/version` used for getting the mlflow version
 
-* /invocations used for scoring
+* `/invocations` used for scoring
 
 The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
