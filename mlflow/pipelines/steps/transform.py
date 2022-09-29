@@ -89,7 +89,6 @@ class TransformStep(BaseStep):
             )
             transformer = transformer_fn()
         transformer = transformer if transformer else get_identity_transformer()
-
         transformer.fit(train_df.drop(columns=[self.target_col]))
 
         def transform_dataset(dataset):
