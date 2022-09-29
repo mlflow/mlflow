@@ -1044,9 +1044,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
-        # TODO: Test run search after set_tag
+        # TODO: Test attribute-based search after set_tag
 
-        # Test run_name filter works for runs logged in MLflow <= 1.29.0
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
         run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
         without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
         run_meta_path.write_text(without_run_name)
