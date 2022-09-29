@@ -1558,6 +1558,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "params.p_a = 'abc'"
         self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
+        filter_string = "params.p_a = 'ABC'"
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
+
+        filter_string = "params.p_a != 'ABC'"
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
+
         filter_string = "params.p_b = 'ABC'"
         self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
@@ -1596,6 +1602,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test search returns both runs
         self.assertCountEqual(
             [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'")
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'")
         )
         # test search returns appropriate run (same key different values per run)
         self.assertCountEqual(
@@ -1770,6 +1782,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
+            ARTIFACT_URI, e1.upper(), r1.upper()
+        )
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
+
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
         self.assertCountEqual([], self._search([e1, e2], filter_string))
 
@@ -1928,6 +1950,57 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
+
+    def test_search_runs_run_name(self):
+        exp_id = self._experiment_factory("test_search_runs_pagination")
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="run_name1"))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="run_name2"))
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        self.store.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test attribute-based search after set_tag
+
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
+        with self.store.ManagedSessionMaker() as session:
+            sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
+            sql_run1.name = ""
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
@@ -2446,11 +2519,12 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("start_time") == "start_time"
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
     assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
+    assert models.SqlRun.get_attribute_name("run_name") == "name"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attributes are also orderable
-    assert len(entities.RunInfo.get_orderable_attributes()) == 4
+    assert len(entities.RunInfo.get_orderable_attributes()) == 6
 
 
 def test_get_orderby_clauses():
