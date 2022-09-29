@@ -73,7 +73,13 @@ def configure_environment():
 
 
 def get_spark_session(conf):
-    conf.set(key="spark_session.python.worker.reuse", value=True)
+    conf.set(key="spark.python.worker.reuse", value="true")
+    # disable task retry (i.e. make it fast fail)
+    conf.set(key="spark.task.maxFailures", value="1")
+    # Disable simplifying traceback from Python UDFs
+    conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
+    # Show jvm side stack trace.
+    conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
