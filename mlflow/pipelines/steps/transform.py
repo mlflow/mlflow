@@ -78,8 +78,6 @@ class TransformStep(BaseStep):
 
             return Pipeline(steps=[("identity", FunctionTransformer())])
 
-        transformer = get_identity_transformer()
-
         method_config = self.step_config.get("transformer_method")
         if method_config:
             (
@@ -90,6 +88,7 @@ class TransformStep(BaseStep):
                 importlib.import_module(transformer_module_name), transformer_method_name
             )
             transformer = transformer_fn()
+        transformer = transformer if transformer else get_identity_transformer()
 
         transformer.fit(train_df.drop(columns=[self.target_col]))
 
