@@ -84,7 +84,7 @@ class RegisterStep(BaseStep):
                 path=str(Path(output_directory) / "registered_model_version.json")
             )
         else:
-            raise MlflowException("Model validation failed.")
+            raise MlflowException(f"Model validation failed on {self.model_uri}")
 
         card = self._build_card(run_id)
         card.save_as_html(output_directory)

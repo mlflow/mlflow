@@ -106,7 +106,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     if mae_threshold < 0:
-        with pytest.raises(MlflowException, match="Model validation failed."):
+        with pytest.raises(MlflowException, match="Model validation failed"):
             register_step._run(str(register_step_output_dir))
     else:
         register_step._run(str(register_step_output_dir))
@@ -149,7 +149,7 @@ steps:
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     if register_flag == "":
-        with pytest.raises(MlflowException, match="Model validation failed."):
+        with pytest.raises(MlflowException, match="Model validation failed"):
             register_step._run(str(register_step_output_dir))
     else:
         register_step._run(str(register_step_output_dir))
