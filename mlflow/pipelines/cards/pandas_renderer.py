@@ -11,6 +11,9 @@ from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.pipelines.cards import histogram_generator
 from mlflow.exceptions import MlflowException
 
+# Number of categorical strings values to be rendered as part of the histogram
+HISTOGRAM_CATEGORICAL_LEVELS_COUNT = 100
+
 
 def get_facet_type_from_numpy_type(dtype):
     """Converts a Numpy dtype to the FeatureNameStatistics.Type proto enum."""
@@ -139,12 +142,11 @@ def convert_to_dataset_feature_statistics(
             feat_stats = feat.string_stats
             strs = current_column_value.dropna()
 
-            histogram_categorical_levels_count = None
             feat_stats.avg_length = np.mean(np.vectorize(len)(strs))
             vals, counts = np.unique(strs, return_counts=True)
             feat_stats.unique = pandas_describe_key.get("unique", len(vals))
             sorted_vals = sorted(zip(counts, vals), reverse=True)
-            sorted_vals = sorted_vals[:histogram_categorical_levels_count]
+            sorted_vals = sorted_vals[:HISTOGRAM_CATEGORICAL_LEVELS_COUNT]
             for val_index, val in enumerate(sorted_vals):
                 try:
                     if sys.version_info.major < 3 or isinstance(val[1], (bytes, bytearray)):
