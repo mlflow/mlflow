@@ -7,7 +7,6 @@ import time
 import cloudpickle
 from packaging.version import Version
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -83,7 +82,10 @@ class TransformStep(BaseStep):
 
         method_config = self.step_config.get("transformer_method", None)
         if method_config:
-            (transformer_module_name, transformer_method_name,) = method_config.rsplit(".", 1)
+            (
+                transformer_module_name,
+                transformer_method_name,
+            ) = method_config.rsplit(".", 1)
             transformer_fn = getattr(
                 importlib.import_module(transformer_module_name), transformer_method_name
             )
