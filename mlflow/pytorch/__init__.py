@@ -939,11 +939,13 @@ def autolog(
 
             print("run_id: {}".format(r.info.run_id))
             print("metrics: {}".format(r.data.metrics))
+            print("params: {}".format(r.data.params))
 
         # Train the model
         writer = SummaryWriter(tempfile.mkdtemp())
         with mlflow.start_run() as run:
             writer.add_scalar('loss', 42.)
+            writer.add_hparams(dict(lr=0.1, loss=42.))
 
         # fetch the auto logged parameters and metrics
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
