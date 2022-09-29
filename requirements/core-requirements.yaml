@@ -78,5 +78,5 @@ markdown:
 
 Jinja2:
   pip_release: Jinja2
-  minimum: "3.0"
+  minimum: "2.11"
   max_major_version: 3

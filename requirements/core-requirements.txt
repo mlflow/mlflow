@@ -18,4 +18,4 @@ shap<1,>=0.40
 pandas-profiling<4,>=3.1
 ipython<9,>=7.0
 markdown<4,>=3.3
-Jinja2<4,>=3.0
+Jinja2<3
