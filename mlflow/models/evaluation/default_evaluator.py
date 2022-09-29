@@ -17,6 +17,7 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from sklearn import metrics as sk_metrics
@@ -79,7 +80,7 @@ def _extract_raw_model(model):
     """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
-        if model_loader_module == "mlflow.sklearn":
+        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
             raw_model = model._model_impl
         else:
             raw_model = None
@@ -320,7 +321,13 @@ def _gen_classifier_curve(
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
             precision, recall, _ = sk_metrics.precision_recall_curve(
-                _y, _y_prob, sample_weight=sample_weights
+                _y,
+                _y_prob,
+                sample_weight=sample_weights,
+                # For multiclass classification where a one-vs-rest precision-recall curve is
+                # produced for each class, the positive label is binarized and should not be
+                # included in the plot legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
             )
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
@@ -583,6 +590,15 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.evaluator_config.get("log_model_explainability", True):
             return
 
+        if self.is_model_server and not self.evaluator_config.get(
+            "log_model_explainability", False
+        ):
+            _logger.warning(
+                "Skipping model explainability because a model server is used for environment "
+                "restoration."
+            )
+            return
+
         if self.model_loader_module == "mlflow.spark":
             # TODO: Shap explainer need to manipulate on each feature values,
             #  but spark model input dataframe contains Vector type feature column
@@ -779,7 +795,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_sklearn_model_score_if_scorable(self):
-        if self.model_loader_module == "mlflow.sklearn":
+        if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
             try:
                 score = self.raw_model.score(
                     self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
@@ -1137,6 +1153,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.temp_dir = temp_dir
             self.model = model
             self.is_baseline_model = is_baseline_model
+
+            self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)

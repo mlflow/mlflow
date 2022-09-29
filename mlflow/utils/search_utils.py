@@ -15,6 +15,7 @@ from sqlparse.sql import (
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
+from packaging.version import Version
 
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
@@ -456,14 +457,22 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
+        ttype_for_timestamp = (
+            TokenType.Name.Builtin
+            if Version(sqlparse.__version__) >= Version("0.4.3")
+            else TokenType.Keyword
+        )
+
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
         elif len(statement.tokens) == 1 and statement.tokens[0].match(
-            ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
+            statement.tokens[0].match(
+                ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            )
             and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):

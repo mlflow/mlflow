@@ -482,7 +482,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
           [9007199254740992.0, 9007199254740992.0, 2, 0],
           [9007199254740994.0, 3.3,                3, "some arbitrary string"]
         ]
-      }  
+      }
     }
     """
     schema = Schema(

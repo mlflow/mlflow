@@ -42,6 +42,7 @@ from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     pyfunc_generate_dockerfile,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON,
@@ -571,7 +572,7 @@ def test_env_manager_warning_for_use_of_conda(monkeypatch):
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
+    with pytest.raises(MlflowException, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
             ["--model-uri", "model", "--env-manager", "abc"],

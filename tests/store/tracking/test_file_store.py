@@ -477,6 +477,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
+        deleted_exp1 = fs.get_experiment(exp_id)
+        assert deleted_exp1.last_update_time > exp1.last_update_time
+        self.assertEqual(deleted_exp1.lifecycle_stage, LifecycleStage.DELETED)
+
         # restore it
         exp1 = fs.get_experiment(exp_id)
         time.sleep(0.01)
