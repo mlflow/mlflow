@@ -80,7 +80,7 @@ class TransformStep(BaseStep):
 
         transformer = get_identity_transformer()
 
-        method_config = self.step_config.get("transformer_method", None)
+        method_config = self.step_config.get("transformer_method")
         if method_config:
             (
                 transformer_module_name,
