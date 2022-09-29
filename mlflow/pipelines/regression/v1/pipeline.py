@@ -97,7 +97,12 @@ The pipeline steps are defined as follows:
                 executed.
 
     - **predict**
-      - The **predict** step
+      - The **predict** step uses the ingested dataset for scoring created by the
+        **ingest_scoring** step and applies the specified model to the dataset.
+
+            .. note::
+                In Databricks, the **predict** step writes the output parquet/delta files to
+                DBFS.
 
 .. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L36-L40>`__
 .. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L57-L63>`__
@@ -395,9 +400,7 @@ class RegressionPipeline(_BasePipeline):
                        created by the **train** step to the MLflow Model Registry.
 
                      - ``"predict"``: uses the ingested dataset for scoring created by the
-                       **ingest_scoring** step and applies the specified model to the dataset. In
-                       Databricks, the **predict** step writes the output parquet/delta files to
-                       DBFS.
+                       **ingest_scoring** step and applies the specified model to the dataset.
 
         .. code-block:: python
             :caption: Example
