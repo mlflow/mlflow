@@ -142,7 +142,7 @@ def test_spark_udf(spark, model_path):
         "double": (DoubleType(), np.number),
         "long": (LongType(), int),
         "string": (StringType(), None),
-        "bool": (BooleanType(), bool),
+        "boolean": (BooleanType(), bool),
     }
 
     for tname, tdef in type_map.items():
