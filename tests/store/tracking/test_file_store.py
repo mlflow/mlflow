@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from pathlib import Path
 
 import pytest
 from unittest import mock
@@ -1011,6 +1012,56 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
+
+    def test_search_runs_run_name(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_pagination")
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name2")
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        fs.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test attribute-based search after set_tag
+
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
+        run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
+        without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
+        run_meta_path.write_text(without_run_name)
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
