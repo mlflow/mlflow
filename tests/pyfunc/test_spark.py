@@ -76,7 +76,7 @@ def get_spark_session(conf):
     conf.set(key="spark.python.worker.reuse", value="true")
     # disable task retry (i.e. make it fast fail)
     conf.set(key="spark.task.maxFailures", value="1")
-    # Always show error stacks.
+    # Disable simplifying traceback from Python UDFs
     conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
     # Show jvm side stack trace.
     conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
