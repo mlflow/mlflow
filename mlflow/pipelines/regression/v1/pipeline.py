@@ -14,7 +14,7 @@ The training pipeline contains the following sequential steps:
 
 The batch scoring pipeline contains the following sequential steps:
 
-**ingest** -> **predict**
+**ingest_scoring** -> **predict**
 
 The pipeline steps are defined as follows:
 
