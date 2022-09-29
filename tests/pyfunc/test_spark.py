@@ -143,6 +143,7 @@ def test_spark_udf(spark, model_path):
         "long": (LongType(), int),
         "string": (StringType(), None),
         "bool": (BooleanType(), bool),
+        "boolean": (BooleanType(), bool),
     }
 
     for tname, tdef in type_map.items():
@@ -156,7 +157,7 @@ def test_spark_udf(spark, model_path):
                 expected = prediction_df.select_dtypes(np_type)
                 if tname == "float":
                     expected = expected.astype(np.float32)
-                if tname == "bool":
+                if tname == "bool" or tname == "boolean":
                     expected = expected.astype(bool)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
