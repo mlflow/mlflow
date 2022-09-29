@@ -89,7 +89,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
         step_card = self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
-            ingested_rows=ingested_df.size,
+            ingested_rows=len(ingested_df),
             schema=schema,
             data_preview=ingested_df.head(),
             dataset_src_location=getattr(self.dataset, "location", None),
