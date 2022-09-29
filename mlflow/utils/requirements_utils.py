@@ -266,7 +266,13 @@ def _capture_imported_modules(model_uri, flavor):
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
-    process_timeout = os.environ.get("REQUIREMENTS_INFERENCE_TIMEOUT", 300)
+    process_timeout = os.environ.get("REQUIREMENTS_INFERENCE_TIMEOUT", 2 * 60)
+
+    # TODO: remove below debugging code
+    _logger = logging.getLogger(__name__)
+    _logger.info(f"Main process python executable: {sys.executable}")
+    _logger.info("Main process environment variables: ")
+    _logger.info(os.environ.values())
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
