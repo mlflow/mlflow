@@ -19,3 +19,4 @@ pandas-profiling<4,>=3.1
 ipython<9,>=7.0
 markdown<4,>=3.3
 Jinja2<3
+markupsafe==2.0.1
