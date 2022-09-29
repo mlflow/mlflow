@@ -1031,19 +1031,34 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run2.info.run_id]
 
+        fs.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test run search after set_tag
+
         # Test run_name filter works for runs logged in MLflow <= 1.29.0
         run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
-        without_run_name = run_meta_path.read_text().replace("run_name: run_name1\n", "")
+        without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
         run_meta_path.write_text(without_run_name)
         result = fs.search_runs(
             [exp_id],
-            filter_string="attributes.run_name = 'run_name1'",
+            filter_string="attributes.run_name = 'new_run_name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
         result = fs.search_runs(
             [exp_id],
-            filter_string="tags.`mlflow.runName` = 'run_name1'",
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]

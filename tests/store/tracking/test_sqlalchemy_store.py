@@ -1968,6 +1968,21 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run2.info.run_id]
 
+        self.store.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test run search after set_tag
+
         # Test run_name filter works for runs logged in MLflow <= 1.29.0
         with self.store.ManagedSessionMaker() as session:
             sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
@@ -1975,14 +1990,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         result = self.store.search_runs(
             [exp_id],
-            filter_string="attributes.run_name = 'run_name1'",
+            filter_string="attributes.run_name = 'new_run_name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
         result = self.store.search_runs(
             [exp_id],
-            filter_string="tags.`mlflow.runName` = 'run_name1'",
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]

@@ -1281,6 +1281,11 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 entity = SqlParam
             elif SearchUtils.is_tag(key_type, comparator):
                 entity = SqlTag
+            else:
+                raise MlflowException(
+                    "Invalid search expression type '%s'" % key_type,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
             val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
