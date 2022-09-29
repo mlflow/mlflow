@@ -586,7 +586,10 @@ def get_or_create_tmp_dir():
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-        repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
         tmp_dir = os.path.join(repl_local_tmp_dir, "mlflow")
         os.makedirs(tmp_dir, exist_ok=True)
@@ -616,7 +619,10 @@ def get_or_create_nfs_tmp_dir():
         # will be removed once databricks notebook detaches.
         # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-        repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+        try:
+            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+        except Exception:
+            repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
 
         tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
