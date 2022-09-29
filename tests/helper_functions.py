@@ -268,6 +268,12 @@ class RestEndpoint:
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         _logger.info(f"server up, ping status {ping_status}")
+
+        resp_status = requests.get(url="http://localhost:%d/version" % self._port)
+        version = resp_status.text
+        _logger.info(f"mlflow server version {version}")
+        if version != mlflow.__version__:
+            raise Exception("version path is not returning correct mlflow version")
         return self
 
     def __exit__(self, tp, val, traceback):
