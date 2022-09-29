@@ -5,6 +5,6 @@ force-exclude = '''
 /(
   | mlflow/protos
   | tests/protos
-  | examples/pipelines/sklearn_regression
+  | examples/pipelines/sklearn_regression_example
 )/
 '''
