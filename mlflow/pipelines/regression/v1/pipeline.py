@@ -96,7 +96,7 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
-    - **predict**
+   - **predict**
       - The **predict** step uses the ingested dataset for scoring created by the
         **ingest_scoring** step and applies the specified model to the dataset.
 
