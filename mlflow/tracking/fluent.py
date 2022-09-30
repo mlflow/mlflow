@@ -616,6 +616,17 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
+def set_run_name(run_name: str) -> None:
+    """
+    Set a new run name for the current run. If no run is active, this method will create a
+    new active run.
+
+    :param run_name: Run name (string).
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().set_run_name(run_id, run_name)
+
+
 def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
