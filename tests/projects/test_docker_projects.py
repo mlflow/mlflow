@@ -285,7 +285,6 @@ def test_docker_run_prebuilt_image_local(tmp_path):
     dockerfile.write_text(
         """
 FROM python:3.7
-ENV ENV_VAR="test"
 """
     )
     client.images.build(path=str(tmp_path), dockerfile=str(dockerfile), tag="my-python:latest")
@@ -297,7 +296,7 @@ docker_env:
   rebuild: false
 entry_points:
   main:
-    command: python -c "import os; assert os.getenv('ENV_VAR') == 'test'"
+    command: python --version
 """
     )
     submitted_run = mlflow.projects.run(str(tmp_path))
