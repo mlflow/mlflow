@@ -36,8 +36,8 @@ fetch('https://pypi.org/pypi/mlflow/json')
     var currentVersion = docRegex.exec(window.location.pathname).groups.version;
     var dropDown = document.createElement('select');
     dropDown.onchange = function () {
-      var newHref = window.location.href.replace(docRegex, `/docs/${this.value}/`);
-      window.location.href = newHref;
+      var newUrl = window.location.href.replace(docRegex, `/docs/${this.value}/`);
+      window.location.assign(newUrl);
     };
     latestMicroVersions.forEach(function (version) {
       var option = document.createElement('option');
