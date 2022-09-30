@@ -2019,17 +2019,34 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         result = self.store.search_runs(
             [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}',)",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
             filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run_id2]
 
+        for filter_string in [
+            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+        ]:
+            result = self.store.search_runs(
+                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+            )
+            assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
         result = self.store.search_runs(
             [exp_id],
-            filter_string=f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+        assert result == []
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

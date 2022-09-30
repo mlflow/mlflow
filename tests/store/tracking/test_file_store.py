@@ -1081,17 +1081,34 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         result = fs.search_runs(
             [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}',)",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
             filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run_id2]
 
+        for filter_string in [
+            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+        ]:
+            result = fs.search_runs(
+                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+            )
+            assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
         result = fs.search_runs(
             [exp_id],
-            filter_string=f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+        assert result == []
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
