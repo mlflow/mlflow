@@ -253,8 +253,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 new_credentials = self._get_write_credential_infos(
                     run_id=self.run_id, paths=[artifact_path]
                 )[0]
-                kwargs['sas_url'] = new_credentials.signed_uri
-                put_adls_file_creation(**kwargs)
+                kwargs["sas_url"] = new_credentials.signed_uri
+                func(**kwargs)
             else:
                 raise e
 
@@ -270,16 +270,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 func=put_adls_file_creation,
                 artifact_path=artifact_path,
                 sas_url=credentials.signed_uri,
-                headers=headers
+                headers=headers,
             )
 
             # next try to append the file
             cursor_position = 0
-            is_first_chunk = True
             use_single_part_upload = False
-            for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
+            for idx, chunk in enumerate(
+                yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE)
+            ):
                 cur_chunk_size = len(chunk)
-                if is_first_chunk and cur_chunk_size < _AZURE_MAX_BLOCK_CHUNK_SIZE:
+                if idx == 0 and cur_chunk_size < _AZURE_MAX_BLOCK_CHUNK_SIZE:
                     use_single_part_upload = True
                 self._retryable_adls_function(
                     func=patch_adls_file_upload,
@@ -290,7 +291,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     headers=headers,
                     is_single=use_single_part_upload,
                 )
-                is_first_chunk = False
                 cursor_position += cur_chunk_size
 
             # finally try to flush the file

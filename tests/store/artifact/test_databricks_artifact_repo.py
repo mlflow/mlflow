@@ -374,8 +374,13 @@ class TestDatabricksArtifactRepository:
         mock_successful_response.status_code = 200
         mock_successful_response.close = lambda: None
         mock_error_response = MlflowException("MOCK ERROR")
+        mock_credential_info = ArtifactCredentialInfo(
+            signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
+            type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        )
         with mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos",
+            return_value=[mock_credential_info]
         ) as write_credential_infos_mock, mock.patch(
             "mlflow.utils.rest_utils.cloud_storage_http_request",
             side_effect=[mock_successful_response, mock_error_response],
@@ -384,22 +389,22 @@ class TestDatabricksArtifactRepository:
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
             )
-            write_credential_infos_mock.return_value = [mock_credential_info]
             with pytest.raises(MlflowException, match=r"MOCK ERROR"):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credential_infos_mock.assert_called_with(run_id=MOCK_RUN_ID, paths=ANY)
-            request_mock.assert_any_call(
-                "put",
-                MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
-                headers={},
-            )
-            # test with azure max block size
-            request_mock.assert_any_call(
-                "patch",
-                MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
-                data=ANY,
-                headers={},
-            )
+            assert request_mock.mock_calls == [
+                mock.call(
+                    "put",
+                    MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
+                    headers={},
+                ),
+                mock.call(
+                    "patch",
+                    MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
+                    data=ANY,
+                    headers={},
+                )
+            ]
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_aws(
