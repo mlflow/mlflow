@@ -244,7 +244,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Attempt to call the passed function.  Retry if the credentials have expired
         try:
             func(**kwargs)
-            #put_adls_file_creation(credentials.signed_uri, headers=headers)
         except requests.HTTPError as e:
             if e.response.status_code in [403]:
                 _logger.info(
