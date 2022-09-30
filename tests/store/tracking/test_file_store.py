@@ -1063,6 +1063,35 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
+    def test_search_runs_run_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_run_id")
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="2")
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)

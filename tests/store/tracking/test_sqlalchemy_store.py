@@ -2002,6 +2002,34 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
+    def test_search_runs_run_id(self):
+        exp_id = self._experiment_factory("test_search_runs_run_id")
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="1"))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), run_name="2"))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
@@ -2520,11 +2548,12 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
     assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
     assert models.SqlRun.get_attribute_name("run_name") == "name"
+    assert models.SqlRun.get_attribute_name("run_id") == "run_id"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attributes are also orderable
-    assert len(entities.RunInfo.get_orderable_attributes()) == 6
+    assert len(entities.RunInfo.get_orderable_attributes()) == 7
 
 
 def test_get_orderby_clauses():
