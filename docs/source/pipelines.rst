@@ -139,7 +139,7 @@ Pipeline Repositories
 
 Pipelines are structured as git repositories with a standardized directory hierarchy. The following
 example provides an overview of the pipeline repository structure.  It is adapted from the
-|MLflow Recipe Regression Example repository|.
+|MLflow Recipes Regression Example repository|.
 
 ::
 
@@ -165,14 +165,14 @@ The main components of the pipeline repository layout, which are common across a
     - ``pipeline.yaml``: The main pipeline configuration file that declaratively defines the
       attributes and behavior of each pipeline step, such as the input dataset to use for training
       a model or the performance criteria for promoting a model to production. For reference,
-      see the |pipeline.yaml| configuration file from the |MLflow Recipe Regression Example repository|.
+      see the |pipeline.yaml| configuration file from the |MLflow Recipes Regression Example repository|.
 
     - ``requirements.txt``: A `pip requirements file
       <https://pip.pypa.io/en/stable/reference/requirements-file-format>`_ specifying packages
       that must be installed in order to run the pipeline.
 
     - ``steps``: A directory containing Python code modules used by the pipeline steps. For example,
-      the |MLflow Recipe Regression Example repository| defines the estimator type and parameters to use
+      the |MLflow Recipes Regression Example repository| defines the estimator type and parameters to use
       when training a model in |steps/train.py| and defines custom metric computations in
       |steps/custom_metrics.py|.
 
@@ -180,18 +180,18 @@ The main components of the pipeline repository layout, which are common across a
 
     - ``profiles``: A directory containing :ref:`Profile <profiles-key-concept>` customizations for
       the configurations defined in ``pipeline.yaml``. For example, the
-      |MLflow Recipe Regression Example repository| defines a |local profile| that
+      |MLflow Recipes Regression Example repository| defines a |local profile| that
       |customizes the dataset used for local model development| and |specifies a local MLflow
-      Tracking store for logging model content|. The |MLflow Recipe Regression Example repository| also
+      Tracking store for logging model content|. The |MLflow Recipes Regression Example repository| also
       defines a |databricks profile| for development on Databricks.
 
     - ``tests``: A directory containing Python test code for pipeline steps. For example, the
-      |MLflow Recipe Regression Example repository| implements tests for the transformer and the estimator
+      |MLflow Recipes Regression Example repository| implements tests for the transformer and the estimator
       defined in the respective ``steps/transform.py`` and ``steps/train.py`` modules.
 
 .. code-block:: yaml
     :caption: Shown below is an example |pipeline.yaml| configuration file adapted from the
-              |MLflow Recipe Regression Example repository|. ``pipeline.yaml`` is the main
+              |MLflow Recipes Regression Example repository|. ``pipeline.yaml`` is the main
               configuration file for a pipeline containing aggregated configurations for
               all pipeline steps; :ref:`Profile <profiles-key-concept>`-based substitutions and
               overrides are supported using |Jinja2| templating syntax.
@@ -536,7 +536,7 @@ For more information, see the :ref:`Regression Pipeline overview <regression-pip
 the :ref:`Regression Pipeline API documentation <mlflow-regression-pipeline>`, and the
 `Regression Pipeline template repository <https://github.com/mlflow/mlp-regression-template>`_.
 
-.. |MLflow Recipe Regression Example repository| replace:: `MLflow Recipe Regression Example repository <https://github.com/mlflow/mlr-regression-example>`__
+.. |MLflow Recipes Regression Example repository| replace:: `MLflow Recipes Regression Example repository <https://github.com/mlflow/mlr-regression-example>`__
 .. |MLflow Regression Pipeline repository| replace:: `MLflow Regression Pipeline repository <https://github.com/mlflow/mlp-regression-template>`__
 .. |pipeline.yaml| replace:: `pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/main/pipeline.yaml>`__
 .. |train step| replace:: :ref:`train step <mlflow-regression-pipeline-train-step>`
