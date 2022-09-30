@@ -240,6 +240,25 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
+    def _retryable_adls_function(self, func, artifact_path, **kwargs):
+        # Attempt to call the passed function.  Retry if the credentials have expired
+        try:
+            func(**kwargs)
+            #put_adls_file_creation(credentials.signed_uri, headers=headers)
+        except requests.HTTPError as e:
+            if e.response.status_code in [403]:
+                _logger.info(
+                    "Failed to authorize ADLS operation, possibly due "
+                    "to credential expiration. Refreshing credentials and trying again..."
+                )
+                new_credentials = self._get_write_credential_infos(
+                    run_id=self.run_id, paths=[artifact_path]
+                )[0]
+                kwargs['sas_url'] = new_credentials.signed_uri
+                put_adls_file_creation(**kwargs)
+            else:
+                raise e
+
     def _azure_adls_gen2_upload_file(self, credentials, local_file, artifact_path):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
@@ -248,74 +267,42 @@ class DatabricksArtifactRepository(ArtifactRepository):
             headers = self._extract_headers_from_credentials(credentials.headers)
 
             # try to create the file
-            try:
-                put_adls_file_creation(credentials.signed_uri, headers=headers)
-            except requests.HTTPError as e:
-                if e.response.status_code in [401, 403]:
-                    _logger.info(
-                        "Failed to authorize ADLS file creation request, possibly due "
-                        "to credential expiration. Refreshing credentials and trying again..."
-                    )
-                    credential_info = self._get_write_credential_infos(
-                        run_id=self.run_id, paths=[artifact_path]
-                    )[0]
-                    put_adls_file_creation(credential_info.signed_uri, headers=headers)
-                else:
-                    raise e
+            self._retryable_adls_function(
+                func=put_adls_file_creation,
+                artifact_path=artifact_path,
+                sas_url=credentials.signed_uri,
+                headers=headers
+            )
 
-            # next try to patch the file
-            offset = 0
+            # next try to append the file
+            cursor_position = 0
             is_first_chunk = True
             use_single_part_upload = False
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
-                try:
-                    cur_offset = len(chunk)
-                    if is_first_chunk and cur_offset < _AZURE_MAX_BLOCK_CHUNK_SIZE:
-                        use_single_part_upload = True
-                    patch_adls_file_upload(
-                        credentials.signed_uri,
-                        chunk,
-                        offset,
-                        headers=headers,
-                        is_single=use_single_part_upload,
-                    )
-                    is_first_chunk = False
-                    offset += cur_offset
-                except requests.HTTPError as e:
-                    if e.response.status_code in [401, 403]:
-                        _logger.info(
-                            "Failed to authorize ADLS patch request, possibly due to "
-                            "credential expiration. Refreshing credentials and trying again..."
-                        )
-                        credential_info = self._get_write_credential_infos(
-                            run_id=self.run_id, paths=[artifact_path]
-                        )[0]
-                        patch_adls_file_upload(
-                            credential_info.signed_uri,
-                            chunk,
-                            offset,
-                            headers=headers,
-                            is_single=use_single_part_upload,
-                        )
-                    else:
-                        raise e
+                cur_chunk_size = len(chunk)
+                if is_first_chunk and cur_chunk_size < _AZURE_MAX_BLOCK_CHUNK_SIZE:
+                    use_single_part_upload = True
+                self._retryable_adls_function(
+                    func=patch_adls_file_upload,
+                    artifact_path=artifact_path,
+                    sas_url=credentials.signed_uri,
+                    data=chunk,
+                    position=cursor_position,
+                    headers=headers,
+                    is_single=use_single_part_upload,
+                )
+                is_first_chunk = False
+                cursor_position += cur_chunk_size
 
-            # finally flush the file
-            try:
-                if not use_single_part_upload:
-                    patch_adls_flush(credentials.signed_uri, offset, headers=headers)
-            except requests.HTTPError as e:
-                if e.response.status_code in [401, 403]:
-                    _logger.info(
-                        "Failed to authorize flush request, possibly due to credential expiration."
-                        " Refreshing credentials and trying again..."
-                    )
-                    credential_info = self._get_write_credential_infos(
-                        run_id=self.run_id, paths=[artifact_path]
-                    )[0]
-                    patch_adls_flush(credential_info.signed_uri, offset, headers=headers)
-                else:
-                    raise e
+            # finally try to flush the file
+            if not use_single_part_upload:
+                self._retryable_adls_function(
+                    func=patch_adls_flush,
+                    artifact_path=artifact_path,
+                    sas_url=credentials.signed_uri,
+                    position=cursor_position,
+                    headers=headers,
+                )
         except Exception as err:
             raise MlflowException(err)
 
