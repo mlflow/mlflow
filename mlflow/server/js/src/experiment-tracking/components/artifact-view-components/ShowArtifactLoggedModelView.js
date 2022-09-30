@@ -43,6 +43,7 @@ class ShowArtifactLoggedModelView extends Component {
     inputs: undefined,
     outputs: undefined,
     flavor: undefined,
+    loader_module: undefined,
   };
 
   componentDidMount() {
@@ -128,6 +129,17 @@ class ShowArtifactLoggedModelView extends Component {
     );
   }
 
+  mlflowSparkCodeText(modelPath) {
+    return (
+      `import mlflow\n` +
+      `logged_model = '${modelPath}'\n\n` +
+      `# Load model\n` +
+      `loaded_model = mlflow.spark.load_model(logged_model)\n\n` +
+      `# Perform inference via model.transform()\n` +
+      `loaded_model.transform(data)`
+    );
+  }
+
   renderNonPyfuncCodeSnippet() {
     const { flavor } = this.state;
     const { runUuid, path } = this.props;
@@ -195,6 +207,9 @@ class ShowArtifactLoggedModelView extends Component {
   }
 
   renderPyfuncCodeSnippet() {
+    if (this.state.loader_module === 'mlflow.spark') {
+      return this.renderMlflowSparkCodeSnippet();
+    }
     const { runUuid, path } = this.props;
     const modelPath = `runs:/${runUuid}/${path}`;
     return (
@@ -300,6 +315,64 @@ class ShowArtifactLoggedModelView extends Component {
                   <span className='code-keyword'>import</span> pandas{' '}
                   <span className='code-keyword'>as</span> pd{`\n`}
                   loaded_model.predict(pd.DataFrame(data))
+                </div>
+              </pre>
+            </Paragraph>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  renderMlflowSparkCodeSnippet() {
+    const { runUuid, path } = this.props;
+    const modelPath = `runs:/${runUuid}/${path}`;
+    return (
+      <>
+        <Title level={3}>
+          <FormattedMessage
+            defaultMessage='Make Predictions'
+            // eslint-disable-next-line max-len
+            description='Heading text for the prediction section on the registered model from the experiment run'
+          />
+        </Title>
+        <div className='artifact-logged-model-view-code-content'>
+          <div css={styles.item}>
+            <Paragraph
+              dangerouslySetAntdProps={{
+                copyable: { text: this.mlflowSparkCodeText(modelPath) },
+              }}
+            >
+              <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
+                <div className='code'>
+                  <span className='code-keyword'>import</span> mlflow{`\n`}
+                  logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+                </div>
+                <br />
+                <div className='code'>
+                  <span className='code-comment'>
+                    {'# '}
+                    <FormattedMessage
+                      // eslint-disable-next-line max-len
+                      defaultMessage='Load model'
+                      description='Code comment which states how to load model'
+                    />
+                  </span>
+                  {`\n`}
+                  loaded_model = mlflow.spark.load_model(logged_model)
+                </div>
+                <br />
+                <div className='code'>
+                  <span className='code-comment'>
+                    {'# '}
+                    <FormattedMessage
+                      defaultMessage='Perform inference via model.transform()'
+                      // eslint-disable-next-line max-len
+                      description='Code comment which states on how we can perform inference'
+                    />
+                  </span>
+                  {`\n`}
+                  loaded_model.transform(data)
                 </div>
               </pre>
             </Paragraph>
@@ -428,7 +501,11 @@ class ShowArtifactLoggedModelView extends Component {
         if (parsedJson.flavors.mleap) {
           this.setState({ flavor: 'mleap' });
         } else if (parsedJson.flavors.python_function) {
-          this.setState({ flavor: 'pyfunc' });
+          if (parsedJson.flavors.python_function.loader_module === 'mlflow.spark') {
+            this.setState({ flavor: 'pyfunc', loader_module: 'mlflow.spark' });
+          } else {
+            this.setState({ flavor: 'pyfunc' });
+          }
         } else {
           this.setState({ flavor: Object.keys(parsedJson.flavors)[0] });
         }
