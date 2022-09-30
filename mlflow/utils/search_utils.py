@@ -20,17 +20,25 @@ from packaging.version import Version
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
 
 import math
 
 
-def _case_sensitive_match(string, pattern):
-    return re.match(pattern, string) is not None
+def _convert_like_pattern_to_regex(pattern, flags=0):
+    if not pattern.startswith("%"):
+        pattern = "^" + pattern
+    if not pattern.endswith("%"):
+        pattern = pattern + "$"
+    return re.compile(pattern.replace("_", ".").replace("%", ".*"), flags)
 
 
-def _case_insensitive_match(string, pattern):
-    return re.match(pattern, string, flags=re.IGNORECASE) is not None
+def _like(string, pattern):
+    return _convert_like_pattern_to_regex(pattern).match(string) is not None
+
+
+def _ilike(string, pattern):
+    return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
 class SearchUtils:
@@ -45,11 +53,6 @@ class SearchUtils:
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
     NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = {LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
-        {"="}
-    )
-    VALID_MODEL_VERSIONS_SEARCH_COMPARATORS = {"=", "IN"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -85,51 +88,63 @@ class SearchUtils:
     # We encourage users to use timestamp for order-by
     RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = {ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP}
 
-    filter_ops = {
-        ">": operator.gt,
-        ">=": operator.ge,
-        "=": operator.eq,
-        "!=": operator.ne,
-        "<=": operator.le,
-        "<": operator.lt,
-        "LIKE": _case_sensitive_match,
-        "ILIKE": _case_insensitive_match,
-    }
+    @staticmethod
+    def get_comparison_func(comparator):
+        return {
+            ">": operator.gt,
+            ">=": operator.ge,
+            "=": operator.eq,
+            "!=": operator.ne,
+            "<=": operator.le,
+            "<": operator.lt,
+            "LIKE": _like,
+            "ILIKE": _ilike,
+        }[comparator]
 
-    @classmethod
-    def get_sql_filter_ops(cls, column, operator, dialect):
+    @staticmethod
+    def get_sql_comparison_func(comparator, dialect):
         import sqlalchemy as sa
 
-        col = f"{column.class_.__tablename__}.{column.key}"
+        def comparison_func(column, value):
+            if comparator == "LIKE":
+                return column.like(value)
+            elif comparator == "ILIKE":
+                return column.ilike(value)
+            return SearchUtils.get_comparison_func(comparator)(column, value)
 
-        # Use case-sensitive collation for MSSQL
-        if dialect == MSSQL:
-            column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+        def mssql_comparison_func(column, value):
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
 
-        # Use non-binary ahead of binary comparison for runtime performance
-        # Use non-binary ahead of binary comparison for runtime performance
-        def case_sensitive_mysql_eq(value):
-            return sa.text(f"({col} = :value AND BINARY {col} = :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            return comparison_func(collated, value)
 
-        def case_sensitive_mysql_ne(value):
-            return sa.text(f"({col} != :value OR BINARY {col} != :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+        def mysql_comparison_func(column, value):
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
 
-        def case_sensitive_mysql_like(value):
-            return sa.text(f"({col} LIKE :value AND BINARY {col} LIKE :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+            # MySQL is case insensitive by default, so we need to use the binary operator to
+            # perform case sensitive comparisons.
+            templates = {
+                # Use non-binary ahead of binary comparison for runtime performance
+                "=": "({column} = :value AND BINARY {column} = :value)",
+                "!=": "({column} != :value OR BINARY {column} != :value)",
+                "LIKE": "({column} LIKE :value AND BINARY {column} LIKE :value)",
+            }
+            if comparator in templates:
+                column = f"{column.class_.__tablename__}.{column.key}"
+                return sa.text(templates[comparator].format(column=column)).bindparams(
+                    sa.bindparam("value", value=value, unique=True)
+                )
 
-        sql_filter_ops = {
-            "=": case_sensitive_mysql_eq if dialect == MYSQL else column.__eq__,
-            "!=": case_sensitive_mysql_ne if dialect == MYSQL else column.__ne__,
-            "LIKE": case_sensitive_mysql_like if dialect == MYSQL else column.like,
-            "ILIKE": column.ilike,
-        }
-        return sql_filter_ops[operator]
+            return comparison_func(column, value)
+
+        return {
+            POSTGRES: comparison_func,
+            SQLITE: comparison_func,
+            MSSQL: mssql_comparison_func,
+            MYSQL: mysql_comparison_func,
+        }[dialect]
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -389,14 +404,6 @@ class SearchUtils:
         return False
 
     @classmethod
-    def _convert_like_pattern_to_regex(cls, pattern):
-        if not pattern.startswith("%"):
-            pattern = "^" + pattern
-        if not pattern.endswith("%"):
-            pattern = pattern + "$"
-        return pattern.replace("_", ".").replace("%", ".*")
-
-    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -422,13 +429,7 @@ class SearchUtils:
         if lhs is None:
             return False
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        else:
-            return False
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, runs, filter_string):
@@ -781,13 +782,7 @@ class SearchExperimentsUtils(SearchUtils):
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
             )
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        else:
-            return False
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed

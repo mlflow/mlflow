@@ -83,7 +83,7 @@ jobs:
             pip install -e '.[pipelines]'
       - run:
           name: Run example
-          working_directory: examples/pipelines/sklearn_regression
+          working_directory: examples/pipelines/sklearn_regression_example
           command: |
             export MLFLOW_PIPELINES_PROFILE=local
             mlp run

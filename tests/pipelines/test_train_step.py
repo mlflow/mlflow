@@ -134,10 +134,10 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_param
     return train_step
 
 
-def estimator_fn(estimator_params={}):  # pylint: disable=dangerous-default-value
+def estimator_fn(estimator_params=None):
     from sklearn.linear_model import SGDRegressor
 
-    return SGDRegressor(random_state=42, **estimator_params)
+    return SGDRegressor(random_state=42, **(estimator_params or {}))
 
 
 def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
