@@ -118,14 +118,6 @@ def main():
         os.environ.pop("PYSPARK_GATEWAY_PORT", None)
         os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
 
-        # TODO: remove below debugging code
-        import logging
-
-        _logger = logging.getLogger(__name__)
-        _logger.info(f"Subprocess python executable: {sys.executable}")
-        _logger.info("Subprocess environment variables: ")
-        _logger.info(os.environ.values())
-
     if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
