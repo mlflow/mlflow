@@ -992,6 +992,15 @@ class MlflowClient:
         """
         self._tracking_client.delete_tag(run_id, key)
 
+    def set_run_name(self, run_id: str, run_name: str) -> None:
+        """
+        Rename a run with the specified ID. It changes both the tag and the run info.
+
+        :param run_id: String ID of the run.
+        :param run_name: Run name (string).
+        """
+        self._tracking_client.set_run_name(run_id, run_name)
+
     def log_batch(
         self,
         run_id: str,

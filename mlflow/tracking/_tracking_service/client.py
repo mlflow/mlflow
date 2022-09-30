@@ -357,6 +357,22 @@ class TrackingServiceClient:
         """
         self.store.delete_tag(run_id, key)
 
+    def set_run_name(self, run_id, run_name):
+        """
+        Rename a run with the specified ID. It changes both the tag and the run info.
+
+        :param run_id: String ID of the run.
+        :param run_name: Run name (string).
+        """
+        run = self.get_run(run_id)
+        self.set_tag(run_id, "mlflow.runName", run_name)
+        self.store.update_run_info(
+            run_id=run_id,
+            run_status=RunStatus.from_string(run.info.status),
+            end_time=run.info.end_time,
+            run_name=run_name,
+        )
+
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
         Log multiple metrics, params, and/or tags.
