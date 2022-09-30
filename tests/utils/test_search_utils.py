@@ -1,5 +1,7 @@
 import base64
 import json
+import random
+
 import pytest
 import re
 
@@ -577,3 +579,46 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 def test_invalid_page_tokens(page_token, error_message):
     with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
+
+
+
+def test_single_run_by_ID(run_id, returned_id):
+    runs = [
+        Run(run_info=RunInfo(
+            run_uuid="0",
+            run_id="0",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+            run_data=RunData([], [], [])),
+        Run(run_info=RunInfo(
+            run_uuid="1",
+            run_id="1",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+            run_data=RunData([], [], [])),
+        Run(run_info=RunInfo(
+            run_uuid="1",
+            run_id="1",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+            run_data=RunData([], [], [])),
+    ]
+
+    run_id = "1"
+    returned_id = runs[1].RunInfo.run_id
+    assert run_id == returned_id

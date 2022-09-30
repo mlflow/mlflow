@@ -92,6 +92,7 @@ class RunInfo(_MLflowObject):
         return self._run_uuid
 
     @property
+    @searchable_attribute
     def run_id(self):
         """String containing run id."""
         return self._run_id
