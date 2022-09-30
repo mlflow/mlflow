@@ -101,12 +101,15 @@ class RunInfo(_MLflowObject):
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
-    @property
+    @searchable_attribute
     def run_name(self):
         """String containing run name."""
         return self._run_name
 
-    @property
+    def _set_run_name(self, new_name):
+        self._run_name = new_name
+
+    @searchable_attribute
     def user_id(self):
         """String ID of the user who initiated this run."""
         return self._user_id
@@ -124,7 +127,7 @@ class RunInfo(_MLflowObject):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
-    @orderable_attribute
+    @searchable_attribute
     def end_time(self):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time

@@ -14,7 +14,6 @@ import logging
 import concurrent.futures
 import warnings
 import atexit
-import time
 import tempfile
 from collections import namedtuple
 import pandas
@@ -65,9 +64,11 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
+
 
 FLAVOR_NAME = "tensorflow"
 
@@ -626,7 +627,7 @@ def _log_event(event):
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
-                        time=int(time.time() * 1000),
+                        time=get_current_time_millis(),
                         run_id=mlflow.active_run().info.run_id,
                     )
 

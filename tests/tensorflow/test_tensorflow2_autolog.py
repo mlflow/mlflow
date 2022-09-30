@@ -242,7 +242,8 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    assert "opt_decay" in data.params
+    decay_opt = "opt_weight_decay" if Version(tf.__version__) > Version("2.10") else "opt_decay"
+    assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
     assert "opt_epsilon" in data.params

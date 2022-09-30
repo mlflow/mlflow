@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from pathlib import Path
 
 import pytest
 from unittest import mock
@@ -26,6 +27,8 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -79,8 +82,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 "experiment_id": exp,
                 "name": random_str(),
                 "artifact_location": exp_folder,
-                "creation_time": int(time.time() * 1000),
-                "last_update_time": int(time.time() * 1000),
+                "creation_time": get_current_time_millis(),
+                "last_update_time": get_current_time_millis(),
             }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -126,7 +129,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 metrics = {}
                 for _ in range(3):
                     metric_name = random_str(random_int(10, 12))
-                    timestamp = int(time.time())
+                    timestamp = get_current_time_millis()
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
                     for _ in range(10):
@@ -398,7 +401,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
         next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
-        time_before_create = int(time.time() * 1000)
+        time_before_create = get_current_time_millis()
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
         self.assertEqual(created_id, next_id)
@@ -676,7 +679,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 0
+        assert len(no_tags_run.data.tags) == 1
 
         run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
@@ -694,7 +697,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
-        assert tags_run.data.tags == tags_dict
+        assert tags_run.data.tags == {**tags_dict, MLFLOW_RUN_NAME: tags_run.info.run_name}
 
     def test_create_run_sets_name(self):
         fs = FileStore(self.test_root)
@@ -706,8 +709,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="my name",
         )
 
-        run_name = run.info.run_name
-        assert run_name == "my name"
+        run = fs.get_run(run.info.run_id)
+        assert run.info.run_name == "my name"
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -788,8 +792,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="first name",
         ).info.run_id
         fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
-        get_run = fs.get_run(run_id)
-        assert get_run.info.run_name == "new name"
+        run = fs.get_run(run_id)
+        assert run.info.run_name == "new name"
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
 
     def test_update_run_does_not_rename_run_with_none_name(self):
         fs = FileStore(self.test_root)
@@ -1007,6 +1012,56 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
+
+    def test_search_runs_run_name(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_pagination")
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name2")
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        fs.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test attribute-based search after set_tag
+
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
+        run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
+        without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
+        run_meta_path.write_text(without_run_name)
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
