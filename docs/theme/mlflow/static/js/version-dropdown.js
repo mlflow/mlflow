@@ -23,7 +23,15 @@ fetch('https://pypi.org/pypi/mlflow/json')
       )
       .reverse();
 
-    var latestVersion = versions[0];
+    var latestMicroVersions = [];
+    versions.forEach(function (version) {
+      var microVersion = version.split('.').slice(0, 2).join('.');
+      if (!latestMicroVersions.includes(microVersion)) {
+        latestMicroVersions.push(version);
+      }
+    });
+
+    var latestVersion = latestMicroVersions[0];
     var docRegex = /\/docs\/(?<version>[^/]+)\//;
     var currentVersion = docRegex.exec(window.location.pathname).groups.version;
     var dropDown = document.createElement('select');
@@ -31,7 +39,7 @@ fetch('https://pypi.org/pypi/mlflow/json')
       var newHref = window.location.href.replace(docRegex, `/docs/${this.value}/`);
       window.location.href = newHref;
     };
-    versions.forEach(function (version) {
+    latestMicroVersions.forEach(function (version) {
       var option = document.createElement('option');
       option.value = version;
       option.selected = version === currentVersion;
