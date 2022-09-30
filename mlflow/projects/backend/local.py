@@ -109,7 +109,7 @@ class LocalBackend(AbstractBackend):
                 repository_uri=project.name,
                 base_image=project.docker_env.get("image"),
                 run_id=active_run.info.run_id,
-                rebuild=project.docker_env.get("rebuild"),
+                rebuild=project.docker_env.get("rebuild", True),
             )
             command_args += _get_docker_command(
                 image=image,
