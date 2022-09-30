@@ -30,7 +30,6 @@ class RegisterStep(BaseStep):
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
-        self.alerts = None
         self.version = None
 
         if "model_name" not in self.step_config:
@@ -85,10 +84,7 @@ class RegisterStep(BaseStep):
                 path=str(Path(output_directory) / "registered_model_version.json")
             )
         else:
-            self.alerts = (
-                "Model registration skipped.  Please check the validation "
-                "result from Evaluate step."
-            )
+            raise MlflowException(f"Model validation failed on {self.model_uri}")
 
         card = self._build_card(run_id)
         card.save_as_html(output_directory)
@@ -154,12 +150,6 @@ class RegisterStep(BaseStep):
             card_tab.add_markdown(
                 "MODEL_SOURCE_URI",
                 f"**Model Source URI:** `{self.model_uri}`",
-            )
-
-        if self.alerts is not None:
-            card_tab.add_markdown(
-                "ALERTS",
-                f"**Alerts:** `{self.alerts}`",
             )
 
         return card

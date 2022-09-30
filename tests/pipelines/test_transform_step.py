@@ -75,6 +75,30 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
 
 
+def test_transform_steps_work_without_step_config(tmp_pipeline_root_path):
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    experiment_name = "demo"
+    MlflowClient().create_experiment(experiment_name)
+
+    pipeline_yaml.write_text(
+        """
+        template: "regression/v1"
+        target_col: "y"
+        experiment:
+          name: {experiment_name}
+          tracking_uri: {tracking_uri}
+        steps:
+          fakestep:
+            something: else
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri(),
+            experiment_name=experiment_name,
+        )
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    TransformStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+
+
 def test_transform_empty_step(tmp_pipeline_root_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
