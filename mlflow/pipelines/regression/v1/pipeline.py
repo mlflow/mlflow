@@ -101,6 +101,12 @@ The pipeline steps are defined as follows:
         |'data/scoring' section in pipeline.yaml| and converts it to parquet format, leveraging 
         the custom dataset parsing code defined in |steps/ingest.py| if necessary. 
     
+            .. note::
+                If you make changes to the dataset referenced by the **ingest_scoring** step 
+                (e.g. by adding new records or columns), you must manually re-run the 
+                **ingest_scoring** step in order to use the updated dataset in the pipeline. 
+                The **ingest_scoring** step does *not* automatically detect changes in the dataset.
+    
    - **predict**
       - The **predict** step uses the ingested dataset for scoring created by the
         **ingest_scoring** step and applies the specified model to the dataset.
