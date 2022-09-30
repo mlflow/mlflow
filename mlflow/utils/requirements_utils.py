@@ -19,6 +19,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
@@ -221,7 +222,8 @@ def _run_command(cmd, timeout_seconds, env=None):
             )
             raise MlflowException(msg)
     finally:
-        timer.cancel()
+        if timer.is_alive():
+            timer.cancel()
 
 
 def _get_installed_version(package, module=None):
@@ -266,13 +268,17 @@ def _capture_imported_modules(model_uri, flavor):
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
-    process_timeout = os.environ.get("REQUIREMENTS_INFERENCE_TIMEOUT", 2 * 60)
+    process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
 
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
         output_file = os.path.join(tmpdir, "imported_modules.txt")
         # Pass the main environment variables to the subprocess for environment variable mapping
         main_env = os.environ.copy()
+        # Reset the path variable from the main process so that the subprocess retains all
+        # main process configuration that a user has.
+        # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
+        # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
 
         _run_command(

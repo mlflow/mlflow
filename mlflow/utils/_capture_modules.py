@@ -125,16 +125,18 @@ def main():
         # Create a local spark environment within the subprocess if using OSS Spark
         from pyspark.sql import SparkSession
 
-        SparkSession.builder.config("spark.python.worker.reuse", "true").config(
-            "spark.databricks.io.cache.enabled", "false"
-        ).config("spark.executor.allowSparkContext", "true").config(
-            "spark.driver.bindAddress", "127.0.0.1"
-        ).config(
-            "spark.driver.extraJavaOptions",
-            "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
-        ).master(
-            "local[1]"
-        ).getOrCreate()
+        (
+            SparkSession.builder.config("spark.python.worker.reuse", "true")
+            .config("spark.databricks.io.cache.enabled", "false")
+            .config("spark.executor.allowSparkContext", "true")
+            .config("spark.driver.bindAddress", "127.0.0.1")
+            .config(
+                "spark.driver.extraJavaOptions",
+                "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
+            )
+            .master("local[1]")
+            .getOrCreate()
+        )
 
     cap_cm = _CaptureImportedModules()
 
