@@ -285,6 +285,7 @@ def test_docker_run_prebuilt_image_local(tmp_path):
     dockerfile.write_text(
         """
 FROM python:3.7
+RUN pip --version
 """
     )
     client.images.build(path=str(tmp_path), dockerfile=str(dockerfile), tag="my-python:latest")
@@ -300,7 +301,8 @@ entry_points:
 """
     )
     submitted_run = mlflow.projects.run(str(tmp_path))
-    assert any("my-python" in a for a in submitted_run.command_proc.args)
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "my-python"
 
 
 def test_docker_run_prebuilt_image_remote(tmp_path):
@@ -316,4 +318,5 @@ entry_points:
 """
     )
     submitted_run = mlflow.projects.run(str(tmp_path))
-    assert any("python:3.7" in a for a in submitted_run.command_proc.args)
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.7"
