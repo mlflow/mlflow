@@ -1822,12 +1822,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        for (k, v) in {
-            "experiment_id": e1,
-            "lifecycle_stage": "ACTIVE",
-            "run_id": r1,
-            "run_uuid": r2,
-        }.items():
+        for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
 
@@ -2566,7 +2561,7 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
     assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
     assert models.SqlRun.get_attribute_name("run_name") == "name"
-    assert models.SqlRun.get_attribute_name("run_id") == "run_id"
+    assert models.SqlRun.get_attribute_name("run_id") == "run_uuid"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test

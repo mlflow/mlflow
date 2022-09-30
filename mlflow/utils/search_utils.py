@@ -669,9 +669,9 @@ class SearchUtils:
             )
 
         # Single element (e.g. `('x')`)
-        if isinstance(
-            value_token._groupable_tokens[0],
-            Token,
+        if (
+            len(value_token._groupable_tokens) == 1
+            and value_token._groupable_tokens[0].ttype == TokenType.String
         ):
             return
 
@@ -700,8 +700,8 @@ class SearchUtils:
     @classmethod
     def _parse_list_from_sql_token(cls, token):
         try:
-            tuple_literal = ast.literal_eval(token.value)
-            return [tuple_literal] if isinstance(tuple_literal, str) else tuple_literal
+            str_or_tuple = ast.literal_eval(token.value)
+            return [str_or_tuple] if isinstance(str_or_tuple, str) else str_or_tuple
         except SyntaxError:
             raise MlflowException(
                 "While parsing a list in the query,"
