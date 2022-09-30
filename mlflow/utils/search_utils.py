@@ -671,7 +671,7 @@ class SearchUtils:
         # Single element (e.g. `('x')`)
         if (
             len(value_token._groupable_tokens) == 1
-            and value_token._groupable_tokens[0].ttype == TokenType.String
+            and value_token._groupable_tokens[0].ttype is TokenType.String.Single
         ):
             return
 
