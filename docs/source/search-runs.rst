@@ -111,13 +111,13 @@ You can search using the following run attributes contained in :py:class:`mlflow
 MLflow Tags
 ~~~~~~~~~~~
 
-You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search by owner of an MLflow run, specify ``tags."mlflow.userId"`` or ``tags.`mlflow.userId```.
+You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search by owner of an MLflow run, specify ``tags."mlflow.user"`` or ``tags.`mlflow.userId```.
 
 .. rubric:: Examples
 
 .. code-block:: sql
 
-  tags."mlflow.userId"
+  tags."mlflow.user"
 
 .. code-block:: sql
 
