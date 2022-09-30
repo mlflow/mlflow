@@ -451,6 +451,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H8/czZ": {
+    "defaultMessage": "Load model",
+    "description": "Code comment which states how to load model"
+  },
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
@@ -838,6 +842,10 @@
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
+  },
+  "bUNg0K": {
+    "defaultMessage": "Perform inference via model.transform()",
+    "description": "Code comment which states on how we can perform inference"
   },
   "bhgG7S": {
     "defaultMessage": "Run Command",
