@@ -260,8 +260,8 @@ class SearchUtils:
             elif isinstance(token, Parenthesis):
                 if key != "run_id":
                     raise MlflowException(
-                        "Only run_id attribute support compare with a list of quoted string "
-                        "values.",
+                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 return cls._parse_run_ids(token)
@@ -928,8 +928,8 @@ class SearchModelUtils(SearchUtils):
             elif isinstance(token, Parenthesis):
                 if key != "run_id":
                     raise MlflowException(
-                        "Only run_id attribute support compare with a list of quoted string "
-                        "values.",
+                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 return cls._parse_run_ids(token)
