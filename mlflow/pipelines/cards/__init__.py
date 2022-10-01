@@ -252,17 +252,22 @@ class BaseCard:
                         ("text-align", "left"),
                         ("padding", "5px"),
                     ],
-                }
+                },
             ]
         )
         if hide_index:
-            return (
+            rendered_table = (
                 styler.hide(axis="index").to_html()
                 if pandas_version >= Version("1.4.0")
                 else styler.hide_index().render()
             )
         else:
-            return styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
+            rendered_table = (
+                styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
+            )
+        return (
+            "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
+        ).format(src=html.escape(rendered_table))
 
 
 class FailureCard(BaseCard):
