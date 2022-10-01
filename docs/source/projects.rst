@@ -311,8 +311,8 @@ Docker container environment
       rebuild: false
 
   By default, MLflow builds a new image that's based on the specified image and contains files in
-  the project directory. To skip building a new and use the image directly, set ``rebuild`` to
-  ``false``. In this example, the image ``python:3.7`` is pulled from Docker Hub if it's not
+  the project directory. To disable this behavior and use the image directly, set ``rebuild``
+  to ``false``. In this example, the image ``python:3.7`` is pulled from Docker Hub if it's not
   present locally and the project is run in a container created from this image.
 
 .. _mlproject-command-syntax:
