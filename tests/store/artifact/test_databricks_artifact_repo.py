@@ -380,7 +380,7 @@ class TestDatabricksArtifactRepository:
         )
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos",
-            return_value=[mock_credential_info]
+            return_value=[mock_credential_info],
         ) as write_credential_infos_mock, mock.patch(
             "mlflow.utils.rest_utils.cloud_storage_http_request",
             side_effect=[mock_successful_response, mock_error_response],
@@ -403,7 +403,7 @@ class TestDatabricksArtifactRepository:
                     MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
                     data=ANY,
                     headers={},
-                )
+                ),
             ]
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
