@@ -9,6 +9,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.autologging_utils import safe_patch, autologging_integration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -233,3 +234,22 @@ def load_model(model_uri, dst_path=None):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     transformers_model_file_path = os.path.join(local_model_path, _MODEL_SAVE_PATH)
     return _load_model(path=transformers_model_file_path, conf=flavor_conf)
+
+
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    task=None,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    registered_model_name=None,
+):  # pylint: disable=unused-argument
+
+    if task is None:
+        raise ("Task name is required for logging transformers model", 400)
+    import transformers.trainer as transformer_trainer
+    from mlflow.transformers._transformers_autolog import patched_train
+
+    safe_patch(FLAVOR_NAME, transformer_trainer.Trainer, "train", patched_train, manage_run=True)

@@ -709,8 +709,8 @@ def _warn_dependency_requirement_mismatches(model_path):
 
 
 def load_model(
-    model_uri: str, suppress_warnings: bool = False, dst_path: str = None,
-**kwargs) -> PyFuncModel:
+    model_uri: str, suppress_warnings: bool = False, dst_path: str = None
+) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -753,7 +753,7 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, **kwargs)
+    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
