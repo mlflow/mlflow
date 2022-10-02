@@ -532,7 +532,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
                 break
 
 
-def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
     uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
@@ -540,7 +540,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    with cloud_storage_http_request("get", http_uri, stream=True) as response:
+    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
         augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
