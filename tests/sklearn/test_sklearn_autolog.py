@@ -2103,3 +2103,10 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
+
+def test_estimator_html_is_logged():
+    mlflow.sklearn.autolog()
+    with mlflow.start_run() as run:
+        sklearn.svm.SVC().fit(*get_iris())
+        artifacts = get_run_data(run.info.run_id)[3]
+        assert "estimator.html" in artifacts
