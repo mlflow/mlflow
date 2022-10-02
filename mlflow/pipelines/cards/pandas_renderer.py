@@ -200,23 +200,26 @@ def convert_to_comparison_proto(
 
 
 def construct_facets_html(
-    proto: facet_feature_statistics_pb2.DatasetFeatureStatisticsList, compare: bool = False
+    proto: facet_feature_statistics_pb2.DatasetFeatureStatisticsList,
+    compare: bool = False,
+    chart_selection: str = "Standard",
 ) -> str:
     """
     Constructs the facets HTML to visualize the serialized FeatureStatisticsList proto.
     :param proto: A DatasetFeatureStatisticsList proto which contains the statistics for a DataFrame
     :param compare: If True, then the returned visualization switches on the comparison
         mode for several stats.
+    :param chart_selection: The selected histogram chart by default
     :return: the HTML for Facets visualization
     """
     # facets_html_bundle = _get_facets_html_bundle()
     protostr = base64.b64encode(proto.SerializeToString()).decode("utf-8")
     html_template = """
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.3.3/webcomponents-lite.js"></script>
-        <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
-        <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
+        <link rel="import" href="https://raw.githubusercontent.com/mingyu89/mlflow/update-default-compare-splits-chart/mlflow/pipelines/cards/facets/facets-jupyter.html" >
+        <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}" chart-selection="{chartSelection}"></facets-overview>
     """
-    html = html_template.format(protostr=protostr, compare=compare)
+    html = html_template.format(protostr=protostr, compare=compare, chartSelection=chart_selection)
     return html
 
 
@@ -235,6 +238,7 @@ def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) ->
     else:
         proto = convert_to_comparison_proto(inputs)
         compare = True
+        chart_selection = "Standard" if len(inputs) <= 1 else "Quantiles"
 
-    html = construct_facets_html(proto, compare=compare)
+    html = construct_facets_html(proto, compare=compare, chart_selection=chart_selection)
     return html
