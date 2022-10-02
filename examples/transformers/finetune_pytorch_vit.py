@@ -1,4 +1,17 @@
+import torch
 from datasets import load_dataset, load_metric
+from torch.optim import AdamW
+from torch.utils.data import DataLoader
+from torchvision.transforms import (CenterCrop,
+                                    Compose,
+                                    Normalize,
+                                    RandomHorizontalFlip,
+                                    RandomResizedCrop,
+                                    Resize,
+                                    ToTensor)
+from transformers import ViTFeatureExtractor, ViTForImageClassification, get_scheduler
+
+import mlflow
 
 # load cifar10 (only small portion for demonstration purposes)
 train_ds, test_ds = load_dataset('cifar10', split=['train[:20]', 'test[:10]'])
@@ -7,36 +20,27 @@ splits = train_ds.train_test_split(test_size=0.1)
 train_ds = splits['train']
 val_ds = splits['test']
 
-from transformers import ViTFeatureExtractor, ViTForImageClassification, get_scheduler
 
 feature_extractor = ViTFeatureExtractor.from_pretrained("google/vit-base-patch16-224-in21k")
 
-from torchvision.transforms import (CenterCrop,
-                                    Compose,
-                                    Normalize,
-                                    RandomHorizontalFlip,
-                                    RandomResizedCrop,
-                                    Resize,
-                                    ToTensor)
-
 normalize = Normalize(mean=feature_extractor.image_mean, std=feature_extractor.image_std)
 _train_transforms = Compose(
-        [
-            RandomResizedCrop(feature_extractor.size),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            normalize,
-        ]
-    )
+    [
+        RandomResizedCrop(feature_extractor.size),
+        RandomHorizontalFlip(),
+        ToTensor(),
+        normalize,
+    ]
+)
 
 _val_transforms = Compose(
-        [
-            Resize(feature_extractor.size),
-            CenterCrop(feature_extractor.size),
-            ToTensor(),
-            normalize,
-        ]
-    )
+    [
+        Resize(feature_extractor.size),
+        CenterCrop(feature_extractor.size),
+        ToTensor(),
+        normalize,
+    ]
+)
 
 
 def train_transforms(examples):
@@ -54,13 +58,12 @@ train_ds.set_transform(train_transforms)
 val_ds.set_transform(val_transforms)
 test_ds.set_transform(val_transforms)
 
-from torch.utils.data import DataLoader
-import torch
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     labels = torch.tensor([example["label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
+
 
 train_batch_size = 2
 eval_batch_size = 2
@@ -69,29 +72,27 @@ train_dataloader = DataLoader(train_ds, shuffle=True, collate_fn=collate_fn, bat
 val_dataloader = DataLoader(val_ds, collate_fn=collate_fn, batch_size=eval_batch_size)
 test_dataloader = DataLoader(test_ds, collate_fn=collate_fn, batch_size=eval_batch_size)
 
-from torch.optim import AdamW
-id2label = {id:label for id, label in enumerate(train_ds.features['label'].names)}
-label2id = {label:id for id,label in id2label.items()}
+
+id2label = {id: label for id, label in enumerate(train_ds.features['label'].names)}
+label2id = {label: id for id, label in id2label.items()}
 model_name_or_path = 'google/vit-base-patch16-224-in21k'
 model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224-in21k',
-                                                              num_labels=10,
-                                                              id2label=id2label,
-                                                              label2id=label2id)
+                                                  num_labels=10,
+                                                  id2label=id2label,
+                                                  label2id=label2id)
 optimizer = AdamW(model.parameters(), lr=5e-5)
 
 num_epochs = 1
 num_training_steps = num_epochs * len(train_dataloader)
 
-lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
+lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0,
+                             num_training_steps=num_training_steps)
 
-import torch
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-import mlflow
 
 with mlflow.start_run():
-
     for epoch in range(num_epochs):
         for batch in train_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -104,14 +105,13 @@ with mlflow.start_run():
             lr_scheduler.step()
             optimizer.zero_grad()
 
-    mlflow.transformers.log_model(model, "bert_artifact", task="image-classification", feature_extractor=feature_extractor)
-
+    mlflow.transformers.log_model(model, "bert_artifact", task="image-classification",
+                                  feature_extractor=feature_extractor)
 
     metric = load_metric("accuracy")
     model.eval()
 
-
-    #loaded_model = pyfunc.load_model(mlflow.get_artifact_uri("bert_artifact"))
+    # loaded_model = pyfunc.load_model(mlflow.get_artifact_uri("bert_artifact"))
     for batch in val_dataloader:
         batch = {k: v.to(device) for k, v in batch.items()}
         with torch.no_grad():
@@ -124,6 +124,6 @@ with mlflow.start_run():
     print(metric.compute())
 
     model_uri = mlflow.get_artifact_uri("bert_artifact")
-    print(model_uri)
     loaded_model = mlflow.transformers.load_model(model_uri)
+
     print(loaded_model([test_ds[0]["img"]]))

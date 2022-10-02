@@ -1,22 +1,8 @@
 import numpy as np
 from datasets import load_dataset, load_metric
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
-from transformers.integrations import MLflowCallback
+
 import mlflow
-
-
-class CustomMlflowCallback(MLflowCallback):
-    def __init__(self, task):
-        super().__init__()
-        self.task = task
-
-    def on_save(self, args, state, control, model=None, tokenizer=None, train_dataloader=None, **kwargs):
-        print("logging model")
-        print(tokenizer)
-        mlflow.transformers.log_model(model, artifact_path="model_artifact", tokenizer=tokenizer, task=self.task)
-        model_uri = mlflow.get_artifact_uri("transformers_model")
-        print(model_uri)
-
 
 dataset = load_dataset("yelp_review_full")
 tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base", TOKENIZERS_PARALLELISM=False)
@@ -43,7 +29,9 @@ def compute_metrics(eval_pred):
     return metric.compute(predictions=predictions, references=labels)
 
 
-training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch", logging_strategy="epoch", save_strategy="epoch")
+training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch",
+                                  logging_strategy="epoch", save_strategy="epoch", num_train_epochs=1,
+                                  max_steps=1)
 
 
 trainer = Trainer(
@@ -55,11 +43,10 @@ trainer = Trainer(
     compute_metrics=compute_metrics,
 )
 
-trainer.remove_callback(MLflowCallback)
-trainer.add_callback(CustomMlflowCallback(task="text-classification"))
-trainer.train()
 
-model_uri = mlflow.get_artifact_uri("model_artifact")
-print(model_uri)
-loaded_model = mlflow.transformers.load_model(model_uri)
-print(loaded_model(["All is well"]))
+with mlflow.start_run() as run:
+    trainer.train()
+    mlflow.transformers.log_model(trainer.model, "model_artifact", task="text-classification", tokenizer=trainer.tokenizer)
+    model_uri = mlflow.get_artifact_uri("model_artifact")
+    loaded_model = mlflow.transformers.load_model(model_uri)
+    print(loaded_model(["All is well"]))
