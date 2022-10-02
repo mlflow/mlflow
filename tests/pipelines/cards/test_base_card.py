@@ -64,12 +64,18 @@ def test_render_table():
     import pandas as pd
     import numpy as np
 
-    assert "</table>" in BaseCard.render_table(pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
-    assert "</table>" in BaseCard.render_table(pd.DataFrame({"a": [1, 2], "b": [3, 4]}).style)
-    assert "</table>" in BaseCard.render_table([(1, 2), (3, 4)], columns=["a", "b"])
-    assert "</table>" in BaseCard.render_table([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
-    assert "</table>" in BaseCard.render_table({"a": [1, 2], "b": [3, 4]})
-    assert "</table>" in BaseCard.render_table(np.array([[1, 2], [3, 4]]), columns=["a", "b"])
+    expected_table_string = "&lt;/table&gt;"
+
+    assert expected_table_string in BaseCard.render_table(pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
+    assert expected_table_string in BaseCard.render_table(
+        pd.DataFrame({"a": [1, 2], "b": [3, 4]}).style
+    )
+    assert expected_table_string in BaseCard.render_table([(1, 2), (3, 4)], columns=["a", "b"])
+    assert expected_table_string in BaseCard.render_table([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
+    assert expected_table_string in BaseCard.render_table({"a": [1, 2], "b": [3, 4]})
+    assert expected_table_string in BaseCard.render_table(
+        np.array([[1, 2], [3, 4]]), columns=["a", "b"]
+    )
 
     col_name = uuid.uuid4().hex
     assert col_name in BaseCard.render_table({"a": [1, 2], "b": [3, 4], col_name: [5, 6]})
