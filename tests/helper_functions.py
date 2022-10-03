@@ -248,12 +248,14 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=250, validate_version=True):
         self._proc = proc
         self._port = port
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
+        self._validate_version = validate_version
 
     def __enter__(self):
+        ping_status = None
         for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
             time.sleep(1)
@@ -265,15 +267,16 @@ class RestEndpoint:
                     break
             except Exception:
                 _logger.info(f"connection attempt {i} failed, server is not up yet")
-        if ping_status.status_code != 200:
+        if ping_status is None or ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         _logger.info(f"server up, ping status {ping_status}")
 
-        resp_status = requests.get(url="http://localhost:%d/version" % self._port)
-        version = resp_status.text
-        _logger.info(f"mlflow server version {version}")
-        if version != mlflow.__version__:
-            raise Exception("version path is not returning correct mlflow version")
+        if self._validate_version:
+            resp_status = requests.get(url="http://localhost:%d/version" % self._port)
+            version = resp_status.text
+            _logger.info(f"mlflow server version {version}")
+            if version != mlflow.__version__:
+                raise Exception("version path is not returning correct mlflow version")
         return self
 
     def __exit__(self, tp, val, traceback):
