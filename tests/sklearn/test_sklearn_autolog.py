@@ -1202,7 +1202,7 @@ def test_eval_and_log_metrics_for_regressor():
     run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert metrics == eval_metrics
-    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_for_binary_classifier():
@@ -1467,7 +1467,7 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
-    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
@@ -1546,7 +1546,7 @@ def test_eval_and_log_metrics_with_new_run():
     run_id = mlflow.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
-    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
     mlflow.end_run()
 
 
@@ -1575,7 +1575,7 @@ def test_eval_and_log_metrics_with_noscore_estimator():
     # No artifacts should be generated
     assert len(metrics) == 0
     assert len(eval_metrics) == 0
-    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_throws_with_invalid_args():
@@ -2063,7 +2063,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     assert len(params) > 0
     assert len(metrics) > 0
     assert len(tags) > 0
-    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_autolog_registering_model():
@@ -2109,11 +2109,3 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
-
-
-def test_estimator_html_is_logged():
-    mlflow.sklearn.autolog()
-    with mlflow.start_run() as run:
-        sklearn.svm.SVC().fit(*get_iris())
-        artifacts = get_run_data(run.info.run_id)[3]
-        assert "estimator.html" in artifacts
