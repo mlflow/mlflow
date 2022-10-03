@@ -165,8 +165,7 @@ MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
     "MLFLOW_SQLALCHEMYSTORE_POOLCLASS", str, None
 )
 
-#: Specifies the ``timeout_seconds`` parameter to use for ``_run_command`` in the dependency
-#: inference subprocess task.
+#: Specifies the ``timeout_seconds`` for dependency inference operations.
 #: (default: ``120``)
 MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT", int, 120
