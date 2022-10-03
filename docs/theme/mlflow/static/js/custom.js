@@ -270,9 +270,9 @@ fetch('https://pypi.org/pypi/mlflow/json')
   .then((response) => response.json())
   .then((data) => {
     var versions = Object.keys(data.releases)
-      // Drop dev/post/rc versions
+      // Drop dev/pre/rc/post versions and older versions
       .filter(function (version) {
-        return /^\d+(\.\d+){0,3}$/.test(version);
+        return /^[1-9]+(\.\d+){0,3}$/.test(version);
       })
       // Sort versions
       // https://stackoverflow.com/a/40201629
@@ -291,10 +291,12 @@ fetch('https://pypi.org/pypi/mlflow/json')
       )
       .reverse();
 
+    var seenMinorVersions = [];
     var latestMicroVersions = [];
     versions.forEach(function (version) {
-      var microVersion = version.split('.').slice(0, 2).join('.');
-      if (!latestMicroVersions.includes(microVersion)) {
+      var minor = version.split('.').slice(0, 2).join('.');
+      if (!seenMinorVersions.includes(minor)) {
+        seenMinorVersions.push(minor);
         latestMicroVersions.push(version);
       }
     });
