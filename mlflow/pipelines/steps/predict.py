@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -30,10 +29,43 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+    def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
-        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
+        self.pipeline_config = pipeline_config
 
+    def _materialize(self):
+        try:
+            self.step_config = self.pipeline_config["steps"]["predict"]
+        except KeyError:
+            raise MlflowException(
+                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
+        required_configuration_keys = ["output_format", "output_location"]
+        for key in required_configuration_keys:
+            if key not in self.step_config:
+                raise MlflowException(
+                    f"The `{key}` configuration key must be specified for the predict step.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if self.step_config["output_format"] not in {"parquet", "delta", "table"}:
+            raise MlflowException(
+                "Invalid `output_format` in predict step configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if "model_uri" not in self.step_config:
+            try:
+                register_config = self.pipeline_config["steps"]["register"]
+                model_name = register_config["model_name"]
+            except KeyError:
+                raise MlflowException(
+                    "No model specified for batch scoring: predict step does not have `model_uri` "
+                    "configuration key and register step does not have `model_name` configuration "
+                    " key.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                self.step_config["model_uri"] = f"models:/{model_name}/latest"
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.run_end_time = None
         self.execution_duration = None
 
@@ -153,38 +185,7 @@ class PredictStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["predict"]
-        except KeyError:
-            raise MlflowException(
-                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
-        required_configuration_keys = ["output_format", "output_location"]
-        for key in required_configuration_keys:
-            if key not in step_config:
-                raise MlflowException(
-                    f"The `{key}` configuration key must be specified for the predict step.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        if step_config["output_format"] not in {"parquet", "delta", "table"}:
-            raise MlflowException(
-                "Invalid `output_format` in predict step configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if "model_uri" not in step_config:
-            try:
-                register_config = pipeline_config["steps"]["register"]
-                model_name = register_config["model_name"]
-            except KeyError:
-                raise MlflowException(
-                    "No model specified for batch scoring: predict step does not have `model_uri` "
-                    "configuration key and register step does not have `model_name` configuration "
-                    " key.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            else:
-                step_config["model_uri"] = f"models:/{model_name}/latest"
-        return cls(step_config, pipeline_root)
+        return cls({}, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):
