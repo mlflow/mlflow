@@ -15,4 +15,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python dev/preview_docs.py --ref ${{ github.sha }} --issue-number ${{ github.event.pull_request.number }}
+          python dev/preview_docs.py --ref ${{ github.event.pull_request.head.sha }} --issue-number ${{ github.event.pull_request.number }}

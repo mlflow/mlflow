@@ -23,7 +23,6 @@ def main():
     for _ in range(5):
         resp = session.get(f"https://api.github.com/repos/{repo}/commits/{args.ref}/status")
         resp.raise_for_status()
-        print(resp.json()["statuses"])
         build_doc_status = next(
             filter(lambda s: s["context"].endswith(build_doc_job_name), resp.json()["statuses"]),
             None,
