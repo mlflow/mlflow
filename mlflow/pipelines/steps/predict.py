@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -212,3 +213,10 @@ class PredictStep(BaseStep):
     @property
     def environment(self):
         return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "scored_data", self.pipeline_root, self.name, _SCORED_OUTPUT_FILE_NAME
+            )
+        ]

@@ -281,12 +281,7 @@ def test_pipeline_get_artifacts():
         pipeline.get_artifact("abcde")
 
     pipeline.clean()
-    with mock.patch("mlflow.pipelines.regression.v1.pipeline._logger.warning") as mock_warning:
-        pipeline.get_artifact("ingested_data")
-        mock_warning.assert_called_once_with(
-            "The artifact with name 'ingested_data' was not found."
-            " Re-run the 'ingest' step to generate it."
-        )
+    assert not pipeline.get_artifact("ingested_data")
 
 
 def test_generate_worst_examples_dataframe():

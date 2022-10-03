@@ -4,6 +4,7 @@ import time
 import importlib
 import sys
 
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -223,3 +224,14 @@ class SplitStep(BaseStep):
     @property
     def name(self):
         return "split"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "training_data", self.pipeline_root, self.name, _OUTPUT_TRAIN_FILE_NAME
+            ),
+            DataframeArtifact(
+                "validation_data", self.pipeline_root, self.name, _OUTPUT_VALIDATION_FILE_NAME
+            ),
+            DataframeArtifact("test_data", self.pipeline_root, self.name, _OUTPUT_TEST_FILE_NAME),
+        ]
