@@ -60,7 +60,14 @@ def setup_train_dataset(pipeline_root: Path):
 
 
 # Sets up the constructed TrainStep instance
-def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_params: bool = True):
+def setup_train_step(
+    pipeline_root: Path,
+    use_tuning: bool,
+    with_hardcoded_params: bool = True,
+    automl: bool = False,
+    primary_metric: str = "root_mean_squared_error",
+    generate_custom_metrics: bool = False,
+):
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     if with_hardcoded_params:
         estimator_params = """
@@ -109,25 +116,39 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_param
             )
         )
     else:
-        pipeline_yaml.write_text(
+        automl_attrs = """
+                    using: automl/flaml
+                    time_budget_secs: 20 
+                    estimator_list: ["xgboost", "rf", "lgbm"]
             """
-            template: "regression/v1"
-            target_col: "y"
-            profile: "test_profile"
-            run_args:
-                step: "train"
-            experiment:
-                name: "demo"
-                tracking_uri: {tracking_uri}
-            steps:
-                train:
+
+        estimator_attrs = """
                     using: estimator_spec
-                    estimator_method: tests.pipelines.test_train_step.estimator_fn
-                    tuning:
-                        enabled: false
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri()
-            )
+                    estimator_method: sklearn.linear_model.SGDRegressor
+            """
+
+        custom_metric = """
+                  custom:
+                    - name: weighted_mean_squared_error
+                      function: weighted_mean_squared_error
+                      greater_is_better: False
+            """
+        pipeline_yaml.write_text(
+            f"""
+                template: "regression/v1"
+                target_col: "y"
+                profile: "test_profile"
+                run_args:
+                    step: "train"
+                experiment:
+                  name: "demo"
+                  tracking_uri: {mlflow.get_tracking_uri()}
+                steps:
+                  train: {automl_attrs if automl else estimator_attrs}
+                metrics:
+                  {custom_metric if generate_custom_metrics else ""}
+                  primary: {primary_metric}
+                """
         )
     pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
     train_step = TrainStep.from_pipeline_config(pipeline_config, str(pipeline_root))
@@ -321,3 +342,54 @@ def test_search_space(tmp_pipeline_root_path):
 @pytest.mark.parametrize("tuning_param,logged_param", [(1, "1"), (1.0, "1.0"), ("a", " a ")])
 def test_tuning_param_equal(tuning_param, logged_param):
     assert TrainStep.is_tuning_param_equal(tuning_param, logged_param)
+
+
+@pytest.mark.parametrize(
+    ("automl", "primary_metric", "generate_custom_metrics"),
+    [
+        (False, "root_mean_squared_error", False),
+        (True, "root_mean_squared_error", False),
+        (True, "weighted_mean_squared_error", True),
+    ],
+)
+def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_metrics):
+    with mock.patch.dict(
+        os.environ,
+        {
+            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
+            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+        },
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        if generate_custom_metrics:
+            pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+            pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+                """
+def weighted_mean_squared_error(eval_df, builtin_metrics):
+    from sklearn.metrics import mean_squared_error
+
+    return {
+        "weighted_mean_squared_error": mean_squared_error(
+            eval_df["prediction"],
+            eval_df["target"],
+            sample_weight=1 / eval_df["prediction"].values,
+        )
+    }
+        """
+            )
+
+        train_step = setup_train_step(
+            tmp_pipeline_root_path,
+            use_tuning=False,
+            with_hardcoded_params=False,
+            automl=automl,
+            primary_metric=primary_metric,
+            generate_custom_metrics=generate_custom_metrics,
+        )
+        train_step._run(str(train_step_output_dir))
+
+        with open(train_step_output_dir / "run_id") as f:
+            run_id = f.read()
+
+        metrics = MlflowClient().get_run(run_id).data.metrics
+        assert f"{primary_metric}_on_data_training" in metrics

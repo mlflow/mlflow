@@ -61,9 +61,7 @@ class TrainStep(BaseStep):
         self.target_col = self.step_config.get("target_col")
         self.template = self.step_config.get("template_name")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.train_module_name, self.estimator_method_name = self.step_config[
-            "estimator_method"
-        ].rsplit(".", 1)
+
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
@@ -168,11 +166,6 @@ class TrainStep(BaseStep):
             relative_path="transformer.pkl",
         )
 
-        sys.path.append(self.pipeline_root)
-        estimator_fn = getattr(
-            importlib.import_module(self.train_module_name), self.estimator_method_name
-        )
-
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
@@ -185,26 +178,13 @@ class TrainStep(BaseStep):
         best_estimator_params = None
         mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
-            estimator_hardcoded_params = self.step_config["estimator_params"]
-            if self.step_config["tuning_enabled"]:
-                best_estimator_params = self._tune_and_get_best_estimator_params(
-                    run.info.run_id,
-                    estimator_hardcoded_params,
-                    estimator_fn,
-                    X_train,
-                    y_train,
-                    validation_df,
-                    output_directory,
-                )
-                estimator = estimator_fn(best_estimator_params)
-            elif len(estimator_hardcoded_params) > 0:
-                estimator = estimator_fn(estimator_hardcoded_params)
-            else:
-                estimator = estimator_fn()
 
+            estimator = self._resolve_estimator(
+                X_train, y_train, validation_df, run, output_directory
+            )
             estimator.fit(X_train, y_train)
 
-            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train, tags)
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
 
             # Create a pipeline consisting of the transformer+model for test data evaluation
             with open(transformer_path, "rb") as f:
@@ -303,6 +283,52 @@ class TrainStep(BaseStep):
             self._log_step_card(run.info.run_id, step_name)
 
         return card
+
+    def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
+        train_module_name, estimator_method_name = self.step_config["estimator_method"].rsplit(
+            ".", 1
+        )
+        sys.path.append(self.pipeline_root)
+        estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
+        estimator_hardcoded_params = self.step_config["estimator_params"]
+        if self.step_config["tuning_enabled"]:
+            best_estimator_params = self._tune_and_get_best_estimator_params(
+                run.info.run_id,
+                estimator_hardcoded_params,
+                estimator_fn,
+                X_train,
+                y_train,
+                validation_df,
+                output_directory,
+            )
+            estimator = estimator_fn(best_estimator_params)
+        elif len(estimator_hardcoded_params) > 0:
+            estimator = estimator_fn(estimator_hardcoded_params)
+        else:
+            estimator = estimator_fn()
+        return estimator
+
+    def _resolve_estimator_plugin(self, plugin_str, X_train, y_train):
+        plugin_str = plugin_str.replace("/", ".").replace("@", ".")
+        plugin_module_str = f"{sys.modules[__name__].__package__}.{plugin_str}"
+        estimator_fn = getattr(importlib.import_module(plugin_module_str), "get_estimator")
+        return estimator_fn(
+            X_train,
+            y_train,
+            self.step_config,
+            self.pipeline_root,
+            self.evaluation_metrics,
+            self.primary_metric,
+        )
+
+    def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
+        using_plugin = self.step_config.get("using", "estimator_spec")
+        if using_plugin == "estimator_spec":
+            return self._get_user_defined_estimator(
+                X_train, y_train, validation_df, run, output_directory
+            )
+        else:
+            return self._resolve_estimator_plugin(using_plugin, X_train, y_train)
 
     def _get_leaderboard_df(self, run, eval_metrics):
         import pandas as pd
@@ -468,10 +494,10 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 1: Model performance.
+        # Tab 1: Model performance summary metrics.
         card.add_tab(
-            "Model Performance",
-            "<h3 class='section-title'>Summary Metrics (Validation)</h3>{{ METRICS }} ",
+            "Model Performance Summary Metrics",
+            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
         if not self.skip_data_profiling:
@@ -612,7 +638,7 @@ class TrainStep(BaseStep):
             step_config["profile"] = pipeline_config.get("profile")
             step_config["run_args"] = pipeline_config.get("run_args")
             if "using" in step_config:
-                if step_config["using"] not in ["estimator_spec"]:
+                if step_config["using"] not in ["estimator_spec", "automl/flaml"]:
                     raise MlflowException(
                         f"Invalid train step configuration value {step_config['using']} for key "
                         f"'using'. Supported values are: ['estimator_spec']",
