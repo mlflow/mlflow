@@ -2,7 +2,6 @@ import logging
 import operator
 import os
 from pathlib import Path
-from typing import Dict, Any
 from collections import namedtuple
 
 import mlflow
@@ -42,8 +41,26 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
+    def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.pipeline_config = pipeline_config
+
+    def _materialize(self):
+        try:
+            self.step_config = self.pipeline_config["steps"].get("evaluate") or {}
+        except KeyError:
+            raise MlflowException(
+                "Config for evaluate step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
+        self.step_config["metrics"] = self.pipeline_config.get("metrics")
+        self.step_config["target_col"] = self.pipeline_config.get("target_col")
+        self.step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=self.pipeline_root,
+                pipeline_config=self.pipeline_config,
+            ).to_dict()
+        )
+        self.step_config["template_name"] = self.pipeline_config.get("template")
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.target_col = self.step_config.get("target_col")
         self.template = self.step_config.get("template_name")
@@ -332,22 +349,7 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"].get("evaluate") or {}
-        except KeyError:
-            raise MlflowException(
-                "Config for evaluate step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
-        step_config["metrics"] = pipeline_config.get("metrics")
-        step_config["target_col"] = pipeline_config.get("target_col")
-        step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=pipeline_root,
-                pipeline_config=pipeline_config,
-            ).to_dict()
-        )
-        step_config["template_name"] = pipeline_config.get("template")
-        return cls(step_config, pipeline_root)
+        return cls({}, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):
