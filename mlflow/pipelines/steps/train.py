@@ -494,10 +494,10 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 1: Model performance summary metrics.
+        # Tab 1: Model performance.
         card.add_tab(
-            "Model Performance Summary Metrics",
-            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
+            "Model Performance",
+            "<h3 class='section-title'>Summary Metrics (Validation)</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
         if not self.skip_data_profiling:
