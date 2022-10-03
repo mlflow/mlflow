@@ -568,7 +568,7 @@ def _log_estimator_html(run_id, estimator):
         </body>
     </html>
     """
-    MlflowClient.log_text(run_id, estimator_html_string, artifact_file="estimator.html")
+    MlflowClient().log_text(run_id, estimator_html_string, artifact_file="estimator.html")
 
 
 def _log_estimator_content(
