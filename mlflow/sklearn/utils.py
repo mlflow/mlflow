@@ -558,15 +558,15 @@ def _log_estimator_html(run_id, estimator):
 
     # Specifies charset so triangle toggle buttons are not garbled
     estimator_html_string = f"""
-    <!DOCTYPE html>
-    <html lang = "en">
-        <head>
-            <meta charset = "UTF-8"/>
-        </head>
-        <body>
-            {estimator_html_repr(estimator)}
-        </body>
-    </html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+  </head>
+  <body>
+    {estimator_html_repr(estimator)}
+  </body>
+</html>
     """
     MlflowClient().log_text(run_id, estimator_html_string, artifact_file="estimator.html")
 
