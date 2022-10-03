@@ -57,6 +57,13 @@ class TrainStep(BaseStep):
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
         self.pipeline_config = pipeline_config
+        self.step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=self.pipeline_root,
+                pipeline_config=self.pipeline_config,
+            ).to_dict()
+        )
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _materialize(self):
         try:
@@ -126,19 +133,12 @@ class TrainStep(BaseStep):
             if "estimator_params" not in self.step_config:
                 self.step_config["estimator_params"] = {}
 
-            self.step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=self.pipeline_root,
-                    pipeline_config=self.pipeline_config,
-                ).to_dict()
-            )
         except KeyError:
             raise MlflowException(
                 "Config for train step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
         self.step_config["target_col"] = self.pipeline_config.get("target_col")
 
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.target_col = self.step_config.get("target_col")
         self.template = self.step_config.get("template_name")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)

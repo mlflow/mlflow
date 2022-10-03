@@ -27,6 +27,13 @@ class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
         self.pipeline_config = pipeline_config
+        self.step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=self.pipeline_root,
+                pipeline_config=self.pipeline_config,
+            ).to_dict()
+        )
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _materialize(self):
         try:
@@ -35,17 +42,10 @@ class RegisterStep(BaseStep):
             self.step_config["registry_uri"] = self.pipeline_config.get("model_registry", {}).get(
                 "uri", None
             )
-            self.step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=self.pipeline_root,
-                    pipeline_config=self.pipeline_config,
-                ).to_dict()
-            )
         except KeyError:
             raise MlflowException(
                 "Config for register step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
