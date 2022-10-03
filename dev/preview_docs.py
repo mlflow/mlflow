@@ -59,9 +59,11 @@ def main():
 ### Documentation preview will be available [here]({artifact_url}).
 
 <details>
-<summary>Details</summary>
+<summary>Notes</summary>
 
-Job URL: {job_url}
+- It takes a few minutes for the preview to be available.
+- The preview is updated on every commit to the PR.
+- Job URL: {job_url}
 
 </details>
 """
