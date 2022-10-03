@@ -210,7 +210,10 @@ def pyfunc_serve_and_score_model(
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
+    validate_version = "--enable-mlserver" not in extra_args
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
+    )
 
 
 def _get_mlflow_home():
@@ -317,12 +320,16 @@ class RestEndpoint:
         return response
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(
+    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
+):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
-    with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+    ) as endpoint:
         return endpoint.invoke(data, content_type)
 
 
