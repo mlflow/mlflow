@@ -564,7 +564,7 @@ def _log_estimator_html(run_id, estimator):
             <meta charset = "UTF-8"/>
         </head>
         <body>
-            {estimator_html_repr.estimator_html_repr(estimator)}
+            {estimator_html_repr(estimator)}
         </body>
     </html>
     """
