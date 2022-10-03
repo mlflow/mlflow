@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ref", required=True)
-    parser.add_argument("--issue-number", required=True)
+    parser.add_argument("--commit-sha", required=True)
+    parser.add_argument("--pull-number", required=True)
     args = parser.parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")
@@ -22,7 +22,7 @@ def main():
     build_doc_job_name = "build_doc"
     job_id = None
     for _ in range(5):
-        resp = session.get(f"https://api.github.com/repos/{repo}/commits/{args.ref}/status")
+        resp = session.get(f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status")
         resp.raise_for_status()
         build_doc_status = next(
             filter(lambda s: s["context"].endswith(build_doc_job_name), resp.json()["statuses"]),
@@ -51,7 +51,7 @@ def main():
     print(f"Artifact URL: {artifact_url}")
 
     # Post the artifact URL as a comment
-    resp = session.get(f"https://api.github.com/repos/{repo}/issues/{args.issue_number}/comments")
+    resp = session.get(f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments")
     resp.raise_for_status()
     marker = "<!-- documentation preview -->"
     preview_docs_comment = next(filter(lambda c: marker in c["body"], resp.json()), None)
@@ -73,7 +73,7 @@ def main():
     if preview_docs_comment is None:
         print("Creating comment")
         resp = session.post(
-            f"https://api.github.com/repos/{repo}/issues/{args.issue_number}/comments",
+            f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments",
             json={"body": comment_body},
         )
         resp.raise_for_status()
