@@ -72,16 +72,6 @@ def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: calla
     return custom_metric
 
 
-def _try_import_flaml():
-    try:
-        # pylint: disable=unused-import
-        from flaml import AutoML
-
-        # pylint: enable=unused-import
-    except ImportError:
-        raise MlflowException("Please add FLAML to requirements.txt in order to use AutoML!")
-
-
 def _create_model_automl(
     X,
     y,
@@ -91,9 +81,11 @@ def _create_model_automl(
     primary_metric: str,
 ):
     try:
-        _try_import_flaml()
         from flaml import AutoML
+    except ImportError:
+        raise MlflowException("Please add FLAML to requirements.txt in order to use AutoML!")
 
+    try:
         if primary_metric in MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
             metric = MLFLOW_TO_FLAML_METRICS[primary_metric]
         elif primary_metric in evaluation_metrics:
