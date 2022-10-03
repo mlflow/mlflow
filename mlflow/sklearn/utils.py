@@ -552,10 +552,11 @@ def _log_specialized_estimator_content(
 
     return metrics
 
+
 def _log_estimator_html(run_id, estimator):
     from sklearn.utils import estimator_html_repr
 
-    #Specifies charset so triangle toggle buttons are not garbled
+    # Specifies charset so triangle toggle buttons are not garbled
     estimator_html_string = f"""
     <!DOCTYPE html>
     <html lang = "en">
@@ -568,6 +569,7 @@ def _log_estimator_html(run_id, estimator):
     </html>
     """
     MlflowClient.log_text(run_id, estimator_html_string, artifact_file="estimator.html")
+
 
 def _log_estimator_content(
     autologging_client,

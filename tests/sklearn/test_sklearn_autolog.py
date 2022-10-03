@@ -2104,6 +2104,7 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
 
+
 def test_estimator_html_is_logged():
     mlflow.sklearn.autolog()
     with mlflow.start_run() as run:
