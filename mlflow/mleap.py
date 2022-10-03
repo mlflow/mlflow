@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils import reraise
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.annotations import keyword_only
 
 FLAVOR_NAME = "mleap"
@@ -243,7 +244,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
-    model_path = "file:{mp}".format(mp=mleap_datapath_full)
+    model_path = path_to_local_file_uri(mleap_datapath_full)
     try:
         spark_model.serializeToBundle(path=model_path, dataset=dataset)
     except Py4JError:
