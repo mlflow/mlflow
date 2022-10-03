@@ -30,6 +30,7 @@ from mlflow.sklearn.utils import (
     _is_plotting_supported,
     _get_arg_names,
     _log_child_runs_info,
+    _is_estimator_html_repr_supported,
 )
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -1201,7 +1202,7 @@ def test_eval_and_log_metrics_for_regressor():
     run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert metrics == eval_metrics
-    assert artifacts == ["estimator.html"]
+    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
 
 
 def test_eval_and_log_metrics_for_binary_classifier():
@@ -1247,7 +1248,7 @@ def test_eval_and_log_metrics_for_binary_classifier():
         )
     assert eval_metrics == expected_metrics
 
-    eval_artifacts = ["estimator.html"]
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.extend(
             [
@@ -1304,7 +1305,7 @@ def test_eval_and_log_metrics_for_binary_classifier_with_pos_label():
         )
     assert eval_metrics == pytest.approx(expected_metrics)
 
-    eval_artifacts = ["estimator.html"]
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.extend(
             [
@@ -1430,7 +1431,7 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 
     assert eval_metrics == expected_metrics
 
-    eval_artifacts = ["estimator.html"]
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.append("{}.png".format("eval_confusion_matrix"))
 
@@ -1466,7 +1467,7 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
     _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
-    assert artifacts == ["estimator.html"]
+    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
@@ -1491,7 +1492,7 @@ def test_eval_and_log_metrics_with_meta_estimator():
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
-    eval_artifacts = ["estimator.html"]
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.append("{}.png".format("eval_confusion_matrix"))
 
@@ -1545,7 +1546,7 @@ def test_eval_and_log_metrics_with_new_run():
     run_id = mlflow.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
-    assert artifacts == ["estimator.html"]
+    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
     mlflow.end_run()
 
 
@@ -1574,7 +1575,7 @@ def test_eval_and_log_metrics_with_noscore_estimator():
     # No artifacts should be generated
     assert len(metrics) == 0
     assert len(eval_metrics) == 0
-    assert artifacts == ["estimator.html"]
+    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
 
 
 def test_eval_and_log_metrics_throws_with_invalid_args():
@@ -2062,7 +2063,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     assert len(params) > 0
     assert len(metrics) > 0
     assert len(tags) > 0
-    assert artifacts == ["estimator.html"]
+    assert artifacts == ["estimator.html"] if _is_estimator_html_repr_supported() else []
 
 
 def test_autolog_registering_model():

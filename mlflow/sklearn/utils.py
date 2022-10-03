@@ -553,11 +553,15 @@ def _log_specialized_estimator_content(
     return metrics
 
 
-def _log_estimator_html(run_id, estimator):
+def _is_estimator_html_repr_supported():
     import sklearn
 
     # Only scikit-learn >= 0.23 supports `estimator_html_repr`
-    if Version(sklearn.__version__) < Version("0.23.0"):
+    return Version(sklearn.__version__) >= Version("0.23.0")
+
+
+def _log_estimator_html(run_id, estimator):
+    if not _is_estimator_html_repr_supported():
         return
 
     from sklearn.utils import estimator_html_repr
