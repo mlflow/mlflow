@@ -83,7 +83,7 @@ def _create_model_automl(
     try:
         from flaml import AutoML
     except ImportError:
-        raise MlflowException("Please add FLAML to requirements.txt in order to use AutoML!")
+        raise MlflowException("Please install FLAML to use AutoML!")
 
     try:
         if primary_metric in MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
