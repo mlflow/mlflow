@@ -175,7 +175,7 @@ class RegisterStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return (cls({}, pipeline_root, pipeline_config=pipeline_config),)
+        return cls({}, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):
