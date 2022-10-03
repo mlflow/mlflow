@@ -555,11 +555,12 @@ def _log_specialized_estimator_content(
 
 def _log_estimator_html(run_id, estimator):
     import sklearn
-    from sklearn.utils import estimator_html_repr
 
     # Only scikit-learn >= 0.23 supports `estimator_html_repr`
     if Version(sklearn.__version__) < Version("0.23.0"):
         return
+
+    from sklearn.utils import estimator_html_repr
 
     # Specifies charset so triangle toggle buttons are not garbled
     estimator_html_string = f"""
