@@ -84,9 +84,12 @@ def _create_hash_buckets(input_df):
 
 
 class SplitStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+    def __init__(
+        self, step_config: Dict[str, Any], pipeline_root: str
+    ):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
+    def _materialize(self):
         self.run_end_time = None
         self.execution_duration = None
         self.num_dropped_rows = None

@@ -110,6 +110,7 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  outputs should be stored.
         :return: None
         """
+        self._materialize()
         _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
@@ -138,6 +139,7 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  outputs are located.
         :return: None
         """
+        self._materialize()
         card_path = os.path.join(output_directory, CARD_PICKLE_NAME)
         if not os.path.exists(card_path):
             _logger.info(
@@ -162,6 +164,9 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  should be stored.
         :return: A BaseCard containing step execution information.
         """
+        pass
+
+    def _materialize(self) -> None:
         pass
 
     @experimental
