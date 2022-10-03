@@ -44,11 +44,11 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 
 class TransformStep(BaseStep):
-    def __init__(self, step_config, pipeline_root, pipeline_config=None):
+    def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
-        self.pipeline_config = pipeline_config
 
     def _materialize(self):
+        self.pipeline_config = self.step_config
         self.step_config = self.pipeline_config["steps"].get("transform", {})
         self.step_config.update(
             get_pipeline_tracking_config(
@@ -185,7 +185,7 @@ class TransformStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls({}, pipeline_root, pipeline_config=pipeline_config)
+        return cls(pipeline_config, pipeline_root)
 
     @property
     def name(self):

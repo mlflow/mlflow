@@ -41,18 +41,18 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config, pipeline_root, pipeline_config=None):
+    def __init__(self, step_config, pipeline_root):
         super().__init__(step_config, pipeline_root)
-        self.pipeline_config = pipeline_config
         self.step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=self.pipeline_root,
-                pipeline_config=self.pipeline_config,
+                pipeline_config=self.step_config,
             ).to_dict()
         )
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _materialize(self):
+        self.pipeline_config = self.step_config
         try:
             self.step_config = self.pipeline_config["steps"].get("evaluate") or {}
         except KeyError:
@@ -349,7 +349,7 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls({}, pipeline_root, pipeline_config=pipeline_config)
+        return cls(pipeline_config, pipeline_root)
 
     @property
     def name(self):
