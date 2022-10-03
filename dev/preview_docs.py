@@ -2,6 +2,7 @@ import os
 import requests
 import argparse
 import time
+from datetime import datetime
 from urllib.parse import urlparse
 
 
@@ -65,6 +66,7 @@ def main():
 - It takes a few minutes for the preview to be available.
 - The preview is updated on every commit to the PR.
 - Job URL: {job_url}
+- Updated at: {datetime.now()}
 
 </details>
 """
