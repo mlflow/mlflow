@@ -270,7 +270,7 @@ fetch('https://pypi.org/pypi/mlflow/json')
   .then((response) => response.json())
   .then((data) => {
     var versions = Object.keys(data.releases)
-      // Drop dev/pre/rc/post versions and older versions
+      // Drop dev/pre/rc/post versions and versions older than 1.0
       .filter(function (version) {
         return /^[1-9]+(\.\d+){0,3}$/.test(version);
       })
