@@ -9,6 +9,14 @@ body:
       value: |
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
         #### Please fill in this bug report template to ensure a timely and thorough response.
+  - type: checkboxes
+    attributes:
+      label: Issues Policy acknowledgement
+      description: |
+        I understand that failure to adhere to the issues guidance may result in my issue being closed without warning or response.
+      options:
+        - label: I have read and agree to submit bug reports in accordance with the [issues policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
+          required: true
   - type: dropdown
     id: contribution
     attributes:
