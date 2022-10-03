@@ -206,6 +206,58 @@ class ShowArtifactLoggedModelView extends Component {
     );
   }
 
+  renderPandasDataFramePrediction(modelPath) {
+    return (
+      <div css={styles.item}>
+        <Text>
+          <FormattedMessage
+            defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len
+            description='Section heading to display the code block on how we can use registered model to predict using pandas DataFrame'
+          />
+        </Text>
+        <Paragraph
+          dangerouslySetAntdProps={{
+            copyable: { text: this.pandasDataFrameCodeText(modelPath) },
+          }}
+        >
+          <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+            <div className='code'>
+              <span className='code-keyword'>import</span> mlflow{`\n`}
+              logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+            </div>
+            <br />
+            <div className='code'>
+              <span className='code-comment'>
+                {'# '}
+                <FormattedMessage
+                  defaultMessage='Load model as a PyFuncModel.'
+                  description='Code comment which states how to load model using PyFuncModel'
+                />
+              </span>
+              {`\n`}
+              loaded_model = mlflow.pyfunc.load_model(logged_model)
+            </div>
+            <br />
+            <div className='code'>
+              <span className='code-comment'>
+                {'# '}
+                <FormattedMessage
+                  defaultMessage='Predict on a Pandas DataFrame.'
+                  // eslint-disable-next-line max-len
+                  description='Code comment which states on how we can predict using pandas DataFrame'
+                />
+              </span>
+              {`\n`}
+              <span className='code-keyword'>import</span> pandas{' '}
+              <span className='code-keyword'>as</span> pd{`\n`}
+              loaded_model.predict(pd.DataFrame(data))
+            </div>
+          </pre>
+        </Paragraph>
+      </div>
+    );
+  }
+
   renderPyfuncCodeSnippet() {
     if (this.state.loader_module === 'mlflow.spark') {
       return this.renderMlflowSparkCodeSnippet();
@@ -272,53 +324,7 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
           </div>
-          <div css={styles.item}>
-            <Text>
-              <FormattedMessage
-                defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len
-                description='Section heading to display the code block on how we can use registered model to predict using pandas DataFrame'
-              />
-            </Text>
-            <Paragraph
-              dangerouslySetAntdProps={{
-                copyable: { text: this.pandasDataFrameCodeText(modelPath) },
-              }}
-            >
-              <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-                <div className='code'>
-                  <span className='code-keyword'>import</span> mlflow{`\n`}
-                  logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
-                </div>
-                <br />
-                <div className='code'>
-                  <span className='code-comment'>
-                    {'# '}
-                    <FormattedMessage
-                      defaultMessage='Load model as a PyFuncModel.'
-                      description='Code comment which states how to load model using PyFuncModel'
-                    />
-                  </span>
-                  {`\n`}
-                  loaded_model = mlflow.pyfunc.load_model(logged_model)
-                </div>
-                <br />
-                <div className='code'>
-                  <span className='code-comment'>
-                    {'# '}
-                    <FormattedMessage
-                      defaultMessage='Predict on a Pandas DataFrame.'
-                      // eslint-disable-next-line max-len
-                      description='Code comment which states on how we can predict using pandas DataFrame'
-                    />
-                  </span>
-                  {`\n`}
-                  <span className='code-keyword'>import</span> pandas{' '}
-                  <span className='code-keyword'>as</span> pd{`\n`}
-                  loaded_model.predict(pd.DataFrame(data))
-                </div>
-              </pre>
-            </Paragraph>
-          </div>
+          {this.renderPandasDataFramePrediction(modelPath)}
         </div>
       </>
     );
@@ -355,7 +361,7 @@ class ShowArtifactLoggedModelView extends Component {
                     <FormattedMessage
                       // eslint-disable-next-line max-len
                       defaultMessage='Load model'
-                      description='Code comment which states how to load model'
+                      description='Code comment which states how to load a SparkML model'
                     />
                   </span>
                   {`\n`}
@@ -368,7 +374,7 @@ class ShowArtifactLoggedModelView extends Component {
                     <FormattedMessage
                       defaultMessage='Perform inference via model.transform()'
                       // eslint-disable-next-line max-len
-                      description='Code comment which states on how we can perform inference'
+                      description='Code comment which states how we can perform SparkML inference'
                     />
                   </span>
                   {`\n`}
@@ -377,6 +383,7 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
           </div>
+          {this.renderPandasDataFramePrediction(modelPath)}
         </div>
       </>
     );
