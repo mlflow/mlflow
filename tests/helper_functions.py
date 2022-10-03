@@ -212,7 +212,6 @@ def pyfunc_serve_and_score_model(
         scoring_cmd += extra_args
         validate_version = "--enable-mlserver" not in extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    validate_version = "--enable-mlserver" not in extra_args
     return _evaluate_scoring_proc(
         proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
     )
