@@ -39,7 +39,9 @@ def main():
     # Get the artifact URL of the top level index.html
     resp = session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
     resp.raise_for_status()
-    workflow_id = resp.json()["latest_workflow"]["id"]
+    job_data = resp.json()
+    job_url = job_data["web_url"]
+    workflow_id = job_data["latest_workflow"]["id"]
     resp = session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
     resp.raise_for_status()
     workflow_job = next(filter(lambda s: s["name"] == build_doc_job_name, resp.json()["items"]))
@@ -52,7 +54,17 @@ def main():
     resp.raise_for_status()
     marker = "<!-- documentation preview -->"
     preview_docs_comment = next(filter(lambda c: marker in c["body"], resp.json()), None)
-    comment_body = f"{marker}\n### Documentation preview will be available [here]({artifact_url})."
+    comment_body = f"""
+{marker}
+### Documentation preview will be available [here]({artifact_url}).
+
+<details>
+<summary>Details</summary>
+
+Job URL: {job_url}
+
+</details>
+"""
     if preview_docs_comment is None:
         print("Creating comment")
         resp = session.post(

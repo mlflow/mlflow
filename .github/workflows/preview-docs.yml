@@ -13,6 +13,6 @@ jobs:
           pip install requests
       - name: Create preview link
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
         run: |
           python dev/preview_docs.py --ref ${{ github.event.pull_request.head.sha }} --issue-number ${{ github.event.pull_request.number }}
