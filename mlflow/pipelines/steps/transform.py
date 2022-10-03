@@ -44,8 +44,19 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 
 class TransformStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):
+    def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.pipeline_config = pipeline_config
+
+    def _materialize(self):
+        self.step_config = self.pipeline_config["steps"].get("transform", {})
+        self.step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=self.pipeline_root,
+                pipeline_config=self.pipeline_config,
+            ).to_dict()
+        )
+        self.step_config["target_col"] = self.pipeline_config.get("target_col")
         self.run_end_time = None
         self.execution_duration = None
         self.target_col = self.step_config.get("target_col")
@@ -174,15 +185,7 @@ class TransformStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("transform", {})
-        step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=pipeline_root,
-                pipeline_config=pipeline_config,
-            ).to_dict()
-        )
-        step_config["target_col"] = pipeline_config.get("target_col")
-        return cls(step_config, pipeline_root)
+        return cls({}, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):
