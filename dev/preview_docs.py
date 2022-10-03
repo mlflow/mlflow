@@ -6,6 +6,23 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 
+class Session(requests.Session):
+    def get(self, *args, **kwargs):
+        resp = super().get(*args, **kwargs)
+        resp.raise_for_status()
+        return resp.json()
+
+    def post(self, *args, **kwargs):
+        resp = super().post(*args, **kwargs)
+        resp.raise_for_status()
+        return resp.json()
+
+    def patch(self, *args, **kwargs):
+        resp = super().patch(*args, **kwargs)
+        resp.raise_for_status()
+        return resp.json()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit-sha", required=True)
@@ -14,7 +31,7 @@ def main():
 
     token = os.environ.get("GITHUB_TOKEN")
     headers = {"Authorization": f"token {token}"}
-    session = requests.Session()
+    session = Session()
     session.headers.update(headers)
 
     # Get the ID of the build_doc job
@@ -22,10 +39,11 @@ def main():
     build_doc_job_name = "build_doc"
     job_id = None
     for _ in range(5):
-        resp = session.get(f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status")
-        resp.raise_for_status()
+        status = session.get(
+            f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status"
+        )
         build_doc_status = next(
-            filter(lambda s: s["context"].endswith(build_doc_job_name), resp.json()["statuses"]),
+            filter(lambda s: s["context"].endswith(build_doc_job_name), status["statuses"]),
             None,
         )
         if build_doc_status:
@@ -38,23 +56,21 @@ def main():
         return
 
     # Get the artifact URL of the top level index.html
-    resp = session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
-    resp.raise_for_status()
-    job_data = resp.json()
-    job_url = job_data["web_url"]
-    workflow_id = job_data["latest_workflow"]["id"]
-    resp = session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
-    resp.raise_for_status()
-    workflow_job = next(filter(lambda s: s["name"] == build_doc_job_name, resp.json()["items"]))
-    workflow_job_id = workflow_job["id"]
-    artifact_url = f"https://output.circle-artifacts.com/output/job/{workflow_job_id}/artifacts/0/docs/build/html/index.html"
+    job = session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
+    job_url = job["web_url"]
+    workflow_id = job["latest_workflow"]["id"]
+    workflow = session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+    build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
+    build_doc_job_id = build_doc_job["id"]
+    artifact_url = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/index.html"
     print(f"Artifact URL: {artifact_url}")
 
     # Post the artifact URL as a comment
-    resp = session.get(f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments")
-    resp.raise_for_status()
+    comments = session.get(
+        f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments"
+    )
     marker = "<!-- documentation preview -->"
-    preview_docs_comment = next(filter(lambda c: marker in c["body"], resp.json()), None)
+    preview_docs_comment = next(filter(lambda c: marker in c["body"], comments), None)
     comment_body = f"""
 {marker}
 
@@ -72,15 +88,13 @@ def main():
 """
     if preview_docs_comment is None:
         print("Creating comment")
-        resp = session.post(
+        session.post(
             f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments",
             json={"body": comment_body},
         )
-        resp.raise_for_status()
     else:
         print("Updating comment")
-        resp = session.patch(preview_docs_comment["url"], json={"body": comment_body})
-        resp.raise_for_status()
+        session.patch(preview_docs_comment["url"], json={"body": comment_body})
 
 
 if __name__ == "__main__":
