@@ -24,9 +24,8 @@ def main():
         resp = session.get(f"https://api.github.com/repos/{repo}/commits/{args.ref}/status")
         resp.raise_for_status()
         build_doc_status = next(
-            filter(
-                lambda s: s["context"].endswith(build_doc_job_name), resp.json()["statuses"], None
-            )
+            filter(lambda s: s["context"].endswith(build_doc_job_name), resp.json()["statuses"]),
+            None,
         )
         if build_doc_status:
             job_id = urlparse(build_doc_status["target_url"]).path.split("/")[-1]
