@@ -303,6 +303,7 @@ fetch('https://pypi.org/pypi/mlflow/json')
     var docRegex = /\/docs\/(?<version>[^/]+)\//;
     var currentVersion = docRegex.exec(window.location.pathname).groups.version;
     var dropDown = document.createElement('select');
+    dropDown.style = "margin-left: 5px";
     dropDown.onchange = function () {
       var newUrl = window.location.href.replace(docRegex, `/docs/${this.value}/`);
       window.location.assign(newUrl);
