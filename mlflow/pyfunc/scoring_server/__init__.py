@@ -12,6 +12,7 @@ Defines three endpoints:
     /invocations used for scoring
 """
 from typing import Tuple, Dict
+import flask
 import json
 import logging
 import os
@@ -39,6 +40,7 @@ try:
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.server.handlers import catch_mlflow_exception
 
 from io import StringIO
 
@@ -166,12 +168,10 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
 
 
 def init(model: PyFuncModel):
+
     """
     Initialize the server. Loads pyfunc model from the path.
     """
-    import flask
-    from mlflow.server.handlers import catch_mlflow_exception
-
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
 
