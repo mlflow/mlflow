@@ -39,7 +39,8 @@ class AbstractBackend:
         :param tracking_uri: URI of tracking server against which to log run information related
                              to project execution.
         :param experiment_id: ID of experiment under which to launch the run.
-        :param skip_image_build: ID of experiment under which to launch the run.
+        :param skip_image_build: Only valid for Docker projects. If True, skip building a new
+                                 Docker image and instead use a prebuilt image.
 
         :return: A :py:class:`mlflow.projects.SubmittedRun`. This function is expected to run
                  the project asynchronously, i.e. it should trigger project execution and then
