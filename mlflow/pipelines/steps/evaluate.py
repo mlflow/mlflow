@@ -44,27 +44,21 @@ MetricValidationResult = namedtuple(
 class EvaluateStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
-        self.step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=self.pipeline_root,
-                pipeline_config=self.step_config,
-            ).to_dict()
-        )
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        try:
-            self.step_config = self.pipeline_config["steps"].get("evaluate") or {}
-        except KeyError:
-            raise MlflowException(
-                "Config for evaluate step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
-        self.step_config["metrics"] = self.pipeline_config.get("metrics")
-        self.step_config["target_col"] = self.pipeline_config.get("target_col")
-        self.step_config["template_name"] = self.pipeline_config.get("template")
         self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.template = self.step_config.get("template_name")
+        if self.template is None:
+            raise MlflowException(
+                "Missing template_name config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
@@ -350,7 +344,18 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls(pipeline_config, pipeline_root)
+        step_config = pipeline_config["steps"].get("evaluate", {})
+        step_config["target_col"] = pipeline_config.get("target_col")
+        step_config["metrics"] = pipeline_config.get("metrics")
+        step_config["template_name"] = pipeline_config.get("template")
+        step_config["run_args"] = pipeline_config.get("run_args")
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
+        return cls(step_config, pipeline_root)
 
     @property
     def name(self):

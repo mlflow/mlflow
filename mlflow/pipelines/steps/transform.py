@@ -12,6 +12,7 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -48,18 +49,14 @@ class TransformStep(BaseStep):
         super().__init__(step_config, pipeline_root)
 
     def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        self.step_config = self.pipeline_config["steps"].get("transform", {})
-        self.step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=self.pipeline_root,
-                pipeline_config=self.pipeline_config,
-            ).to_dict()
-        )
-        self.step_config["target_col"] = self.pipeline_config.get("target_col")
+        self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.run_end_time = None
         self.execution_duration = None
-        self.target_col = self.step_config.get("target_col")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
     def _run(self, output_directory):
@@ -185,7 +182,15 @@ class TransformStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls(pipeline_config, pipeline_root)
+        step_config = pipeline_config["steps"].get("transform", {})
+        step_config["target_col"] = pipeline_config.get("target_col")
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
+        return cls(step_config, pipeline_root)
 
     @property
     def name(self):

@@ -36,13 +36,6 @@ class PredictStep(BaseStep):
         super().__init__(step_config, pipeline_root)
 
     def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        try:
-            self.step_config = self.pipeline_config["steps"]["predict"]
-        except KeyError:
-            raise MlflowException(
-                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
         required_configuration_keys = ["output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in self.step_config:
@@ -57,7 +50,7 @@ class PredictStep(BaseStep):
             )
         if "model_uri" not in self.step_config:
             try:
-                register_config = self.pipeline_config["steps"]["register"]
+                register_config = self.step_config["register"]
                 model_name = register_config["model_name"]
             except KeyError:
                 raise MlflowException(
@@ -188,7 +181,9 @@ class PredictStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls(pipeline_config, pipeline_root)
+        step_config = pipeline_config["steps"].get("predict", {})
+        step_config["register"] = pipeline_config["steps"].get("register", {})
+        return cls(step_config, pipeline_root)
 
     @property
     def name(self):

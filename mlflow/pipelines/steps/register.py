@@ -26,37 +26,21 @@ _logger = logging.getLogger(__name__)
 class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=self.pipeline_root,
-                pipeline_config=self.step_config,
-            ).to_dict()
-        )
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        try:
-            self.step_config = self.pipeline_config["steps"]["register"]
-            self.step_config["template_name"] = self.pipeline_config.get("template")
-            self.step_config["registry_uri"] = self.pipeline_config.get("model_registry", {}).get(
-                "uri", None
-            )
-        except KeyError:
-            raise MlflowException(
-                "Config for register step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
         self.version = None
 
-        if "model_name" not in self.step_config:
+        self.register_model_name = self.step_config.get("model_name")
+        if self.register_model_name is None:
             raise MlflowException(
                 "Missing 'model_name' config in register step config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.register_model_name = self.step_config["model_name"]
+
         self.allow_non_validated_model = self.step_config.get("allow_non_validated_model", False)
         self.registry_uri = self.step_config.get("registry_uri", None)
 
@@ -175,7 +159,16 @@ class RegisterStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        return cls(pipeline_config, pipeline_root)
+        step_config = pipeline_config["steps"].get("register", {})
+        step_config["template_name"] = pipeline_config.get("template")
+        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
+        return cls(step_config, pipeline_root)
 
     @property
     def name(self):

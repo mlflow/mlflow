@@ -44,7 +44,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
     def _init_from_pipeline_config(self):
         dataset_format = self.step_config.get("format")
-        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if not dataset_format:
             raise MlflowException(
                 message=(
@@ -53,7 +52,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
         for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
                 self.dataset = dataset_class.from_config(
@@ -66,6 +64,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 message=f"Unrecognized dataset format: {dataset_format}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
     def _run(self, output_directory: str) -> BaseCard:
 
@@ -181,21 +180,14 @@ class IngestStep(BaseIngestStep):
         super().__init__(step_config, pipeline_root)
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
-    def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        if "data" not in self.pipeline_config:
-            raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_config = self.pipeline_config.get("data", {})
-        ingest_config = self.pipeline_config.get("steps", {}).get("ingest", {})
-        self.step_config = {**data_config, **ingest_config}
-        super()._init_from_pipeline_config()
-
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        return cls(pipeline_config, pipeline_root)
+        data_config = pipeline_config.get("data", {})
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+        return cls(
+            step_config={**data_config, **ingest_config},
+            pipeline_root=pipeline_root,
+        )
 
     @property
     def name(self) -> str:
@@ -209,21 +201,14 @@ class IngestScoringStep(BaseIngestStep):
         super().__init__(step_config, pipeline_root)
         self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
-    def _init_from_pipeline_config(self):
-        self.pipeline_config = self.step_config
-        if "data" not in self.pipeline_config:
-            raise MlflowException(
-                message="The `data_scoring` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_config = self.pipeline_config.get("data_scoring", {})
-        ingest_config = self.pipeline_config.get("steps", {}).get("ingest", {})
-        self.step_config = {**data_config, **ingest_config}
-        super()._init_from_pipeline_config()
-
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        return cls(pipeline_config, pipeline_root)
+        data_config = pipeline_config.get("data_scoring", {})
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+        return cls(
+            step_config={**data_config, **ingest_config},
+            pipeline_root=pipeline_root,
+        )
 
     @property
     def name(self) -> str:
