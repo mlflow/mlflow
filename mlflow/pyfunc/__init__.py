@@ -1035,8 +1035,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     def udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
-        # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1045,6 +1043,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         scoring_server_proc = None
 
         if env_manager != _EnvManager.LOCAL:
+            # importing here to prevent circular import
+            from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
