@@ -155,6 +155,9 @@ class BaseStepImplemented(BaseStep):
     def name(self):
         pass
 
+    def _init_from_pipeline_config(self):
+        pass
+
 
 def list_all_artifacts(
     tracking_uri: str, run_id: str, path: str = None
