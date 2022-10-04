@@ -86,7 +86,7 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
-          pip install --force-reinstall flask==1.1.4
+          pip install --force-reinstall flask==1.1.4 markupSafe==2.0.1
           export MLFLOW_HOME=$(pwd)
           python examples/spark_udf/spark_udf.py || true
           pip install -U flask
