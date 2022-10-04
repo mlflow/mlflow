@@ -39,7 +39,6 @@ try:
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
-from mlflow.server.handlers import catch_mlflow_exception
 
 from io import StringIO
 
@@ -171,6 +170,7 @@ def init(model: PyFuncModel):
     Initialize the server. Loads pyfunc model from the path.
     """
     import flask
+    from mlflow.server.handlers import catch_mlflow_exception
 
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
