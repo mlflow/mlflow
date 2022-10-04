@@ -83,7 +83,9 @@ def score_model_in_sagemaker_docker_container(
         cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
         env=env,
     )
-    return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(
+        proc, 5000, data, content_type, activity_polling_timeout_seconds, False
+    )
 
 
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
