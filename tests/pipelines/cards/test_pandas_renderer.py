@@ -101,6 +101,7 @@ def test_convert_to_proto():
     data = {
         "Symbol": ["MSFT", "AAPL", "MSFT", "AAPL", "NFLX"],
         "Shares": [100, 170, 150, 200, None],
+        "Access": [True, True, False, True, False],
     }
     df = pd.DataFrame(data)
 
@@ -263,6 +264,43 @@ def test_convert_to_proto():
                   high_value: 200.0
                 }
                 type: QUANTILES
+              }
+            }
+          }
+          features {
+            name: "Access"
+            type: STRING
+            string_stats {
+              common_stats {
+                num_non_missing: 5
+                num_missing: 0
+                min_num_values: 1
+                max_num_values: 1
+                avg_num_values: 1.0
+              }
+              unique: 2
+              top_values {
+                value: "True"
+                frequency: 3.0
+              }
+              top_values {
+                value: "False"
+                frequency: 2.0
+              }
+              avg_length: 0
+              rank_histogram {
+                buckets {
+                  low_rank: 0
+                  high_rank: 0
+                  label: "True"
+                  sample_count: 3.0
+                }
+                buckets {
+                  low_rank: 1
+                  high_rank: 1
+                  label: "False"
+                  sample_count: 2.0
+                }
               }
             }
           }
