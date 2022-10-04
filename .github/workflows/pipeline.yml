@@ -78,9 +78,6 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
-      - name: Test
-        run: |
-          python examples/spark_udf/spark_udf.py
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
@@ -91,4 +88,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
+          python examples/spark_udf/spark_udf.py
           pytest tests/pipelines
