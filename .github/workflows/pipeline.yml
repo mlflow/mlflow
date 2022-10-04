@@ -73,7 +73,7 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
+          # pip install 'pyspark<3.3'
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
