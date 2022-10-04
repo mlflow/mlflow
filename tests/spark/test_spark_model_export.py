@@ -23,6 +23,7 @@ from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
+from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -823,7 +824,8 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
 def test_log_model_with_code_paths(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.spark._add_code_from_conf_to_system_path"
+        "mlflow.spark._add_code_from_conf_to_system_path",
+        wraps=_add_code_from_conf_to_system_path,
     ) as add_mock:
         sparkm.log_model(
             spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
