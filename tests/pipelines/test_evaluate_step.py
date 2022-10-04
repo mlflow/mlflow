@@ -94,8 +94,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._init_from_pipeline_config()
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
@@ -130,8 +129,7 @@ steps:
     pipeline_steps_dir.mkdir(parents=True)
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._init_from_pipeline_config()
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
@@ -213,9 +211,8 @@ def one(eval_df, builtin_metrics):
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
-    evaluate_step._init_from_pipeline_config()
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, AttributeError)
     assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
@@ -252,9 +249,8 @@ metrics:
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
-    evaluate_step._init_from_pipeline_config()
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, ModuleNotFoundError)
     assert "No module named 'steps.custom_metrics'" in str(exc.value.__cause__)
 
@@ -309,8 +305,7 @@ def root_mean_squared_error(eval_df, builtin_metrics):
         evaluate_step = EvaluateStep.from_pipeline_config(
             pipeline_config, str(tmp_pipeline_root_path)
         )
-        evaluate_step._init_from_pipeline_config()
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
             "Custom metrics override the following built-in metrics: %s",
             ["mean_absolute_error", "root_mean_squared_error"],
@@ -360,8 +355,7 @@ steps:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._init_from_pipeline_config()
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
     with open(train_step_output_dir / "run_id") as f:

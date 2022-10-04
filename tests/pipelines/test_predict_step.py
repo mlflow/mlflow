@@ -109,8 +109,7 @@ def test_predict_step_runs(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._init_from_pipeline_config()
-    predict_step._run(str(predict_step_output_dir))
+    predict_step.run(str(predict_step_output_dir))
 
     # Test internal predict step output artifact
     artifact_file_name, artifact_file_extension = _SCORED_OUTPUT_FILE_NAME.split(".")
@@ -141,8 +140,7 @@ def test_predict_step_uses_register_step_model_name(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._init_from_pipeline_config()
-    predict_step._run(str(predict_step_output_dir))
+    predict_step.run(str(predict_step_output_dir))
 
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
@@ -172,8 +170,7 @@ def test_predict_model_uri_takes_precendence_over_model_name(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._init_from_pipeline_config()
-    predict_step._run(str(predict_step_output_dir))
+    predict_step.run(str(predict_step_output_dir))
 
     # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
@@ -203,8 +200,7 @@ def test_predict_step_output_formats(
             predict_step_output_dir / file_name
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    predict_step._init_from_pipeline_config()
-    predict_step._run(str(predict_step_output_dir))
+    predict_step.run(str(predict_step_output_dir))
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
@@ -242,9 +238,8 @@ def test_predict_throws_when_overwriting_data(
     }
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    predict_step._init_from_pipeline_config()
     with pytest.raises(AnalysisException, match="already exists"):
-        predict_step._run(str(predict_step_output_dir))
+        predict_step.run(str(predict_step_output_dir))
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -332,8 +327,7 @@ def test_predict_skips_profiling_when_specified(
             },
             str(tmp_pipeline_root_path),
         )
-        predict_step._init_from_pipeline_config()
-        predict_step._run(str(predict_step_output_dir))
+        predict_step.run(str(predict_step_output_dir))
 
     expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
     with open(expected_step_card_path, "r") as f:
