@@ -80,7 +80,7 @@ jobs:
           python dev/show_package_release_dates.py
       - name: Test
         run: |
-          mlflow server
+          python examples/spark_udf/spark_udf.py
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils

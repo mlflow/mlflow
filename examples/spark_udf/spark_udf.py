@@ -14,7 +14,7 @@ with mlflow.start_run():
 
 infer_spark_df = spark.createDataFrame(X)
 
-pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
+pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
 result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
 
 print(result)
