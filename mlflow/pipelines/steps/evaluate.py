@@ -2,6 +2,7 @@ import logging
 import operator
 import os
 from pathlib import Path
+from typing import Dict, Any
 from collections import namedtuple
 
 import mlflow
@@ -41,7 +42,7 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
         self.step_config.update(
             get_pipeline_tracking_config(

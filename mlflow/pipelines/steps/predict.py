@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -29,7 +30,9 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
+    def __init__(  # pylint: disable=useless-super-delegation
+        self, step_config: Dict[str, Any], pipeline_root: str
+    ) -> None:
         super().__init__(step_config, pipeline_root)
 
     def _init_from_pipeline_config(self):
