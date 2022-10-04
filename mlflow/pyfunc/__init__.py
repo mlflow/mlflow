@@ -1145,6 +1145,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     yield batch
         finally:
             if scoring_server_proc is not None:
+                _logger.info("Shutting down the scoring server")
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
     # udf.metadata = model_metadata
