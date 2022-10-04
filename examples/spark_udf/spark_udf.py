@@ -3,9 +3,7 @@ from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
-import psutil
 
-print(psutil.virtual_memory())
 
 conf = SparkConf()
 # conf.set(key="spark.python.worker.reuse", value="true")
