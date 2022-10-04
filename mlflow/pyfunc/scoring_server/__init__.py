@@ -12,7 +12,6 @@ Defines three endpoints:
     /invocations used for scoring
 """
 from typing import Tuple, Dict
-import flask
 import json
 import logging
 import os
@@ -168,10 +167,11 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
 
 
 def init(model: PyFuncModel):
-
     """
     Initialize the server. Loads pyfunc model from the path.
     """
+    import flask
+
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
 
