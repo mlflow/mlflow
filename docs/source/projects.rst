@@ -313,9 +313,9 @@ Docker container environment
 
     mlflow run ... --skip-image-build
 
-  By default, MLflow builds a new image that's based on the specified image and contains files in
-  the project directory. To disable this behavior and use the image directly, run the project
-  ``--skip-image-build``. In this example, the image ``python:3.7`` is pulled from Docker Hub if
+  By default, MLflow builds a new image that's based on the specified image and files contained in
+  the project directory. To disable this behavior and use the image directly, run the project with the 
+  ``--skip-image-build`` argument specified. In the above example, the image ``python:3.7`` is pulled from Docker Hub if
   it's not present locally and the project is run in a container created from this image.
 
 .. _mlproject-command-syntax:
