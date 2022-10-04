@@ -101,6 +101,7 @@ def _run(
                 backend_config,
                 tracking_store_uri,
                 experiment_id,
+                skip_image_build,
             )
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name
