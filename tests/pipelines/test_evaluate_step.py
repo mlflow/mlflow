@@ -167,6 +167,7 @@ steps:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step._init_from_pipeline_config()
     with pytest.raises(
         MlflowException,
         match=r"Validation criteria contain undefined metrics: \['undefined_metric'\]",
