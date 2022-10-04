@@ -800,7 +800,9 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     sparkml_model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     local_sparkml_model_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
     return _load_model(
-        model_uri=sparkml_model_uri, dfs_tmpdir_base=dfs_tmpdir, local_model_path=local_sparkml_model_path
+        model_uri=sparkml_model_uri,
+        dfs_tmpdir_base=dfs_tmpdir,
+        local_model_path=local_sparkml_model_path,
     )
 
 
