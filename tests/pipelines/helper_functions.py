@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.pipelines.step import BaseStep
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
 from sklearn.datasets import load_diabetes
@@ -125,6 +126,21 @@ def clear_custom_metrics_module_cache():
     key = "steps.custom_metrics"
     if key in sys.modules:
         del sys.modules[key]
+
+
+@pytest.fixture
+def registry_uri_path(tmp_path) -> Path:
+    previousRegistryUri = ""
+    try:
+        previousRegistryUri = mlflow.get_registry_uri()
+        path = tmp_path.joinpath("registry.db")
+        db_url = "sqlite:///%s" % path
+        SqlAlchemyStore(db_url, "register_model")
+        yield db_url
+    finally:
+        os.remove(path)
+        shutil.rmtree("register_model")
+        mlflow.set_registry_uri(previousRegistryUri)
 
 
 @contextmanager

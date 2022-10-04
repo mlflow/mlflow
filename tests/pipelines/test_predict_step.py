@@ -19,6 +19,7 @@ from tests.pipelines.helper_functions import (
     enter_test_pipeline_directory,
     enter_pipeline_example_directory,
     get_random_id,
+    registry_uri_path,
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
     train_and_log_model,
@@ -356,3 +357,36 @@ def test_predict_skips_profiling_when_specified(
         step_card_html_content = f.read()
     assert "Profile of Scored Dataset" not in step_card_html_content
     mock_profiling.assert_not_called()
+
+
+def test_predict_uses_registry_uri(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    registry_uri_path: Path,
+):
+    registry_uri = registry_uri_path
+    model_name = "model_" + get_random_id()
+    mlflow.set_registry_uri(registry_uri)
+    model_uri = train_log_and_register_model(model_name, is_dummy=True)
+    # reset model registry
+    mlflow.set_registry_uri("")
+
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update({"model_registry": {"uri": str(registry_uri)}})
+    pipeline_config.update(
+        {
+            "steps": {
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                }
+            }
+        }
+    )
+    PredictStep.from_pipeline_config(
+        pipeline_config,
+        str(tmp_pipeline_root_path),
+    ).run(str(predict_step_output_dir))
+    assert mlflow.get_registry_uri() == registry_uri
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
