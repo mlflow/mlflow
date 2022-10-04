@@ -52,6 +52,9 @@ jobs:
           pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -72,6 +75,12 @@ jobs:
           pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - name: Test
+        run: |
+          mlflow server
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
