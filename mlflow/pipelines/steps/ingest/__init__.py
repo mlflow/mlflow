@@ -182,27 +182,20 @@ class IngestStep(BaseIngestStep):
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
     def _init_from_pipeline_config(self):
-        super()._init_from_pipeline_config()
-        if self.step_config == {}:
+        self.pipeline_config = self.step_config
+        if "data" not in self.pipeline_config:
             raise MlflowException(
                 message="The `data` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        data_config = self.pipeline_config.get("data", {})
+        ingest_config = self.pipeline_config.get("steps", {}).get("ingest", {})
+        self.step_config = {**data_config, **ingest_config}
+        super()._init_from_pipeline_config()
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        if "data" not in pipeline_config:
-            raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_config = pipeline_config.get("data", {})
-        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
-
-        return cls(
-            step_config={**data_config, **ingest_config},
-            pipeline_root=pipeline_root,
-        )
+        return cls(pipeline_config, pipeline_root)
 
     @property
     def name(self) -> str:
@@ -217,22 +210,20 @@ class IngestScoringStep(BaseIngestStep):
         self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
     def _init_from_pipeline_config(self):
-        super()._init_from_pipeline_config()
-        if self.step_config == {}:
+        self.pipeline_config = self.step_config
+        if "data" not in self.pipeline_config:
             raise MlflowException(
                 message="The `data_scoring` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        data_config = self.pipeline_config.get("data_scoring", {})
+        ingest_config = self.pipeline_config.get("steps", {}).get("ingest", {})
+        self.step_config = {**data_config, **ingest_config}
+        super()._init_from_pipeline_config()
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        data_scoring_config = pipeline_config.get("data_scoring", {})
-        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
-
-        return cls(
-            step_config={**data_scoring_config, **ingest_config},
-            pipeline_root=pipeline_root,
-        )
+        return cls(pipeline_config, pipeline_root)
 
     @property
     def name(self) -> str:
