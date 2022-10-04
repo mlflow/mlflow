@@ -519,6 +519,13 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
+@click.option(
+    "--experiment-ids",
+    default=None,
+    help="Optional comma separated list of experiments to be permanently deleted including"
+    "all of its runs. If run ids are not specified, data is removed for all runs in the `deleted`"
+    " lifecycle stage.",
+)
 def gc(older_than, backend_store_uri, run_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
