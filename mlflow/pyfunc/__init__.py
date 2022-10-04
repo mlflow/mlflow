@@ -949,69 +949,82 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def _predict_row_batch(predict_fn, args):
-        input_schema = model_metadata.get_input_schema()
-        pdf = None
+        _logger.info("Running _predict_row_batch")
+        try:
+            input_schema = model_metadata.get_input_schema()
+            pdf = None
 
-        for x in args:
-            if type(x) == pandas.DataFrame:
-                if len(args) != 1:
-                    raise Exception(
-                        "If passing a StructType column, there should be only one "
-                        "input column, but got %d" % len(args)
-                    )
-                pdf = x
-        if pdf is None:
-            args = list(args)
-            if input_schema is None:
-                names = [str(i) for i in range(len(args))]
-            else:
-                names = input_schema.input_names()
-                if len(args) > len(names):
-                    args = args[: len(names)]
-                if len(args) < len(names):
-                    raise MlflowException(
-                        "Model input is missing columns. Expected {0} input columns {1},"
-                        " but the model received only {2} unnamed input columns"
-                        " (Since the columns were passed unnamed they are expected to be in"
-                        " the order specified by the schema).".format(len(names), names, len(args))
-                    )
-            pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
+            for x in args:
+                if type(x) == pandas.DataFrame:
+                    if len(args) != 1:
+                        raise Exception(
+                            "If passing a StructType column, there should be only one "
+                            "input column, but got %d" % len(args)
+                        )
+                    pdf = x
+            if pdf is None:
+                args = list(args)
+                if input_schema is None:
+                    names = [str(i) for i in range(len(args))]
+                else:
+                    names = input_schema.input_names()
+                    if len(args) > len(names):
+                        args = args[: len(names)]
+                    if len(args) < len(names):
+                        raise MlflowException(
+                            "Model input is missing columns. Expected {0} input columns {1},"
+                            " but the model received only {2} unnamed input columns"
+                            " (Since the columns were passed unnamed they are expected to be in"
+                            " the order specified by the schema).".format(
+                                len(names), names, len(args)
+                            )
+                        )
+                pdf = pandas.DataFrame(
+                    data={names[i]: x for i, x in enumerate(args)}, columns=names
+                )
 
-        result = predict_fn(pdf)
+            result = predict_fn(pdf)
 
-        if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
+            if not isinstance(result, pandas.DataFrame):
+                result = pandas.DataFrame(data=result)
 
-        elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
-
-        if type(elem_type) == IntegerType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, np.int32]
-            ).astype(np.int32)
-        elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int])
-
-        elif type(elem_type) == FloatType:
-            result = result.select_dtypes(include=(np.number,)).astype(np.float32)
-
-        elif type(elem_type) == DoubleType:
-            result = result.select_dtypes(include=(np.number,)).astype(np.float64)
-
-        if len(result.columns) == 0:
-            raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
-                "type '{}'. Consider requesting udf with StringType or "
-                "Arraytype(StringType).".format(str(elem_type)),
-                error_code=INVALID_PARAMETER_VALUE,
+            elem_type = (
+                result_type.elementType if isinstance(result_type, ArrayType) else result_type
             )
 
-        if type(elem_type) == StringType:
-            result = result.applymap(str)
+            if type(elem_type) == IntegerType:
+                result = result.select_dtypes(
+                    [np.byte, np.ubyte, np.short, np.ushort, np.int32]
+                ).astype(np.int32)
+            elif type(elem_type) == LongType:
+                result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int])
 
-        if type(result_type) == ArrayType:
-            return pandas.Series(result.to_numpy().tolist())
-        else:
-            return result[result.columns[0]]
+            elif type(elem_type) == FloatType:
+                result = result.select_dtypes(include=(np.number,)).astype(np.float32)
+
+            elif type(elem_type) == DoubleType:
+                result = result.select_dtypes(include=(np.number,)).astype(np.float64)
+
+            if len(result.columns) == 0:
+                raise MlflowException(
+                    message=(
+                        "The the model did not produce any values compatible with the requested "
+                        "type '{}'. Consider requesting udf with StringType or "
+                        "Arraytype(StringType).".format(str(elem_type))
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if type(elem_type) == StringType:
+                result = result.applymap(str)
+
+            if type(result_type) == ArrayType:
+                return pandas.Series(result.to_numpy().tolist())
+            else:
+                return result[result.columns[0]]
+        except Exception as e:
+            _logger.exception("Encountered exception during model inference: %s", e)
+            raise
 
     result_type_hint = (
         pandas.DataFrame if isinstance(result_type, SparkStructType) else pandas.Series
@@ -1105,6 +1118,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             else:
                 _logger.info("Loading model from local path: %s", local_model_path)
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)
+                _logger.info("Loaded model: %s", loaded_model)
 
             def batch_predict_fn(pdf):
                 return loaded_model.predict(pdf)
