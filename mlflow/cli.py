@@ -140,8 +140,8 @@ def cli():
     default=False,
     show_default=True,
     help=(
-        "Only valid for Docker projects. If specified, skip building a new Docker image and "
-        "directly use the image specified by the `image` field in the MLproject file."
+        "Only valid for Docker projects. If specified, skips building a new Docker image and "
+        "directly uses the image specified by the `image` field in the MLproject file."
     ),
 )
 def run(
