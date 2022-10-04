@@ -68,6 +68,21 @@ public class ScoringServerTest {
   }
 
   @Test
+  public void testScoringServerWithValidPredictorRespondsToVersionCorrectly() throws IOException {
+    TestPredictor validPredictor = new TestPredictor(true);
+    ScoringServer server = new ScoringServer(validPredictor);
+    server.start();
+
+    String requestUrl = String.format("http://localhost:%d/version", server.getPort().get());
+    HttpGet getRequest = new HttpGet(requestUrl);
+    HttpResponse response = httpClient.execute(getRequest);
+    Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
+    String responseBody = getHttpResponseBody(response);
+    Assert.assertEquals("1.29.1-SNAPSHOT", responseBody);
+    server.stop();
+  }
+
+  @Test
   public void testConstructingScoringServerFromInvalidModelPathThrowsException() {
     String badModelPath = "/not/a/valid/path";
     try {

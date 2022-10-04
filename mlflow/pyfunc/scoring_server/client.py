@@ -15,6 +15,12 @@ class ScoringServerClient:
         if ping_status.status_code != 200:
             raise Exception(f"ping failed (error code {ping_status.status_code})")
 
+    def get_version(self):
+        resp_status = requests.get(url=self.url_prefix + "/version")
+        if resp_status.status_code != 200:
+            raise Exception(f"version failed (error code {resp_status.status_code})")
+        return resp_status.text
+
     def wait_server_ready(self, timeout=30, scoring_server_proc=None):
         begin_time = time.time()
 
