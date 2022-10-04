@@ -22,7 +22,7 @@ model.fit(X, y)
 with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(model, "model")
 
-infer_spark_df = spark.createDataFrame(X)
+infer_spark_df = spark.createDataFrame(X).head(5)
 
 pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
 result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
