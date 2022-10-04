@@ -1147,7 +1147,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
-    udf.metadata = model_metadata
+    # udf.metadata = model_metadata
 
     @functools.wraps(udf)
     def udf_with_default_cols(*args):
