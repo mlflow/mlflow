@@ -137,7 +137,10 @@ def cli():
 @click.option(
     "--skip-image-build",
     is_flag=True,
-    help="If specified, skips building a new image when running a Docker project.",
+    help=(
+        "Only valid for Docker projects. If specified, skip building a new image from "
+        "the specified image",
+    ),
 )
 def run(
     uri,
