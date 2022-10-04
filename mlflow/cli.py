@@ -134,6 +134,11 @@ def cli():
     help="The name to give the MLflow Run associated with the project execution. If not specified, "
     "the MLflow Run name is left unset.",
 )
+@click.option(
+    "--skip-image-build",
+    is_flag=True,
+    help="If specified, skips building a new image when running a Docker project.",
+)
 def run(
     uri,
     entry_point,
@@ -149,6 +154,7 @@ def run(
     storage_dir,
     run_id,
     run_name,
+    skip_image_build,
 ):
     """
     Run an MLflow project from the given URI.
@@ -195,6 +201,7 @@ def run(
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
             run_name=run_name,
+            skip_image_build=skip_image_build,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)

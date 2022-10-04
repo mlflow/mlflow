@@ -78,6 +78,7 @@ def _run(
     env_manager,
     synchronous,
     run_name,
+    skip_image_build,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -156,7 +157,7 @@ def _run(
             repository_uri=kube_config["repository-uri"],
             base_image=project.docker_env.get("image"),
             run_id=active_run.info.run_id,
-            rebuild=project.docker_env.get("image", True),
+            skip_image_build=skip_image_build,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
         submitted_run = kb.run_kubernetes_job(
@@ -196,6 +197,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
+    skip_image_build=False,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -342,6 +344,7 @@ def run(
         storage_dir=storage_dir,
         synchronous=synchronous,
         run_name=run_name,
+        skip_image_build=skip_image_build,
     )
     if synchronous:
         _wait_for(submitted_run_obj)

@@ -64,7 +64,15 @@ def _env_type_to_env_manager(env_typ):
 
 class LocalBackend(AbstractBackend):
     def run(
-        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
+        self,
+        project_uri,
+        entry_point,
+        params,
+        version,
+        backend_config,
+        tracking_uri,
+        experiment_id,
+        skip_image_build,
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)
@@ -109,7 +117,7 @@ class LocalBackend(AbstractBackend):
                 repository_uri=project.name,
                 base_image=project.docker_env.get("image"),
                 run_id=active_run.info.run_id,
-                rebuild=project.docker_env.get("rebuild", True),
+                skip_image_build=skip_image_build,
             )
             command_args += _get_docker_command(
                 image=image,

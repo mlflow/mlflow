@@ -14,7 +14,15 @@ class AbstractBackend:
 
     @abstractmethod
     def run(
-        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
+        self,
+        project_uri,
+        entry_point,
+        params,
+        version,
+        backend_config,
+        tracking_uri,
+        experiment_id,
+        skip_image_build,
     ):
         """
         Submit an entrypoint. It must return a SubmittedRun object to track the execution
