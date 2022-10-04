@@ -42,7 +42,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     ):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
-    def _materialize(self):
+    def _init_from_pipeline_config(self):
         dataset_format = self.step_config.get("format")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if not dataset_format:
@@ -181,8 +181,8 @@ class IngestStep(BaseIngestStep):
         super().__init__(step_config, pipeline_root)
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
-    def _materialize(self):
-        super()._materialize()
+    def _init_from_pipeline_config(self):
+        super()._init_from_pipeline_config()
         if self.step_config == {}:
             raise MlflowException(
                 message="The `data` section of pipeline.yaml must be specified",
@@ -216,8 +216,8 @@ class IngestScoringStep(BaseIngestStep):
         super().__init__(step_config, pipeline_root)
         self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
-    def _materialize(self):
-        super()._materialize()
+    def _init_from_pipeline_config(self):
+        super()._init_from_pipeline_config()
         if self.step_config == {}:
             raise MlflowException(
                 message="The `data_scoring` section of pipeline.yaml must be specified",

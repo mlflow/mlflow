@@ -51,7 +51,7 @@ class EvaluateStep(BaseStep):
         )
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
-    def _materialize(self):
+    def _init_from_pipeline_config(self):
         self.pipeline_config = self.step_config
         try:
             self.step_config = self.pipeline_config["steps"].get("evaluate") or {}

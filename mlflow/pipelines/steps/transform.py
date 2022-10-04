@@ -47,7 +47,7 @@ class TransformStep(BaseStep):
     def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
-    def _materialize(self):
+    def _init_from_pipeline_config(self):
         self.pipeline_config = self.step_config
         self.step_config = self.pipeline_config["steps"].get("transform", {})
         self.step_config.update(
