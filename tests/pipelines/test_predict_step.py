@@ -109,6 +109,7 @@ def test_predict_step_runs(
         },
         str(tmp_pipeline_root_path),
     )
+    predict_step._init_from_pipeline_config()
     predict_step._run(str(predict_step_output_dir))
 
     # Test internal predict step output artifact
@@ -140,6 +141,7 @@ def test_predict_step_uses_register_step_model_name(
         },
         str(tmp_pipeline_root_path),
     )
+    predict_step._init_from_pipeline_config()
     predict_step._run(str(predict_step_output_dir))
 
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
@@ -170,6 +172,7 @@ def test_predict_model_uri_takes_precendence_over_model_name(
         },
         str(tmp_pipeline_root_path),
     )
+    predict_step._init_from_pipeline_config()
     predict_step._run(str(predict_step_output_dir))
 
     # These assertions will only pass if the dummy model was used for scoring
@@ -200,6 +203,7 @@ def test_predict_step_output_formats(
             predict_step_output_dir / file_name
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    predict_step._init_from_pipeline_config()
     predict_step._run(str(predict_step_output_dir))
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
@@ -238,17 +242,19 @@ def test_predict_throws_when_overwriting_data(
     }
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    predict_step._init_from_pipeline_config()
     with pytest.raises(AnalysisException, match="already exists"):
         predict_step._run(str(predict_step_output_dir))
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_predict_throws_when_improperly_configured():
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config={},
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="Config for predict step is not found"):
-        PredictStep.from_pipeline_config(
-            pipeline_config={},
-            pipeline_root=os.getcwd(),
-        )
+        predict_step._init_from_pipeline_config()
 
     for required_key in ["output_format", "output_location"]:
         pipeline_config = {
@@ -261,29 +267,31 @@ def test_predict_throws_when_improperly_configured():
             }
         }
         pipeline_config["steps"]["predict"].pop(required_key)
+        predict_step = PredictStep.from_pipeline_config(
+            pipeline_config=pipeline_config,
+            pipeline_root=os.getcwd(),
+        )
         with pytest.raises(
             MlflowException, match=f"The `{required_key}` configuration key must be specified"
         ):
-            PredictStep.from_pipeline_config(
-                pipeline_config=pipeline_config,
-                pipeline_root=os.getcwd(),
-            )
+            predict_step._init_from_pipeline_config()
 
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config={
+            "steps": {
+                "predict": {
+                    "model_uri": "my model",
+                    "output_format": "fancy_format",
+                    "output_location": "random/path",
+                }
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(
         MlflowException, match="Invalid `output_format` in predict step configuration"
     ):
-        PredictStep.from_pipeline_config(
-            pipeline_config={
-                "steps": {
-                    "predict": {
-                        "model_uri": "my model",
-                        "output_format": "fancy_format",
-                        "output_location": "random/path",
-                    }
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        predict_step._init_from_pipeline_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -296,11 +304,12 @@ def test_predict_throws_when_no_model_is_specified():
             }
         }
     }
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config=pipeline_config,
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="No model specified for batch scoring"):
-        PredictStep.from_pipeline_config(
-            pipeline_config=pipeline_config,
-            pipeline_root=os.getcwd(),
-        )
+        predict_step._init_from_pipeline_config()
 
 
 def test_predict_skips_profiling_when_specified(
@@ -310,7 +319,7 @@ def test_predict_skips_profiling_when_specified(
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
     with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
-        PredictStep.from_pipeline_config(
+        predict_step = PredictStep.from_pipeline_config(
             {
                 "steps": {
                     "predict": {
@@ -322,7 +331,9 @@ def test_predict_skips_profiling_when_specified(
                 }
             },
             str(tmp_pipeline_root_path),
-        ).run(str(predict_step_output_dir))
+        )
+        predict_step._init_from_pipeline_config()
+        predict_step._run(str(predict_step_output_dir))
 
     expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
     with open(expected_step_card_path, "r") as f:
