@@ -5,19 +5,14 @@ from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
 conf = SparkConf()
-conf.set(key="spark.python.worker.reuse", value="true")
-conf.set(key="spark.task.maxFailures", value="1")
-conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
-conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
-conf.set(key="spark.driver.maxResultSize", value="3g")
-conf.set(key="spark.executor.memory", value="3g")
+# conf.set(key="spark.python.worker.reuse", value="true")
+# conf.set(key="spark.task.maxFailures", value="1")
+# conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
+# conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
+# conf.set(key="spark.driver.maxResultSize", value="3g")
+# conf.set(key="spark.executor.memory", value="3g")
 
-spark = (
-    SparkSession.builder.config(conf=conf)
-    .master("local[1]")
-    .config("spark.task.maxFailures", "1")
-    .getOrCreate()
-)
+spark = SparkSession.builder.config(conf=conf).master("local[1]").getOrCreate()
 
 
 X, y = datasets.load_iris(as_frame=True, return_X_y=True)
