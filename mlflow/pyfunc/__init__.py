@@ -1099,9 +1099,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
+            _logger.info("Using local environment to run the model.")
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
+                _logger.info("Loading model from local path: %s", local_model_path)
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)
 
             def batch_predict_fn(pdf):

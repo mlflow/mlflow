@@ -1,9 +1,22 @@
 import mlflow
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
+from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
-spark = SparkSession.builder.getOrCreate()
+conf = SparkConf()
+conf.set(key="spark.python.worker.reuse", value="true")
+conf.set(key="spark.task.maxFailures", value="1")
+conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
+conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
+
+spark = (
+    SparkSession.builder.config(conf=conf)
+    .master("local[1]")
+    .config("spark.task.maxFailures", "1")
+    .getOrCreate()
+)
+
 
 X, y = datasets.load_iris(as_frame=True, return_X_y=True)
 model = KNeighborsClassifier()
