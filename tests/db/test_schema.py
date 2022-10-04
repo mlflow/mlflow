@@ -1,5 +1,6 @@
 import os
 import re
+import difflib
 from pathlib import Path
 from collections import namedtuple
 
@@ -120,7 +121,7 @@ def initialize_database():
 
 def get_schema_update_command(dialect):
     this_script = Path(__file__).relative_to(Path.cwd())
-    docker_compose_yml = this_script.parent / "docker-compose.yml"
+    docker_compose_yml = this_script.parent / "compose.yml"
     return f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
 
 
@@ -136,6 +137,23 @@ def test_schema_is_up_to_date():
         f"{schema_path.relative_to(Path.cwd())} is not up-to-date. "
         f"Please run this command to update it: {update_command}"
     )
+    diff = "".join(
+        difflib.ndiff(
+            existing_schema.splitlines(keepends=True), latest_schema.splitlines(keepends=True)
+        )
+    )
+    rel_path = schema_path.relative_to(Path.cwd())
+    message = f"""
+=================================== EXPECTED ===================================
+{latest_schema}
+==================================== ACTUAL ====================================
+{existing_schema}
+===================================== DIFF =====================================
+{diff}
+================================== HOW TO FIX ==================================
+Manually copy & paste the expected schema in {rel_path} or run the following command:
+{update_command}
+"""
     assert schema_equal(existing_schema, latest_schema), message
 
 

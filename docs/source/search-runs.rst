@@ -103,6 +103,7 @@ You can search using the following run attributes contained in :py:class:`mlflow
   attributes.start_time >= 1664067852747
   attributes.end_time < 1664067852747
   attributes.user_id = 'user1'
+  attributes.run_name = 'my-run'
 
 
 .. _mlflow_tags:
@@ -110,13 +111,13 @@ You can search using the following run attributes contained in :py:class:`mlflow
 MLflow Tags
 ~~~~~~~~~~~
 
-You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```.
+You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search by owner of an MLflow run, specify ``tags."mlflow.user"`` or ``tags.`mlflow.user```.
 
 .. rubric:: Examples
 
 .. code-block:: sql
 
-  tags."mlflow.runName"
+  tags."mlflow.user"
 
 .. code-block:: sql
 

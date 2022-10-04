@@ -6,6 +6,7 @@ from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.pipelines.steps.register import RegisterStep
+from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -87,14 +88,15 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     evaluate_step._run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
-    model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
-    assert model_validation_status_path.exists()
-    expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
-    assert model_validation_status_path.read_text() == expected_status
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
-        1 if expected_status == "VALIDATED" else 0
-    )
+    if mae_threshold < 0:
+        with pytest.raises(MlflowException, match="Model validation failed"):
+            register_step._run(str(register_step_output_dir))
+    else:
+        register_step._run(str(register_step_output_dir))
+        model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
+        assert model_validation_status_path.exists()
+        assert model_validation_status_path.read_text() == "VALIDATED"
+        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -129,13 +131,15 @@ steps:
     evaluate_step._run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
-    model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
-    assert model_validation_status_path.exists()
-    assert model_validation_status_path.read_text() == "UNKNOWN"
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
-        0 if register_flag == "" else 1
-    )
+    if register_flag == "":
+        with pytest.raises(MlflowException, match="Model validation failed"):
+            register_step._run(str(register_step_output_dir))
+    else:
+        register_step._run(str(register_step_output_dir))
+        model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
+        assert model_validation_status_path.exists()
+        assert model_validation_status_path.read_text() == "UNKNOWN"
+        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 
 def test_usage_tracking_correctly_added(

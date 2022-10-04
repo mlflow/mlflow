@@ -14,7 +14,7 @@ The training pipeline contains the following sequential steps:
 
 The batch scoring pipeline contains the following sequential steps:
 
-**ingest** -> **predict**
+**ingest_scoring** -> **predict**
 
 The pipeline steps are defined as follows:
 
@@ -96,12 +96,29 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
-    - **predict**
-      - The **predict** step
+   - **ingest_scoring**
+      - The **ingest_scoring** step resolves the dataset specified by the 
+        |'data/scoring' section in pipeline.yaml| and converts it to parquet format, leveraging 
+        the custom dataset parsing code defined in |steps/ingest.py| if necessary. 
+    
+            .. note::
+                If you make changes to the dataset referenced by the **ingest_scoring** step 
+                (e.g. by adding new records or columns), you must manually re-run the 
+                **ingest_scoring** step in order to use the updated dataset in the pipeline. 
+                The **ingest_scoring** step does *not* automatically detect changes in the dataset.
+    
+   - **predict**
+      - The **predict** step uses the ingested dataset for scoring created by the
+        **ingest_scoring** step and applies the specified model to the dataset.
+
+            .. note::
+                In Databricks, the **predict** step writes the output parquet/delta files to
+                DBFS.
 
 .. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L36-L40>`__
 .. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L57-L63>`__
 .. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
+.. |'data/scoring' section in pipeline.yaml| replace:: `'data/scoring' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/f36f3db0f384ab0166789f1978f2b25fa695745c/pipeline.yaml#L34-L38>`__
 .. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L64-L73>`__
 .. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L47-L56>`__
 .. |'tuning' section of the 'train' step definition in pipeline.yaml| replace:: `'tuning' section of the 'train' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/d4ac7ee6ba7649f0d07138565e02402cd7a260c4/pipeline.yaml#L57-L78>`__

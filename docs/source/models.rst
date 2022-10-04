@@ -1597,6 +1597,16 @@ be used to safely deploy the model to various environments such as Kubernetes.
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
+The REST API defines 4 endpoints:
+
+* ``/ping`` used for health check
+
+* ``/health`` (same as /ping)
+
+* ``/version`` used for getting the mlflow version
+
+* ``/invocations`` used for scoring
+
 The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
@@ -2074,26 +2084,29 @@ numeric column as a double. You can control what result is returned by supplying
 argument. The following values are supported:
 
 * ``'int'`` or IntegerType_: The leftmost integer that can fit in
-  ``int32`` result is returned or exception is raised if there is none.
+  ``int32`` result is returned or an exception is raised if there are none.
 * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
-  result is returned or exception is raised if there is none.
+  result is returned or an exception is raised if there are none.
 * ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
   into the requested size.
 * ``'float'`` or FloatType_: The leftmost numeric result cast to
-  ``float32`` is returned or exception is raised if there is no numeric column.
+  ``float32`` is returned or an exception is raised if there are no numeric columns.
 * ``'double'`` or DoubleType_: The leftmost numeric result cast to
-  ``double`` is returned or exception is raised if there is no numeric column.
+  ``double`` is returned or an exception is raised if there are no numeric columns.
 * ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
-  requested. type. Exception is raised if there are numeric columns.
-* ``'string'`` or StringType_: Result is the leftmost column converted to string.
-* ArrayType_ ( StringType_ ): Return all columns converted to string.
+  requested type. An exception is raised if there are no numeric columns.
+* ``'string'`` or StringType_: Result is the leftmost column cast as string.
+* ArrayType_ ( StringType_ ): Return all columns cast as string.
+* ``'bool'`` or ``'boolean'`` or BooleanType_: The leftmost column cast to ``bool``
+  is returned or an exception is raised if the values cannot be coerced.
 
-.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
-.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
-.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
-.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
-.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
-.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
+.. _BooleanType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.BooleanType.html#pyspark.sql.types.BooleanType
 
 .. rubric:: Example
 

@@ -136,7 +136,10 @@ class PredictStep(BaseStep):
 
         # score dataset
         model_uri = self.step_config["model_uri"]
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=_ENV_MANAGER)
+        result_type = self.step_config.get("result_type", "double")
+        predict = mlflow.pyfunc.spark_udf(
+            spark, model_uri, result_type=result_type, env_manager=_ENV_MANAGER
+        )
         scored_sdf = input_sdf.withColumn(
             _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
         )
