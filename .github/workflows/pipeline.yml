@@ -87,5 +87,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
+          python examples/spark_udf/spark_udf.py || true
+          pip install -U flask
           python examples/spark_udf/spark_udf.py
           pytest tests/pipelines

@@ -9,6 +9,7 @@ conf.set(key="spark.python.worker.reuse", value="true")
 conf.set(key="spark.task.maxFailures", value="1")
 conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
 conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
+conf.set(key="spark.driver.maxResultSize", value="2g")
 
 spark = (
     SparkSession.builder.config(conf=conf)
