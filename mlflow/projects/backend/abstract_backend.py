@@ -40,7 +40,8 @@ class AbstractBackend:
                              to project execution.
         :param experiment_id: ID of experiment under which to launch the run.
         :param skip_image_build: Only valid for Docker projects. If True, skip building a new
-                                 Docker image and instead use a prebuilt image.
+                                 Docker image and directly use the image specified by the `image`
+                                 field in the MLproject file.
 
         :return: A :py:class:`mlflow.projects.SubmittedRun`. This function is expected to run
                  the project asynchronously, i.e. it should trigger project execution and then
