@@ -983,6 +983,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     data={names[i]: x for i, x in enumerate(args)}, columns=names
                 )
 
+            _logger.info("Running predict on pandas dataframe")
             result = predict_fn(pdf)
 
             if not isinstance(result, pandas.DataFrame):
@@ -1121,6 +1122,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 _logger.info("Loaded model: %s", loaded_model)
 
             def batch_predict_fn(pdf):
+                _logger.info("Running batch_predict_fn")
                 return loaded_model.predict(pdf)
 
         try:
@@ -1137,7 +1139,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     row_batch_args = input_batch
 
                 if len(row_batch_args[0]) > 0:
-                    yield _predict_row_batch(batch_predict_fn, row_batch_args)
+                    batch = _predict_row_batch(batch_predict_fn, row_batch_args)
+                    _logger.info("Batch prediction result: %s", batch)
+                    yield batch
         finally:
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
