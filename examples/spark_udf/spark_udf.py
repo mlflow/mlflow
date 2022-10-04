@@ -22,7 +22,7 @@ spark = (
 
 X, y = datasets.load_iris(as_frame=True, return_X_y=True)
 model = KNeighborsClassifier()
-model.fit(X.values, y.values)
+model.fit(X, y)
 
 with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(model, "model")

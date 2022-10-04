@@ -1175,6 +1175,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
+            _logger.info("Applying udf with args: %s", args)
             return udf(*args)
 
     return udf_with_default_cols
