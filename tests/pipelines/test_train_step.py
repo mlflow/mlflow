@@ -151,6 +151,7 @@ def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tunin
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
         train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/model.pkl").exists()
@@ -171,6 +172,7 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
     train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
     train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+    train_step._init_from_pipeline_config()
     train_step._run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -194,6 +196,7 @@ def test_train_steps_autologs(tmp_pipeline_root_path, use_tuning):
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
         train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -219,6 +222,7 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
         train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -240,6 +244,7 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
         train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
@@ -269,6 +274,7 @@ def test_train_step_with_tuning_output_yaml_correct(
         train_step = setup_train_step(
             tmp_pipeline_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
         )
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
@@ -285,6 +291,7 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
         train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step._init_from_pipeline_config()
         train_step._run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
