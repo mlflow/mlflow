@@ -321,45 +321,12 @@ def test_mlflow_gc_file_store_older_than(file_store):
     assert len(runs) == 0
 
 
-def test_mlflow_gc_file_store_experiment_ids(file_store):
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_experiment_ids(get_store_details, request):
     def invoke_gc(*args):
         return CliRunner().invoke(gc, args, catch_exceptions=False)
 
-    store, uri = file_store
-    exp_id_1 = store.create_experiment("1")
-    store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
-    invoke_gc("--backend-store-uri", uri)
-    experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_1, store.DEFAULT_EXPERIMENT_ID]
-
-    store.delete_experiment(exp_id_1)
-    invoke_gc("--backend-store-uri", uri)
-    experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
-
-    exp_id_2 = store.create_experiment("2")
-    exp_id_3 = store.create_experiment("3")
-    store.delete_experiment(exp_id_2)
-    store.delete_experiment(exp_id_3)
-    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_2)
-    experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
-
-    with mock.patch("time.time", return_value=0) as mock_time:
-        exp_id_4 = store.create_experiment("4")
-        store.delete_experiment(exp_id_4)
-        mock_time.assert_called()
-
-    invoke_gc("--backend-store-uri", uri, "--older-than", "1d")
-    experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
-
-
-def test_mlflow_gc_sqlite_store_experiment_ids(sqlite_store):
-    def invoke_gc(*args):
-        return CliRunner().invoke(gc, args, catch_exceptions=False)
-
-    store, uri = sqlite_store
+    store, uri = request.getfixturevalue(get_store_details)
     exp_id_1 = store.create_experiment("1")
     store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
     invoke_gc("--backend-store-uri", uri)
