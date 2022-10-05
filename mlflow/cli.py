@@ -527,7 +527,7 @@ def server(
     "all of its runs. If experiment ids are not specified, data is removed for all"
     "experiments in the `deleted` lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids):
+def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
