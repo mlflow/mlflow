@@ -1822,10 +1822,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
         self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        for (k, v) in {
-            "experiment_id": e1,
-            "lifecycle_stage": "ACTIVE",
-        }.items():
+        for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
 
@@ -2007,18 +2004,50 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
         run_id1 = run1.info.run_id
         run_id2 = run2.info.run_id
+
         result = self.store.search_runs(
             [exp_id],
             filter_string=f"attributes.run_id = '{run_id1}'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run_id1]
+
         result = self.store.search_runs(
             [exp_id],
             filter_string=f"attributes.run_id != '{run_id1}'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert [r.info.run_id for r in result] == [run_id2]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+        for filter_string in [
+            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+        ]:
+            result = self.store.search_runs(
+                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+            )
+            assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
@@ -2538,6 +2567,7 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
     assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
     assert models.SqlRun.get_attribute_name("run_name") == "name"
+    assert models.SqlRun.get_attribute_name("run_id") == "run_uuid"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
