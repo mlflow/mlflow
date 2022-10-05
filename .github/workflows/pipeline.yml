@@ -88,7 +88,7 @@ jobs:
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
           python examples/spark_udf/spark_udf.py || true
-          pip uninstall waitress
+          pip uninstall -y waitress
           python examples/spark_udf/spark_udf.py || true
           pip install -U flask==2.0.0
           python examples/spark_udf/spark_udf.py || true
