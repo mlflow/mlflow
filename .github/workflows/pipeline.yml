@@ -87,6 +87,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
+          python examples/a.py
           python examples/spark_udf/spark_udf.py || true
           pip uninstall -y waitress
           python examples/spark_udf/spark_udf.py || true
