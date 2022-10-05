@@ -1825,8 +1825,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for (k, v) in {
             "experiment_id": e1,
             "lifecycle_stage": "ACTIVE",
-            "run_id": r1,
-            "run_uuid": r2,
         }.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))

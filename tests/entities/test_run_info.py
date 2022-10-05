@@ -147,6 +147,6 @@ class TestRunInfo(unittest.TestCase):
 
     def test_searchable_attributes(self):
         self.assertSequenceEqual(
-            {"status", "artifact_uri", "start_time", "user_id", "end_time", "run_name"},
+            {"status", "artifact_uri", "start_time", "user_id", "end_time", "run_name", "run_id"},
             set(RunInfo.get_searchable_attributes()),
         )
