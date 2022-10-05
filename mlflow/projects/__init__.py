@@ -23,6 +23,7 @@ from mlflow.projects.utils import (
     PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
+    SKIP_IMAGE_BUILD,
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
@@ -89,6 +90,7 @@ def _run(
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
+    backend_config[SKIP_IMAGE_BUILD] = skip_image_build
     # TODO: remove this check once kubernetes execution has been refactored
     if backend_name not in {"databricks", "kubernetes"}:
         backend = loader.load_backend(backend_name)
@@ -101,7 +103,6 @@ def _run(
                 backend_config,
                 tracking_store_uri,
                 experiment_id,
-                skip_image_build,
             )
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name

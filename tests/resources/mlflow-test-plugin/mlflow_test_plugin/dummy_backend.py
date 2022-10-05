@@ -36,7 +36,6 @@ class PluginDummyProjectBackend(AbstractBackend):
         backend_config,
         tracking_uri,
         experiment_id,
-        skip_image_build,
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         active_run = get_or_create_run(

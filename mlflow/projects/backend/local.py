@@ -24,6 +24,7 @@ from mlflow.projects.utils import (
     PROJECT_SYNCHRONOUS,
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
+    SKIP_IMAGE_BUILD,
 )
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
@@ -72,7 +73,6 @@ class LocalBackend(AbstractBackend):
         backend_config,
         tracking_uri,
         experiment_id,
-        skip_image_build,
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)
@@ -89,6 +89,7 @@ class LocalBackend(AbstractBackend):
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
+        skip_image_build = backend_config[SKIP_IMAGE_BUILD]
 
         # Select an appropriate env manager for the project env type
         if env_manager is None:
