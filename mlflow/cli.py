@@ -9,6 +9,7 @@ from click import UsageError
 from datetime import timedelta
 
 import mlflow.db
+from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
 from mlflow import projects
@@ -560,6 +561,16 @@ def gc(older_than, backend_store_uri, run_ids):
 
     else:
         run_ids = run_ids.split(",")
+
+    mlflow_client = mlflow.MlflowClient()
+    deleted_experiments = [
+        experiment
+        for experiment in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
+        if experiment.last_update_time <= time_delta
+    ]
+
+    experiment_ids = [experiment.experiment_id for experiment in deleted_experiments]
+    run_ids.append(mlflow_client.search_runs(experiment_ids=experiment_ids))
 
     for run_id in run_ids:
         run = backend_store.get_run(run_id)
