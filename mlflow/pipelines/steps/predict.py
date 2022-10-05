@@ -9,6 +9,12 @@ from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
+from mlflow.pipelines.utils.tracking import (
+    get_pipeline_tracking_config,
+    apply_pipeline_tracking_config,
+    TrackingConfig,
+)
+from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import (
     _get_active_spark_session,
@@ -32,6 +38,8 @@ _ENV_MANAGER = "virtualenv"
 class PredictStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
+        self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
         self.run_end_time = None
@@ -81,6 +89,10 @@ class PredictStep(BaseStep):
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
+
+        apply_pipeline_tracking_config(self.tracking_config)
+        if self.registry_uri:
+            mlflow.set_registry_uri(self.registry_uri)
 
         # Get or create spark session
         try:
@@ -184,8 +196,19 @@ class PredictStep(BaseStep):
                 )
             else:
                 step_config["model_uri"] = f"models:/{model_name}/latest"
+        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root)
 
     @property
     def name(self):
         return "predict"
+
+    @property
+    def environment(self):
+        return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
