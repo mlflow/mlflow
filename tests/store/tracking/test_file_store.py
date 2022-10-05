@@ -1549,34 +1549,35 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = self._create_run(fs)
         run_id = run.info.run_id
 
-        self.assertEqual("name", run.info.run_name)
-        self.assertEqual("name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "name")
 
         fs.update_run_info(run_id, RunStatus.FINISHED, 100, "new name")
         run = fs.get_run(run_id)
-        self.assertEqual("new name", run.info.run_name)
-        self.assertEqual("new name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
 
         fs.update_run_info(run_id, RunStatus.FINISHED, 100, None)
         run = fs.get_run(run_id)
-        self.assertEqual("new name", run.info.run_name)
-        self.assertEqual("new name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
 
         fs.delete_tag(run_id, MLFLOW_RUN_NAME)
         run = fs.get_run(run_id)
-        self.assertEqual("new name", run.info.run_name)
-        self.assertEqual(None, run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), None)
 
         fs.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
         run = fs.get_run(run_id)
-        self.assertEqual("another name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "another name")
+        self.assertEqual(run.info.run_name, "another name")
 
         fs.set_tag(run_id, RunTag(MLFLOW_RUN_NAME, "yet another name"))
         run = fs.get_run(run_id)
-        self.assertEqual("yet another name", run.info.run_name)
-        self.assertEqual("yet another name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "yet another name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "yet another name")
 
         fs.log_batch(run_id, metrics=[], params=[], tags=[RunTag(MLFLOW_RUN_NAME, "batch name")])
         run = fs.get_run(run_id)
-        self.assertEqual("batch name", run.info.run_name)
-        self.assertEqual("batch name", run.data.tags.get(MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "batch name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "batch name")
