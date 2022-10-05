@@ -589,6 +589,8 @@ def gc(older_than, backend_store_uri, run_ids):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
+        for experiment_id in experiment_ids:
+            backend_store._hard_delete_experiment(experiment_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
 
