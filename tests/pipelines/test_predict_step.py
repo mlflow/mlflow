@@ -268,13 +268,6 @@ def test_predict_throws_when_overwriting_data(
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_predict_throws_when_improperly_configured():
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config={},
-        pipeline_root=os.getcwd(),
-    )
-    with pytest.raises(MlflowException, match="Config for predict step is not found"):
-        predict_step._init_from_step_config()
-
     for required_key in ["output_format", "output_location"]:
         pipeline_config = {
             "steps": {
