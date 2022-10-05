@@ -532,6 +532,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    import time
+
     backend_store = _get_store(backend_store_uri, None)
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
@@ -562,15 +564,23 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     else:
         run_ids = run_ids.split(",")
 
-    mlflow_client = mlflow.MlflowClient()
-    deleted_experiments = [
-        experiment
-        for experiment in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
-        if experiment.last_update_time <= time_delta
-    ]
+    deleted_experiment_ids = []
+    current_time = int(time.time() * 1000)
+    for experiment in mlflow.search_experiments(view_type=ViewType.DELETED_ONLY):
+        if older_than is None:
+            deleted_experiment_ids.append(experiment.experiment_id)
+        elif (
+            experiment.last_update_time is not None
+            and experiment.last_update_time <= current_time - time_delta
+        ):
+            deleted_experiment_ids.append(experiment.experiment_id)
 
-    experiment_ids = [experiment.experiment_id for experiment in deleted_experiments]
-    run_ids.append(mlflow_client.search_runs(experiment_ids=experiment_ids))
+    if not experiment_ids:
+        experiment_ids = deleted_experiment_ids
+    else:
+        experiment_ids = experiment_ids.split(",")
+
+    run_ids.extend(mlflow.search_runs(experiment_ids=experiment_ids)["run_id"].to_list())
 
     for run_id in run_ids:
         run = backend_store.get_run(run_id)
@@ -589,9 +599,11 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
-        for experiment_id in experiment_ids:
-            backend_store._hard_delete_experiment(experiment_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
+
+    for experiment_id in experiment_ids:
+        backend_store._hard_delete_experiment(experiment_id)
+        click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
 cli.add_command(mlflow.deployments.cli.commands)
