@@ -805,7 +805,7 @@ class SearchExperimentsUtils(SearchUtils):
 
         if cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(experiment, key)
-        if cls.is_numeric_attribute(key_type, key, comparator):
+        elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(experiment, key)
             value = float(value)
         elif cls.is_tag(key_type, comparator):
