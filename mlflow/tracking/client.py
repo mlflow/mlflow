@@ -425,14 +425,24 @@ class MlflowClient:
 
             Identifiers
               - ``name``: Experiment name.
+              - ``creation_time``: Experiment creation time.
+              - ``last_update_time``: Experiment last update time.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators
+            Comparators for string attributes
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
               - ``ILIKE``: Case-insensitive pattern match.
+
+            Comparators for numeric attributes
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``<``: Less than.
+              - ``<=``: Less than or equal to.
+              - ``>``: Greater than.
+              - ``>=``: Greater than or equal to.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -444,6 +454,8 @@ class MlflowClient:
 
             - ``name``: Experiment name.
             - ``experiment_id``: Experiment ID.
+            - ``creation_time``: Experiment creation time.
+            - ``last_update_time``: Experiment last update time.
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
