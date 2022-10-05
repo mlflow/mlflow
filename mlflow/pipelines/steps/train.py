@@ -59,7 +59,7 @@ class TrainStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.pipeline_config = pipeline_config
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec"]:
                 raise MlflowException(
@@ -683,7 +683,9 @@ class TrainStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("train", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("train", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("train", {}))
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")

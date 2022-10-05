@@ -35,7 +35,7 @@ class PredictStep(BaseStep):
     ) -> None:
         super().__init__(step_config, pipeline_root)
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         required_configuration_keys = ["output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in self.step_config:
@@ -181,7 +181,9 @@ class PredictStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("predict", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("predict", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
         step_config["register"] = pipeline_config["steps"].get("register", {})
         return cls(step_config, pipeline_root)
 

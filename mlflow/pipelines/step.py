@@ -115,7 +115,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
         try:
             self._update_status(status=StepStatus.RUNNING, output_directory=output_directory)
-            self._init_from_pipeline_config()
+            self._init_from_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
         except Exception:
@@ -167,7 +167,7 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     @experimental
     @abc.abstractmethod
-    def _init_from_pipeline_config(self) -> None:
+    def _init_from_step_config(self) -> None:
         """
         This function is responsible for validating the pipeline config for
         a particular step. It is invoked by the internal step runner.

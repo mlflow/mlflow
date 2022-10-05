@@ -46,7 +46,7 @@ class EvaluateStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         self.target_col = self.step_config.get("target_col")
         if self.target_col is None:
             raise MlflowException(
@@ -344,7 +344,9 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("evaluate", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("evaluate", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("evaluate", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["template_name"] = pipeline_config.get("template")

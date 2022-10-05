@@ -28,7 +28,7 @@ class RegisterStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
@@ -159,7 +159,9 @@ class RegisterStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("register", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("register") is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("register"))
         step_config["template_name"] = pipeline_config.get("template")
         step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
         step_config.update(

@@ -42,7 +42,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     ):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         dataset_format = self.step_config.get("format")
         if not dataset_format:
             raise MlflowException(

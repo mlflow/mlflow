@@ -566,7 +566,7 @@ def test_ingest_throws_when_dataset_format_unspecified():
         pipeline_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
-        ingest_step._init_from_pipeline_config()
+        ingest_step._init_from_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -576,7 +576,7 @@ def test_ingest_throws_when_data_section_unspecified():
         pipeline_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="The `data` section.*must be specified"):
-        ingest_step._init_from_pipeline_config()
+        ingest_step._init_from_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -591,7 +591,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
         pipeline_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
-        ingest_step._init_from_pipeline_config()
+        ingest_step._init_from_step_config()
 
     ingest_step = IngestStep.from_pipeline_config(
         pipeline_config={
@@ -603,7 +603,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
         pipeline_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="The `sql` configuration key must be specified"):
-        ingest_step._init_from_pipeline_config()
+        ingest_step._init_from_step_config()
 
     ingest_step = IngestStep.from_pipeline_config(
         pipeline_config={
@@ -618,7 +618,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
     with pytest.raises(
         MlflowException, match="The `custom_loader_method` configuration key must be specified"
     ):
-        ingest_step._init_from_pipeline_config()
+        ingest_step._init_from_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")

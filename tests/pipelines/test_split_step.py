@@ -116,7 +116,7 @@ def test_from_pipeline_config_fails_without_target_col(tmp_path):
     ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
         split_step = SplitStep.from_pipeline_config({}, "fake_root")
         with pytest.raises(MlflowException, match="Missing target_col config"):
-            split_step._init_from_pipeline_config()
+            split_step._init_from_step_config()
 
 
 def test_from_pipeline_config_works_with_target_col(tmp_path):

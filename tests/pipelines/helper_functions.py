@@ -155,7 +155,7 @@ class BaseStepImplemented(BaseStep):
     def name(self):
         pass
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         pass
 
 

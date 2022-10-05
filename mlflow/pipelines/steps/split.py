@@ -89,7 +89,7 @@ class SplitStep(BaseStep):
     ):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
-    def _init_from_pipeline_config(self):
+    def _init_from_step_config(self):
         self.run_end_time = None
         self.execution_duration = None
         self.num_dropped_rows = None
@@ -204,7 +204,9 @@ class SplitStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config["steps"].get("split", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("split", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         return cls(step_config, pipeline_root)
 
