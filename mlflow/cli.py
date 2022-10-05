@@ -532,7 +532,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
-    import time
+    from mlflow.utils.time_utils import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
     if not hasattr(backend_store, "_hard_delete_run"):
@@ -565,15 +565,24 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         run_ids = run_ids.split(",")
 
     deleted_experiment_ids = []
-    current_time = int(time.time() * 1000)
-    for experiment in mlflow.search_experiments(view_type=ViewType.DELETED_ONLY):
-        if older_than is None:
-            deleted_experiment_ids.append(experiment.experiment_id)
-        elif (
-            experiment.last_update_time is not None
-            and experiment.last_update_time <= current_time - time_delta
-        ):
-            deleted_experiment_ids.append(experiment.experiment_id)
+    next_page_token = None
+    current_time = get_current_time_millis()
+    while True:
+        page_results = backend_store.search_experiments(
+            view_type=ViewType.DELETED_ONLY,
+            page_token=next_page_token,
+        )
+        for experiment in page_results:
+            if older_than is None:
+                deleted_experiment_ids.append(experiment.experiment_id)
+            elif (
+                experiment.last_update_time is not None
+                and experiment.last_update_time <= current_time - time_delta
+            ):
+                deleted_experiment_ids.append(experiment.experiment_id)
+        if page_results.token is None:
+            break
+        next_page_token = page_results.token
 
     if not experiment_ids:
         experiment_ids = deleted_experiment_ids
