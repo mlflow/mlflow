@@ -184,7 +184,7 @@ class PredictStep(BaseStep):
         step_config = {}
         if pipeline_config.get("steps", {}).get("predict", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
-        step_config["register"] = pipeline_config["steps"].get("register", {})
+        step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
         return cls(step_config, pipeline_root)
 
     @property

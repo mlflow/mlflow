@@ -169,7 +169,7 @@ class BaseStep(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _init_from_step_config(self) -> None:
         """
-        This function is responsible for validating the pipeline config for
+        This function is responsible for validating the step config for
         a particular step. It is invoked by the internal step runner.
         """
         pass
