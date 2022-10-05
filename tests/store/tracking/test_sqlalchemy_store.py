@@ -1275,30 +1275,32 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run_id = self.store.create_run(**configs).info.run_id
         run = self.store.get_run(run_id)
-        self.assertEqual(configs["run_name"], run.info.run_name)
+        self.assertEqual(run.info.run_name, configs["run_name"])
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
         run = self.store.get_run(run_id)
-        self.assertEqual("new name", run.info.run_name)
-        self.assertEqual("new name", run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
         run = self.store.get_run(run_id)
-        self.assertEqual("new name", run.info.run_name)
-        self.assertEqual("new name", run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
 
         self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
         run = self.store.get_run(run_id)
-        self.assertEqual(None, run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), None)
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
         run = self.store.get_run(run_id)
-        self.assertEqual("newer name", run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME))
+        self.assertEqual(run.info.run_name, "newer name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "newer name")
 
         self.store.set_tag(run_id, entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, "newest name"))
         run = self.store.get_run(run_id)
         self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "newest name")
-        self.assertEqual("newest name", run.info.run_name)
+        self.assertEqual(run.info.run_name, "newest name")
 
         self.store.log_batch(
             run_id,
@@ -1308,7 +1310,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         run = self.store.get_run(run_id)
         self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "batch name")
-        self.assertEqual("batch name", run.info.run_name)
+        self.assertEqual(run.info.run_name, "batch name")
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory("helloexp")
