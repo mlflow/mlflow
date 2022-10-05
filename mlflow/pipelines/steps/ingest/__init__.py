@@ -43,7 +43,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         super().__init__(step_config, pipeline_root)
 
     def _init_from_step_config(self):
-        if len(self.step_config != 0):
+        if len(self.step_config) != 0:
             raise MlflowException(
                 message="The `data` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
