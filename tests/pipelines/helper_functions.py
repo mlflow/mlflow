@@ -130,17 +130,14 @@ def clear_custom_metrics_module_cache():
 
 @pytest.fixture
 def registry_uri_path(tmp_path) -> Path:
-    previousRegistryUri = ""
-    try:
-        previousRegistryUri = mlflow.get_registry_uri()
-        path = tmp_path.joinpath("registry.db")
-        db_url = "sqlite:///%s" % path
-        SqlAlchemyStore(db_url, "register_model")
-        yield db_url
-    finally:
-        os.remove(path)
-        shutil.rmtree("register_model")
-        mlflow.set_registry_uri(previousRegistryUri)
+    previousRegistryUri = mlflow.get_registry_uri()
+    path = tmp_path.joinpath("registry.db")
+    db_url = "sqlite:///%s" % path
+    SqlAlchemyStore(db_url, "register_model")
+    yield db_url
+    os.remove(path)
+    shutil.rmtree("register_model")
+    mlflow.set_registry_uri(previousRegistryUri)
 
 
 @contextmanager
