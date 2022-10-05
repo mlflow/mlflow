@@ -566,7 +566,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 
     deleted_experiment_ids = []
     next_page_token = None
-    current_time = get_current_time_millis()
+    time_threshold = get_current_time_millis() - time_delta
     while True:
         page_results = backend_store.search_experiments(
             view_type=ViewType.DELETED_ONLY,
@@ -577,7 +577,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 deleted_experiment_ids.append(experiment.experiment_id)
             elif (
                 experiment.last_update_time is not None
-                and experiment.last_update_time <= current_time - time_delta
+                and experiment.last_update_time <= time_threshold
             ):
                 deleted_experiment_ids.append(experiment.experiment_id)
         if page_results.token is None:
