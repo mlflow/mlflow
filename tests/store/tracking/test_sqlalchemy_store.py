@@ -2002,6 +2002,26 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
+    def test_search_runs_run_id(self):
+        exp_id = self._experiment_factory("test_search_runs_run_id")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id = '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id != '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
@@ -2524,7 +2544,7 @@ def test_get_attribute_name():
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attributes are also orderable
-    assert len(entities.RunInfo.get_orderable_attributes()) == 6
+    assert len(entities.RunInfo.get_orderable_attributes()) == 7
 
 
 def test_get_orderby_clauses():

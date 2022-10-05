@@ -1,6 +1,5 @@
 import base64
 import json
-import random
 
 import pytest
 import re
@@ -130,8 +129,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.run_id != 1", "Invalid attribute key"),
-        ("attribute.run_uuid != 1", "Invalid attribute key"),
         ("attribute.experiment_id != 1", "Invalid attribute key"),
         ("attribute.lifecycle_stage = 'ACTIVE'", "Invalid attribute key"),
         ("attribute.name != 1", "Invalid attribute key"),
@@ -494,7 +491,6 @@ def test_order_by_metric_with_nans_infs_nones():
         ("`metrics.A", "Invalid order_by clause"),
         ("`metrics.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
-        ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
         ("params.my_param ", "Invalid order_by clause"),
@@ -632,51 +628,3 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 def test_invalid_page_tokens(page_token, error_message):
     with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
-
-
-def test_single_run_by_ID(run_id, returned_id):
-    runs = [
-        Run(
-            run_info=RunInfo(
-                run_uuid="0",
-                run_id="0",
-                experiment_id=0,
-                user_id="user-id",
-                status=RunStatus.to_string(RunStatus.FAILED),
-                start_time=0,
-                end_time=1,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData([], [], []),
-        ),
-        Run(
-            run_info=RunInfo(
-                run_uuid="1",
-                run_id="1",
-                experiment_id=0,
-                user_id="user-id",
-                status=RunStatus.to_string(RunStatus.FAILED),
-                start_time=0,
-                end_time=1,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData([], [], []),
-        ),
-        Run(
-            run_info=RunInfo(
-                run_uuid="1",
-                run_id="1",
-                experiment_id=0,
-                user_id="user-id",
-                status=RunStatus.to_string(RunStatus.FAILED),
-                start_time=0,
-                end_time=1,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData([], [], []),
-        ),
-    ]
-
-    run_id = "1"
-    returned_id = SearchUtils.filter(runs, "attributes.run_id = 1")
-    assert run_id == returned_id
