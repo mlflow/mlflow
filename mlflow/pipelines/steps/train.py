@@ -18,9 +18,11 @@ from mlflow.pipelines.utils.execution import (
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 from mlflow.pipelines.utils.metrics import (
-    BUILTIN_PIPELINE_METRICS,
+    _get_error_fn,
+    _get_builtin_metrics,
     _get_primary_metric,
     _get_custom_metrics,
+    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import (
@@ -57,6 +59,7 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
+        self.template = self.step_config.get("template_name")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
@@ -65,10 +68,12 @@ class TrainStep(BaseStep):
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
-        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
+        self.evaluation_metrics = {
+            metric.name: metric for metric in _get_builtin_metrics(self.template)
+        }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in BUILTIN_PIPELINE_METRICS
+            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.template)
         }
         self.evaluation_metrics_greater_is_better.update(
             {
@@ -178,7 +183,7 @@ class TrainStep(BaseStep):
         }
 
         best_estimator_params = None
-        mlflow.autolog(log_models=False)
+        mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
             estimator_hardcoded_params = self.step_config["estimator_params"]
             if self.step_config["tuning_enabled"]:
@@ -236,7 +241,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.template),
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -252,16 +257,20 @@ class TrainStep(BaseStep):
 
         target_data = raw_validation_df[self.target_col]
         prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
+        error_fn = _get_error_fn(self.template)
         pred_and_error_df = pd.DataFrame(
             {
                 "target": target_data,
                 "prediction": prediction_result,
-                "error": prediction_result - target_data,
+                "error": error_fn(prediction_result, target_data.to_numpy()),
             }
         )
         train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
         worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-            raw_train_df, train_predictions, self.target_col
+            raw_train_df,
+            train_predictions,
+            error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+            self.target_col,
         )
         leaderboard_df = None
         try:
@@ -459,10 +468,10 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 1: Model performance summary metrics.
+        # Tab 1: Model performance.
         card.add_tab(
-            "Model Performance Summary Metrics",
-            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
+            "Model Performance",
+            "<h3 class='section-title'>Summary Metrics (Validation)</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
         if not self.skip_data_profiling:
@@ -475,7 +484,7 @@ class TrainStep(BaseStep):
                     ]
                 ]
             )
-            card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
+            card.add_tab("Data Profile (Predictions)", "{{PROFILE}}").add_pandas_profile(
                 "PROFILE", pred_and_error_df_profile
             )
         # Tab 3: Model architecture.
@@ -511,9 +520,9 @@ class TrainStep(BaseStep):
 
         # Tab 5: Examples with Largest Prediction Error
         (
-            card.add_tab(
-                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
-            ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
+            card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
+                "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+            )
         )
 
         # Tab 6: Leaderboard

@@ -6,9 +6,10 @@ The passed int model is expected to have function:
 Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
-Defines three endpoints:
+Defines four endpoints:
     /ping used for health check
     /health (same as /ping)
+    /version used for getting the mlflow version
     /invocations used for scoring
 """
 from collections import OrderedDict
@@ -37,6 +38,7 @@ from mlflow.utils.proto_json_utils import (
     _get_jsonable_obj,
     parse_tf_serving_input,
 )
+from mlflow.version import VERSION
 
 try:
     from mlflow.pyfunc import load_model, PyFuncModel
@@ -230,6 +232,13 @@ def init(model: PyFuncModel):
         health = model is not None
         status = 200 if health else 404
         return flask.Response(response="\n", status=status, mimetype="application/json")
+
+    @app.route("/version", methods=["GET"])
+    def version():  # pylint: disable=unused-variable
+        """
+        Returns the current mlflow version.
+        """
+        return flask.Response(response=VERSION, status=200, mimetype="application/json")
 
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception

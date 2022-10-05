@@ -237,7 +237,7 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
 
     def resolve_to_parquet(self, dst_path: str):
         with TempDir(chdr=True) as tmpdir:
-            _logger.info("Resolving input data from '%s'", self.location)
+            _logger.debug("Resolving input data from '%s'", self.location)
             local_dataset_path = _DownloadThenConvertDataset._download_dataset(
                 dataset_location=self.location,
                 dst_path=tmpdir.path(),
@@ -270,8 +270,8 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                     )
                 dataset_file_paths = [local_dataset_path]
 
-            _logger.info("Resolved input data to '%s'", local_dataset_path)
-            _logger.info("Converting dataset to parquet format, if necessary")
+            _logger.debug("Resolved input data to '%s'", local_dataset_path)
+            _logger.debug("Converting dataset to parquet format, if necessary")
             return self._convert_to_parquet(
                 dataset_file_paths=dataset_file_paths,
                 dst_path=dst_path,
@@ -507,10 +507,10 @@ class _SparkDatasetMixin:
         try:
             spark_session = _get_active_spark_session()
             if spark_session:
-                _logger.info("Found active spark session")
+                _logger.debug("Found active spark session")
             else:
                 spark_session = _create_local_spark_session_for_pipelines()
-                _logger.info("Creating new spark session")
+                _logger.debug("Creating new spark session")
             return spark_session
         except Exception as e:
             raise MlflowException(

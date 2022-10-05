@@ -16,6 +16,7 @@ from mlflow.pipelines.steps.ingest.datasets import (
     CustomDataset,
 )
 from typing import Dict, Any
+import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
@@ -64,18 +65,17 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             )
 
     def _run(self, output_directory: str) -> BaseCard:
-        import pandas as pd
 
         dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
         )
-        _logger.info("Successfully stored data in parquet format at '%s'", dataset_dst_path)
+        _logger.debug("Successfully stored data in parquet format at '%s'", dataset_dst_path)
 
         ingested_df = read_parquet_as_pandas_df(data_parquet_path=dataset_dst_path)
         ingested_dataset_profile = None
         if not self.skip_data_profiling:
-            _logger.info("Profiling ingested dataset")
+            _logger.debug("Profiling ingested dataset")
             ingested_dataset_profile = get_pandas_data_profiles(
                 [["Profile of Ingested Dataset", ingested_df]]
             )
@@ -83,14 +83,15 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 str(os.path.join(output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME))
             )
             dataset_profile_path.write_text(ingested_dataset_profile, encoding="utf-8")
-            _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
+            _logger.debug(f"Wrote dataset profile to '{dataset_profile_path}'")
 
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
 
         step_card = self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
-            ingested_rows=ingested_df.size,
+            ingested_rows=len(ingested_df),
             schema=schema,
+            data_preview=ingested_df.head(),
             dataset_src_location=getattr(self.dataset, "location", None),
             dataset_sql=getattr(self.dataset, "sql", None),
         )
@@ -101,6 +102,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_dataset_profile: str,
         ingested_rows: int,
         schema: Dict,
+        data_preview: pd.DataFrame = None,
         dataset_src_location: str = None,
         dataset_sql: str = None,
     ) -> BaseCard:
@@ -138,7 +140,14 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         # Tab #2 -- Ingested dataset schema.
         schema_html = BaseCard.render_table(schema["fields"])
         card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
-        (  # Tab #3 -- Step run summary.
+
+        if data_preview is not None:
+            # Tab #3 -- Ingested dataset preview.
+            card.add_tab("Data Preview", "{{DATA_PREVIEW}}").add_html(
+                "DATA_PREVIEW", BaseCard.render_table(data_preview)
+            )
+
+        (  # Tab #4 -- Step run summary.
             card.add_tab(
                 "Run Summary",
                 "{{ INGESTED_ROWS }}"

@@ -76,7 +76,7 @@ def _create_hash_buckets(input_df):
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
-    _logger.info(
+    _logger.debug(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
@@ -190,7 +190,7 @@ class SplitStep(BaseStep):
             post_split = getattr(
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
-            _logger.info(f"Running {post_split_fn_name} on train, validation and test datasets.")
+            _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
             (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))

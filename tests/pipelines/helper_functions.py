@@ -20,7 +20,7 @@ from sklearn.linear_model import LinearRegression
 import pytest
 
 PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_PIPELINE_EXAMPLE_PATH"
-PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression"
+PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression_example"
 
 ## Methods
 def get_random_id(length=6):
