@@ -523,9 +523,9 @@ def server(
 @click.option(
     "--experiment-ids",
     default=None,
-    help="Optional comma separated list of experiments to be permanently deleted including"
-    "all of its runs. If experiment ids are not specified, data is removed for all"
-    "experiments in the `deleted` lifecycle stage.",
+    help="Optional comma separated list of experiments to be permanently deleted including "
+    "all of its runs. If experiment ids are not specified, data is removed for all "
+    "experiments in the `deleted` lifecycle stage. ",
 )
 def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
