@@ -720,8 +720,9 @@ class SearchUtils:
 
 
 class SearchExperimentsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
+    NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -802,8 +803,11 @@ class SearchExperimentsUtils(SearchUtils):
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
-        if cls.is_attribute(key_type, comparator):
+        if cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(experiment, key)
+        if cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(experiment, key)
+            value = float(value)
         elif cls.is_tag(key_type, comparator):
             if key not in experiment.tags:
                 return False
