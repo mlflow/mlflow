@@ -1167,7 +1167,7 @@ class MlflowClient:
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:

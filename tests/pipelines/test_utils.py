@@ -42,10 +42,12 @@ def test_get_pipeline_name_returns_correctly_for_valid_pipeline_directory(
 ):
     pipeline_root_path = enter_pipeline_example_directory
     assert pathlib.Path.cwd() == pipeline_root_path
-    assert get_pipeline_name() == "sklearn_regression"
+    assert get_pipeline_name() == "sklearn_regression_example"
 
     with chdir(tmp_path):
-        assert get_pipeline_name(pipeline_root_path=pipeline_root_path) == "sklearn_regression"
+        assert (
+            get_pipeline_name(pipeline_root_path=pipeline_root_path) == "sklearn_regression_example"
+        )
 
 
 def test_get_pipeline_name_throws_for_invalid_pipeline_directory(tmp_path):
