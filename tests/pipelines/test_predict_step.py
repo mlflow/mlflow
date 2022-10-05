@@ -8,15 +8,18 @@ from pyspark.sql.utils import AnalysisException
 from sklearn.datasets import load_diabetes
 from unittest import mock
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
     enter_test_pipeline_directory,
     enter_pipeline_example_directory,
     get_random_id,
+    registry_uri_path,
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
     train_and_log_model,
@@ -73,9 +76,12 @@ def predict_step_output_dir(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(
         """
-template: "{template_to_use}"
+template: "regression/v1"
+experiment:
+  name: "test"
+  tracking_uri: {tracking_uri}
 """.format(
-            template_to_use="regression/v1",
+            tracking_uri=mlflow.get_tracking_uri(),
         )
     )
     return predict_step_output_dir
@@ -97,7 +103,8 @@ def test_predict_step_runs(
             run_id=run_id, artifact_path="train/model"
         )
 
-    predict_step = PredictStep.from_pipeline_config(
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
         {
             "steps": {
                 "predict": {
@@ -106,7 +113,10 @@ def test_predict_step_runs(
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 }
             }
-        },
+        }
+    )
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config,
         str(tmp_pipeline_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
@@ -128,7 +138,8 @@ def test_predict_step_uses_register_step_model_name(
     rm_name = "register_step_model"
     train_log_and_register_model(rm_name, is_dummy=True)
 
-    predict_step = PredictStep.from_pipeline_config(
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
         {
             "steps": {
                 "register": {"model_name": rm_name},
@@ -137,7 +148,10 @@ def test_predict_step_uses_register_step_model_name(
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 },
             }
-        },
+        }
+    )
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config,
         str(tmp_pipeline_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
@@ -157,7 +171,8 @@ def test_predict_model_uri_takes_precendence_over_model_name(
 
     # Specify the normal model in the register step `model_name` config key and
     # the dummy model in the predict step `model_uri` config key
-    predict_step = PredictStep.from_pipeline_config(
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
         {
             "steps": {
                 "register": {"model_name": register_step_rm_name},
@@ -167,7 +182,10 @@ def test_predict_model_uri_takes_precendence_over_model_name(
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 },
             }
-        },
+        }
+    )
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config,
         str(tmp_pipeline_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
@@ -184,14 +202,17 @@ def test_predict_step_output_formats(
     output_name = "output_" + get_random_id()
     model_uri = train_log_and_register_model(rm_name, is_dummy=True)
 
-    pipeline_config = {
-        "steps": {
-            "predict": {
-                "model_uri": model_uri,
-                "output_format": output_format,
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
+        {
+            "steps": {
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": output_format,
+                }
             }
         }
-    }
+    )
     if output_format == "table":
         pipeline_config["steps"]["predict"]["output_location"] = output_name
     else:
@@ -227,15 +248,18 @@ def test_predict_throws_when_overwriting_data(
         output_path = str(predict_step_output_dir / output_file)
         sdf.coalesce(1).write.format(output_format).save(output_path)
 
-    pipeline_config = {
-        "steps": {
-            "predict": {
-                "model_uri": model_uri,
-                "output_format": output_format,
-                "output_location": output_path,
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
+        {
+            "steps": {
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": output_format,
+                    "output_location": output_path,
+                }
             }
         }
-    }
+    )
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     with pytest.raises(AnalysisException, match="already exists"):
@@ -314,7 +338,8 @@ def test_predict_skips_profiling_when_specified(
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
     with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
-        predict_step = PredictStep.from_pipeline_config(
+        pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+        pipeline_config.update(
             {
                 "steps": {
                     "predict": {
@@ -324,7 +349,10 @@ def test_predict_skips_profiling_when_specified(
                         "skip_data_profiling": True,
                     }
                 }
-            },
+            }
+        )
+        predict_step = PredictStep.from_pipeline_config(
+            pipeline_config,
             str(tmp_pipeline_root_path),
         )
         predict_step.run(str(predict_step_output_dir))
@@ -334,3 +362,36 @@ def test_predict_skips_profiling_when_specified(
         step_card_html_content = f.read()
     assert "Profile of Scored Dataset" not in step_card_html_content
     mock_profiling.assert_not_called()
+
+
+def test_predict_uses_registry_uri(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    registry_uri_path: Path,
+):
+    registry_uri = registry_uri_path
+    model_name = "model_" + get_random_id()
+    mlflow.set_registry_uri(registry_uri)
+    model_uri = train_log_and_register_model(model_name, is_dummy=True)
+    # reset model registry
+    mlflow.set_registry_uri("")
+
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update({"model_registry": {"uri": str(registry_uri)}})
+    pipeline_config.update(
+        {
+            "steps": {
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                }
+            }
+        }
+    )
+    PredictStep.from_pipeline_config(
+        pipeline_config,
+        str(tmp_pipeline_root_path),
+    ).run(str(predict_step_output_dir))
+    assert mlflow.get_registry_uri() == registry_uri
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)

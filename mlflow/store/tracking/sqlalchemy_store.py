@@ -1024,7 +1024,12 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+            if tag.key == MLFLOW_RUN_NAME:
+                run_status = RunStatus.from_string(run.status)
+                self.update_run_info(run_id, run_status, run.end_time, tag.value)
+            else:
+                # NB: Updating the run_info will set the tag. No need to do it twice.
+                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def _set_tags(self, run_id, tags):
         """
@@ -1054,25 +1059,32 @@ class SqlAlchemyStore(AbstractStore):
 
                     new_tag_dict = {}
                     for tag in tags:
-                        current_tag = current_tags.get(tag.key)
-                        new_tag = new_tag_dict.get(tag.key)
-
-                        # update the SqlTag if it is already present in DB
-                        if current_tag:
-                            current_tag.value = tag.value
-                            continue
-
-                        # if a SqlTag instance is already present in `new_tag_dict`,
-                        # this means that multiple tags with the same key were passed to `set_tags`.
-                        # In this case, we resolve potential conflicts by updating the value of the
-                        # existing instance to the value of `tag`
-                        if new_tag:
-                            new_tag.value = tag.value
-                        # otherwise, put it into the dict
+                        # NB: If the run name tag is explicitly set, update the run info attribute
+                        # and do not resubmit the tag for overwrite as the tag will be set within
+                        # `set_tag()` with a call to `update_run_info()`
+                        if tag.key == MLFLOW_RUN_NAME:
+                            self.set_tag(run_id, tag)
                         else:
-                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+                            current_tag = current_tags.get(tag.key)
+                            new_tag = new_tag_dict.get(tag.key)
 
-                        new_tag_dict[tag.key] = new_tag
+                            # update the SqlTag if it is already present in DB
+                            if current_tag:
+                                current_tag.value = tag.value
+                                continue
+
+                            # if a SqlTag instance is already present in `new_tag_dict`,
+                            # this means that multiple tags with the same key were passed to
+                            # `set_tags`.
+                            # In this case, we resolve potential conflicts by updating the value
+                            # of the existing instance to the value of `tag`
+                            if new_tag:
+                                new_tag.value = tag.value
+                            # otherwise, put it into the dict
+                            else:
+                                new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                            new_tag_dict[tag.key] = new_tag
 
                     # finally, save new entries to DB.
                     self._save_to_db(session=session, objs=list(new_tag_dict.values()))

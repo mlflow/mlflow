@@ -127,6 +127,14 @@ def clear_custom_metrics_module_cache():
         del sys.modules[key]
 
 
+@pytest.fixture
+def registry_uri_path(tmp_path) -> Path:
+    path = tmp_path.joinpath("registry.db")
+    db_url = "sqlite:///%s" % path
+    yield db_url
+    mlflow.set_registry_uri("")
+
+
 @contextmanager
 def chdir(directory_path):
     og_dir = os.getcwd()
