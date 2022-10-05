@@ -76,7 +76,16 @@ markdown:
   minimum: "3.3"
   max_major_version: 3
 
-Jinja2:
+Jinja2-non-windows:
   pip_release: Jinja2
+  minimum: "2.11"
+  max_major_version: 3
+  markers: "platform_system != 'Windows'"
+
+Jinja2-windows:
+  pip_release: Jinja2
+  # `mlflow.pyfunc.spark_udf` doesn't work properly with Jinja2==2.11 on Windows.
+  # See https://github.com/mlflow/mlflow/pull/6931 for more information.
   minimum: "3.0"
   max_major_version: 3
+  markers: "platform_system == 'Windows'"
