@@ -531,7 +531,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_search_experiments_order_by_time_attribute(self):
         # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment
+        # experiment and eliminate flakiness.
         time.sleep(0.001)
         exp_id1 = self.store.create_experiment("1")
         time.sleep(0.001)

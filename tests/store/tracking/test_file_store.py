@@ -222,7 +222,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_search_experiments_filter_by_time_attribute(self):
         self.initialize()
         # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment
+        # experiment and eliminate flakiness.
         time.sleep(0.001)
         time_before_create1 = get_current_time_millis()
         exp_id1 = self.store.create_experiment("1")
