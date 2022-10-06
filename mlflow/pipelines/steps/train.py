@@ -689,7 +689,6 @@ class TrainStep(BaseStep):
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
-        step_config["run_args"] = pipeline_config.get("run_args")
         step_config["target_col"] = pipeline_config.get("target_col")
         step_config.update(
             get_pipeline_tracking_config(

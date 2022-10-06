@@ -350,7 +350,6 @@ class EvaluateStep(BaseStep):
         step_config["target_col"] = pipeline_config.get("target_col")
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["template_name"] = pipeline_config.get("template")
-        step_config["run_args"] = pipeline_config.get("run_args")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
