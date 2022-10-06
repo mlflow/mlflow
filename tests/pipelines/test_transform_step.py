@@ -67,7 +67,7 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
             tmp_pipeline_root_path, "sklearn.preprocessing.StandardScaler"
         )
-        transform_step._run(str(transform_step_output_dir))
+        transform_step.run(str(transform_step_output_dir))
 
     assert os.path.exists(transform_step_output_dir / "transformed_training_data.parquet")
     transformed = pd.read_parquet(transform_step_output_dir / "transformed_training_data.parquet")
@@ -106,7 +106,7 @@ def test_transform_empty_step(tmp_pipeline_root_path):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
             tmp_pipeline_root_path, "steps.transform.transformer_fn"
         )
-        transform_step._run(str(transform_step_output_dir))
+        transform_step.run(str(transform_step_output_dir))
 
     assert os.path.exists(transform_step_output_dir / "transformed_training_data.parquet")
     train_transformed = pd.read_parquet(

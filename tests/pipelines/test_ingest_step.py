@@ -557,63 +557,68 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_dataset_format_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "location": "my_location",
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "location": "my_location",
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_data_section_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={},
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `data` section.*must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={},
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_required_dataset_config_keys_are_missing():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "parquet",
+                # Missing location
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "parquet",
-                    # Missing location
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "spark_sql",
+                # Missing sql
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `sql` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "spark_sql",
-                    # Missing sql
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "csv",
+                "location": "my/dataset.csv",
+                # Missing custom_loader_method
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(
         MlflowException, match="The `custom_loader_method` configuration key must be specified"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "csv",
-                    "location": "my/dataset.csv",
-                    # Missing custom_loader_method
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
