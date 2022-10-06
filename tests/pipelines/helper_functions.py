@@ -163,6 +163,9 @@ class BaseStepImplemented(BaseStep):
     def name(self):
         pass
 
+    def _validate_and_apply_step_config(self):
+        pass
+
 
 def list_all_artifacts(
     tracking_uri: str, run_id: str, path: str = None

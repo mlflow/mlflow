@@ -56,11 +56,89 @@ class TrainStep(BaseStep):
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.pipeline_config = pipeline_config
-        self.tracking_config = TrackingConfig.from_dict(step_config)
+
+    def _validate_and_apply_step_config(self):
+        if "using" in self.step_config:
+            if self.step_config["using"] not in ["estimator_spec"]:
+                raise MlflowException(
+                    f"Invalid train step configuration value {self.step_config['using']} for "
+                    f"key 'using'. Supported values are: ['estimator_spec']",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self.step_config["using"] = "estimator_spec"
+
+        if "tuning" in self.step_config:
+            if "enabled" in self.step_config["tuning"] and isinstance(
+                self.step_config["tuning"]["enabled"], bool
+            ):
+                self.step_config["tuning_enabled"] = self.step_config["tuning"]["enabled"]
+            else:
+                raise MlflowException(
+                    "The 'tuning' configuration in the train step must include an "
+                    "'enabled' key whose value is either true or false.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if self.step_config["tuning_enabled"]:
+                if "sample_fraction" in self.step_config["tuning"]:
+                    sample_fraction = float(self.step_config["tuning"]["sample_fraction"])
+                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                        self.step_config["sample_fraction"] = sample_fraction
+                    else:
+                        raise MlflowException(
+                            "The tuning 'sample_fraction' configuration in the train step "
+                            "must be between 0 and 1.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                else:
+                    self.step_config["sample_fraction"] = 1.0
+
+                if "algorithm" not in self.step_config["tuning"]:
+                    self.step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
+                if "parallelism" not in self.step_config["tuning"]:
+                    self.step_config["tuning"]["parallelism"] = 1
+
+                if "max_trials" not in self.step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'max_trials' configuration in the train step must be provided.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+                if "parameters" not in self.step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'parameters' configuration in the train step must be provided "
+                        " when tuning is enabled.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+        else:
+            self.step_config["tuning_enabled"] = False
+
+        if "estimator_params" not in self.step_config:
+            self.step_config["estimator_params"] = {}
+
         self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.template = self.step_config.get("template_name")
+        if self.template is None:
+            raise MlflowException(
+                "Missing template_name config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
+        if "estimator_method" not in self.step_config:
+            raise MlflowException(
+                "Missing 'estimator_method' configuration in the train step.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
         ].rsplit(".", 1)
@@ -605,84 +683,19 @@ class TrainStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["train"]
-            step_config["metrics"] = pipeline_config.get("metrics")
-            step_config["template_name"] = pipeline_config.get("template")
-            step_config["profile"] = pipeline_config.get("profile")
-            step_config["run_args"] = pipeline_config.get("run_args")
-            if "using" in step_config:
-                if step_config["using"] not in ["estimator_spec"]:
-                    raise MlflowException(
-                        f"Invalid train step configuration value {step_config['using']} for key "
-                        f"'using'. Supported values are: ['estimator_spec']",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-            else:
-                step_config["using"] = "estimator_spec"
-
-            if "tuning" in step_config:
-                if "enabled" in step_config["tuning"] and isinstance(
-                    step_config["tuning"]["enabled"], bool
-                ):
-                    step_config["tuning_enabled"] = step_config["tuning"]["enabled"]
-                else:
-                    raise MlflowException(
-                        "The 'tuning' configuration in the train step must include an "
-                        "'enabled' key whose value is either true or false.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                if step_config["tuning_enabled"]:
-                    if "sample_fraction" in step_config["tuning"]:
-                        sample_fraction = float(step_config["tuning"]["sample_fraction"])
-                        if sample_fraction > 0 and sample_fraction <= 1.0:
-                            step_config["sample_fraction"] = sample_fraction
-                        else:
-                            raise MlflowException(
-                                "The tuning 'sample_fraction' configuration in the train step "
-                                "must be between 0 and 1.",
-                                error_code=INVALID_PARAMETER_VALUE,
-                            )
-                    else:
-                        step_config["sample_fraction"] = 1.0
-
-                    if "algorithm" not in step_config["tuning"]:
-                        step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
-
-                    if "parallelism" not in step_config["tuning"]:
-                        step_config["tuning"]["parallelism"] = 1
-
-                    if "max_trials" not in step_config["tuning"]:
-                        raise MlflowException(
-                            "The 'max_trials' configuration in the train step must be provided.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
-                    if "parameters" not in step_config["tuning"]:
-                        raise MlflowException(
-                            "The 'parameters' configuration in the train step must be provided "
-                            " when tuning is enabled.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
-            else:
-                step_config["tuning_enabled"] = False
-
-            if "estimator_params" not in step_config:
-                step_config["estimator_params"] = {}
-
-            step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=pipeline_root,
-                    pipeline_config=pipeline_config,
-                ).to_dict()
-            )
-        except KeyError:
-            raise MlflowException(
-                "Config for train step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("train", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("train", {}))
+        step_config["metrics"] = pipeline_config.get("metrics")
+        step_config["template_name"] = pipeline_config.get("template")
+        step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root, pipeline_config=pipeline_config)
 
     @property
