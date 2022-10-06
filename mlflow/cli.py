@@ -571,12 +571,12 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 
     if not experiment_ids:
         experiment_ids = []
-        next_page_token = None
+        next_experiment_page_token = None
         time_threshold = get_current_time_millis() - time_delta
         while True:
             page_results = backend_store.search_experiments(
                 view_type=ViewType.DELETED_ONLY,
-                page_token=next_page_token,
+                page_token=next_experiment_page_token,
             )
             for experiment in page_results:
                 if older_than is None:
@@ -588,20 +588,25 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                     experiment_ids.append(experiment.experiment_id)
             if page_results.token is None:
                 break
-            next_page_token = page_results.token
+            next_experiment_page_token = page_results.token
     else:
         experiment_ids = experiment_ids.split(",")
 
-    run_ids.extend(
-        [
-            run.info.run_id
-            for run in backend_store.search_runs(
-                experiment_ids=experiment_ids,
-                filter_string="",
-                run_view_type=ViewType.DELETED_ONLY,
-            )
-        ]
-    )
+    next_run_page_token = None
+    while True:
+        page_results = backend_store.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string="",
+            run_view_type=ViewType.DELETED_ONLY,
+            page_token=next_run_page_token,
+        )
+
+        for run in page_results:
+            run_ids.append(run.info.run_id)
+
+        if page_results.token is None:
+            break
+        next_run_page_token = page_results.token
 
     for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
