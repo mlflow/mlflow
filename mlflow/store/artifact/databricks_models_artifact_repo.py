@@ -98,6 +98,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             page_token = next_page_token
         return infos
 
+    # TODO: Change the implementation of this to match how databricks_artifact_repo.py handles this
     def _get_signed_download_uri(self, path=None):
         if not path:
             path = ""
@@ -110,6 +111,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 "API request to get presigned uri to for file under path `%s` failed with"
                 " status code %s. Response body: %s" % (path, response.status_code, response.text)
             )
+        # We must default the headers to be {} as that is the type expected back in the consumers
         return json_response.get("signed_uri", None), json_response.get("headers", {})
 
     def _extract_headers_from_signed_url(self, headers):
