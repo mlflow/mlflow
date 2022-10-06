@@ -322,7 +322,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
 
 
 @pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
-def test_mlflow_gc_experiment_ids(get_store_details, request):
+def test_mlflow_gc_experiments(get_store_details, request):
     def invoke_gc(*args):
         return CliRunner().invoke(gc, args, catch_exceptions=False)
 
