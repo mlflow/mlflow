@@ -79,8 +79,9 @@ def main():
 <details>
 <summary>Notes</summary>
 
+- Ignore this comment if this PR does not change the documentation.
 - It takes a few minutes for the preview to be available.
-- The preview is updated on every commit to the PR.
+- The preview is updated on every commit to this PR.
 - Job URL: {job_url}
 - Updated at: {datetime.now()}
 
