@@ -36,7 +36,9 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
+    def __init__(  # pylint: disable=useless-super-delegation
+        self, step_config: Dict[str, Any], pipeline_root: str
+    ) -> None:
         super().__init__(step_config, pipeline_root)
         self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
