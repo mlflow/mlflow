@@ -532,6 +532,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    import warnings
     from mlflow.utils.time_utils import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
@@ -614,17 +615,21 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException(
+            warnings.warn(
                 "Run % is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted." % run_id
+                "`deleted` lifecycle stage can be deleted." % run_id,
+                category=UserWarning,
+                stacklevel=2,
             )
-        # raise MlflowException if run_id is newer than older_than parameter
+
         if older_than and run_id not in deleted_run_ids_older_than:
-            raise MlflowException(
+            warnings.warn(
                 f"Run {run_id} is not older than the required age. "
                 f"Only runs older than {older_than} can be deleted.",
-                error_code=INVALID_PARAMETER_VALUE,
+                category=UserWarning,
+                stacklevel=2,
             )
+
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
@@ -632,10 +637,11 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 
     for experiment_id in experiment_ids:
         if older_than and experiment_id not in deleted_older_experiment_ids:
-            raise MlflowException(
+            warnings.warn(
                 f"Experiment {experiment_id} is not older than the required age. "
-                f"Only runs older than {older_than} can be deleted.",
-                error_code=INVALID_PARAMETER_VALUE,
+                f"Only experiments older than {older_than} can be deleted.",
+                category=UserWarning,
+                stacklevel=2,
             )
         backend_store._hard_delete_experiment(experiment_id)
         click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
