@@ -589,9 +589,18 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     else:
         experiment_ids = experiment_ids.split(",")
 
-    run_ids.extend(mlflow.search_runs(experiment_ids=experiment_ids)["run_id"].to_list())
+    run_ids.extend(
+        [
+            run.info.run_id
+            for run in backend_store.search_runs(
+                experiment_ids=experiment_ids,
+                filter_string="",
+                run_view_type=ViewType.DELETED_ONLY,
+            )
+        ]
+    )
 
-    for run_id in run_ids:
+    for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
