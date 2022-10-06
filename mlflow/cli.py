@@ -540,6 +540,11 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
 
+    if not hasattr(backend_store, "_hard_delete_experiment"):
+        raise MlflowException(
+            "This cli can only be used with a backend that allows hard-deleting experiments"
+        )
+
     time_delta = 0
 
     if older_than is not None:
@@ -564,28 +569,26 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     else:
         run_ids = run_ids.split(",")
 
-    deleted_experiment_ids = []
-    next_page_token = None
-    time_threshold = get_current_time_millis() - time_delta
-    while True:
-        page_results = backend_store.search_experiments(
-            view_type=ViewType.DELETED_ONLY,
-            page_token=next_page_token,
-        )
-        for experiment in page_results:
-            if older_than is None:
-                deleted_experiment_ids.append(experiment.experiment_id)
-            elif (
-                experiment.last_update_time is not None
-                and experiment.last_update_time <= time_threshold
-            ):
-                deleted_experiment_ids.append(experiment.experiment_id)
-        if page_results.token is None:
-            break
-        next_page_token = page_results.token
-
     if not experiment_ids:
-        experiment_ids = deleted_experiment_ids
+        experiment_ids = []
+        next_page_token = None
+        time_threshold = get_current_time_millis() - time_delta
+        while True:
+            page_results = backend_store.search_experiments(
+                view_type=ViewType.DELETED_ONLY,
+                page_token=next_page_token,
+            )
+            for experiment in page_results:
+                if older_than is None:
+                    experiment_ids.append(experiment.experiment_id)
+                elif (
+                    experiment.last_update_time is not None
+                    and experiment.last_update_time <= time_threshold
+                ):
+                    experiment_ids.append(experiment.experiment_id)
+            if page_results.token is None:
+                break
+            next_page_token = page_results.token
     else:
         experiment_ids = experiment_ids.split(",")
 
