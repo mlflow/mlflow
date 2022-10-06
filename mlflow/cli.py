@@ -621,6 +621,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 category=UserWarning,
                 stacklevel=2,
             )
+            continue
 
         if older_than and run_id not in deleted_run_ids_older_than:
             warnings.warn(
@@ -629,6 +630,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 category=UserWarning,
                 stacklevel=2,
             )
+            continue
 
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
@@ -643,6 +645,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 category=UserWarning,
                 stacklevel=2,
             )
+            continue
         backend_store._hard_delete_experiment(experiment_id)
         click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
