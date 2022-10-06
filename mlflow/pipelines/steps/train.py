@@ -59,7 +59,7 @@ class TrainStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.pipeline_config = pipeline_config
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec"]:
                 raise MlflowException(

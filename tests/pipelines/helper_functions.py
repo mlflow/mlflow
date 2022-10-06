@@ -163,7 +163,7 @@ class BaseStepImplemented(BaseStep):
     def name(self):
         pass
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         pass
 
 

@@ -48,7 +48,7 @@ class TransformStep(BaseStep):
     def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
         if self.target_col is None:
             raise MlflowException(

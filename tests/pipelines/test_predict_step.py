@@ -286,7 +286,7 @@ def test_predict_throws_when_improperly_configured():
         with pytest.raises(
             MlflowException, match=f"The `{required_key}` configuration key must be specified"
         ):
-            predict_step._init_from_step_config()
+            predict_step._validate_and_apply_step_config()
 
     predict_step = PredictStep.from_pipeline_config(
         pipeline_config={
@@ -303,7 +303,7 @@ def test_predict_throws_when_improperly_configured():
     with pytest.raises(
         MlflowException, match="Invalid `output_format` in predict step configuration"
     ):
-        predict_step._init_from_step_config()
+        predict_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -321,7 +321,7 @@ def test_predict_throws_when_no_model_is_specified():
         pipeline_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="No model specified for batch scoring"):
-        predict_step._init_from_step_config()
+        predict_step._validate_and_apply_step_config()
 
 
 def test_predict_skips_profiling_when_specified(

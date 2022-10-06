@@ -28,7 +28,7 @@ class RegisterStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None

@@ -46,7 +46,7 @@ class EvaluateStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
         if self.target_col is None:
             raise MlflowException(

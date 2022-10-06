@@ -42,7 +42,7 @@ class PredictStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
-    def _init_from_step_config(self):
+    def _validate_and_apply_step_config(self):
         required_configuration_keys = ["output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in self.step_config:
