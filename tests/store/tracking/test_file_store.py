@@ -267,8 +267,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             filter_string=f"last_update_time <= {get_current_time_millis()}"
         )
         assert [e.experiment_id for e in experiments] == [
-            exp_id2,
             exp_id1,
+            exp_id2,
             self.store.DEFAULT_EXPERIMENT_ID,
         ]
 

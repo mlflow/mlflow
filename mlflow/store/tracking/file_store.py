@@ -326,7 +326,9 @@ class FileStore(AbstractStore):
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
-        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        sorted_experiments = SearchExperimentsUtils.sort(
+            filtered, order_by or ["last_update_time DESC"]
+        )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
         )

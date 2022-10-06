@@ -1432,7 +1432,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
