@@ -535,9 +535,9 @@ class TrainStep(BaseStep):
                     ["Train", train_df.reset_index(drop=True)],
                 ]
             )
-            card.add_tab("Data Profile (Worst vs Train)", "{{ WORST_EXAMPLES_COMP }}").add_pandas_profile(
-                "WORST_EXAMPLES_COMP", worst_prediction_profile
-            )
+            card.add_tab(
+                "Data Profile (Worst vs Train)", "{{ WORST_EXAMPLES_COMP }}"
+            ).add_pandas_profile("WORST_EXAMPLES_COMP", worst_prediction_profile)
 
         # Tab 7: Leaderboard
         if leaderboard_df is not None:
