@@ -355,6 +355,19 @@ def test_mlflow_gc_experiments(get_store_details, request):
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
 
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_3, "--older-than", "0s")
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    exp_id_5 = store.create_experiment("5")
+    store.delete_experiment(exp_id_5)
+    with pytest.raises(MlflowException, match=r"Experiment .+ can be deleted."):
+        invoke_gc(
+            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+        )
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+
 
 @pytest.mark.parametrize(
     "enable_mlserver",
