@@ -12,10 +12,10 @@ ML engineers and DevOps teams to seamlessly deploy these models to production an
 into applications.
 
 MLflow Pipelines provides production-quality :ref:`Pipeline Templates <pipeline-templates>` for
-common ML problem types, such as regression & classification, and MLOps tasks, such as batch
-scoring. Pipelines are structured as git repositories with YAML-based configuration files and
-Python code, offering developers a declarative approach to ML application development that reduces
-boilerplate.
+common ML problem types, such as regression & classification (not yet available, upcoming),
+and MLOps tasks, such as batch scoring. Pipelines are structured as git repositories with
+YAML-based configuration files and Python code, offering developers a declarative approach
+to ML application development that reduces boilerplate.
 
 MLflow Pipelines also implements a cache-aware executor for :ref:`Pipeline Steps
 <steps-key-concept>`, ensuring that steps are only executed when associated :py:ref:`code or
