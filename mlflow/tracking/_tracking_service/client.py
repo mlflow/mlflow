@@ -207,10 +207,10 @@ class TrackingServiceClient:
             equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
             which lists experiments updated most recently first. The following fields are supported:
 
+            - ``experiment_id``: Experiment ID
             - ``name``: Experiment name
             - ``creation_time``: Experiment creation time
             - ``last_update_time``: Experiment last update time
-            - ``experiment_id``: Experiment ID
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.

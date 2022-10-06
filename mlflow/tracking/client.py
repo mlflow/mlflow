@@ -453,8 +453,8 @@ class MlflowClient:
             equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
             which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name
             - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
             - ``creation_time``: Experiment creation time
             - ``last_update_time``: Experiment last update time
 
