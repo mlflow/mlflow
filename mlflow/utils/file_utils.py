@@ -216,7 +216,11 @@ def render_and_merge_yaml(root, template_name, context_name):
         if not pathlib.Path(path).is_file():
             raise MissingConfigException("Yaml file '%s' does not exist." % path)
 
-    j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(root, encoding=ENCODING))
+    j2_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(root, encoding=ENCODING),
+        undefined=jinja2.StrictUndefined,
+        line_comment_prefix="##",
+    )
 
     def from_json(input_var):
         import json
