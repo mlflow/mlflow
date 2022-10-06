@@ -21,7 +21,7 @@ The following identifiers are supported:
 
 - ``attributes.name``: Experiment name
 - ``attributes.creation_time``: Experiment creation time
-- ``attributes.last_update_time``: Experiment last updated time
+- ``attributes.last_update_time``: Experiment last update time
 
     .. note::
 

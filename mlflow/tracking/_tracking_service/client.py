@@ -178,25 +178,25 @@ class TrackingServiceClient:
             supported.
 
             Identifiers
-              - ``name``: Experiment name.
-              - ``creation_time``: Experiment creation time.
-              - ``last_update_time``: Experiment last update time.
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
             Comparators for string attributes
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive pattern match.
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``LIKE``: Case-sensitive pattern match
+              - ``ILIKE``: Case-insensitive pattern match
 
             Comparators for numeric attributes
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``<``: Less than.
-              - ``<=``: Less than or equal to.
-              - ``>``: Greater than.
-              - ``>=``: Greater than or equal to.
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``<``: Less than
+              - ``<=``: Less than or equal to
+              - ``>``: Greater than
+              - ``>=``: Greater than or equal to
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -206,10 +206,10 @@ class TrackingServiceClient:
             ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
             equivalent to ``"name ASC"``. The following fields are supported.
 
-            - ``name``: Experiment name.
-            - ``creation_time``: Experiment creation time.
-            - ``last_update_time``: Experiment last update time.
-            - ``experiment_id``: Experiment ID.
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
+            - ``experiment_id``: Experiment ID
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
