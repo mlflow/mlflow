@@ -540,7 +540,10 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
+    kwargs = {}
+    if headers is not None and len(headers) > 0:
+        kwargs["headers"] = headers
+    with cloud_storage_http_request("get", http_uri, stream=True, **kwargs) as response:
         augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
