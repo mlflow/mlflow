@@ -45,7 +45,7 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 
 class TransformStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
+    def __init__(self, step_config, pipeline_root):
         super().__init__(step_config, pipeline_root)
 
     def _validate_and_apply_step_config(self):

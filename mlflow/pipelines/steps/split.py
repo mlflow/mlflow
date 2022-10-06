@@ -84,9 +84,7 @@ def _create_hash_buckets(input_df):
 
 
 class SplitStep(BaseStep):
-    def __init__(
-        self, step_config: Dict[str, Any], pipeline_root: str
-    ):  # pylint: disable=useless-super-delegation
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
 
     def _validate_and_apply_step_config(self):
