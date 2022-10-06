@@ -542,6 +542,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
     """
     # We must convert the headers to an empty dict if none were passed in.
     if headers is None:
+        print("YOW! Resetting headers to {}!\n")
         headers = {}
     with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
         augmented_raise_for_status(response)
