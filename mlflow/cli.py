@@ -639,7 +639,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 category=UserWarning,
                 stacklevel=2,
             )
-
+            continue
         backend_store._hard_delete_experiment(experiment_id)
         click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
