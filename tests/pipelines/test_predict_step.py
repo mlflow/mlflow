@@ -225,7 +225,7 @@ def test_predict_step_output_formats(
 
 
 @pytest.mark.parametrize(
-    ("output_format", "allow_overwrite"),
+    ("output_format", "force_overwrite"),
     [
         ("parquet", False),
         ("parquet", True),
@@ -238,7 +238,7 @@ def test_predict_correctly_handles_overwrites(
     predict_step_output_dir: Path,
     spark_session,
     output_format: str,
-    allow_overwrite: bool,
+    force_overwrite: bool,
 ):
     rm_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(rm_name, is_dummy=True)
@@ -266,14 +266,14 @@ def test_predict_correctly_handles_overwrites(
                     "model_uri": model_uri,
                     "output_format": output_format,
                     "output_location": output_path,
-                    "allow_overwrite": allow_overwrite,
+                    "force_overwrite": force_overwrite,
                 }
             }
         }
     )
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    if not allow_overwrite and output_format not in ["delta", "table"]:
+    if not force_overwrite and output_format not in ["delta", "table"]:
         with pytest.raises(MlflowException, match="already populated"):
             predict_step.run(str(predict_step_output_dir))
     else:

@@ -70,7 +70,7 @@ class PredictStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.allow_overwrite = self.step_config.get("allow_overwrite", False)
+        self.force_overwrite = self.step_config.get("force_overwrite", False)
         self.run_end_time = None
         self.execution_duration = None
 
@@ -152,7 +152,7 @@ class PredictStep(BaseStep):
         output_format = self.step_config["output_format"]
         output_location = self.step_config["output_location"]
         if (
-            not self.allow_overwrite
+            not self.force_overwrite
             and output_format not in ["delta", "table"]
             and os.path.exists(output_location)
         ):
@@ -160,7 +160,7 @@ class PredictStep(BaseStep):
                 message=(
                     f"Output location `{output_location}` is already populated. To enable "
                     "overwrites, please specify a Delta-based output format or set "
-                    "`allow_overwrites` to true in the predict step configuration."
+                    "`force_overwrite` to true in the predict step configuration."
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -192,7 +192,7 @@ class PredictStep(BaseStep):
 
         # save predictions
         if output_format == "parquet":
-            write_mode = "overwrite" if self.allow_overwrite else "default"
+            write_mode = "overwrite" if self.force_overwrite else "default"
             scored_sdf.coalesce(1).write.format(output_format).mode(write_mode).save(
                 output_location
             )
