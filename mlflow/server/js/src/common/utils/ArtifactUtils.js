@@ -37,7 +37,7 @@ export function getArtifactContent(artifactLocation, isBinary = false) {
         fileReader.readAsText(blob);
       }
     } catch (error) {
-      Utils.logErrorAndNotifyUser(error);
+      console.error(error);
       reject(error);
     }
   });
