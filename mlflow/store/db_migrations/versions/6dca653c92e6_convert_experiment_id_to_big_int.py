@@ -50,10 +50,7 @@ def upgrade():
 
     with op.batch_alter_table(
         "experiment_tags",
-        table_args=(
-            UniqueConstraint("experiment_id"),
-            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
-        ),
+        table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
     ) as batch_op:
         batch_op.alter_column(
             "experiment_id",

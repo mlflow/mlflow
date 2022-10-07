@@ -14,7 +14,7 @@ def _generate_unique_integer_id():
     :return: a fixed-width integer
     """
 
-    random_int = int.from_bytes(uuid.uuid4().bytes, byteorder=sys.byteorder, signed=True)
+    random_int = uuid.uuid4().int
     # Cast to string to get a fixed length
     random_str = str(random_int)[-_EXPERIMENT_ID_FIXED_WIDTH:]
     # append a random int as string to the end of the generated string for as many
