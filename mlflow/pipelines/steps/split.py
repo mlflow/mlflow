@@ -76,7 +76,7 @@ def _create_hash_buckets(input_df):
     pandarallel_start_time = time.time()
     pandarallel.initialize(progress_bar=False)
     hash_start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df).parallel_apply(
+    hash_buckets = _hash_pandas_dataframe(input_df).parallel_map(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     end_time = time.time()
