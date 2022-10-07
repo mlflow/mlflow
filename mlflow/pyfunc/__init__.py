@@ -825,6 +825,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - "string" or ``pyspark.sql.types.StringType``: The leftmost column converted to ``string``.
 
+        - "boolean" or "bool" or ``pyspark.sql.types.BooleanType``: The leftmost column converted
+          to ``bool`` or an exception if there is none.
+
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
     :param env_manager: The environment manager to use in order to create the python environment
@@ -863,6 +866,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         FloatType,
         LongType,
         StringType,
+        BooleanType,
     )
     from mlflow.models.cli import _get_flavor_backend
 
@@ -877,6 +881,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
     env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
+    result_type = "boolean" if result_type == "bool" else result_type
+
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
 
@@ -884,7 +890,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType, BooleanType]
 
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
@@ -910,8 +916,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
     else:
         _logger.info(
-            "This UDF will use Conda to recreate the model's software environment for inference. "
-            "This may take extra time during execution."
+            f"This UDF will use {env_manager} to recreate the model's software environment for "
+            "inference. This may take extra time during execution."
         )
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled
@@ -997,9 +1003,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         elif type(elem_type) == DoubleType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
+        elif type(elem_type) == BooleanType:
+            result = result.select_dtypes([bool, np.bool_]).astype(bool)
+
         if len(result.columns) == 0:
             raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
+                message="The model did not produce any values compatible with the requested "
                 "type '{}'. Consider requesting udf with StringType or "
                 "Arraytype(StringType).".format(str(elem_type)),
                 error_code=INVALID_PARAMETER_VALUE,

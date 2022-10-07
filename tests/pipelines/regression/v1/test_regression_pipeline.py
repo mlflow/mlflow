@@ -28,7 +28,7 @@ def test_create_pipeline_works(enter_pipeline_example_directory):
 
 @pytest.mark.parametrize(
     ("pipeline_name", "profile"),
-    [("name_a", "local"), ("", "local"), ("sklearn_regression", "profile_a")],
+    [("name_a", "local"), ("", "local"), ("sklearn_regression_example", "profile_a")],
 )
 def test_create_pipeline_fails_with_invalid_input(
     pipeline_name, profile, enter_pipeline_example_directory

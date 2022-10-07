@@ -29,6 +29,7 @@ from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils import merge_dicts
+from mlflow.utils.databricks_utils import _get_dbutils
 
 ENCODING = "utf-8"
 
@@ -217,7 +218,9 @@ def render_and_merge_yaml(root, template_name, context_name):
             raise MissingConfigException("Yaml file '%s' does not exist." % path)
 
     j2_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(root, encoding=ENCODING), undefined=jinja2.StrictUndefined
+        loader=jinja2.FileSystemLoader(root, encoding=ENCODING),
+        undefined=jinja2.StrictUndefined,
+        line_comment_prefix="#",
     )
 
     def from_json(input_var):
@@ -532,7 +535,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
                 break
 
 
-def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
     uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
@@ -540,7 +543,9 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    with cloud_storage_http_request("get", http_uri, stream=True) as response:
+    if headers is None:
+        headers = {}
+    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
         augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
@@ -581,11 +586,16 @@ def get_or_create_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
-        # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
-        # detaches.
-        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # The directory returned by `dbutils.entry_point.getReplLocalTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-        tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id(), "mlflow")
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        tmp_dir = os.path.join(repl_local_tmp_dir, "mlflow")
         os.makedirs(tmp_dir, exist_ok=True)
     else:
         tmp_dir = tempfile.mkdtemp()
@@ -609,11 +619,16 @@ def get_or_create_nfs_tmp_dir():
 
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: In databricks, atexit hook does not work.
-        # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
-        # notebook detaches.
-        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
         # so create a child directory "mlflow" for storing mlflow temp data.
-        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id(), "mlflow")
+        try:
+            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+        except Exception:
+            repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+
+        tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)

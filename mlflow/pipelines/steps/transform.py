@@ -7,12 +7,12 @@ import time
 import cloudpickle
 from packaging.version import Version
 
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -45,15 +45,19 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 
 class TransformStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):
+    def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
+
+    def _validate_and_apply_step_config(self):
+        self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.run_end_time = None
         self.execution_duration = None
-        self.target_col = self.step_config.get("target_col")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        (self.transformer_module_name, self.transformer_method_name,) = self.step_config[
-            "transformer_method"
-        ].rsplit(".", 1)
 
     def _run(self, output_directory):
         import pandas as pd
@@ -82,10 +86,16 @@ class TransformStep(BaseStep):
 
             return Pipeline(steps=[("identity", FunctionTransformer())])
 
-        transformer_fn = getattr(
-            importlib.import_module(self.transformer_module_name), self.transformer_method_name
-        )
-        transformer = transformer_fn()
+        method_config = self.step_config.get("transformer_method")
+        if method_config:
+            (
+                transformer_module_name,
+                transformer_method_name,
+            ) = method_config.rsplit(".", 1)
+            transformer_fn = getattr(
+                importlib.import_module(transformer_module_name), transformer_method_name
+            )
+            transformer = transformer_fn()
         transformer = transformer if transformer else get_identity_transformer()
         transformer.fit(train_df.drop(columns=[self.target_col]))
 
@@ -172,19 +182,16 @@ class TransformStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["transform"]
-            step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=pipeline_root,
-                    pipeline_config=pipeline_config,
-                ).to_dict()
-            )
-        except KeyError:
-            raise MlflowException(
-                "Config for transform step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("transform", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("transform", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root)
 
     @property

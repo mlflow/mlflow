@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from pathlib import Path
 
 import pytest
 from unittest import mock
@@ -1012,6 +1013,109 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
 
+    def test_search_runs_run_name(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_pagination")
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name2")
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        fs.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test attribute-based search after set_tag
+
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
+        run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
+        without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
+        run_meta_path.write_text(without_run_name)
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+    def test_search_runs_run_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_run_id")
+        # Set start_time to ensure the search result is deterministic
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1, tags=[], run_name="1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=2, tags=[], run_name="2")
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id = '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id != '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+        for filter_string in [
+            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+        ]:
+            result = fs.search_runs(
+                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+            )
+            assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
@@ -1439,3 +1543,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             )
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_update_run_name(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        run_id = run.info.run_id
+
+        self.assertEqual(run.info.run_name, "name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "name")
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "new name")
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, None)
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
+
+        fs.delete_tag(run_id, MLFLOW_RUN_NAME)
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), None)
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
+        run = fs.get_run(run_id)
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "another name")
+        self.assertEqual(run.info.run_name, "another name")
+
+        fs.set_tag(run_id, RunTag(MLFLOW_RUN_NAME, "yet another name"))
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "yet another name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "yet another name")
+
+        fs.log_batch(run_id, metrics=[], params=[], tags=[RunTag(MLFLOW_RUN_NAME, "batch name")])
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "batch name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "batch name")

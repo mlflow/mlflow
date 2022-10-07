@@ -91,7 +91,7 @@ class RunInfo(_MLflowObject):
         """[Deprecated, use run_id instead] String containing run UUID."""
         return self._run_uuid
 
-    @property
+    @searchable_attribute
     def run_id(self):
         """String containing run id."""
         return self._run_id
@@ -101,7 +101,7 @@ class RunInfo(_MLflowObject):
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
-    @property
+    @searchable_attribute
     def run_name(self):
         """String containing run name."""
         return self._run_name

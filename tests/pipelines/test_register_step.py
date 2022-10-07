@@ -1,6 +1,4 @@
-import os
 import pytest
-import shutil
 from pathlib import Path
 
 import mlflow
@@ -8,30 +6,16 @@ from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.pipelines.steps.register import RegisterStep
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
     clear_custom_metrics_module_cache,
+    registry_uri_path,
     setup_model_and_evaluate,
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
 )  # pylint: enable=unused-import
-
-
-@pytest.fixture
-def registry_uri_path(tmp_path) -> Path:
-    previousRegistryUri = ""
-    try:
-        previousRegistryUri = mlflow.get_registry_uri()
-        path = tmp_path.joinpath("registry.db")
-        db_url = "sqlite:///%s" % path
-        SqlAlchemyStore(db_url, "register_model")
-        yield db_url
-    finally:
-        os.remove(path)
-        shutil.rmtree("register_model")
-        mlflow.set_registry_uri(previousRegistryUri)
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -101,17 +85,18 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
-    model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
-    assert model_validation_status_path.exists()
-    expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
-    assert model_validation_status_path.read_text() == expected_status
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
-        1 if expected_status == "VALIDATED" else 0
-    )
+    if mae_threshold < 0:
+        with pytest.raises(MlflowException, match="Model validation failed"):
+            register_step.run(str(register_step_output_dir))
+    else:
+        register_step.run(str(register_step_output_dir))
+        model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
+        assert model_validation_status_path.exists()
+        assert model_validation_status_path.read_text() == "VALIDATED"
+        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -143,16 +128,18 @@ steps:
     pipeline_steps_dir.mkdir(parents=True)
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
-    model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
-    assert model_validation_status_path.exists()
-    assert model_validation_status_path.read_text() == "UNKNOWN"
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
-        0 if register_flag == "" else 1
-    )
+    if register_flag == "":
+        with pytest.raises(MlflowException, match="Model validation failed"):
+            register_step.run(str(register_step_output_dir))
+    else:
+        register_step.run(str(register_step_output_dir))
+        model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
+        assert model_validation_status_path.exists()
+        assert model_validation_status_path.read_text() == "UNKNOWN"
+        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 
 def test_usage_tracking_correctly_added(
@@ -207,9 +194,9 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
+    register_step.run(str(register_step_output_dir))
     registered_models = mlflow.tracking.MlflowClient().list_registered_models()
     latest_tag = registered_models[0].latest_versions[0].tags
     assert latest_tag["mlflow.source.type"] == "PIPELINE"
@@ -273,9 +260,9 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
+    register_step.run(str(register_step_output_dir))
     assert mlflow.get_registry_uri() == registry_uri
 
 
@@ -314,10 +301,10 @@ steps:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    register_step._run(str(register_step_output_dir))
+    register_step.run(str(register_step_output_dir))
 
     train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
     with open(train_step_output_dir / "run_id") as f:

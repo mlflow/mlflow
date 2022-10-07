@@ -1248,10 +1248,6 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
-| ``mlflow.runName``            | Human readable name that identifies this run. This tag is set either by specifying     |
-|                               | the argument ``run_name`` when calling :py:func:`mlflow.start_run` or is automatically |
-|                               | generated with a random name if no ``run_name`` is set.                                |
-+-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
 |                               | be overridden by the user to include additional information about the run. The content |
 |                               | is displayed on the run's page under the Notes section.                                |
