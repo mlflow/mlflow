@@ -532,18 +532,24 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    import warnings
     from mlflow.utils.time_utils import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
+    skip_experiments = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
 
     if not hasattr(backend_store, "_hard_delete_experiment"):
-        raise MlflowException(
-            "This cli can only be used with a backend that allows hard-deleting experiments"
+        warnings.warn(
+            "This cli doesn't have the backend that allows hard-deleting experiments."
+            " Update mflow version",
+            FutureWarning,
+            stacklevel=2,
         )
+        skip_experiments = True
 
     time_delta = 0
 
@@ -569,31 +575,32 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     else:
         run_ids = run_ids.split(",")
 
-    deleted_experiment_ids = []
-    deleted_older_experiment_ids = []
-    next_experiment_page_token = None
-    time_threshold = get_current_time_millis() - time_delta
-    while True:
-        page_results = backend_store.search_experiments(
-            view_type=ViewType.DELETED_ONLY,
-            page_token=next_experiment_page_token,
-        )
-        for experiment in page_results:
-            if older_than is None:
-                deleted_experiment_ids.append(experiment.experiment_id)
-            elif (
-                experiment.last_update_time is not None
-                and experiment.last_update_time <= time_threshold
-            ):
-                deleted_older_experiment_ids.append(experiment.experiment_id)
-        if page_results.token is None:
-            break
-        next_experiment_page_token = page_results.token
+    if not skip_experiments:
+        deleted_experiment_ids = []
+        deleted_older_experiment_ids = []
+        next_experiment_page_token = None
+        time_threshold = get_current_time_millis() - time_delta
+        while True:
+            page_results = backend_store.search_experiments(
+                view_type=ViewType.DELETED_ONLY,
+                page_token=next_experiment_page_token,
+            )
+            for experiment in page_results:
+                if older_than is None:
+                    deleted_experiment_ids.append(experiment.experiment_id)
+                elif (
+                    experiment.last_update_time is not None
+                    and experiment.last_update_time <= time_threshold
+                ):
+                    deleted_older_experiment_ids.append(experiment.experiment_id)
+            if page_results.token is None:
+                break
+            next_experiment_page_token = page_results.token
 
-    if not experiment_ids:
-        experiment_ids = deleted_older_experiment_ids if older_than else deleted_experiment_ids
-    else:
-        experiment_ids = experiment_ids.split(",")
+        if not experiment_ids:
+            experiment_ids = deleted_older_experiment_ids if older_than else deleted_experiment_ids
+        else:
+            experiment_ids = experiment_ids.split(",")
 
     next_run_page_token = None
     while True:
@@ -630,15 +637,16 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
-    for experiment_id in experiment_ids:
-        if older_than and experiment_id not in deleted_older_experiment_ids:
-            raise MlflowException(
-                f"Experiment {experiment_id} is not older than the required age. "
-                f"Only runs older than {older_than} can be deleted.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        backend_store._hard_delete_experiment(experiment_id)
-        click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
+    if not skip_experiments:
+        for experiment_id in experiment_ids:
+            if older_than and experiment_id not in deleted_older_experiment_ids:
+                raise MlflowException(
+                    f"Experiment {experiment_id} is not older than the required age. "
+                    f"Only runs older than {older_than} can be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            backend_store._hard_delete_experiment(experiment_id)
+            click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
 cli.add_command(mlflow.deployments.cli.commands)
