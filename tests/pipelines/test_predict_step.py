@@ -224,20 +224,31 @@ def test_predict_step_output_formats(
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
-@pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
-def test_predict_throws_when_overwriting_data(
-    tmp_pipeline_root_path: Path, predict_step_output_dir: Path, spark_session, output_format: str
+@pytest.mark.parametrize(
+    ("output_format", "allow_overwrite"),
+    [
+        ("parquet", False),
+        ("parquet", True),
+        ("delta", False),
+        ("table", False),
+    ],
+)
+def test_predict_correctly_handles_overwrites(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+    output_format: str,
+    allow_overwrite: bool,
 ):
     rm_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(rm_name, is_dummy=True)
+    # We create a dataframe with the same schema as the expected output dataframe to avoid schema
+    # incompatibility during overwrite.
     sdf = spark_session.createDataFrame(
         [
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0),
+            (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         ],
-        ["id", "text", "label"],
+        ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6", "prediction"],
     )
     if output_format == "table":
         output_path = get_random_id()
@@ -255,14 +266,18 @@ def test_predict_throws_when_overwriting_data(
                     "model_uri": model_uri,
                     "output_format": output_format,
                     "output_location": output_path,
+                    "allow_overwrite": allow_overwrite,
                 }
             }
         }
     )
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    with pytest.raises(MlflowException, match="already populated"):
-        predict_step._run(str(predict_step_output_dir))
+    if not allow_overwrite and output_format not in ["delta", "table"]:
+        with pytest.raises(MlflowException, match="already populated"):
+            predict_step.run(str(predict_step_output_dir))
+    else:
+        predict_step.run(str(predict_step_output_dir))
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
