@@ -30,8 +30,19 @@ def upgrade():
     # column to support the uuid-based random id generation change.
 
     bind = op.get_bind()
+
     if bind.engine.name != "sqlite":
-        op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="foreignkey")
+
+        metadata = sa.MetaData(bind=bind)
+        metadata.reflect()
+        naming_convention = metadata.naming_convention
+
+        with op.batch_alter_table(
+            "experiment_tags", naming_convention=naming_convention
+        ) as batch_op:
+            batch_op.drop_constraint("experiments.experiment_id", type_="foreignkey")
+
+        op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
         op.drop_constraint(
             constraint_name="experiment_pk", table_name="experiments", type_="primary"
         )
@@ -69,13 +80,18 @@ def upgrade():
             constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
         )
         op.create_foreign_key(
-            constraint_name="experiment_tag_pk",
+            constraint_name="fk_experiment_tag",
             source_table="experiment_tags",
             referent_table="experiments",
             local_cols=["experiment_id"],
             remote_cols=["experiment_id"],
             onupdate="CASCADE",
             ondelete="CASCADE",
+        )
+        op.create_primary_key(
+            constraint_name="experiment_tag_pk",
+            table_name="experiment_tags",
+            columns=["key", "experiment_id"],
         )
     else:
 
