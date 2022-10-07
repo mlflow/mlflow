@@ -63,24 +63,23 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
 
 def _hash_pandas_dataframe(input_df):
     from pandas.util import hash_pandas_object
+    from pandarallel import pandarallel
 
-    return hash_pandas_object(input_df.applymap(_make_elem_hashable))
+    pandarallel.initialize(progress_bar=False)
+
+    return hash_pandas_object(input_df.parallel_applymap(_make_elem_hashable))
 
 
 def _create_hash_buckets(input_df):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
-    from pandarallel import pandarallel
 
     pandarallel_start_time = time.time()
-    pandarallel.initialize(progress_bar=False)
     hash_start_time = time.time()
     hashed_df = _hash_pandas_dataframe(input_df)
     map_start_time = time.time()
-    hash_buckets = hashed_df.parallel_map(
-        lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
-    )
+    hash_buckets = hashed_df.map(lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM)
     end_time = time.time()
     execution_duration = end_time - hash_start_time
     _logger.info(
@@ -89,7 +88,7 @@ def _create_hash_buckets(input_df):
     )
     _logger.info(f"Pandarallel overhead: {hash_start_time - pandarallel_start_time} second(s).")
     _logger.info(f"_hash_pandas_dataframe time: {map_start_time - hash_start_time} second(s).")
-    _logger.info(f"parallel_map time: {end_time - map_start_time} second(s).")
+    _logger.info(f"map time: {end_time - map_start_time} second(s).")
 
     return hash_buckets
 
