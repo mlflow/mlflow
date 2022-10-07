@@ -36,6 +36,7 @@ def upgrade():
             PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
         ),
     ) as batch_op:
+        batch_op.drop_constraint("experiment_pk")
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
@@ -47,11 +48,14 @@ def upgrade():
             existing_server_default=None,
             existing_comment=None,
         )
+        batch_op.add_constraint(UniqueConstraint("experiment_id"))
+        batch_op.add_constraint(PrimaryKeyConstraint("experiment_id", name="experiment_pk"))
 
     with op.batch_alter_table(
         "experiment_tags",
         table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
     ) as batch_op:
+        batch_op.drop_constraint("experiment_tag_pk")
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
@@ -62,6 +66,9 @@ def upgrade():
             autoincrement=False,
             existing_server_default=None,
             existing_comment=None,
+        )
+        batch_op.add_constraint(
+            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk")
         )
 
     with op.batch_alter_table("runs") as batch_op:

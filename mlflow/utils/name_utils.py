@@ -1,5 +1,4 @@
 import random
-import sys
 import uuid
 
 # SQLite maximum primary key is 64bit (1.84467441 e19)
