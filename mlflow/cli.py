@@ -524,7 +524,7 @@ def server(
     "--experiment-ids",
     default=None,
     help="Optional comma separated list of experiments to be permanently deleted including "
-    "all of its runs. If experiment ids are not specified, data is removed for all "
+    "all of their associated runs. If experiment ids are not specified, data is removed for all "
     "experiments in the `deleted` lifecycle stage.",
 )
 def gc(older_than, backend_store_uri, run_ids, experiment_ids):
@@ -532,7 +532,6 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
-    import warnings
     from mlflow.utils.time_utils import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
@@ -633,13 +632,11 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 
     for experiment_id in experiment_ids:
         if older_than and experiment_id not in deleted_older_experiment_ids:
-            warnings.warn(
+            raise MlflowException(
                 f"Experiment {experiment_id} is not older than the required age. "
                 f"Only runs older than {older_than} can be deleted.",
-                category=UserWarning,
-                stacklevel=2,
+                error_code=INVALID_PARAMETER_VALUE,
             )
-            continue
         backend_store._hard_delete_experiment(experiment_id)
         click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
