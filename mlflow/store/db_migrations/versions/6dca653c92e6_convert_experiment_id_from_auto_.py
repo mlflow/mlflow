@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 import logging
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -30,7 +30,11 @@ def upgrade():
     # column to support the uuid-based random id generation change.
 
     with op.batch_alter_table(
-        "experiments", table_args=(UniqueConstraint("experiment_id"))
+        "experiments",
+        table_args=(
+            UniqueConstraint("experiment_id"),
+            PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
+        ),
     ) as batch_op:
         batch_op.alter_column(
             "experiment_id",
@@ -45,7 +49,11 @@ def upgrade():
         )
 
     with op.batch_alter_table(
-        "experiment_tags", table_args=(UniqueConstraint("experiment_id"))
+        "experiment_tags",
+        table_args=(
+            UniqueConstraint("experiment_id"),
+            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
+        ),
     ) as batch_op:
         batch_op.alter_column(
             "experiment_id",
@@ -57,21 +65,19 @@ def upgrade():
             autoincrement=False,
             existing_server_default=None,
             existing_comment=None,
-            unique=True,
         )
 
-    with op.batch_alter_table("runs", table_args=(UniqueConstraint("experiment_id"))) as batch_op:
+    with op.batch_alter_table("runs") as batch_op:
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
             type_=sa.BigInteger,
             existing_nullable=False,
             nullable=False,
-            existing_autoincrement=True,
+            existing_autoincrement=False,
             autoincrement=False,
             existing_server_default=None,
             existing_comment=None,
-            unique=True,
         )
 
     _logger.info("Conversion of experiment_id from autoincrement complete!")
