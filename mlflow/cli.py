@@ -545,7 +545,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     if not hasattr(backend_store, "_hard_delete_experiment"):
         warnings.warn(
             "This cli doesn't have the backend that allows hard-deleting experiments."
-            " Update mflow version",
+            f" Update mflow version (current = {version}).",
             FutureWarning,
             stacklevel=2,
         )
