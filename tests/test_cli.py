@@ -328,15 +328,20 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
     store, uri = request.getfixturevalue(get_store_details)
     exp_id_1 = store.create_experiment("1")
-    store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
+    run_id_1 = store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
     invoke_gc("--backend-store-uri", uri)
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_1, store.DEFAULT_EXPERIMENT_ID]
+    exp_ids = [e.experiment_id for e in experiments]
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
+    assert exp_ids == [exp_id_1, store.DEFAULT_EXPERIMENT_ID]
+    assert [r.info.run_id for r in runs] == [run_id_1.info.run_id]
 
     store.delete_experiment(exp_id_1)
     invoke_gc("--backend-store-uri", uri)
     experiments = store.search_experiments(view_type=ViewType.ALL)
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
     assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+    assert runs == []
 
     exp_id_2 = store.create_experiment("2")
     exp_id_3 = store.create_experiment("3")

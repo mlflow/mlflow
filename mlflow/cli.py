@@ -545,7 +545,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     if not hasattr(backend_store, "_hard_delete_experiment"):
         warnings.warn(
             "This cli doesn't have the backend that allows hard-deleting experiments."
-            " Update mflow version",
+            f" Update mflow version (current = {version}).",
             FutureWarning,
             stacklevel=2,
         )
@@ -576,29 +576,24 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         run_ids = run_ids.split(",")
 
     if not skip_experiments:
-        deleted_experiment_ids = []
         deleted_older_experiment_ids = []
         next_experiment_page_token = None
         time_threshold = get_current_time_millis() - time_delta
+        filter_string = f"last_update_time < {time_threshold}" if older_than else ""
         while True:
             page_results = backend_store.search_experiments(
                 view_type=ViewType.DELETED_ONLY,
+                filter_string=filter_string,
                 page_token=next_experiment_page_token,
             )
             for experiment in page_results:
-                if older_than is None:
-                    deleted_experiment_ids.append(experiment.experiment_id)
-                elif (
-                    experiment.last_update_time is not None
-                    and experiment.last_update_time <= time_threshold
-                ):
-                    deleted_older_experiment_ids.append(experiment.experiment_id)
+                deleted_older_experiment_ids.append(experiment.experiment_id)
             if page_results.token is None:
                 break
             next_experiment_page_token = page_results.token
 
         if not experiment_ids:
-            experiment_ids = deleted_older_experiment_ids if older_than else deleted_experiment_ids
+            experiment_ids = deleted_older_experiment_ids
         else:
             experiment_ids = experiment_ids.split(",")
 
