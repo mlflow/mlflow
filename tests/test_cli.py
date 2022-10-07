@@ -361,7 +361,7 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
     exp_id_5 = store.create_experiment("5")
     store.delete_experiment(exp_id_5)
-    with pytest.warns(UserWarning, match=r"Experiment .+ can be deleted."):
+    with pytest.raises(MlflowException, match=r"Experiment .+ can be deleted."):
         invoke_gc(
             "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
         )
