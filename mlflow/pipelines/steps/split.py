@@ -71,15 +71,22 @@ def _create_hash_buckets(input_df):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
-    start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df).map(
+    from pandarallel import pandarallel
+
+    pandarallel_start_time = time.time()
+    pandarallel.initialize(progress_bar=False)
+    hash_start_time = time.time()
+    hash_buckets = _hash_pandas_dataframe(input_df).parallel_apply(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
-    execution_duration = time.time() - start_time
+    end_time = time.time()
+    execution_duration = end_time - hash_start_time
+    pandarallel_overhead = hash_start_time - pandarallel_start_time
     _logger.info(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
+    _logger.info(f"Pandarallel overhead: {pandarallel_overhead} second(s).")
     return hash_buckets
 
 
