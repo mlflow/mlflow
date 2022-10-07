@@ -6,6 +6,7 @@ import posixpath
 import sys
 import warnings
 
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
     _build_image,
@@ -158,6 +159,7 @@ class PyFuncBackend(FlavorBackend):
         Serve pyfunc model locally.
         """
         local_path = _download_artifact_from_uri(model_uri)
+        timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
 
         server_implementation = mlserver if enable_mlserver else scoring_server
         command, command_env = server_implementation.get_cmd(
