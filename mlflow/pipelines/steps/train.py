@@ -372,6 +372,7 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
+            train_df=raw_train_df,
             output_directory=output_directory,
             leaderboard_df=leaderboard_df,
             tuning_df=tuning_df,
@@ -512,6 +513,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
+        train_df,
         output_directory,
         leaderboard_df=None,
         tuning_df=None,
@@ -603,7 +605,19 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 6: Leaderboard
+        # Tab 6: Worst predictions profile vs train profile.
+        if not self.skip_data_profiling:
+            worst_prediction_profile = get_pandas_data_profiles(
+                [
+                    ["Worst Predictions", worst_examples_df.reset_index(drop=True)],
+                    ["Train", train_df.reset_index(drop=True)],
+                ]
+            )
+            card.add_tab(
+                "Data Profile (Worst vs Train)", "{{ WORST_EXAMPLES_COMP }}"
+            ).add_pandas_profile("WORST_EXAMPLES_COMP", worst_prediction_profile)
+
+        # Tab 7: Leaderboard
         if leaderboard_df is not None:
             (
                 card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
@@ -611,7 +625,7 @@ class TrainStep(BaseStep):
                 )
             )
 
-        # Tab 7: Best Parameters
+        # Tab 8: Best Parameters
         if self.step_config["tuning_enabled"]:
             best_parameters_card_tab = card.add_tab(
                 "Best Parameters",
@@ -626,7 +640,7 @@ class TrainStep(BaseStep):
                     f"<pre>{best_hardcoded_parameters}</pre><br><br>",
                 )
 
-        # Tab 8: HP trials
+        # Tab 9: HP trials
         if tuning_df is not None:
             tuning_trials_card_tab = card.add_tab(
                 "Tuning Trials",
@@ -650,7 +664,7 @@ class TrainStep(BaseStep):
                 ),
             )
 
-        # Tab 9: Run summary.
+        # Tab 10: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
