@@ -65,12 +65,12 @@ class RegisterStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
         }
+        self.model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=run_id, artifact_path=artifact_path
+        )
         if model_validation == "VALIDATED" or (
             model_validation == "UNKNOWN" and self.allow_non_validated_model
         ):
-            self.model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=run_id, artifact_path=artifact_path
-            )
             if self.registry_uri:
                 mlflow.set_registry_uri(self.registry_uri)
             self.model_details = mlflow.register_model(
@@ -87,7 +87,10 @@ class RegisterStep(BaseStep):
                 path=str(Path(output_directory) / "registered_model_version.json")
             )
         else:
-            raise MlflowException(f"Model validation failed on {self.model_uri}")
+            raise MlflowException(
+                f"Model registration on {self.model_uri} failed because it "
+                "is not validated. Bypass by setting allow_non_validated_model to True. "
+            )
 
         card = self._build_card(run_id)
         card.save_as_html(output_directory)
