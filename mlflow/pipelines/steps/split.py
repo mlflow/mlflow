@@ -76,17 +76,21 @@ def _create_hash_buckets(input_df):
     pandarallel_start_time = time.time()
     pandarallel.initialize(progress_bar=False)
     hash_start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df).parallel_map(
+    hashed_df = _hash_pandas_dataframe(input_df)
+    map_start_time = time.time()
+    hash_buckets = hashed_df.parallel_map(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     end_time = time.time()
     execution_duration = end_time - hash_start_time
-    pandarallel_overhead = hash_start_time - pandarallel_start_time
     _logger.info(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
-    _logger.info(f"Pandarallel overhead: {pandarallel_overhead} second(s).")
+    _logger.info(f"Pandarallel overhead: {hash_start_time - pandarallel_start_time} second(s).")
+    _logger.info(f"_hash_pandas_dataframe time: {map_start_time - hash_start_time} second(s).")
+    _logger.info(f"parallel_map time: {end_time - map_start_time} second(s).")
+
     return hash_buckets
 
 
