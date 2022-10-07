@@ -76,7 +76,7 @@ def _create_hash_buckets(input_df):
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
-    _logger.debug(
+    _logger.info(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
