@@ -518,7 +518,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
 
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
-    with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
+    with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (

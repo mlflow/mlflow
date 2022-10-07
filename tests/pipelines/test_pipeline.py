@@ -300,7 +300,7 @@ def test_generate_worst_examples_dataframe():
     predictions = [5, 3, 4]
 
     result_df = BaseStep._generate_worst_examples_dataframe(
-        test_df, predictions, target_col, worst_k=2
+        test_df, predictions, predictions - test_df[target_col].to_numpy(), target_col, worst_k=2
     )
 
     def assert_result_correct(df):
@@ -315,7 +315,7 @@ def test_generate_worst_examples_dataframe():
 
     test_df2 = test_df.set_axis([2, 1, 0], axis="index")
     result_df2 = BaseStep._generate_worst_examples_dataframe(
-        test_df2, predictions, target_col, worst_k=2
+        test_df2, predictions, predictions - test_df2[target_col].to_numpy(), target_col, worst_k=2
     )
     assert_result_correct(result_df2)
 

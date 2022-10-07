@@ -1024,7 +1024,12 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+            if tag.key == MLFLOW_RUN_NAME:
+                run_status = RunStatus.from_string(run.status)
+                self.update_run_info(run_id, run_status, run.end_time, tag.value)
+            else:
+                # NB: Updating the run_info will set the tag. No need to do it twice.
+                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def _set_tags(self, run_id, tags):
         """
@@ -1054,25 +1059,32 @@ class SqlAlchemyStore(AbstractStore):
 
                     new_tag_dict = {}
                     for tag in tags:
-                        current_tag = current_tags.get(tag.key)
-                        new_tag = new_tag_dict.get(tag.key)
-
-                        # update the SqlTag if it is already present in DB
-                        if current_tag:
-                            current_tag.value = tag.value
-                            continue
-
-                        # if a SqlTag instance is already present in `new_tag_dict`,
-                        # this means that multiple tags with the same key were passed to `set_tags`.
-                        # In this case, we resolve potential conflicts by updating the value of the
-                        # existing instance to the value of `tag`
-                        if new_tag:
-                            new_tag.value = tag.value
-                        # otherwise, put it into the dict
+                        # NB: If the run name tag is explicitly set, update the run info attribute
+                        # and do not resubmit the tag for overwrite as the tag will be set within
+                        # `set_tag()` with a call to `update_run_info()`
+                        if tag.key == MLFLOW_RUN_NAME:
+                            self.set_tag(run_id, tag)
                         else:
-                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+                            current_tag = current_tags.get(tag.key)
+                            new_tag = new_tag_dict.get(tag.key)
 
-                        new_tag_dict[tag.key] = new_tag
+                            # update the SqlTag if it is already present in DB
+                            if current_tag:
+                                current_tag.value = tag.value
+                                continue
+
+                            # if a SqlTag instance is already present in `new_tag_dict`,
+                            # this means that multiple tags with the same key were passed to
+                            # `set_tags`.
+                            # In this case, we resolve potential conflicts by updating the value
+                            # of the existing instance to the value of `tag`
+                            if new_tag:
+                                new_tag.value = tag.value
+                            # otherwise, put it into the dict
+                            else:
+                                new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                            new_tag_dict[tag.key] = new_tag
 
                     # finally, save new entries to DB.
                     self._save_to_db(session=session, objs=list(new_tag_dict.values()))
@@ -1148,8 +1160,11 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
-                stmt = stmt.join(j)
+            attribute_filters, non_attribute_filters = _get_sqlalchemy_filter_clauses(
+                parsed_filters, session, self._get_dialect()
+            )
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -1163,7 +1178,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters, self._get_dialect()),
+                    *attribute_filters,
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -1229,58 +1244,70 @@ def _get_attributes_filtering_clauses(parsed, dialect):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator, dialect)
-                clauses.append(op(value))
-            elif comparator in SearchUtils.filter_ops:
-                op = SearchUtils.filter_ops.get(comparator)
-                clauses.append(op(attribute, value))
+            clauses.append(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attribute, value)
+            )
     return clauses
 
 
-def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
-    key_type = sql_statement.get("type")
-    key_name = sql_statement.get("key")
-    value = sql_statement.get("value")
-    comparator = sql_statement.get("comparator").upper()
-
-    if SearchUtils.is_metric(key_type, comparator):
-        entity = SqlLatestMetric
-        value = float(value)
-    elif SearchUtils.is_param(key_type, comparator):
-        entity = SqlParam
-    elif SearchUtils.is_tag(key_type, comparator):
-        entity = SqlTag
-    elif SearchUtils.is_string_attribute(
-        key_type, key_name, comparator
-    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
-        return None
-    else:
-        raise MlflowException(
-            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
-        )
-
-    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator, dialect)
-        return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
-    elif comparator in SearchUtils.filter_ops:
-        op = SearchUtils.filter_ops.get(comparator)
-        return (
-            session.query(entity).filter(entity.key == key_name, op(entity.value, value)).subquery()
-        )
-    else:
-        return None
-
-
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
-    """creates SqlAlchemy subqueries
-    that will be inner-joined to SQLRun to act as multi-clause filters."""
-    filters = []
+    """
+    Creates run attribute filters and subqueries that will be inner-joined to SqlRun to act as
+    multi-clause filters and return them as a tuple.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
     for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session, dialect)
-        if filter_query is not None:
-            filters.append(filter_query)
-    return filters
+        key_type = sql_statement.get("type")
+        key_name = sql_statement.get("key")
+        value = sql_statement.get("value")
+        comparator = sql_statement.get("comparator").upper()
+
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
+            if key_name == "run_name":
+                # Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
+                # The name column in the runs table is empty for runs logged in MLflow <= 1.29.0.
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                    SqlTag.key, MLFLOW_RUN_NAME
+                )
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlTag.value, value
+                )
+                non_attribute_filters.append(
+                    session.query(SqlTag).filter(key_filter, val_filter).subquery()
+                )
+            else:
+                attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    attribute, value
+                )
+                attribute_filters.append(attr_filter)
+        else:
+            if SearchUtils.is_metric(key_type, comparator):
+                entity = SqlLatestMetric
+                value = float(value)
+            elif SearchUtils.is_param(key_type, comparator):
+                entity = SqlParam
+            elif SearchUtils.is_tag(key_type, comparator):
+                entity = SqlTag
+            else:
+                raise MlflowException(
+                    "Invalid search expression type '%s'" % key_type,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                entity.value, value
+            )
+            non_attribute_filters.append(
+                session.query(entity).filter(key_filter, val_filter).subquery()
+            )
+
+    return attribute_filters, non_attribute_filters
 
 
 def _get_orderby_clauses(order_by_list, session):
@@ -1381,17 +1408,19 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for attribute: {comparator}"
                 )
-            f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-            attribute_filters.append(f)
+            attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            attribute_filters.append(attr_filter)
         elif type_ == "tag":
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            val_filter = SearchUtils.get_sql_filter_ops(
-                SqlExperimentTag.value, comparator, dialect
-            )(value)
-            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                SqlExperimentTag.value, value
+            )
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                SqlExperimentTag.key, key
+            )
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
             )

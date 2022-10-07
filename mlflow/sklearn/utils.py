@@ -553,6 +553,34 @@ def _log_specialized_estimator_content(
     return metrics
 
 
+def _is_estimator_html_repr_supported():
+    import sklearn
+
+    # Only scikit-learn >= 0.23 supports `estimator_html_repr`
+    return Version(sklearn.__version__) >= Version("0.23.0")
+
+
+def _log_estimator_html(run_id, estimator):
+    if not _is_estimator_html_repr_supported():
+        return
+
+    from sklearn.utils import estimator_html_repr
+
+    # Specifies charset so triangle toggle buttons are not garbled
+    estimator_html_string = f"""
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+  </head>
+  <body>
+    {estimator_html_repr(estimator)}
+  </body>
+</html>
+    """
+    MlflowClient().log_text(run_id, estimator_html_string, artifact_file="estimator.html")
+
+
 def _log_estimator_content(
     autologging_client,
     estimator,
@@ -613,7 +641,7 @@ def _log_estimator_content(
             score_key = prefix + "score"
             autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
             metrics[score_key] = score
-
+    _log_estimator_html(run_id, estimator)
     return metrics
 
 
