@@ -12,6 +12,8 @@ from alembic import op
 import sqlalchemy as sa
 import logging
 
+from sqlalchemy import UniqueConstraint
+
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
@@ -27,17 +29,49 @@ def upgrade():
     # has changed from an auto-incrementing column to a non-nullable unique-constrained Integer
     # column to support the uuid-based random id generation change.
 
-    with op.batch_alter_table("experiments") as batch_op:
+    with op.batch_alter_table(
+        "experiments", table_args=(UniqueConstraint("experiment_id"))
+    ) as batch_op:
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
-            type_=sa.Integer,
+            type_=sa.BigInteger,
             existing_nullable=False,
             nullable=False,
             existing_autoincrement=True,
             autoincrement=False,
             existing_server_default=None,
             existing_comment=None,
+        )
+
+    with op.batch_alter_table(
+        "experiment_tags", table_args=(UniqueConstraint("experiment_id"))
+    ) as batch_op:
+        batch_op.alter_column(
+            "experiment_id",
+            existing_type=sa.Integer,
+            type_=sa.BigInteger,
+            existing_nullable=False,
+            nullable=False,
+            existing_autoincrement=True,
+            autoincrement=False,
+            existing_server_default=None,
+            existing_comment=None,
+            unique=True,
+        )
+
+    with op.batch_alter_table("runs", table_args=(UniqueConstraint("experiment_id"))) as batch_op:
+        batch_op.alter_column(
+            "experiment_id",
+            existing_type=sa.Integer,
+            type_=sa.BigInteger,
+            existing_nullable=False,
+            nullable=False,
+            existing_autoincrement=True,
+            autoincrement=False,
+            existing_server_default=None,
+            existing_comment=None,
+            unique=True,
         )
 
     _logger.info("Conversion of experiment_id from autoincrement complete!")

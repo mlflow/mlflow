@@ -54,7 +54,7 @@ class SqlExperiment(Base):
 
     __tablename__ = "experiments"
 
-    experiment_id = Column(Integer, unique=True, nullable=False)
+    experiment_id = Column(BigInteger(), unique=True, nullable=False)
     """
     Experiment ID: `Integer`. *Primary Key* for ``experiments`` table.
     """

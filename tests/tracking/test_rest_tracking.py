@@ -743,15 +743,21 @@ def test_search_experiments(mlflow_client):
     # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
     assert [e.name for e in experiments] == ["a"]
-    experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
+    experiments = mlflow_client.search_experiments(
+        filter_string="attribute.name != 'a'", order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-    experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
+    experiments = mlflow_client.search_experiments(
+        filter_string="name LIKE 'a%'", order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["ab", "a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
     assert [e.name for e in experiments] == ["ab"]
-    experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+    experiments = mlflow_client.search_experiments(
+        filter_string="tag.key ILIKE '%alu%'", order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["ab", "a"]
 
     # order_by
@@ -759,10 +765,12 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["ab", "a", "Default", "Abc"]
 
     # max_results
-    experiments = mlflow_client.search_experiments(max_results=2)
+    experiments = mlflow_client.search_experiments(max_results=2, order_by=["creation_time desc"])
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
-    experiments = mlflow_client.search_experiments(page_token=experiments.token)
+    experiments = mlflow_client.search_experiments(
+        page_token=experiments.token, order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type

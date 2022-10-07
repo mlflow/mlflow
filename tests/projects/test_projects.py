@@ -34,6 +34,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -63,17 +64,23 @@ def clean_mlruns_dir():
 @pytest.mark.parametrize(
     ("experiment_name", "experiment_id", "expected"),
     [
-        ("Default", None, "0"),
-        ("add an experiment", None, "1"),
+        ("Default", None, "default_id"),
+        ("add an experiment", None, "generated"),
         (None, 2, "2"),
         (None, "2", "2"),
-        (None, None, "0"),
+        (None, None, "default_id"),
     ],
 )
 def test_resolve_experiment_id(experiment_name, experiment_id, expected):
-    assert expected == _resolve_experiment_id(
+    actual_exp_id = _resolve_experiment_id(
         experiment_name=experiment_name, experiment_id=experiment_id
     )
+    if expected == "default_id":
+        assert FileStore.DEFAULT_EXPERIMENT_ID == actual_exp_id
+    elif expected == "generated":
+        assert _EXPERIMENT_ID_FIXED_WIDTH == len(actual_exp_id)
+    else:
+        assert expected == actual_exp_id
 
 
 def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
