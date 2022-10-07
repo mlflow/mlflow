@@ -38,7 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.name_utils import _generate_random_name
+from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -348,17 +348,10 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        # Get all existing experiments and find the one with largest numerical ID.
-        # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [
-            int(e)
-            for e in (
-                self._get_active_experiments(full_path=False)
-                + self._get_deleted_experiments(full_path=False)
-            )
-            if e.isdigit()
-        ]
-        experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+        if self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID):
+            experiment_id = _generate_unique_integer_id()
+        else:
+            experiment_id = FileStore.DEFAULT_EXPERIMENT_ID
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):

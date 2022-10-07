@@ -48,14 +48,15 @@ RunStatusTypes = [
 
 class SqlExperiment(Base):
     """
-    DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
+    DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in the ``experiments``
+    table.
     """
 
     __tablename__ = "experiments"
 
-    experiment_id = Column(Integer, autoincrement=True)
+    experiment_id = Column(Integer, unique=True, nullable=False)
     """
-    Experiment ID: `Integer`. *Primary Key* for ``experiment`` table.
+    Experiment ID: `Integer`. *Primary Key* for ``experiments`` table.
     """
     name = Column(String(256), unique=True, nullable=False)
     """

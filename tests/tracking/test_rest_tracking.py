@@ -29,6 +29,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -85,6 +86,7 @@ def test_create_get_search_experiment(mlflow_client):
     assert len(exp.tags) == 2
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"
+    assert len(exp.experiment_id) == _EXPERIMENT_ID_FIXED_WIDTH
 
     experiments = mlflow_client.search_experiments()
     assert {e.name for e in experiments} == {"My Experiment", "Default"}
@@ -604,8 +606,8 @@ def test_log_batch_validation(mlflow_client):
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
-        mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
+        mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
                 mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
@@ -765,9 +767,13 @@ def test_search_experiments(mlflow_client):
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
-    experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    experiments = mlflow_client.search_experiments(
+        view_type=ViewType.ACTIVE_ONLY, order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["Abc", "a", "Default"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
-    experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
+    experiments = mlflow_client.search_experiments(
+        view_type=ViewType.ALL, order_by=["creation_time desc"]
+    )
     assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]

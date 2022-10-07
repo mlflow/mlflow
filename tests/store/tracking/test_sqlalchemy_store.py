@@ -45,7 +45,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.utils.name_utils import _GENERATOR_PREDICATES
+from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
@@ -194,11 +194,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(experiments), 1)
 
         first = experiments[0]
-        self.assertEqual(first.experiment_id, "0")
+        self.assertEqual(first.experiment_id, SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        default_experiment = self.store.get_experiment(experiment_id=0)
+        default_experiment = self.store.get_experiment(
+            experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+        )
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
@@ -206,13 +208,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         all_experiments = [e.name for e in self.store.search_experiments()]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
-        self.store.delete_experiment(0)
+        self.store.delete_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
-        another = self.store.get_experiment(1)
+        all_experiment_ids = [e.experiment_id for e in self.store.search_experiments()]
+        another = self.store.get_experiment(all_experiment_ids[0])
         self.assertEqual("aNothEr", another.name)
 
-        default_experiment = self.store.get_experiment(experiment_id=0)
+        default_experiment = self.store.get_experiment(
+            experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+        )
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
@@ -221,7 +226,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store = self._get_store(self.db_url)
 
         # test that default experiment is not reactivated
-        default_experiment = self.store.get_experiment(experiment_id=0)
+        default_experiment = self.store.get_experiment(
+            experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+        )
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
@@ -229,12 +236,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
-        # ensure that experiment ID dor active experiment is unchanged
-        another = self.store.get_experiment(1)
+        # ensure that experiment ID for active experiment is unchanged
+        all_experiment_ids = [e.experiment_id for e in self.store.search_experiments()]
+        another = self.store.get_experiment(all_experiment_ids[0])
         self.assertEqual("aNothEr", another.name)
 
     def test_raise_duplicate_experiments(self):
-        with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
+        with pytest.raises(MlflowException, match=r"Experiment\(name=.+\) already exists"):
             self._experiment_factory(["test", "test"])
 
     def test_raise_experiment_dont_exist(self):
@@ -408,10 +416,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(order_by=["name DESC"])
         assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
 
-        experiments = self.store.search_experiments(order_by=["experiment_id DESC"])
+        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
         assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
 
-        experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
+        experiments = self.store.search_experiments(order_by=["name", "creation_time"])
         assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
 
     def test_search_experiments_max_results(self):
@@ -455,7 +463,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(len(result), 1)
         time_before_create = int(time.time() * 1000)
         experiment_id = self.store.create_experiment(name="test exp")
-        self.assertEqual(experiment_id, "1")
+        self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
@@ -463,6 +471,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             test_exp = session.query(models.SqlExperiment).filter_by(name="test exp").first()
             self.assertEqual(str(test_exp.experiment_id), experiment_id)
             self.assertEqual(test_exp.name, "test exp")
+            self.assertEqual(len(str(test_exp.experiment_id)), _EXPERIMENT_ID_FIXED_WIDTH)
 
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)

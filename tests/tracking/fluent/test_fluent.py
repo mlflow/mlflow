@@ -41,6 +41,7 @@ from mlflow.tracking.fluent import (
     get_run,
 )
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
+from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.file_utils import TempDir
 
 from tests.helper_functions import multi_context
@@ -422,7 +423,7 @@ def test_search_experiments(tmp_path):
     experiments = mlflow.search_experiments(filter_string="tags.tag = 'x'")
     assert [e.name for e in experiments] == active_experiment_names[:2][::-1]
     experiments = mlflow.search_experiments(filter_string="tags.tag = 'y'")
-    assert [e.experiment_id for e in experiments] == ["3"]
+    assert len([e.experiment_id for e in experiments][0]) == _EXPERIMENT_ID_FIXED_WIDTH
 
     # Order by name
     experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)

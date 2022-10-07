@@ -1,6 +1,7 @@
 import json
 import logging
 import random
+import sqlite3
 import time
 import uuid
 import threading
@@ -37,7 +38,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
 )
-from mlflow.utils.name_utils import _generate_random_name
+from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
@@ -240,7 +241,18 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = int(time.time() * 1000)
+                # If the default experiment_id has been deleted, restore it.
+                if (
+                    self._has_experiment(
+                        session, SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, ViewType.ALL
+                    )
+                    is None
+                ):
+                    experiment_id = SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+                else:
+                    experiment_id = _generate_unique_integer_id()
                 experiment = SqlExperiment(
+                    experiment_id=experiment_id,
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
@@ -252,16 +264,14 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 session.add(experiment)
                 if not artifact_location:
-                    # this requires a double write. The first one to generate an autoincrement-ed ID
-                    eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
-                    experiment.artifact_location = self._get_artifact_location(eid)
+                    experiment.artifact_location = self._get_artifact_location(experiment_id)
+                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(
@@ -329,6 +339,22 @@ class SqlAlchemyStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
+    def _has_experiment(self, session, experiment_id, view_type, eager=False):
+
+        stages = LifecycleStage.view_type_to_stages(view_type)
+        query_options = self._get_eager_experiment_query_options() if eager else []
+
+        experiment = (
+            session.query(SqlExperiment)
+            .options(*query_options)
+            .filter(
+                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.lifecycle_stage.in_(stages),
+            )
+            .one_or_none()
+        )
+        return experiment
+
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
         :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -348,7 +374,6 @@ class SqlAlchemyStore(AbstractStore):
             )
             .one_or_none()
         )
-
         if experiment is None:
             raise MlflowException(
                 "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
@@ -1324,7 +1349,7 @@ def _get_search_experiments_order_by_clauses(order_by):
             raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
     # Add a tie-breaker
-    if not any(col == SqlExperiment.experiment_id for col, _ in order_by_clauses):
-        order_by_clauses.append((SqlExperiment.experiment_id, False))
+    if not any(col == SqlExperiment.last_update_time for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlExperiment.last_update_time, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
