@@ -132,7 +132,7 @@ steps:
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     if register_flag == "":
-        with pytest.raises(MlflowException, match="Model validation failed"):
+        with pytest.raises(MlflowException, match=r"Model registration on .* failed"):
             register_step.run(str(register_step_output_dir))
     else:
         register_step.run(str(register_step_output_dir))
