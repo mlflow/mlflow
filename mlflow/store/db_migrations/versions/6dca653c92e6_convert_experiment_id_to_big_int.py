@@ -29,60 +29,103 @@ def upgrade():
     # has changed from an auto-incrementing column to a non-nullable unique-constrained Integer
     # column to support the uuid-based random id generation change.
 
-    with op.batch_alter_table(
-        "experiments",
-        table_args=(
-            UniqueConstraint("experiment_id"),
-            PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
-        ),
-    ) as batch_op:
-        batch_op.drop_constraint("experiment_pk")
-        batch_op.alter_column(
-            "experiment_id",
+    bind = op.get_bind()
+    if bind.engine.name != "sqlite":
+        op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="foreignkey")
+        op.drop_constraint(
+            constraint_name="experiment_pk", table_name="experiments", type_="primary"
+        )
+        op.alter_column(
+            table_name="experiments",
+            column_name="experiment_id",
             existing_type=sa.Integer,
             type_=sa.BigInteger,
             existing_nullable=False,
             nullable=False,
-            existing_autoincrement=True,
             autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
+            existing_autoincrement=True,
         )
-        batch_op.add_constraint(UniqueConstraint("experiment_id"))
-        batch_op.add_constraint(PrimaryKeyConstraint("experiment_id", name="experiment_pk"))
-
-    with op.batch_alter_table(
-        "experiment_tags",
-        table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
-    ) as batch_op:
-        batch_op.drop_constraint("experiment_tag_pk")
-        batch_op.alter_column(
-            "experiment_id",
+        op.alter_column(
+            table_name="experiment_tags",
+            column_name="experiment_id",
             existing_type=sa.Integer,
             type_=sa.BigInteger,
             existing_nullable=False,
             nullable=False,
-            existing_autoincrement=True,
-            autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
         )
-        batch_op.add_constraint(
-            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk")
+        op.alter_column(
+            table_name="runs",
+            column_name="experiment_id",
+            existing_type=sa.Integer,
+            type_=sa.BigInteger,
+            existing_nullable=False,
+            nullable=False,
         )
 
-    with op.batch_alter_table("runs") as batch_op:
-        batch_op.alter_column(
-            "experiment_id",
-            existing_type=sa.Integer,
-            type_=sa.BigInteger,
-            existing_nullable=False,
-            nullable=False,
-            existing_autoincrement=False,
-            autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
+        op.create_unique_constraint(
+            constraint_name="uq_experiment_id", table_name="experiments", columns=["experiment_id"]
         )
+        op.create_primary_key(
+            constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
+        )
+        op.create_foreign_key(
+            constraint_name="experiment_tag_pk",
+            source_table="experiment_tags",
+            referent_table="experiments",
+            local_cols=["experiment_id"],
+            remote_cols=["experiment_id"],
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        )
+    else:
+
+        with op.batch_alter_table(
+            "experiments",
+            table_args=(
+                UniqueConstraint("experiment_id"),
+                PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
+            ),
+        ) as batch_op:
+            batch_op.alter_column(
+                "experiment_id",
+                existing_type=sa.Integer,
+                type_=sa.BigInteger,
+                existing_nullable=False,
+                nullable=False,
+                existing_autoincrement=True,
+                autoincrement=False,
+                existing_server_default=None,
+                existing_comment=None,
+            )
+
+        with op.batch_alter_table(
+            "experiment_tags",
+            table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
+        ) as batch_op:
+            batch_op.alter_column(
+                "experiment_id",
+                existing_type=sa.Integer,
+                type_=sa.BigInteger,
+                existing_nullable=False,
+                nullable=False,
+                existing_autoincrement=True,
+                autoincrement=False,
+                existing_server_default=None,
+                existing_comment=None,
+            )
+
+        with op.batch_alter_table("runs") as batch_op:
+            batch_op.alter_column(
+                "experiment_id",
+                existing_type=sa.Integer,
+                type_=sa.BigInteger,
+                existing_nullable=False,
+                nullable=False,
+                existing_autoincrement=False,
+                autoincrement=False,
+                existing_server_default=None,
+                existing_comment=None,
+            )
 
     _logger.info("Conversion of experiment_id from autoincrement complete!")
 
