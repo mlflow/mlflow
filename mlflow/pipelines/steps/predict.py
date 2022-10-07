@@ -135,18 +135,10 @@ class PredictStep(BaseStep):
             raise MlflowException(
                 message=(
                     "Encountered an error while getting or creating an active Spark session to"
-                    " score dataset with spark UDF. Please create a Spark session and try again."
+                    " score dataset with spark UDF."
                 ),
                 error_code=BAD_REQUEST,
             ) from e
-        if not spark:
-            raise MlflowException(
-                message=(
-                    "No active SparkSession detected to score dataset with spark UDF. "
-                    "Please create a Spark session and try again."
-                ),
-                error_code=BAD_REQUEST,
-            )
 
         # check if output location is already populated for non-delta output formats
         output_format = self.step_config["output_format"]
