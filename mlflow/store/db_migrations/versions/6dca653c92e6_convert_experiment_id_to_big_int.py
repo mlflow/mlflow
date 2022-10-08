@@ -33,14 +33,25 @@ def upgrade():
 
     if bind.engine.name != "sqlite":
 
-        metadata = sa.MetaData(bind=bind)
-        metadata.reflect()
-        naming_convention = metadata.naming_convention
+        if bind.engine.name == "mssql":
+            # One-time explicit naming for reference. When recreating this foreign key below,
+            # we name it.
+            fkey_constraint_experiment_tags = "FK__experimen__exper__4F7CD00D"
+            op.drop_constraint(
+                constraint_name=fkey_constraint_experiment_tags,
+                table_name="experiment_tags",
+                type_="foreignkey",
+            )
+        else:
+            # Alembic unnamed constraint reflection works in MySQL and Postgres
+            metadata = sa.MetaData(bind=bind)
+            metadata.reflect()
+            naming_convention = metadata.naming_convention
 
-        with op.batch_alter_table(
-            "experiment_tags", naming_convention=naming_convention
-        ) as batch_op:
-            batch_op.drop_constraint("experiments.experiment_id", type_="foreignkey")
+            with op.batch_alter_table(
+                "experiment_tags", naming_convention=naming_convention
+            ) as batch_op:
+                batch_op.drop_constraint("experiments.experiment_id", type_="foreignkey")
 
         op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
         op.drop_constraint(
@@ -69,8 +80,8 @@ def upgrade():
             column_name="experiment_id",
             existing_type=sa.Integer,
             type_=sa.BigInteger,
-            existing_nullable=False,
-            nullable=False,
+            existing_nullable=True,
+            nullable=True,
         )
 
         op.create_unique_constraint(
@@ -135,8 +146,8 @@ def upgrade():
                 "experiment_id",
                 existing_type=sa.Integer,
                 type_=sa.BigInteger,
-                existing_nullable=False,
-                nullable=False,
+                existing_nullable=True,
+                nullable=True,
                 existing_autoincrement=False,
                 autoincrement=False,
                 existing_server_default=None,
