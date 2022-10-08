@@ -916,8 +916,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
     else:
         _logger.info(
-            "This UDF will use Conda to recreate the model's software environment for inference. "
-            "This may take extra time during execution."
+            f"This UDF will use {env_manager} to recreate the model's software environment for "
+            "inference. This may take extra time during execution."
         )
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled

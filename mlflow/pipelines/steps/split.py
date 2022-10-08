@@ -84,32 +84,33 @@ def _create_hash_buckets(input_df):
 
 
 class SplitStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+    def __init__(
+        self, step_config: Dict[str, Any], pipeline_root: str
+    ):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
 
+    def _validate_and_apply_step_config(self):
         self.run_end_time = None
         self.execution_duration = None
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
-        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
-        split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
+        self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
         if not (
-            isinstance(split_ratios, list)
-            and len(split_ratios) == 3
-            and all(isinstance(x, (int, float)) and x > 0 for x in split_ratios)
+            isinstance(self.split_ratios, list)
+            and len(self.split_ratios) == 3
+            and all(isinstance(x, (int, float)) and x > 0 for x in self.split_ratios)
         ):
             raise MlflowException(
                 "Config split_ratios must be a list containing 3 positive numbers."
             )
-
-        self.split_ratios = split_ratios
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
         # Build card
@@ -203,7 +204,9 @@ class SplitStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config.get("steps", {}).get("split", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("split", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         return cls(step_config, pipeline_root)
 

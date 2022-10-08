@@ -26,18 +26,21 @@ _logger = logging.getLogger(__name__)
 class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.tracking_config = TrackingConfig.from_dict(step_config)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
+
+    def _validate_and_apply_step_config(self):
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
         self.version = None
 
-        if "model_name" not in self.step_config:
+        self.register_model_name = self.step_config.get("model_name")
+        if self.register_model_name is None:
             raise MlflowException(
                 "Missing 'model_name' config in register step config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.register_model_name = self.step_config["model_name"]
+
         self.allow_non_validated_model = self.step_config.get("allow_non_validated_model", False)
         self.registry_uri = self.step_config.get("registry_uri", None)
 
@@ -62,12 +65,12 @@ class RegisterStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
         }
+        self.model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=run_id, artifact_path=artifact_path
+        )
         if model_validation == "VALIDATED" or (
             model_validation == "UNKNOWN" and self.allow_non_validated_model
         ):
-            self.model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=run_id, artifact_path=artifact_path
-            )
             if self.registry_uri:
                 mlflow.set_registry_uri(self.registry_uri)
             self.model_details = mlflow.register_model(
@@ -84,7 +87,10 @@ class RegisterStep(BaseStep):
                 path=str(Path(output_directory) / "registered_model_version.json")
             )
         else:
-            raise MlflowException(f"Model validation failed on {self.model_uri}")
+            raise MlflowException(
+                f"Model registration on {self.model_uri} failed because it "
+                "is not validated. Bypass by setting allow_non_validated_model to True. "
+            )
 
         card = self._build_card(run_id)
         card.save_as_html(output_directory)
@@ -156,20 +162,17 @@ class RegisterStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["register"]
-            step_config["template_name"] = pipeline_config.get("template")
-            step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
-            step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=pipeline_root,
-                    pipeline_config=pipeline_config,
-                ).to_dict()
-            )
-        except KeyError:
-            raise MlflowException(
-                "Config for register step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("register") is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("register"))
+        step_config["template_name"] = pipeline_config.get("template")
+        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root)
 
     @property
