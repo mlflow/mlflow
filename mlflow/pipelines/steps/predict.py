@@ -143,16 +143,21 @@ class PredictStep(BaseStep):
         # check if output location is already populated for non-delta output formats
         output_format = self.step_config["output_format"]
         output_location = self.step_config["output_location"]
-        if (
-            not self.force_overwrite
-            and output_format not in ["delta", "table"]
-            and os.path.exists(output_location)
-        ):
+        write_mode = self.step_config.get("write_mode", "default")
+        if output_format == "parquet" or output_format == "delta":
+            output_populated = os.path.exists(output_location)
+        else:
+            try:
+                output_populated = spark._jsparkSession.catalog().tableExists(output_location)
+            except Exception:
+                # swallow spark failures
+                output_populated = False
+        if output_populated and write_mode == "default":
             raise MlflowException(
                 message=(
-                    f"Output location `{output_location}` is already populated. To enable "
-                    "overwrites, please specify a Delta-based output format or set "
-                    "`force_overwrite` to true in the predict step configuration."
+                    f"Output location `{output_location}` of format `{output_format}` is already "
+                    "populated. To overwrite, please modify the `write_mode` in the predict step "
+                    "configuration."
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -183,15 +188,12 @@ class PredictStep(BaseStep):
         )
 
         # save predictions
-        if output_format == "parquet":
-            write_mode = "overwrite" if self.force_overwrite else "default"
+        if output_format in ["parquet", "delta"]:
             scored_sdf.coalesce(1).write.format(output_format).mode(write_mode).save(
                 output_location
             )
-        elif output_format == "delta":
-            scored_sdf.coalesce(1).write.format("delta").mode("overwrite").save(output_location)
         else:
-            scored_sdf.write.format("delta").mode("overwrite").saveAsTable(output_location)
+            scored_sdf.write.format("delta").mode(write_mode).saveAsTable(output_location)
 
         # predict step artifacts
         write_spark_dataframe_to_parquet_on_local_disk(
