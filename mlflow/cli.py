@@ -134,6 +134,12 @@ def cli():
     help="The name to give the MLflow Run associated with the project execution. If not specified, "
     "the MLflow Run name is left unset.",
 )
+@click.option(
+    "--tracking-uri",
+    envvar=tracking._TRACKING_URI_ENV_VAR,
+    help="The URI to which to send tracking data. If not specified, "
+    "the tracking URI is resolved based on the current environment.",
+)
 def run(
     uri,
     entry_point,
@@ -149,6 +155,7 @@ def run(
     storage_dir,
     run_id,
     run_name,
+    tracking_uri,
 ):
     """
     Run an MLflow project from the given URI.
@@ -195,6 +202,7 @@ def run(
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
             run_name=run_name,
+            tracking_uri=tracking_uri,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)

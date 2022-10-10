@@ -10,6 +10,7 @@ from mlflow.tracking._tracking_service.utils import (
     set_tracking_uri,
     get_tracking_uri,
     is_tracking_uri_set,
+    _resolve_tracking_uri,
     _get_store,
     _TRACKING_URI_ENV_VAR,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "get_tracking_uri",
     "set_tracking_uri",
     "is_tracking_uri_set",
+    "_resolve_tracking_uri",
     "_get_store",
     "get_registry_uri",
     "set_registry_uri",

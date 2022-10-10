@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import mlflow
 from mlflow.exceptions import MlflowException
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
@@ -16,7 +15,7 @@ from mlflow.projects.utils import (
     get_or_create_run,
     load_project,
     get_run_env_vars,
-    get_databricks_env_vars,
+    get_databricks_run_env_vars,
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     MLFLOW_DOCKER_WORKDIR_PATH,
@@ -148,7 +147,11 @@ class LocalBackend(AbstractBackend):
             command_args += get_entry_point_command(project, entry_point, params, storage_dir)
             command_str = command_separator.join(command_args)
             return _run_entry_point(
-                command_str, work_dir, experiment_id, run_id=active_run.info.run_id
+                command_str,
+                work_dir,
+                experiment_id,
+                run_id=active_run.info.run_id,
+                tracking_uri=tracking_uri,
             )
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
@@ -160,11 +163,20 @@ class LocalBackend(AbstractBackend):
             docker_args=docker_args,
             storage_dir=storage_dir,
             run_id=active_run.info.run_id,
+            tracking_uri=tracking_uri,
         )
 
 
 def _invoke_mlflow_run_subprocess(
-    work_dir, entry_point, parameters, experiment_id, env_manager, docker_args, storage_dir, run_id
+    work_dir,
+    entry_point,
+    parameters,
+    experiment_id,
+    env_manager,
+    docker_args,
+    storage_dir,
+    run_id,
+    tracking_uri,
 ):
     """
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
@@ -180,8 +192,8 @@ def _invoke_mlflow_run_subprocess(
         run_id=run_id,
         parameters=parameters,
     )
-    env_vars = get_run_env_vars(run_id, experiment_id)
-    env_vars.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
+
+    env_vars = get_databricks_run_env_vars(run_id, experiment_id, tracking_uri)
     mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
@@ -226,17 +238,18 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
-def _run_entry_point(command, work_dir, experiment_id, run_id):
+def _run_entry_point(command, work_dir, experiment_id, run_id, tracking_uri=None):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
     query the run's status.
     :param command: Entry point command to run
     :param work_dir: Working directory in which to run the command
     :param run_id: MLflow run ID associated with the entry point execution.
+    :param tracking_id: The URI to which to send tracking data. If not specified,
+    the tracking URI is resolved based on the current environment.
     """
     env = os.environ.copy()
-    env.update(get_run_env_vars(run_id, experiment_id))
-    env.update(get_databricks_env_vars(tracking_uri=mlflow.get_tracking_uri()))
+    env.update(get_databricks_run_env_vars(run_id, experiment_id, tracking_uri))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.

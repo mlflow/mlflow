@@ -269,8 +269,9 @@ class DatabricksJobRunner:
         cluster_spec,
         run_id,
         env_manager,
+        tracking_uri,
     ):
-        tracking_uri = _get_tracking_uri_for_run()
+        tracking_uri = _get_tracking_uri_for_run(tracking_uri)
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
             tracking._TRACKING_URI_ENV_VAR: tracking_uri,
@@ -319,8 +320,8 @@ class DatabricksJobRunner:
         return json.loads(response.text)
 
 
-def _get_tracking_uri_for_run():
-    uri = tracking.get_tracking_uri()
+def _get_tracking_uri_for_run(tracking_uri=None):
+    uri = tracking._resolve_tracking_uri(tracking_uri)
     if uri.startswith("databricks"):
         return "databricks"
     return uri
@@ -393,16 +394,33 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
 
 
 def run_databricks(
-    remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, env_manager
+    remote_run,
+    uri,
+    entry_point,
+    work_dir,
+    parameters,
+    experiment_id,
+    cluster_spec,
+    env_manager,
+    tracking_uri,
 ):
     """
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
+    databricks_uri = tracking_uri if tracking_uri is not None else tracking.get_tracking_uri()
     run_id = remote_run.info.run_id
-    db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
+    db_job_runner = DatabricksJobRunner(databricks_profile_uri=databricks_uri)
     db_run_id = db_job_runner.run_databricks(
-        uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id, env_manager
+        uri,
+        entry_point,
+        work_dir,
+        parameters,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        env_manager,
+        tracking_uri,
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()
