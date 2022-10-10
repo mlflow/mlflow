@@ -1284,7 +1284,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
-            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+            with mock.patch(
+                "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
+                return_value=i,
+            ):
                 rms.append(self._rm_maker("RM{:03}".format(i)).name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
@@ -1336,10 +1339,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
         )
         self.assertEqual(rms, result)
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=1
+        ):
             rm1 = self._rm_maker("MR1").name
             rm2 = self._rm_maker("MR2").name
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=2
+        ):
             rm3 = self._rm_maker("MR3").name
             rm4 = self._rm_maker("MR4").name
         query = "name LIKE 'MR%'"

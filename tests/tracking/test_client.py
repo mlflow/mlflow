@@ -89,6 +89,21 @@ def test_client_create_run(mock_store, mock_time):
         user_id="unknown",
         start_time=int(mock_time * 1000),
         tags=[],
+        run_name=None,
+    )
+
+
+def test_client_create_run_with_name(mock_store, mock_time):
+    experiment_id = mock.Mock()
+
+    MlflowClient().create_run(experiment_id, run_name="my name")
+
+    mock_store.create_run.assert_called_once_with(
+        experiment_id=experiment_id,
+        user_id="unknown",
+        start_time=int(mock_time * 1000),
+        tags=[],
+        run_name="my name",
     )
 
 
@@ -106,6 +121,7 @@ def test_client_create_run_overrides(mock_store):
     experiment_id = mock.Mock()
     user = mock.Mock()
     start_time = mock.Mock()
+    run_name = mock.Mock()
     tags = {
         MLFLOW_USER: user,
         MLFLOW_PARENT_RUN_ID: mock.Mock(),
@@ -116,13 +132,14 @@ def test_client_create_run_overrides(mock_store):
         "other-key": "other-value",
     }
 
-    MlflowClient().create_run(experiment_id, start_time, tags)
+    MlflowClient().create_run(experiment_id, start_time, tags, run_name)
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
         user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
+        run_name=run_name,
     )
     mock_store.reset_mock()
     MlflowClient().create_run(experiment_id, start_time, tags)
@@ -131,7 +148,16 @@ def test_client_create_run_overrides(mock_store):
         user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
+        run_name=None,
     )
+
+
+def test_client_set_terminated_no_change_name(mock_store):
+    experiment_id = mock.Mock()
+    run = MlflowClient().create_run(experiment_id, run_name="my name")
+    MlflowClient().set_terminated(run.info.run_id)
+    _, kwargs = mock_store.update_run_info.call_args
+    assert kwargs["run_name"] is None
 
 
 def test_client_search_runs_defaults(mock_store):

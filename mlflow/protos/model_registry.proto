@@ -399,7 +399,8 @@ message ModelVersion {
   // Tags: Additional metadata key-value pairs for this ``model_version``.
   repeated ModelVersionTag tags = 12;
 
-  // Run Link: Direct link to the run that generated this version
+  // Run Link: Direct link to the run that generated this version. This field is set at model version creation time
+  // only for model versions whose source run is from a tracking server that is different from the registry server.
   optional string run_link = 13;
 }
 

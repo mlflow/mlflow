@@ -75,3 +75,13 @@ a:focus {
 .ant-radio-button-wrapper-checked:first-child {
   color: #2374bb;
 }
+
+/**
+ * Antd compact mode overrides (hopefully this is removable soon™.
+ */
+.ant-alert,
+.ant-form,
+.ant-form-item,
+.ant-table {
+  font-size: 13px!important;
+}

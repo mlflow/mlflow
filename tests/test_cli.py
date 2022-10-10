@@ -23,6 +23,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -172,8 +173,9 @@ def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
         "user_id": "Anderson",
-        "start_time": int(time.time()),
-        "tags": {},
+        "start_time": get_current_time_millis(),
+        "tags": [],
+        "run_name": "name",
     }
     run = store.create_run(**config)
     if create_artifacts:
@@ -335,7 +337,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
 )
 def test_mlflow_models_serve(enable_mlserver):
     class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input):  # pylint: disable=unused-variable
+        def predict(self, context, model_input):
             return np.array([1, 2, 3])
 
     model = MyModel()

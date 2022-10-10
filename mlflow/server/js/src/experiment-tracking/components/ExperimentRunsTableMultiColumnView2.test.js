@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import {
   ExperimentRunsTableMultiColumnView2Impl,
   ModelsCellRenderer,
+  TagCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
 import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
 import { MemoryRouter as Router } from 'react-router-dom';
@@ -365,6 +366,158 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(setColumnDefsSpy).toHaveBeenCalledTimes(1);
   });
 
+  describe('handleRowSelected', () => {
+    // This will create ag-grid-like row node entity with setSelected mock function
+    const createGridNode = (data) => ({
+      data,
+      setSelected: jest.fn(),
+    });
+
+    let allNodes;
+    let rowsComponentInstance;
+
+    beforeEach(() => {
+      // Set of "all" rows living in the virtual agGrid row set.
+      // Rows 1 and 2 are children of row 0.
+      // Row 5 is child of row 4.
+      // Row 6 is child of row 5.
+      allNodes = [
+        /* 0 */ createGridNode({
+          runInfo: { run_uuid: '0' },
+          runDateInfo: {
+            isParent: true,
+            expanderOpen: true,
+            childrenIds: ['1', '2'],
+          },
+        }),
+        /* 1 */ createGridNode({ runInfo: { run_uuid: '1' } }),
+        /* 2 */ createGridNode({ runInfo: { run_uuid: '2' } }),
+        /* 3 */ createGridNode({ runInfo: { run_uuid: '3' } }),
+        /* 4 */ createGridNode({
+          runInfo: { run_uuid: '4' },
+          runDateInfo: {
+            isParent: true,
+            expanderOpen: true,
+            childrenIds: ['5'],
+          },
+        }),
+        /* 5 */ createGridNode({
+          runInfo: { run_uuid: '5' },
+          runDateInfo: {
+            isParent: true,
+            expanderOpen: true,
+            childrenIds: ['6'],
+          },
+        }),
+        /* 6 */ createGridNode({ runInfo: { run_uuid: '6' } }),
+        /* 7 */ createGridNode({ runInfo: { run_uuid: '7' } }),
+      ];
+
+      const rowsWrapper = shallow(<ExperimentRunsTableMultiColumnView2Impl {...commonProps} />);
+      rowsComponentInstance = rowsWrapper.instance();
+      rowsComponentInstance.prevSelectRunUuids = [];
+    });
+
+    test('should select children only if the selection has changed', () => {
+      // Initiate mock with selected rows count equal to previously selected rows (0)
+      const eventData = {
+        api: { getSelectedRows: () => [] },
+        node: {
+          isSelected: jest.fn(),
+        },
+      };
+
+      // Perform the action
+      rowsComponentInstance.handleRowSelected(eventData);
+
+      // Assert that the node has not been even checked for selection
+      expect(eventData.node.isSelected).not.toBeCalled();
+
+      // Initiate mock with selected rows count different than previously selected rows
+      const selectedEventData = {
+        api: { getSelectedRows: () => [{}, {}] },
+        node: {
+          isSelected: jest.fn(),
+        },
+        data: {},
+      };
+
+      // Perform the action
+      rowsComponentInstance.handleRowSelected(selectedEventData);
+
+      // Assert that the node has been even checked for selection
+      expect(selectedEventData.node.isSelected).toBeCalledTimes(1);
+    });
+    test('should properly calculate children marked for selection', () => {
+      // Initiate mock with newly selected row #0
+      rowsComponentInstance.handleRowSelected({
+        api: {
+          getSelectedRows: () => [{}, {}],
+          forEachNode: (fn) => allNodes.forEach(fn),
+        },
+        node: {
+          isSelected: () => true,
+        },
+        data: allNodes[0].data,
+      });
+
+      // Expect only children to be selected
+      expect(allNodes[0].setSelected).not.toBeCalled();
+      expect(allNodes[1].setSelected).toHaveBeenLastCalledWith(true, false, true);
+      expect(allNodes[2].setSelected).toHaveBeenLastCalledWith(true, false, true);
+      expect(allNodes[3].setSelected).not.toBeCalled();
+    });
+    test('should ensure that nested children are marked for selection', () => {
+      // Initiate mock with newly selected row #4
+      rowsComponentInstance.handleRowSelected({
+        api: {
+          getSelectedRows: () => [{}, {}],
+          forEachNode: (fn) => allNodes.forEach(fn),
+        },
+        node: {
+          isSelected: () => true,
+        },
+        data: allNodes[4].data,
+      });
+
+      // Expect only children to be selected
+      expect(allNodes[4].setSelected).not.toBeCalled();
+      expect(allNodes[5].setSelected).toHaveBeenLastCalledWith(true, false, true);
+      expect(allNodes[6].setSelected).toHaveBeenLastCalledWith(true, false, true);
+      expect(allNodes[7].setSelected).not.toBeCalled();
+    });
+    test('should unselect a subtree inside the selected tree', () => {
+      const api = {
+        getSelectedRows: () => [{}, {}],
+        forEachNode: (fn) => allNodes.forEach(fn),
+      };
+
+      // First, select row #4
+      rowsComponentInstance.handleRowSelected({
+        api,
+        node: {
+          isSelected: () => true,
+        },
+        data: allNodes[4].data,
+      });
+
+      // Then deselect row #5
+      rowsComponentInstance.handleRowSelected({
+        api,
+        node: {
+          isSelected: () => false,
+        },
+        data: allNodes[5].data,
+      });
+
+      // We should have one call for row #6 - first selecting, then deselecting
+      expect(allNodes[6].setSelected.mock.calls[0]).toEqual([true, false, true]);
+      expect(allNodes[6].setSelected.mock.calls[1]).toEqual([false, false, true]);
+      // Also we should have only one call for row #5 that selects it
+      expect(allNodes[5].setSelected.mock.calls).toEqual([[true, false, true]]);
+    });
+  });
+
   test('getColumnDefs should return columnDef after column check', () => {
     const expectedColumnNames = [
       undefined,
@@ -407,5 +560,22 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(paramColumnNames).toEqual(expectedParameterColumnNames);
     expect(tagColumnNames).toEqual(expectedTagColumnNames);
     expect(setColumnDefsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('should render tag that is a valid http(s) as clickable link', () => {
+    expect(TagCellRenderer({ value: 'https://some_url.com' })).toEqual(
+      <a href='https://some_url.com' target='_blank' rel='noreferrer'>
+        https://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'http://some_url.com' })).toEqual(
+      <a href='http://some_url.com' target='_blank' rel='noreferrer'>
+        http://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'some text' })).toEqual('some text');
+    expect(TagCellRenderer({ value: 'some text https://some_url.com' })).toEqual(
+      'some text https://some_url.com',
+    );
   });
 });

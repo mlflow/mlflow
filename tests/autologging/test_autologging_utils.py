@@ -109,7 +109,7 @@ log_test_args = [
 ]
 
 
-@pytest.mark.parametrize("args,kwargs,expected", log_test_args)
+@pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
 def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
@@ -750,7 +750,7 @@ _module_version_info_dict_patch = {
 
 
 @pytest.mark.parametrize(
-    "flavor,module_version,expected_result",
+    ("flavor", "module_version", "expected_result"),
     [
         ("fastai", "2.4.1", True),
         ("fastai", "2.3.1", False),
@@ -789,7 +789,7 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
 
 
 @pytest.mark.parametrize(
-    "flavor,module_version,expected_result",
+    ("flavor", "module_version", "expected_result"),
     [
         ("pyspark.ml", "3.10.1.dev0", False),
         ("pyspark.ml", "3.3.0.dev0", True),

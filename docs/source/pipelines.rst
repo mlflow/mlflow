@@ -12,10 +12,10 @@ ML engineers and DevOps teams to seamlessly deploy these models to production an
 into applications.
 
 MLflow Pipelines provides production-quality :ref:`Pipeline Templates <pipeline-templates>` for
-common ML problem types, such as regression & classification, and MLOps tasks, such as batch
-scoring. Pipelines are structured as git repositories with YAML-based configuration files and
-Python code, offering developers a declarative approach to ML application development that reduces
-boilerplate.
+common ML problem types, such as regression & classification (not yet available, upcoming),
+and MLOps tasks, such as batch scoring. Pipelines are structured as git repositories with
+YAML-based configuration files and Python code, offering developers a declarative approach
+to ML application development that reduces boilerplate.
 
 MLflow Pipelines also implements a cache-aware executor for :ref:`Pipeline Steps
 <steps-key-concept>`, ensuring that steps are only executed when associated :py:ref:`code or
@@ -33,7 +33,6 @@ from PyPI as follows:
 .. code-block:: sh
 
     pip install mlflow[pipelines]  # for pip
-    conda install -c conda-forge mlflow-pipelines  # for conda
 
 .. note::
   MLflow Pipelines requires Make, which may not be preinstalled on some systems (e.g. Windows).
@@ -208,6 +207,7 @@ The main components of the pipeline repository layout, which are common across a
       transform:
         transformer_method: steps.transform.transformer_fn
       train:
+        using: estimator_spec
         estimator_method: steps.train.estimator_fn
       evaluate:
         validation_criteria:

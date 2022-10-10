@@ -110,10 +110,12 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  outputs should be stored.
         :return: None
         """
+        _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
         try:
             self._update_status(status=StepStatus.RUNNING, output_directory=output_directory)
+            self._validate_and_apply_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
         except Exception:
@@ -160,6 +162,15 @@ class BaseStep(metaclass=abc.ABCMeta):
         :param output_directory: String file path to the directory where step outputs
                                  should be stored.
         :return: A BaseCard containing step execution information.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _validate_and_apply_step_config(self) -> None:
+        """
+        This function is responsible for validating and loading the step config for
+        a particular step. It is invoked by the internal step runner.
         """
         pass
 
@@ -320,6 +331,7 @@ class BaseStep(metaclass=abc.ABCMeta):
     def _generate_worst_examples_dataframe(
         dataframe,
         predictions,
+        error,
         target_col,
         worst_k=10,
     ):
@@ -332,7 +344,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         import numpy as np
 
         predictions = np.array(predictions)
-        abs_error = np.absolute(predictions - dataframe[target_col].to_numpy())
+        abs_error = np.absolute(error)
         worst_k_indexes = np.argsort(abs_error)[::-1][:worst_k]
         result_df = dataframe.iloc[worst_k_indexes].assign(
             prediction=predictions[worst_k_indexes],

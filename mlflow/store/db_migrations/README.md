@@ -3,7 +3,7 @@
 This directory contains configuration scripts and database migration logic for MLflow tracking
 databases, using the Alembic migration library (https://alembic.sqlalchemy.org). To run database
 migrations, use the ``mlflow db upgrade`` CLI command. To add and modify database migration logic,
-see the contributor guide at https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst.
+see the contributor guide at https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md.
 
 If you encounter failures while executing migrations, please file a GitHub issue at
 https://github.com/mlflow/mlflow/issues.

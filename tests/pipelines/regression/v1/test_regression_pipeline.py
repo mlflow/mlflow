@@ -27,8 +27,8 @@ def test_create_pipeline_works(enter_pipeline_example_directory):
 
 
 @pytest.mark.parametrize(
-    "pipeline_name,profile",
-    [("name_a", "local"), ("", "local"), ("sklearn_regression", "profile_a")],
+    ("pipeline_name", "profile"),
+    [("name_a", "local"), ("", "local"), ("sklearn_regression_example", "profile_a")],
 )
 def test_create_pipeline_fails_with_invalid_input(
     pipeline_name, profile, enter_pipeline_example_directory
@@ -54,3 +54,22 @@ def test_pipeline_run_and_clean_individual_step_works(step, create_pipeline):
     p = create_pipeline
     p.run(step)
     p.clean(step)
+
+
+def test_get_subgraph_for_target_step(create_pipeline):
+    p = create_pipeline
+    train_subgraph = p._get_subgraph_for_target_step(p._get_step("ingest"))
+    for step, expected_step_name in zip(
+        train_subgraph, ["ingest", "split", "transform", "train", "evaluate", "register"]
+    ):
+        assert step.name == expected_step_name
+    for step in ["split", "transform", "train", "evaluate", "register"]:
+        target_step = p._get_step(step)
+        assert p._get_subgraph_for_target_step(target_step) == train_subgraph
+
+    scoring_subgraph = p._get_subgraph_for_target_step(p._get_step("ingest_scoring"))
+    for step, expected_step_name in zip(scoring_subgraph, ["ingest_scoring", "predict"]):
+        assert step.name == expected_step_name
+    for step in ["predict"]:
+        target_step = p._get_step(step)
+        assert p._get_subgraph_for_target_step(target_step) == scoring_subgraph

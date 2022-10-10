@@ -28,6 +28,7 @@ import yaml
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -75,8 +76,6 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "spark"
 
-# Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 
@@ -232,7 +231,7 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB),
+        append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -386,7 +385,7 @@ class _HadoopFileSystem:
         return False
 
     @classmethod
-    def maybe_copy_from_uri(cls, src_uri, dst_path):
+    def maybe_copy_from_uri(cls, src_uri, dst_path, local_model_path=None):
         """
         Conditionally copy the file to the Hadoop DFS from the source uri.
         In case the file is already on the Hadoop DFS do nothing.
@@ -402,7 +401,9 @@ class _HadoopFileSystem:
         except Exception:
             _logger.info("URI '%s' does not point to the current DFS.", src_uri)
         _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
-        return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
+        return cls.maybe_copy_from_local_file(
+            local_model_path or _download_artifact_from_uri(src_uri), dst_path
+        )
 
     @classmethod
     def delete(cls, path):
@@ -653,7 +654,7 @@ def save_model(
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
-        dfs_tmpdir = DFS_TMP
+        dfs_tmpdir = MLFLOW_DFS_TMP.get()
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
@@ -720,16 +721,16 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or DFS_TMP)
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
         )
-    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
+    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
     return PipelineModel.load(model_uri)
 
 
-def load_model(model_uri, dfs_tmpdir=None):
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     """
     Load the Spark MLlib model from the path.
 
@@ -748,6 +749,9 @@ def load_model(model_uri, dfs_tmpdir=None):
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model is loaded from this
                        destination. Defaults to ``/tmp/mlflow``.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
     :return: pyspark.ml.pipeline.PipelineModel
 
     .. code-block:: python
@@ -777,9 +781,10 @@ def load_model(model_uri, dfs_tmpdir=None):
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-    model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(model_uri)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    local_mlflow_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path
+    )
+    _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
     if _should_use_mlflowdbfs(model_uri):
         from pyspark.ml.pipeline import PipelineModel
@@ -792,8 +797,12 @@ def load_model(model_uri, dfs_tmpdir=None):
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
+    sparkml_model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_sparkml_model_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
     return _load_model(
-        model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir, local_model_path=local_model_path
+        model_uri=sparkml_model_uri,
+        dfs_tmpdir_base=dfs_tmpdir,
+        local_model_path=local_sparkml_model_path,
     )
 
 

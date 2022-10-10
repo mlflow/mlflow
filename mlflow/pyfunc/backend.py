@@ -1,13 +1,20 @@
 import logging
 import os
+import pathlib
 import subprocess
 import posixpath
 import sys
 import warnings
 
-
 from mlflow.models import FlavorBackend
-from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
+from mlflow.models.docker_utils import (
+    _build_image,
+    _generate_dockerfile_content,
+    DISABLE_ENV_CREATION,
+    SETUP_MINICONDA,
+    SETUP_PYENV_AND_VIRTUALENV,
+    _get_mlflow_install_step,
+)
 from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.pyfunc import ENV, scoring_server, mlserver
 
@@ -21,8 +28,8 @@ from mlflow.utils.virtualenv import (
     _execute_in_virtualenv,
     _get_pip_install_mlflow,
 )
-from mlflow.version import VERSION
 
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -282,12 +289,75 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
+    def generate_dockerfile(
+        self,
+        model_uri,
+        output_path="mlflow-dockerfile",
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+    ):
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
+
+        mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
+
+        is_conda = self._env_manager == _EnvManager.CONDA
+        setup_miniconda = ""
+        setup_pyenv_and_virtualenv = ""
+
+        if is_conda:
+            setup_miniconda = SETUP_MINICONDA
+        else:
+            setup_pyenv_and_virtualenv = SETUP_PYENV_AND_VIRTUALENV
+
+        os.makedirs(output_path, exist_ok=True)
+
+        _logger.debug("Created all folders in path", extra={"output_directory": output_path})
+        install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
+
+        custom_setup_steps = copy_model_into_container(output_path)
+
+        dockerfile_text = _generate_dockerfile_content(
+            setup_miniconda=setup_miniconda,
+            setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
+            install_mlflow=install_mlflow,
+            custom_setup_steps=custom_setup_steps,
+            entrypoint=pyfunc_entrypoint,
+        )
+        _logger.debug("generated dockerfile text", extra={"dockerfile": dockerfile_text})
+
+        with open(os.path.join(output_path, "Dockerfile"), "w") as dockerfile:
+            dockerfile.write(dockerfile_text)
+
     def build_image(
         self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
     ):
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
+        _build_image(
+            image_name=image_name,
+            mlflow_home=mlflow_home,
+            env_manager=self._env_manager,
+            custom_setup_steps_hook=copy_model_into_container,
+            entrypoint=pyfunc_entrypoint,
+        )
+
+    def copy_model_into_container_wrapper(self, model_uri, install_mlflow, enable_mlserver):
         def copy_model_into_container(dockerfile_context_dir):
+            # This function have to be included in another,
+            # since `_build_image` function in `docker_utils` accepts only
+            # single-argument function like this
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
-            os.mkdir(model_cwd)
+            pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
             if model_uri:
                 model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
                 return """
@@ -319,39 +389,37 @@ class PyFuncBackend(FlavorBackend):
                     enable_mlserver=repr(enable_mlserver),
                 )
 
-        if model_uri:
-            # The pyfunc image runs the same server as the Sagemaker image
-            pyfunc_entrypoint = (
-                'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
-                f'C._serve({repr(self._env_manager)})"]'
-            )
-        else:
-            entrypoint_code = "; ".join(
-                [
-                    "from mlflow.models import container as C",
-                    "from mlflow.models.container import _install_pyfunc_deps",
-                    (
-                        "_install_pyfunc_deps("
-                        + '"/opt/ml/model", '
-                        + f"install_mlflow={install_mlflow}, "
-                        + f"enable_mlserver={enable_mlserver}, "
-                        + f'env_manager="{self._env_manager}"'
-                        + ")"
-                    ),
-                    'C._serve("{env_manager}")'.format(env_manager=self._env_manager),
-                ]
-            )
-            pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(
-                entrypoint_code=entrypoint_code.replace('"', '\\"')
-            )
+        return copy_model_into_container
 
-        _build_image(
-            image_name=image_name,
-            mlflow_home=mlflow_home,
-            env_manager=self._env_manager,
-            custom_setup_steps_hook=copy_model_into_container,
-            entrypoint=pyfunc_entrypoint,
+
+def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
+    if model_uri:
+        # The pyfunc image runs the same server as the Sagemaker image
+        pyfunc_entrypoint = (
+            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
+            f'C._serve({repr(env_manager)})"]'
         )
+    else:
+        entrypoint_code = "; ".join(
+            [
+                "from mlflow.models import container as C",
+                "from mlflow.models.container import _install_pyfunc_deps",
+                (
+                    "_install_pyfunc_deps("
+                    + '"/opt/ml/model", '
+                    + f"install_mlflow={install_mlflow}, "
+                    + f"enable_mlserver={enable_mlserver}, "
+                    + f'env_manager="{env_manager}"'
+                    + ")"
+                ),
+                'C._serve("{env_manager}")'.format(env_manager=env_manager),
+            ]
+        )
+        pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(
+            entrypoint_code=entrypoint_code.replace('"', '\\"')
+        )
+
+    return pyfunc_entrypoint
 
 
 def _execute_in_conda_env(

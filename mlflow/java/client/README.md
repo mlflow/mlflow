@@ -157,6 +157,7 @@ public class QuickStartDriver {
     // Get run details
     Run run = client.getRun(runId);
     System.out.println("GetRun: " + run);
+    client.close();
   }
 }
 ```

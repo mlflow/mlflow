@@ -3,12 +3,11 @@
  * highlight tree nodes while user type in a search prefix.
  */
 import React from 'react';
-import { Input, Tree } from 'antd';
+import { Input, Tree, Search1Icon } from '@databricks/design-system';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { injectIntl } from 'react-intl';
 
-const { Search } = Input;
 export const NodeShape = {
   // display name of the node
   title: PropTypes.string.isRequired,
@@ -119,12 +118,14 @@ export class SearchTreeImpl extends React.Component {
           title,
           children: this.renderTreeNodes(item.children),
           'data-test-id': item.key,
+          'data-testid': 'tree-node',
         };
       }
       return {
         key: item.key,
         title,
         'data-test-id': item.key,
+        'data-testid': 'tree-node',
       };
     });
   };
@@ -134,8 +135,8 @@ export class SearchTreeImpl extends React.Component {
     const { expandedKeys, autoExpandParent, searchValue } = this.state;
     return (
       <div>
-        <Search
-          style={{ marginBottom: 8 }}
+        <Input
+          css={{ marginBottom: 8 }}
           placeholder={intl.formatMessage({
             defaultMessage: 'Search',
             description:
@@ -145,6 +146,7 @@ export class SearchTreeImpl extends React.Component {
           value={searchValue}
           onChange={this.handleSearch}
           onKeyUp={this.handleSearchInputKeyUp}
+          prefix={<Search1Icon />}
         />
         <Tree
           checkable

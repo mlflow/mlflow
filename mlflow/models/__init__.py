@@ -21,10 +21,16 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 
-from .model import Model
+from .model import Model, get_model_info
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
-from .evaluation import evaluate, EvaluationArtifact, EvaluationResult, list_evaluators
+from .evaluation import (
+    evaluate,
+    EvaluationArtifact,
+    EvaluationResult,
+    list_evaluators,
+    MetricThreshold,
+)
 
 __all__ = [
     "Model",
@@ -33,7 +39,9 @@ __all__ = [
     "evaluate",
     "EvaluationArtifact",
     "EvaluationResult",
+    "get_model_info",
     "list_evaluators",
+    "MetricThreshold",
 ]
 
 
@@ -41,12 +49,15 @@ __all__ = [
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
     from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
-    from .utils import ModelInputExample  # pylint: disable=unused-import
+    from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
+    from .utils import add_libraries_to_model  # pylint: disable=unused-import
 
     __all__ += [
         "ModelSignature",
         "ModelInputExample",
         "infer_signature",
+        "validate_schema",
+        "add_libraries_to_model",
     ]
 except ImportError:
     pass

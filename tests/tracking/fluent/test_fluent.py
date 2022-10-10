@@ -6,7 +6,6 @@ import os
 import random
 import uuid
 import inspect
-import time
 
 import pytest
 from unittest import mock
@@ -45,6 +44,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.tracking.integration_test_utils import _init_server
 from tests.helper_functions import multi_context
@@ -100,20 +100,14 @@ def create_run(
     )
 
 
-def create_test_runs_and_expected_data(search_runs_output_format, experiment_id=None):
+def create_test_runs_and_expected_data(experiment_id=None):
     """Create a pair of runs and a corresponding data to expect when runs are searched
     for the same experiment
 
     :return: (list, dict)
     """
-    start_times = [
-        get_search_runs_timestamp(search_runs_output_format),
-        get_search_runs_timestamp(search_runs_output_format),
-    ]
-    end_times = [
-        get_search_runs_timestamp(search_runs_output_format),
-        get_search_runs_timestamp(search_runs_output_format),
-    ]
+    start_times = [get_current_time_millis(), get_current_time_millis()]
+    end_times = [get_current_time_millis(), get_current_time_millis()]
     exp_id = experiment_id or "123"
     runs = [
         create_run(
@@ -471,9 +465,9 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run()
+        active_run = start_run(run_name="my name")
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, run_name="my name"
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -547,7 +541,7 @@ def test_start_run_defaults_databricks_notebook(
     ):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -607,7 +601,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
     ):
         active_run = start_run(tags=user_specified_tags)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -656,7 +650,7 @@ def test_start_run_with_parent():
     ):
         active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -792,7 +786,7 @@ def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=
     ):
         active_run = start_run(description=description)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags, run_name=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -860,24 +854,15 @@ def validate_search_runs(results, data, output_format):
         import pandas as pd
 
         expected_df = pd.DataFrame(data)
+        expected_df["start_time"] = pd.to_datetime(expected_df["start_time"], unit="ms", utc=True)
+        expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
     else:
         raise Exception("Invalid output format %s" % output_format)
 
 
-def get_search_runs_timestamp(output_format):
-    if output_format == "list":
-        return time.time()
-    elif output_format == "pandas":
-        import pandas as pd
-
-        return pd.to_datetime(0, utc=True)
-    else:
-        raise Exception("Invalid output format %s" % output_format)
-
-
 def test_search_runs_attributes(search_runs_output_format):
-    runs, data = create_test_runs_and_expected_data(search_runs_output_format)
+    runs, data = create_test_runs_and_expected_data()
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs(output_format=search_runs_output_format)
         validate_search_runs(pdf, data, search_runs_output_format)
@@ -934,7 +919,7 @@ def test_search_runs_by_experiment_name():
     name = f"Random experiment {random.randint(1, 1e6)}"
     exp_id = uuid.uuid4().hex
     experiment = create_experiment(experiment_id=exp_id, name=name)
-    runs, data = create_test_runs_and_expected_data("pandas", exp_id)
+    runs, data = create_test_runs_and_expected_data(exp_id)
 
     get_experiment_patch = mock.patch(
         "mlflow.tracking.fluent.get_experiment_by_name", return_value=experiment

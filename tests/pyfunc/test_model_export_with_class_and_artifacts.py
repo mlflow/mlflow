@@ -1,6 +1,7 @@
 import cloudpickle
 import os
 import json
+import sys
 from subprocess import Popen, PIPE
 from unittest import mock
 
@@ -1090,3 +1091,21 @@ def predict():
     assert loaded_model1.predict(model_input) == 1
     loaded_model2 = mlflow.pyfunc.load_model(model_info2.model_uri)
     assert loaded_model2.predict(model_input) == 2
+
+
+def test_model_with_code_path_containing_main(tmp_path):
+    """Test that the __main__ module is unaffected by model loading"""
+    directory = tmp_path.joinpath("model_with_main")
+    directory.mkdir()
+    main = directory.joinpath("__main__.py")
+    main.write_text("# empty main")
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            code_path=[str(directory)],
+        )
+
+    assert "__main__" in sys.modules
+    mlflow.pyfunc.load_model(model_info.model_uri)
+    assert "__main__" in sys.modules

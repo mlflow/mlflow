@@ -8,7 +8,7 @@ export const ErrorCodes = {
   PERMISSION_DENIED: 'PERMISSION_DENIED',
 };
 
-export const Version = '1.28.1.dev0';
+export const Version = '1.29.1.dev0';
 
 const DOCS_VERSION = 'latest';
 
@@ -30,7 +30,7 @@ export const RegisteringModelDocUrl =
 
 export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-syntax.html`;
+export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const ExperimentTrackingDocUrl = `${DOCS_ROOT}/tracking.html`;
 

@@ -82,7 +82,7 @@ MOCK_PYPI_API_RESPONSES = {
 
 
 @pytest.mark.parametrize(
-    "flavors, expected",
+    ("flavors", "expected"),
     [
         ("foo", {"foo"}),
         ("foo,bar", {"foo", "bar"}),
@@ -101,7 +101,7 @@ def test_flavors(flavors, expected):
 
 
 @pytest.mark.parametrize(
-    "versions, expected",
+    ("versions", "expected"),
     [
         ("1.0.0", {"1.0.0"}),
         ("1.0.0,1.1.1", {"1.0.0", "1.1.1"}),

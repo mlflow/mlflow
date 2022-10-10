@@ -515,6 +515,8 @@ module.exports = {
         // By using "auto" JSX runtime in TS, we have react automatically injected and
         // adding "React" manually results in TS(6133) error
         'react/react-in-jsx-scope': 'off',
+
+        '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^oss_' }],
       },
     },
     {

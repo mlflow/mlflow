@@ -301,6 +301,9 @@ and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager fo
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
 with no active run automatically starts a new one.
 
+.. note::
+  - If the argument ``run_name`` is not set within :py:func:`mlflow.start_run`, a unique run name will be generated for each run.
+
 :py:func:`mlflow.end_run` ends the currently active run, if any, taking an optional run status.
 
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
@@ -746,7 +749,7 @@ The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` funct
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
 
-.. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
+.. important:: Do not use the prefix ``mlflow.`` (e.g. ``mlflow.note``) for a tag.  This prefix is reserved for use by MLflow. See :ref:`system_tags` for a list of reserved tag keys.
 
 .. _tracking_ui:
 
@@ -923,7 +926,7 @@ Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as
-`MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
+`MinIO <https://min.io/>`_ or `Digital Ocean Spaces <https://www.digitalocean.com/products/spaces>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
 these are available. For more information on how to set credentials, see
@@ -938,8 +941,13 @@ For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1
 
 For a list of available extra args see `Boto3 ExtraArgs Documentation <https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter>`_.
 
-To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
-For example, if you have a MinIO server at 1.2.3.4 on port 9000:
+To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. For example, if you are using Digital Ocean Spaces:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_ENDPOINT_URL=https://<region>.digitaloceanspaces.com
+
+If you have a MinIO server at 1.2.3.4 on port 9000:
 
 .. code-block:: bash
 
@@ -1240,8 +1248,6 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
-| ``mlflow.runName``            | Human readable name that identifies this run.                                          |
-+-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
 |                               | be overridden by the user to include additional information about the run. The content |
 |                               | is displayed on the run's page under the Notes section.                                |

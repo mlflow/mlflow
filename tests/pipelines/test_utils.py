@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import shutil
@@ -41,10 +42,12 @@ def test_get_pipeline_name_returns_correctly_for_valid_pipeline_directory(
 ):
     pipeline_root_path = enter_pipeline_example_directory
     assert pathlib.Path.cwd() == pipeline_root_path
-    assert get_pipeline_name() == "sklearn_regression"
+    assert get_pipeline_name() == "sklearn_regression_example"
 
     with chdir(tmp_path):
-        assert get_pipeline_name(pipeline_root_path=pipeline_root_path) == "sklearn_regression"
+        assert (
+            get_pipeline_name(pipeline_root_path=pipeline_root_path) == "sklearn_regression_example"
+        )
 
 
 def test_get_pipeline_name_throws_for_invalid_pipeline_directory(tmp_path):
@@ -79,6 +82,60 @@ def test_get_pipeline_config_returns_correctly_for_valid_pipeline_directory(
         assert (
             get_pipeline_config(pipeline_root_path=test_pipeline_root_path) == test_pipeline_config
         )
+
+
+def test_get_pipeline_config_for_pipeline_directory_referencing_external_json(
+    enter_pipeline_example_directory, tmp_path
+):
+    pipeline_root_path = enter_pipeline_example_directory
+    test_pipeline_root_path = tmp_path / "test_pipeline"
+    shutil.copytree(pipeline_root_path, test_pipeline_root_path)
+
+    test_pipeline_config = {
+        "config1": 10,
+        "config2": {
+            "subconfig": ["A"],
+        },
+        "config3": "3",
+        "config_from_profile": "{{PROFILE_CONFIG}}",
+    }
+    write_yaml(test_pipeline_root_path, "pipeline.yaml", test_pipeline_config, overwrite=True)
+
+    # Write a profiles/test.yaml file that references keys in an external JSON file
+    test_profile_name = "test"
+    profile_contents = {
+        "PROFILE_CONFIG": """{{ ("example-json.json" | from_json)["my-key"]["nested-key"] }}"""
+    }
+    profiles_dir = os.path.join(test_pipeline_root_path, "profiles")
+    if not os.path.exists(profiles_dir):
+        os.mkdir(profiles_dir)
+    write_yaml(
+        test_pipeline_root_path,
+        f"profiles/{test_profile_name}.yaml",
+        profile_contents,
+        overwrite=True,
+    )
+
+    # Write the external JSON file
+    value_from_json = "my-value-from-external-json"
+    example_json = {
+        "my-key": {
+            "nested-key": value_from_json,
+        },
+    }
+    with open(os.path.join(test_pipeline_root_path, "example-json.json"), "w") as handle:
+        handle.write(json.dumps(example_json))
+    # Load pipeline config and assert correctness
+    expected_config = {}
+    expected_config.update(test_pipeline_config)
+    expected_config.update(
+        {
+            "config_from_profile": value_from_json,
+            "PROFILE_CONFIG": value_from_json,
+        }
+    )
+    with chdir(test_pipeline_root_path):
+        assert get_pipeline_config(profile=test_profile_name) == expected_config
 
 
 def test_get_pipeline_config_throws_for_invalid_pipeline_directory(tmp_path):

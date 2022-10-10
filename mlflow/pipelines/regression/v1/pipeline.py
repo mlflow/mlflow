@@ -14,7 +14,7 @@ The training pipeline contains the following sequential steps:
 
 The batch scoring pipeline contains the following sequential steps:
 
-**ingest** -> **predict**
+**ingest_scoring** -> **predict**
 
 The pipeline steps are defined as follows:
 
@@ -61,6 +61,11 @@ The pipeline steps are defined as follows:
         performance metrics, and lineage information are logged to MLflow Tracking, producing
         an MLflow Run.
 
+            .. note::
+                The **train** step supports hyperparameter tuning with hyperopt by adding 
+                configurations in the 
+                |'tuning' section of the 'train' step definition in pipeline.yaml|. 
+
    - **evaluate**
       - The **evaluate** step evaluates the model pipeline created by the **train** step on
         the test dataset output from the **split** step, computing performance metrics and
@@ -91,14 +96,32 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
-    - **predict**
-      - The **predict** step
+   - **ingest_scoring**
+      - The **ingest_scoring** step resolves the dataset specified by the 
+        |'data/scoring' section in pipeline.yaml| and converts it to parquet format, leveraging 
+        the custom dataset parsing code defined in |steps/ingest.py| if necessary. 
+    
+            .. note::
+                If you make changes to the dataset referenced by the **ingest_scoring** step 
+                (e.g. by adding new records or columns), you must manually re-run the 
+                **ingest_scoring** step in order to use the updated dataset in the pipeline. 
+                The **ingest_scoring** step does *not* automatically detect changes in the dataset.
+    
+   - **predict**
+      - The **predict** step uses the ingested dataset for scoring created by the
+        **ingest_scoring** step and applies the specified model to the dataset.
+
+            .. note::
+                In Databricks, the **predict** step writes the output parquet/delta files to
+                DBFS.
 
 .. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L36-L40>`__
 .. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L57-L63>`__
 .. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
+.. |'data/scoring' section in pipeline.yaml| replace:: `'data/scoring' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/f36f3db0f384ab0166789f1978f2b25fa695745c/pipeline.yaml#L34-L38>`__
 .. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L64-L73>`__
 .. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L47-L56>`__
+.. |'tuning' section of the 'train' step definition in pipeline.yaml| replace:: `'tuning' section of the 'train' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/d4ac7ee6ba7649f0d07138565e02402cd7a260c4/pipeline.yaml#L57-L78>`__
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/split.py>`__
 .. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/train.py>`__
@@ -122,7 +145,10 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import (
+    PredictStep,
+    _SCORED_OUTPUT_FILE_NAME,
+)
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
@@ -171,10 +197,8 @@ class RegressionPipeline(_BasePipeline):
         regression_pipeline.inspect(step="evaluate")
     """
 
-    _PIPELINE_STEPS = (
-        # Batch scoring DAG
-        IngestScoringStep,
-        PredictStep,
+    _TRAIN_DAG_NAME = "train_dag"
+    _TRAIN_DAG_STEPS = (
         # Training data ingestion DAG
         IngestStep,
         # Model training DAG
@@ -185,8 +209,46 @@ class RegressionPipeline(_BasePipeline):
         RegisterStep,
     )
 
-    def _get_step_classes(self) -> List[BaseStep]:
+    _SCORING_DAG_NAME = "scoring_dag"
+    _SCORING_DAG_STEPS = (
+        # Batch scoring DAG
+        IngestScoringStep,
+        PredictStep,
+    )
+
+    _PIPELINE_STEPS = _TRAIN_DAG_STEPS + _SCORING_DAG_STEPS
+
+    _STEPS_SUBGRAPH_MAP = dict()
+    for _step_class in _TRAIN_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _TRAIN_DAG_NAME
+    for _step_class in _SCORING_DAG_STEPS:
+        _STEPS_SUBGRAPH_MAP[_step_class] = _SCORING_DAG_NAME
+
+    _SUBGRAPH_INDICES_MAP = {
+        _TRAIN_DAG_NAME: (
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[0]),
+            _PIPELINE_STEPS.index(_TRAIN_DAG_STEPS[-1]),
+        ),
+        _SCORING_DAG_NAME: (
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[0]),
+            _PIPELINE_STEPS.index(_SCORING_DAG_STEPS[-1]),
+        ),
+    }
+
+    _DEFAULT_STEP_INDEX = _PIPELINE_STEPS.index(RegisterStep)
+
+    def _get_step_classes(self):
         return self._PIPELINE_STEPS
+
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+        target_step_class = type(target_step)
+
+        subgraph_name = self._STEPS_SUBGRAPH_MAP[target_step_class]
+        s, e = self._SUBGRAPH_INDICES_MAP[subgraph_name]
+        return self._steps[s : e + 1]
+
+    def _get_default_step(self) -> BaseStep:
+        return self._steps[self._DEFAULT_STEP_INDEX]
 
     def _get_pipeline_dag_file(self) -> str:
         import jinja2
@@ -442,14 +504,14 @@ class RegressionPipeline(_BasePipeline):
         import mlflow.pyfunc
 
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         def log_artifact_not_found_warning(artifact_name, step_name):
@@ -547,6 +609,10 @@ class RegressionPipeline(_BasePipeline):
         elif artifact_name == "scored_data":
             return read_dataframe_from_path(artifact_path, predict_step.name)
 
+        elif artifact_name == "best_parameters":
+            if os.path.exists(artifact_path):
+                return open(artifact_path).read()
+
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
@@ -559,14 +625,14 @@ class RegressionPipeline(_BasePipeline):
         corresponding pipeline step has been run.
         """
         (
-            ingest_scoring_step,
-            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
+            ingest_scoring_step,
+            predict_step,
         ) = self._steps
 
         if artifact_name == "ingested_data":
@@ -617,6 +683,9 @@ class RegressionPipeline(_BasePipeline):
                 self._pipeline_root_path, predict_step.name, ""
             )
             return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
+        elif artifact_name == "best_parameters":
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+            return os.path.join(train_output_dir, "best_parameters.yaml")
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",

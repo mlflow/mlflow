@@ -36,7 +36,7 @@ class __DummyClass:
 
 
 @pytest.mark.parametrize(
-    "is_file,artifact,artifact_type,ext",
+    ("is_file", "artifact", "artifact_type", "ext"),
     [
         (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "png"),
         (True, lambda path: plt.figure().savefig(path), ImageEvaluationArtifact, "jpg"),

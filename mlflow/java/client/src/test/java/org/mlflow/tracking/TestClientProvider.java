@@ -28,6 +28,8 @@ public class TestClientProvider {
 
   private Process serverProcess;
 
+  private MlflowClient client;
+
   /**
    * Intializes an MLflow client and, if necessary, a local MLflow server process as well.
    * Callers should always call {@link #cleanupClientAndServer()}.
@@ -40,7 +42,8 @@ public class TestClientProvider {
     String trackingUri = System.getenv("MLFLOW_TRACKING_URI");
     if (trackingUri != null) {
       logger.info("MLFLOW_TRACKING_URI was set, test will run against that server");
-      return new MlflowClient(trackingUri);
+      client = new MlflowClient(trackingUri);
+      return client;
     } else {
       Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
       String mlruns = tempDir.resolve("mlruns").toString();
@@ -56,7 +59,8 @@ public class TestClientProvider {
     String trackingUri = System.getenv("MLFLOW_TRACKING_URI");
     if (trackingUri != null) {
       logger.info("MLFLOW_TRACKING_URI was set, test will run against that server");
-      return new MlflowClient(trackingUri);
+      client = new MlflowClient(trackingUri);
+      return client;
     } else {
       Path tempDir = Files.createTempDirectory(getClass().getSimpleName());
       String tempDBFile = tempDir.resolve("sqldb").toAbsolutePath().toString();
@@ -70,6 +74,9 @@ public class TestClientProvider {
    * not initialized successfully.
    */
   public void cleanupClientAndServer() throws InterruptedException {
+    if (client != null) {
+      client.close();
+    }
     if (serverProcess == null) {
       return;
     }
@@ -142,7 +149,8 @@ public class TestClientProvider {
         + MAX_SERVER_WAIT_TIME_MILLIS + " milliseconds.");
     }
 
-    return new MlflowClient("http://" + bindAddress + ":" + freePort);
+    client = new MlflowClient("http://" + bindAddress + ":" + freePort);
+    return client;
   }
 
   /** Launches a new daemon Thread to drain the given InputStream into the given OutputStream. */

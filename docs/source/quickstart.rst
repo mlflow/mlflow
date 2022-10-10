@@ -48,7 +48,8 @@ You install MLflow by running:
     When using MLflow skinny, you may need to install additional dependencies if you wish to use
     certain MLflow modules and functionalities. For example, usage of SQL-based storage for
     MLflow Tracking (e.g. ``mlflow.set_tracking_uri("sqlite:///my.db")``) requires
-    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
+    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``. If using MLflow skinny for serving,
+    a minimally functional installation would require ``pip install mlflow-skinny flask``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.

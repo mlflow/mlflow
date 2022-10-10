@@ -38,7 +38,9 @@ from tests.helper_functions import (
     get_safe_port,
     pyfunc_serve_and_score_model,
     PROTOBUF_REQUIREMENT,
+    pyfunc_generate_dockerfile,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
@@ -414,6 +416,29 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
+def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
+    with mlflow.start_run() as active_run:
+        if enable_mlserver:
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
+        else:
+            mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+    extra_args = ["--install-mlflow"]
+    if enable_mlserver:
+        extra_args.append("--enable-mlserver")
+
+    output_directory = tmp_path.joinpath("output_directory")
+    pyfunc_generate_dockerfile(output_directory, model_uri, extra_args=extra_args)
+    assert output_directory.is_dir()
+    assert output_directory.joinpath("Dockerfile").exists()
+    assert output_directory.joinpath("model_dir").is_dir()
+    # Assert file is not empty
+    assert output_directory.joinpath("Dockerfile").stat().st_size != 0
+
+
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -493,7 +518,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
 
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
-    with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
+    with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
@@ -553,7 +578,7 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
+    with pytest.raises(MlflowException, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
             ["--model-uri", "model", "--env-manager", "abc"],

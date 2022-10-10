@@ -6,9 +6,8 @@ import json
 import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
-from tabulate import tabulate
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
+from mlflow.utils.string_utils import _create_table
 
 RUN_ID = click.option("--run-id", type=click.STRING, required=True)
 
@@ -46,9 +45,9 @@ def list_run(experiment_id, view):
     runs = store.search_runs([experiment_id], None, view_type)
     table = []
     for run in runs:
-        run_name = run.data.tags.get(MLFLOW_RUN_NAME, "")
+        run_name = run.info.run_name or ""
         table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
-    click.echo(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
+    click.echo(_create_table(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
 @commands.command("delete")

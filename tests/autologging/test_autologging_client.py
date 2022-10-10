@@ -90,7 +90,7 @@ def test_client_logs_expected_run_data():
     }
     metrics_to_log = {"metric_key_{}".format(i): i for i in range((4 * MAX_METRICS_PER_BATCH) + 1)}
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run(run_name="my name") as run:
         client.log_params(run_id=run.info.run_id, params=params_to_log)
         client.set_tags(run_id=run.info.run_id, tags=tags_to_log)
         client.log_metrics(run_id=run.info.run_id, metrics=metrics_to_log)
@@ -100,6 +100,7 @@ def test_client_logs_expected_run_data():
     assert run_params == params_to_log
     assert run_metrics == metrics_to_log
     assert run_tags == tags_to_log
+    assert run.info.run_name == "my name"
 
 
 def test_client_logs_metric_steps_correctly():

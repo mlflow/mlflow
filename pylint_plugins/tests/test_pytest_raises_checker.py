@@ -73,7 +73,7 @@ def test_without_raises(test_case):
     for root_node, error_node, (line, col_offset) in without_raises_bad_cases():
         with test_case.assertAddsMessages(
             MessageTest(
-                test_case.CHECKER_CLASS.WITHOUT_MATCH,
+                "pytest-raises-without-match",
                 node=error_node,
                 line=line,
                 col_offset=col_offset,
@@ -131,7 +131,7 @@ def test_multiple_statements(test_case):
     for root_node, error_node, (line, col_offset) in multiple_statements_bad_cases():
         with test_case.assertAddsMessages(
             MessageTest(
-                test_case.CHECKER_CLASS.MULTIPLE_STATEMENTS,
+                "pytest-raises-multiple-statements",
                 node=error_node,
                 line=line,
                 col_offset=col_offset,

@@ -30,6 +30,7 @@ from mlflow.sklearn.utils import (
     _is_plotting_supported,
     _get_arg_names,
     _log_child_runs_info,
+    _is_estimator_html_repr_supported,
 )
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -154,7 +155,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    "max_tuning_runs, total_runs, output_statement",
+    ("max_tuning_runs", "total_runs", "output_statement"),
     [
         (0, 4, "Logging no runs, all will be omitted"),
         (0, 1, "Logging no runs, one run will be omitted"),
@@ -402,7 +403,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
 
 
 @pytest.mark.parametrize(
-    "long_params, messages",
+    ("long_params", "messages"),
     [
         # key exceeds the limit
         ({("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b"}, ["Truncated the key"]),
@@ -741,7 +742,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
 
 @pytest.mark.parametrize(
-    "cv_class, search_space",
+    ("cv_class", "search_space"),
     [
         (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
         (sklearn.model_selection.RandomizedSearchCV, {"C": uniform(loc=0, scale=4)}),
@@ -1201,7 +1202,7 @@ def test_eval_and_log_metrics_for_regressor():
     run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert metrics == eval_metrics
-    assert len(artifacts) == 0
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_for_binary_classifier():
@@ -1247,7 +1248,7 @@ def test_eval_and_log_metrics_for_binary_classifier():
         )
     assert eval_metrics == expected_metrics
 
-    eval_artifacts = []
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.extend(
             [
@@ -1304,7 +1305,7 @@ def test_eval_and_log_metrics_for_binary_classifier_with_pos_label():
         )
     assert eval_metrics == pytest.approx(expected_metrics)
 
-    eval_artifacts = []
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
         eval_artifacts.extend(
             [
@@ -1430,9 +1431,9 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 
     assert eval_metrics == expected_metrics
 
-    eval_artifacts = []
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
     if _is_plotting_supported():
-        eval_artifacts = ["{}.png".format("eval_confusion_matrix")]
+        eval_artifacts.append("{}.png".format("eval_confusion_matrix"))
 
     # Check that the logged metrics/artifacts are the same as the ones returned by the method.
     run_id = run.info.run_id
@@ -1459,14 +1460,14 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
         )
 
     # Check contents of returned artifacts/metrics
-    assert eval_metrics == {"eval_score": model.score(X_eval, y_eval)}
+    np.testing.assert_allclose(eval_metrics["eval_score"], model.score(X_eval, y_eval))
 
     # Check that the logged metrics are the same as returned by the method.
     run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
-    assert len(artifacts) == 0
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
@@ -1491,7 +1492,9 @@ def test_eval_and_log_metrics_with_meta_estimator():
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
-    eval_artifacts = ["{}.png".format("eval_confusion_matrix")] if _is_plotting_supported() else []
+    eval_artifacts = ["estimator.html"] if _is_estimator_html_repr_supported() else []
+    if _is_plotting_supported():
+        eval_artifacts.append("{}.png".format("eval_confusion_matrix"))
 
     # Check that the logged metrics/artifacts for the run are exactly those returned by the call
     run_id = run.info.run_id
@@ -1543,7 +1546,7 @@ def test_eval_and_log_metrics_with_new_run():
     run_id = mlflow.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
-    assert len(artifacts) == 0
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
     mlflow.end_run()
 
 
@@ -1572,7 +1575,7 @@ def test_eval_and_log_metrics_with_noscore_estimator():
     # No artifacts should be generated
     assert len(metrics) == 0
     assert len(eval_metrics) == 0
-    assert len(artifacts) == 0
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_eval_and_log_metrics_throws_with_invalid_args():
@@ -2057,7 +2060,10 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
+    assert len(params) > 0
+    assert len(metrics) > 0
+    assert len(tags) > 0
+    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
 
 
 def test_autolog_registering_model():

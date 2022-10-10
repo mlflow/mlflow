@@ -206,38 +206,41 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
     # - dir
     #   - b.txt
     # ---------
-    side_effect = [
-        # Response for `list_experiments("")` called by `_is_directory("")`
-        MockResponse(
-            {
-                "files": [
-                    {"path": "a.txt", "is_dir": False, "file_size": 6},
-                    {"path": "dir", "is_dir": True},
-                ]
-            },
-            200,
-        ),
-        # Response for `list_experiments("")`
-        MockResponse(
-            {
-                "files": [
-                    {"path": "a.txt", "is_dir": False, "file_size": 6},
-                    {"path": "dir", "is_dir": True},
-                ]
-            },
-            200,
-        ),
-        # Response for `_download_file("a.txt")`
-        MockStreamResponse("data_a", 200),
-        # Response for `list_experiments("dir")`
-        MockResponse({"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}, 200),
-        # Response for `_download_file("dir/b.txt")`
-        MockStreamResponse("data_b", 200),
-    ]
-    with mock.patch(
-        "mlflow.store.artifact.http_artifact_repo.http_request",
-        side_effect=side_effect,
-    ):
+    def http_request(_host_creds, endpoint, _method, **kwargs):
+        # Responses for list_artifacts
+        params = kwargs.get("params")
+        if params:
+            if params.get("path") == "":
+                return MockResponse(
+                    {
+                        "files": [
+                            {"path": "a.txt", "is_dir": False, "file_size": 1},
+                            {"path": "dir", "is_dir": True},
+                        ]
+                    },
+                    200,
+                )
+            elif params.get("path") == "dir":
+                return MockResponse(
+                    {
+                        "files": [
+                            {"path": "b.txt", "is_dir": False, "file_size": 1},
+                        ]
+                    },
+                    200,
+                )
+            else:
+                Exception("Unreachable")
+
+        # Responses for _download_file
+        if endpoint == "/a.txt":
+            return MockStreamResponse("data_a", 200)
+        elif endpoint == "/dir/b.txt":
+            return MockStreamResponse("data_b", 200)
+        else:
+            raise Exception("Unreachable")
+
+    with mock.patch("mlflow.store.artifact.http_artifact_repo.http_request", http_request):
         http_artifact_repo.download_artifacts("", tmpdir)
         paths = [os.path.join(root, f) for root, _, files in os.walk(tmpdir) for f in files]
         assert [os.path.relpath(p, tmpdir) for p in paths] == [

@@ -57,8 +57,6 @@ data:
 
 INGEST_USER_CODE = format_help_string(
     """\"\"\"\nsteps/ingest.py defines customizable logic for parsing arbitrary dataset formats (i.e. formats that are not natively parsed by MLflow Pipelines) via the `load_file_as_dataframe` function. Note that the Parquet, Delta, and Spark SQL dataset formats are natively parsed by MLflow Pipelines, and you do not need to define custom logic for parsing them. An example `load_file_as_dataframe` implementation is displayed below (note that a different function name or module can be specified via the 'custom_loader_method' attribute of the 'data' section in pipeline.yaml).\n\"\"\"\n
-import pandas
-
 def load_file_as_dataframe(
     file_path: str,
     file_format: str,
@@ -72,11 +70,6 @@ def load_file_as_dataframe(
     :param file_format: The file format string, such as "csv".
     :return: A Pandas DataFrame representing the content of the specified file.
     \"\"\"
-
-    if file_format == "csv":
-        return pandas.read_csv(file_path, index_col=0)
-    else:
-        raise NotImplementedError
 """
 )
 
@@ -96,8 +89,6 @@ steps:
 
 SPLIT_USER_CODE = format_help_string(
     """\"\"\"\nsteps/split.py defines customizable logic for preprocessing the training, validation, and test datasets prior to model creation via the `process_splits` function, an example of which is displayed below (note that a different function name or module can be specified via the 'post_split_method' attribute of the 'split' step definition in pipeline.yaml).\n\"\"\"\n
-import pandas
-
 def process_splits(
     train_df: pandas.DataFrame,
     validation_df: pandas.DataFrame,
@@ -111,8 +102,6 @@ def process_splits(
     :param test_df: The test dataset.
     :return: A tuple of containing, in order, the processed training dataset, the processed validation dataset, and the processed test dataset.
     \"\"\"
-
-    return train_df.dropna(), validation_df.dropna(), test_df.dropna()
 """
 )
 
@@ -143,23 +132,6 @@ def transformer_fn():
     \"\"\"
     Returns an *unfitted* transformer that defines ``fit()`` and ``transform()`` methods. The transformer's input and output signatures should be compatible with scikit-learn transformers.
     \"\"\"
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
-    transformers = [
-        (
-            "hour_encoder",
-            OneHotEncoder(categories="auto", sparse=False),
-            ["pickup_hour"],
-        ),
-        (
-            "std_scaler",
-            StandardScaler(),
-            ["trip_distance"],
-        ),
-    ]
-    return Pipeline(steps=[("encoder", ColumnTransformer(transformers)]))
 """
 )
 
@@ -192,9 +164,6 @@ def estimator_fn():
     \"\"\"
     Returns an *unfitted* estimator that defines ``fit()`` and ``predict()`` methods. The estimator's input and output signatures should be compatible with scikit-learn estimators.
     \"\"\"
-    from sklearn.linear_model import SGDRegressor
-
-    return SGDRegressor()
 """
 )
 
@@ -217,11 +186,6 @@ metrics:
 
 An example custom_metrics.py file is displayed below.
 \"\"\"\
-
-
-import pandas
-from sklearn.metrics import mean_squared_error
-
 def weighted_mean_squared_error(
     eval_df: pandas.DataFrame,
     builtin_metrics: Dict[str, int],
@@ -237,13 +201,6 @@ def weighted_mean_squared_error(
     :param builtin_metrics: A dictionary containing the built-in metrics that are calculated automatically during model evaluation. The keys are the names of the metrics and the values are the scalar values of the metrics. For more information, see https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate.
     :return: A single-entry dictionary containing the MSE metric. The key is the metric names and the value is the scalar metric value. Note that custom metric functions can return dictionaries with multiple metric entries as well.
     \"\"\"
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
 """
 )
 

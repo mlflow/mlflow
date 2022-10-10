@@ -9,7 +9,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 @pytest.mark.parametrize(
-    "uri, expected_run_id, expected_artifact_path",
+    ("uri", "expected_run_id", "expected_artifact_path"),
     [
         ("runs:/1234abcdf1394asdfwer33/path/to/model", "1234abcdf1394asdfwer33", "path/to/model"),
         ("runs:/1234abcdf1394asdfwer33/path/to/model/", "1234abcdf1394asdfwer33", "path/to/model/"),
@@ -41,7 +41,7 @@ def test_parse_runs_uri_invalid_input(uri):
 
 
 @pytest.mark.parametrize(
-    "uri, expected_tracking_uri, mock_uri, expected_result_uri",
+    ("uri", "expected_tracking_uri", "mock_uri", "expected_result_uri"),
     [
         ("runs:/1234abcdf1394asdfwer33/path/model", None, "s3:/some/path", "s3:/some/path"),
         ("runs:/1234abcdf1394asdfwer33/path/model", None, "dbfs:/some/path", "dbfs:/some/path"),

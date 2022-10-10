@@ -9,6 +9,7 @@ import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.Serializable;
 import java.net.URI;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * Client to an MLflow Tracking Sever.
  */
-public class MlflowClient implements Serializable {
+public class MlflowClient implements Serializable, Closeable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
   private static final String DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME = "models";
 
@@ -881,4 +882,10 @@ public class MlflowClient implements Serializable {
       return downloadModelVersion(modelName, details.getVersion());
   }
 
+  /**
+   * Closes the MlflowClient and releases any associated resources.
+   */
+  public void close() {
+    this.httpCaller.close();
+  }
 }

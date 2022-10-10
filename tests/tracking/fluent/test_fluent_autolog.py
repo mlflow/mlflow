@@ -98,11 +98,11 @@ def disable_new_import_hook_firing_if_module_already_exists(request):
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
     library, mlflow_module
 ):
-    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
+    with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
         if library != pyspark and library != pyspark.ml:
@@ -122,9 +122,9 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
+@pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(library, mlflow_module):
-    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
+    with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
 
         if library == pyspark or library == pyspark.ml:
@@ -150,7 +150,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
 
 
 @pytest.mark.parametrize(
-    "library,mlflow_module", library_to_mlflow_module_without_spark_datasource.items()
+    ("library", "mlflow_module"), library_to_mlflow_module_without_spark_datasource.items()
 )
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]

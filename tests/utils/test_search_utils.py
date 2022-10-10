@@ -9,7 +9,7 @@ from mlflow.utils.search_utils import SearchUtils
 
 
 @pytest.mark.parametrize(
-    "filter_string, parsed_filter",
+    ("filter_string", "parsed_filter"),
     [
         (
             "metric.acc >= 0.94",
@@ -95,7 +95,7 @@ def test_filter(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize(
-    "filter_string, parsed_filter",
+    ("filter_string", "parsed_filter"),
     [
         ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
@@ -111,7 +111,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
         ("m.acc >= 0.94", "Invalid entity type"),
@@ -128,9 +128,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.end_time != 1", "Invalid attribute key"),
-        ("attribute.run_id != 1", "Invalid attribute key"),
-        ("attribute.run_uuid != 1", "Invalid attribute key"),
         ("attribute.experiment_id != 1", "Invalid attribute key"),
         ("attribute.lifecycle_stage = 'ACTIVE'", "Invalid attribute key"),
         ("attribute.name != 1", "Invalid attribute key"),
@@ -145,7 +142,7 @@ def test_error_filter(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("metric.model = 'LR'", "Expected numeric value type for metric"),
         ("metric.model = '5'", "Expected numeric value type for metric"),
@@ -162,7 +159,7 @@ def test_error_comparison_clauses(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("params.acc = LR", "value is either not quoted or unidentified quote types"),
         ("tags.acc = LR", "value is either not quoted or unidentified quote types"),
@@ -182,7 +179,7 @@ def test_bad_quotes(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("params.acc LR !=", "Invalid clause(s) in filter string"),
         ("params.acc LR", "Invalid clause(s) in filter string"),
@@ -199,7 +196,7 @@ def test_invalid_clauses(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "entity_type, bad_comparators, key, entity_value",
+    ("entity_type", "bad_comparators", "key", "entity_value"),
     [
         ("metrics", ["~", "~="], "abc", 1.0),
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
@@ -231,7 +228,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
 
 
 @pytest.mark.parametrize(
-    "filter_string, matching_runs",
+    ("filter_string", "matching_runs"),
     [
         (None, [0, 1, 2]),
         ("", [0, 1, 2]),
@@ -323,8 +320,62 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
 
 
+def test_filter_runs_by_user_id():
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_uuid="a",
+                run_id="a",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=1,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        ),
+        Run(
+            run_info=RunInfo(
+                run_uuid="b",
+                run_id="b",
+                experiment_id=0,
+                user_id="user-id2",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=1,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        ),
+    ]
+    assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'")[0] == runs[1]
+
+
+def test_filter_runs_by_end_time():
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_uuid=run_id,
+                run_id=run_id,
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=idx,
+                end_time=idx,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        )
+        for idx, run_id in enumerate(["a", "b", "c"])
+    ]
+    assert SearchUtils.filter(runs, "attribute.end_time >= 0") == runs
+    assert SearchUtils.filter(runs, "attribute.end_time > 1") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.end_time = 2") == runs[2:]
+
+
 @pytest.mark.parametrize(
-    "order_bys, matching_runs",
+    ("order_bys", "matching_runs"),
     [
         (None, [2, 1, 0]),
         ([], [2, 1, 0]),
@@ -431,7 +482,7 @@ def test_order_by_metric_with_nans_infs_nones():
 
 
 @pytest.mark.parametrize(
-    "order_by, error_message",
+    ("order_by", "error_message"),
     [
         ("m.acc", "Invalid entity type"),
         ("acc", "Invalid identifier"),
@@ -439,7 +490,6 @@ def test_order_by_metric_with_nans_infs_nones():
         ("`metrics.A", "Invalid order_by clause"),
         ("`metrics.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
-        ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
         ("params.my_param ", "Invalid order_by clause"),
@@ -453,7 +503,7 @@ def test_invalid_order_by_search_runs(order_by, error_message):
 
 
 @pytest.mark.parametrize(
-    "order_by, ascending_expected",
+    ("order_by", "ascending_expected"),
     [
         ("metrics.`Mean Square Error`", True),
         ("metrics.`Mean Square Error` ASC", True),
@@ -470,7 +520,7 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
 
 
 @pytest.mark.parametrize(
-    "order_by, error_message",
+    ("order_by", "error_message"),
     [
         ("creation_timestamp DESC", "Invalid order by key"),
         ("last_updated_timestamp DESC blah", "Invalid order_by clause"),
@@ -488,7 +538,7 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
 
 
 @pytest.mark.parametrize(
-    "page_token, max_results, matching_runs, expected_next_page_token",
+    ("page_token", "max_results", "matching_runs", "expected_next_page_token"),
     [
         (None, 1, [0], {"offset": 1}),
         (None, 2, [0, 1], {"offset": 2}),
@@ -565,7 +615,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 
 
 @pytest.mark.parametrize(
-    "page_token, error_message",
+    ("page_token", "error_message"),
     [
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),

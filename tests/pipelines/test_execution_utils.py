@@ -16,6 +16,8 @@ from mlflow.pipelines.utils.execution import (
     _get_or_create_execution_directory,
     run_pipeline_step,
     get_step_output_path,
+    _ExecutionPlan,
+    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 
 # pylint: disable=unused-import
@@ -207,7 +209,13 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         def environment(self):
             return {"C": "D"}
 
-    with mock.patch("mlflow.pipelines.utils.execution._exec_cmd") as mock_run_in_subprocess:
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch("mlflow.pipelines.utils.execution._ExecutionPlan"):
+        process = mock.Mock()
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
         pipeline_steps = [TestStep1(), TestStep2()]
         run_pipeline_step(
             pipeline_root_path=tmp_path,
@@ -217,7 +225,44 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         )
 
     _, subprocess_call_kwargs = mock_run_in_subprocess.call_args
-    assert subprocess_call_kwargs.get("extra_env") == {"A": "B", "C": "D"}
+    assert subprocess_call_kwargs.get("extra_env") == {
+        "A": "B",
+        "C": "D",
+        _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "test_step_1",
+    }
+    assert mock_run_in_subprocess.call_count == 2
+
+
+def test_run_pipeline_step_calls_execution_plan(tmp_path):
+    class TestStep(BaseStepImplemented):
+        def __init__(self):  # pylint: disable=super-init-not-called
+            self.step_config = {}
+
+        @property
+        def name(self):
+            return "test_step"
+
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch(
+        "mlflow.pipelines.utils.execution._ExecutionPlan"
+    ) as mock_execution_plan:
+        process = mock.Mock()
+        process.poll.return_value = 0
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
+        pipeline_steps = [TestStep()]
+        run_pipeline_step(
+            pipeline_root_path=tmp_path,
+            pipeline_steps=pipeline_steps,
+            target_step=pipeline_steps[0],
+            template="regression/v1",
+        )
+
+    execution_plan_args, _ = mock_execution_plan.call_args
+    assert execution_plan_args[0] == "test_step"
+    assert execution_plan_args[2] == ["test_step"]
 
 
 def run_test_pipeline_step(pipeline_steps, target_step):
@@ -462,3 +507,22 @@ def test_run_pipeline_step_failure_clears_downstream_step_state(test_pipeline):
     assert get_test_pipeline_step_execution_state(split_step).status == StepStatus.UNKNOWN
     assert get_test_pipeline_step_execution_state(split_step).last_updated_timestamp == 0
     assert not os.listdir(get_test_pipeline_step_output_directory(split_step))
+
+
+def test_execution_plan():
+    train_subgraph = ["ingest", "split", "transform", "train", "evaluate", "register"]
+
+    # all steps are cached
+    plan = _ExecutionPlan("register", ["make: `register' is up to date."], train_subgraph)
+    assert plan.steps_cached == train_subgraph
+
+    # all steps will be executed
+    plan = _ExecutionPlan(
+        "transform",
+        ["# Run MLP step: ingest\n", "# Run MLP step: split\n", "# Run MLP step: transform\n"],
+        train_subgraph,
+    )
+    assert plan.steps_cached == []
+
+    plan = _ExecutionPlan("transform", ["# Run MLP step: transform\n"], train_subgraph)
+    assert plan.steps_cached == ["ingest", "split"]

@@ -9,8 +9,6 @@ import logging
 import posixpath
 import re
 
-from shlex import quote as shlex_quote
-
 from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
@@ -26,6 +24,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
+from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -337,7 +336,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters, en
     ]
     if env_manager:
         cmd += ["--env-manager", env_manager]
-    mlflow_run_arr = list(map(shlex_quote, cmd))
+    mlflow_run_arr = list(map(quote, cmd))
     if run_id:
         mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
@@ -364,7 +363,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
         parameters,
         env_manager,
     )
-    mlflow_run_cmd = " ".join([shlex_quote(elem) for elem in mlflow_run_arr])
+    mlflow_run_cmd = " ".join([quote(elem) for elem in mlflow_run_arr])
     shell_command = textwrap.dedent(
         """
     export PATH=$PATH:$DB_HOME/python/bin &&

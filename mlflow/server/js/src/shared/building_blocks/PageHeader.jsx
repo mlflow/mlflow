@@ -1,6 +1,14 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Breadcrumb, Button, Spacer, Dropdown, Menu, Header, OverflowIcon } from '@databricks/design-system';
+import {
+  Breadcrumb,
+  Button,
+  Spacer,
+  Dropdown,
+  Menu,
+  Header,
+  OverflowIcon,
+} from '@databricks/design-system';
 import { PreviewIcon } from './PreviewIcon';
 
 // Note: this button has a different size from normal AntD buttons.
@@ -17,13 +25,11 @@ export function OverflowMenu({ menu }) {
     </Menu>
   );
 
-  return (
-    menu.length > 0 && (
-      <Dropdown overlay={overflowMenu} trigger={['click']} placement="bottomLeft" arrow>
-        <Button icon={<OverflowIcon />}  data-test-id='overflow-menu-trigger' />
-      </Dropdown>
-    )
-  );
+  return menu.length > 0 ? (
+    <Dropdown overlay={overflowMenu} trigger={['click']} placement='bottomLeft' arrow>
+      <Button icon={<OverflowIcon />} data-test-id='overflow-menu-trigger' />
+    </Dropdown>
+  ) : null;
 }
 OverflowMenu.propTypes = {
   menu: PropTypes.arrayOf(
@@ -52,13 +58,16 @@ export class PageHeader extends React.Component {
 
   render() {
     const { title, breadcrumbs = [], preview, children } = this.props;
+    // eslint-disable-next-line prefer-const
     let feedbackLink = null;
     return (
       <>
         <Header
           breadcrumbs={
             <Breadcrumb includeTrailingCaret={false}>
-              {breadcrumbs.map(b => <Breadcrumb.Item>{b}</Breadcrumb.Item>)}
+              {breadcrumbs.map((b, i) => (
+                <Breadcrumb.Item key={i}>{b}</Breadcrumb.Item>
+              ))}
             </Breadcrumb>
           }
           buttons={children}
@@ -69,7 +78,7 @@ export class PageHeader extends React.Component {
               {feedbackLink}
             </>
           }
-          />
+        />
         <Spacer />
       </>
     );

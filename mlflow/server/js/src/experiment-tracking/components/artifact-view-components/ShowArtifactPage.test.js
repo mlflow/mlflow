@@ -5,12 +5,14 @@ import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
+import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
+  DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
 
@@ -53,6 +55,7 @@ describe('ShowArtifactPage', () => {
   test('should render logged model view when path is in runs tag logged model history', () => {
     wrapper.setProps({
       path: 'somePath',
+      isDirectory: true,
       runTags: {
         'mlflow.log-model.history': RunTag.fromJs({
           key: 'mlflow.log-model.history',
@@ -60,6 +63,26 @@ describe('ShowArtifactPage', () => {
             {
               run_id: 'run-uuid',
               artifact_path: 'somePath',
+              flavors: { keras: {}, python_function: {} },
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.find(ShowArtifactLoggedModelView).length).toBe(1);
+  });
+
+  test('should render logged model view when path is nested in subdirectory', () => {
+    wrapper.setProps({
+      path: 'dir/somePath',
+      isDirectory: true,
+      runTags: {
+        'mlflow.log-model.history': RunTag.fromJs({
+          key: 'mlflow.log-model.history',
+          value: JSON.stringify([
+            {
+              run_id: 'run-uuid',
+              artifact_path: 'dir/somePath',
               flavors: { keras: {}, python_function: {} },
             },
           ]),
@@ -86,6 +109,13 @@ describe('ShowArtifactPage', () => {
     });
   });
 
+  test('should render "select to preview" view for folder with common image extensions', () => {
+    IMAGE_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', isDirectory: 'true' });
+      expect(wrapper.text().includes('Select a file to preview')).toBe(true);
+    });
+  });
+
   test('should render html view for common html extensions', () => {
     HTML_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
@@ -104,6 +134,13 @@ describe('ShowArtifactPage', () => {
     TEXT_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    });
+  });
+
+  test('should render data table view for common tabular data extensions', () => {
+    DATA_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactTableView).length).toBe(1);
     });
   });
 });

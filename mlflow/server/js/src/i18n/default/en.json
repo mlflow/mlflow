@@ -271,10 +271,6 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
-  "9Ce4Gd": {
-    "defaultMessage": "Started during",
-    "description": "Label for the start time select dropdown for experiment runs view"
-  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
@@ -631,6 +627,10 @@
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
   },
+  "SrXYrV": {
+    "defaultMessage": "Previewing the first {numRows} rows",
+    "description": "Title for showing the number of rows in the parsed data preview"
+  },
   "SzvvXl": {
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
@@ -638,6 +638,10 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
+  },
+  "ThqGmu": {
+    "defaultMessage": "Created during",
+    "description": "Label for the start time select dropdown for experiment runs view"
   },
   "ThrXMh": {
     "defaultMessage": "Inputs",
@@ -1039,10 +1043,6 @@
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
   },
-  "n/R+cU": {
-    "defaultMessage": "Unable to view experiments",
-    "description": "Error message when all the requested experiments couldn't be fetched"
-  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -1062,10 +1062,6 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
-  },
-  "nam2iP": {
-    "defaultMessage": "This view is deprecated and will be removed in a future release.",
-    "description": "Deprecation of compact view"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",

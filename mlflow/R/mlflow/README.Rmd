@@ -242,4 +242,4 @@ To enable fast iteration while tracking with MLflow improvements over a model, [
 
 ## Contributing
 
-See the [MLflow contribution guidelines](../../../CONTRIBUTING.rst).
+See the [MLflow contribution guidelines](../../../CONTRIBUTING.md).

@@ -6,6 +6,7 @@ This module provides a set of utilities for interpreting and creating requiremen
 import json
 import sys
 import subprocess
+from threading import Timer
 import tempfile
 import os
 import pkg_resources
@@ -18,6 +19,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
@@ -198,24 +200,30 @@ def _prune_packages(packages):
     return packages - requires
 
 
-def _run_command(cmd):
+def _run_command(cmd, timeout_seconds, env=None):
     """
     Runs the specified command. If it exits with non-zero status, `MlflowException` is raised.
     """
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    stdout = stdout.decode("utf-8")
-    stderr = stderr.decode("utf-8")
-    if proc.returncode != 0:
-        msg = "\n".join(
-            [
-                f"Encountered an unexpected error while running {cmd}",
-                f"exit status: {proc.returncode}",
-                f"stdout: {stdout}",
-                f"stderr: {stderr}",
-            ]
-        )
-        raise MlflowException(msg)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    timer = Timer(timeout_seconds, proc.kill)
+    try:
+        timer.start()
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        stderr = stderr.decode("utf-8")
+        if proc.returncode != 0:
+            msg = "\n".join(
+                [
+                    f"Encountered an unexpected error while running {cmd}",
+                    f"exit status: {proc.returncode}",
+                    f"stdout: {stdout}",
+                    f"stderr: {stderr}",
+                ]
+            )
+            raise MlflowException(msg)
+    finally:
+        if timer.is_alive():
+            timer.cancel()
 
 
 def _get_installed_version(package, module=None):
@@ -260,9 +268,19 @@ def _capture_imported_modules(model_uri, flavor):
 
     local_model_path = _download_artifact_from_uri(model_uri)
 
+    process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
+
     # Run `_capture_modules.py` to capture modules imported during the loading procedure
     with tempfile.TemporaryDirectory() as tmpdir:
         output_file = os.path.join(tmpdir, "imported_modules.txt")
+        # Pass the main environment variables to the subprocess for environment variable mapping
+        main_env = os.environ.copy()
+        # Reset the path variable from the main process so that the subprocess retains all
+        # main process configuration that a user has.
+        # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
+        # resolution in a subprocess based on PATH entries.
+        main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+
         _run_command(
             [
                 sys.executable,
@@ -276,11 +294,18 @@ def _capture_imported_modules(model_uri, flavor):
                 "--sys-path",
                 json.dumps(sys.path),
             ],
+            timeout_seconds=process_timeout,
+            env=main_env,
         )
         with open(output_file) as f:
             return f.read().splitlines()
 
 
+DATABRICKS_MODULES_TO_PACKAGES = {
+    "databricks.automl": ["databricks-automl-runtime"],
+    "databricks.automl_runtime": ["databricks-automl-runtime"],
+    "databricks.model_monitoring": ["databricks-model-monitoring"],
+}
 _MODULES_TO_PACKAGES = None
 _PACKAGES_TO_MODULES = None
 
@@ -292,6 +317,17 @@ def _init_modules_to_packages_map():
         # Python’s site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
+
+        # Multiple packages populate the `databricks` module namespace on Databricks; to avoid
+        # bundling extraneous Databricks packages into model dependencies, we scope each module
+        # to its relevant package
+        _MODULES_TO_PACKAGES.update(DATABRICKS_MODULES_TO_PACKAGES)
+        if "databricks" in _MODULES_TO_PACKAGES:
+            _MODULES_TO_PACKAGES["databricks"] = [
+                package
+                for package in _MODULES_TO_PACKAGES["databricks"]
+                if package not in _flatten(DATABRICKS_MODULES_TO_PACKAGES.values())
+            ]
 
         # In Databricks, `_MODULES_TO_PACKAGES` doesn't contain pyspark since it's not installed
         # via pip or conda. To work around this issue, manually add pyspark.

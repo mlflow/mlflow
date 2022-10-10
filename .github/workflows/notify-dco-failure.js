@@ -36,7 +36,7 @@ module.exports = async ({ context, github }) => {
     const body = [
       `@${user.login} Thanks for the contribution! The DCO check failed. `,
       `Please sign off your commits by following the instructions here: ${dcoCheck.html_url}. `,
-      "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#sign-your-work for more ",
+      "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more ",
       "details.",
     ].join("");
     await github.issues.createComment({

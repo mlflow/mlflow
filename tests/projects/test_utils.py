@@ -97,7 +97,7 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
 
 
 @pytest.mark.parametrize(
-    "version,expected_version", [(None, "master"), (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH)]
+    ("version", "expected_version"), [(None, "master"), (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH)]
 )
 def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version):
     # Verify that the correct branch is checked out

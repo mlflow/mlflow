@@ -1,5 +1,6 @@
 import os
 import re
+import difflib
 from pathlib import Path
 from collections import namedtuple
 
@@ -108,7 +109,7 @@ CREATE TABLE table (
     yield pytest.param(a, b, False, id="different column names")
 
 
-@pytest.mark.parametrize("a, b, expected", iter_parameter_sets())
+@pytest.mark.parametrize(("a", "b", "expected"), iter_parameter_sets())
 def test_schema_equal(a, b, expected):
     assert schema_equal(a, b) is expected
 
@@ -118,9 +119,9 @@ def initialize_database():
         pass
 
 
-def get_schema_udpate_command(dialect):
+def get_schema_update_command(dialect):
     this_script = Path(__file__).relative_to(Path.cwd())
-    docker_compose_yml = this_script.parent / "docker-compose.yml"
+    docker_compose_yml = this_script.parent / "compose.yml"
     return f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
 
 
@@ -131,11 +132,28 @@ def test_schema_is_up_to_date():
     existing_schema = schema_path.read_text()
     latest_schema = dump_schema(tracking_uri)
     dialect = get_database_dialect(tracking_uri)
-    update_command = get_schema_udpate_command(dialect)
+    update_command = get_schema_update_command(dialect)
     message = (
         f"{schema_path.relative_to(Path.cwd())} is not up-to-date. "
         f"Please run this command to update it: {update_command}"
     )
+    diff = "".join(
+        difflib.ndiff(
+            existing_schema.splitlines(keepends=True), latest_schema.splitlines(keepends=True)
+        )
+    )
+    rel_path = schema_path.relative_to(Path.cwd())
+    message = f"""
+=================================== EXPECTED ===================================
+{latest_schema}
+==================================== ACTUAL ====================================
+{existing_schema}
+===================================== DIFF =====================================
+{diff}
+================================== HOW TO FIX ==================================
+Manually copy & paste the expected schema in {rel_path} or run the following command:
+{update_command}
+"""
     assert schema_equal(existing_schema, latest_schema), message
 
 

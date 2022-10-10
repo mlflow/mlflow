@@ -4,6 +4,9 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from collections import namedtuple
+
+Artifact = namedtuple("Artifact", ["uri", "content"])
 
 
 @pytest.fixture()
@@ -67,3 +70,69 @@ def test_download_artifacts_throws_for_invalid_arguments():
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
         mlflow.artifacts.download_artifacts(artifact_path="path", artifact_uri="uri")
+
+
+@pytest.fixture()
+def run_with_text_artifact():
+    artifact_path = "test/file.txt"
+    artifact_content = "This is a sentence"
+    with mlflow.start_run() as run:
+        mlflow.log_text(artifact_content, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return Artifact(artifact_uri, artifact_content)
+
+
+@pytest.fixture()
+def run_with_json_artifact():
+    artifact_path = "test/config.json"
+    artifact_content = {"mlflow-version": "0.28", "n_cores": "10"}
+    with mlflow.start_run() as run:
+        mlflow.log_dict(artifact_content, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return Artifact(artifact_uri, artifact_content)
+
+
+@pytest.fixture()
+def run_with_image_artifact():
+    from PIL import Image
+
+    artifact_path = "test/image.png"
+    image = Image.new("RGB", (100, 100))
+    with mlflow.start_run() as run:
+        mlflow.log_image(image, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return Artifact(artifact_uri, image)
+
+
+def test_load_text(run_with_text_artifact):
+    artifact = run_with_text_artifact
+    assert mlflow.artifacts.load_text(artifact.uri) == artifact.content
+
+
+def test_load_dict(run_with_json_artifact):
+    artifact = run_with_json_artifact
+    assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
+
+
+def test_load_json_invalid_json(run_with_text_artifact):
+    artifact = run_with_text_artifact
+    with pytest.raises(mlflow.exceptions.MlflowException, match="Unable to form a JSON object"):
+        mlflow.artifacts.load_dict(artifact.uri)
+
+
+def test_load_image(run_with_image_artifact):
+    from PIL import Image
+
+    artifact = run_with_image_artifact
+    assert isinstance(mlflow.artifacts.load_image(artifact.uri), Image.Image)
+
+
+def test_load_image_invalid_image(run_with_text_artifact):
+    artifact = run_with_text_artifact
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="Unable to form a PIL Image object"
+    ):
+        mlflow.artifacts.load_image(artifact.uri)

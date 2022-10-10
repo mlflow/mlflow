@@ -418,7 +418,7 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() == "mlflow"
+        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 

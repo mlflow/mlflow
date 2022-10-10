@@ -20,7 +20,7 @@ from tests.pipelines.helper_functions import (
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 @pytest.mark.parametrize(
-    "tracking_uri,artifact_location,experiment_name,experiment_id",
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id"),
     [
         ("mysql://myhost:8000/test_uri", "test/artifact/location", "myexpname", "myexpid"),
         ("mysql://myhost:8000/test_uri", "test/artifact/location", None, "myexpid"),
@@ -78,7 +78,7 @@ def test_get_pipeline_tracking_config_returns_expected_config(
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 @pytest.mark.parametrize(
-    "tracking_uri,artifact_location,experiment_name,experiment_id",
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id"),
     [
         ("mysql://myhost:8000/test_uri", "test/artifact/location", "myexpname", "myexpid"),
         ("mysql://myhost:8000/test_uri", "test/artifact/location", None, "myexpid"),

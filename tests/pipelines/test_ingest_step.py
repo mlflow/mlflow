@@ -152,7 +152,8 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
                 ],
                 "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
-            }
+            },
+            "steps": {"ingest": {"skip_data_profiling": True}},
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -508,7 +509,8 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
-    assert "Profile of Ingested Dataset" in step_card_html_content
+    assert "Data Preview" in step_card_html_content
+    assert "facets-overview" in step_card_html_content
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -534,64 +536,89 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_ingest_throws_when_dataset_format_unspecified():
-    with pytest.raises(MlflowException, match="Dataset format must be specified"):
+def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spark_df, tmp_path):
+    dataset_path = tmp_path / "test.delta"
+    spark_df.write.format("delta").save(str(dataset_path))
+
+    with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+    ) as _get_active_spark_session:
+        _get_active_spark_session.return_value = None
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {
-                    "location": "my_location",
+                    "format": "delta",
+                    "location": str(dataset_path),
                 }
             },
             pipeline_root=os.getcwd(),
-        )
+        ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_throws_when_dataset_format_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "location": "my_location",
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
+    with pytest.raises(MlflowException, match="Dataset format must be specified"):
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_data_section_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={},
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `data` section.*must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={},
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_required_dataset_config_keys_are_missing():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "parquet",
+                # Missing location
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "parquet",
-                    # Missing location
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "spark_sql",
+                # Missing sql
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `sql` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "spark_sql",
-                    # Missing sql
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "csv",
+                "location": "my/dataset.csv",
+                # Missing custom_loader_method
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(
         MlflowException, match="The `custom_loader_method` configuration key must be specified"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "csv",
-                    "location": "my/dataset.csv",
-                    # Missing custom_loader_method
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -640,7 +667,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {
@@ -655,5 +682,5 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     expected_step_card_path = os.path.join(tmp_path, "card.html")
     with open(expected_step_card_path, "r") as f:
         step_card_html_content = f.read()
-    assert "Profile of Ingested Dataset" not in step_card_html_content
+    assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()

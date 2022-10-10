@@ -207,47 +207,55 @@ You may prefer the second, lower-level workflow for the following reasons:
   artifacts.
 """
 
+import collections
 import importlib
-import tempfile
+import logging
+import os
 import signal
+import subprocess
 import sys
+import tempfile
+import threading
+from copy import deepcopy
+from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
-import os
 import pandas
 import yaml
-from copy import deepcopy
-import logging
-import threading
-import collections
-import subprocess
 
-from typing import Any, Union, List, Dict, Iterator, Tuple
 import mlflow
 import mlflow.pyfunc.model
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import _save_example
+from mlflow.models.utils import (
+    PyFuncInput,
+    PyFuncOutput,
+    _enforce_schema,
+    _save_example,
+)
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.pyfunc.model import (  # pylint: disable=unused-import
     PythonModel,
     PythonModelContext,
     get_default_conda_env,
 )
 from mlflow.pyfunc.model import get_default_pip_requirements
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import DataType, Schema, TensorSpec
-from mlflow.types.utils import clean_tensor_type
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version, _is_in_ipython_notebook
-from mlflow.utils.annotations import deprecated
-from mlflow.utils.file_utils import _copy_file_or_tree, write_to
-from mlflow.utils.model_utils import (
-    _get_flavor_configuration,
-    _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
-    _validate_and_prepare_target_save_path,
+from mlflow.utils import (
+    PYTHON_VERSION,
+    get_major_minor_py_version,
+    _is_in_ipython_notebook,
 )
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils import find_free_port
+from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -258,30 +266,22 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import _copy_file_or_tree, write_to
 from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
-from mlflow.utils.process import cache_return_value_per_process
-from mlflow.exceptions import MlflowException
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
+    _validate_and_prepare_target_save_path,
 )
-
-try:
-    import scipy.sparse
-
-    HAS_SCIPY = True
-except ImportError:
-    HAS_SCIPY = False
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.utils import find_free_port
-from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -291,15 +291,6 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[
-    pandas.DataFrame,
-    np.ndarray,
-    "scipy.sparse.csc_matrix",
-    "scipy.sparse.csr_matrix",
-    List[Any],
-    Dict[str, Any],
-]
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -346,269 +337,6 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
-    """
-    Enforce the input column type matches the declared in model input schema.
-
-    The following type conversions are allowed:
-
-    1. object -> string
-    2. int -> long (upcast)
-    3. float -> double (upcast)
-    4. int -> double (safe conversion)
-    5. np.datetime64[x] -> datetime (any precision)
-    6. object -> datetime
-
-    Any other type mismatch will raise error.
-    """
-    if values.dtype == object and t not in (DataType.binary, DataType.string):
-        values = values.infer_objects()
-
-    if t == DataType.string and values.dtype == object:
-        # NB: the object can contain any type and we currently cannot cast to pandas Strings
-        # due to how None is cast
-        return values
-
-    # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
-    # side of the comparison operator. It works, however, if pandas type is on the left hand side.
-    # That is because pandas is aware of numpy.
-    if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
-        # The types are already compatible => conversion is not necessary.
-        return values
-
-    if t == DataType.binary and values.dtype.kind == t.binary.to_numpy().kind:
-        # NB: bytes in numpy have variable itemsize depending on the length of the longest
-        # element in the array (column). Since MLflow binary type is length agnostic, we ignore
-        # itemsize when matching binary columns.
-        return values
-
-    if t == DataType.datetime and values.dtype.kind == t.to_numpy().kind:
-        # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
-        # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
-        # ignore precision when matching datetime columns.
-        return values
-
-    if t == DataType.datetime and values.dtype == object:
-        # NB: Pyspark date columns get converted to object when converted to a pandas
-        # DataFrame. To respect the original typing, we convert the column to datetime.
-        try:
-            return values.astype(np.datetime64, errors="raise")
-        except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
-
-    numpy_type = t.to_numpy()
-    if values.dtype.kind == numpy_type.kind:
-        is_upcast = values.dtype.itemsize <= numpy_type.itemsize
-    elif values.dtype.kind == "u" and numpy_type.kind == "i":
-        is_upcast = values.dtype.itemsize < numpy_type.itemsize
-    elif values.dtype.kind in ("i", "u") and numpy_type == np.float64:
-        # allow (u)int => double conversion
-        is_upcast = values.dtype.itemsize <= 6
-    else:
-        is_upcast = False
-
-    if is_upcast:
-        return values.astype(numpy_type, errors="raise")
-    else:
-        # NB: conversion between incompatible types (e.g. floats -> ints or
-        # double -> float) are not allowed. While supported by pandas and numpy,
-        # these conversions alter the values significantly.
-        def all_ints(xs):
-            return all(pandas.isnull(x) or int(x) == x for x in xs)
-
-        hint = ""
-        if (
-            values.dtype == np.float64
-            and numpy_type.kind in ("i", "u")
-            and values.hasnans
-            and all_ints(values)
-        ):
-            hint = (
-                " Hint: the type mismatch is likely caused by missing values. "
-                "Integer columns in python can not represent missing values and are therefore "
-                "encoded as floats. The best way to avoid this problem is to infer the model "
-                "schema based on a realistic data sample (training dataset) that includes missing "
-                "values. Alternatively, you can declare integer columns as doubles (float64) "
-                "whenever these columns may have missing values. See `Handling Integers With "
-                "Missing Values <https://www.mlflow.org/docs/latest/models.html#"
-                "handling-integers-with-missing-values>`_ for more details."
-            )
-
-        raise MlflowException(
-            "Incompatible input types for column {0}. "
-            "Can not safely convert {1} to {2}.{3}".format(name, values.dtype, numpy_type, hint)
-        )
-
-
-def _enforce_tensor_spec(
-    values: Union[np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix"],
-    tensor_spec: TensorSpec,
-):
-    """
-    Enforce the input tensor shape and type matches the provided tensor spec.
-    """
-    expected_shape = tensor_spec.shape
-    actual_shape = values.shape
-
-    actual_type = values.dtype if isinstance(values, np.ndarray) else values.data.dtype
-
-    if len(expected_shape) != len(actual_shape):
-        raise MlflowException(
-            "Shape of input {0} does not match expected shape {1}.".format(
-                actual_shape, expected_shape
-            )
-        )
-    for expected, actual in zip(expected_shape, actual_shape):
-        if expected == -1:
-            continue
-        if expected != actual:
-            raise MlflowException(
-                "Shape of input {0} does not match expected shape {1}.".format(
-                    actual_shape, expected_shape
-                )
-            )
-    if clean_tensor_type(actual_type) != tensor_spec.type:
-        raise MlflowException(
-            "dtype of input {0} does not match expected dtype {1}".format(
-                values.dtype, tensor_spec.type
-            )
-        )
-    return values
-
-
-def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
-    """Enforce the input columns conform to the model's column-based signature."""
-    if input_schema.has_input_names():
-        input_names = input_schema.input_names()
-    else:
-        input_names = pfInput.columns[: len(input_schema.inputs)]
-    input_types = input_schema.input_types()
-    new_pfInput = pandas.DataFrame()
-    for i, x in enumerate(input_names):
-        new_pfInput[x] = _enforce_mlflow_datatype(x, pfInput[x], input_types[i])
-    return new_pfInput
-
-
-def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
-    """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
-
-    def _is_sparse_matrix(x):
-        if not HAS_SCIPY:
-            # we can safely assume that it's not a sparse matrix if scipy is not installed
-            return False
-        return isinstance(x, (scipy.sparse.csr_matrix, scipy.sparse.csc_matrix))
-
-    if input_schema.has_input_names():
-        if isinstance(pfInput, dict):
-            new_pfInput = dict()
-            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
-                if not isinstance(pfInput[col_name], np.ndarray):
-                    raise MlflowException(
-                        "This model contains a tensor-based model signature with input names,"
-                        " which suggests a dictionary input mapping input name to a numpy"
-                        " array, but a dict with value type {0} was found.".format(
-                            type(pfInput[col_name])
-                        )
-                    )
-                new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)
-        elif isinstance(pfInput, pandas.DataFrame):
-            new_pfInput = dict()
-            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
-                new_pfInput[col_name] = _enforce_tensor_spec(
-                    np.array(pfInput[col_name], dtype=tensor_spec.type), tensor_spec
-                )
-        else:
-            raise MlflowException(
-                "This model contains a tensor-based model signature with input names, which"
-                " suggests a dictionary input mapping input name to tensor, but an input of"
-                " type {0} was found.".format(type(pfInput))
-            )
-    else:
-        if isinstance(pfInput, pandas.DataFrame):
-            new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
-        elif isinstance(pfInput, np.ndarray) or _is_sparse_matrix(pfInput):
-            new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
-        else:
-            raise MlflowException(
-                "This model contains a tensor-based model signature with no input names,"
-                " which suggests a numpy array input, but an input of type {0} was"
-                " found.".format(type(pfInput))
-            )
-    return new_pfInput
-
-
-def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
-    """
-    Enforces the provided input matches the model's input schema,
-
-    For signatures with input names, we check there are no missing inputs and reorder the inputs to
-    match the ordering declared in schema if necessary. Any extra columns are ignored.
-
-    For column-based signatures, we make sure the types of the input match the type specified in
-    the schema or if it can be safely converted to match the input schema.
-
-    For tensor-based signatures, we make sure the shape and type of the input matches the shape
-    and type specified in model's input schema.
-    """
-    if not input_schema.is_tensor_spec():
-        if isinstance(pfInput, (list, np.ndarray, dict)):
-            try:
-                pfInput = pandas.DataFrame(pfInput)
-            except Exception as e:
-                raise MlflowException(
-                    "This model contains a column-based signature, which suggests a DataFrame"
-                    " input. There was an error casting the input data to a DataFrame:"
-                    " {0}".format(str(e))
-                )
-        if not isinstance(pfInput, pandas.DataFrame):
-            raise MlflowException(
-                "Expected input to be DataFrame or list. Found: %s" % type(pfInput).__name__
-            )
-
-    if input_schema.has_input_names():
-        # make sure there are no missing columns
-        input_names = input_schema.input_names()
-        expected_cols = set(input_names)
-        actual_cols = set()
-        if len(expected_cols) == 1 and isinstance(pfInput, np.ndarray):
-            # for schemas with a single column, match input with column
-            pfInput = {input_names[0]: pfInput}
-            actual_cols = expected_cols
-        elif isinstance(pfInput, pandas.DataFrame):
-            actual_cols = set(pfInput.columns)
-        elif isinstance(pfInput, dict):
-            actual_cols = set(pfInput.keys())
-        missing_cols = expected_cols - actual_cols
-        extra_cols = actual_cols - expected_cols
-        # Preserve order from the original columns, since missing/extra columns are likely to
-        # be in same order.
-        missing_cols = [c for c in input_names if c in missing_cols]
-        extra_cols = [c for c in actual_cols if c in extra_cols]
-        if missing_cols:
-            message = "Model is missing inputs {0}.".format(missing_cols)
-            if extra_cols:
-                message += " Note that there were extra inputs: {0}".format(extra_cols)
-            raise MlflowException(message)
-    elif not input_schema.is_tensor_spec():
-        # The model signature does not specify column names => we can only verify column count.
-        num_actual_columns = len(pfInput.columns)
-        if num_actual_columns < len(input_schema.inputs):
-            raise MlflowException(
-                "Model inference is missing inputs. The model signature declares "
-                "{0} inputs  but the provided value only has "
-                "{1} inputs. Note: the inputs were not named in the signature so we can "
-                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
-            )
-
-    return (
-        _enforce_tensor_schema(pfInput, input_schema)
-        if input_schema.is_tensor_spec()
-        else _enforce_col_schema(pfInput, input_schema)
-    )
-
-
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -624,13 +352,14 @@ class PyFuncModel:
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any):
-        if not hasattr(model_impl, "predict"):
-            raise MlflowException("Model implementation is missing required predict method.")
+    def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
+        if not hasattr(model_impl, predict_fn):
+            raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
         self._model_impl = model_impl
+        self._predict_fn = getattr(model_impl, predict_fn)
 
     def predict(self, data: PyFuncInput) -> PyFuncOutput:
         """
@@ -649,7 +378,25 @@ class PyFuncModel:
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        return self._model_impl.predict(data)
+        return self._predict_fn(data)
+
+    @experimental
+    def unwrap_python_model(self):
+        """
+        Unwrap the underlying Python model object.
+        """
+        try:
+            python_model = self._model_impl.python_model
+            if python_model is None:
+                raise AttributeError("Expected python_model attribute not to be None.")
+        except AttributeError as e:
+            raise MlflowException("Unable to retrieve base model object from pyfunc.") from e
+        return python_model
+
+    def __eq__(self, other):
+        if not isinstance(other, PyFuncModel):
+            return False
+        return self._model_meta == other._model_meta
 
     @property
     def metadata(self):
@@ -709,7 +456,9 @@ def _warn_dependency_requirement_mismatches(model_path):
 
 
 def load_model(
-    model_uri: str, suppress_warnings: bool = False, dst_path: str = None
+    model_uri: str,
+    suppress_warnings: bool = False,
+    dst_path: str = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -754,7 +503,94 @@ def load_model(
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+    predict_fn = conf.get("predict_fn", "predict")
+    return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
+
+
+class _ServedPyFuncModel(PyFuncModel):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int, env_manager: str):
+        super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
+        _EnvManager.validate(env_manager)
+        self._env_manager = env_manager
+        self._client = client
+        self._server_pid = server_pid
+
+    def predict(self, data):
+        result = self._client.invoke(data)
+        if isinstance(result, pandas.DataFrame):
+            result = result[result.columns[0]]
+        return result
+
+    @property
+    def pid(self):
+        if self._server_pid is None:
+            raise MlflowException("Served PyFunc Model is missing server process ID.")
+        return self._server_pid
+
+    @property
+    def env_manager(self):
+        return self._env_manager
+
+
+def _load_model_or_server(model_uri: str, env_manager: str):
+    """
+    Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
+    independent Python environment with the training time dependencies of the specified model
+    installed and start a MLflow Model Scoring Server process with that model in that environment.
+    Return a _ServedPyFuncModel that invokes the scoring server for prediction. Otherwise, load and
+    return the model locally as a PyFuncModel using :py:func:`mlflow.pyfunc.load_model`.
+
+    :param model_uri: The uri of the model.
+    :param env_manager: The environment manager to load the model.
+    :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
+    """
+    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+    if env_manager == _EnvManager.LOCAL:
+        return load_model(model_uri)
+
+    _logger.info("Starting model server for model environment restoration.")
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    env_root_dir = _get_or_create_env_root_dir(False)
+    pyfunc_backend = _get_flavor_backend(
+        local_path,
+        install_mlflow=False,
+        env_manager=env_manager,
+        env_root_dir=env_root_dir,
+    )
+    _logger.info("Restoring model environment. This can take a few minutes.")
+    # Set capture_output to True in Databricks so that when environment preparation fails, the
+    # exception message of the notebook cell output will include child process command execution
+    # stdout/stderr output.
+    pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
+    server_port = find_free_port()
+    scoring_server_proc = pyfunc_backend.serve(
+        model_uri=local_path,
+        port=server_port,
+        host="127.0.0.1",
+        timeout=60,
+        enable_mlserver=False,
+        synchronous=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+    client = ScoringServerClient("127.0.0.1", server_port)
+    try:
+        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+    except Exception:
+        raise MlflowException("MLflow model server failed to launch")
+
+    return _ServedPyFuncModel(
+        model_meta=model_meta,
+        client=client,
+        server_pid=scoring_server_proc.pid,
+        env_manager=env_manager,
+    )
 
 
 def _download_model_conda_env(model_uri):
@@ -989,6 +825,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - "string" or ``pyspark.sql.types.StringType``: The leftmost column converted to ``string``.
 
+        - "boolean" or "bool" or ``pyspark.sql.types.BooleanType``: The leftmost column converted
+          to ``bool`` or an exception if there is none.
+
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
     :param env_manager: The environment manager to use in order to create the python environment
@@ -1021,7 +860,14 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         DataType as SparkDataType,
         StructType as SparkStructType,
     )
-    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+    from pyspark.sql.types import (
+        DoubleType,
+        IntegerType,
+        FloatType,
+        LongType,
+        StringType,
+        BooleanType,
+    )
     from mlflow.models.cli import _get_flavor_backend
 
     _EnvManager.validate(env_manager)
@@ -1035,6 +881,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
     env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
+    result_type = "boolean" if result_type == "bool" else result_type
+
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
 
@@ -1042,7 +890,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType, BooleanType]
 
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
@@ -1052,7 +900,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
+        artifact_uri=model_uri,
+        output_path=_create_model_downloading_tmp_dir(should_use_nfs),
     )
 
     if env_manager == _EnvManager.LOCAL:
@@ -1067,8 +916,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
     else:
         _logger.info(
-            "This UDF will use Conda to recreate the model's software environment for inference. "
-            "This may take extra time during execution."
+            f"This UDF will use {env_manager} to recreate the model's software environment for "
+            "inference. This may take extra time during execution."
         )
         if not sys.platform.startswith("linux"):
             # TODO: support killing mlflow server launched in UDF task when spark job canceled
@@ -1154,9 +1003,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         elif type(elem_type) == DoubleType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
+        elif type(elem_type) == BooleanType:
+            result = result.select_dtypes([bool, np.bool_]).astype(bool)
+
         if len(result.columns) == 0:
             raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
+                message="The model did not produce any values compatible with the requested "
                 "type '{}'. Consider requesting udf with StringType or "
                 "Arraytype(StringType).".format(str(elem_type)),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1243,7 +1095,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     sys.stdout.write("[model server] " + decoded)
 
             server_redirect_log_thread = threading.Thread(
-                target=server_redirect_log_thread_func, args=(scoring_server_proc.stdout,)
+                target=server_redirect_log_thread_func,
+                args=(scoring_server_proc.stdout,),
             )
             server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()

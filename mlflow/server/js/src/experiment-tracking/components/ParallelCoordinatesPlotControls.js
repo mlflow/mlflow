@@ -77,7 +77,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           ))}
         </Select>
         <div style={{ marginTop: 20 }}>
-          <Button dataTestId='clear-button' onClick={onClearAllSelect}>
+          <Button data-test-id='clear-button' onClick={onClearAllSelect}>
             <FormattedMessage
               defaultMessage='Clear All'
               description='String for the clear button to clear any selected parameters and metrics'

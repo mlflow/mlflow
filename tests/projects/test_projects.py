@@ -61,7 +61,7 @@ def clean_mlruns_dir():
 
 
 @pytest.mark.parametrize(
-    "experiment_name,experiment_id,expected",
+    ("experiment_name", "experiment_id", "expected"),
     [
         ("Default", None, "0"),
         ("add an experiment", None, "1"),
@@ -283,7 +283,7 @@ def test_run_async():
 
 
 @pytest.mark.parametrize(
-    "mock_env,expected_conda,expected_activate",
+    ("mock_env", "expected_conda", "expected_activate"),
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         (
@@ -301,7 +301,7 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 
 
 @pytest.mark.parametrize(
-    "mock_env, expected_conda_env_create_path",
+    ("mock_env", "expected_conda_env_create_path"),
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda"),
         (
@@ -369,7 +369,7 @@ def test_create_env_with_mamba():
                 mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
-def test_conda_environment_cleaned_up_when_pip_fails(tmp_path, capfd):
+def test_conda_environment_cleaned_up_when_pip_fails(tmp_path):
     conda_yaml = tmp_path / "conda.yaml"
     content = """
 name: {name}
@@ -389,13 +389,8 @@ dependencies:
     envs_before = mlflow.utils.conda._list_conda_environments()
 
     # `conda create` should fail because mlflow 999.999.999 doesn't exist
-    with pytest.raises(ShellCommandException, match=r".*"):
-        mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
-
-    # Ensure `conda create` failed because of pip failure
-    captured = capfd.readouterr()
-    assert "ERROR: No matching distribution found for mlflow==999.999.999" in captured.err
-    assert "CondaEnvException: Pip failed" in captured.err
+    with pytest.raises(ShellCommandException, match=r"No matching distribution found"):
+        mlflow.utils.conda.get_or_create_conda_env(conda_yaml, capture_output=True)
 
     # Ensure the environment is cleaned up
     envs_after = mlflow.utils.conda._list_conda_environments()

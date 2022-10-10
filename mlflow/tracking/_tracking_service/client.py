@@ -4,7 +4,6 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import time
 import os
 from itertools import zip_longest
 
@@ -29,6 +28,7 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 from collections import OrderedDict
 
 
@@ -82,7 +82,7 @@ class TrackingServiceClient:
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -90,10 +90,11 @@ class TrackingServiceClient:
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param experiment_id: The ID of then experiment to create a run in.
+        :param experiment_id: The ID of the experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
+        :param name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 
@@ -107,8 +108,9 @@ class TrackingServiceClient:
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
-            start_time=start_time or int(time.time() * 1000),
+            start_time=start_time or get_current_time_millis(),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
+            run_name=run_name,
         )
 
     def list_run_infos(
@@ -285,7 +287,7 @@ class TrackingServiceClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
+        timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
@@ -463,10 +465,13 @@ class TrackingServiceClient:
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
-        end_time = end_time if end_time else int(time.time() * 1000)
+        end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
-            run_id, run_status=RunStatus.from_string(status), end_time=end_time
+            run_id,
+            run_status=RunStatus.from_string(status),
+            end_time=end_time,
+            run_name=None,
         )
 
     def delete_run(self, run_id):

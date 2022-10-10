@@ -103,7 +103,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
 
 
 @pytest.mark.parametrize(
-    "ignore_tls_env, verify", [("0", None), ("1", False), ("true", False), ("false", None)]
+    ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
 )
 def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
     from unittest.mock import ANY

@@ -64,6 +64,13 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+#: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
+#: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
+#: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
+#: for more information.
+#: (default: ``/tmp/mlflow``)
+MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
+
 #: Specifies the maximum number of retries for MLflow HTTP requests
 #: (default: ``5``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
@@ -149,3 +156,17 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: for more information.
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
+
+#: Specifies the ``poolclass`` parameter to use for ``sqlalchemy.create_engine`` in the
+#: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass
+#: for more information.
+#: (default: ``None``)
+MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_POOLCLASS", str, None
+)
+
+#: Specifies the ``timeout_seconds`` for MLflow Model dependency inference operations.
+#: (default: ``120``)
+MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT", int, 120
+)

@@ -8,7 +8,7 @@ from mlflow.entities.model_registry import ModelVersion
 
 
 @pytest.mark.parametrize(
-    "uri, expected_name, expected_version",
+    ("uri", "expected_name", "expected_version"),
     [
         ("models:/AdsModel1/0", "AdsModel1", 0),
         ("models:/Ads Model 1/12345", "Ads Model 1", 12345),
@@ -24,7 +24,7 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
 
 
 @pytest.mark.parametrize(
-    "uri, expected_name, expected_stage",
+    ("uri", "expected_name", "expected_stage"),
     [
         ("models:/AdsModel1/Production", "AdsModel1", "Production"),
         ("models:/AdsModel1/production", "AdsModel1", "production"),  # case insensitive
@@ -41,7 +41,7 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
 
 
 @pytest.mark.parametrize(
-    "uri, expected_name",
+    ("uri", "expected_name"),
     [
         ("models:/AdsModel1/latest", "AdsModel1"),
         ("models:/AdsModel1/Latest", "AdsModel1"),  # case insensitive

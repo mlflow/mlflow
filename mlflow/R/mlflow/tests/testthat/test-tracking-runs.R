@@ -23,7 +23,8 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
-        list(key = "mlflow.user", value = "user1")
+        list(key = "mlflow.user", value = "user1"),
+        list(key = "mlflow.runName", value = run$run_name)
       )
     )
   )
@@ -58,7 +59,7 @@ test_that("mlflow_end_run() works properly", {
 
   # Verify that only expected run field names are present and that all run info fields are set
   # (not NA).
-  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  run_info_names <- c("run_uuid", "experiment_id", "user_id", "run_name", "status", "start_time",
   "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   run_data_names <- c("metrics", "params", "tags")
   expect_setequal(c(run_info_names, run_data_names), names(run))
@@ -109,7 +110,8 @@ test_that("mlflow_restore_run() work properly", {
         list(
           list(key = "foz", value = "baz"),
           list(key = "foo", value = "bar"),
-          list(key = "mlflow.user", value = "user1")
+          list(key = "mlflow.user", value = "user1"),
+          list(key = "mlflow.runName", value = run$run_name)
         )
       )
     )

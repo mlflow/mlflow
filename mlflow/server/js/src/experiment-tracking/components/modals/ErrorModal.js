@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 import { connect } from 'react-redux';
 import { getErrorModalText, isErrorModalOpen } from '../../reducers/Reducers';
 import { closeErrorModal } from '../../actions';

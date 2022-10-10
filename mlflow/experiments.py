@@ -1,12 +1,13 @@
 import os
 
 import click
-from tabulate import tabulate
 
 import mlflow
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
+from mlflow.utils.string_utils import _create_table
+
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 
@@ -71,7 +72,7 @@ def list_experiments(view):
         ]
         for exp in experiments
     ]
-    click.echo(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+    click.echo(_create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
 @commands.command("delete")

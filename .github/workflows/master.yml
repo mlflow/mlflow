@@ -197,6 +197,7 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -261,6 +262,13 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           pip install pyspark
+      - name: Download Hadoop winutils for Spark
+        run: |
+          git clone https://github.com/cdarlint/winutils
       - name: Run python tests
         run: |
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export PATH=$PATH:$HADOOP_HOME/bin
+          # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/pipelines

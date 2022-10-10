@@ -544,7 +544,7 @@ public class MlflowClientTest {
       Arrays.asList(1L, -5L, 4L, 4L));
 
     List<RunTag> tags = run.getData().getTagsList();
-    Assert.assertEquals(tags.size(), 1);
+    Assert.assertEquals(tags.size(), 2);
     assertTag(tags, "user_email", USER_EMAIL);
   }
 
@@ -606,14 +606,16 @@ public class MlflowClientTest {
 
       Stack<RunTag> tags = new Stack();
       tags.push(createTag("t1", "tagtagtag"));
+      tags.push(createTag("mlflow.runName", "myRun"));
       client.logBatch(runUuid, null, null, tags);
 
       Run run = client.getRun(runUuid);
       Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 1);
+      Assert.assertEquals(loggedTags.size(), 2);
       assertTag(loggedTags, "t1", "tagtagtag");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
 
     // All
@@ -627,7 +629,8 @@ public class MlflowClientTest {
         createParam("p2", "another param")));
       Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
         createTag("t2", "xx"),
-        createTag("t3", "xx")));
+        createTag("t3", "xx"),
+        createTag("mlflow.runName", "myRun")));
       client.logBatch(runUuid, metrics, params, tags);
 
       Run run = client.getRun(runUuid);
@@ -643,10 +646,11 @@ public class MlflowClientTest {
       assertParam(loggedParams, "p2", "another param");
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 3);
+      Assert.assertEquals(loggedTags.size(), 4);
       assertTag(loggedTags, "t1", "t1");
       assertTag(loggedTags, "t2", "xx");
       assertTag(loggedTags, "t3", "xx");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
   }
 

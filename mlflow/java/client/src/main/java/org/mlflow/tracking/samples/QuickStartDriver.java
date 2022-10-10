@@ -46,6 +46,7 @@ public class QuickStartDriver {
     System.out.println("====== getExperiment by name");
     Optional<Experiment> exp3 = client.getExperimentByName(expName);
     System.out.println("getExperimentByName: " + exp3);
+    client.close();
   }
 
   void createRun(MlflowClient client, String expId) {

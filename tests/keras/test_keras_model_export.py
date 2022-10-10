@@ -253,7 +253,7 @@ def test_that_keras_module_arg_works(model_path):
 
 
 @pytest.mark.parametrize(
-    "build_model,save_format",
+    ("build_model", "save_format"),
     [
         (get_model, None),
         (get_tf_keras_model, None),
@@ -685,7 +685,12 @@ def test_pyfunc_serve_and_score_transformers():
         model_uri = mlflow.get_artifact_uri("model")
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
-    resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
 
 

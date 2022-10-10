@@ -3,12 +3,11 @@ import os
 import time
 import importlib
 import sys
-from typing import Dict, Any
 
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_pandas_data_profile
+from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 
@@ -76,7 +75,7 @@ def _create_hash_buckets(input_df):
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
-    _logger.info(
+    _logger.debug(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
         f"rows consumes {execution_duration} seconds."
     )
@@ -84,32 +83,28 @@ def _create_hash_buckets(input_df):
 
 
 class SplitStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
-        super().__init__(step_config, pipeline_root)
-
+    def _validate_and_apply_step_config(self):
         self.run_end_time = None
         self.execution_duration = None
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
-        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
-        split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
+        self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
         if not (
-            isinstance(split_ratios, list)
-            and len(split_ratios) == 3
-            and all(isinstance(x, (int, float)) and x > 0 for x in split_ratios)
+            isinstance(self.split_ratios, list)
+            and len(self.split_ratios) == 3
+            and all(isinstance(x, (int, float)) and x > 0 for x in self.split_ratios)
         ):
             raise MlflowException(
                 "Config split_ratios must be a list containing 3 positive numbers."
             )
-
-        self.split_ratios = split_ratios
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
         # Build card
@@ -117,28 +112,17 @@ class SplitStep(BaseStep):
 
         if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
-            train_profile = get_pandas_data_profile(
-                train_df.reset_index(drop=True),
-                "Profile of Train Dataset",
-            )
-            validation_profile = get_pandas_data_profile(
-                validation_df.reset_index(drop=True),
-                "Profile of Validation Dataset",
-            )
-            test_profile = get_pandas_data_profile(
-                test_df.reset_index(drop=True),
-                "Profile of Test Dataset",
+            data_profile = get_pandas_data_profiles(
+                [
+                    ["Train", train_df.reset_index(drop=True)],
+                    ["Validation", validation_df.reset_index(drop=True)],
+                    ["Test", test_df.reset_index(drop=True)],
+                ]
             )
 
             # Tab #1 - #3: data profiles for train/validation and test.
-            card.add_tab("Data Profile (Train)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", train_profile
-            )
-            card.add_tab("Data Profile (Validation)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", validation_profile
-            )
-            card.add_tab("Data Profile (Test)", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", test_profile
+            card.add_tab("Compare Splits", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", data_profile
             )
 
         # Tab #4: run summary.
@@ -201,8 +185,8 @@ class SplitStep(BaseStep):
             post_split = getattr(
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
+            _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
             (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
-
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
@@ -214,7 +198,9 @@ class SplitStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config.get("steps", {}).get("split", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("split", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         return cls(step_config, pipeline_root)
 

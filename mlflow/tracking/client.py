@@ -28,7 +28,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental, deprecated
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri
@@ -221,6 +221,7 @@ class MlflowClient:
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
+        run_name: Optional[str] = None,
     ) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
@@ -233,6 +234,7 @@ class MlflowClient:
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
+        :param run_name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
 
         .. code-block:: python
@@ -242,14 +244,16 @@ class MlflowClient:
 
             # Create a run with a tag under the default experiment (whose id is '0').
             tags = {"engineering": "ML Platform"}
+            name = "platform-run-24"
             client = MlflowClient()
             experiment_id = "0"
-            run = client.create_run(experiment_id, tags=tags)
+            run = client.create_run(experiment_id, tags=tags, run_name=name)
 
             # Show newly created run metadata info
             print("Run tags: {}".format(run.data.tags))
             print("Experiment id: {}".format(run.info.experiment_id))
             print("Run id: {}".format(run.info.run_id))
+            print("Run name: {}".format(run.info.run_name))
             print("lifecycle_stage: {}".format(run.info.lifecycle_stage))
             print("status: {}".format(run.info.status))
 
@@ -259,10 +263,11 @@ class MlflowClient:
             Run tags: {'engineering': 'ML Platform'}
             Experiment id: 0
             Run id: 65fb9e2198764354bab398105f2e70c1
+            Run name: platform-run-24
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(experiment_id, start_time, tags)
+        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
     @deprecated(alternative="search_runs()")
     def list_run_infos(
@@ -398,7 +403,6 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
-    @experimental
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
@@ -620,6 +624,9 @@ class MlflowClient:
     def delete_experiment(self, experiment_id: str) -> None:
         """
         Delete an experiment from the backend store.
+        This deletion is a soft-delete, not a permanent deletion.
+        Experiment names can not be reused, unless the deleted experiment
+        is permanently deleted by a database admin.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
 
@@ -1160,7 +1167,7 @@ class MlflowClient:
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
