@@ -39,19 +39,21 @@ def upgrade():
         fk = foreign_keys_in_experiment_tags[0]
         op.drop_constraint(fk["name"], table_name="experiment_tags", type_="foreignkey")
 
-        # NB: MSSQL and MySQL have special restrictions on batch updates that affect primary
-        # keys and foreign keys.
+        # NB: MSSQL and MySQL have special restrictions on batch updates that foreign keys.
         # In order to handle type casting modifications, these constraints need to be dropped
         # prior to any ALTER commands within the batch context. After type changes are complete, we
-        # will recreate these primary and foreign keys (and give them names so that inspection isn't
+        # will recreate these foreign keys (and give them names so that inspection isn't
         # required in the future).
 
         foreign_keys_in_runs = inspect(engine).get_foreign_keys("runs")
         fk_run = foreign_keys_in_runs[0]
         op.drop_constraint(fk_run["name"], table_name="runs", type_="foreignkey")
 
-        op.drop_constraint("experiment_pk", table_name="experiments", type_="primary")
-        op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
+        # NB: MSSQL requires that modifications to primary key columns do not have a primary key
+        # status assigned to the columns. Drop them and recreate them for casting.
+        if engine.engine.name == "mssql":
+            op.drop_constraint("experiment_pk", table_name="experiments", type_="primary")
+            op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
 
     with op.batch_alter_table(
         "experiments",
@@ -99,16 +101,17 @@ def upgrade():
         )
     if engine.engine.name != "sqlite":
 
-        # NB: mssql and mysql require that foreign keys reference primary keys prior to
-        # creation of a foreign key. Create the primary keys prior to the foreign keys.
-        op.create_primary_key(
-            constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
-        )
-        op.create_primary_key(
-            constraint_name="experiment_tag_pk",
-            table_name="experiment_tags",
-            columns=["key", "experiment_id"],
-        )
+        # NB: mssql requires that foreign keys reference primary keys prior to
+        # creation of a foreign key. Recreate the primary keys that were previously dropped.
+        if engine.engine.name == "mssql":
+            op.create_primary_key(
+                constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
+            )
+            op.create_primary_key(
+                constraint_name="experiment_tag_pk",
+                table_name="experiment_tags",
+                columns=["key", "experiment_id"],
+            )
 
         # Recreate the foreign key and name it for future direct reference
         op.create_foreign_key(
