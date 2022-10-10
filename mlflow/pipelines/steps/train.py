@@ -676,12 +676,12 @@ class TrainStep(BaseStep):
         # Tab 8.1: Best AutoML Parameters
         if self.step_config["using"].startswith("automl"):
             automl_card_tab = card.add_tab(
-                "Best AutoML Parameters",
+                "Best Estimator (FLAML)",
                 "{{ AUTOML }} ",
             )
-            params_html = [
+            params_html = "".join([
                 f"<pre>{param}: {value}</pre><br>" for param, value in self.best_parameters.items()
-            ]
+            ])
             automl_card_tab.add_html(
                 "AUTOML",
                 f"<b>Best estimator:</b><br>"
