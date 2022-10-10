@@ -12,7 +12,8 @@ from alembic import op
 import sqlalchemy as sa
 import logging
 
-from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint, ForeignKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy.inspection import inspect
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
@@ -29,25 +30,35 @@ def upgrade():
     # has changed from an auto-incrementing column to a non-nullable unique-constrained Integer
     # column to support the uuid-based random id generation change.
 
-    # NB: The foreign key on experiment_pk is unnamed. Using the naming_convention feature
-    # to provide bound engine specific formatting rules to auto-generated constraints
-    naming_convention = {
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    }
+    engine = op.get_bind()
+    # NB: sqlite doesn't support foreign keys even if they are defined. Altering a constraint
+    # in sqlite outside of batch operations doesn't work.
+    if engine.engine.name != "sqlite":
+
+        foreign_keys_in_experiment_tags = inspect(engine).get_foreign_keys("experiment_tags")
+        fk = foreign_keys_in_experiment_tags[0]
+        op.drop_constraint(fk["name"], table_name="experiment_tags", type_="foreignkey")
+
+    with op.batch_alter_table(
+        "experiments",
+        table_args=(PrimaryKeyConstraint("experiment_id", name="experiment_pk")),
+    ) as batch_op:
+        batch_op.alter_column(
+            "experiment_id",
+            existing_type=sa.Integer,
+            type_=sa.BigInteger,
+            existing_nullable=False,
+            nullable=False,
+            existing_autoincrement=True,
+            autoincrement=False,
+            existing_server_default=None,
+            existing_comment=None,
+        )
+
     with op.batch_alter_table(
         "experiment_tags",
-        table_args=(
-            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
-            ForeignKeyConstraint(
-                ["experiment_id", "experiment_pk"],
-                ["experiments.experiment_id", "experiments.experiment_id"],
-            ),
-        ),
-        naming_convention=naming_convention,
+        table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
     ) as batch_op:
-        batch_op.drop_constraint(
-            "fk_experiment_tags_experiment_id_experiments_experiment_id", type_="foreignkey"
-        )
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
@@ -72,36 +83,17 @@ def upgrade():
             existing_server_default=None,
             existing_comment=None,
         )
-
-    with op.batch_alter_table(
-        "experiments",
-        table_args=(
-            PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
-            UniqueConstraint("experiment_id"),
-        ),
-    ) as batch_op:
-        batch_op.alter_column(
-            "experiment_id",
-            existing_type=sa.Integer,
-            type_=sa.BigInteger,
-            existing_nullable=False,
-            nullable=False,
-            existing_autoincrement=True,
-            autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
+    if engine.engine.name != "sqlite":
+        # Recreate the foreign key and name it for future direct reference
+        op.create_foreign_key(
+            constraint_name="fk_experiment_tag",
+            source_table="experiment_tags",
+            referent_table="experiments",
+            local_cols=["experiment_id"],
+            remote_cols=["experiment_id"],
+            onupdate="CASCADE",
+            ondelete="CASCADE",
         )
-
-    # Recreate the foreign key and name it for future direct reference
-    op.create_foreign_key(
-        constraint_name="fk_experiment_tag",
-        source_table="experiment_tags",
-        referent_table="experiments",
-        local_cols=["experiment_id"],
-        remote_cols=["experiment_id"],
-        onupdate="CASCADE",
-        ondelete="CASCADE",
-    )
     _logger.info("Conversion of experiment_id from autoincrement complete!")
 
 
