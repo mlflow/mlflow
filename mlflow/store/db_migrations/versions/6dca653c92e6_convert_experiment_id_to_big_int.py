@@ -98,6 +98,19 @@ def upgrade():
             existing_comment=None,
         )
     if engine.engine.name != "sqlite":
+
+        if engine.engine.name == "mmssql":
+            # NB: mssql requires that foreign keys reference primary keys prior to creation of a
+            # foreign key. Create the pkeys first.
+            op.create_primary_key(
+                constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
+            )
+            op.create_primary_key(
+                constraint_name="experiment_tag_pk",
+                table_name="experiment_tags",
+                columns=["key", "experiment_id"],
+            )
+
         # Recreate the foreign key and name it for future direct reference
         op.create_foreign_key(
             constraint_name="fk_experiment_tag",
@@ -110,14 +123,7 @@ def upgrade():
         )
 
         if engine.engine.name == "mmssql":
-            op.create_primary_key(
-                constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
-            )
-            op.create_primary_key(
-                constraint_name="experiment_tag_pk",
-                table_name="experiment_tags",
-                columns=["key", "experiment_id"],
-            )
+
             op.create_foreign_key(
                 constraint_name="fk_runs_experiment_id",
                 source_table="runs",
