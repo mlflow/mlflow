@@ -1,7 +1,8 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import pandas as pd
+from sklearn.base import BaseEstimator
 
 import mlflow
 from mlflow import MlflowException
@@ -27,7 +28,7 @@ def get_estimator(
     pipeline_root: str,
     evaluation_metrics: Dict[str, PipelineMetric],
     primary_metric: str,
-):
+) -> Tuple[BaseEstimator,  Dict[str, Any]]:
     return _create_model_automl(
         X, y, step_config, pipeline_root, evaluation_metrics, primary_metric
     )
@@ -79,7 +80,7 @@ def _create_model_automl(
     pipeline_root: str,
     evaluation_metrics: Dict[str, PipelineMetric],
     primary_metric: str,
-):
+) -> Tuple[BaseEstimator, Dict[str, Any]]:
     try:
         from flaml import AutoML
     except ImportError:
@@ -100,18 +101,19 @@ def _create_model_automl(
                 f"Using 'auto' metric instead."
             )
             metric = "auto"
-        automl_settings = {
-            "time_budget": step_config.get("time_budget_secs", AUTOML_DEFAULT_TIME_BUDGET),
-            "task": "regression",
-            "metric": metric,
-        }
-        if "estimator_list" in step_config:
-            automl_settings["estimator_list"] = step_config["estimator_list"]
+
+        automl_settings = step_config.get("flaml_params", {})
+        automl_settings["time_budget"] = step_config.get(
+            "time_budget_secs", AUTOML_DEFAULT_TIME_BUDGET
+        )
+        automl_settings["metric"] = metric
+        automl_settings["task"] = "regression"
+
         mlflow.autolog(disable=True)
         automl = AutoML()
         automl.fit(X, y, **automl_settings)
         mlflow.autolog(disable=False, log_models=False)
-        model = automl.model.estimator
+        return automl.model.estimator, automl.best_config
     except Exception as e:
         _logger.warning(
             f"Error has occurred during training of AutoML model using FLAML: {repr(e)}",
@@ -120,5 +122,3 @@ def _create_model_automl(
         raise MlflowException(
             f"Error has occurred during training of AutoML model using FLAML: {repr(e)}"
         )
-
-    return model

@@ -119,7 +119,8 @@ def setup_train_step(
         automl_attrs = """
                     using: automl/flaml
                     time_budget_secs: 20 
-                    estimator_list: ["xgboost", "rf", "lgbm"]
+                    flaml_params:
+                        estimator_list: ["xgboost", "rf", "lgbm"]
             """
 
         estimator_attrs = """
@@ -386,6 +387,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             primary_metric=primary_metric,
             generate_custom_metrics=generate_custom_metrics,
         )
+        train_step._validate_and_apply_step_config()
         train_step._run(str(train_step_output_dir))
 
         with open(train_step_output_dir / "run_id") as f:

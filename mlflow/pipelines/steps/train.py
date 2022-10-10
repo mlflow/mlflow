@@ -61,7 +61,7 @@ class TrainStep(BaseStep):
 
     def _validate_and_apply_step_config(self):
         if "using" in self.step_config:
-            if self.step_config["using"] not in ["estimator_spec"]:
+            if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
                 raise MlflowException(
                     f"Invalid train step configuration value {self.step_config['using']} for "
                     f"key 'using'. Supported values are: ['estimator_spec']",
@@ -134,14 +134,14 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        if "estimator_method" not in self.step_config:
+        if "estimator_method" not in self.step_config and self.step_config["using"] in [
+            "estimator_spec"
+        ]:
             raise MlflowException(
                 "Missing 'estimator_method' configuration in the train step.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.train_module_name, self.estimator_method_name = self.step_config[
-            "estimator_method"
-        ].rsplit(".", 1)
+
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
@@ -393,7 +393,7 @@ class TrainStep(BaseStep):
         plugin_str = plugin_str.replace("/", ".").replace("@", ".")
         plugin_module_str = f"{sys.modules[__name__].__package__}.{plugin_str}"
         estimator_fn = getattr(importlib.import_module(plugin_module_str), "get_estimator")
-        return estimator_fn(
+        estimator,  best_parameters = estimator_fn(
             X_train,
             y_train,
             self.step_config,
@@ -401,6 +401,12 @@ class TrainStep(BaseStep):
             self.evaluation_metrics,
             self.primary_metric,
         )
+        self.best_estimator_name = estimator.__class__.__name__
+        self.best_estimator_class = (
+            f"{estimator.__class__.__module__}.{estimator.__class__.__name__}"
+        )
+        self.best_parameters = best_parameters
+        return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
         using_plugin = self.step_config.get("using", "estimator_spec")
@@ -667,6 +673,24 @@ class TrainStep(BaseStep):
                     f"<b>Best parameters:</b><br>"
                     f"<pre>{best_hardcoded_parameters}</pre><br><br>",
                 )
+        # Tab 8.1: Best AutoML Parameters
+        if self.step_config["using"].startswith("automl"):
+            automl_card_tab = card.add_tab(
+                "Best AutoML Parameters",
+                "{{ AUTOML }} ",
+            )
+            params_html = [
+                f"<pre>{param}: {value}</pre><br>" for param, value in self.best_parameters.items()
+            ]
+            automl_card_tab.add_html(
+                "AUTOML",
+                f"<b>Best estimator:</b><br>"
+                f"<pre>{self.best_estimator_name}</pre><br>"
+                f"<b>Best estimator class:</b><br>"
+                f"<pre>{self.best_estimator_class}</pre><br><br>"
+                f"<b>Best parameters:</b><br>"
+                f"{params_html}<br><br>",
+            )
 
         # Tab 9: HP trials
         if tuning_df is not None:
@@ -904,7 +928,7 @@ class TrainStep(BaseStep):
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
 
-        if hasattr(estimator, "best_score_"):
+        if hasattr(estimator, "best_score_") and (type(estimator.best_score_) in [int, float]):
             mlflow.log_metric("best_cv_score", estimator.best_score_)
         if hasattr(estimator, "best_params_"):
             mlflow.log_params(estimator.best_params_)
