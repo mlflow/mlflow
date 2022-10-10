@@ -12,7 +12,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 import tensorflow
-import keras
 import torch
 import fastai
 import sklearn
