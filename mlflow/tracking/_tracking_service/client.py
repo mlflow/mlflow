@@ -184,7 +184,7 @@ class TrackingServiceClient:
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators for string attributes
+            Comparators for string attributes and tags
               - ``=``: Equal to
               - ``!=``: Not equal to
               - ``LIKE``: Case-sensitive pattern match

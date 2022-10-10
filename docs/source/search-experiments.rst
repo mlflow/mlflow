@@ -32,7 +32,7 @@ The following identifiers are supported:
 Comparator
 ^^^^^^^^^^
 
-Comparators for string attributes:
+Comparators for string attributes and tags:
 
 - ``=``: Equal
 - ``!=``: Not equal
