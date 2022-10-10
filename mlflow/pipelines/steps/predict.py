@@ -144,15 +144,17 @@ class PredictStep(BaseStep):
         output_format = self.step_config["output_format"]
         output_location = self.step_config["output_location"]
         write_mode = self.step_config.get("write_mode", "default")
-        if output_format == "parquet" or output_format == "delta":
-            output_populated = os.path.exists(output_location)
-        else:
-            try:
-                output_populated = spark._jsparkSession.catalog().tableExists(output_location)
-            except Exception:
-                # swallow spark failures
-                output_populated = False
-        if output_populated and write_mode == "default":
+        output_populated = False
+        if write_mode == "default":
+            if output_format == "parquet" or output_format == "delta":
+                output_populated = os.path.exists(output_location)
+            else:
+                try:
+                    output_populated = spark._jsparkSession.catalog().tableExists(output_location)
+                except Exception:
+                    # swallow spark failures
+                    pass
+        if output_populated:
             raise MlflowException(
                 message=(
                     f"Output location `{output_location}` of format `{output_format}` is already "
