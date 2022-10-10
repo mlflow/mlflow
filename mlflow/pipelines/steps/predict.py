@@ -40,6 +40,7 @@ class PredictStep(BaseStep):
         self, step_config: Dict[str, Any], pipeline_root: str
     ) -> None:
         super().__init__(step_config, pipeline_root)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
         required_configuration_keys = ["output_format", "output_location"]
@@ -67,7 +68,6 @@ class PredictStep(BaseStep):
                 )
             else:
                 self.step_config["model_uri"] = f"models:/{model_name}/latest"
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.write_mode = self.step_config.get("write_mode", "default")
