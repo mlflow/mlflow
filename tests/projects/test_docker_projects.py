@@ -1,5 +1,6 @@
 import os
 
+import docker
 import pytest
 from unittest import mock
 
@@ -276,3 +277,44 @@ def test_docker_run_args(docker_args):
 
     for flag, value in docker_args.items():
         assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)
+
+
+def test_docker_skip_image_build_local(tmp_path):
+    client = docker.from_env()
+    dockerfile = tmp_path.joinpath("Dockerfile")
+    dockerfile.write_text(
+        """
+FROM python:3.7
+RUN pip --version
+"""
+    )
+    client.images.build(path=str(tmp_path), dockerfile=str(dockerfile), tag="my-python:latest")
+    tmp_path.joinpath("MLproject").write_text(
+        """
+name: test
+docker_env:
+  image: my-python
+entry_points:
+  main:
+    command: python --version
+"""
+    )
+    submitted_run = mlflow.projects.run(str(tmp_path), skip_image_build=True)
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "my-python"
+
+
+def test_docker_skip_image_build_remote(tmp_path):
+    tmp_path.joinpath("MLproject").write_text(
+        """
+name: test
+docker_env:
+  image: python:3.7
+entry_points:
+  main:
+    command: python --version
+"""
+    )
+    submitted_run = mlflow.projects.run(str(tmp_path), skip_image_build=True)
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.7"

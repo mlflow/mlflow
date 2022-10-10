@@ -23,6 +23,7 @@ from mlflow.projects.utils import (
     PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
+    SKIP_IMAGE_BUILD,
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
@@ -78,6 +79,7 @@ def _run(
     env_manager,
     synchronous,
     run_name,
+    skip_image_build,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -88,6 +90,7 @@ def _run(
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
+    backend_config[SKIP_IMAGE_BUILD] = skip_image_build
     # TODO: remove this check once kubernetes execution has been refactored
     if backend_name not in {"databricks", "kubernetes"}:
         backend = loader.load_backend(backend_name)
@@ -156,6 +159,7 @@ def _run(
             repository_uri=kube_config["repository-uri"],
             base_image=project.docker_env.get("image"),
             run_id=active_run.info.run_id,
+            skip_image_build=skip_image_build,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
         submitted_run = kb.run_kubernetes_job(
@@ -195,6 +199,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
+    skip_image_build=False,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -341,6 +346,7 @@ def run(
         storage_dir=storage_dir,
         synchronous=synchronous,
         run_name=run_name,
+        skip_image_build=skip_image_build,
     )
     if synchronous:
         _wait_for(submitted_run_obj)
