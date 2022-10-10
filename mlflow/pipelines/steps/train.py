@@ -393,7 +393,7 @@ class TrainStep(BaseStep):
         plugin_str = plugin_str.replace("/", ".").replace("@", ".")
         plugin_module_str = f"{sys.modules[__name__].__package__}.{plugin_str}"
         estimator_fn = getattr(importlib.import_module(plugin_module_str), "get_estimator")
-        estimator,  best_parameters = estimator_fn(
+        estimator, best_parameters = estimator_fn(
             X_train,
             y_train,
             self.step_config,
@@ -679,9 +679,12 @@ class TrainStep(BaseStep):
                 "Best Estimator (FLAML)",
                 "{{ AUTOML }} ",
             )
-            params_html = "".join([
-                f"<pre>{param}: {value}</pre><br>" for param, value in self.best_parameters.items()
-            ])
+            params_html = "".join(
+                [
+                    f"<pre>{param}: {value}</pre><br>"
+                    for param, value in self.best_parameters.items()
+                ]
+            )
             automl_card_tab.add_html(
                 "AUTOML",
                 f"<b>Best estimator:</b><br>"

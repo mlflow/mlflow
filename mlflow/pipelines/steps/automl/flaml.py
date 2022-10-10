@@ -28,7 +28,7 @@ def get_estimator(
     pipeline_root: str,
     evaluation_metrics: Dict[str, PipelineMetric],
     primary_metric: str,
-) -> Tuple[BaseEstimator,  Dict[str, Any]]:
+) -> Tuple[BaseEstimator, Dict[str, Any]]:
     return _create_model_automl(
         X, y, step_config, pipeline_root, evaluation_metrics, primary_metric
     )
