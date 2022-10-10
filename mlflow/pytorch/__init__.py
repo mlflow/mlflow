@@ -957,7 +957,24 @@ def autolog(
         metrics: {'loss': 42.0}
 
     """
-    from mlflow.tensorflow import _add_to_queue, _flush_queue
+    from mlflow.tensorflow import (
+        _flush_queue,
+        _metric_queue,
+        _metric_queue_lock,
+        _thread_pool,
+        _MAX_METRIC_QUEUE_SIZE,
+    )
+
+    def _add_to_queue(key, value, step, time, run_id):
+        """
+        Add a metric to the metric queue. Flush the queue if it exceeds
+        max size.
+        """
+        met = Metric(key=key, value=value, timestamp=time, step=step)
+        with _metric_queue_lock:
+            _metric_queue.append((run_id, met))
+            if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
+                _thread_pool.submit(_flush_queue)
 
     FAILED = object()
     autolog_run = None
