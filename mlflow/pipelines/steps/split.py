@@ -184,8 +184,17 @@ class SplitStep(BaseStep):
         hash_buckets = _create_hash_buckets(input_df)
         train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, self.split_ratios)
         # Import from user function module to process dataframes
+        post_split_config = self.step_config.get("post_split_method", None)
         post_split_filter_config = self.step_config.get("post_split_filter_method", None)
-        if post_split_filter_config is not None:
+        if post_split_config is not None:
+            (post_split_module_name, post_split_fn_name) = post_split_config.rsplit(".", 1)
+            sys.path.append(self.pipeline_root)
+            post_split = getattr(
+                importlib.import_module(post_split_module_name), post_split_fn_name
+            )
+            _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
+            (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
+        elif post_split_filter_config is not None:
             (
                 post_split_filter_module_name,
                 post_split_filter_fn_name,
