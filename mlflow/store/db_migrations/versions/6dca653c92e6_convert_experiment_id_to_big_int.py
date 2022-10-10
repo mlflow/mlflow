@@ -39,12 +39,12 @@ def upgrade():
         fk = foreign_keys_in_experiment_tags[0]
         op.drop_constraint(fk["name"], table_name="experiment_tags", type_="foreignkey")
 
-    # NB: MSSQL has special restrictions on batch updates that affect primary keys and foreign
-    # keys. In order to handle type casting modifications, these constraints need to be dropped
-    # prior to any ALTER commands within the batch context. After type changes are complete, we
-    # will recreate these primary and foreign keys (and give them names so that inspection isn't
-    # required in the future).
-    if engine.engine.name == "mssql":
+        # NB: MSSQL and MySQL have special restrictions on batch updates that affect primary
+        # keys and foreign keys.
+        # In order to handle type casting modifications, these constraints need to be dropped
+        # prior to any ALTER commands within the batch context. After type changes are complete, we
+        # will recreate these primary and foreign keys (and give them names so that inspection isn't
+        # required in the future).
 
         foreign_keys_in_runs = inspect(engine).get_foreign_keys("runs")
         fk_run = foreign_keys_in_runs[0]
@@ -99,17 +99,16 @@ def upgrade():
         )
     if engine.engine.name != "sqlite":
 
-        if engine.engine.name == "mmssql":
-            # NB: mssql requires that foreign keys reference primary keys prior to creation of a
-            # foreign key. Create the pkeys first.
-            op.create_primary_key(
-                constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
-            )
-            op.create_primary_key(
-                constraint_name="experiment_tag_pk",
-                table_name="experiment_tags",
-                columns=["key", "experiment_id"],
-            )
+        # NB: mssql and mysql require that foreign keys reference primary keys prior to
+        # creation of a foreign key. Create the primary keys prior to the foreign keys.
+        op.create_primary_key(
+            constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
+        )
+        op.create_primary_key(
+            constraint_name="experiment_tag_pk",
+            table_name="experiment_tags",
+            columns=["key", "experiment_id"],
+        )
 
         # Recreate the foreign key and name it for future direct reference
         op.create_foreign_key(
@@ -122,17 +121,15 @@ def upgrade():
             ondelete="CASCADE",
         )
 
-        if engine.engine.name == "mmssql":
-
-            op.create_foreign_key(
-                constraint_name="fk_runs_experiment_id",
-                source_table="runs",
-                referent_table="experiments",
-                local_cols=["experiment_id"],
-                remote_cols=["experiment_id"],
-                onupdate="CASCADE",
-                ondelete="CASCADE",
-            )
+        op.create_foreign_key(
+            constraint_name="fk_runs_experiment_id",
+            source_table="runs",
+            referent_table="experiments",
+            local_cols=["experiment_id"],
+            remote_cols=["experiment_id"],
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        )
 
     _logger.info("Conversion of experiment_id from autoincrement complete!")
 
