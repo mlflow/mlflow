@@ -186,11 +186,14 @@ class SqlAlchemyStore(AbstractStore):
         ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
+        creation_time = get_current_time_millis()
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
+            SqlExperiment.creation_time.name: creation_time,
+            SqlExperiment.last_update_time.name: creation_time,
         }
 
         def decorate(s):
@@ -1403,11 +1406,19 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            attr = getattr(SqlExperiment, key)
-            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if SearchExperimentsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for attribute: {comparator}"
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
+            if SearchExperimentsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
         elif type_ == "tag":
@@ -1433,7 +1444,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
