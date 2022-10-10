@@ -39,6 +39,11 @@ def upgrade():
         fk = foreign_keys_in_experiment_tags[0]
         op.drop_constraint(fk["name"], table_name="experiment_tags", type_="foreignkey")
 
+    if engine.engine.name == "mssql":
+
+        op.drop_constraint("experiment_pk", table_name="experiments", type_="primary")
+        op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
+
     with op.batch_alter_table(
         "experiments",
         table_args=(PrimaryKeyConstraint("experiment_id", name="experiment_pk")),
@@ -94,6 +99,17 @@ def upgrade():
             onupdate="CASCADE",
             ondelete="CASCADE",
         )
+
+        if engine.engine.name == "mmssql":
+            op.create_primary_key(
+                constraint_name="experiment_pk", table_name="experiments", columns=["experiment_id"]
+            )
+            op.create_primary_key(
+                constraint_name="experiment_tag_pk",
+                table_name="experiment_tags",
+                columns=["key", "experiment_id"],
+            )
+
     _logger.info("Conversion of experiment_id from autoincrement complete!")
 
 
