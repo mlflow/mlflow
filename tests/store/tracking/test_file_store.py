@@ -219,6 +219,64 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [e.name for e in experiments] == ["ab"]
 
+    def test_search_experiments_filter_by_time_attribute(self):
+        self.initialize()
+        # Sleep to ensure that the first experiment has a different creation_time than the default
+        # experiment and eliminate flakiness.
+        time.sleep(0.001)
+        time_before_create1 = get_current_time_millis()
+        exp_id1 = self.store.create_experiment("1")
+        exp1 = self.store.get_experiment(exp_id1)
+        time.sleep(0.001)
+        time_before_create2 = get_current_time_millis()
+        exp_id2 = self.store.create_experiment("2")
+        exp2 = self.store.get_experiment(exp_id2)
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time = {exp1.creation_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time != {exp1.creation_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2, self.store.DEFAULT_EXPERIMENT_ID]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time >= {time_before_create1}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time < {time_before_create2}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1, self.store.DEFAULT_EXPERIMENT_ID]
+
+        now = get_current_time_millis()
+        experiments = self.store.search_experiments(filter_string=f"creation_time >= {now}")
+        assert experiments == []
+
+        time_before_rename = get_current_time_millis()
+        self.store.rename_experiment(exp_id1, "new_name")
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time >= {time_before_rename}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time <= {get_current_time_millis()}"
+        )
+        assert [e.experiment_id for e in experiments] == [
+            exp_id1,
+            exp_id2,
+            self.store.DEFAULT_EXPERIMENT_ID,
+        ]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time = {exp2.last_update_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2]
+
     def test_search_experiments_filter_by_tag(self):
         self.initialize()
         experiments = [
@@ -280,6 +338,44 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
         assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+    def test_search_experiments_order_by_time_attribute(self):
+        self.initialize()
+        # Sleep to ensure that the first experiment has a different creation_time than the default
+        # experiment and eliminate flakiness.
+        time.sleep(0.001)
+        exp_id1 = self.store.create_experiment("1")
+        time.sleep(0.001)
+        exp_id2 = self.store.create_experiment("2")
+
+        experiments = self.store.search_experiments(order_by=["creation_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id1,
+            exp_id2,
+        ]
+
+        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
+        assert [e.experiment_id for e in experiments] == [
+            exp_id2,
+            exp_id1,
+            self.store.DEFAULT_EXPERIMENT_ID,
+        ]
+
+        experiments = self.store.search_experiments(order_by=["last_update_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id1,
+            exp_id2,
+        ]
+
+        self.store.rename_experiment(exp_id1, "new_name")
+        experiments = self.store.search_experiments(order_by=["last_update_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id2,
+            exp_id1,
+        ]
 
     def test_search_experiments_max_results(self):
         self.initialize()
