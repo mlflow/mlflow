@@ -2,7 +2,7 @@ import pytest
 import pickle
 from unittest import mock
 
-from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag
+from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag, RunStatus
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -731,3 +731,12 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
     # delete_model_version_tag with version and stage not set
     with pytest.raises(MlflowException, match="version or stage must be set"):
         MlflowClient().delete_model_version_tag("model_name", key="tag1")
+
+
+def test_update_run(mock_store):
+    MlflowClient().update_run(run_id="run_id", status="FINISHED", name="my name")
+
+    _, kwargs = mock_store.update_run_info.call_args
+    assert kwargs["run_id"] == "run_id"
+    assert kwargs["run_status"] == RunStatus.from_string("FINISHED")
+    assert kwargs["run_name"] == "my name"
