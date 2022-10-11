@@ -992,7 +992,9 @@ class MlflowClient:
         """
         self._tracking_client.delete_tag(run_id, key)
 
-    def update_run(self, run_id: str, status: Optional[str]=None, name: Optional[str]=None) -> None:
+    def update_run(
+        self, run_id: str, status: Optional[str] = None, name: Optional[str] = None
+    ) -> None:
         """
         Update a run with the specified ID to a new status or name.
 

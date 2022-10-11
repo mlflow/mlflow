@@ -616,7 +616,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def update_run(status: Optional[str]=None, name: Optional[str]=None) -> None:
+def update_run(status: Optional[str] = None, name: Optional[str] = None) -> None:
     """
     Set a new run name for the current run. If no run is active, this method will create a
     new active run.
