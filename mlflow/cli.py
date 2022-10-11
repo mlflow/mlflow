@@ -630,8 +630,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run % is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted." % run_id
+                "Run % is not in `deleted` lifecycle stage. Only runs in"
+                " `deleted` lifecycle stage can be deleted." % run_id
             )
         # raise MlflowException if run_id is newer than older_than parameter
         if older_than and run_id not in deleted_run_ids_older_than:
