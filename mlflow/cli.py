@@ -609,21 +609,22 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         else:
             experiment_ids = experiment_ids.split(",")
 
-    next_run_page_token = None
-    while True:
-        page_results = backend_store.search_runs(
-            experiment_ids=experiment_ids,
-            filter_string="",
-            run_view_type=ViewType.DELETED_ONLY,
-            page_token=next_run_page_token,
-        )
+    if not experiment_ids:
+        next_run_page_token = None
+        while True:
+            page_results = backend_store.search_runs(
+                experiment_ids=experiment_ids,
+                filter_string="",
+                run_view_type=ViewType.DELETED_ONLY,
+                page_token=next_run_page_token,
+            )
 
-        for run in page_results:
-            run_ids.append(run.info.run_id)
+            for run in page_results:
+                run_ids.append(run.info.run_id)
 
-        if page_results.token is None:
-            break
-        next_run_page_token = page_results.token
+            if page_results.token is None:
+                break
+            next_run_page_token = page_results.token
 
     for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
