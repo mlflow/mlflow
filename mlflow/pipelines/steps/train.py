@@ -11,6 +11,7 @@ import cloudpickle
 import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.pipelines.artifacts import ModelArtifact, RunArtifact, HyperParametersArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import (
@@ -721,6 +722,15 @@ class TrainStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def get_artifacts(self):
+        return [
+            ModelArtifact(
+                "model", self.pipeline_root, self.name, self.tracking_config.tracking_uri
+            ),
+            RunArtifact("run", self.pipeline_root, self.name, self.tracking_config.tracking_uri),
+            HyperParametersArtifact("best_parameters", self.pipeline_root, self.name),
+        ]
 
     def _tune_and_get_best_estimator_params(
         self,
