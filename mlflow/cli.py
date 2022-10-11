@@ -583,7 +583,6 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
         run_ids = deleted_run_ids_older_than
-
     else:
         run_ids = run_ids.split(",")
 
@@ -604,11 +603,11 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 break
             next_experiment_page_token = page_results.token
 
-        experiment_ids = deleted_older_experiment_ids
-    else:
-        experiment_ids = experiment_ids.split(",")
+        if experiment_ids:
+            experiment_ids = experiment_ids.split(",")
+        else:
+            experiment_ids = deleted_older_experiment_ids
 
-    if not experiment_ids:
         next_run_page_token = None
         while True:
             page_results = backend_store.search_runs(
