@@ -92,17 +92,22 @@ Key concepts
 
 - **Templates**: A Pipeline Template is a git repository with a :ref:`standardized, modular layout
   <pipeline-template-structure>` containing all of the customizable code and configurations for a
-  :ref:`Pipeline <pipelines-key-concept>`. Each template also defines its requirements, data science
-  notebooks, and tests. MLflow Pipelines includes :ref:`predefined templates <pipeline-templates>`
-  for a variety of model development and MLOps tasks.
+  :ref:`Pipeline <pipelines-key-concept>`. Configurations are defined in YAML format for easy
+  review via the |pipeline.yaml| file and :ref:`Profile YAML files <profiles-key-concept>`. Each
+  template also defines its requirements, data science notebooks, and tests. MLflow Pipelines
+  includes :ref:`predefined templates <pipeline-templates>` for a variety of model development and
+  MLOps tasks.
 
 .. _profiles-key-concept:
 
 - **Profiles**: Profiles contain user-specific or environment-specific configurations for a
   :ref:`Pipeline <pipelines-key-concept>`, such as the particular set of hyperparameters being
   tuned by a data scientist in development or the MLflow Model Registry URI and credentials
-  used to store production-worthy models. Each profile is represented as a YAML file in the
-  :ref:`Pipeline Template <pipeline-templates-key-concept>`.
+  used to store production-worthy models. Each profile is represented as a YAML file
+  in the :ref:`Pipeline Template <pipeline-templates-key-concept>` (e.g.
+  `local.yaml <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/local.yaml>`
+  and `databricks.yaml
+  <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/databricks.yaml>`).
 
 .. _step-cards-key-concept:
 
