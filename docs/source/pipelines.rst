@@ -73,16 +73,16 @@ Key concepts
 
 .. _steps-key-concept:
 
-- **Steps**: Steps represent individual ML operations, such as ingesting data, fitting an estimator,
-  evaluating a model against test data, or deploying a model for real-time scoring. Steps accept a
-  collection of well-defined inputs and produce well-defined outputs according to user-defined
-  configurations and code.
+- **Steps**: A Step represents an individual ML operation, such as ingesting data, fitting an
+  estimator, evaluating a model against test data, or deploying a model for real-time scoring.
+  Each Step accepts a collection of well-defined inputs and produce well-defined outputs according
+  to user-defined configurations and code.
 
 .. _pipelines-key-concept:
 
-- **Pipelines**: A Pipeline is a composition of :ref:`Steps <steps-key-concept>` used to solve an
-  ML problem or perform an MLOps task, such as developing a regression model or performing batch
-  model scoring on production data. MLflow Pipelines provides
+- **Pipelines**: A Pipeline is an ordered composition of :ref:`Steps <steps-key-concept>` used to
+  solve an ML problem or perform an MLOps task, such as developing a regression model or performing
+  batch model scoring on production data. MLflow Pipelines provides
   :py:class:`APIs <mlflow.pipelines.Pipeline>` and a :ref:`CLI <cli>` for running pipelines and
   inspecting their results.
 
@@ -104,10 +104,10 @@ Key concepts
 
 .. _step-cards-key-concept:
 
-- **Step Cards**: Step Cards display :ref:`Pipeline <pipelines-key-concept>` results, including
-  dataset profiles, model performance & explainability plots, overviews of the best model
-  parameters found during tuning, and more. Step Cards and their corresponding dataset and model
-  information are also logged to MLflow Tracking.
+- **Step Cards**: Step Cards display the results produced by running a
+  :ref:`Step <steps-key-concept>`, including dataset profiles, model performance & explainability
+  plots, overviews of the best model parameters found during tuning, and more. Step Cards and their
+  corresponding dataset and model information are also logged to MLflow Tracking.
 
 Usage
 -----
