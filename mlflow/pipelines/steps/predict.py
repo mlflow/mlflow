@@ -9,6 +9,12 @@ from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
+from mlflow.pipelines.utils.tracking import (
+    get_pipeline_tracking_config,
+    apply_pipeline_tracking_config,
+    TrackingConfig,
+)
+from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import (
     _get_active_spark_session,
@@ -30,10 +36,39 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
         self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
+    def _validate_and_apply_step_config(self):
+        required_configuration_keys = ["output_format", "output_location"]
+        for key in required_configuration_keys:
+            if key not in self.step_config:
+                raise MlflowException(
+                    f"The `{key}` configuration key must be specified for the predict step.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if self.step_config["output_format"] not in {"parquet", "delta", "table"}:
+            raise MlflowException(
+                "Invalid `output_format` in predict step configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if "model_uri" not in self.step_config:
+            try:
+                register_config = self.step_config["register"]
+                model_name = register_config["model_name"]
+            except KeyError:
+                raise MlflowException(
+                    "No model specified for batch scoring: predict step does not have `model_uri` "
+                    "configuration key and register step does not have `model_name` configuration "
+                    " key.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                self.step_config["model_uri"] = f"models:/{model_name}/latest"
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
+        self.registry_uri = self.step_config.get("registry_uri", None)
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.run_end_time = None
         self.execution_duration = None
 
@@ -81,6 +116,10 @@ class PredictStep(BaseStep):
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
+
+        apply_pipeline_tracking_config(self.tracking_config)
+        if self.registry_uri:
+            mlflow.set_registry_uri(self.registry_uri)
 
         # Get or create spark session
         try:
@@ -153,39 +192,23 @@ class PredictStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["predict"]
-        except KeyError:
-            raise MlflowException(
-                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
-        required_configuration_keys = ["output_format", "output_location"]
-        for key in required_configuration_keys:
-            if key not in step_config:
-                raise MlflowException(
-                    f"The `{key}` configuration key must be specified for the predict step.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        if step_config["output_format"] not in {"parquet", "delta", "table"}:
-            raise MlflowException(
-                "Invalid `output_format` in predict step configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if "model_uri" not in step_config:
-            try:
-                register_config = pipeline_config["steps"]["register"]
-                model_name = register_config["model_name"]
-            except KeyError:
-                raise MlflowException(
-                    "No model specified for batch scoring: predict step does not have `model_uri` "
-                    "configuration key and register step does not have `model_name` configuration "
-                    " key.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            else:
-                step_config["model_uri"] = f"models:/{model_name}/latest"
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("predict", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
+        step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
+        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root)
 
     @property
     def name(self):
         return "predict"
+
+    @property
+    def environment(self):
+        return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)

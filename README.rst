@@ -145,6 +145,9 @@ MLflow artifacts and then load them again for serving. There is an example train
 
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
+**Note:** If using MLflow skinny (``pip install mlflow-skinny``) for model serving, additional
+required dependencies (namely, ``flask``) will need to be installed for the MLflow server to function.
+
 
 Contributing
 ------------

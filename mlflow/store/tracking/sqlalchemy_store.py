@@ -186,11 +186,14 @@ class SqlAlchemyStore(AbstractStore):
         ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
+        creation_time = get_current_time_millis()
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
+            SqlExperiment.creation_time.name: creation_time,
+            SqlExperiment.last_update_time.name: creation_time,
         }
 
         def decorate(s):
@@ -1035,7 +1038,12 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+            if tag.key == MLFLOW_RUN_NAME:
+                run_status = RunStatus.from_string(run.status)
+                self.update_run_info(run_id, run_status, run.end_time, tag.value)
+            else:
+                # NB: Updating the run_info will set the tag. No need to do it twice.
+                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def _set_tags(self, run_id, tags):
         """
@@ -1065,25 +1073,32 @@ class SqlAlchemyStore(AbstractStore):
 
                     new_tag_dict = {}
                     for tag in tags:
-                        current_tag = current_tags.get(tag.key)
-                        new_tag = new_tag_dict.get(tag.key)
-
-                        # update the SqlTag if it is already present in DB
-                        if current_tag:
-                            current_tag.value = tag.value
-                            continue
-
-                        # if a SqlTag instance is already present in `new_tag_dict`,
-                        # this means that multiple tags with the same key were passed to `set_tags`.
-                        # In this case, we resolve potential conflicts by updating the value of the
-                        # existing instance to the value of `tag`
-                        if new_tag:
-                            new_tag.value = tag.value
-                        # otherwise, put it into the dict
+                        # NB: If the run name tag is explicitly set, update the run info attribute
+                        # and do not resubmit the tag for overwrite as the tag will be set within
+                        # `set_tag()` with a call to `update_run_info()`
+                        if tag.key == MLFLOW_RUN_NAME:
+                            self.set_tag(run_id, tag)
                         else:
-                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+                            current_tag = current_tags.get(tag.key)
+                            new_tag = new_tag_dict.get(tag.key)
 
-                        new_tag_dict[tag.key] = new_tag
+                            # update the SqlTag if it is already present in DB
+                            if current_tag:
+                                current_tag.value = tag.value
+                                continue
+
+                            # if a SqlTag instance is already present in `new_tag_dict`,
+                            # this means that multiple tags with the same key were passed to
+                            # `set_tags`.
+                            # In this case, we resolve potential conflicts by updating the value
+                            # of the existing instance to the value of `tag`
+                            if new_tag:
+                                new_tag.value = tag.value
+                            # otherwise, put it into the dict
+                            else:
+                                new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                            new_tag_dict[tag.key] = new_tag
 
                     # finally, save new entries to DB.
                     self._save_to_db(session=session, objs=list(new_tag_dict.values()))
@@ -1402,11 +1417,19 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            attr = getattr(SqlExperiment, key)
-            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if SearchExperimentsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for attribute: {comparator}"
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
+            if SearchExperimentsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
         elif type_ == "tag":
@@ -1432,7 +1455,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
