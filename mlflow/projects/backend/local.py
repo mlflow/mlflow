@@ -24,7 +24,7 @@ from mlflow.projects.utils import (
     PROJECT_SYNCHRONOUS,
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
-    BUILD_IMAGE,
+    PROJECT_BUILD_IMAGE,
 )
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_or_create_conda_env
@@ -89,7 +89,7 @@ class LocalBackend(AbstractBackend):
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
-        build_image = backend_config[BUILD_IMAGE]
+        build_image = backend_config[PROJECT_BUILD_IMAGE]
 
         # Select an appropriate env manager for the project env type
         if env_manager is None:
