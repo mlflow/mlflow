@@ -299,7 +299,7 @@ entry_points:
     command: python --version
 """
     )
-    submitted_run = mlflow.projects.run(str(tmp_path), build_image=True)
+    submitted_run = mlflow.projects.run(str(tmp_path))
     run = mlflow.get_run(submitted_run.run_id)
     assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "my-python"
 
@@ -315,6 +315,6 @@ entry_points:
     command: python --version
 """
     )
-    submitted_run = mlflow.projects.run(str(tmp_path), build_image=True)
+    submitted_run = mlflow.projects.run(str(tmp_path))
     run = mlflow.get_run(submitted_run.run_id)
     assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.7"
