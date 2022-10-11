@@ -999,6 +999,39 @@ class MlflowClient:
         :param run_id: The ID of the Run to update.
         :param status: The new status of the run to set, if specified. At least one of ``status`` or ``name`` should be specified.
         :param name: The new name of the run to set, if specified. At least one of ``name`` or ``status`` should be specified.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            def print_run_info(run):
+                print("run_id: {}".format(run.info.run_id))
+                print("run_name: {}".format(run.info.run_name))
+                print("status: {}".format(run.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Update run and fetch info
+            client.update_run(run.info.run_id, "FINISHED", "new_name")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: judicious-hog-915
+            status: RUNNING
+            --
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: new_name
+            status: FINISHED
         """
         self._tracking_client.update_run(run_id, status, name)
 

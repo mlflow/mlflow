@@ -623,6 +623,14 @@ def update_run(status: Optional[str]=None, name: Optional[str]=None) -> None:
 
     :param status: The new status of the run to set, if specified. At least one of ``status`` or ``name`` should be specified.
     :param name: The new name of the run to set, if specified. At least one of ``name`` or ``status`` should be specified.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.update_run("FINISHED", "MY_RUN")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().update_run(run_id, status, name)
