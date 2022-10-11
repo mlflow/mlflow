@@ -604,7 +604,6 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 break
             next_experiment_page_token = page_results.token
 
-    if not experiment_ids:
         experiment_ids = deleted_older_experiment_ids
     else:
         experiment_ids = experiment_ids.split(",")
