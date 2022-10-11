@@ -145,7 +145,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == "./mlruns"
+        assert store.artifact_root_uri == os.abs.path("./mlruns")
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
