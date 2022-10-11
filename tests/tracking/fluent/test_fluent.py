@@ -242,6 +242,11 @@ def test_get_experiment_id_with_no_active_experiments_returns_zero():
     assert _get_experiment_id() == "0"
 
 
+def test_get_experiment_id_when_with_new_experiment_returns_active_experiment_id():
+    HelperEnv.set_values(name="new_experiment")
+    assert _get_experiment_id() != "0"
+
+
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
