@@ -371,7 +371,6 @@ class TrackingServiceClient:
 
         run = self.get_run(run_id)
         status = status or run.info.status
-        self.set_tag(run_id, "mlflow.runName", name)
         self.store.update_run_info(
             run_id=run_id,
             run_status=RunStatus.from_string(status),
