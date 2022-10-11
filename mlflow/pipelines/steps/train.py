@@ -912,7 +912,7 @@ class TrainStep(BaseStep):
             self._safe_dump_with_numeric_values(
                 best_hardcoded_params, file, default_flow_style=False
             )
-        mlflow.log_artifact(best_parameters_path)
+        mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
