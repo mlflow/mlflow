@@ -4,6 +4,7 @@ import os
 
 from pathlib import Path
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
@@ -193,6 +194,13 @@ class IngestStep(BaseIngestStep):
     def name(self) -> str:
         return "ingest"
 
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_data", self.pipeline_root, self.name, IngestStep._DATASET_OUTPUT_NAME
+            )
+        ]
+
 
 class IngestScoringStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
@@ -213,3 +221,13 @@ class IngestScoringStep(BaseIngestStep):
     @property
     def name(self) -> str:
         return "ingest_scoring"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_scoring_data",
+                self.pipeline_root,
+                self.name,
+                IngestScoringStep._DATASET_OUTPUT_NAME,
+            )
+        ]

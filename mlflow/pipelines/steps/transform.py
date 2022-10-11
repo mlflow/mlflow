@@ -7,11 +7,12 @@ import time
 import cloudpickle
 from packaging.version import Version
 
+from mlflow.pipelines.artifacts import DataframeArtifact, TransformerArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
-from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config
+from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config, TrackingConfig
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def _get_output_feature_names(transformer, num_features, input_features):
 class TransformStep(BaseStep):
     def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
@@ -197,3 +199,22 @@ class TransformStep(BaseStep):
     @property
     def name(self):
         return "transform"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "transformed_training_data",
+                self.pipeline_root,
+                self.name,
+                "transformed_training_data.parquet",
+            ),
+            DataframeArtifact(
+                "transformed_validation_data",
+                self.pipeline_root,
+                self.name,
+                "transformed_validation_data.parquet",
+            ),
+            TransformerArtifact(
+                "transformer", self.pipeline_root, self.name, self.tracking_config.tracking_uri
+            ),
+        ]

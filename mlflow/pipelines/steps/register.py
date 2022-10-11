@@ -1,4 +1,3 @@
-import json
 import logging
 from pathlib import Path
 from typing import Dict, Any
@@ -6,6 +5,7 @@ from typing import Dict, Any
 import mlflow
 from mlflow.entities import SourceType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.pipelines.artifacts import ModelVersionArtifact, RegisteredModelVersionInfo
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.steps.train import TrainStep
@@ -183,31 +183,12 @@ class RegisterStep(BaseStep):
     def environment(self):
         return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
 
-
-class RegisteredModelVersionInfo:
-    _KEY_REGISTERED_MODEL_NAME = "registered_model_name"
-    _KEY_REGISTERED_MODEL_VERSION = "registered_model_version"
-
-    def __init__(self, name: str, version: int):
-        self.name = name
-        self.version = version
-
-    def to_json(self, path):
-        registered_model_info_dict = {
-            RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_NAME: self.name,
-            RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_VERSION: self.version,
-        }
-        with open(path, "w") as f:
-            json.dump(registered_model_info_dict, f)
-
-    @classmethod
-    def from_json(cls, path):
-        with open(path, "r") as f:
-            registered_model_info_dict = json.load(f)
-
-        return cls(
-            name=registered_model_info_dict[RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_NAME],
-            version=registered_model_info_dict[
-                RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_VERSION
-            ],
-        )
+    def get_artifacts(self):
+        return [
+            ModelVersionArtifact(
+                "registered_model_version",
+                self.pipeline_root,
+                self.name,
+                self.tracking_config.tracking_uri,
+            )
+        ]
