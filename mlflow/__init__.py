@@ -158,6 +158,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    update_run,
 )
 from mlflow.tracking._model_registry.fluent import register_model
 from mlflow.tracking import (
