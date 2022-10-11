@@ -6,7 +6,7 @@ CREATE TABLE alembic_version (
 
 
 CREATE TABLE experiments (
-	experiment_id INTEGER NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	name VARCHAR(256) NOT NULL,
 	artifact_location VARCHAR(256),
 	lifecycle_stage VARCHAR(32),
@@ -31,7 +31,7 @@ CREATE TABLE registered_models (
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
-	experiment_id INTEGER NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
@@ -77,13 +77,13 @@ CREATE TABLE runs (
 	source_version VARCHAR(50),
 	lifecycle_stage VARCHAR(20),
 	artifact_uri VARCHAR(200),
-	experiment_id INTEGER,
+	experiment_id BIGINT,
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')),
 	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
-	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
+	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
 )
 
 

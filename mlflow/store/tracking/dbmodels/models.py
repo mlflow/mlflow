@@ -5,7 +5,6 @@ from sqlalchemy import (
     Column,
     String,
     ForeignKey,
-    Integer,
     CheckConstraint,
     BigInteger,
     PrimaryKeyConstraint,
@@ -54,7 +53,7 @@ class SqlExperiment(Base):
 
     __tablename__ = "experiments"
 
-    experiment_id = Column(BigInteger(), unique=True, nullable=False)
+    experiment_id = Column(BigInteger(), nullable=False)
     """
     Experiment ID: `Integer`. *Primary Key* for ``experiments`` table.
     """
@@ -172,7 +171,7 @@ class SqlRun(Base):
     """
     Default artifact location for this run: `String` (limit 200 characters).
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(BigInteger, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this run belongs to: *Foreign Key* into ``experiment`` table.
     """
@@ -250,7 +249,7 @@ class SqlExperimentTag(Base):
     """
     Value associated with tag: `String` (limit 5000 characters). Could be *null*.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(BigInteger, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this tag belongs: *Foreign Key* into ``experiments`` table.
     """

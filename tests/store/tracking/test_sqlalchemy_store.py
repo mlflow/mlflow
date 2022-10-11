@@ -331,11 +331,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_ids = self._experiment_factory(experiment_names)
         self.store.delete_experiment(experiment_ids[1])
 
-        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        experiments = self.store.search_experiments(
+            view_type=ViewType.ACTIVE_ONLY, order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == ["a", "Default"]
         experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
         assert [e.name for e in experiments] == ["b"]
-        experiments = self.store.search_experiments(view_type=ViewType.ALL)
+        experiments = self.store.search_experiments(
+            view_type=ViewType.ALL, order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == ["b", "a", "Default"]
 
     def test_search_experiments_filter_by_attribute(self):
@@ -348,11 +352,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["a"]
         experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
         assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
+        experiments = self.store.search_experiments(
+            filter_string="attribute.`name` != 'a'", order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
+        experiments = self.store.search_experiments(
+            filter_string="name LIKE 'a%'", order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == ["ab", "a"]
-        experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
+        experiments = self.store.search_experiments(
+            filter_string="name ILIKE 'a%'", order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == ["Abc", "ab", "a"]
         experiments = self.store.search_experiments(
             filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
@@ -427,9 +437,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self._experiment_factory(experiment_names)
         reversed_experiment_names = experiment_names[::-1]
 
-        experiments = self.store.search_experiments()
+        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
         assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
-        experiments = self.store.search_experiments(max_results=3)
+        experiments = self.store.search_experiments(max_results=3, order_by=["creation_time DESC"])
         assert [e.name for e in experiments] == reversed_experiment_names[:3]
 
     def test_search_experiments_max_results_validation(self):
@@ -445,15 +455,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self._experiment_factory(experiment_names)
         reversed_experiment_names = experiment_names[::-1]
 
-        experiments = self.store.search_experiments(max_results=4)
+        experiments = self.store.search_experiments(max_results=4, order_by=["creation_time DESC"])
         assert [e.name for e in experiments] == reversed_experiment_names[:4]
         assert experiments.token is not None
 
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
+        experiments = self.store.search_experiments(
+            max_results=4, page_token=experiments.token, order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == reversed_experiment_names[4:8]
         assert experiments.token is not None
 
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
+        experiments = self.store.search_experiments(
+            max_results=4, page_token=experiments.token, order_by=["creation_time DESC"]
+        )
         assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
         assert experiments.token is None
 

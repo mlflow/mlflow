@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 import logging
 
-from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint, ForeignKeyConstraint
 from sqlalchemy.inspection import inspect
 
 _logger = logging.getLogger(__name__)
@@ -31,9 +31,11 @@ def upgrade():
     # column to support the uuid-based random id generation change.
 
     engine = op.get_bind()
+    engine_name = engine.engine.name
+
     # NB: sqlite doesn't support foreign keys even if they are defined. Altering a constraint
     # in sqlite outside of batch operations doesn't work.
-    if engine.engine.name != "sqlite":
+    if engine_name != "sqlite":
 
         foreign_keys_in_experiment_tags = inspect(engine).get_foreign_keys("experiment_tags")
         fk = foreign_keys_in_experiment_tags[0]
@@ -50,14 +52,49 @@ def upgrade():
         op.drop_constraint(fk_run["name"], table_name="runs", type_="foreignkey")
 
         # NB: MSSQL requires that modifications to primary key columns do not have a primary key
-        # status assigned to the columns. Drop them and recreate them for casting.
-        if engine.engine.name == "mssql":
+        # status assigned to the columns. These primary keys will be recreated after altering
+        # the columns typing.
+        if engine_name == "mssql":
             op.drop_constraint("experiment_pk", table_name="experiments", type_="primary")
             op.drop_constraint("experiment_tag_pk", table_name="experiment_tags", type_="primary")
 
+        experiments_table_args = PrimaryKeyConstraint("experiment_id", name="experiment_pk")
+    else:
+        experiments_table_args = []
     with op.batch_alter_table(
         "experiments",
-        table_args=(PrimaryKeyConstraint("experiment_id", name="experiment_pk")),
+        table_args=experiments_table_args,
+    ) as batch_op:
+        batch_op.alter_column(
+            "experiment_id",
+            existing_type=sa.Integer,
+            type_=sa.BigInteger,
+            existing_nullable=False,
+            nullable=False,
+            existing_autoincrement=True,
+            autoincrement=False,
+            existing_server_default=None,
+            existing_comment=None,
+        )
+
+    if engine_name == "sqlite":
+        # NB: sqlite will perform an in-place copy of a table and recreate constraints as defined
+        # in the `table_args` argument to the batch constructor.
+        experiments_tags_table_args = (
+            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
+            ForeignKeyConstraint(
+                columns=["experiment_id"], refcolumns=["experiments.experiment_id"]
+            ),
+        )
+    else:
+        # For postgres and mysql, the primary key definition will be applied to the altered table
+        # if defined in the `table_args` argument (and will be ignored in mssql).
+        experiments_tags_table_args = (
+            PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
+        )
+    with op.batch_alter_table(
+        "experiment_tags",
+        table_args=experiments_tags_table_args,
     ) as batch_op:
         batch_op.alter_column(
             "experiment_id",
@@ -72,22 +109,8 @@ def upgrade():
         )
 
     with op.batch_alter_table(
-        "experiment_tags",
-        table_args=(PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),),
+        "runs",
     ) as batch_op:
-        batch_op.alter_column(
-            "experiment_id",
-            existing_type=sa.Integer,
-            type_=sa.BigInteger,
-            existing_nullable=False,
-            nullable=False,
-            existing_autoincrement=True,
-            autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
-        )
-
-    with op.batch_alter_table("runs") as batch_op:
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
@@ -99,7 +122,12 @@ def upgrade():
             existing_server_default=None,
             existing_comment=None,
         )
-    if engine.engine.name != "sqlite":
+        batch_op.create_check_constraint(
+            constraint_name="status",
+            condition="status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED')",
+        )
+
+    if engine_name != "sqlite":
 
         # NB: mssql requires that foreign keys reference primary keys prior to
         # creation of a foreign key. Recreate the primary keys that were previously dropped.
