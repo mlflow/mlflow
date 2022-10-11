@@ -62,7 +62,7 @@ uses the |MLflow Pipelines Regression Template| to develop and score models on t
 by :ref:`installing MLflow Pipelines <pipelines-installation>` and running the `Jupyter example
 notebook <https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/jupyter.ipynb>`_.
 You can run the example on Databricks by `cloning the example repository with Databricks Repos
-<https://docs.databricks.com/repos/work-with-notebooks-other-files.html#clone-a-remote-git-repository>`
+<https://docs.databricks.com/repos/work-with-notebooks-other-files.html#clone-a-remote-git-repository>`_
 and running the `Databricks example notebook
 <https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/databricks.py>`_.
 
@@ -105,9 +105,9 @@ Key concepts
   tuned by a data scientist in development or the MLflow Model Registry URI and credentials
   used to store production-worthy models. Each profile is represented as a YAML file
   in the :ref:`Pipeline Template <pipeline-templates-key-concept>` (e.g.
-  `local.yaml <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/local.yaml>`
+  `local.yaml <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/local.yaml>`_
   and `databricks.yaml
-  <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/databricks.yaml>`).
+  <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/databricks.yaml>`_).
 
 .. _step-cards-key-concept:
 
