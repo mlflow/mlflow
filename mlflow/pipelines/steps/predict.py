@@ -38,7 +38,7 @@ _ENV_MANAGER = "virtualenv"
 class PredictStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
-        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
         required_configuration_keys = ["output_format", "output_location"]
@@ -66,9 +66,9 @@ class PredictStep(BaseStep):
                 )
             else:
                 self.step_config["model_uri"] = f"models:/{model_name}/latest"
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
+        self.save_mode = self.step_config.get("save_mode", "default")
         self.run_end_time = None
         self.execution_duration = None
 
@@ -127,21 +127,36 @@ class PredictStep(BaseStep):
             if spark:
                 _logger.info("Found active spark session")
             else:
-                spark = _create_local_spark_session_for_pipelines()
                 _logger.info("Creating new spark session")
+                spark = _create_local_spark_session_for_pipelines()
         except Exception as e:
             raise MlflowException(
                 message=(
-                    "Encountered an error while searching for an active Spark session to"
-                    " score dataset with spark UDF. Please create a Spark session and try again."
+                    "Encountered an error while getting or creating an active Spark session to"
+                    " score dataset with spark UDF."
                 ),
                 error_code=BAD_REQUEST,
             ) from e
-        if not spark:
+
+        # check if output location is already populated for non-delta output formats
+        output_format = self.step_config["output_format"]
+        output_location = self.step_config["output_location"]
+        output_populated = False
+        if self.save_mode in ["default", "error", "errorifexists"]:
+            if output_format == "parquet" or output_format == "delta":
+                output_populated = os.path.exists(output_location)
+            else:
+                try:
+                    output_populated = spark._jsparkSession.catalog().tableExists(output_location)
+                except Exception:
+                    # swallow spark failures
+                    pass
+        if output_populated:
             raise MlflowException(
                 message=(
-                    "No active SparkSession detected to score dataset with spark UDF. "
-                    "Please create a Spark session and try again."
+                    f"Output location `{output_location}` of format `{output_format}` is already "
+                    "populated. To overwrite, please change the spark `save_mode` in the predict "
+                    "step configuration."
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -172,14 +187,12 @@ class PredictStep(BaseStep):
         )
 
         # save predictions
-        # note: the current output writing logic allows no overwrites
-        output_format = self.step_config["output_format"]
-        if output_format == "parquet" or output_format == "delta":
-            scored_sdf.coalesce(1).write.format(output_format).save(
-                self.step_config["output_location"]
+        if output_format in ["parquet", "delta"]:
+            scored_sdf.coalesce(1).write.format(output_format).mode(self.save_mode).save(
+                output_location
             )
         else:
-            scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
+            scored_sdf.write.format("delta").mode(self.save_mode).saveAsTable(output_location)
 
         # predict step artifacts
         write_spark_dataframe_to_parquet_on_local_disk(
