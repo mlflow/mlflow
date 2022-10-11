@@ -587,6 +587,8 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
         """
         :param sql: The Spark SQL query string that defines the dataset
                     (e.g. 'SELECT * FROM my_spark_table').
+        :param location: The location of the dataset
+                    (e.g. 'catalog.schema.table', 'schema.table', 'table').
         :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
         """
         super().__init__(dataset_format=dataset_format)
@@ -601,10 +603,10 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
             ) from None
         spark_session = self._get_or_create_spark_session()
         spark_df = None
-        if self.location is not None:
-            spark_df = spark_session.table(self.location)
         if self.sql is not None:
             spark_df = spark_session.sql(self.sql)
+        elif self.location is not None:
+            spark_df = spark_session.table(self.location)
         pandas_df = spark_df.toPandas()
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
