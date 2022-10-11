@@ -999,8 +999,10 @@ class MlflowClient:
         Update a run with the specified ID to a new status or name.
 
         :param run_id: The ID of the Run to update.
-        :param status: The new status of the run to set, if specified. At least one of ``status`` or ``name`` should be specified.
-        :param name: The new name of the run to set, if specified. At least one of ``name`` or ``status`` should be specified.
+        :param status: The new status of the run to set, if specified.
+                       At least one of ``status`` or ``name`` should be specified.
+        :param name: The new name of the run to set, if specified.
+                     At least one of ``name`` or ``status`` should be specified.
 
         .. code-block:: python
             :caption: Example

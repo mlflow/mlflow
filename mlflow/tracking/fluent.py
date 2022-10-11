@@ -621,8 +621,10 @@ def update_run(status: Optional[str] = None, name: Optional[str] = None) -> None
     Set a new name or status for the current run. If no run is active, this method will create a
     new active run.
 
-    :param status: The new status of the run to set, if specified. At least one of ``status`` or ``name`` should be specified.
-    :param name: The new name of the run to set, if specified. At least one of ``name`` or ``status`` should be specified.
+    :param status: The new status of the run to set, if specified.
+                   At least one of ``status`` or ``name`` should be specified.
+    :param name: The new name of the run to set, if specified.
+                 At least one of ``name`` or ``status`` should be specified.
 
     .. code-block:: python
         :caption: Example
