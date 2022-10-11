@@ -445,7 +445,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         experiment._set_last_update_time(get_current_time_millis())
         meta_dir = os.path.join(self.root_directory, experiment_id)
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
@@ -470,7 +470,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         experiment._set_last_update_time(get_current_time_millis())
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
