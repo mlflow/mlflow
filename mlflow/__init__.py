@@ -207,6 +207,7 @@ __all__ = [
     "delete_experiment",
     "get_run",
     "delete_run",
+    "update_run",
     "run",
     "register_model",
     "get_registry_uri",
