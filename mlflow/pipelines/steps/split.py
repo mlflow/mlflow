@@ -20,6 +20,7 @@ _INPUT_FILE_NAME = "dataset.parquet"
 _OUTPUT_TRAIN_FILE_NAME = "train.parquet"
 _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
+_MULTI_PROCESS_POOL_SIZE = 8
 
 
 def _make_elem_hashable(elem):
@@ -61,13 +62,13 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
-def _parallelize(data, func, num_of_processes=8):
+def _parallelize(data, func):
     import numpy as np
     import pandas as pd
     from multiprocessing import Pool
 
-    data_split = np.array_split(data, num_of_processes)
-    pool = Pool(num_of_processes)
+    data_split = np.array_split(data, _MULTI_PROCESS_POOL_SIZE)
+    pool = Pool(_MULTI_PROCESS_POOL_SIZE)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
@@ -78,10 +79,10 @@ def _run_on_subset(func, data_subset):
     return data_subset.applymap(func)
 
 
-def _parallelize_on_rows(data, func, num_of_processes=8):
+def _parallelize_on_rows(data, func):
     from functools import partial
 
-    return _parallelize(data, partial(_run_on_subset, func), num_of_processes)
+    return _parallelize(data, partial(_run_on_subset, func))
 
 
 def _hash_pandas_dataframe(input_df):
