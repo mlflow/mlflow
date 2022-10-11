@@ -487,6 +487,17 @@ class SqlAlchemyStore(AbstractStore):
                 self._mark_run_deleted(session, run)
             self._save_to_db(objs=experiment, session=session)
 
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete a experiment (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(
+                experiment_id=experiment_id, session=session, view_type=ViewType.DELETED_ONLY
+            )
+            session.delete(experiment)
+
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()
