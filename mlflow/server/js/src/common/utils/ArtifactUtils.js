@@ -1,6 +1,5 @@
 import { ErrorWrapper } from './ErrorWrapper';
 import { getDefaultHeaders, HTTPMethods } from './FetchUtils';
-import Utils from './Utils';
 
 /**
  * Fetches the specified artifact, returning a Promise that resolves with
