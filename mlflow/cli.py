@@ -133,6 +133,17 @@ def cli():
     help="The name to give the MLflow Run associated with the project execution. If not specified, "
     "the MLflow Run name is left unset.",
 )
+@click.option(
+    "--build-image",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "Only valid for Docker projects. If specified, build a new Docker image that's based on "
+        "the image specified by the `image` field in the MLproject file, and contains files in the "
+        "project directory."
+    ),
+)
 def run(
     uri,
     entry_point,
@@ -147,6 +158,7 @@ def run(
     storage_dir,
     run_id,
     run_name,
+    build_image,
 ):
     """
     Run an MLflow project from the given URI.
@@ -193,6 +205,7 @@ def run(
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
             run_name=run_name,
+            build_image=build_image,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
