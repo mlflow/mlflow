@@ -308,7 +308,7 @@ Docker container environment
   When the MLflow project is run, Docker attempts to pull the image from the specified registry.
   The system executing the MLflow project must have credentials to pull this image from  the specified registry.
 
-  .. rubric:: Example 4: Using a prebuilt image
+  .. rubric:: Example 4: Build a new image
 
   .. code-block:: yaml
 
@@ -319,10 +319,11 @@ Docker container environment
 
     mlflow run ... --build-image
 
-  By default, MLflow builds a new image that's based on the specified image and files contained in
-  the project directory. To disable this behavior and use the image directly, run the project with the 
-  ``--build-image`` argument specified. In the above example, the image ``python:3.7`` is pulled from Docker Hub if
-  it's not present locally and the project is run in a container created from this image.
+  By default, MLflow uses the specified image directly. To disable this behavior and build a new image
+  that's based on the specified image, run the project with the ``--build-image`` argument specified.
+  In the above example, the image ``python:3.7`` is pulled from Docker Hub if it's not present locally
+  and a new image is built on top of it. The project directory is copied into the new image.
+
 
 .. _mlproject-command-syntax:
 
