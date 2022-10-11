@@ -645,13 +645,19 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
     if not skip_experiments:
+        invalid_experiments = []
         for experiment_id in experiment_ids:
             if older_than and experiment_id not in deleted_older_experiment_ids:
-                raise MlflowException(
-                    f"Experiment {experiment_id} is not older than the required age. "
-                    f"Only runs older than {older_than} can be deleted.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                invalid_experiments.append(experiment_id)
+
+        if invalid_experiments:
+            raise MlflowException(
+                f"Experiments {invalid_experiments} are not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
             click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
