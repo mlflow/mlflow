@@ -4,6 +4,9 @@ import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.utils.DatabricksContext;
 import org.mlflow.tracking.utils.MlflowTagConstants;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -31,7 +34,11 @@ import java.util.function.Consumer;
 public class MlflowContext {
   private MlflowClient client;
   private String experimentId;
-  public static String defaultRepoNotebookExperimentId;
+  // Cache the default experiment ID for a repo notebook to avoid sending
+  // extraneous API requests
+  private static String defaultRepoNotebookExperimentId;
+  private static final Logger logger = LoggerFactory.getLogger(MlflowContext.class);
+
 
   /**
    * Constructs a {@code MlflowContext} with a MlflowClient based on the MLFLOW_TRACKING_URI
@@ -237,6 +244,7 @@ public class MlflowContext {
           }
           catch (Exception e) {
             // Do nothing; will fall through to returning notebookId
+            logger.warn("Failed to get default repo notebook experiment ID", e);
           }
         }
         return notebookId;
