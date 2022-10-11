@@ -61,10 +61,34 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
+def _parallelize(data, func, num_of_processes=8):
+    import numpy as np
+    import pandas as pd
+    from multiprocessing import Pool
+
+    data_split = np.array_split(data, num_of_processes)
+    pool = Pool(num_of_processes)
+    data = pd.concat(pool.map(func, data_split))
+    pool.close()
+    pool.join()
+    return data
+
+
+def _run_on_subset(func, data_subset):
+    return data_subset.applymap(func)
+
+
+def _parallelize_on_rows(data, func, num_of_processes=8):
+    from functools import partial
+
+    return _parallelize(data, partial(_run_on_subset, func), num_of_processes)
+
+
 def _hash_pandas_dataframe(input_df):
     from pandas.util import hash_pandas_object
 
-    return hash_pandas_object(input_df.applymap(_make_elem_hashable))
+    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable)
+    return hash_pandas_object(hashed_input_df)
 
 
 def _create_hash_buckets(input_df):
