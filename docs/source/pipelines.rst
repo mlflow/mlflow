@@ -4,20 +4,21 @@
 MLflow Pipelines (experimental)
 ===============================
 
-MLflow Pipelines is a framework that enables you to quickly develop high-quality models and deploy
-them to production. Compared to ad-hoc ML workflows, MLflow Pipelines offers several major benefits:
+MLflow Pipelines is a framework that enables data scientists to quickly develop high-quality models
+and deploy them to production. Compared to ad-hoc ML workflows, MLflow Pipelines offers several
+major benefits:
 
-- **Pipeline templates**: :ref:`Predefined templates <pipeline-templates>` for common ML tasks,
-  such as :ref:`regression modeling <regression-template>`, enable you to get started quickly and
-  focus on building great models, eliminating the large amount of boilerplate code that is
-  traditionally required to curate datasets, engineer features, train & tune models, and package
+- **Get started quickly**:ref:`Predefined templates <pipeline-templates>` for common ML tasks,
+  such as :ref:`regression modeling <regression-template>`, enable data scientists to get started
+  quickly and focus on building great models, eliminating the large amount of boilerplate code that
+  is traditionally required to curate datasets, engineer features, train & tune models, and package
   models for production deployment.
 
-- **Pipeline engine**: The intelligent pipeline execution engine accelerates model development by
+- **Iterate faster**: The intelligent pipeline execution engine accelerates model development by
   caching results from each step of the process and re-running the minimal set of steps as changes
   are made.
 
-- **Production-ready structure**: The modular, git-integrated :ref:`pipeline structure
+- **Easily ship to production**: The modular, git-integrated :ref:`pipeline structure
   <pipeline-templates-key-concept>` dramatically simplifies the handoff from development to
   production by ensuring that all model code, data, and configurations are easily reviewable and
   deployable by ML engineers.
@@ -34,17 +35,18 @@ MLflow Pipelines is available as an extension of the
 `MLflow Python library <https://pypi.org/project/mlflow/>`_. You can install MLflow Pipelines
 as follows:
 
-- **Windows and Unix systems**: Install MLflow Pipelines from PyPI:
+- **Local**: Install MLflow Pipelines from PyPI:
 
   .. code-block:: sh
 
       pip install mlflow[pipelines]
 
   Note that MLflow Pipelines requires Make, which may not be preinstalled on some Windows systems.
-  Windows users must install Make before using MLflow Pipelines.
+  Windows users must install Make before using MLflow Pipelines. For more information about
+  installing Make on Windows, see https://gnuwin32.sourceforge.net/install.html.
 
 - **Databricks**: Install MLflow Pipelines from a Databricks Notebook by running
-  ``pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
+  ``%pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
   following the PyPI library installation instructions at
   https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster
   and specifying the ``mlflow[pipelines]`` package string. Note that
@@ -54,18 +56,18 @@ as follows:
 NYC taxi fare prediction example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The `NYC taxi fare prediction example <https://github.com/mlflow/mlp-regression-example>`_
-uses the |MLflow Pipelines Regression Template| to develop and score accurate models on the
+uses the |MLflow Pipelines Regression Template| to develop and score models on the
 `NYC Taxi (TLC) Trip Record Dataset
-<https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_. You can run the example by
-:ref:`installing MLflow Pipelines <pipelines-installation>` and running the `Jupyter example
-notebook <https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/jupyter.ipynb>`_
-or the `Databricks example notebook
-<https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/databricks.py>`_. For more
-information about importing and running a Databricks notebook, see
-https://docs.databricks.com/notebooks/notebooks-manage.html#import-a-notebook.
+<https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_. You can run the example locally
+by :ref:`installing MLflow Pipelines <pipelines-installation>` and running the `Jupyter example
+notebook <https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/jupyter.ipynb>`_.
+You can run the example on Databricks by `cloning the example repository with Databricks Repos
+<https://docs.databricks.com/repos/work-with-notebooks-other-files.html#clone-a-remote-git-repository>`
+and running the `Databricks example notebook
+<https://github.com/mlflow/mlp-regression-example/blob/master/notebooks/databricks.py>`_.
 
-You can also modify the example to build and score a model on a dataset of your choosing.
-For more information about modifying the |MLflow Pipelines Regression Template|, see the
+To build and score models for your own use cases, we recommend using the
+|MLflow Pipelines Regression Template|. For more information, see the
 |Regression Template reference guide|.
 
 Key concepts
