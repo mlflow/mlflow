@@ -41,6 +41,7 @@ def test_docker_project_execution(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params,
         entry_point="test_tracking",
+        build_image=True,
         docker_args={"memory": "1g", "privileged": True},
     )
     # Validate run contents in the FileStore
