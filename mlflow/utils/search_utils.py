@@ -895,13 +895,7 @@ class SearchModelUtils(SearchUtils):
         if lhs is None:
             return False
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        else:
-            return False
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, registered_models, filter_string):  # pylint: disable=arguments-renamed
@@ -1093,15 +1087,10 @@ class SearchModelVersionUtils(SearchUtils):
         if lhs is None:
             return False
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        elif comparator == "IN" and isinstance(value, (set, list)):
+        if comparator == "IN" and isinstance(value, (set, list)):
             return lhs in set(value)
-        else:
-            return False
+
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, model_versions, filter_string):  # pylint: disable=arguments-renamed
