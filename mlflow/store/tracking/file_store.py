@@ -454,6 +454,14 @@ class FileStore(AbstractStore):
         )
         mv(experiment_dir, self.trash_folder)
 
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete an experiment.
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
+        shutil.rmtree(experiment_dir)
+
     def restore_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
