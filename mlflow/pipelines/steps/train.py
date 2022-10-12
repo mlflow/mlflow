@@ -162,7 +162,7 @@ class TrainStep(BaseStep):
         )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
-                f"The primary metric {self.primary_metric} is a custom metric, but its"
+                f"The primary metric '{self.primary_metric}' is a custom metric, but its"
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
