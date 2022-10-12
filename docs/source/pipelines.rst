@@ -8,7 +8,7 @@ MLflow Pipelines is a framework that enables data scientists to quickly develop 
 and deploy them to production. Compared to ad-hoc ML workflows, MLflow Pipelines offers several
 major benefits:
 
-- **Get started quickly**:ref:`Predefined templates <pipeline-templates>` for common ML tasks,
+- **Get started quickly**: :ref:`Predefined templates <pipeline-templates>` for common ML tasks,
   such as :ref:`regression modeling <regression-template>`, enable data scientists to get started
   quickly and focus on building great models, eliminating the large amount of boilerplate code that
   is traditionally required to curate datasets, engineer features, train & tune models, and package
