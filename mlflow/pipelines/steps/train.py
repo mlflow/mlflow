@@ -278,7 +278,7 @@ class TrainStep(BaseStep):
                 estimator = estimator_fn(best_estimator_params)
             elif len(estimator_hardcoded_params) > 0:
                 self._write_best_parameters_outputs(
-                    None, estimator_hardcoded_params, output_directory
+                    {}, estimator_hardcoded_params, output_directory
                 )
                 estimator = estimator_fn(estimator_hardcoded_params)
             else:
