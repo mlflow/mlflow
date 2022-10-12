@@ -983,7 +983,39 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        result = predict_fn(pdf)
+        if input_schema.is_tensor_spec():
+
+            def reshape_column_values(pd_series, shape, dtype):
+                flattened_numpy_arr = np.concatenate(pd_series.tolist())
+                reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(type)
+                if len(reshaped_numpy_arr) !=  len(pd_series):
+                    raise MlflowException(
+                        "Input data array length is wrong."
+                    )
+                return reshaped_numpy_arr
+
+            input_specs = input_schema.inputs
+            if input_specs[0].name is None:
+                # TODO:
+                #  The input spark udf might contains multiple column args, and
+                #  each column is a scalar type column. Should support it as well.
+                tensor_input = reshape_column_values(
+                    pdf[pdf.columns[0]],
+                    input_specs[0].shape,
+                    input_specs[0].type,
+                )
+            else:
+                tensor_input = {}
+                for tensor_spec in input_specs:
+                    input_dict[tensor_spec.name] = reshape_column_values(
+                        pdf[tensor_spec.name],
+                        tensor_spec.shape,
+                        tensor_spec.type,
+                    )
+
+            result = predict_fn(tensor_input)
+        else:
+            result = predict_fn(pdf)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
