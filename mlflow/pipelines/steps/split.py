@@ -197,6 +197,12 @@ class SplitStep(BaseStep):
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)
+        # Make sure the target column is actually present in the input DF
+        if self.target_col not in input_df.columns:
+            raise MlflowException(
+                f"target_col '{self.target_col}' not present in ingested dataset.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         input_df = input_df.dropna(how="any", subset=[self.target_col])
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
