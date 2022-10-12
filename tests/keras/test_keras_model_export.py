@@ -661,7 +661,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
 
-    bert = TFBertModel(
+    bert_model = TFBertModel(
         BertConfig(
             vocab_size=16,
             hidden_size=2,
@@ -670,9 +670,11 @@ def test_pyfunc_serve_and_score_transformers():
             intermediate_size=2,
         )
     )
-    dummy_inputs = bert.dummy_inputs["input_ids"].numpy()
+    dummy_inputs = bert_model.dummy_inputs["input_ids"].numpy()
     input_ids = tf.keras.layers.Input(shape=(dummy_inputs.shape[1],), dtype=tf.int32)
-    model = tf.keras.Model(inputs=[input_ids], outputs=[bert(input_ids).last_hidden_state])
+    model = tf.keras.Model(
+        inputs=[input_ids], outputs=[bert_model.bert(input_ids).last_hidden_state]
+    )
     model.compile()
 
     with mlflow.start_run():
