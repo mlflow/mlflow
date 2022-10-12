@@ -143,21 +143,19 @@ def upgrade():
     # Then, drooping original and renaming the new column.
     if engine_name == "mssql":
 
-        with op.batch_alter_table("experiments") as batch_op:
+        # create the new column
+        op.add_column("experiments", sa.Column("exp_id", sa.BigInteger))
 
-            # create the new column
-            batch_op.add_column(
-                sa.Column("exp_id", sa.BigInteger, nullable=False), insert_before="experiment_id"
-            )
+        # perform data migration
+        op.execute("UPDATE experiments SET exp_id = experiment_id")
 
-            # perform data migration
-            batch_op.execute("UPDATE experiments SET exp_id = experiment_id")
+        # drop column
+        op.drop_column(table_name="experiments", column_name="experiment_id")
 
-            # drop column
-            batch_op.drop_column("experiment_id")
-
-            # rename column
-            batch_op.alter_column(column_name="exp_id", new_column_name="experiment_id")
+        # rename column
+        op.alter_column(
+            table_name="experiments", column_name="exp_id", new_column_name="experiment_id"
+        )
 
     if engine_name != "sqlite":
 
