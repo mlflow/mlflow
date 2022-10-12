@@ -590,7 +590,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     if not skip_experiments:
         if experiment_ids:
             experiment_ids = experiment_ids.split(",")
-            experiments = list(map(backend_store.get_experiment, experiment_ids))
+            experiments = [backend_store.get_experiment(id) for id in experiment_ids]
 
             # Ensure that the specified experiments are soft-deleted
             active_experiment_ids = [
