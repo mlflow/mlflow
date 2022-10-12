@@ -61,22 +61,37 @@ def upgrade():
         experiments_table_args = PrimaryKeyConstraint("experiment_id", name="experiment_pk")
     else:
         experiments_table_args = []
+
     with op.batch_alter_table(
         "experiments",
         table_args=experiments_table_args,
     ) as batch_op:
-        experiment_id_seq = Sequence("experiment_id_seq", start=1)
-        batch_op.alter_column(
-            "experiment_id",
-            existing_type=sa.Integer,
-            type_=sa.BigInteger,
-            existing_nullable=False,
-            nullable=False,
-            existing_autoincrement=True,
-            autoincrement=False,
-            existing_server_default=experiment_id_seq.next_value(),
-            server_default=None,
-        )
+
+        if engine_name == "mssql":
+            batch_op.alter_column(
+                "experiment_id",
+                existing_type=sa.Integer,
+                type_=sa.BigInteger,
+                existing_nullable=False,
+                nullable=False,
+                existing_autoincrement=True,
+                autoincrement=False,
+                existing_server_default=None,
+                existing_comment=None,
+            )
+        else:
+            experiment_id_seq = Sequence("experiment_id_seq", start=1)
+            batch_op.alter_column(
+                "experiment_id",
+                existing_type=sa.Integer,
+                type_=sa.BigInteger,
+                existing_nullable=False,
+                nullable=False,
+                existing_autoincrement=True,
+                autoincrement=False,
+                existing_server_default=experiment_id_seq.next_value(),
+                server_default=None,
+            )
 
     if engine_name == "sqlite":
         # NB: sqlite will perform an in-place copy of a table and recreate constraints as defined
