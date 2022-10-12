@@ -2601,6 +2601,23 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert len(run_results) == 2
 
+    def test_try_get_run_tag(self):
+        run = self._run_factory()
+        self.store.set_tag(run.info.run_id, entities.RunTag("k1", "v1"))
+        self.store.set_tag(run.info.run_id, entities.RunTag("k2", "v2"))
+
+        with self.store.ManagedSessionMaker() as session:
+            tag = self.store._try_get_run_tag(session, run.info.run_id, "k0")
+            self.assertIsNone(tag)
+
+            tag = self.store._try_get_run_tag(session, run.info.run_id, "k1")
+            self.assertEqual(tag.key, "k1")
+            self.assertEqual(tag.value, "v1")
+
+            tag = self.store._try_get_run_tag(session, run.info.run_id, "k2")
+            self.assertEqual(tag.key, "k2")
+            self.assertEqual(tag.value, "v2")
+
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
