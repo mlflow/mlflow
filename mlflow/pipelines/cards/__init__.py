@@ -253,21 +253,24 @@ class BaseCard:
                         ("padding", "5px"),
                     ],
                 },
+                {
+                    "selector": "tbody",
+                    "props": [
+                        ("display", "block"),
+                        ("max-height", "500px"),
+                        ("overflow-y", "auto"),
+                    ],
+                },
             ]
         )
         if hide_index:
-            rendered_table = (
+            return (
                 styler.hide(axis="index").to_html()
                 if pandas_version >= Version("1.4.0")
                 else styler.hide_index().render()
             )
         else:
-            rendered_table = (
-                styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
-            )
-        return (
-            "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-        ).format(src=html.escape(rendered_table))
+            return styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
 
 
 class FailureCard(BaseCard):
