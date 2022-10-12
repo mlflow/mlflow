@@ -154,7 +154,11 @@ def upgrade():
 
         # rename column
         op.alter_column(
-            table_name="experiments", column_name="exp_id", new_column_name="experiment_id"
+            table_name="experiments",
+            column_name="exp_id",
+            new_column_name="experiment_id",
+            existing_nullable=True,
+            nullable=False,
         )
 
     if engine_name != "sqlite":
