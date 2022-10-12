@@ -95,7 +95,7 @@ jobs:
           environment:
             MLFLOW_PIPELINES_PROFILE: local
           command: |
-            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
+            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb --ExecutePreprocessor.kernel_name=python
       - store_artifacts:
           path: ~/.mlflow/pipelines
       - store_artifacts:
