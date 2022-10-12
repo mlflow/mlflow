@@ -87,14 +87,12 @@ def upgrade():
                 columns=["experiment_id"], refcolumns=["experiments.experiment_id"]
             ),
         )
-    elif engine_name != "mssql":
+    else:
         # For postgres and mysql, the primary key definition will be applied to the altered table
         # if defined in the `table_args` argument (and will be ignored in mssql).
         experiments_tags_table_args = (
             PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
         )
-    else:
-        experiments_tags_table_args = ()
 
     with op.batch_alter_table(
         "experiment_tags",
