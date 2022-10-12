@@ -648,13 +648,13 @@ class SqlAlchemyStore(AbstractStore):
 
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
-        tags = (
+        tag = (
             session.query(SqlTag)
             .options(*query_options)
-            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey)
-            .all()
+            .filter(SqlTag.run_uuid == run_id, SqlTag.key == tagKey)
+            .one_or_none()
         )
-        return None if not tags else tags[0]
+        return tag
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
