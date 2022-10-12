@@ -4,6 +4,7 @@ import os
 
 from pathlib import Path
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
@@ -36,11 +37,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         # datasets are explored in the listed order
         CustomDataset,
     ]
-
-    def __init__(
-        self, step_config: Dict[str, Any], pipeline_root: str
-    ):  # pylint: disable=useless-super-delegation
-        super().__init__(step_config, pipeline_root)
 
     def _validate_and_apply_step_config(self):
         if len(self.step_config) == 0:
@@ -198,6 +194,13 @@ class IngestStep(BaseIngestStep):
     def name(self) -> str:
         return "ingest"
 
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_data", self.pipeline_root, self.name, IngestStep._DATASET_OUTPUT_NAME
+            )
+        ]
+
 
 class IngestScoringStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
@@ -218,3 +221,13 @@ class IngestScoringStep(BaseIngestStep):
     @property
     def name(self) -> str:
         return "ingest_scoring"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_scoring_data",
+                self.pipeline_root,
+                self.name,
+                IngestScoringStep._DATASET_OUTPUT_NAME,
+            )
+        ]

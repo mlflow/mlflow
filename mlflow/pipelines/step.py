@@ -8,7 +8,7 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any
+from typing import TypeVar, Dict, Any, List
 from mlflow.pipelines.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.pipelines.utils import get_pipeline_name
 from mlflow.pipelines.utils.step import display_html
@@ -223,6 +223,13 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         Returns environment variables associated with step that should be set when the
         step is executed.
+        """
+        return {}
+
+    @experimental
+    def get_artifacts(self) -> List[Any]:
+        """
+        Returns the named artifacts produced by the step for the current class instance.
         """
         return {}
 

@@ -326,7 +326,9 @@ class FileStore(AbstractStore):
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
-        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        sorted_experiments = SearchExperimentsUtils.sort(
+            filtered, order_by or ["last_update_time DESC"]
+        )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
         )
@@ -451,6 +453,14 @@ class FileStore(AbstractStore):
             data=dict(experiment),
         )
         mv(experiment_dir, self.trash_folder)
+
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete an experiment.
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
+        shutil.rmtree(experiment_dir)
 
     def restore_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)

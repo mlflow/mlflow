@@ -20,6 +20,8 @@ Identifier
 The following identifiers are supported:
 
 - ``attributes.name``: Experiment name
+- ``attributes.creation_time``: Experiment creation time
+- ``attributes.last_update_time``: Experiment last update time
 
     .. note::
 
@@ -30,12 +32,21 @@ The following identifiers are supported:
 Comparator
 ^^^^^^^^^^
 
-The following comparators are supported:
+Comparators for string attributes and tags:
 
 - ``=``: Equal
 - ``!=``: Not equal
 - ``LIKE``: Case-sensitive pattern match
 - ``ILIKE``: Case-insensitive pattern match
+
+Comparators for numeric attributes:
+
+- ``=``: Equal
+- ``!=``: Not equal
+- ``<``: Less than
+- ``<=``: Less than or equal to
+- ``>``: Greater than
+- ``>=``: Greater than or equal to
 
 Examples
 ^^^^^^^^

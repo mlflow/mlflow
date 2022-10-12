@@ -186,11 +186,14 @@ class SqlAlchemyStore(AbstractStore):
         ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
+        creation_time = get_current_time_millis()
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
+            SqlExperiment.creation_time.name: creation_time,
+            SqlExperiment.last_update_time.name: creation_time,
         }
 
         def decorate(s):
@@ -484,6 +487,17 @@ class SqlAlchemyStore(AbstractStore):
                 self._mark_run_deleted(session, run)
             self._save_to_db(objs=experiment, session=session)
 
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete a experiment (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(
+                experiment_id=experiment_id, session=session, view_type=ViewType.DELETED_ONLY
+            )
+            session.delete(experiment)
+
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()
@@ -634,13 +648,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
-        tags = (
+        return (
             session.query(SqlTag)
             .options(*query_options)
-            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey)
-            .all()
+            .filter(SqlTag.run_uuid == run_id, SqlTag.key == tagKey)
+            .one_or_none()
         )
-        return None if not tags else tags[0]
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -1403,11 +1416,19 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            attr = getattr(SqlExperiment, key)
-            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if SearchExperimentsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for attribute: {comparator}"
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
+            if SearchExperimentsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
         elif type_ == "tag":
@@ -1433,7 +1454,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
