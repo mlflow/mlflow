@@ -594,7 +594,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 
             # Ensure that the specified experiments are soft-deleted
             active_experiment_ids = [
-                e.experiment_id for e in experiments if e.lifecycle_stage != ViewType.DELETED_ONLY
+                e.experiment_id for e in experiments if e.lifecycle_stage != LifecycleStage.DELETED
             ]
             if active_experiment_ids:
                 raise MlflowException(
@@ -608,7 +608,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 non_old_experiment_ids = [
                     e.experiment_id
                     for e in experiments
-                    if e.last_updated_time is None or e.last_updated_time > time_threshold
+                    if e.last_update_time is None or e.last_update_time >= time_threshold
                 ]
                 if non_old_experiment_ids:
                     raise MlflowException(
