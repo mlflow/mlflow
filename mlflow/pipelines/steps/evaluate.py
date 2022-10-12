@@ -9,6 +9,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
@@ -367,3 +368,6 @@ class EvaluateStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def step_class(self):
+        return StepClass.TRAINING

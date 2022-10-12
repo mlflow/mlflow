@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VA
 from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import (
@@ -233,3 +234,6 @@ class PredictStep(BaseStep):
                 "scored_data", self.pipeline_root, self.name, _SCORED_OUTPUT_FILE_NAME
             )
         ]
+
+    def step_class(self):
+        return StepClass.PREDICTION

@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.artifacts import ModelVersionArtifact, RegisteredModelVersionInfo
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.tracking import (
@@ -192,3 +193,6 @@ class RegisterStep(BaseStep):
                 self.tracking_config.tracking_uri,
             )
         ]
+
+    def step_class(self):
+        return StepClass.TRAINING
