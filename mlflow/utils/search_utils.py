@@ -811,8 +811,8 @@ class SearchExperimentsUtils(SearchUtils):
                 raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
         # Add a tie-breaker
-        if not any(key == "last_update_time" for key, _ in order_by):
-            order_by.append(("last_update_time", False))
+        if not any(key == "creation_time" for key, _ in order_by):
+            order_by.append(("creation_time", False))
 
         # https://stackoverflow.com/a/56842689
         class _Reversor:

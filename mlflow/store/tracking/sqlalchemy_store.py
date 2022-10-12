@@ -55,6 +55,7 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -156,38 +157,21 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
-    def _set_zero_value_insertion_for_autoincrement_column(self, session):
-        if self.db_type == MYSQL:
-            # config letting MySQL override default
-            # to allow 0 value for experiment ID (auto increment column)
-            session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        if self.db_type == MSSQL:
-            # config letting MSSQL override default
-            # to allow any manual value inserted into IDENTITY column
-            session.execute("SET IDENTITY_INSERT experiments ON;")
-
-    # DB helper methods to allow zero values for columns with auto increments
-    def _unset_zero_value_insertion_for_autoincrement_column(self, session):
-        if self.db_type == MYSQL:
-            session.execute("SET @@SESSION.sql_mode='';")
-        if self.db_type == MSSQL:
-            session.execute("SET IDENTITY_INSERT experiments OFF;")
-
     def _create_default_experiment(self, session):
         """
         MLflow UI and client code expects a default experiment with ID 0.
-        This method uses SQL insert statement to create the default experiment as a hack, since
-        experiment table uses 'experiment_id' column is a PK and is also set to auto increment.
-        MySQL and other implementation do not allow value '0' for such cases.
+        This method uses SQL insert statement to create the default experiment.
 
-        ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
+        creation_time = get_current_time_millis()
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
+            SqlExperiment.creation_time.name: creation_time,
+            SqlExperiment.last_update_time.name: creation_time,
         }
 
         def decorate(s):
@@ -200,15 +184,12 @@ class SqlAlchemyStore(AbstractStore):
         columns = list(default_experiment.keys())
         values = ", ".join([decorate(default_experiment.get(c)) for c in columns])
 
-        try:
-            self._set_zero_value_insertion_for_autoincrement_column(session)
-            session.execute(
-                "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
-            )
-        finally:
-            self._unset_zero_value_insertion_for_autoincrement_column(session)
+        session.execute(
+            "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+        )
 
-    def _save_to_db(self, session, objs):
+    @staticmethod
+    def _save_to_db(session, objs):
         """
         Store in db
         """
@@ -239,7 +220,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = int(time.time() * 1000)
+                creation_time = get_current_time_millis()
                 # If the default experiment_id has been deleted, restore it.
                 if (
                     self._has_experiment(
@@ -420,7 +401,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_deleted(session, run)
@@ -428,7 +409,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
-        run.deleted_time = int(time.time() * 1000)
+        run.deleted_time = get_current_time_millis()
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
@@ -444,7 +425,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_active(session, run)
@@ -457,7 +438,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
 
             experiment.name = new_name
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             self._save_to_db(objs=experiment, session=session)
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
@@ -598,7 +579,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.DELETED
-            run.deleted_time = int(time.time() * 1000)
+            run.deleted_time = get_current_time_millis()
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -617,7 +598,7 @@ class SqlAlchemyStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = int(time.time() * 1000)
+        current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             runs = (
                 session.query(SqlRun)
@@ -1340,7 +1321,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))
@@ -1348,7 +1330,7 @@ def _get_search_experiments_order_by_clauses(order_by):
             raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
     # Add a tie-breaker
-    if not any(col == SqlExperiment.last_update_time for col, _ in order_by_clauses):
-        order_by_clauses.append((SqlExperiment.last_update_time, False))
+    if not any(col == SqlExperiment.creation_time for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlExperiment.creation_time, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]

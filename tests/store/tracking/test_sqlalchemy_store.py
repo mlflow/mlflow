@@ -103,7 +103,8 @@ class TestParseDbUri(unittest.TestCase):
                 parsed_db_type = extract_db_type_from_uri(uri)
                 self.assertEqual(target_db_type, parsed_db_type)
 
-    def _db_uri_error(self, db_uris, expected_message_regex):
+    @staticmethod
+    def _db_uri_error(db_uris, expected_message_regex):
         for db_uri in db_uris:
             with pytest.raises(MlflowException, match=expected_message_regex):
                 extract_db_type_from_uri(db_uri)
@@ -124,7 +125,8 @@ class TestParseDbUri(unittest.TestCase):
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
-    def _get_store(self, db_uri=""):
+    @staticmethod
+    def _get_store(db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def create_test_run(self):
@@ -147,19 +149,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def get_store(self):
         return self.store
 
-    def _get_query_to_reset_experiment_id(self):
-        dialect = self.store._get_dialect()
-        if dialect == POSTGRES:
-            return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
-        elif dialect == MYSQL:
-            return "ALTER TABLE experiments AUTO_INCREMENT = 1"
-        elif dialect == MSSQL:
-            return "DBCC CHECKIDENT (experiments, RESEED, 0)"
-        elif dialect == SQLITE:
-            # In SQLite, deleting all experiments resets experiment_id
-            return None
-        raise ValueError(f"Invalid dialect: {dialect}")
-
     def tearDown(self):
         if self.temp_dbfile:
             os.remove(self.temp_dbfile)
@@ -177,10 +166,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 ):
                     session.query(model).delete()
 
-                # Reset experiment_id to start at 1
-                reset_experiment_id = self._get_query_to_reset_experiment_id()
-                if reset_experiment_id:
-                    session.execute(reset_experiment_id)
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -332,13 +317,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_experiment(experiment_ids[1])
 
         experiments = self.store.search_experiments(
-            view_type=ViewType.ACTIVE_ONLY, order_by=["creation_time DESC"]
+            view_type=ViewType.ACTIVE_ONLY,
         )
         assert [e.name for e in experiments] == ["a", "Default"]
         experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
         assert [e.name for e in experiments] == ["b"]
         experiments = self.store.search_experiments(
-            view_type=ViewType.ALL, order_by=["creation_time DESC"]
+            view_type=ViewType.ALL,
         )
         assert [e.name for e in experiments] == ["b", "a", "Default"]
 
@@ -352,17 +337,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["a"]
         experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
         assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(
-            filter_string="attribute.`name` != 'a'", order_by=["creation_time DESC"]
-        )
+        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
         assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-        experiments = self.store.search_experiments(
-            filter_string="name LIKE 'a%'", order_by=["creation_time DESC"]
-        )
+        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
         assert [e.name for e in experiments] == ["ab", "a"]
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'a%'", order_by=["creation_time DESC"]
-        )
+        experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
         assert [e.name for e in experiments] == ["Abc", "ab", "a"]
         experiments = self.store.search_experiments(
             filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
@@ -455,18 +434,20 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self._experiment_factory(experiment_names)
         reversed_experiment_names = experiment_names[::-1]
 
-        experiments = self.store.search_experiments(max_results=4, order_by=["creation_time DESC"])
+        experiments = self.store.search_experiments(max_results=4)
         assert [e.name for e in experiments] == reversed_experiment_names[:4]
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(
-            max_results=4, page_token=experiments.token, order_by=["creation_time DESC"]
+            max_results=4,
+            page_token=experiments.token,
         )
         assert [e.name for e in experiments] == reversed_experiment_names[4:8]
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(
-            max_results=4, page_token=experiments.token, order_by=["creation_time DESC"]
+            max_results=4,
+            page_token=experiments.token,
         )
         assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
         assert experiments.token is None
@@ -2332,37 +2313,6 @@ class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
         InitialBase.metadata.create_all(engine)
         invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
-
-
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments ON;")
-
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='';")
-
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
 
 
 def test_get_attribute_name():

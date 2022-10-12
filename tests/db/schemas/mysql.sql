@@ -6,7 +6,7 @@ CREATE TABLE alembic_version (
 
 
 CREATE TABLE experiments (
-	experiment_id INTEGER NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	name VARCHAR(256) NOT NULL,
 	artifact_location VARCHAR(256),
 	lifecycle_stage VARCHAR(32),
@@ -29,9 +29,9 @@ CREATE TABLE registered_models (
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
-	experiment_id INTEGER NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	PRIMARY KEY (key, experiment_id),
-	CONSTRAINT experiment_tags_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_experiment_tag FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -72,14 +72,13 @@ CREATE TABLE runs (
 	status VARCHAR(9),
 	start_time BIGINT,
 	end_time BIGINT,
-	deleted_time BIGINT,
 	source_version VARCHAR(50),
 	lifecycle_stage VARCHAR(20),
 	artifact_uri VARCHAR(200),
-	experiment_id INTEGER,
+	experiment_id BIGINT,
 	deleted_time BIGINT,
 	PRIMARY KEY (run_uuid),
-	CONSTRAINT runs_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_runs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT runs_chk_1 CHECK ((`status` in (_utf8mb4'SCHEDULED',_utf8mb4'FAILED',_utf8mb4'FINISHED',_utf8mb4'RUNNING',_utf8mb4'KILLED'))),
 	CONSTRAINT runs_lifecycle_stage CHECK ((`lifecycle_stage` in (_utf8mb4'active',_utf8mb4'deleted'))),
 	CONSTRAINT source_type CHECK ((`source_type` in (_utf8mb4'NOTEBOOK',_utf8mb4'JOB',_utf8mb4'LOCAL',_utf8mb4'UNKNOWN',_utf8mb4'PROJECT')))

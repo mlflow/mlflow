@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 import logging
 
-from sqlalchemy import PrimaryKeyConstraint, ForeignKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint, ForeignKeyConstraint, Sequence
 from sqlalchemy.inspection import inspect
 
 _logger = logging.getLogger(__name__)
@@ -65,6 +65,7 @@ def upgrade():
         "experiments",
         table_args=experiments_table_args,
     ) as batch_op:
+        experiment_id_seq = Sequence("experiment_id_seq", start=1)
         batch_op.alter_column(
             "experiment_id",
             existing_type=sa.Integer,
@@ -73,8 +74,10 @@ def upgrade():
             nullable=False,
             existing_autoincrement=True,
             autoincrement=False,
-            existing_server_default=None,
+            existing_server_default=experiment_id_seq.next_value(),
+            server_default=None,
             existing_comment=None,
+            comment=None,
         )
 
     if engine_name == "sqlite":
@@ -105,7 +108,9 @@ def upgrade():
             existing_autoincrement=True,
             autoincrement=False,
             existing_server_default=None,
+            server_default=None,
             existing_comment=None,
+            comment=None,
         )
 
     with op.batch_alter_table(
@@ -122,10 +127,13 @@ def upgrade():
             existing_server_default=None,
             existing_comment=None,
         )
-        batch_op.create_check_constraint(
-            constraint_name="status",
-            condition="status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED')",
-        )
+        if engine_name == "sqlite":
+            # sqlite will not port over unnamed constraints. Existing version has this
+            # constraint defined as `CHECK()` rather than `CONSTRAINT <namme> CHECK()`
+            batch_op.create_check_constraint(
+                constraint_name="status",
+                condition="status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED')",
+            )
 
     if engine_name != "sqlite":
 
@@ -148,8 +156,6 @@ def upgrade():
             referent_table="experiments",
             local_cols=["experiment_id"],
             remote_cols=["experiment_id"],
-            onupdate="CASCADE",
-            ondelete="CASCADE",
         )
 
         op.create_foreign_key(
@@ -158,8 +164,6 @@ def upgrade():
             referent_table="experiments",
             local_cols=["experiment_id"],
             remote_cols=["experiment_id"],
-            onupdate="CASCADE",
-            ondelete="CASCADE",
         )
 
     _logger.info("Conversion of experiment_id from autoincrement complete!")

@@ -6,7 +6,7 @@ CREATE TABLE alembic_version (
 
 
 CREATE TABLE experiments (
-	experiment_id INTEGER DEFAULT nextval('experiments_experiment_id_seq'::regclass) NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	name VARCHAR(256) NOT NULL,
 	artifact_location VARCHAR(256),
 	lifecycle_stage VARCHAR(32),
@@ -30,9 +30,9 @@ CREATE TABLE registered_models (
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
-	experiment_id INTEGER NOT NULL,
+	experiment_id BIGINT NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
-	CONSTRAINT experiment_tags_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_experiment_tag FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -73,14 +73,13 @@ CREATE TABLE runs (
 	status VARCHAR(9),
 	start_time BIGINT,
 	end_time BIGINT,
-	deleted_time BIGINT,
 	source_version VARCHAR(50),
 	lifecycle_stage VARCHAR(20),
 	artifact_uri VARCHAR(200),
-	experiment_id INTEGER,
+	experiment_id BIGINT,
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
-	CONSTRAINT runs_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_runs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT source_type CHECK ((source_type)::text = ANY ((ARRAY['NOTEBOOK'::character varying, 'JOB'::character varying, 'LOCAL'::character varying, 'UNKNOWN'::character varying, 'PROJECT'::character varying])::text[])),
 	CONSTRAINT runs_lifecycle_stage CHECK ((lifecycle_stage)::text = ANY ((ARRAY['active'::character varying, 'deleted'::character varying])::text[])),
 	CONSTRAINT runs_status_check CHECK ((status)::text = ANY ((ARRAY['SCHEDULED'::character varying, 'FAILED'::character varying, 'FINISHED'::character varying, 'RUNNING'::character varying, 'KILLED'::character varying])::text[]))
