@@ -1,30 +1,25 @@
 # pylint: disable=line-too-long
 
 """
-MLflow Pipelines is an opinionated framework for structuring MLOps workflows that simplifies and
-standardizes machine learning application development and productionization. MLflow Pipelines
-makes it easy for data scientists to follow best practices for creating production-ready ML
-deliverables, allowing them to focus on developing excellent models. MLflow Pipelines also enables
-ML engineers and DevOps teams to seamlessly deploy these models to production and incorporate them
-into applications.
+MLflow Pipelines is a framework that enables you to quickly develop high-quality models and deploy
+them to production. Compared to ad-hoc ML workflows, MLflow Pipelines offers several major benefits:
 
-MLflow Pipelines provides production-quality :ref:`Pipeline Templates <pipeline-templates>` for
-common ML problem types, such as regression & classification, and MLOps tasks, such as batch
-scoring. Pipelines are structured as git repositories with YAML-based configuration files and
-Python code, offering developers a declarative approach to ML application development that reduces
-boilerplate.
+- **Pipeline templates**: :ref:`Predefined templates <pipeline-templates>` for common ML tasks,
+  such as :ref:`regression modeling <regression-template>`, enable you to get started quickly and
+  focus on building great models, eliminating the large amount of boilerplate code that is
+  traditionally required to curate datasets, engineer features, train & tune models, and package
+  models for production deployment.
 
-MLflow Pipelines also implements a cache-aware executor for pipeline steps, ensuring that steps
-are only executed when associated
-:py:ref:`code or configurations <pipeline-repositories-key-concept>` have changed. This enables
-data scientists, ML engineers, and DevOps teams to iterate very quickly within their domains of
-expertise. MLflow offers |run() APIs| for executing pipelines, as well as an
-|mlflow pipelines run CLI|.
+- **Pipeline engine**: The intelligent pipeline execution engine accelerates model development by
+  caching results from each step of the process and re-running the minimal set of steps as changes
+  are made.
 
-For more information, see the :ref:`MLflow Pipelines Overview <pipelines>`.
+- **Production-ready structure**: The modular, git-integrated :ref:`pipeline structure
+  <pipeline-templates-key-concept>` dramatically simplifies the handoff from development to
+  production by ensuring that all model code, data, and configurations are easily reviewable and
+  deployable by ML engineers.
 
-.. |mlflow pipelines run CLI| replace:: :ref:`mlflow pipelines run <cli>` CLI
-.. |run() APIs| replace:: :py:func:`run() <mlflow.pipelines.regression.v1.pipeline.RegressionPipeline.run>` APIs
+For more information, see the :ref:`MLflow Pipelines overview <pipelines>`.
 """
 
 # pylint: enable=line-too-long
