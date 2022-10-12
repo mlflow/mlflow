@@ -139,6 +139,26 @@ def upgrade():
                 condition="status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED')",
             )
 
+    # NB: MSSQL identity columns cannot be modified. Copying data to new column.
+    # Then, drooping original and renaming the new column.
+    if engine_name == "mssql":
+
+        with op.batch_alter_table("experiments") as batch_op:
+
+            # create the new column
+            batch_op.add_column(
+                sa.Column("exp_id", sa.BigInteger, nullable=False), insert_before="experiment_id"
+            )
+
+            # perform data migration
+            batch_op.execute("UPDATE experiments SET exp_id = experiment_id")
+
+            # drop column
+            batch_op.drop_column("experiment_id")
+
+            # rename column
+            batch_op.alter_column(column_name="exp_id", new_column_name="experiment_id")
+
     if engine_name != "sqlite":
 
         # NB: mssql requires that foreign keys reference primary keys prior to
