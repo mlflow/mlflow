@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
 _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
+_MAX_PROFILE_COL_SIZE = 1000  # 1000 Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
@@ -126,8 +126,8 @@ def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
     and they are all visualized in comparison mode.
     :return: a data profiling string such as Pandas profiling ProfileReport.
     """
-    # truncated_input = list(map(lambda input: truncate_pandas_data_profile(*input), inputs))
-    return pandas_renderer.get_html(inputs)
+    truncated_input = list(map(lambda input: truncate_pandas_data_profile(*input), inputs))
+    return pandas_renderer.get_html(truncated_input)
 
 
 def truncate_pandas_data_profile(title: str, data_frame) -> str:
