@@ -76,8 +76,6 @@ def upgrade():
             autoincrement=False,
             existing_server_default=experiment_id_seq.next_value(),
             server_default=None,
-            existing_comment=None,
-            comment=None,
         )
 
     if engine_name == "sqlite":
@@ -89,12 +87,15 @@ def upgrade():
                 columns=["experiment_id"], refcolumns=["experiments.experiment_id"]
             ),
         )
-    else:
+    elif engine_name != "mssql":
         # For postgres and mysql, the primary key definition will be applied to the altered table
         # if defined in the `table_args` argument (and will be ignored in mssql).
         experiments_tags_table_args = (
             PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),
         )
+    else:
+        experiments_tags_table_args = ()
+
     with op.batch_alter_table(
         "experiment_tags",
         table_args=experiments_tags_table_args,
@@ -105,12 +106,6 @@ def upgrade():
             type_=sa.BigInteger,
             existing_nullable=False,
             nullable=False,
-            existing_autoincrement=True,
-            autoincrement=False,
-            existing_server_default=None,
-            server_default=None,
-            existing_comment=None,
-            comment=None,
         )
 
     with op.batch_alter_table(
@@ -122,10 +117,6 @@ def upgrade():
             type_=sa.BigInteger,
             existing_nullable=True,
             nullable=True,
-            existing_autoincrement=False,
-            autoincrement=False,
-            existing_server_default=None,
-            existing_comment=None,
         )
         if engine_name == "sqlite":
             # sqlite will not port over unnamed constraints. Existing version has this

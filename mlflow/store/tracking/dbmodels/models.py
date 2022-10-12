@@ -53,7 +53,7 @@ class SqlExperiment(Base):
 
     __tablename__ = "experiments"
 
-    experiment_id = Column(BigInteger(), nullable=False)
+    experiment_id = Column(BigInteger, nullable=False)
     """
     Experiment ID: `Integer`. *Primary Key* for ``experiments`` table.
     """
@@ -72,11 +72,11 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
-    creation_time = Column(BigInteger(), default=int(time.time() * 1000))
+    creation_time = Column(BigInteger, default=int(time.time() * 1000))
     """
     Creation time of experiment: `BigInteger`.
     """
-    last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
+    last_update_time = Column(BigInteger, default=int(time.time() * 1000))
     """
     Last Update time of experiment: `BigInteger`.
     """
