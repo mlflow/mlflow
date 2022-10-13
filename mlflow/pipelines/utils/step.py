@@ -13,15 +13,9 @@ from typing import Dict, List, Iterable, Tuple
 
 _logger = logging.getLogger(__name__)
 
-<<<<<<< Updated upstream
-_MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
-_MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
-=======
 _MAX_PROFILE_CELL_SIZE = 1000000  # 1M Cells
 _MAX_PROFILE_ROW_SIZE = 100000  # 100k Rows
-_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
->>>>>>> Stashed changes
+_MAX_PROFILE_COL_SIZE = 1000  # 1k Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
