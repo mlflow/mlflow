@@ -7,7 +7,7 @@ runs:
       id: get-cache-key-prefix
       shell: bash
       run: |
-        echo "::set-output name=prefix::$ImageOS-$ImageVersion"
+        echo "prefix=$ImageOS-$ImageVersion" >> $GITHUB_OUTPUT
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
