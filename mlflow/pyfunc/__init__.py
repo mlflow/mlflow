@@ -573,7 +573,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         model_uri=local_path,
         port=server_port,
         host="127.0.0.1",
-        timeout=60,
+        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
         enable_mlserver=False,
         synchronous=False,
         stdout=subprocess.PIPE,
