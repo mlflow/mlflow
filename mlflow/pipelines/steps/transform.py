@@ -169,7 +169,12 @@ class TransformStep(BaseStep):
                 "OUTPUT_SCHEMA", f"Failed to extract transformer schema. Error: {e}"
             )
 
-        # Tab 6: run summary
+        # Tab 6: transformer output data preview
+        card.add_tab("Data Preview", "{{DATA_PREVIEW}}").add_html(
+            "DATA_PREVIEW", BaseCard.render_table(train_transformed.head())
+        )
+
+        # Tab 7: run summary
         (
             card.add_tab(
                 "Run Summary",
