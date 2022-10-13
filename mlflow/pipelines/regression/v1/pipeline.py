@@ -331,8 +331,20 @@ class RegressionPipeline(_BasePipeline):
                     "help_string": dag_help_strings.REGISTERED_MODEL_VERSION,
                     "help_string_type": "text",
                 },
+                "ingest_scoring_step_help": {
+                    "help_string": dag_help_strings.INGEST_SCORING_STEP,
+                    "help_string_type": "text",
+                },
+                "ingested_scoring_data_help": {
+                    "help_string": dag_help_strings.INGESTED_SCORING_DATA,
+                    "help_string_type": "text",
+                },
                 "predict_step_help": {
                     "help_string": dag_help_strings.PREDICT_STEP,
+                    "help_string_type": "text",
+                },
+                "scored_data_help": {
+                    "help_string": dag_help_strings.SCORED_DATA,
                     "help_string_type": "text",
                 },
             }
