@@ -42,7 +42,7 @@ jobs:
       run: |
         # `os_name` will be like "Ubuntu-20.04.1-LTS"
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo "::set-output name=os-name::$os_name"
+        echo "os-name=$os_name" >> $GITHUB_OUTPUT
     - name: Cache R packages
       uses: actions/cache@v3
       with:
