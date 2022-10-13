@@ -238,7 +238,6 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
-                    dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),
@@ -742,7 +741,6 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
-                    dataset_name="validation",
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),

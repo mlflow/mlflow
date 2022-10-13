@@ -77,7 +77,6 @@ def evaluate_model_helper(
     data,
     targets,
     model_type: str,
-    dataset_name=None,
     evaluators=None,
     evaluator_config=None,
     eval_baseline_model_only=False,
@@ -104,7 +103,6 @@ def evaluate_model_helper(
         data=data,
         model_type=model_type,
         targets=targets,
-        dataset_name=dataset_name,
         evaluators=evaluators,
         evaluator_config=evaluator_config,
         baseline_model=baseline_model,
@@ -161,7 +159,6 @@ def test_regressor_evaluation(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -221,7 +218,6 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -261,7 +257,6 @@ def test_regressor_evaluation_with_int_targets(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"].astype(np.int64),
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
         )
         result.save(tmp_path)
@@ -291,7 +286,6 @@ def test_multi_classifier_evaluation(
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -358,7 +352,6 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -420,7 +413,6 @@ def test_bin_classifier_evaluation(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -490,7 +482,6 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -546,7 +537,6 @@ def test_spark_regressor_model_evaluation(
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_spark_dataset._constructor_args["targets"],
-            dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
         )
@@ -590,7 +580,6 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_spark_dataset._constructor_args["targets"],
-            dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -635,7 +624,6 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
         )
@@ -687,7 +675,6 @@ def _evaluate_explainer_with_exceptions(model_uri, dataset):
             dataset._constructor_args["data"],
             model_type="classifier",
             targets=dataset._constructor_args["targets"],
-            dataset_name=dataset.name,
             evaluators="default",
             evaluator_config={
                 "ignore_exceptions": False,
@@ -721,7 +708,6 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -775,7 +761,6 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(
             data[0::3],
             model_type="classifier",
             targets=target_col,
-            dataset_name="pipeline_model_dataset",
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
             eval_baseline_model_only=False,
@@ -1470,7 +1455,6 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
             dataset._constructor_args["data"],
             model_type="classifier",
             targets=dataset._constructor_args["targets"],
-            dataset_name=dataset.name,
             evaluators="default",
             custom_metrics=custom_metrics,
         )
@@ -1753,7 +1737,6 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
                 diabetes_dataset._constructor_args["data"],
                 model_type="regressor",
                 targets=diabetes_dataset._constructor_args["targets"],
-                dataset_name=diabetes_dataset.name,
                 evaluators="default",
             )
         mock_score.assert_called_once()
@@ -1776,7 +1759,6 @@ def test_autologging_is_disabled_during_evaluate(model):
                 X.assign(target=y),
                 model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
                 targets="target",
-                dataset_name="iris",
                 evaluators="default",
             )
 
@@ -1816,7 +1798,6 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
         evaluate(
             pipeline_model_uri,
             evaluation_data,
-            dataset_name="iris",
             model_type="regressor",
             targets="labels",
             evaluators="default",
@@ -1850,7 +1831,6 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
             X.assign(target=y),
             model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
             targets="target",
-            dataset_name="iris",
             evaluators="default",
             evaluator_config={
                 "metric_prefix": prefix,
@@ -1887,7 +1867,6 @@ def test_evaluation_with_env_restoration(
             data=iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             env_manager=env_manager,
         )
@@ -1930,7 +1909,6 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="breast_cancer",
             evaluators="default",
             evaluator_config=None if pos_label is None else {"pos_label": pos_label},
         )
@@ -1956,7 +1934,6 @@ def test_evaluation_multiclass_classification_with_average(average):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="iris",
             evaluators="default",
             evaluator_config=None if average is None else {"average": average},
         )

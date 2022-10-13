@@ -140,7 +140,6 @@ with mlflow.start_run() as run:
         data=eval_data,
         targets="target",
         model_type="regressor",
-        dataset_name="cali_housing",
         evaluators=["default"],
         custom_metrics=[
             metrics_only_fn,
