@@ -744,15 +744,15 @@ def test_search_experiments(mlflow_client):
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
-    assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    assert {e.name for e in experiments}.issubset({"Abc", "ab", "Default"})
     experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
-    assert [e.name for e in experiments] == ["ab", "a"]
+    assert {e.name for e in experiments}.issubset({"ab", "a"})
     experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
-    assert [e.name for e in experiments] == ["ab", "a"]
+    assert {e.name for e in experiments}.issubset({"ab", "a"})
 
     # order_by
     experiments = mlflow_client.search_experiments(order_by=["name DESC"])
@@ -760,7 +760,7 @@ def test_search_experiments(mlflow_client):
 
     # max_results
     experiments = mlflow_client.search_experiments(max_results=2)
-    assert [e.name for e in experiments] == ["Abc", "ab"]
+    assert {e.name for e in experiments}.issubset({"Abc", "ab"})
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
     assert {e.name for e in experiments}.issubset({"a", "Default"})
@@ -768,8 +768,8 @@ def test_search_experiments(mlflow_client):
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
     experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    assert [e.name for e in experiments] == ["Abc", "a", "Default"]
+    assert {e.name for e in experiments}.issubset({"Abc", "a", "Default"})
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]
+    assert {e.name for e in experiments}.issubset({"ab", "Abc", "a", "Default"})

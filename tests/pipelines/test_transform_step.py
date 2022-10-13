@@ -37,7 +37,6 @@ def set_up_transform_step(pipeline_root: Path, transform_user_module):
 
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     experiment_name = "demo"
-    MlflowClient().create_experiment(experiment_name)
 
     pipeline_yaml.write_text(
         """
