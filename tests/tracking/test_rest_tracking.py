@@ -763,7 +763,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
-    assert [e.name for e in experiments] == ["a", "Default"]
+    assert {e.name for e in experiments}.issubset({"a", "Default"})
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])

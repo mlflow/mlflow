@@ -247,7 +247,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
         assert [e.name for e in experiments] == ["exp2"]
         experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
-        assert [e.name for e in experiments] == ["exp2", "exp1"]
+        assert {e.name for e in experiments}.issubset({"exp2", "exp1"})
         experiments = self.store.search_experiments(
             filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
         )

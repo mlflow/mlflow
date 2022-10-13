@@ -179,9 +179,14 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
     with open(train_step_output_dir / "card.html", "r") as f:
         step_card_content = f.read()
 
-    assert f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}>" in step_card_content
+    experiment_id = mlflow.get_experiment_by_name("demo").experiment_id
+
     assert (
-        f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}/artifactPath/train/model>"
+        f"<a href={workspace_url}#mlflow/experiments/{experiment_id}/runs/{run_id}>"
+        in step_card_content
+    )
+    assert (
+        f"<a href={workspace_url}#mlflow/experiments/{experiment_id}/runs/{run_id}/artifactPath/train/model>"
         in step_card_content
     )
 
