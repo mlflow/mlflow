@@ -25,10 +25,7 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 ## Does this PR change the documentation?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
-
-1. Click the `Details` link on the `Preview docs` check.
-2. Find the changed pages / sections and make sure they render correctly.
+- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
 
 ## Release Notes
 
