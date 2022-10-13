@@ -186,7 +186,8 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
         in step_card_content
     )
     assert (
-        f"<a href={workspace_url}#mlflow/experiments/{experiment_id}/runs/{run_id}/artifactPath/train/model>"
+        f"<a href={workspace_url}#mlflow/experiments/{experiment_id}/"
+        f"runs/{run_id}/artifactPath/train/model>"
         in step_card_content
     )
 

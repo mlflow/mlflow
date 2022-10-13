@@ -2,7 +2,6 @@ from unittest import mock
 from pathlib import Path
 
 import os
-import re
 import pytest
 import shutil
 from sklearn.datasets import load_diabetes
