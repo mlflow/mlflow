@@ -133,11 +133,20 @@ class SplitStep(BaseStep):
             )
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
+        def _set_target_col_as_first(df, target_col):
+            columns = list(df.columns)
+            idx0, idx1 = columns.index(target_col), 0
+            columns[idx0], columns[idx1] = columns[idx1], columns[idx0]
+            return df[columns]
+
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
         if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
+            train_df = _set_target_col_as_first(train_df, self.target_col)
+            validation_df = _set_target_col_as_first(validation_df, self.target_col)
+            test_df = _set_target_col_as_first(test_df, self.target_col)
             data_profile = get_pandas_data_profiles(
                 [
                     ["Train", train_df.reset_index(drop=True)],
@@ -197,19 +206,12 @@ class SplitStep(BaseStep):
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)
-        # Make sure the target column is actually present in the input DF
-        input_cols = list(input_df.columns)
-        if self.target_col not in input_cols:
+        # Make sure the target column is actually present in the input DF.
+        if self.target_col not in input_df.columns:
             raise MlflowException(
                 f"Target column '{self.target_col}' not found in ingested dataset.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        # Swap the target column to be the first column in the input dataframe. The target column
-        # shall remain the first column for all derived datasets (e.g. training/validation/test).
-        idx0, idx1 = input_cols.index(self.target_col), 0
-        input_cols[idx0], input_cols[idx1] = input_cols[idx1], input_cols[idx0]
-        input_df = input_df[input_cols]
-
         input_df = input_df.dropna(how="any", subset=[self.target_col])
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
