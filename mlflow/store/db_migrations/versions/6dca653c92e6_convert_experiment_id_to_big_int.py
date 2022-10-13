@@ -148,6 +148,8 @@ def upgrade():
             "experiments", sa.Column("exp_id", sa.BigInteger, autoincrement=False, nullable=True)
         )
 
+        # Existing `experiment_id` column due to autoincrement, has an identity property.
+        # Allow for inserts in mssql with this column present.
         op.execute("SET IDENTITY_INSERT experiments ON;")
 
         # perform data migration by copying all experiment_id data to temporary column
@@ -166,7 +168,6 @@ def upgrade():
             existing_nullable=True,
             nullable=False,
         )
-        op.execute("SET IDENTITY_INSERT experiments OFF;")
 
     if engine_name != "sqlite":
 
