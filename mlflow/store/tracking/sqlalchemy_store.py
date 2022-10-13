@@ -13,7 +13,6 @@ from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
