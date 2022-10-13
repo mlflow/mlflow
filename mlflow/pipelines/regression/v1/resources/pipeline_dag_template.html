@@ -12,7 +12,11 @@
         display: flex;
       }
       .mermaid {
-        width: 70%;
+        width: 60%;
+      }
+      .cluster rect {
+        stroke: none;
+        fill: #ffffff;
       }
       .pane-loading {
         font-size: 0;
@@ -32,7 +36,7 @@
       }
       #editor {
         font-size: 13px;
-        width: 30%;
+        width: 40%;
         position: relative;
       }
       font {
@@ -48,11 +52,20 @@
 
     <div class="wrapper">
       <div class="mermaid pane-loading">
-          flowchart TB
-          pipeline([pipeline.yaml])
+          flowchart TD
 
-          ingestUserCode([steps/ingest.py]) --> ingestMLPStep[["<font>ingest</font>"]]
-          ingestMLPStep --> dataParquet[(ingested_data)]
+          subgraph " "
+            pipeline([pipeline.yaml])
+
+            ingestUserCode([steps/ingest.py]) --> ingestMLPStep[["<font>ingest</font>"]]
+            ingestMLPStep --> dataParquet[(ingested_data)]
+
+            ingestScoringUserCode([steps/ingest.py]) --> ingestScoringMLPStep[["<font>ingest_scoring</font>"]]
+            ingestScoringMLPStep --> dataScoringParquet[(ingested_scoring_data)]
+
+            dataScoring[(ingested_scoring_data)] --> predictMLPStep[["<font>predict</font>"]]
+            predictMLPStep --> dataScored[(scored_data)]
+          end
 
           data[(ingested_data)] --> splitStep[["<font>split</font>"]]
           transformUserCode([steps/transform.py]) --> transformMLPStep
@@ -83,12 +96,6 @@
 
           model_validation_status --> registerMLPStep
           registerMLPStep --> registered_model_version{{registered_model_version}}
-
-          ingestScoringUserCode([steps/ingest.py]) --> ingestScoringMLPStep[["<font>ingest_scoring</font>"]]
-          ingestScoringMLPStep --> dataScoringParquet[(ingested_scoring_data)]
-
-          dataScoring[(ingested_scoring_data)] --> predictMLPStep[["<font>predict</font>"]]
-          predictMLPStep --> dataScored[(scored_data)]
 
           click ingestMLPStep renderMoreInformation "{{ingest_step_help}}"
           click ingestUserCode renderMoreInformation "{{ingest_user_code_help}}"
@@ -142,6 +149,7 @@
             startOnLoad:true,
             securityLevel:'loose',
             theme: (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "default",
+            themeCSS: ".cluster rect { fill: none; stroke: none; }",
             flowchart:{
                 useMaxWidth:true,
                 htmlLabels:true,
