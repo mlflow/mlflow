@@ -61,16 +61,6 @@ shap:
   minimum: "0.40"
   max_major_version: 0
 
-pandas-profiling:
-  pip_release: pandas-profiling
-  minimum: "3.1"
-  max_major_version: 3
-
-ipython:
-  pip_release: ipython
-  minimum: "7.0"
-  max_major_version: 8
-
 markdown:
   pip_release: markdown
   minimum: "3.3"
