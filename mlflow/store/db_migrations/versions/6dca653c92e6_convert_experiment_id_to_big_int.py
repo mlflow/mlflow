@@ -157,6 +157,8 @@ def upgrade():
             table_name="experiments",
             column_name="exp_id",
             new_column_name="experiment_id",
+            existing_type=sa.BigInteger,
+            type_=sa.BigInteger,
             existing_nullable=True,
             nullable=False,
         )
