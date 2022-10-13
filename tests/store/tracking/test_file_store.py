@@ -26,6 +26,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -49,6 +50,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def create_experiments(self, experiment_names):
         ids = []
         for name in experiment_names:
+            time.sleep(0.05)
             ids.append(self.store.create_experiment(name))
         return ids
 
@@ -75,12 +77,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
+            current_time = get_current_time_millis()
             d = {
                 "experiment_id": exp,
                 "name": random_str(),
                 "artifact_location": exp_folder,
-                "creation_time": int(time.time() * 1000),
-                "last_update_time": int(time.time() * 1000),
+                "creation_time": current_time,
+                "last_update_time": current_time,
             }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -188,15 +191,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiment_ids = self.create_experiments(experiment_names)
         self.store.delete_experiment(experiment_ids[1])
 
-        experiments = self.store.search_experiments(
-            view_type=ViewType.ACTIVE_ONLY, order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
         assert [e.name for e in experiments] == ["a", "Default"]
         experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
         assert [e.name for e in experiments] == ["b"]
-        experiments = self.store.search_experiments(
-            view_type=ViewType.ALL, order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(view_type=ViewType.ALL)
         assert [e.name for e in experiments] == ["b", "a", "Default"]
 
     def test_search_experiments_filter_by_attribute(self):
@@ -210,16 +209,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["a"]
         experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
         assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(
-            filter_string="attribute.`name` != 'a'", order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
         assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-        experiments = self.store.search_experiments(
-            filter_string="name LIKE 'a%'", order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
         assert [e.name for e in experiments] == ["ab", "a"]
         experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'a%'", order_by=["creation_time asc"]
+            filter_string="name ILIKE 'a%'", order_by=["last_update_time asc"]
         )
         assert [e.name for e in experiments] == ["a", "ab", "Abc"]
         experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
@@ -325,19 +320,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self.create_experiments(experiment_names)
         reversed_experiment_names = experiment_names[::-1]
 
-        experiments = self.store.search_experiments(max_results=4, order_by=["creation_time desc"])
+        experiments = self.store.search_experiments(max_results=4)
         assert [e.name for e in experiments] == reversed_experiment_names[:4]
         assert experiments.token is not None
 
-        experiments = self.store.search_experiments(
-            max_results=4, page_token=experiments.token, order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
         assert [e.name for e in experiments] == reversed_experiment_names[4:8]
         assert experiments.token is not None
 
-        experiments = self.store.search_experiments(
-            max_results=4, page_token=experiments.token, order_by=["creation_time desc"]
-        )
+        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
         assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
         assert experiments.token is None
 

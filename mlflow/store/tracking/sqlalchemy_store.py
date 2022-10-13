@@ -222,12 +222,12 @@ class SqlAlchemyStore(AbstractStore):
                 session.add(experiment)
                 if not artifact_location:
                     experiment.artifact_location = self._get_artifact_location(experiment_id)
-            except sqlalchemy.exc.IntegrityError as e:
+                session.flush()
+            except (sqlalchemy.exc.IntegrityError, MlflowException) as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
+                    f"Experiment(name={name}) already exists. Error: {str(e)}",
                     RESOURCE_ALREADY_EXISTS,
                 )
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(

@@ -169,6 +169,8 @@ def upgrade():
             nullable=False,
         )
 
+        # NB: there is no need to unset identity inserts since the identity column has been dropped.
+
     if engine_name != "sqlite":
 
         # NB: mssql requires that foreign keys reference primary keys prior to

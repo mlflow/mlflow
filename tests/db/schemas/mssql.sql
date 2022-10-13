@@ -6,12 +6,12 @@ CREATE TABLE alembic_version (
 
 
 CREATE TABLE experiments (
-	experiment_id BIGINT NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	artifact_location VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	lifecycle_stage VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	creation_time BIGINT,
 	last_update_time BIGINT,
+	experiment_id BIGINT NOT NULL,
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id)
 )
 
@@ -30,7 +30,7 @@ CREATE TABLE experiment_tags (
 	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id BIGINT NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
-	CONSTRAINT "FK__experimen__exper__4E88ABD4" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "fk_experiment_tag" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 

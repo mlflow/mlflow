@@ -743,21 +743,15 @@ def test_search_experiments(mlflow_client):
     # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
     assert [e.name for e in experiments] == ["a"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="attribute.name != 'a'", order_by=["creation_time desc"]
-    )
+    experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="name LIKE 'a%'", order_by=["creation_time desc"]
-    )
+    experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
     assert [e.name for e in experiments] == ["ab", "a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
     assert [e.name for e in experiments] == ["ab"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="tag.key ILIKE '%alu%'", order_by=["creation_time desc"]
-    )
+    experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
     assert [e.name for e in experiments] == ["ab", "a"]
 
     # order_by
@@ -765,23 +759,17 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["ab", "a", "Default", "Abc"]
 
     # max_results
-    experiments = mlflow_client.search_experiments(max_results=2, order_by=["creation_time desc"])
+    experiments = mlflow_client.search_experiments(max_results=2)
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
-    experiments = mlflow_client.search_experiments(
-        page_token=experiments.token, order_by=["creation_time desc"]
-    )
+    experiments = mlflow_client.search_experiments(page_token=experiments.token)
     assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
-    experiments = mlflow_client.search_experiments(
-        view_type=ViewType.ACTIVE_ONLY, order_by=["creation_time desc"]
-    )
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
     assert [e.name for e in experiments] == ["Abc", "a", "Default"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
-    experiments = mlflow_client.search_experiments(
-        view_type=ViewType.ALL, order_by=["creation_time desc"]
-    )
-    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]
