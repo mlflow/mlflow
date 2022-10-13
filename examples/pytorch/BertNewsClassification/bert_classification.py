@@ -29,7 +29,7 @@ from torchtext.data.functional import to_map_style_dataset
 from torchtext.datasets import AG_NEWS
 from transformers import BertModel, BertTokenizer, AdamW
 
-import mlflow.pytorch
+import mlflow.pytorch_lightning
 
 
 def get_20newsgroups(num_samples):

@@ -12,6 +12,7 @@ from prettytable import PrettyTable
 from torch.nn.utils import prune
 
 import mlflow.pytorch
+import mlflow.pytorch_lightning
 from mnist import (
     MNISTDataModule,
     LightningMNISTClassifier,

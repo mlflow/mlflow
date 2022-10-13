@@ -9,7 +9,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
-import mlflow.pytorch
+import mlflow.pytorch_lightning
 import logging
 import os
 import torch
