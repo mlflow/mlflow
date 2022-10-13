@@ -1,5 +1,7 @@
 import argparse
 import mlflow
+import mlflow.pytorch_lightning
+
 from ax.service.ax_client import AxClient
 from iris import IrisClassification
 from iris_data_module import IrisDataModule

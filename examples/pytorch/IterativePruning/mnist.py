@@ -10,7 +10,7 @@
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
 import torch
-import lflow.pytorch_lightning
+import mlflow.pytorch_lightning
 from argparse import ArgumentParser
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
