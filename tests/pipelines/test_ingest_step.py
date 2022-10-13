@@ -242,6 +242,30 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
         ).run(output_directory=tmp_path)
 
 
+def custom_load_file_as_array(local_data_file_path, dataset_format):
+    return [local_data_file_path, dataset_format]
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.fooformat"
+    pandas_df.to_csv(dataset_path, sep="#")
+
+    with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "fooformat",
+                    "location": str(dataset_path),
+                    "custom_loader_method": (
+                        "tests.pipelines.test_ingest_step.custom_load_file_as_array"
+                    ),
+                }
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_unexpectedly(
     pandas_df, tmp_path
