@@ -143,14 +143,12 @@ def upgrade():
     # Then, drooping original and renaming the new column.
     if engine_name == "mssql":
 
-        with op.batch_alter_table("experiments", recreate="always") as batch_op:
-            batch_op.add_column(
-                sa.Column("exp_id", sa.BigInteger, autoincrement=False, nullable=True),
-                insert_after="experiment_id",
-            )
-
         # create the new column (cannot create non-nullable due to 'empty' column)
-        # op.add_column("experiments", sa.Column("exp_id", sa.BigInteger, autoincrement=False, nullable=True))
+        op.add_column(
+            "experiments", sa.Column("exp_id", sa.BigInteger, autoincrement=False, nullable=True)
+        )
+
+        op.execute("SET IDENTITY_INSERT experiments ON;")
 
         # perform data migration by copying all experiment_id data to temporary column
         op.execute("UPDATE experiments SET exp_id = experiment_id")
@@ -168,6 +166,7 @@ def upgrade():
             existing_nullable=True,
             nullable=False,
         )
+        op.execute("SET IDENTITY_INSERT experiments OFF;")
 
     if engine_name != "sqlite":
 
