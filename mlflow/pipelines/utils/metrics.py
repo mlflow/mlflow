@@ -37,11 +37,17 @@ class PipelineMetric:
 
 
 BUILTIN_CLASSIFICATION_PIPELINE_METRICS = [
-    PipelineMetric(name="mean_absolute_error", greater_is_better=False),
-    PipelineMetric(name="mean_squared_error", greater_is_better=False),
-    PipelineMetric(name="root_mean_squared_error", greater_is_better=False),
-    PipelineMetric(name="max_error", greater_is_better=False),
-    PipelineMetric(name="mean_absolute_percentage_error", greater_is_better=False),
+    PipelineMetric(name="true_negatives", greater_is_better=True),
+    PipelineMetric(name="false_positives", greater_is_better=False),
+    PipelineMetric(name="false_negatives", greater_is_better=False),
+    PipelineMetric(name="true_positives", greater_is_better=True),
+    PipelineMetric(name="recall", greater_is_better=True),
+    PipelineMetric(name="precision", greater_is_better=True),
+    PipelineMetric(name="f1_score", greater_is_better=True),
+    PipelineMetric(name="accuracy_score", greater_is_better=True),
+    PipelineMetric(name="log_loss", greater_is_better=False),
+    PipelineMetric(name="roc_auc", greater_is_better=True),
+    PipelineMetric(name="precision_recall_auc", greater_is_better=True),
 ]
 
 BUILTIN_REGRESSION_PIPELINE_METRICS = [
@@ -87,6 +93,8 @@ def _get_builtin_metrics(tmpl: str) -> str:
     """
     if tmpl == "regression/v1":
         return BUILTIN_REGRESSION_PIPELINE_METRICS
+    elif tmpl == "classification/v1":
+        return BUILTIN_CLASSIFICATION_PIPELINE_METRICS
     raise MlflowException(
         f"No builtin metrics for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
