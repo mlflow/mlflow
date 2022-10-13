@@ -277,6 +277,9 @@ class TrainStep(BaseStep):
                 )
                 estimator = estimator_fn(best_estimator_params)
             elif len(estimator_hardcoded_params) > 0:
+                self._write_best_parameters_outputs(
+                    {}, estimator_hardcoded_params, output_directory
+                )
                 estimator = estimator_fn(estimator_hardcoded_params)
             else:
                 estimator = estimator_fn()
@@ -627,19 +630,17 @@ class TrainStep(BaseStep):
             )
 
         # Tab 8: Best Parameters
-        if self.step_config["tuning_enabled"]:
+        best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+        if os.path.exists(best_parameters_yaml):
             best_parameters_card_tab = card.add_tab(
                 "Best Parameters",
                 "{{ BEST_PARAMETERS }} ",
             )
-            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
-            if os.path.exists(best_parameters_yaml):
-                best_hardcoded_parameters = open(best_parameters_yaml).read()
-                best_parameters_card_tab.add_html(
-                    "BEST_PARAMETERS",
-                    f"<b>Best parameters:</b><br>"
-                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
-                )
+            best_parameters = open(best_parameters_yaml).read()
+            best_parameters_card_tab.add_html(
+                "BEST_PARAMETERS",
+                f"<b>Best parameters:</b><br>" f"<pre>{best_parameters}</pre><br><br>",
+            )
 
         # Tab 9: HP trials
         if tuning_df is not None:
@@ -880,7 +881,7 @@ class TrainStep(BaseStep):
         else:
             best_hardcoded_params = {}
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
+        self._write_best_parameters_outputs(best_hp_params, best_hardcoded_params, output_directory)
         return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
@@ -911,7 +912,9 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
+    def _write_best_parameters_outputs(
+        self, best_hp_params, best_hardcoded_params, output_directory
+    ):
         best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
         if os.path.exists(best_parameters_path):
             os.remove(best_parameters_path)
