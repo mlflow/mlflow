@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
 _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
+_MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
