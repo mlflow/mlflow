@@ -357,6 +357,29 @@ class TrackingServiceClient:
         """
         self.store.delete_tag(run_id, key)
 
+    def update_run(self, run_id, status=None, name=None):
+        """
+        Update a run with the specified ID to a new status or name.
+
+        :param run_id: The ID of the Run to update.
+        :param status: The new status of the run to set, if specified.
+                       At least one of ``status`` or ``name`` should be specified.
+        :param name: The new name of the run to set, if specified.
+                     At least one of ``name`` or ``status`` should be specified.
+        """
+        # Exit early
+        if status is None and name is None:
+            return
+
+        run = self.get_run(run_id)
+        status = status or run.info.status
+        self.store.update_run_info(
+            run_id=run_id,
+            run_status=RunStatus.from_string(status),
+            end_time=run.info.end_time,
+            run_name=name,
+        )
+
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
         Log multiple metrics, params, and/or tags.
