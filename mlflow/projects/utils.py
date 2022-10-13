@@ -209,10 +209,7 @@ def _fetch_git_repo(uri, version, dst_dir):
         origin = repo.create_remote("origin", uri)
     if version is not None:
         try:
-            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
-            cmd = ["git", "fetch", "--tags"]
-            g = git.cmd.Git(dst_dir)
-            g.execute(cmd)
+            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH, tags=True)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
