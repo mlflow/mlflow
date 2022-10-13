@@ -143,16 +143,16 @@ def upgrade():
     # Then, drooping original and renaming the new column.
     if engine_name == "mssql":
 
-        # create the new column
+        # create the new column (cannot create non-nullable due to 'empty' column)
         op.add_column("experiments", sa.Column("exp_id", sa.BigInteger))
 
-        # perform data migration
+        # perform data migration by copying all experiment_id data to temporary column
         op.execute("UPDATE experiments SET exp_id = experiment_id")
 
-        # drop column
+        # drop column the old experiment_id column
         op.drop_column(table_name="experiments", column_name="experiment_id")
 
-        # rename column
+        # rename temporary column with required mssql arguments for converting to nullable
         op.alter_column(
             table_name="experiments",
             column_name="exp_id",

@@ -19,8 +19,8 @@ def _generate_unique_integer_id():
     # append a random int as string to the end of the generated string for as many
     # leading zeros exist in the generated string in order to preserve the total length
     # once cast back to int
-    for i in range(len(random_str)):
-        if random_str[i] == "0":
+    for s in random_str:
+        if s == "0":
             random_str = random_str + str(random.randint(0, 9))
         else:
             break

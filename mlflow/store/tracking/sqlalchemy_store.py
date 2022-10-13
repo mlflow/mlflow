@@ -41,7 +41,6 @@ from mlflow.utils.name_utils import _generate_random_name, _generate_unique_inte
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
-from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
     _validate_batch_log_limits,
@@ -151,41 +150,20 @@ class SqlAlchemyStore(AbstractStore):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
         if len(self.search_experiments(view_type=ViewType.ALL)) == 0:
-            with self.ManagedSessionMaker() as session:
-                self._create_default_experiment(session)
+            self._create_default_experiment()
 
     def _get_dialect(self):
         return self.engine.dialect.name
 
-    def _create_default_experiment(self, session):
+    def _create_default_experiment(self):
         """
         MLflow UI and client code expects a default experiment with ID 0.
         This method uses SQL insert statement to create the default experiment.
 
         """
-        table = SqlExperiment.__tablename__
-        creation_time = get_current_time_millis()
-        default_experiment = {
-            SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
-            SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
-            SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
-            SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
-            SqlExperiment.creation_time.name: creation_time,
-            SqlExperiment.last_update_time.name: creation_time,
-        }
-
-        def decorate(s):
-            if is_string_type(s):
-                return "'{}'".format(s)
-            else:
-                return "{}".format(s)
-
-        # Get a list of keys to ensure we have a deterministic ordering
-        columns = list(default_experiment.keys())
-        values = ", ".join([decorate(default_experiment.get(c)) for c in columns])
-
-        session.execute(
-            "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+        self.create_experiment(
+            name=Experiment.DEFAULT_EXPERIMENT_NAME,
+            artifact_location=str(self._get_artifact_location(0)),
         )
 
     @staticmethod
@@ -245,13 +223,12 @@ class SqlAlchemyStore(AbstractStore):
                 session.add(experiment)
                 if not artifact_location:
                     experiment.artifact_location = self._get_artifact_location(experiment_id)
-                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
-
+            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(

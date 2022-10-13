@@ -1,4 +1,3 @@
-import time
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -27,6 +26,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
+from mlflow.utils.time_utils import get_current_time_millis
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -72,11 +72,11 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
-    creation_time = Column(BigInteger, default=int(time.time() * 1000))
+    creation_time = Column(BigInteger, default=get_current_time_millis)
     """
     Creation time of experiment: `BigInteger`.
     """
-    last_update_time = Column(BigInteger, default=int(time.time() * 1000))
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
     """
     Last Update time of experiment: `BigInteger`.
     """
@@ -146,7 +146,7 @@ class SqlRun(Base):
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
     """
-    start_time = Column(BigInteger, default=int(time.time() * 1000))
+    start_time = Column(BigInteger, default=get_current_time_millis)
     """
     Run start time: `BigInteger`. Defaults to current system time.
     """
@@ -329,7 +329,7 @@ class SqlMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
+    timestamp = Column(BigInteger, default=get_current_time_millis)
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
@@ -384,7 +384,7 @@ class SqlLatestMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
+    timestamp = Column(BigInteger, default=get_current_time_millis)
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``latest_metrics`` table.
