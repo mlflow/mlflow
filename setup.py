@@ -153,7 +153,7 @@ setup(
             "pandas-profiling>=3.1",
             "ipython>=7.0",
             "markdown>=3.3",
-            "Jinja2==3.0.3",
+            "Jinja2>=3.0",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
