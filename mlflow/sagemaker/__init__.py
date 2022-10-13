@@ -2179,7 +2179,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         return dict(name=app_name, flavor=flavor)
 
-    def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
+    def update_deployment(
+        self, name, model_uri, flavor=None, config=None, endpoint=None
+    ):  # pylint: disable=signature-differs
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
         an existing SageMaker endpoint. By default, this function replaces the existing model
