@@ -440,7 +440,7 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
             os.makedirs(dst_dirpath)
         shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=dst_path, ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(src=src, dst=dst_path, ignore=shutil.ignore_patterns("__pycache__"))
     return dst_subpath
 
 
