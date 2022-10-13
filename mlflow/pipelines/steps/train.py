@@ -61,6 +61,7 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
 
     def _validate_and_apply_step_config(self):
+        self.task = self.pipeline_config["template"].rsplit("/")[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
                 raise MlflowException(
@@ -139,7 +140,8 @@ class TrainStep(BaseStep):
             "estimator_spec"
         ]:
             raise MlflowException(
-                "Missing 'estimator_method' configuration in the train step.",
+                "Missing 'estimator_method' configuration in the train step, "
+                "which is using 'estimator_spec'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -392,12 +394,15 @@ class TrainStep(BaseStep):
         return estimator
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train):
-        plugin_str = plugin_str.replace("/", ".").replace("@", ".")
+        plugin_str = plugin_str.replace("/", ".")
         plugin_module_str = f"{sys.modules[__name__].__package__}.{plugin_str}"
-        estimator_fn = getattr(importlib.import_module(plugin_module_str), "get_estimator")
+        estimator_fn = getattr(
+            importlib.import_module(plugin_module_str), "get_estimator_and_best_params"
+        )
         estimator, best_parameters = estimator_fn(
             X_train,
             y_train,
+            self.task,
             self.step_config,
             self.pipeline_root,
             self.evaluation_metrics,

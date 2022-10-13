@@ -7,12 +7,12 @@ from sklearn.base import BaseEstimator
 import mlflow
 from mlflow import MlflowException
 from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
-from mlflow.pipelines.utils.metrics import _load_one_custom_metric_function, PipelineMetric
+from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metric_functions
 
 _logger = logging.getLogger(__name__)
 
-AUTOML_DEFAULT_TIME_BUDGET = 10
-MLFLOW_TO_FLAML_METRICS = {
+_AUTOML_DEFAULT_TIME_BUDGET = 10
+_MLFLOW_TO_FLAML_METRICS = {
     "mean_absolute_error": "mae",
     "mean_squared_error": "mse",
     "root_mean_squared_error": "rmse",
@@ -21,16 +21,17 @@ MLFLOW_TO_FLAML_METRICS = {
 }
 
 
-def get_estimator(
+def get_estimator_and_best_params(
     X,
     y,
+    task: str,
     step_config: Dict[str, Any],
     pipeline_root: str,
     evaluation_metrics: Dict[str, PipelineMetric],
     primary_metric: str,
 ) -> Tuple[BaseEstimator, Dict[str, Any]]:
     return _create_model_automl(
-        X, y, step_config, pipeline_root, evaluation_metrics, primary_metric
+        X, y, task, step_config, pipeline_root, evaluation_metrics, primary_metric
     )
 
 
@@ -76,6 +77,7 @@ def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: calla
 def _create_model_automl(
     X,
     y,
+    task: str,
     step_config: Dict[str, Any],
     pipeline_root: str,
     evaluation_metrics: Dict[str, PipelineMetric],
@@ -87,38 +89,35 @@ def _create_model_automl(
         raise MlflowException("Please install FLAML to use AutoML!")
 
     try:
-        if primary_metric in MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
-            metric = MLFLOW_TO_FLAML_METRICS[primary_metric]
+        if primary_metric in _MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
+            metric = _MLFLOW_TO_FLAML_METRICS[primary_metric]
         elif primary_metric in evaluation_metrics:
             metric = _create_custom_metric_flaml(
                 primary_metric,
                 -1 if evaluation_metrics[primary_metric].greater_is_better else 1,
-                _load_one_custom_metric_function(pipeline_root, evaluation_metrics[primary_metric]),
+                _load_custom_metric_functions(pipeline_root, [evaluation_metrics[primary_metric]])[
+                    0
+                ],
             )
         else:
-            _logger.warning(
-                f"There is no FLAML alternative or custom metric for {primary_metric} metric.\n"
-                f"Using 'auto' metric instead."
+            raise MlflowException(
+                f"There is no FLAML alternative or custom metric for {primary_metric} metric."
             )
-            metric = "auto"
 
         automl_settings = step_config.get("flaml_params", {})
         automl_settings["time_budget"] = step_config.get(
-            "time_budget_secs", AUTOML_DEFAULT_TIME_BUDGET
+            "time_budget_secs", _AUTOML_DEFAULT_TIME_BUDGET
         )
         automl_settings["metric"] = metric
-        automl_settings["task"] = "regression"
-
+        automl_settings["task"] = task
+        # Disabled Autologging, because during the hyperparameter search
+        # it tries to log the same parameters multiple times.
         mlflow.autolog(disable=True)
         automl = AutoML()
         automl.fit(X, y, **automl_settings)
         mlflow.autolog(disable=False, log_models=False)
         return automl.model.estimator, automl.best_config
     except Exception as e:
-        _logger.warning(
-            f"Error has occurred during training of AutoML model using FLAML: {repr(e)}",
-            exc_info=True,
-        )
         raise MlflowException(
             f"Error has occurred during training of AutoML model using FLAML: {repr(e)}"
         )

@@ -147,17 +147,5 @@ def _load_custom_metric_functions(
         ) from e
 
 
-def _load_one_custom_metric_function(pipeline_root: str, metric: PipelineMetric) -> callable:
-    try:
-        sys.path.append(pipeline_root)
-        custom_metrics_mod = importlib.import_module("steps.custom_metrics")
-        return getattr(custom_metrics_mod, metric.custom_function)
-    except Exception as e:
-        raise MlflowException(
-            message="Failed to load custom metric functions",
-            error_code=BAD_REQUEST,
-        ) from e
-
-
 def _get_primary_metric(step_config):
     return (step_config.get("metrics") or {}).get("primary", "root_mean_squared_error")
