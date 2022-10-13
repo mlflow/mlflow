@@ -135,7 +135,7 @@ class SplitStep(BaseStep):
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
         def _set_target_col_as_first(df, target_col):
             columns = list(df.columns)
-            col  = columns.pop(columns.index(target_col))
+            col = columns.pop(columns.index(target_col))
             return df[[col] + columns]
 
         # Build card
