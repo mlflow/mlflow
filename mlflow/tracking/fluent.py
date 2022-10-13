@@ -616,28 +616,6 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def update_run(status: Optional[str] = None, name: Optional[str] = None) -> None:
-    """
-    Set a new name or status for the current run. If no run is active, this method will create a
-    new active run.
-
-    :param status: The new status of the run to set, if specified.
-                   At least one of ``status`` or ``name`` should be specified.
-    :param name: The new name of the run to set, if specified.
-                 At least one of ``name`` or ``status`` should be specified.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        with mlflow.start_run():
-            mlflow.update_run("FINISHED", "MY_RUN")
-    """
-    run_id = _get_or_start_run().info.run_id
-    MlflowClient().update_run(run_id, status, name)
-
-
 def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
