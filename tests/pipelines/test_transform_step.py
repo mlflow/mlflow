@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
