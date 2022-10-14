@@ -61,7 +61,8 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
 
     def _validate_and_apply_step_config(self):
-        self.task = self.pipeline_config["template"].rsplit("/")[0]
+        print(self)
+        self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
                 raise MlflowException(
@@ -395,9 +396,9 @@ class TrainStep(BaseStep):
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train):
         plugin_str = plugin_str.replace("/", ".")
-        plugin_module_str = f"{sys.modules[__name__].__package__}.{plugin_str}"
         estimator_fn = getattr(
-            importlib.import_module(plugin_module_str), "get_estimator_and_best_params"
+            importlib.import_module(f"mlflow.pipelines.steps.{plugin_str}"),
+            "get_estimator_and_best_params",
         )
         estimator, best_parameters = estimator_fn(
             X_train,
