@@ -687,10 +687,7 @@ class TrainStep(BaseStep):
                 "{{ AUTOML }} ",
             )
             params_html = "".join(
-                [
-                    f"<pre>{param}: {value}</pre>"
-                    for param, value in self.best_parameters.items()
-                ]
+                [f"<pre>{param}: {value}</pre>" for param, value in self.best_parameters.items()]
             )
             automl_card_tab.add_html(
                 "AUTOML",
