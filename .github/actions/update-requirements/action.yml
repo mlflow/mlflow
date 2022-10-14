@@ -16,7 +16,7 @@ runs:
         python dev/update_requirements.py --requirements-yaml-location requirements/skinny-requirements.yaml
         python dev/update_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
         if [ -z "$(git status --porcelain)" ]; then
-          echo "::set-output name=updated::false"
+          echo "updated=false" >> $GITHUB_OUTPUT
         else
           python dev/generate_requirements.py \
             --requirements-yaml-location requirements/skinny-requirements.yaml \
@@ -25,5 +25,5 @@ runs:
             --requirements-yaml-location requirements/core-requirements.yaml \
             --requirements-txt-output-location requirements/core-requirements.txt
           git diff --color=always
-          echo "::set-output name=updated::true"
+          echo "updated=true" >> $GITHUB_OUTPUT
         fi

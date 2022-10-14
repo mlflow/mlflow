@@ -8,7 +8,7 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any
+from typing import TypeVar, Dict, Any, List
 from mlflow.pipelines.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.pipelines.utils import get_pipeline_name
 from mlflow.pipelines.utils.step import display_html
@@ -115,6 +115,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
         try:
             self._update_status(status=StepStatus.RUNNING, output_directory=output_directory)
+            self._validate_and_apply_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
         except Exception:
@@ -161,6 +162,15 @@ class BaseStep(metaclass=abc.ABCMeta):
         :param output_directory: String file path to the directory where step outputs
                                  should be stored.
         :return: A BaseCard containing step execution information.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _validate_and_apply_step_config(self) -> None:
+        """
+        This function is responsible for validating and loading the step config for
+        a particular step. It is invoked by the internal step runner.
         """
         pass
 
@@ -213,6 +223,13 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         Returns environment variables associated with step that should be set when the
         step is executed.
+        """
+        return {}
+
+    @experimental
+    def get_artifacts(self) -> List[Any]:
+        """
+        Returns the named artifacts produced by the step for the current class instance.
         """
         return {}
 

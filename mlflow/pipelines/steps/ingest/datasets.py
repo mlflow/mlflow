@@ -583,25 +583,38 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
     (e.g. `SELECT * FROM my_spark_table`).
     """
 
-    def __init__(self, sql: str, dataset_format: str):
+    def __init__(self, sql: str, location: str, dataset_format: str):
         """
         :param sql: The Spark SQL query string that defines the dataset
                     (e.g. 'SELECT * FROM my_spark_table').
+        :param location: The location of the dataset
+                    (e.g. 'catalog.schema.table', 'schema.table', 'table').
         :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
         """
         super().__init__(dataset_format=dataset_format)
         self.sql = sql
+        self.location = location
 
     def resolve_to_parquet(self, dst_path: str):
+        if self.location is None and self.sql is None:
+            raise MlflowException(
+                "Either location or sql configuration key must be specified for "
+                "dataset with format spark_sql"
+            ) from None
         spark_session = self._get_or_create_spark_session()
-        spark_df = spark_session.sql(self.sql)
+        spark_df = None
+        if self.sql is not None:
+            spark_df = spark_session.sql(self.sql)
+        elif self.location is not None:
+            spark_df = spark_session.table(self.location)
         pandas_df = spark_df.toPandas()
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @classmethod
     def _from_config(cls, dataset_config: Dict[str, Any], pipeline_root: str) -> _DatasetType:
         return cls(
-            sql=cls._get_required_config(dataset_config=dataset_config, key="sql"),
+            sql=dataset_config.get("sql"),
+            location=dataset_config.get("location"),
             dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
         )
 

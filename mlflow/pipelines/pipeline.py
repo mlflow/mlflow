@@ -2,6 +2,7 @@ import abc
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.artifacts import Artifact
 from mlflow.pipelines.step import BaseStep, StepStatus
 from mlflow.pipelines.utils import (
     get_pipeline_config,
@@ -204,7 +205,6 @@ class _BasePipeline:
         ]
 
     @experimental
-    @abc.abstractmethod
     def get_artifact(self, artifact_name: str):
         """
         Read an artifact from pipeline output. artifact names can be obtained from
@@ -213,19 +213,25 @@ class _BasePipeline:
         Returns None if the specified artifact is not found.
         Raise an error if the artifact is not supported.
         """
-        pass
+        return self._get_artifact(artifact_name).load()
 
     @experimental
-    @abc.abstractmethod
-    def _get_artifact_path(self, artifact_name: str):
+    def _get_artifact(self, artifact_name: str) -> Artifact:
         """
-        Get a path of an artifact from pipeline output. artifact names can be obtained from
-        `Pipeline.inspect()` or `Pipeline.run()` output.
+        Read an Artifact object from pipeline output. artifact names can be obtained
+        from `Pipeline.inspect()` or `Pipeline.run()` output.
 
         Returns None if the specified artifact is not found.
         Raise an error if the artifact is not supported.
         """
-        pass
+        for step in self._steps:
+            for artifact in step.get_artifacts():
+                if artifact.name() == artifact_name:
+                    return artifact
+        raise MlflowException(
+            f"The artifact with name '{artifact_name}' is not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline

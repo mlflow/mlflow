@@ -3,8 +3,8 @@ import os
 import time
 import importlib
 import sys
-from typing import Dict, Any
 
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -20,6 +20,7 @@ _INPUT_FILE_NAME = "dataset.parquet"
 _OUTPUT_TRAIN_FILE_NAME = "train.parquet"
 _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
+_MULTI_PROCESS_POOL_SIZE = 8
 
 
 def _make_elem_hashable(elem):
@@ -61,10 +62,34 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
+def _parallelize(data, func):
+    import numpy as np
+    import pandas as pd
+    from multiprocessing import Pool
+
+    data_split = np.array_split(data, _MULTI_PROCESS_POOL_SIZE)
+    pool = Pool(_MULTI_PROCESS_POOL_SIZE)
+    data = pd.concat(pool.map(func, data_split))
+    pool.close()
+    pool.join()
+    return data
+
+
+def _run_on_subset(func, data_subset):
+    return data_subset.applymap(func)
+
+
+def _parallelize_on_rows(data, func):
+    from functools import partial
+
+    return _parallelize(data, partial(_run_on_subset, func))
+
+
 def _hash_pandas_dataframe(input_df):
     from pandas.util import hash_pandas_object
 
-    return hash_pandas_object(input_df.applymap(_make_elem_hashable))
+    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable)
+    return hash_pandas_object(hashed_input_df)
 
 
 def _create_hash_buckets(input_df):
@@ -84,39 +109,43 @@ def _create_hash_buckets(input_df):
 
 
 class SplitStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
-        super().__init__(step_config, pipeline_root)
-
+    def _validate_and_apply_step_config(self):
         self.run_end_time = None
         self.execution_duration = None
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
-        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
-        split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
+        self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
         if not (
-            isinstance(split_ratios, list)
-            and len(split_ratios) == 3
-            and all(isinstance(x, (int, float)) and x > 0 for x in split_ratios)
+            isinstance(self.split_ratios, list)
+            and len(self.split_ratios) == 3
+            and all(isinstance(x, (int, float)) and x > 0 for x in self.split_ratios)
         ):
             raise MlflowException(
                 "Config split_ratios must be a list containing 3 positive numbers."
             )
 
-        self.split_ratios = split_ratios
-
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
+        def _set_target_col_as_first(df, target_col):
+            columns = list(df.columns)
+            col = columns.pop(columns.index(target_col))
+            return df[[col] + columns]
+
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
         if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
+            train_df = _set_target_col_as_first(train_df, self.target_col)
+            validation_df = _set_target_col_as_first(validation_df, self.target_col)
+            test_df = _set_target_col_as_first(test_df, self.target_col)
             data_profile = get_pandas_data_profiles(
                 [
                     ["Train", train_df.reset_index(drop=True)],
@@ -176,6 +205,12 @@ class SplitStep(BaseStep):
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)
+        # Make sure the target column is actually present in the input DF.
+        if self.target_col not in input_df.columns:
+            raise MlflowException(
+                f"Target column '{self.target_col}' not found in ingested dataset.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         input_df = input_df.dropna(how="any", subset=[self.target_col])
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
@@ -184,6 +219,7 @@ class SplitStep(BaseStep):
         train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, self.split_ratios)
         # Import from user function module to process dataframes
         post_split_config = self.step_config.get("post_split_method", None)
+        post_split_filter_config = self.step_config.get("post_split_filter_method", None)
         if post_split_config is not None:
             (post_split_module_name, post_split_fn_name) = post_split_config.rsplit(".", 1)
             sys.path.append(self.pipeline_root)
@@ -192,6 +228,21 @@ class SplitStep(BaseStep):
             )
             _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
             (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
+        elif post_split_filter_config is not None:
+            (
+                post_split_filter_module_name,
+                post_split_filter_fn_name,
+            ) = post_split_filter_config.rsplit(".", 1)
+            sys.path.append(self.pipeline_root)
+            post_split_filter = getattr(
+                importlib.import_module(post_split_filter_module_name), post_split_filter_fn_name
+            )
+            _logger.debug(
+                f"Running {post_split_filter_fn_name} on train, validation and test datasets."
+            )
+            train_df = train_df[post_split_filter(train_df)]
+            validation_df = validation_df[post_split_filter(validation_df)]
+            test_df = test_df[post_split_filter(test_df)]
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
@@ -203,10 +254,23 @@ class SplitStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config.get("steps", {}).get("split", {})
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("split", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         return cls(step_config, pipeline_root)
 
     @property
     def name(self):
         return "split"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "training_data", self.pipeline_root, self.name, _OUTPUT_TRAIN_FILE_NAME
+            ),
+            DataframeArtifact(
+                "validation_data", self.pipeline_root, self.name, _OUTPUT_VALIDATION_FILE_NAME
+            ),
+            DataframeArtifact("test_data", self.pipeline_root, self.name, _OUTPUT_TEST_FILE_NAME),
+        ]
