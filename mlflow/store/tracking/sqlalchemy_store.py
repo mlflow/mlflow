@@ -5,6 +5,7 @@ import time
 import uuid
 import threading
 from functools import reduce
+import warnings
 
 import math
 import sqlalchemy
@@ -157,13 +158,46 @@ class SqlAlchemyStore(AbstractStore):
     def _create_default_experiment(self):
         """
         MLflow UI and client code expects a default experiment with ID 0.
-        This method uses SQL insert statement to create the default experiment.
+        This method populates the default experiment with the default values.
 
         """
-        self.create_experiment(
-            name=Experiment.DEFAULT_EXPERIMENT_NAME,
-            artifact_location=str(self._get_artifact_location(0)),
+        with self.ManagedSessionMaker() as session:
+            try:
+                default_experiment = self._construct_experiment(
+                    experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID,
+                    name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                    artifact_location=str(self._get_artifact_location(0)),
+                )
+                session.add(default_experiment)
+                session.flush()
+            except (sqlalchemy.exc.IntegrityError, MlflowException) as e:
+                raise MlflowException(
+                    f"Experiment(name={Experiment.DEFAULT_EXPERIMENT_NAME}) already "
+                    f"exists. Error: {str(e)}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+            return str(default_experiment.experiment_id)
+
+    @staticmethod
+    def _construct_experiment(experiment_id, name, artifact_location):
+        """
+        Constructor for a SqlExperiment entry for writing to a tracking db instance.
+        :param experiment_id: Either experiment 0 for default or a random generated fix-length
+                              int64 value
+        :param name: A unique name for the experiment
+        :param artifact_location: The location where artifacts will be logged to
+        :return: SqlExperiment instance
+        """
+        creation_time = get_current_time_millis()
+        experiment = SqlExperiment(
+            experiment_id=experiment_id,
+            name=name,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+            artifact_location=artifact_location,
+            creation_time=creation_time,
+            last_update_time=creation_time,
         )
+        return experiment
 
     @staticmethod
     def _save_to_db(session, objs):
@@ -197,24 +231,29 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = get_current_time_millis()
-                # If the default experiment_id has been deleted, restore it.
+                # If the default experiment_id has been hard-deleted, restore it.
                 if (
                     self._has_experiment(
                         session, SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, ViewType.ALL
                     )
                     is None
                 ):
-                    experiment_id = SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
-                else:
-                    experiment_id = _generate_unique_integer_id()
-                experiment = SqlExperiment(
-                    experiment_id=experiment_id,
-                    name=name,
-                    lifecycle_stage=LifecycleStage.ACTIVE,
-                    artifact_location=artifact_location,
-                    creation_time=creation_time,
-                    last_update_time=creation_time,
+                    # If the default experiment has been dropped for any reason, recreate it with
+                    # the default values and issue a warning.
+                    default_experiment = self._construct_experiment(
+                        experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID,
+                        name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                        artifact_location=str(self._get_artifact_location(0)),
+                    )
+                    warnings.warn(
+                        "The default experiment is not present in the tracking server. "
+                        "Recreating the default experiment with "
+                        f"`experiment_id={SqlAlchemyStore.DEFAULT_EXPERIMENT_ID}`."
+                    )
+                    session.add(default_experiment)
+                experiment_id = _generate_unique_integer_id()
+                experiment = self._construct_experiment(
+                    experiment_id=experiment_id, name=name, artifact_location=artifact_location
                 )
                 experiment.tags = (
                     [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []

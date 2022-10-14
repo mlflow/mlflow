@@ -5,6 +5,7 @@ import os
 import sys
 import shutil
 import tempfile
+import warnings
 
 import uuid
 
@@ -150,16 +151,19 @@ class FileStore(AbstractStore):
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
-            mkdir(self.root_directory)
-            self._create_experiment_with_id(
-                name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                artifact_uri=None,
-                tags=None,
-            )
+            self._create_default_experiment()
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
+
+    def _create_default_experiment(self):
+        mkdir(self.root_directory)
+        self._create_experiment_with_id(
+            name=Experiment.DEFAULT_EXPERIMENT_NAME,
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            artifact_uri=None,
+            tags=None,
+        )
 
     def _check_root_dir(self):
         """
@@ -351,10 +355,16 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        if self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID):
-            experiment_id = _generate_unique_integer_id()
-        else:
-            experiment_id = FileStore.DEFAULT_EXPERIMENT_ID
+
+        experiment_id = _generate_unique_integer_id()
+
+        if not self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID):
+            warnings.warn(
+                "The default experiment is not present due to a file system issue or manual "
+                "deletion. Recreating the default experiment with "
+                f"`experiment_id={FileStore.DEFAULT_EXPERIMENT_ID}`."
+            )
+            self._create_default_experiment()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):

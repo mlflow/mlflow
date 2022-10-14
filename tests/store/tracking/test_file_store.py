@@ -177,9 +177,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         shutil.rmtree(default_path)
         self.assertFalse(_is_default_in_experiments(ViewType.ALL))
 
-        # Create a new experiment that recreates default experiment id
-        file_store.create_experiment("new")
-        self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+        with pytest.warns(UserWarning, match="The default experiment is not present due to a"):
+            # Create a new experiment that recreates default experiment id
+            experiment_id = file_store.create_experiment("new")
+            self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+            # Ensure that the called create_experiment() does not return the default
+            # experiment id (a new experiment_id should be generated)
+            self.assertNotEquals(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
+            self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
 
         # Create a new experiment that generates fixed width id
         new_id = file_store.create_experiment("newer")
