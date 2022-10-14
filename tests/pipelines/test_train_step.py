@@ -318,11 +318,11 @@ def test_train_step_with_tuning_output_yaml_correct(
 
     with open(os.path.join(train_step_output_dir, "best_parameters.yaml")) as f:
         lines = f.readlines()
-        assert lines[0] == "# tuned hyperparameters\n"
+        assert lines[0] == "# tuned hyperparameters \n"
         if with_hardcoded_params:
-            assert lines[expected_num_tuned + 2] == "# hardcoded parameters\n"
+            assert lines[expected_num_tuned + 1] == "# hardcoded parameters \n"
         assert len(lines) == expected_num_tuned + expected_num_hardcoded + (
-            3 if with_hardcoded_params else 2
+            2 if with_hardcoded_params else 1
         )
 
 
