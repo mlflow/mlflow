@@ -136,9 +136,10 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        if "estimator_method" not in self.step_config and self.step_config["using"] in [
-            "estimator_spec"
-        ]:
+        if (
+            "estimator_method" not in self.step_config
+            and self.step_config["using"] == "estimator_spec"
+        ):
             raise MlflowException(
                 "Missing 'estimator_method' configuration in the train step, "
                 "which is using 'estimator_spec'.",
