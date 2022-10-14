@@ -387,7 +387,9 @@ class TrainStep(BaseStep):
             )
             estimator = estimator_fn(best_estimator_params)
         elif len(estimator_hardcoded_params) > 0:
-            self._write_best_parameters_outputs({}, estimator_hardcoded_params, output_directory)
+            self._write_best_parameters_outputs(
+                {}, estimator_hardcoded_params, {}, output_directory
+            )
             estimator = estimator_fn(estimator_hardcoded_params)
         else:
             estimator = estimator_fn()
@@ -413,7 +415,7 @@ class TrainStep(BaseStep):
             f"{estimator.__class__.__module__}.{estimator.__class__.__name__}"
         )
         self.best_parameters = best_parameters
-        self._write_best_parameters_outputs(best_parameters, {}, output_directory)
+        self._write_best_parameters_outputs({}, {}, best_parameters, output_directory)
         return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
@@ -933,7 +935,9 @@ class TrainStep(BaseStep):
         else:
             best_hardcoded_params = {}
         best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_best_parameters_outputs(best_hp_params, best_hardcoded_params, output_directory)
+        self._write_best_parameters_outputs(
+            best_hp_params, best_hardcoded_params, {}, output_directory
+        )
         return best_combined_params
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
@@ -965,24 +969,22 @@ class TrainStep(BaseStep):
         return logged_estimator
 
     def _write_best_parameters_outputs(
-        self, best_hp_params, best_hardcoded_params, output_directory
+        self, best_hp_params, best_hardcoded_params, automl_params, output_directory
     ):
-        if best_hp_params or best_hardcoded_params:
+        if best_hp_params or best_hardcoded_params or automl_params:
             best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_path):
                 os.remove(best_parameters_path)
             with open(best_parameters_path, "a") as file:
-                if best_hp_params:
-                    file.write("# tuned hyperparameters\n")
-                    self._safe_dump_with_numeric_values(
-                        best_hp_params, file, default_flow_style=False
-                    )
-                if best_hardcoded_params:
-                    file.write("\n# hardcoded parameters\n")
-                    self._safe_dump_with_numeric_values(
-                        best_hardcoded_params, file, default_flow_style=False
-                    )
+                self._write_one_param_output(automl_params, file, "automl parameters")
+                self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
+                self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
             mlflow.log_artifact(best_parameters_path, artifact_path="train")
+
+    def _write_one_param_output(self, params, file, caption):
+        if params:
+            file.write(f"# {caption} \n")
+            self._safe_dump_with_numeric_values(params, file, default_flow_style=False)
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
