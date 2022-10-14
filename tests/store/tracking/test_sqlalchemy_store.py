@@ -182,7 +182,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 # Reset experiment_id to start at 1
                 reset_experiment_id = self._get_query_to_reset_experiment_id()
                 if reset_experiment_id:
-                    session.execute(reset_experiment_id)
+                    session.execute(sqlalchemy.sql.text(reset_experiment_id))
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
