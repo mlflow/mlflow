@@ -2220,11 +2220,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_log_params_with_unchanged_and_new_params(self):
         """
-        # Test case to ensure the following code works:
-        # ---------------------------------------------
-        # mlflow.log_params({"a": 1, "b": 2})
-        # mlflow.log_params({"a": 1, "c": 2})
-        # ---------------------------------------------
+        Test case to ensure the following code works:
+        ---------------------------------------------
+        mlflow.log_params({"a": 1, "b": 2})
+        mlflow.log_params({"a": 1, "c": 2})
+        ---------------------------------------------
         """
         run = self._run_factory()
         self.store.log_batch(
