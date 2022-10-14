@@ -52,7 +52,6 @@ _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
-
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
@@ -668,36 +667,31 @@ class TrainStep(BaseStep):
                 )
             )
 
-        # Tab 8: Best Parameters
+        # Tab 8: Best Parameters (AutoML and Tuning)
+        is_automl_run = self.step_config["using"].startswith("automl")
         best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+
         if os.path.exists(best_parameters_yaml):
             best_parameters_card_tab = card.add_tab(
-                "Best Parameters",
+                f"Best Parameters {' (AutoML)' if is_automl_run else ''}",
                 "{{ BEST_PARAMETERS }} ",
             )
+
+            if is_automl_run:
+                automl_estimator_str = (
+                    f"<b>Best estimator:</b><br>"
+                    f"<pre>{self.best_estimator_name}</pre><br>"
+                    f"<b>Best estimator class:</b><br>"
+                    f"<pre>{self.best_estimator_class}</pre><br><br>"
+                )
+            else:
+                automl_estimator_str = ""
+
             best_parameters = open(best_parameters_yaml).read()
             best_parameters_card_tab.add_html(
                 "BEST_PARAMETERS",
-                f"<b>Best parameters:</b><br>" f"<pre>{best_parameters}</pre><br><br>",
-            )
-
-        # Tab 8.1: Best AutoML Parameters
-        if self.step_config["using"].startswith("automl"):
-            automl_card_tab = card.add_tab(
-                "Best Estimator (FLAML)",
-                "{{ AUTOML }} ",
-            )
-            params_html = "".join(
-                [f"<pre>{param}: {value}</pre>" for param, value in self.best_parameters.items()]
-            )
-            automl_card_tab.add_html(
-                "AUTOML",
-                f"<b>Best estimator:</b><br>"
-                f"<pre>{self.best_estimator_name}</pre><br>"
-                f"<b>Best estimator class:</b><br>"
-                f"<pre>{self.best_estimator_class}</pre><br><br>"
-                f"<b>Best parameters:</b><br>"
-                f"{params_html}<br><br>",
+                f"{automl_estimator_str}<b>Best parameters:</b><br>"
+                f"<pre>{best_parameters}</pre><br><br>",
             )
 
         # Tab 9: HP trials
@@ -973,17 +967,22 @@ class TrainStep(BaseStep):
     def _write_best_parameters_outputs(
         self, best_hp_params, best_hardcoded_params, output_directory
     ):
-        best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
-        if os.path.exists(best_parameters_path):
-            os.remove(best_parameters_path)
-        with open(best_parameters_path, "a") as file:
-            file.write("# tuned hyperparameters\n")
-            self._safe_dump_with_numeric_values(best_hp_params, file, default_flow_style=False)
-            file.write("\n# hardcoded parameters\n")
-            self._safe_dump_with_numeric_values(
-                best_hardcoded_params, file, default_flow_style=False
-            )
-        mlflow.log_artifact(best_parameters_path, artifact_path="train")
+        if best_hp_params or best_hardcoded_params:
+            best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
+            if os.path.exists(best_parameters_path):
+                os.remove(best_parameters_path)
+            with open(best_parameters_path, "a") as file:
+                if best_hp_params:
+                    file.write("# tuned hyperparameters\n")
+                    self._safe_dump_with_numeric_values(
+                        best_hp_params, file, default_flow_style=False
+                    )
+                if best_hardcoded_params:
+                    file.write("\n# hardcoded parameters\n")
+                    self._safe_dump_with_numeric_values(
+                        best_hardcoded_params, file, default_flow_style=False
+                    )
+            mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
