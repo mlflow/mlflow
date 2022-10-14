@@ -364,7 +364,7 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlExperiment)
             .options(*query_options)
             .filter(
-                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.experiment_id == int(experiment_id),
                 SqlExperiment.lifecycle_stage.in_(stages),
             )
             .one_or_none()
