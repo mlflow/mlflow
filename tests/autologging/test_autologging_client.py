@@ -31,7 +31,8 @@ def test_client_truncates_param_keys_and_values():
         "a" * (MAX_ENTITY_KEY_LENGTH + 50): "b" * (MAX_PARAM_VAL_LENGTH + 50),
     }
 
-    with mlflow.start_run() as run:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment) as run:
         client.log_params(run_id=run.info.run_id, params=params_to_log)
         client.flush()
 
@@ -50,7 +51,8 @@ def test_client_truncates_tag_keys_and_values():
         "c" * (MAX_ENTITY_KEY_LENGTH + 50): "d" * (MAX_PARAM_VAL_LENGTH + 50),
     }
 
-    with mlflow.start_run() as run:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment) as run:
         client.set_tags(run_id=run.info.run_id, tags=tags_to_log)
         client.flush()
 
@@ -69,7 +71,8 @@ def test_client_truncates_metric_keys():
         "b" * (MAX_ENTITY_KEY_LENGTH + 50): 2,
     }
 
-    with mlflow.start_run() as run:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment) as run:
         client.log_metrics(run_id=run.info.run_id, metrics=metrics_to_log)
         client.flush()
 
@@ -89,8 +92,8 @@ def test_client_logs_expected_run_data():
         for i in range((2 * MAX_PARAMS_TAGS_PER_BATCH) + 1)
     }
     metrics_to_log = {"metric_key_{}".format(i): i for i in range((4 * MAX_METRICS_PER_BATCH) + 1)}
-
-    with mlflow.start_run(run_name="my name") as run:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment, run_name="my name") as run:
         client.log_params(run_id=run.info.run_id, params=params_to_log)
         client.set_tags(run_id=run.info.run_id, tags=tags_to_log)
         client.log_metrics(run_id=run.info.run_id, metrics=metrics_to_log)
@@ -106,7 +109,8 @@ def test_client_logs_expected_run_data():
 def test_client_logs_metric_steps_correctly():
     client = MlflowAutologgingQueueingClient()
 
-    with mlflow.start_run() as run:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment) as run:
         for step in range(3):
             client.log_metrics(run_id=run.info.run_id, metrics={"a": 1}, step=step)
         client.flush()
@@ -148,7 +152,8 @@ def test_client_asynchronous_flush_operates_correctly():
     ) as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
-        with mlflow.start_run() as run:
+        experiment = mlflow.create_experiment("autolog")
+        with mlflow.start_run(experiment_id=experiment) as run:
             client = MlflowAutologgingQueueingClient()
             client.log_params(run_id=run.info.run_id, params={"a": "b"})
             run_operations = client.flush(synchronous=False)
@@ -179,7 +184,8 @@ def test_client_synchronous_flush_operates_correctly():
     ) as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
-        with mlflow.start_run() as run:
+        experiment = mlflow.create_experiment("autolog")
+        with mlflow.start_run(experiment_id=experiment) as run:
             client = MlflowAutologgingQueueingClient()
             client.log_params(run_id=run.info.run_id, params={"a": "b"})
             client.flush(synchronous=True)
@@ -219,7 +225,8 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     metrics_to_log = {"c": 1}
     tags_to_log = {"d": "e"}
 
-    with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
+    experiment = mlflow.create_experiment("autolog")
+    with mlflow.start_run(experiment_id=experiment), MlflowAutologgingQueueingClient() as client:
         run_id_1 = mlflow.active_run().info.run_id
         client.log_params(run_id_1, params_to_log)
         client.log_metrics(run_id_1, metrics_to_log)
@@ -232,7 +239,10 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
 
     exc_to_raise = Exception("test exception")
     with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:
-        with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
+        experiment = mlflow.create_experiment("autolog")
+        with mlflow.start_run(
+            experiment_id=experiment
+        ), MlflowAutologgingQueueingClient() as client:
             run_id_2 = mlflow.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)
             client.log_metrics(run_id_2, metrics_to_log)

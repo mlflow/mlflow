@@ -86,7 +86,8 @@ three_default_test_args = [
 
 @pytest.fixture
 def start_run():
-    mlflow.start_run()
+    experiment = mlflow.create_experiment("autolog")
+    mlflow.start_run(experiment_id=experiment)
     yield
     mlflow.end_run()
 
@@ -584,14 +585,15 @@ def test_autologging_disable_restores_behavior():
     # train a model
     model = LinearRegression()
 
-    run = mlflow.start_run()
+    experiment = mlflow.create_experiment("autolog")
+    run = mlflow.start_run(experiment_id=experiment)
     model.fit(X, y)
     mlflow.end_run()
     run = MlflowClient().get_run(run.info.run_id)
     assert run.data.metrics
     assert run.data.params
 
-    run = mlflow.start_run()
+    run = mlflow.start_run(experiment_id=experiment)
     with mlflow.utils.autologging_utils.disable_autologging():
         model.fit(X, y)
     mlflow.end_run()
@@ -599,7 +601,7 @@ def test_autologging_disable_restores_behavior():
     assert not run.data.metrics
     assert not run.data.params
 
-    run = mlflow.start_run()
+    run = mlflow.start_run(experiment_id=experiment)
     model.fit(X, y)
     mlflow.end_run()
     run = MlflowClient().get_run(run.info.run_id)
