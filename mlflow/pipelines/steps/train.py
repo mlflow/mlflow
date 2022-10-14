@@ -61,7 +61,6 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
 
     def _validate_and_apply_step_config(self):
-        print(self)
         self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
