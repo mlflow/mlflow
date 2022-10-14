@@ -648,6 +648,6 @@ def _construct_databricks_model_version_url(
     if workspace_id and workspace_id != "0":
         model_version_url += "?o=" + str(workspace_id)
 
-    model_version_url += f"#mlflow/models/{name}/{version}"
+    model_version_url += f"#mlflow/models/{name}/versions/{version}"
 
     return model_version_url
