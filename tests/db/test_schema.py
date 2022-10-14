@@ -25,8 +25,8 @@ def get_tracking_uri():
 
 def dump_schema(db_uri):
     engine = create_engine(db_uri)
-    created_tables_metadata = MetaData(bind=engine)
-    created_tables_metadata.reflect()
+    created_tables_metadata = MetaData()
+    created_tables_metadata.reflect(bind=engine)
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
     lines = []

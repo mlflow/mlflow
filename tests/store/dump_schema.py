@@ -12,8 +12,8 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 def dump_db_schema(db_url, dst_file):
     engine = sqlalchemy.create_engine(db_url)
-    created_tables_metadata = MetaData(bind=engine)
-    created_tables_metadata.reflect()
+    created_tables_metadata = MetaData()
+    created_tables_metadata.reflect(bind=engine)
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/
     # metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
