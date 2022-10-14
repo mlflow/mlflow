@@ -167,22 +167,24 @@ def test_http_request_with_aws_sigv4(request):
 
     from requests_auth_aws_sigv4 import AWSSigV4
 
-    aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4="true")
+    aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
     response = mock.MagicMock()
     response.status_code = 200
     request.return_value = response
     http_request(aws_sigv4, "/my/endpoint", "GET")
-    headers = DefaultRequestHeaderProvider().request_headers()
-    _, kwargs = request.call_args_list[0]
-    request.assert_called_with(
+
+    class AuthMatcher:
+        def __eq__(self, other):
+            return isinstance(other, AWSSigV4)
+
+    request.assert_called_once_with(
         "GET",
         "http://my-host/my/endpoint",
-        verify=True,
-        headers=headers,
-        timeout=120,
-        auth=kwargs["auth"],
+        verify=mock.ANY,
+        headers=mock.ANY,
+        timeout=mock.ANY,
+        auth=AuthMatcher(),
     )
-    assert isinstance(kwargs["auth"], AWSSigV4)
 
 
 @mock.patch("requests.Session.request")
