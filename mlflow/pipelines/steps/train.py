@@ -394,7 +394,7 @@ class TrainStep(BaseStep):
             estimator = estimator_fn()
         return estimator
 
-    def _resolve_estimator_plugin(self, plugin_str, X_train, y_train):
+    def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
         plugin_str = plugin_str.replace("/", ".")
         estimator_fn = getattr(
             importlib.import_module(f"mlflow.pipelines.steps.{plugin_str}"),
@@ -414,6 +414,7 @@ class TrainStep(BaseStep):
             f"{estimator.__class__.__module__}.{estimator.__class__.__name__}"
         )
         self.best_parameters = best_parameters
+        self._write_best_parameters_outputs(best_parameters, {}, output_directory)
         return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
@@ -423,7 +424,7 @@ class TrainStep(BaseStep):
                 X_train, y_train, validation_df, run, output_directory
             )
         else:
-            return self._resolve_estimator_plugin(using_plugin, X_train, y_train)
+            return self._resolve_estimator_plugin(using_plugin, X_train, y_train, output_directory)
 
     def _get_leaderboard_df(self, run, eval_metrics):
         import pandas as pd
