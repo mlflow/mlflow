@@ -1,6 +1,7 @@
 import os
 from functools import partial
 
+from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
@@ -8,7 +9,6 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
     _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_AWS_SIGV4_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
     _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
     _TRACKING_SERVER_CERT_PATH_ENV_VAR,
@@ -129,7 +129,7 @@ def get_default_host_creds(store_uri):
         username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
         password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-        aws_sigv4=os.environ.get(_TRACKING_AWS_SIGV4_ENV_VAR),
+        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
         server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),

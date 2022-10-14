@@ -363,7 +363,7 @@ class MlflowHostCreds:
         username=None,
         password=None,
         token=None,
-        aws_sigv4=None,
+        aws_sigv4=False,
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
