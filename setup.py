@@ -147,7 +147,7 @@ setup(
             "virtualenv",
         ],
         "pipelines": [
-            "scikit-learn>=1.1",
+            "scikit-learn>=1.0",
             "pyarrow>=7.0",
             "shap>=0.40",
             "pandas-profiling>=3.1",
