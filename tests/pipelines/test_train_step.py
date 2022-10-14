@@ -60,7 +60,9 @@ def setup_train_dataset(pipeline_root: Path):
 
 
 # Sets up the constructed TrainStep instance
-def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_params: bool = True):
+def setup_train_step_with_tuning(
+    pipeline_root: Path, use_tuning: bool, with_hardcoded_params: bool = True
+):
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     if with_hardcoded_params:
         estimator_params = """
@@ -134,6 +136,48 @@ def setup_train_step(pipeline_root: Path, use_tuning: bool, with_hardcoded_param
     return train_step
 
 
+def setup_train_step_with_automl(
+    pipeline_root: Path,
+    primary_metric: str = "root_mean_squared_error",
+    generate_custom_metrics: bool = False,
+):
+    pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+
+    custom_metric = """
+    custom:
+      - name: weighted_mean_squared_error
+        function: weighted_mean_squared_error
+        greater_is_better: False
+            """
+    pipeline_yaml.write_text(
+        f"""
+  template: regression/v1
+  target_col: y
+  profile: test_profile
+  run_args:
+    step: train
+  experiment:
+    name: demo
+    tracking_uri: { mlflow.get_tracking_uri() }
+  steps:
+    train:
+      using: automl/flaml
+      time_budget_secs: 20
+      flaml_params:
+        estimator_list:
+          - xgboost
+          - rf
+          - lgbm
+  metrics:
+    { custom_metric if generate_custom_metrics else "" }
+    primary: { primary_metric }
+        """
+    )
+    pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
+    train_step = TrainStep.from_pipeline_config(pipeline_config, str(pipeline_root))
+    return train_step
+
+
 def estimator_fn(estimator_params=None):
     from sklearn.linear_model import SGDRegressor
 
@@ -150,7 +194,7 @@ def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tunin
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/model.pkl").exists()
@@ -170,7 +214,7 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
     monkeypatch.setenv(_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_pipeline_root_path))
 
     train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-    train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+    train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
     train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -193,7 +237,7 @@ def test_train_steps_autologs(tmp_pipeline_root_path, use_tuning):
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -218,7 +262,7 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
         },
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning)
+        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -239,7 +283,7 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning=True)
         train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
@@ -266,7 +310,7 @@ def test_train_step_with_tuning_output_yaml_correct(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(
+        train_step = setup_train_step_with_tuning(
             tmp_pipeline_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
         )
         train_step.run(str(train_step_output_dir))
@@ -274,9 +318,12 @@ def test_train_step_with_tuning_output_yaml_correct(
 
     with open(os.path.join(train_step_output_dir, "best_parameters.yaml")) as f:
         lines = f.readlines()
-        assert lines[0] == "# tuned hyperparameters\n"
-        assert lines[expected_num_tuned + 2] == "# hardcoded parameters\n"
-        assert len(lines) == expected_num_tuned + expected_num_hardcoded + 3
+        assert lines[0] == "# tuned hyperparameters \n"
+        if with_hardcoded_params:
+            assert lines[expected_num_tuned + 1] == "# hardcoded parameters \n"
+        assert len(lines) == expected_num_tuned + expected_num_hardcoded + (
+            2 if with_hardcoded_params else 1
+        )
 
 
 def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path):
@@ -284,7 +331,7 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
         train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step(tmp_pipeline_root_path, use_tuning=True)
+        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning=True)
         train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -321,3 +368,58 @@ def test_search_space(tmp_pipeline_root_path):
 @pytest.mark.parametrize("tuning_param,logged_param", [(1, "1"), (1.0, "1.0"), ("a", " a ")])
 def test_tuning_param_equal(tuning_param, logged_param):
     assert TrainStep.is_tuning_param_equal(tuning_param, logged_param)
+
+
+@pytest.mark.parametrize(
+    ("automl", "primary_metric", "generate_custom_metrics"),
+    [
+        (False, "root_mean_squared_error", False),
+        (True, "root_mean_squared_error", False),
+        (True, "weighted_mean_squared_error", True),
+    ],
+)
+def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_metrics):
+    with mock.patch.dict(
+        os.environ,
+        {
+            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
+            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+        },
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        if generate_custom_metrics:
+            pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+            pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+                """
+def weighted_mean_squared_error(eval_df, builtin_metrics):
+    from sklearn.metrics import mean_squared_error
+
+    return {
+        "weighted_mean_squared_error": mean_squared_error(
+            eval_df["prediction"],
+            eval_df["target"],
+            sample_weight=1 / eval_df["prediction"].values,
+        )
+    }
+        """
+            )
+        if automl:
+            train_step = setup_train_step_with_automl(
+                tmp_pipeline_root_path,
+                primary_metric=primary_metric,
+                generate_custom_metrics=generate_custom_metrics,
+            )
+        else:
+            train_step = setup_train_step_with_tuning(
+                tmp_pipeline_root_path,
+                use_tuning=True,
+                with_hardcoded_params=False,
+            )
+        train_step._validate_and_apply_step_config()
+        train_step._run(str(train_step_output_dir))
+
+        with open(train_step_output_dir / "run_id") as f:
+            run_id = f.read()
+
+        metrics = MlflowClient().get_run(run_id).data.metrics
+        assert f"{primary_metric}_on_data_training" in metrics
