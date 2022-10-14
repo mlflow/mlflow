@@ -2218,6 +2218,35 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
+    def test_log_params_with_unchanged_and_new_params(self):
+        """
+        # Test case to ensure the following code works:
+        # ---------------------------------------------
+        # mlflow.log_params({"a": 1, "b": 2})
+        # mlflow.log_params({"a": 1, "c": 2})
+        # ---------------------------------------------
+        """
+        run = self._run_factory()
+        self.store.log_batch(
+            run.info.run_id,
+            metrics=[],
+            params=[entities.Param("a", "0"), entities.Param("b", "1")],
+            tags=[],
+        )
+        self.store.log_batch(
+            run.info.run_id,
+            metrics=[],
+            params=[entities.Param("a", "0"), entities.Param("c", "2")],
+            tags=[],
+        )
+        self._verify_logged(
+            self.store,
+            run.info.run_id,
+            metrics=[],
+            params=[entities.Param("a", "0"), entities.Param("b", "1"), entities.Param("c", "2")],
+            tags=[],
+        )
+
     def test_log_batch_param_overwrite_disallowed_single_req(self):
         # Test that attempting to overwrite a param via log_batch results in an exception
         run = self._run_factory()
