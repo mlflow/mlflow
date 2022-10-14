@@ -23,3 +23,5 @@ werkzeug>=2.2.0
 transformers
 # Required by tuning tests
 hyperopt
+# Required by automl tests
+flaml
