@@ -2218,7 +2218,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
-    def test_log_params_with_unchanged_and_new_params(self):
+    def test_log_batch_with_unchanged_and_new_params(self):
         """
         Test case to ensure the following code works:
         ---------------------------------------------
