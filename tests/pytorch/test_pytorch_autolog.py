@@ -20,7 +20,7 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
 
     # Checking if metrics are logged.
     client = mlflow.tracking.MlflowClient()
-    run_id = client.list_run_infos("0")[0].run_id
+    run_id = client.search_runs("0")[0].info.run_id
     client.set_terminated(run_id)
     metric_history = client.get_metric_history(run_id, "loss")
     assert len(metric_history) == NUM_EPOCHS
