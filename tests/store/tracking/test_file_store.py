@@ -183,7 +183,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
             # Ensure that the called create_experiment() does not return the default
             # experiment id (a new experiment_id should be generated)
-            self.assertNotEquals(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
+            self.assertNotEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
             self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
 
         # Create a new experiment that generates fixed width id

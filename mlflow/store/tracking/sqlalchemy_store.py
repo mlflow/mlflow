@@ -190,7 +190,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         creation_time = get_current_time_millis()
         experiment = SqlExperiment(
-            experiment_id=experiment_id,
+            experiment_id=int(experiment_id),
             name=name,
             lifecycle_stage=LifecycleStage.ACTIVE,
             artifact_location=artifact_location,

@@ -62,6 +62,7 @@ def upgrade():
     else:
         experiments_table_args = []
 
+    # Remove the auto-increment
     with op.batch_alter_table(
         "experiments",
         table_args=experiments_table_args,
