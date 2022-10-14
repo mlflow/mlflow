@@ -2528,12 +2528,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             )
             current_run += 1
 
-        with self.store.engine.connect() as conn:
+        with self.store.engine.begin() as conn:
             conn.execute(sqlalchemy.insert(SqlParam), params_list)
             conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
             conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
             conn.execute(sqlalchemy.insert(SqlTag), tags_list)
-            conn.commit()
 
         return experiment_id, run_ids
 

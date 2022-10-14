@@ -61,13 +61,15 @@ def run_migrations_online():
     # for reference by the upgrade routine. For more information, see
     # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
     # connection-with-a-series-of-migration-commands-and-environments
-    engine = config.attributes.get("connection", None).engine
-    if engine is None:
+    connection = config.attributes.get("connection")
+    if connection is None:
         engine = engine_from_config(
             config.get_section(config.config_ini_section),
             prefix="sqlalchemy.",
             poolclass=pool.NullPool,
         )
+    else:
+        engine = connection.engine
 
     with engine.connect() as connection:
         context.configure(
