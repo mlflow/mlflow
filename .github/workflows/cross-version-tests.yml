@@ -123,7 +123,7 @@ jobs:
           else
             java_version=11
           fi
-          echo "::set-output name=version::$java_version"
+          echo "version=$java_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
@@ -139,7 +139,7 @@ jobs:
           else
             python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
           fi
-          echo "::set-output name=version::$python_version"
+          echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
@@ -150,7 +150,7 @@ jobs:
         run: |
           date=$(date -u "+%Y%m%d")
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
-          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
+          echo "key=$ImageOS-$ImageVersion-wheels-$date-$hash" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}

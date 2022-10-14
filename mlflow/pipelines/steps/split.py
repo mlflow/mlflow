@@ -133,11 +133,19 @@ class SplitStep(BaseStep):
             )
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
+        def _set_target_col_as_first(df, target_col):
+            columns = list(df.columns)
+            col = columns.pop(columns.index(target_col))
+            return df[[col] + columns]
+
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
         if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
+            train_df = _set_target_col_as_first(train_df, self.target_col)
+            validation_df = _set_target_col_as_first(validation_df, self.target_col)
+            test_df = _set_target_col_as_first(test_df, self.target_col)
             data_profile = get_pandas_data_profiles(
                 [
                     ["Train", train_df.reset_index(drop=True)],
@@ -197,7 +205,7 @@ class SplitStep(BaseStep):
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)
-        # Make sure the target column is actually present in the input DF
+        # Make sure the target column is actually present in the input DF.
         if self.target_col not in input_df.columns:
             raise MlflowException(
                 f"Target column '{self.target_col}' not found in ingested dataset.",

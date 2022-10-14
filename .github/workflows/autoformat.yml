@@ -70,9 +70,9 @@ jobs:
           protos_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
           py_changed=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
           ui_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
-          echo "::set-output name=protos_changed::$protos_changed"
-          echo "::set-output name=py_changed::$py_changed"
-          echo "::set-output name=ui_changed::$ui_changed"
+          echo "protos_changed=$protos_changed" >> $GITHUB_OUTPUT
+          echo "py_changed=$py_changed" >> $GITHUB_OUTPUT
+          echo "ui_changed=$ui_changed" >> $GITHUB_OUTPUT
 
   protos:
     # Generate a patch to update proto code.
@@ -97,7 +97,7 @@ jobs:
         run: |
           git diff --output=protos.diff
           has_diff=$([[ -z "$(cat protos.diff)" ]] && echo "false" || echo "true")
-          echo "::set-output name=has_diff::$has_diff"
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
@@ -132,7 +132,7 @@ jobs:
         run: |
           git diff --output=python.diff
           has_diff=$([[ -z "$(cat python.diff)" ]] && echo "false" || echo "true")
-          echo "::set-output name=has_diff::$has_diff"
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
@@ -171,7 +171,7 @@ jobs:
         run: |
           git diff --output=ui.diff
           has_diff=$([[ -z "$(cat ui.diff)" ]] && echo "false" || echo "true")
-          echo "::set-output name=has_diff::$has_diff"
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
