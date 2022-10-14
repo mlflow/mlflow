@@ -2222,8 +2222,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         """
         Test case to ensure the following code works:
         ---------------------------------------------
-        mlflow.log_params({"a": 1, "b": 2})
-        mlflow.log_params({"a": 1, "c": 2})
+        mlflow.log_params({"a": 0, "b": 1})
+        mlflow.log_params({"a": 0, "c": 2})
         ---------------------------------------------
         """
         run = self._run_factory()
