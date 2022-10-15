@@ -27,7 +27,12 @@ from mlflow.projects.utils import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PROJECT_ENV,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_RUN_NAME,
+    MLFLOW_DOCKER_IMAGE_ID,
+)
 from mlflow.utils import env_manager as _EnvManager
 import mlflow.utils.uri
 
@@ -162,6 +167,9 @@ def _run(
             skip_image_build=skip_image_build,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
+        tracking.MlflowClient().set_tag(
+            active_run.info.run_id, MLFLOW_DOCKER_IMAGE_ID, image_digest
+        )
         submitted_run = kb.run_kubernetes_job(
             project.name,
             active_run,
