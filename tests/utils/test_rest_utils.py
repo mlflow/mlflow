@@ -162,6 +162,14 @@ def test_http_request_with_basic_auth(request):
 
 
 @mock.patch("requests.Session.request")
+@mock.patch.dict(
+    os.environ,
+    {
+        "AWS_ACCESS_KEY_ID": "access-key",
+        "AWS_SECRET_ACCESS_KEY": "secret-key",
+        "AWS_DEFAULT_REGION": "eu-west-1",
+    },
+)
 def test_http_request_with_aws_sigv4(request):
     """This test requires the "requests_auth_aws_sigv4" package to be installed"""
 
