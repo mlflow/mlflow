@@ -400,6 +400,19 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template) -> 
 
     if template == "regression/v1":
         makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+        for required_file in [
+            "ingest.py",
+            "split.py",
+            "train.py",
+            "transform.py",
+            "custom_metrics.py",
+        ]:
+            required_file_path = os.path.join(pipeline_root_path, "steps", required_file)
+            if not os.path.exists(required_file_path):
+                raise ValueError(
+                    f"Can not find required file {required_file_path} from steps folder. "
+                    "Please create empty python file if the step is not used."
+                )
     else:
         raise ValueError(f"Invalid template: {template}")
 
