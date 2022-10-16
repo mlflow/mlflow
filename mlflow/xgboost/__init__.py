@@ -96,6 +96,7 @@ def get_default_conda_env():
 def save_model(
     xgb_model,
     path,
+    model_format="xgb",
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
@@ -110,6 +111,7 @@ def save_model(
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or
                       models that implement the `scikit-learn API`_) to be saved.
     :param path: Local path where the model is to be saved.
+    :param model_format: File format in which the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -151,7 +153,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
-    model_data_subpath = "model.xgb"
+    model_data_subpath = f"model.{model_format}"
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save an XGBoost model
@@ -211,6 +213,7 @@ def save_model(
 def log_model(
     xgb_model,
     artifact_path,
+    model_format=None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -227,6 +230,7 @@ def log_model(
     :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_ or
                       models that implement the `scikit-learn API`_) to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param model_format: File format in which the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -267,6 +271,7 @@ def log_model(
         flavor=mlflow.xgboost,
         registered_model_name=registered_model_name,
         xgb_model=xgb_model,
+        model_format=model_format,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
