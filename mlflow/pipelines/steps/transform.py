@@ -10,6 +10,7 @@ from packaging.version import Version
 from mlflow.pipelines.artifacts import DataframeArtifact, TransformerArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config, TrackingConfig
@@ -223,3 +224,6 @@ class TransformStep(BaseStep):
                 "transformer", self.pipeline_root, self.name, self.tracking_config.tracking_uri
             ),
         ]
+
+    def step_class(self):
+        return StepClass.TRAINING

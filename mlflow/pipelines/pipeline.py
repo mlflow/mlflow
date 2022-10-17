@@ -3,7 +3,7 @@ import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.artifacts import Artifact
-from mlflow.pipelines.step import BaseStep, StepStatus
+from mlflow.pipelines.step import BaseStep, StepStatus, StepClass
 from mlflow.pipelines.utils import (
     get_pipeline_config,
     get_pipeline_name,
@@ -153,15 +153,18 @@ class _BasePipeline:
         return self._steps[step_names.index(step_name)]
 
     @experimental
-    @abc.abstractmethod
     def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
         The returned list should be a sublist of self._steps.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        subgraph = []
+        if target_step.step_class == StepClass.UNKNOWN:
+            return subgraph
+        for step in self._steps:
+            if target_step.step_class() == step.step_class():
+                subgraph.append(step)
+        return subgraph
 
     @experimental
     @abc.abstractmethod

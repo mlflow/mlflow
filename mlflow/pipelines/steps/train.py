@@ -14,6 +14,7 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQU
 from mlflow.pipelines.artifacts import ModelArtifact, RunArtifact, HyperParametersArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import (
     get_step_output_path,
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
@@ -786,6 +787,9 @@ class TrainStep(BaseStep):
             RunArtifact("run", self.pipeline_root, self.name, self.tracking_config.tracking_uri),
             HyperParametersArtifact("best_parameters", self.pipeline_root, self.name),
         ]
+
+    def step_class(self):
+        return StepClass.TRAINING
 
     def _tune_and_get_best_estimator_params(
         self,
