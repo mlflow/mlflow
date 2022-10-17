@@ -65,9 +65,8 @@ public class ModelRegistryMlflowClientTest {
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
-        String result = client.sendPost("model-versions/create",
+        client.sendPost("model-versions/create",
                 mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
-        System.out.println("result: " + result);
     }
 
     @AfterTest
