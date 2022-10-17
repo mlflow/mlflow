@@ -86,7 +86,7 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
 #: Specifies whether MLFlow HTTP requests should be signed using AWS signature V4. It will overwrite
-#: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header
+#: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header
 # See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
 
