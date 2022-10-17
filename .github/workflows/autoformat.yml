@@ -56,9 +56,7 @@ jobs:
       ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-        with:
-          python-version: '3.7'
+      - uses: ./.github/actions/setup-python
       - run: |
           pip install requests
       - name: Check diff
@@ -118,9 +116,7 @@ jobs:
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: '3.7'
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install -r requirements/lint-requirements.txt
