@@ -134,7 +134,7 @@ jobs:
           # Set `--no-TTY` to show container logs on GitHub Actions:
           # https://github.com/actions/virtual-environments/issues/5022
           # Specify "filterwarnings=error::sqlalchemy.exc.RemovedIn20Warning"
-          # and "SQLALCHEMY_WARN_20=true" to avoid using deprecated SQLAlchemy features that will
+          # and "SQLALCHEMY_WARN_20=true" to prevent using deprecated SQLAlchemy features that will
           # be removed in 2.0.
           ./tests/db/compose.sh run --rm --no-TTY -e SQLALCHEMY_WARN_20=true $service pytest \
             --override-ini "filterwarnings=error::sqlalchemy.exc.RemovedIn20Warning"
