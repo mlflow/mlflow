@@ -25,7 +25,8 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.name_utils import _GENERATOR_PREDICATES
+from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -49,6 +50,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def create_experiments(self, experiment_names):
         ids = []
         for name in experiment_names:
+            # ensure that the field `last_update_time` is distinct for search ordering
+            time.sleep(0.05)
             ids.append(self.store.create_experiment(name))
         return ids
 
@@ -75,12 +78,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
             os.makedirs(exp_folder)
+            current_time = get_current_time_millis()
             d = {
                 "experiment_id": exp,
                 "name": random_str(),
                 "artifact_location": exp_folder,
-                "creation_time": int(time.time() * 1000),
-                "last_update_time": int(time.time() * 1000),
+                "creation_time": current_time,
+                "last_update_time": current_time,
             }
             self.exp_data[exp] = d
             write_yaml(exp_folder, FileStore.META_DATA_FILE_NAME, d)
@@ -157,6 +161,37 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(Exception, match=r"does not exist"):
             second_file_store._check_root_dir()
 
+    def test_removing_default_experiment_recreates_default_id(self):
+        def _is_default_in_experiments(view_type):
+            search_result = file_store.search_experiments(view_type=view_type)
+            ids = [experiment.experiment_id for experiment in search_result]
+            return FileStore.DEFAULT_EXPERIMENT_ID in ids
+
+        file_store = FileStore(self.test_root)
+        self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+        # Soft-delete the default experiment
+        file_store.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+
+        self.assertFalse(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+
+        # Hard-delete the default experiment
+        default_path = file_store._get_experiment_path(FileStore.DEFAULT_EXPERIMENT_ID)
+        shutil.rmtree(default_path)
+        self.assertFalse(_is_default_in_experiments(ViewType.ALL))
+
+        with pytest.warns(UserWarning, match="The default experiment is not present due to a"):
+            # Create a new experiment that recreates default experiment id
+            experiment_id = file_store.create_experiment("new")
+            self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+            # Ensure that the called create_experiment() does not return the default
+            # experiment id (a new experiment_id should be generated)
+            self.assertNotEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
+            self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
+
+        # Create a new experiment that generates fixed width id
+        new_id = file_store.create_experiment("newer")
+        self.assertEqual(len(new_id), _EXPERIMENT_ID_FIXED_WIDTH)
+
     def test_search_experiments_view_type(self):
         self.initialize()
         experiment_names = ["a", "b"]
@@ -185,6 +220,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
         experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
         assert [e.name for e in experiments] == ["ab", "a"]
+        experiments = self.store.search_experiments(
+            filter_string="name ILIKE 'a%'", order_by=["last_update_time asc"]
+        )
+        assert [e.name for e in experiments] == ["a", "ab", "Abc"]
         experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
         assert [e.name for e in experiments] == ["Abc", "ab", "a"]
         experiments = self.store.search_experiments(
@@ -237,6 +276,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_search_experiments_order_by(self):
         self.initialize()
         experiment_names = ["x", "y", "z"]
+        time.sleep(0.05)
         self.create_experiments(experiment_names)
 
         experiments = self.store.search_experiments(order_by=["name"])
@@ -248,11 +288,18 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(order_by=["name DESC"])
         assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
 
-        experiments = self.store.search_experiments(order_by=["experiment_id DESC"])
+        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
         assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
 
-        experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
+        experiments = self.store.search_experiments(order_by=["name", "last_update_time asc"])
         assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+        # Force the last update time to change by deleting and restoring
+        updated = self.store.get_experiment_by_name("x")
+        self.store.delete_experiment(updated.experiment_id)
+        self.store.restore_experiment(updated.experiment_id)
+        experiments = self.store.search_experiments(order_by=["last_update_time asc"])
+        assert [e.name for e in experiments] == ["Default", "y", "z", "x"]
 
     def test_search_experiments_max_results(self):
         self.initialize()
@@ -354,7 +401,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp = fs.get_experiment_by_name(exp_names)
             self.assertIsNone(exp)
 
-    def test_create_first_experiment(self):
+    def test_create_additional_experiment_generates_random_fixed_length_id(self):
         fs = FileStore(self.test_root)
         fs._get_active_experiments = mock.Mock(return_value=[])
         fs._get_deleted_experiments = mock.Mock(return_value=[])
@@ -362,7 +409,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
-        self.assertEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
+        self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
@@ -372,13 +419,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
-        exp_id_ints = (int(exp_id) for exp_id in self.experiments)
-        next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
         time_before_create = int(time.time() * 1000)
         created_id = fs.create_experiment(name)
-        # test that newly created experiment matches expected id
-        self.assertEqual(created_id, next_id)
+        # test that newly created experiment id is random but of a fixed length
+        self.assertEqual(len(created_id), _EXPERIMENT_ID_FIXED_WIDTH)
 
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
