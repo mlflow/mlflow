@@ -42,7 +42,6 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH
 
 from tests.helper_functions import multi_context
 
