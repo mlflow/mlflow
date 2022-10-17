@@ -935,6 +935,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self.store.get_run(run_id)
         assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
 
+        name_empty_str_run = self.store.create_run(**{**configs, **{"run_name": ""}})
+        run_name = name_empty_str_run.info.run_name
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
+
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
         created_run = self._run_factory()

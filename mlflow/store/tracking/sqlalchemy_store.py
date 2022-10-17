@@ -545,7 +545,7 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
-            run_name = run_name if run_name is not None else _generate_random_name()
+            run_name = run_name if run_name else _generate_random_name()
             run = SqlRun(
                 name=run_name,
                 artifact_uri=artifact_location,

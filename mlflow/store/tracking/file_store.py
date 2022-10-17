@@ -604,7 +604,7 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
-        run_name = run_name if run_name is not None else _generate_random_name()
+        run_name = run_name if run_name else _generate_random_name()
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
