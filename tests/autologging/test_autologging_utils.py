@@ -86,6 +86,8 @@ three_default_test_args = [
 
 @pytest.fixture
 def start_run():
+    client = mlflow.MlflowClient()
+    mlflow.set_tracking_uri(client.tracking_uri)
     mlflow.start_run()
     yield
     mlflow.end_run()

@@ -5,7 +5,6 @@ import os
 import sys
 import shutil
 import tempfile
-import warnings
 
 import uuid
 
@@ -356,13 +355,6 @@ class FileStore(AbstractStore):
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
-        if not self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID):
-            warnings.warn(
-                "The default experiment is not present due to a file system issue or manual "
-                "deletion. Recreating the default experiment with "
-                f"`experiment_id={FileStore.DEFAULT_EXPERIMENT_ID}`."
-            )
-            self._create_default_experiment()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
