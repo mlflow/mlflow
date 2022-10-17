@@ -49,9 +49,7 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install -r dev/requirements.txt

@@ -36,6 +36,6 @@ runs:
           exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
