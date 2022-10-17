@@ -7,6 +7,7 @@ import sys
 from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
@@ -274,3 +275,6 @@ class SplitStep(BaseStep):
             ),
             DataframeArtifact("test_data", self.pipeline_root, self.name, _OUTPUT_TEST_FILE_NAME),
         ]
+
+    def step_class(self):
+        return StepClass.TRAINING

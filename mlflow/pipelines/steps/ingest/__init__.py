@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df
@@ -201,6 +202,9 @@ class IngestStep(BaseIngestStep):
             )
         ]
 
+    def step_class(self):
+        return StepClass.TRAINING
+
 
 class IngestScoringStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
@@ -231,3 +235,6 @@ class IngestScoringStep(BaseIngestStep):
                 IngestScoringStep._DATASET_OUTPUT_NAME,
             )
         ]
+
+    def step_class(self):
+        return StepClass.PREDICTION

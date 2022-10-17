@@ -35,6 +35,19 @@ class StepStatus(Enum):
     FAILED = "FAILED"
 
 
+class StepClass(Enum):
+    """
+    Represents the class of a step.
+    """
+
+    # Indicates that the step class is unknown.
+    UNKNOWN = "UNKNOWN"
+    # Indicates that the step runs at training time.
+    TRAINING = "TRAINING"
+    # Indicates that the step runs at inference time.
+    PREDICTION = "PREDICTION"
+
+
 StepExecutionStateType = TypeVar("StepExecutionStateType", bound="StepExecutionState")
 
 
@@ -232,6 +245,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         Returns the named artifacts produced by the step for the current class instance.
         """
         return {}
+
+    @experimental
+    @abc.abstractmethod
+    def step_class(self) -> StepClass:
+        """
+        Returns the step class.
+        """
+        pass
 
     @experimental
     def get_execution_state(self, output_directory: str) -> StepExecutionState:

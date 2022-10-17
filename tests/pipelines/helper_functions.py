@@ -166,7 +166,7 @@ class BaseStepImplemented(BaseStep):
     def _validate_and_apply_step_config(self):
         pass
 
-    def is_predict_step(self):
+    def step_class(self):
         pass
 
 
