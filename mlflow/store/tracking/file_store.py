@@ -354,7 +354,11 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        experiment_id = _generate_unique_integer_id()
+        experiment_id = (
+            _generate_unique_integer_id()
+            if self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+            else FileStore.DEFAULT_EXPERIMENT_ID
+        )
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
@@ -405,6 +409,12 @@ class FileStore(AbstractStore):
         return experiment
 
     def delete_experiment(self, experiment_id):
+        if str(experiment_id) == str(FileStore.DEFAULT_EXPERIMENT_ID):
+            raise MlflowException(
+                "Cannot delete the default experiment "
+                f"'{FileStore.DEFAULT_EXPERIMENT_ID}'. This is an internally "
+                f"reserved experiment."
+            )
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException(

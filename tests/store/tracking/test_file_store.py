@@ -161,7 +161,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(Exception, match=r"does not exist"):
             second_file_store._check_root_dir()
 
-    def test_removing_default_experiment_recreates_default_id(self):
+    def test_attempting_to_remove_default_experiment(self):
         def _is_default_in_experiments(view_type):
             search_result = file_store.search_experiments(view_type=view_type)
             ids = [experiment.experiment_id for experiment in search_result]
@@ -169,28 +169,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         file_store = FileStore(self.test_root)
         self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
-        # Soft-delete the default experiment
-        file_store.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
 
-        self.assertFalse(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
-
-        # Hard-delete the default experiment
-        default_path = file_store._get_experiment_path(FileStore.DEFAULT_EXPERIMENT_ID)
-        shutil.rmtree(default_path)
-        self.assertFalse(_is_default_in_experiments(ViewType.ALL))
-
-        with pytest.warns(UserWarning, match="The default experiment is not present due to a"):
-            # Create a new experiment that recreates default experiment id
-            experiment_id = file_store.create_experiment("new")
-            self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
-            # Ensure that the called create_experiment() does not return the default
-            # experiment id (a new experiment_id should be generated)
-            self.assertNotEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
-            self.assertEqual(len(experiment_id), _EXPERIMENT_ID_FIXED_WIDTH)
-
-        # Create a new experiment that generates fixed width id
-        new_id = file_store.create_experiment("newer")
-        self.assertEqual(len(new_id), _EXPERIMENT_ID_FIXED_WIDTH)
+        # Ensure experiment deletion of default id raises
+        with pytest.raises(MlflowException, match="Cannot delete the default experiment"):
+            file_store.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
 
     def test_search_experiments_view_type(self):
         self.initialize()
