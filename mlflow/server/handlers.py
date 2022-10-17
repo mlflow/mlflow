@@ -675,9 +675,7 @@ def _create_run():
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
-    run_name = (
-        _generate_random_name() if request_message.run_name is None else request_message.run_name
-    )
+    run_name = _generate_random_name() if not request_message.run_name else request_message.run_name
     run = _get_tracking_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,

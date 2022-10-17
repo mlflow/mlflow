@@ -545,7 +545,7 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
-            run_name = run_name if run_name is not None else _generate_random_name()
+            run_name = run_name if run_name else _generate_random_name()
             run = SqlRun(
                 name=run_name,
                 artifact_uri=artifact_location,
@@ -633,7 +633,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
-            if run_name is not None:
+            if run_name:
                 run.name = run_name
                 run_name_tag = self._try_get_run_tag(session, run_id, MLFLOW_RUN_NAME)
                 if run_name_tag is None:
