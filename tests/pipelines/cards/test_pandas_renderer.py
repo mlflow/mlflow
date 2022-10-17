@@ -151,6 +151,10 @@ def test_convert_to_proto():
                 }
               }
             }
+            custom_stats {
+              name: "data type"
+              str: "object"
+            }
           }
           features {
             name: "Shares"
@@ -266,6 +270,10 @@ def test_convert_to_proto():
                 type: QUANTILES
               }
             }
+            custom_stats {
+              name: "data type"
+              str: "float64"
+            }
           }
           features {
             name: "Access"
@@ -302,6 +310,10 @@ def test_convert_to_proto():
                   sample_count: 2.0
                 }
               }
+            }
+            custom_stats {
+              name: "data type"
+              str: "bool"
             }
           }
         }
