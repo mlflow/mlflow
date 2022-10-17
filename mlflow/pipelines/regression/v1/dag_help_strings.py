@@ -45,7 +45,7 @@ metrics:
 """
 )
 
-INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}' section in pipeline.yaml and converts it to parquet format, leveraging the custom dataset parsing code defined in `steps/ingest.py` (and referred to by the 'custom_loader_method' attribute of the '{1}' section in pipeline.yaml) if necessary. Subsequent steps convert this dataset into training, validation, & test sets and use them to develop a model. An example pipeline.yaml '{1}' configuration is shown below.
+INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}' section in pipeline.yaml and converts it to parquet format, leveraging the custom dataset parsing code defined in `steps/ingest.py` (and referred to by the 'custom_loader_method' attribute of the '{1}' section in pipeline.yaml) if necessary. {2} An example pipeline.yaml '{1}' configuration is shown below.
 
 {1}:
   location: https://nyc-tlc.s3.amazonaws.com/trip+data/yellow_tripdata_2022-01.parquet
@@ -53,7 +53,13 @@ INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}'
   custom_loader_method: steps.ingest.load_file_as_dataframe
 """
 
-INGEST_STEP = format_help_string(INGEST_STEP_BASE.format("ingest", "data"))
+INGEST_STEP = format_help_string(
+    INGEST_STEP_BASE.format(
+        "ingest",
+        "data",
+        "Subsequent steps convert this dataset into training, validation, & test sets and use them to develop a model.",
+    )
+)
 
 INGEST_USER_CODE = format_help_string(
     """\"\"\"\nsteps/ingest.py defines customizable logic for parsing arbitrary dataset formats (i.e. formats that are not natively parsed by MLflow Pipelines) via the `load_file_as_dataframe` function. Note that the Parquet, Delta, and Spark SQL dataset formats are natively parsed by MLflow Pipelines, and you do not need to define custom logic for parsing them. An example `load_file_as_dataframe` implementation is displayed below (note that a different function name or module can be specified via the 'custom_loader_method' attribute of the 'data' section in pipeline.yaml).\n\"\"\"\n
@@ -205,7 +211,7 @@ def weighted_mean_squared_error(
 )
 
 EVALUATE_STEP = format_help_string(
-    """The 'evaluate' step evaluates the model pipeline produced by the 'train' step on the test dataset output from the 'split' step, producing performance metrics and model explanations. Performance metrics are compared against configured thresholds to compute a 'model_validation_status', which indicates whether or not a model is good enough to be registered to the MLflow Model Registry by the subsequent 'register' step. Custom performance metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. Model performance thresholds are defined in the 'validation' section of the 'evaluate' step definition in pipeline.yaml. Model performance metrics and explanations are logged to MLflow Tracking using the same MLflow Run produced by the 'train' step. An example pipeline.yaml 'evaluate' step definition is shown below, as well as an example custom metric definition.
+    """The 'evaluate' step evaluates the model pipeline produced by the 'train' step on the test dataset output from the 'split' step, producing performance metrics and model explanations. Performance metrics are compared against configured thresholds to compute a 'model_validation_status', which indicates whether or not a model is good enough to be registered to the MLflow Model Registry by the subsequent 'register' step. Custom performance metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. Model performance thresholds are defined in the 'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml. Model performance metrics and explanations are logged to MLflow Tracking using the same MLflow Run produced by the 'train' step. An example pipeline.yaml 'evaluate' step definition is shown below, as well as an example custom metric definition.
 
 evaluate:
   validation_criteria:
@@ -245,14 +251,18 @@ register:
 """
 )
 
-INGEST_SCORING_STEP = format_help_string(INGEST_STEP_BASE.format("ingest_scoring", "data_scoring"))
+INGEST_SCORING_STEP = format_help_string(
+    INGEST_STEP_BASE.format(
+        "ingest_scoring", "data_scoring", "Subsequent steps score this dataset for batch scoring."
+    )
+)
 
 INGESTED_SCORING_DATA = format_help_string(
-    "The ingested parquet representation of the dataset defined in the 'data_scoring' section of pipeline.yaml. Subsequent steps scores this dataset for batch scoring."
+    "The ingested parquet representation of the dataset defined in the 'data_scoring' section of pipeline.yaml. Subsequent steps score this dataset for batch scoring."
 )
 
 PREDICT_STEP = format_help_string(
-    """The 'predict' uses the model produced by the 'register' step to score the ingested dataset produced by the 'ingest_scoring' step and writes the resulting dataset to the specified output format and location. Namely, it uses the latest version of the registered model specified by the `model_name` attribute of the pipeline.yaml 'register' step definition. To fix a specific model for use in the 'predict' step, provide its model URI as the 'model_uri' attribute of the pipeline.yaml 'predict' step definition. An example pipeline.yaml 'predict' step definition is shown below.
+    """The 'predict' step uses the model registered by the 'register' step to score the ingested dataset produced by the 'ingest_scoring' step and writes the resulting dataset to the specified output format and location. Namely, it uses the latest version of the registered model specified by the `model_name` attribute of the pipeline.yaml 'register' step definition. To fix a specific model for use in the 'predict' step, provide its model URI as the 'model_uri' attribute of the pipeline.yaml 'predict' step definition. An example pipeline.yaml 'predict' step definition is shown below.
 steps:
   predict:
     model_uri: "models:/taxi_fare_regressor/Production" # optional
