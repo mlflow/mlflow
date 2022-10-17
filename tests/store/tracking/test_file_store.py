@@ -11,7 +11,6 @@ import uuid
 import pytest
 from unittest import mock
 
-import mlflow
 from mlflow.entities import (
     Metric,
     Param,
@@ -490,8 +489,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_delete_restore_experiment(self):
         fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        exp_name = self.exp_data[exp_id]["name"]
+        exp_id = fs.create_experiment("test_delete")
+        exp_name = fs.get_experiment(exp_id).name
 
         exp1 = fs.get_experiment(exp_id)
         time.sleep(0.01)

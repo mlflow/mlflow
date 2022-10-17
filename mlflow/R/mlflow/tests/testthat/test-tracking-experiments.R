@@ -85,7 +85,7 @@ test_that("mlflow_search_experiments() works properly", {
 
   mlflow_delete_experiment(experiment_id = ex1)
   deleted_experiments_result <- mlflow_search_experiments(experiment_view_type = "DELETED_ONLY")
-  expect_setequal(deleted_experiments_result$experiments$experiment_id, c("1"))
+  expect_setequal(deleted_experiments_result$experiments$experiment_id, c(ex1))
   expect_null(deleted_experiments_result$next_page_token)
 
   # By default, only active experiments should be returned
