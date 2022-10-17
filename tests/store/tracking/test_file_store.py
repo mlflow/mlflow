@@ -915,6 +915,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         get_run = fs.get_run(run_id)
         assert get_run.info.run_name == "first name"
 
+    def test_update_run_does_not_rename_run_with_empty_string_name(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "first name"
+
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:

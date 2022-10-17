@@ -1385,6 +1385,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(run.info.run_name, "new name")
         self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
 
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
+        run = self.store.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), "new name")
+
         self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, "new name")
