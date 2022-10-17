@@ -65,7 +65,7 @@ test_that("mlflow can serve a model function", {
         if (i == 5) {
           stop("Failed to start the server!")
           write("FAILED!", stderr())
-          write("Is server alive?", testthat_model_server$is_alive())
+          write(paste("Is server alive?", testthat_model_server$is_alive()), stderr())
           error_text <- testthat_model_server$read_error()
           testthat_model_server$kill()
           stop(e$message, ": ", error_text)
