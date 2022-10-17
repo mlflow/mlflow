@@ -66,7 +66,7 @@ test_that("mlflow_search_experiments() works properly", {
 
   allexperiments_result <- mlflow_search_experiments(client = client)
   allexperiments <- allexperiments_result$experiments
-  expect_setequal(allexperiments$experiment_id, c("0", "1", "2", "3"))
+  expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
   default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
@@ -76,21 +76,21 @@ test_that("mlflow_search_experiments() works properly", {
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
-  expect_setequal(ex1_result$experiments$experiment_id, c("1"))
+  expect_setequal(ex1_result$experiments$experiment_id, c(ex1))
   expect_null(ex1_result$next_page_token)
 
   exgroup1_result = mlflow_search_experiments(filter = "tags.expgroup = 'group1'")
-  expect_setequal(exgroup1_result$experiments$experiment_id, c("1", "3"))
+  expect_setequal(exgroup1_result$experiments$experiment_id, c(ex1, ex3))
   expect_null(exgroup1_result$next_page_token)
 
-  mlflow_delete_experiment(experiment_id = "1")
+  mlflow_delete_experiment(experiment_id = ex1)
   deleted_experiments_result <- mlflow_search_experiments(experiment_view_type = "DELETED_ONLY")
   expect_setequal(deleted_experiments_result$experiments$experiment_id, c("1"))
   expect_null(deleted_experiments_result$next_page_token)
 
   # By default, only active experiments should be returned
   active_experiments_result <- mlflow_search_experiments()
-  expect_setequal(active_experiments_result$experiments$experiment_id, c("0", "2", "3"))
+  expect_setequal(active_experiments_result$experiments$experiment_id, c("0", ex2, ex3))
   expect_null(active_experiments_result$next_page_token)
 
   order_limit_result1 <- mlflow_search_experiments(

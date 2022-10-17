@@ -1,7 +1,6 @@
 # pylint: disable=unused-argument
 
 import inspect
-import random
 import time
 import pytest
 from collections import namedtuple

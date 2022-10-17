@@ -11,6 +11,7 @@ import uuid
 import pytest
 from unittest import mock
 
+import mlflow
 from mlflow.entities import (
     Metric,
     Param,
@@ -529,7 +530,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_rename_experiment(self):
         fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        exp_id = fs.create_experiment("test_rename")
 
         # Error cases
         with pytest.raises(Exception, match="Invalid experiment name: 'None'"):
@@ -544,7 +545,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(Exception, match=f"Experiment '{name}' already exists"):
             fs.rename_experiment(exp_id, name)
 
-        exp_name = self.exp_data[exp_id]["name"]
+        exp_name = fs.get_experiment(exp_id).name
         new_name = exp_name + "!!!"
         self.assertNotEqual(exp_name, new_name)
         self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
@@ -669,8 +670,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_run_in_deleted_experiment(self):
         fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        # delete it
+        exp_id = fs.create_experiment("test")
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception, match="Could not create run under non-active experiment"):
             fs.create_run(exp_id, "user", 0, [], "name")
@@ -1191,12 +1191,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(MlflowException, match=match):
             fs.log_param(run_id, Param("a", "b"))
 
-    def test_default_experiment_initialization(self):
+    def test_default_experiment_attempted_deletion(self):
         fs = FileStore(self.test_root)
-        fs.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        with pytest.raises(MlflowException, match="Cannot delete the default experiment"):
+            fs.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         fs = FileStore(self.test_root)
         experiment = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-        assert experiment.lifecycle_stage == LifecycleStage.DELETED
+        assert experiment.lifecycle_stage == LifecycleStage.ACTIVE
+        test_id = fs.create_experiment("test")
+        fs.delete_experiment(test_id)
+        test_experiment = fs.get_experiment(test_id)
+        assert test_experiment.lifecycle_stage == LifecycleStage.DELETED
 
     def test_malformed_experiment(self):
         fs = FileStore(self.test_root)
