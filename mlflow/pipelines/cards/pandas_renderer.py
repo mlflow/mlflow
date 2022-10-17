@@ -89,6 +89,7 @@ def convert_to_dataset_feature_statistics(
     """
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     feature_stats = facet_feature_statistics_pb2.DatasetFeatureStatistics()
+    data_type_custom_stat = facet_feature_statistics_pb2.CustomStatistic()
     pandas_describe = df.describe(datetime_is_numeric=True, include="all")
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
@@ -100,9 +101,13 @@ def convert_to_dataset_feature_statistics(
     for key in df:
         pandas_describe_key = pandas_describe[key]
         current_column_value = df[key]
+        data_type = current_column_value.dtype
+        data_type_custom_stat.name = "data type"
+        data_type_custom_stat.str = str(data_type)
         feat = feature_stats.features.add(
-            type=get_facet_type_from_numpy_type(current_column_value.dtype),
+            type=get_facet_type_from_numpy_type(data_type),
             name=key.encode("utf-8"),
+            custom_stats=[data_type_custom_stat],
         )
         if feat.type in (fs_proto.INT, fs_proto.FLOAT):
             feat_stats = feat.num_stats
