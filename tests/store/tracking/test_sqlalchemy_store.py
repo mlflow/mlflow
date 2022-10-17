@@ -816,19 +816,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
-            m1 = models.SqlMetric(key="accuracy", value=0.89)
-            m2 = models.SqlMetric(key="recal", value=0.89)
-            p1 = models.SqlParam(key="loss", value="test param")
-            p2 = models.SqlParam(key="blue", value="test param")
+            run_id = uuid.uuid4().hex
+            run_data = models.SqlRun(run_uuid=run_id)
+            m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
+            m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
+            p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
+            p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
 
             session.add_all([m1, m2, p1, p2])
-
-            run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
-            run_data.params.append(p1)
-            run_data.params.append(p2)
-            run_data.metrics.append(m1)
-            run_data.metrics.append(m2)
-
             session.add(run_data)
             session.commit()
 

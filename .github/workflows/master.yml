@@ -133,7 +133,7 @@ jobs:
         do
           # Set `--no-TTY` to show container logs on GitHub Actions:
           # https://github.com/actions/virtual-environments/issues/5022
-          ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+          ./tests/db/compose.sh run --rm --no-TTY -e SQLALCHEMY_WARN_20=true $service pytest \
             tests/store/tracking/test_sqlalchemy_store.py \
             tests/store/model_registry/test_sqlalchemy_store.py \
             tests/db
@@ -143,42 +143,6 @@ jobs:
     - name: Clean up
       run: |
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-
-  ### REMOVE THIS JOS BEFORE MERGE ###
-  database-2:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-        submodules: recursive
-    - name: Build
-      run: |
-        sed -i 's/sqlalchemy.*/sqlalchemy==2.0.0b1/g' requirements/core-requirements.txt
-        ./tests/db/compose.sh pull -q postgresql mysql mssql
-        ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-    - name: Run tests
-      run: |
-        set +e
-        err=0
-        trap 'err=1' ERR
-
-        for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
-        do
-          # Set `--no-TTY` to show container logs on GitHub Actions:
-          # https://github.com/actions/virtual-environments/issues/5022
-          ./tests/db/compose.sh run --rm --no-TTY $service pytest \
-            tests/store/tracking/test_sqlalchemy_store.py \
-            tests/store/model_registry/test_sqlalchemy_store.py \
-            tests/db
-        done
-
-        test $err = 0
-    - name: Clean up
-      run: |
-        ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-  ### REMOVE THIS JOS BEFORE MERGE ###
 
   java:
     runs-on: ubuntu-latest
