@@ -59,6 +59,7 @@ try:
     from mlflow import pipelines
     from mlflow import pyfunc
     from mlflow import pytorch
+    from mlflow import pytorch_lightning
     from mlflow import sklearn
     from mlflow import spacy
     from mlflow import spark
@@ -82,6 +83,7 @@ try:
         "onnx",
         "pyfunc",
         "pytorch",
+        "pytorch_lightning",
         "sklearn",
         "spacy",
         "spark",
