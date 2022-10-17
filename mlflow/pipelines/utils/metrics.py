@@ -66,6 +66,8 @@ def _get_error_fn(tmpl: str):
     """
     if tmpl == "regression/v1":
         return lambda predictions, targets: predictions - targets
+    if tmpl == "classification/v1":
+        return lambda predictions, targets: (predictions != targets).sum()
     raise MlflowException(
         f"No error function for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
@@ -79,6 +81,8 @@ def _get_model_type_from_template(tmpl: str) -> str:
     """
     if tmpl == "regression/v1":
         return "regressor"
+    if tmpl == "classification/v1":
+        return "classifier"
     raise MlflowException(
         f"No model type for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
