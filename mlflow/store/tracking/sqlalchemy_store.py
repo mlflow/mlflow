@@ -962,52 +962,36 @@ class SqlAlchemyStore(AbstractStore):
         if not params:
             return
 
-        param_instances = [
-            SqlParam(run_uuid=run_id, key=param.key, value=param.value) for param in params
-        ]
-
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            # commit the session to make sure that we catch any IntegrityError
-            # and try to handle them.
-            try:
-                self._save_to_db(session=session, objs=param_instances)
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                # Roll back the current session to make it usable for further transactions. In the
-                # event of an error during "commit", a rollback is required in order to continue
-                # using the session. In this case, we re-use the session because the SqlRun, `run`,
-                # is lazily evaluated during the invocation of `run.params`.
-                session.rollback()
-
-                # in case of an integrity error, compare the parameters of the
-                # run. If the parameters match the ones whom being saved,
-                # ignore the exception since idempotency is reached.
-                # Also, multiple params for the same key can still be passed within
-                # the same batch. So, handle them by selecting the first param
-                # for the given key
-                run_params = {param.key: param.value for param in run.params}
-                non_matching_params = []
-                for param in param_instances:
-                    existing_value = run_params.get(param.key)
-                    if param.value != existing_value:
+            existing_params = {p.key: p.value for p in run.params}
+            new_params = []
+            non_matching_params = []
+            for param in params:
+                if param.key in existing_params:
+                    if param.value != existing_params[param.key]:
                         non_matching_params.append(
                             {
                                 "key": param.key,
-                                "old_value": existing_value,
+                                "old_value": existing_params[param.key],
                                 "new_value": param.value,
                             }
                         )
+                    continue
+                new_params.append(SqlParam(run_uuid=run_id, key=param.key, value=param.value))
 
-                if non_matching_params:
-                    raise MlflowException(
-                        "Changing param values is not allowed. Params were already logged='{}'"
-                        " for run ID='{}'.".format(non_matching_params, run_id),
-                        INVALID_PARAMETER_VALUE,
-                    )
-                # if there's no mismatch, do not raise an Exception since
-                # we are sure that idempotency is reached.
+            if non_matching_params:
+                raise MlflowException(
+                    "Changing param values is not allowed. Params were already logged='{}'"
+                    " for run ID='{}'.".format(non_matching_params, run_id),
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            if not new_params:
+                return
+
+            self._save_to_db(session=session, objs=new_params)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
