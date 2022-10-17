@@ -795,6 +795,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert isinstance(tags_run.data, RunData)
         assert tags_run.data.tags == {**tags_dict, MLFLOW_RUN_NAME: tags_run.info.run_name}
 
+        name_empty_str_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=tags_entities,
+            run_name="",
+        )
+        run_name = name_empty_str_run.info.run_name
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
+
     def test_create_run_sets_name(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
@@ -902,6 +912,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="first name",
         ).info.run_id
         fs.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        get_run = fs.get_run(run_id)
+        assert get_run.info.run_name == "first name"
+
+    def test_update_run_does_not_rename_run_with_empty_string_name(self):
+        fs = FileStore(self.test_root)
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="first name",
+        ).info.run_id
+        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
         get_run = fs.get_run(run_id)
         assert get_run.info.run_name == "first name"
 
