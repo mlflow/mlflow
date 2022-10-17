@@ -345,9 +345,13 @@ def patched_fit(original, self, *args, **kwargs):
     client = MlflowAutologgingQueueingClient(tracking_uri)
     metrics_logger = BatchMetricsLogger(run_id, tracking_uri)
 
-    log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
-    log_every_n_epoch = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1)
-    log_every_n_step = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", None)
+    log_models = get_autologging_config(mlflow.pytorch_lightning.FLAVOR_NAME, "log_models", True)
+    log_every_n_epoch = get_autologging_config(
+        mlflow.pytorch_lightning.FLAVOR_NAME, "log_every_n_epoch", 1
+    )
+    log_every_n_step = get_autologging_config(
+        mlflow.pytorch_lightning.FLAVOR_NAME, "log_every_n_step", None
+    )
 
     early_stop_callback = None
     for callback in self.callbacks:
@@ -387,7 +391,7 @@ def patched_fit(original, self, *args, **kwargs):
 
     if log_models:
         registered_model_name = get_autologging_config(
-            mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
+            mlflow.pytorch_lightning.FLAVOR_NAME, "registered_model_name", None
         )
         mlflow.pytorch.log_model(
             pytorch_model=self.model,
