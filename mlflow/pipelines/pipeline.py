@@ -1,7 +1,9 @@
 import abc
 import logging
+import os
 
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines import dag_help_strings
 from mlflow.pipelines.artifacts import Artifact
 from mlflow.pipelines.step import BaseStep, StepStatus, StepClass
 from mlflow.pipelines.utils import (
@@ -12,6 +14,7 @@ from mlflow.pipelines.utils import (
 from mlflow.pipelines.utils.execution import (
     clean_execution_state,
     run_pipeline_step,
+    get_or_create_base_execution_directory,
     get_step_output_path,
 )
 from mlflow.pipelines.utils.step import display_html
@@ -187,14 +190,129 @@ class _BasePipeline:
         pass
 
     @experimental
-    @abc.abstractmethod
     def _get_pipeline_dag_file(self) -> str:
         """
         Returns absolute path to the pipeline DAG representation HTML file.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        import jinja2
+
+        j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
+        pipeline_dag_template = j2_env.get_template("resources/pipeline_dag_template.html").render(
+            {
+                "pipeline_yaml_help": {
+                    "help_string_type": "yaml",
+                    "help_string": dag_help_strings.PIPELINE_YAML,
+                },
+                "ingest_step_help": {
+                    "help_string": dag_help_strings.INGEST_STEP,
+                    "help_string_type": "text",
+                },
+                "ingest_user_code_help": {
+                    "help_string": dag_help_strings.INGEST_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "ingested_data_help": {
+                    "help_string": dag_help_strings.INGESTED_DATA,
+                    "help_string_type": "text",
+                },
+                "split_step_help": {
+                    "help_string": dag_help_strings.SPLIT_STEP,
+                    "help_string_type": "text",
+                },
+                "split_user_code_help": {
+                    "help_string": dag_help_strings.SPLIT_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "training_data_help": {
+                    "help_string": dag_help_strings.TRAINING_DATA,
+                    "help_string_type": "text",
+                },
+                "validation_data_help": {
+                    "help_string": dag_help_strings.VALIDATION_DATA,
+                    "help_string_type": "text",
+                },
+                "test_data_help": {
+                    "help_string": dag_help_strings.TEST_DATA,
+                    "help_string_type": "text",
+                },
+                "transform_step_help": {
+                    "help_string": dag_help_strings.TRANSFORM_STEP,
+                    "help_string_type": "text",
+                },
+                "transform_user_code_help": {
+                    "help_string": dag_help_strings.TRANSFORM_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "fitted_transformer_help": {
+                    "help_string": dag_help_strings.FITTED_TRANSFORMER,
+                    "help_string_type": "text",
+                },
+                "transformed_training_and_validation_data_help": {
+                    "help_string": dag_help_strings.TRANSFORMED_TRAINING_AND_VALIDATION_DATA,
+                    "help_string_type": "text",
+                },
+                "train_step_help": {
+                    "help_string": dag_help_strings.TRAIN_STEP,
+                    "help_string_type": "text",
+                },
+                "train_user_code_help": {
+                    "help_string": dag_help_strings.TRAIN_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "fitted_model_help": {
+                    "help_string": dag_help_strings.FITTED_MODEL,
+                    "help_string_type": "text",
+                },
+                "mlflow_run_help": {
+                    "help_string": dag_help_strings.MLFLOW_RUN,
+                    "help_string_type": "text",
+                },
+                "custom_metrics_user_code_help": {
+                    "help_string": dag_help_strings.CUSTOM_METRICS_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "evaluate_step_help": {
+                    "help_string": dag_help_strings.EVALUATE_STEP,
+                    "help_string_type": "text",
+                },
+                "model_validation_status_help": {
+                    "help_string": dag_help_strings.MODEL_VALIDATION_STATUS,
+                    "help_string_type": "text",
+                },
+                "register_step_help": {
+                    "help_string": dag_help_strings.REGISTER_STEP,
+                    "help_string_type": "text",
+                },
+                "registered_model_version_help": {
+                    "help_string": dag_help_strings.REGISTERED_MODEL_VERSION,
+                    "help_string_type": "text",
+                },
+                "ingest_scoring_step_help": {
+                    "help_string": dag_help_strings.INGEST_SCORING_STEP,
+                    "help_string_type": "text",
+                },
+                "ingested_scoring_data_help": {
+                    "help_string": dag_help_strings.INGESTED_SCORING_DATA,
+                    "help_string_type": "text",
+                },
+                "predict_step_help": {
+                    "help_string": dag_help_strings.PREDICT_STEP,
+                    "help_string_type": "text",
+                },
+                "scored_data_help": {
+                    "help_string": dag_help_strings.SCORED_DATA,
+                    "help_string_type": "text",
+                },
+            }
+        )
+
+        pipeline_dag_file = os.path.join(
+            get_or_create_base_execution_directory(self._pipeline_root_path), "pipeline_dag.html"
+        )
+        with open(pipeline_dag_file, "w") as f:
+            f.write(pipeline_dag_template)
+
+        return pipeline_dag_file
 
     def _resolve_pipeline_steps(self) -> List[BaseStep]:
         """
