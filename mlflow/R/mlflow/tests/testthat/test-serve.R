@@ -55,18 +55,25 @@ test_that("mlflow can serve a model function", {
     stdout = "|",
     stderr = "|"
   )
-  Sys.sleep(10)
-  tryCatch(
-    {
-      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
-    },
-    error = function(e) {
-      write("FAILED!", stderr())
-      error_text <- testthat_model_server$read_error()
-      testthat_model_server$kill()
-      stop(e$message, ": ", error_text)
-    }
-  )
+  for (i in 1:5) {
+    tryCatch(
+      {
+        status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
+      },
+      error = function(e) {
+        if (i == 5) {
+          stop("Failed to start the server!")
+          write("FAILED!", stderr())
+          error_text <- testthat_model_server$read_error()
+          testthat_model_server$kill()
+          stop(e$message, ": ", error_text)
+        } else {
+          write("Waiting for server to start...", stderr())
+          Sys.sleep(5)
+        }
+      }
+    )
+  }
 
   expect_equal(status_code, 200)
 
