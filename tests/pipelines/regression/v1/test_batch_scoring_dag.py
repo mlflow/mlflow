@@ -47,10 +47,10 @@ def test_pipeline_batch_dag_execution_directories(enter_pipeline_example_directo
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
         assert step_outputs_path.exists()
         first_output = next(step_outputs_path.iterdir(), None)
-        # TODO: Assert that the ingest step has outputs once ingest execution has been implemented
-        assert first_output is not None or step_name == "ingest_scoring"
+        assert first_output is not None
 
 
+# This test should run last as it cleans the batch scoring steps
 @pytest.mark.parametrize("step", _STEP_NAMES)
 def test_pipeline_batch_dag_clean_step_works(
     step, run_batch_scoring, enter_pipeline_example_directory

@@ -104,8 +104,7 @@ def test_pipelines_execution_directory_is_managed_as_expected(
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
         assert step_outputs_path.exists()
         first_output = next(step_outputs_path.iterdir(), None)
-        # TODO: Assert that the ingest step has outputs once ingest execution has been implemented
-        assert first_output is not None or step_name == "ingest"
+        assert first_output is not None
 
     # Clean the pipeline and verify that all step outputs have been removed
     p.clean()
