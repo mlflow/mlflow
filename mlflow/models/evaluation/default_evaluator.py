@@ -1066,8 +1066,10 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.is_binomial:
                 if self.pos_label in self.label_list:
-                    self.label_list.remove(self.pos_label)
-                    self.label_list.append(self.pos_label)
+                    self.label_list = np.delete(
+                        self.label_list, np.where(self.label_list == self.pos_label)
+                    )
+                    self.label_list = np.append(self.label_list, self.pos_label)
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
