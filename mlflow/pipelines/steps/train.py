@@ -377,16 +377,24 @@ class TrainStep(BaseStep):
         estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
         estimator_hardcoded_params = self.step_config["estimator_params"]
         if self.step_config["tuning_enabled"]:
-            best_estimator_params = self._tune_and_get_best_estimator_params(
+            estimator_hardcoded_params, best_hp_params = self._tune_and_get_best_estimator_params(
                 run.info.run_id,
                 estimator_hardcoded_params,
                 estimator_fn,
                 X_train,
                 y_train,
                 validation_df,
-                output_directory,
             )
-            estimator = estimator_fn(best_estimator_params)
+            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+            estimator = estimator_fn(best_combined_params)
+            all_estimator_params = estimator.get_params()
+            default_params = all_estimator_params - best_combined_params
+            self._write_best_parameters_outputs(
+                output_directory,
+                best_hp_params=best_hp_params,
+                best_hardcoded_params=estimator_hardcoded_params,
+                default_params=default_params,
+            )
         elif len(estimator_hardcoded_params) > 0:
             estimator = estimator_fn(estimator_hardcoded_params)
             all_estimator_params = estimator.get_params()
@@ -805,7 +813,6 @@ class TrainStep(BaseStep):
         X_train,
         y_train,
         validation_df,
-        output_directory,
     ):
         tuning_params = self.step_config["tuning"]
         try:
@@ -944,13 +951,7 @@ class TrainStep(BaseStep):
                 best_hardcoded_params = estimator_hardcoded_params
         else:
             best_hardcoded_params = {}
-        best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_best_parameters_outputs(
-            output_directory,
-            best_hp_params=best_hp_params,
-            best_hardcoded_params=best_hardcoded_params,
-        )
-        return best_combined_params
+        return (best_hardcoded_params, best_hp_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
