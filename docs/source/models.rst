@@ -1392,6 +1392,10 @@ and checked. For a more comprehensive demonstration on how to use :py:func:`mlfl
 `the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
 
+.. note:: Limitations:
+    - Validations results not included in the MLflow run.
+    - No metrics are logged nor artifacts produced for the baseline model in the MLflow run.
+
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 

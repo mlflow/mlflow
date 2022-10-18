@@ -904,7 +904,7 @@ def evaluate(
 
      - The metrics/artifacts listed above are logged to the active MLflow run.
        If no active run exists, a new MLflow run is created for logging these metrics and
-       artifacts.
+       artifacts. Note that no metrics/artifacts are logged for the ``baseline_model``.
 
      - Additionally, information about the specified dataset - hash, name (if specified), path
        (if specified), and the UUID of the model that evaluated it - is logged to the
