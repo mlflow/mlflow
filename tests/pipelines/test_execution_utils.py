@@ -122,7 +122,7 @@ def test_create_required_step_files(tmp_path):
             "steps/transform.py",
             "steps/custom_metrics.py",
         ]:
-            assert not check_exist ^ (tmp_path / required_file).exists()
+            assert (tmp_path / required_file).exists() is check_exist
 
     test_step = TestStep()
     check_required_files(False)

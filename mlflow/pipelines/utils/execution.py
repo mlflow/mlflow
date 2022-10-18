@@ -412,7 +412,7 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template) -> 
         ]:
             required_file_path = os.path.join(steps_folder_path, required_file)
             if not os.path.exists(required_file_path):
-                with open(required_file_path, "w") as _:
+                with open(required_file_path, "w"):
                     pass
             if not os.path.exists(required_file_path):
                 raise ValueError(
