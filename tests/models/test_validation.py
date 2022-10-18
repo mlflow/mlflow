@@ -199,9 +199,9 @@ def faulty_validation_thresholds_param_test_spec(request):
              to MetricThreshold(threshold=0.2, higher_is_better=True),
     """
     if request.param == "param_not_dict":
-        return (1,)
+        return 1
     if request.param == "key_not_str":
-        return ({1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)},)
+        return {1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)}
     if request.param == "value_not_metric_threshold":
         return {"accuracy": 1}
 
