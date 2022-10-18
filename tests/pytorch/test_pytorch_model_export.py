@@ -890,7 +890,7 @@ def test_pyfunc_serve_and_score_transformers():
         data,
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
-    )
+    )['predictions']
     np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
 
 
