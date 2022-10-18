@@ -1008,6 +1008,7 @@ class TrainStep(BaseStep):
         if params:
             file.write(f"# {caption} \n")
             self._safe_dump_with_numeric_values(params, file, default_flow_style=False)
+            file.write("\n")
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
