@@ -171,7 +171,7 @@ def test_predict_step_uses_register_step_output(
     train_log_and_register_model(register_step_rm_name, is_dummy=True)
     train_log_and_register_model(register_step_rm_name)
 
-    # Make the first version the output of the register step
+    # Write v1 to the output directory of the register step
     register_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "register", "outputs")
     register_step_output_dir.mkdir(parents=True)
     registered_model_info = RegisteredModelVersionInfo(name=register_step_rm_name, version=1)
