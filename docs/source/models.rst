@@ -1394,7 +1394,7 @@ and checked. For a more comprehensive demonstration on how to use :py:func:`mlfl
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results not included in the active MLflow run.
+    - Model validation results are not included in the active MLflow run.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
