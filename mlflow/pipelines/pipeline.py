@@ -1,4 +1,3 @@
-import abc
 import logging
 import os
 
@@ -6,6 +5,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.pipelines import dag_help_strings
 from mlflow.pipelines.artifacts import Artifact
 from mlflow.pipelines.step import BaseStep, StepStatus, StepClass
+from mlflow.pipelines.steps.ingest import IngestStep, IngestScoringStep
+from mlflow.pipelines.steps.split import SplitStep
+from mlflow.pipelines.steps.transform import TransformStep
+from mlflow.pipelines.steps.train import TrainStep
+from mlflow.pipelines.steps.evaluate import EvaluateStep
+from mlflow.pipelines.steps.predict import PredictStep
+from mlflow.pipelines.steps.register import RegisterStep
 from mlflow.pipelines.utils import (
     get_pipeline_config,
     get_pipeline_name,
@@ -18,22 +24,27 @@ from mlflow.pipelines.utils.execution import (
     get_step_output_path,
 )
 from mlflow.pipelines.utils.step import display_html
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.utils.annotations import experimental
-from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
+from typing import List, Type
 
 _logger = logging.getLogger(__name__)
 
 
 @experimental
-class _BasePipeline:
+class BasePipeline:
     """
     Base Pipeline
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str) -> None:
+    def __init__(
+        self,
+        pipeline_root_path: str,
+        profile: str,
+        step_classes: List[Type[BaseStep]],
+        default_step: Type[BaseStep],
+    ) -> None:
         """
         Pipeline base class.
 
@@ -46,6 +57,8 @@ class _BasePipeline:
         """
         self._pipeline_root_path = pipeline_root_path
         self._profile = profile
+        self._step_classes = step_classes
+        self._default_step = default_step
         self._name = get_pipeline_name(pipeline_root_path)
         # self._steps contains concatenated ordered lists of step objects representing multiple
         # disjoint DAGs. To keep it in sync with the underlying config file, it should be reloaded
@@ -137,7 +150,7 @@ class _BasePipeline:
         Removes the outputs of the specified step from the cache, or removes the cached outputs
         of all steps if no particular step is specified. After cached outputs are cleaned
         for a particular step, the step will be re-executed in its entirety the next time it is
-        invoked via ``_BasePipeline.run()``.
+        invoked via ``BasePipeline.run()``.
 
         :param step: String name of the step to clean within the pipeline. If not specified,
                      cached outputs are removed for all pipeline steps.
@@ -170,24 +183,18 @@ class _BasePipeline:
         return subgraph
 
     @experimental
-    @abc.abstractmethod
     def _get_default_step(self) -> BaseStep:
         """
         Defines which step to run if no step is specified.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        return self._default_step
 
     @experimental
-    @abc.abstractmethod
     def _get_step_classes(self):
         """
         Returns a list of step classes defined in the pipeline.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        return self._step_classes
 
     @experimental
     def _get_pipeline_dag_file(self) -> str:
@@ -355,9 +362,6 @@ class _BasePipeline:
         )
 
 
-from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
-
-
 @experimental
 class Pipeline:
     """
@@ -377,7 +381,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str) -> BasePipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -429,24 +433,21 @@ class Pipeline:
                 "For example: `template: regression/v1`",
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
-        template_path = template.replace("/", ".").replace("@", ".")
-        class_name = f"mlflow.pipelines.{template_path}.PipelineImpl"
-
-        try:
-            pipeline_class_module = _get_class_from_string(class_name)
-        except Exception as e:
-            if isinstance(e, ModuleNotFoundError):
-                raise MlflowException(
-                    f"Failed to find Pipeline {class_name}."
-                    f"Please check the correctness of the pipeline template setting: {template}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                ) from None
-            else:
-                raise MlflowException(
-                    f"Failed to construct Pipeline {class_name}. Error: {repr(e)}",
-                    error_code=INTERNAL_ERROR,
-                ) from None
-
         pipeline_name = get_pipeline_name(pipeline_root_path)
         _logger.info(f"Creating MLflow Pipeline '{pipeline_name}' with profile: '{profile}'")
-        return pipeline_class_module(pipeline_root_path, profile)
+        if template == "regression/v1":
+            return BasePipeline(
+                pipeline_root_path,
+                profile,
+                [
+                    IngestStep,
+                    SplitStep,
+                    TransformStep,
+                    TrainStep,
+                    EvaluateStep,
+                    RegisterStep,
+                    IngestScoringStep,
+                    PredictStep,
+                ],
+                RegisterStep,
+            )
