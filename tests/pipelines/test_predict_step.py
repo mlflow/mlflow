@@ -9,8 +9,10 @@ from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.artifacts import RegisteredModelVersionInfo
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.utils.file_utils import read_yaml
 
 # pylint: disable=unused-import
@@ -155,6 +157,45 @@ def test_predict_step_uses_register_step_model_name(
     )
     predict_step.run(str(predict_step_output_dir))
 
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+
+
+def test_predict_step_uses_register_step_output(
+    tmp_pipeline_root_path: Path,
+    tmp_pipeline_exec_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    # Create two versions for a registered_model. v1 is a dummy model. v2 is a normal model.
+    register_step_rm_name = "register_step_model_" + get_random_id()
+    train_log_and_register_model(register_step_rm_name, is_dummy=True)
+    train_log_and_register_model(register_step_rm_name)
+
+    # Write v1 to the output directory of the register step
+    register_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "register", "outputs")
+    register_step_output_dir.mkdir(parents=True)
+    registered_model_info = RegisteredModelVersionInfo(name=register_step_rm_name, version=1)
+    registered_model_info.to_json(path=str(register_step_output_dir / _REGISTERED_MV_INFO_FILE))
+
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    pipeline_config.update(
+        {
+            "steps": {
+                "register": {"model_name": register_step_rm_name},
+                "predict": {
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                },
+            }
+        }
+    )
+    predict_step = PredictStep.from_pipeline_config(
+        pipeline_config,
+        str(tmp_pipeline_root_path),
+    )
+    predict_step.run(str(predict_step_output_dir))
+
+    # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 

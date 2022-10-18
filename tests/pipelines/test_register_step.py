@@ -5,7 +5,7 @@ import mlflow
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.register import RegisterStep
+from mlflow.pipelines.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
 from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
@@ -96,6 +96,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
         model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
         assert model_validation_status_path.exists()
         assert model_validation_status_path.read_text() == "VALIDATED"
+        mv_info_file_path = register_step_output_dir.joinpath(_REGISTERED_MV_INFO_FILE)
+        assert mv_info_file_path.exists()
         assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 
@@ -139,6 +141,8 @@ steps:
         model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
         assert model_validation_status_path.exists()
         assert model_validation_status_path.read_text() == "UNKNOWN"
+        mv_info_file_path = register_step_output_dir.joinpath(_REGISTERED_MV_INFO_FILE)
+        assert mv_info_file_path.exists()
         assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
 
 

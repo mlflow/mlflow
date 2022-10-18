@@ -23,6 +23,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLAT
 
 _logger = logging.getLogger(__name__)
 
+_REGISTERED_MV_INFO_FILE = "registered_model_version.json"
+
 
 class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
@@ -85,7 +87,7 @@ class RegisterStep(BaseStep):
                 name=self.register_model_name, version=self.version
             )
             registered_model_info.to_json(
-                path=str(Path(output_directory) / "registered_model_version.json")
+                path=str(Path(output_directory) / _REGISTERED_MV_INFO_FILE)
             )
         else:
             raise MlflowException(
