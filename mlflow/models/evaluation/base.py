@@ -17,6 +17,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
+    MetricThreshold,
     ModelValidationFailedException,
 )
 import logging
@@ -1193,6 +1194,20 @@ should be at least 0.05 greater than baseline model accuracy
             "an instance of `mlflow.pyfunc.PyFuncModel`.",
             erorr_code=INVALID_PARAMETER_VALUE,
         )
+
+    if validation_thresholds:
+        try:
+            assert type(validation_thresholds) is dict
+            for key in validation_thresholds.keys():
+                assert type(key) is str
+            for threshold in validation_thresholds.values():
+                assert type(threshold) is MetricThreshold
+        except AssertionError:
+            raise MlflowException(
+                message="The validation thresholds argument must be a dictionary that maps strings "
+                "to MetricThreshold objects.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     if isinstance(baseline_model, str):
         baseline_model = _load_model_or_server(baseline_model, env_manager)

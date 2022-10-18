@@ -192,6 +192,54 @@ def test_validation_faulty_baseline_model(
 
 
 @pytest.fixture
+def faulty_validation_thresholds_param_test_spec(request):
+    """
+    Test specification for faulty `baseline_model` parameter tests:
+    :return: validation_thresholds: A dictonary mapping scalar metric names
+             to MetricThreshold(threshold=0.2, higher_is_better=True),
+    """
+    if request.param == "param_not_dict":
+        return (1,)
+    if request.param == "key_not_str":
+        return ({1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)},)
+    if request.param == "value_not_metric_threshold":
+        return {"accuracy": 1}
+
+
+@pytest.mark.parametrize(
+    "faulty_validation_thresholds_param_test_spec",
+    [
+        ("param_not_dict"),
+        ("key_not_str"),
+        ("value_not_metric_threshold"),
+    ],
+    indirect=["faulty_validation_thresholds_param_test_spec"],
+)
+def test_validation_faulty_validation_thresholds(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    faulty_validation_thresholds_param_test_spec,
+):
+    validation_thresholds = faulty_validation_thresholds_param_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="The validation thresholds argument",
+        ):
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                data=iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                validation_thresholds=validation_thresholds,
+            )
+
+
+@pytest.fixture
 def value_threshold_test_spec(request):
     """
     Test specification for value threshold tests:
