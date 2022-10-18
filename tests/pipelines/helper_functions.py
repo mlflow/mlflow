@@ -8,7 +8,10 @@ import sys
 from typing import Generator
 
 from contextlib import contextmanager
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.pipelines.utils.execution import (
+    _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR,
+    _get_execution_directory_basename,
+)
 from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.pipelines.step import BaseStep
 from mlflow.utils.file_utils import TempDir
@@ -78,6 +81,17 @@ def train_log_and_register_model(model_name, is_dummy=False):
         archive_existing_versions=True,
     )
     return "models:/{model_name}/Production".format(model_name=model_name)
+
+
+def get_execution_directory_location(pipeline_root_path, custom_execution_directory=None):
+    if custom_execution_directory:
+        return pathlib.Path(custom_execution_directory)
+    return (
+        pathlib.Path.home()
+        / ".mlflow"
+        / "pipelines"
+        / _get_execution_directory_basename(pipeline_root_path)
+    )
 
 
 ## Fixtures

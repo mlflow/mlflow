@@ -16,7 +16,6 @@ from mlflow.pipelines.pipeline import Pipeline
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import (
     get_step_output_path,
-    _get_execution_directory_basename,
     _REGRESSION_MAKEFILE_FORMAT_STRING,
 )
 from mlflow.tracking.client import MlflowClient
@@ -34,6 +33,7 @@ from mlflow.utils.mlflow_tags import (
 from tests.pipelines.helper_functions import (
     enter_pipeline_example_directory,
     enter_test_pipeline_directory,
+    get_execution_directory_location,
     list_all_artifacts,
     chdir,
 )  # pylint: enable=unused-import
@@ -90,13 +90,8 @@ def test_pipelines_execution_directory_is_managed_as_expected(
     if custom_execution_directory is not None:
         os.environ["MLFLOW_PIPELINES_EXECUTION_DIRECTORY"] = str(custom_execution_directory)
 
-    expected_execution_directory_location = (
-        pathlib.Path(custom_execution_directory)
-        if custom_execution_directory
-        else pathlib.Path.home()
-        / ".mlflow"
-        / "pipelines"
-        / _get_execution_directory_basename(enter_pipeline_example_directory)
+    expected_execution_directory_location = get_execution_directory_location(
+        enter_pipeline_example_directory, custom_execution_directory
     )
 
     # Run the full pipeline and verify that outputs for each step were written to the expected
