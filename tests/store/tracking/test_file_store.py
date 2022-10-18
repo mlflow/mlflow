@@ -51,7 +51,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         ids = []
         for name in experiment_names:
             # ensure that the field `last_update_time` is distinct for search ordering
-            time.sleep(0.05)
+            time.sleep(0.001)
             ids.append(self.store.create_experiment(name))
         return ids
 
