@@ -1065,12 +1065,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                if list(self.label_list) not in [[0, 1], [-1, 1]]:
-                    raise ValueError(
-                        "Binary classifier evaluation dataset positive class label must be 1 or"
-                        " True, negative class label must be 0 or -1 or False, and dataset"
-                        " must contains both positive and negative examples."
-                    )
+                if self.pos_label in self.label_list:
+                    self.label_list.remove(self.pos_label)
+                    self.label_list.append(self.pos_label)
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
