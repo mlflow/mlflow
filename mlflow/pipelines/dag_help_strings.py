@@ -262,7 +262,7 @@ INGESTED_SCORING_DATA = format_help_string(
 )
 
 PREDICT_STEP = format_help_string(
-    """The 'predict' step uses the model registered by the 'register' step to score the ingested dataset produced by the 'ingest_scoring' step and writes the resulting dataset to the specified output format and location. Namely, it uses the latest version of the registered model specified by the `model_name` attribute of the pipeline.yaml 'register' step definition. To fix a specific model for use in the 'predict' step, provide its model URI as the 'model_uri' attribute of the pipeline.yaml 'predict' step definition. An example pipeline.yaml 'predict' step definition is shown below.
+    """The 'predict' step uses the model registered by the 'register' step to score the ingested dataset produced by the 'ingest_scoring' step and writes the resulting dataset to the specified output format and location. To get model for scoring, it reads the register step model version artifact. If the register step was cleared, it uses the latest version of the registered model specified by the `model_name` attribute of the pipeline.yaml 'register' step definition. To fix a specific model for use in the 'predict' step, provide its model URI as the 'model_uri' attribute of the pipeline.yaml 'predict' step definition. An example pipeline.yaml 'predict' step definition is shown below.
 steps:
   predict:
     model_uri: "models:/taxi_fare_regressor/Production" # optional
