@@ -4,12 +4,12 @@ import pytest
 import shutil
 
 import mlflow
+from mlflow.pipelines.utils.execution import get_or_create_base_execution_directory
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
     enter_pipeline_example_directory,
-    get_execution_directory_location,
     PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
     chdir,
 )  # pylint: enable=unused-import
@@ -40,8 +40,8 @@ def test_pipeline_batch_dag_get_artifacts(run_batch_scoring):
 
 
 def test_pipeline_batch_dag_execution_directories(enter_pipeline_example_directory):
-    expected_execution_directory_location = get_execution_directory_location(
-        enter_pipeline_example_directory
+    expected_execution_directory_location = pathlib.Path(
+        get_or_create_base_execution_directory(enter_pipeline_example_directory)
     )
     for step_name in _STEP_NAMES:
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
@@ -57,8 +57,8 @@ def test_pipeline_batch_dag_clean_step_works(
 ):
     p = run_batch_scoring
     p.clean(step)
-    expected_execution_directory_location = get_execution_directory_location(
-        enter_pipeline_example_directory
+    expected_execution_directory_location = pathlib.Path(
+        get_or_create_base_execution_directory(enter_pipeline_example_directory)
     )
     step_outputs_path = expected_execution_directory_location / "steps" / step / "outputs"
     assert not list(step_outputs_path.iterdir())
