@@ -5,10 +5,11 @@ from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.pipelines.artifacts import DataframeArtifact
+from mlflow.pipelines.artifacts import DataframeArtifact, RegisteredModelVersionInfo
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.step import StepClass
+from mlflow.pipelines.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.pipelines.utils.tracking import (
@@ -178,8 +179,18 @@ class PredictStep(BaseStep):
                 f"This column will be dropped in favor of the predict output column name."
             )
 
-        # score dataset
+        # get model uri
         model_uri = self.step_config["model_uri"]
+        registered_model_file_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="register",
+            relative_path=_REGISTERED_MV_INFO_FILE,
+        )
+        if os.path.exists(registered_model_file_path):
+            rmi = RegisteredModelVersionInfo.from_json(path=registered_model_file_path)
+            model_uri = f"models:/{rmi.name}/{rmi.version}"
+
+        # scored dataset
         result_type = self.step_config.get("result_type", "double")
         predict = mlflow.pyfunc.spark_udf(
             spark, model_uri, result_type=result_type, env_manager=_ENV_MANAGER
