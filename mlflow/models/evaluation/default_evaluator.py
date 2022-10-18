@@ -1058,7 +1058,7 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for generating model predictions
         """
         if self.model_type == "classifier":
-            self.label_list = sorted(np.unique(self.y))
+            self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
             self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
