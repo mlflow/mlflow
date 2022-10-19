@@ -154,6 +154,7 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
         run_id=logged_run.info.run_id, path="train"
     )
     assert {artifact.path for artifact in artifacts} == {
+        "train/best_parameters.yaml",
         "train/card.html",
         "train/estimator",
         "train/model",
