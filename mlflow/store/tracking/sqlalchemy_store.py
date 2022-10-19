@@ -9,6 +9,7 @@ from functools import reduce
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+from sqlalchemy import sql
 from sqlalchemy.future import select
 
 from mlflow.entities import RunTag
@@ -163,18 +164,18 @@ class SqlAlchemyStore(AbstractStore):
         if self.db_type == MYSQL:
             # config letting MySQL override default
             # to allow 0 value for experiment ID (auto increment column)
-            session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+            session.execute(sql.text("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';"))
         if self.db_type == MSSQL:
             # config letting MSSQL override default
             # to allow any manual value inserted into IDENTITY column
-            session.execute("SET IDENTITY_INSERT experiments ON;")
+            session.execute(sql.text("SET IDENTITY_INSERT experiments ON;"))
 
     # DB helper methods to allow zero values for columns with auto increments
     def _unset_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
-            session.execute("SET @@SESSION.sql_mode='';")
+            session.execute(sql.text("SET @@SESSION.sql_mode='';"))
         if self.db_type == MSSQL:
-            session.execute("SET IDENTITY_INSERT experiments OFF;")
+            session.execute(sql.text("SET IDENTITY_INSERT experiments OFF;"))
 
     def _create_default_experiment(self, session):
         """
@@ -209,7 +210,9 @@ class SqlAlchemyStore(AbstractStore):
         try:
             self._set_zero_value_insertion_for_autoincrement_column(session)
             session.execute(
-                "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+                sql.text(
+                    "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+                )
             )
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
@@ -1354,22 +1357,18 @@ def _get_orderby_clauses(order_by_list, session):
             # avoid ambiguity
             if SearchUtils.is_metric(key_type, "="):
                 case = sql.case(
-                    [
-                        # Ideally the use of "IS" is preferred here but owing to sqlalchemy
-                        # translation in MSSQL we are forced to use "=" instead.
-                        # These 2 options are functionally identical / unchanged because
-                        # the column (is_nan) is not nullable. However it could become an issue
-                        # if this precondition changes in the future.
-                        (subquery.c.is_nan == sqlalchemy.true(), 1),
-                        (order_value.is_(None), 2),
-                    ],
+                    # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                    # translation in MSSQL we are forced to use "=" instead.
+                    # These 2 options are functionally identical / unchanged because
+                    # the column (is_nan) is not nullable. However it could become an issue
+                    # if this precondition changes in the future.
+                    (subquery.c.is_nan == sqlalchemy.true(), 1),
+                    (order_value.is_(None), 2),
                     else_=0,
                 ).label("clause_%s" % clause_id)
 
             else:  # other entities do not have an 'is_nan' field
-                case = sql.case([(order_value.is_(None), 1)], else_=0).label(
-                    "clause_%s" % clause_id
-                )
+                case = sql.case((order_value.is_(None), 1), else_=0).label("clause_%s" % clause_id)
             clauses.append(case.name)
             select_clauses.append(case)
             select_clauses.append(order_value)
