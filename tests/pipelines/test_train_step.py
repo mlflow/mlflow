@@ -300,11 +300,15 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
 
 
 @pytest.mark.parametrize(
-    "with_hardcoded_params, expected_num_tuned, expected_num_hardcoded",
-    [(True, 3, 1), (False, 3, 0)],
+    "with_hardcoded_params, expected_num_tuned, expected_num_hardcoded, num_sections",
+    [(True, 3, 1, 3), (False, 3, 0, 2)],
 )
 def test_train_step_with_tuning_output_yaml_correct(
-    tmp_pipeline_root_path, with_hardcoded_params, expected_num_tuned, expected_num_hardcoded
+    tmp_pipeline_root_path,
+    with_hardcoded_params,
+    expected_num_tuned,
+    expected_num_hardcoded,
+    num_sections,
 ):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
@@ -320,10 +324,13 @@ def test_train_step_with_tuning_output_yaml_correct(
         lines = f.readlines()
         assert lines[0] == "# tuned hyperparameters \n"
         if with_hardcoded_params:
-            assert lines[expected_num_tuned + 1] == "# hardcoded parameters \n"
-        assert len(lines) == expected_num_tuned + expected_num_hardcoded + (
-            2 if with_hardcoded_params else 1
-        )
+            assert lines[expected_num_tuned + 2] == "# hardcoded parameters \n"
+            assert (
+                lines[expected_num_tuned + expected_num_hardcoded + 4] == "# default parameters \n"
+            )
+        else:
+            assert lines[expected_num_tuned + 2] == "# default parameters \n"
+        assert len(lines) == 19 + num_sections * 2
 
 
 def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path):

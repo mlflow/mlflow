@@ -377,23 +377,41 @@ class TrainStep(BaseStep):
         estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
         estimator_hardcoded_params = self.step_config["estimator_params"]
         if self.step_config["tuning_enabled"]:
-            best_estimator_params = self._tune_and_get_best_estimator_params(
+            estimator_hardcoded_params, best_hp_params = self._tune_and_get_best_estimator_params(
                 run.info.run_id,
                 estimator_hardcoded_params,
                 estimator_fn,
                 X_train,
                 y_train,
                 validation_df,
-                output_directory,
             )
-            estimator = estimator_fn(best_estimator_params)
-        elif len(estimator_hardcoded_params) > 0:
+            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+            estimator = estimator_fn(best_combined_params)
+            all_estimator_params = estimator.get_params()
+            default_params = dict(
+                set(all_estimator_params.items()) - set(best_combined_params.items())
+            )
             self._write_best_parameters_outputs(
-                {}, estimator_hardcoded_params, {}, output_directory
+                output_directory,
+                best_hp_params=best_hp_params,
+                best_hardcoded_params=estimator_hardcoded_params,
+                default_params=default_params,
             )
+        elif len(estimator_hardcoded_params) > 0:
             estimator = estimator_fn(estimator_hardcoded_params)
+            all_estimator_params = estimator.get_params()
+            default_params = dict(
+                set(all_estimator_params.items()) - set(estimator_hardcoded_params.items())
+            )
+            self._write_best_parameters_outputs(
+                output_directory,
+                best_hardcoded_params=estimator_hardcoded_params,
+                default_params=default_params,
+            )
         else:
             estimator = estimator_fn()
+            default_params = estimator.get_params()
+            self._write_best_parameters_outputs(output_directory, default_params=default_params)
         return estimator
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
@@ -416,7 +434,7 @@ class TrainStep(BaseStep):
             f"{estimator.__class__.__module__}.{estimator.__class__.__name__}"
         )
         self.best_parameters = best_parameters
-        self._write_best_parameters_outputs({}, {}, best_parameters, output_directory)
+        self._write_best_parameters_outputs(output_directory, automl_params=best_parameters)
         return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
@@ -799,7 +817,6 @@ class TrainStep(BaseStep):
         X_train,
         y_train,
         validation_df,
-        output_directory,
     ):
         tuning_params = self.step_config["tuning"]
         try:
@@ -938,11 +955,7 @@ class TrainStep(BaseStep):
                 best_hardcoded_params = estimator_hardcoded_params
         else:
             best_hardcoded_params = {}
-        best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_best_parameters_outputs(
-            best_hp_params, best_hardcoded_params, {}, output_directory
-        )
-        return best_combined_params
+        return (best_hardcoded_params, best_hp_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
@@ -972,10 +985,15 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_best_parameters_outputs(
-        self, best_hp_params, best_hardcoded_params, automl_params, output_directory
+    def _write_best_parameters_outputs(  # pylint: disable=dangerous-default-value
+        self,
+        output_directory,
+        best_hp_params={},
+        best_hardcoded_params={},
+        automl_params={},
+        default_params={},
     ):
-        if best_hp_params or best_hardcoded_params or automl_params:
+        if best_hp_params or best_hardcoded_params or automl_params or default_params:
             best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_path):
                 os.remove(best_parameters_path)
@@ -983,12 +1001,14 @@ class TrainStep(BaseStep):
                 self._write_one_param_output(automl_params, file, "automl parameters")
                 self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
                 self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
+                self._write_one_param_output(default_params, file, "default parameters")
             mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _write_one_param_output(self, params, file, caption):
         if params:
             file.write(f"# {caption} \n")
             self._safe_dump_with_numeric_values(params, file, default_flow_style=False)
+            file.write("\n")
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np
