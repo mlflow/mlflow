@@ -330,6 +330,8 @@ def start_run(
             parent_run_id = None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
+        print(client._tracking_client.store)
+        print("exp_id_for_run", exp_id_for_run)
 
         user_specified_tags = deepcopy(tags) or {}
         if description:
@@ -1550,8 +1552,10 @@ def _get_experiment_id_from_env():
 
 def _get_experiment_id():
     if _active_experiment_id:
+        print("_active_experiment_id", _active_experiment_id)
         return _active_experiment_id
     else:
+        print("_get_experiment_id_from_env", _get_experiment_id_from_env())
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
