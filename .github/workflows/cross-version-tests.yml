@@ -40,7 +40,7 @@ defaults:
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
-    if: "!(github.event_name == 'schedule' && github.repository != 'mlflow/mlflow')"
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
