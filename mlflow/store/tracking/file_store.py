@@ -354,11 +354,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        experiment_id = (
-            _generate_unique_integer_id()
-            if self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-            else FileStore.DEFAULT_EXPERIMENT_ID
-        )
+        experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
