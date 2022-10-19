@@ -55,7 +55,7 @@ jobs:
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
       - name: Check labels
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         id: check-labels
         with:
           script: |
