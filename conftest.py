@@ -101,10 +101,11 @@ def pytest_terminal_summary(
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
-        terminalreporter.section("command to run failed tests")
         if len(failed_test_reports) <= 30:
+            terminalreporter.section("command to run failed test cases")
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
+            terminalreporter.section("command to run failed test suites")
             # Use dict.fromkeys to preserve the order
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
