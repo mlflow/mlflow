@@ -115,7 +115,7 @@ jobs:
           path: ${{ steps.build-dist.outputs.wheel-path }}
 
       - name: Remove old wheels
-        uses: actions/github-script@v3
+        uses: actions/github-script@v6
         if: github.event_name == 'push'
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
@@ -125,7 +125,7 @@ jobs:
             const { owner, repo } = context.repo;
 
             // For some reason, the newly-uploaded wheel in the previous step is not included.
-            const artifactsResp = await github.actions.listArtifactsForRepo({
+            const artifactsResp = await github.rest.actions.listArtifactsForRepo({
               owner,
               repo,
             });
@@ -151,7 +151,7 @@ jobs:
 
             // Delete old wheels
             const promises = wheels.slice(index).map(({ id: artifact_id }) =>
-              github.actions.deleteArtifact({
+              github.rest.actions.deleteArtifact({
                 owner,
                 repo,
                 artifact_id,
