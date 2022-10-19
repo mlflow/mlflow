@@ -144,6 +144,27 @@ jobs:
         done
 
         test $err = 0
+    - name: Rebuild images with SQLAlchemy 2.x
+      run: |
+        sed -i 's/sqlalchemy.*/sqlalchemy==2.0.0b2/g' requirements/core-requirements.txt
+        git diff
+        ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+    - name: Run tests
+      run: |
+        set +e
+        err=0
+        trap 'err=1' ERR
+
+        for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+        do
+          # Set `--no-TTY` to show container logs on GitHub Actions:
+          ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+            tests/store/tracking/test_sqlalchemy_store.py \
+            tests/store/model_registry/test_sqlalchemy_store.py \
+            tests/db
+        done
+
+        test $err = 0
     - name: Clean up
       run: |
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
