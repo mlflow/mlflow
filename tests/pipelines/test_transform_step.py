@@ -1,14 +1,16 @@
 import os
 from pathlib import Path
+import pytest
 
 import pandas as pd
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.transform import TransformStep
+from mlflow.pipelines.steps.transform import TransformStep, _validate_user_code_output
 from unittest import mock
 
 # pylint: disable=unused-import
@@ -116,3 +118,38 @@ def test_transform_empty_step(tmp_pipeline_root_path):
 
     assert train_transformed.equals(train_split) == True
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
+
+
+def test_validate_method_validates_the_transformer():
+    class Transformer:
+        def fit(self):
+            return "fit"
+
+        def transform(self):
+            return "transform"
+
+    transformer = Transformer()
+
+    def correct_transformer():
+        return transformer
+
+    validated_transformer = _validate_user_code_output(correct_transformer)
+    assert transformer == validated_transformer
+
+    class InCorrectTransformer:
+        def pick(self):
+            return "pick"
+
+        def transform(self):
+            return "transform"
+
+    inCorrectTransformer = InCorrectTransformer()
+
+    def incorrect_transformer():
+        return inCorrectTransformer
+
+    with pytest.raises(
+        MlflowException,
+        match="The transformer provided doesn't have a fit and transform method.",
+    ):
+        validated_transformer = _validate_user_code_output(incorrect_transformer)

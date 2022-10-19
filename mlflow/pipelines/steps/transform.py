@@ -46,6 +46,21 @@ def _get_output_feature_names(transformer, num_features, input_features):
         return _generate_feature_names(num_features)
 
 
+def _validate_user_code_output(transformer_fn):
+    transformer = transformer_fn()
+    if transformer is not None and not (
+        hasattr(transformer, "fit")
+        and callable(getattr(transformer, "fit"))
+        and hasattr(transformer, "transform")
+        and callable(getattr(transformer, "transform"))
+    ):
+        raise MlflowException(
+            message="The transformer provided doesn't have a fit and transform method."
+        ) from None
+
+    return transformer
+
+
 class TransformStep(BaseStep):
     def __init__(self, step_config, pipeline_root):  # pylint: disable=useless-super-delegation
         super().__init__(step_config, pipeline_root)
@@ -98,7 +113,7 @@ class TransformStep(BaseStep):
             transformer_fn = getattr(
                 importlib.import_module(transformer_module_name), transformer_method_name
             )
-            transformer = transformer_fn()
+            transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()
         transformer.fit(train_df.drop(columns=[self.target_col]))
 
