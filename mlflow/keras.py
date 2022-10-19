@@ -603,6 +603,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    save_format="tf",
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -668,6 +669,9 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param save_format: File format to save the model at the end of the training. Allowed
+                        values are: ``tf`` for saving the model in ``SavedModel`` format
+                        or ``h5`` for saving the model in ``HDF5`` format.
     """
     import keras
 
@@ -679,6 +683,12 @@ def autolog(
             ),
             FutureWarning,
             stacklevel=2,
+        )
+
+    if save_format != "tf" and save_format != "h5":
+        raise Exception(
+            "Invalid value for `save_format` argument. "
+            "Valid values for `save_format` are `tf` or `h5` only."
         )
 
     def getKerasCallback(metrics_logger):
@@ -733,6 +743,7 @@ def autolog(
                         self.model,
                         artifact_path="model",
                         registered_model_name=registered_model_name,
+                        **{"save_format": save_format},
                     )
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
