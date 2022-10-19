@@ -8,15 +8,14 @@ from collections import namedtuple
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
+from mlflow.pipelines.helpers import PipelineHelper
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
-    _get_builtin_metrics,
     _get_custom_metrics,
     _get_primary_metric,
-    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
@@ -43,9 +42,12 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
+    def __init__(
+        self, step_config: Dict[str, Any], pipeline_root: str, pipeline_helper: PipelineHelper
+    ) -> None:
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
+        self.pipeline_helper = pipeline_helper
 
     def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
@@ -54,19 +56,14 @@ class EvaluateStep(BaseStep):
                 "Missing target_col config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.template = self.step_config.get("template_name")
-        if self.template is None:
-            raise MlflowException(
-                "Missing template_name config in pipeline config.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
-            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+            metric.name: metric
+            for metric in _get_custom_metrics(self.step_config, self.pipeline_helper)
         }
         self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.template)
+            metric.name: metric for metric in self.pipeline_helper.builtin_metrics()
         }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
@@ -176,7 +173,7 @@ class EvaluateStep(BaseStep):
                     model=model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type=_get_model_type_from_template(self.template),
+                    model_type=self.pipeline_helper.model_type(),
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -350,14 +347,17 @@ class EvaluateStep(BaseStep):
             step_config.update(pipeline_config.get("steps", {}).get("evaluate", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
         step_config["metrics"] = pipeline_config.get("metrics")
-        step_config["template_name"] = pipeline_config.get("template")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
                 pipeline_config=pipeline_config,
             ).to_dict()
         )
-        return cls(step_config, pipeline_root)
+        return cls(
+            step_config,
+            pipeline_root,
+            PipelineHelper.from_template(pipeline_config.get("template")),
+        )
 
     @property
     def name(self):

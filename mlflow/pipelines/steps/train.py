@@ -12,6 +12,7 @@ import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.pipelines.artifacts import ModelArtifact, RunArtifact, HyperParametersArtifact
+from mlflow.pipelines.helpers import PipelineHelper
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.step import StepClass
@@ -20,11 +21,8 @@ from mlflow.pipelines.utils.execution import (
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 from mlflow.pipelines.utils.metrics import (
-    _get_error_fn,
-    _get_builtin_metrics,
     _get_primary_metric,
     _get_custom_metrics,
-    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import (
@@ -55,10 +53,11 @@ _logger = logging.getLogger(__name__)
 class TrainStep(BaseStep):
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
 
-    def __init__(self, step_config, pipeline_root, pipeline_config=None):
+    def __init__(self, step_config, pipeline_root, pipeline_helper, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.pipeline_config = pipeline_config
+        self.pipeline_helper = pipeline_helper
 
     def _validate_and_apply_step_config(self):
         self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
@@ -129,12 +128,6 @@ class TrainStep(BaseStep):
                 "Missing target_col config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.template = self.step_config.get("template_name")
-        if self.template is None:
-            raise MlflowException(
-                "Missing template_name config in pipeline config.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
@@ -148,19 +141,21 @@ class TrainStep(BaseStep):
 
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
-            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+            metric.name: metric
+            for metric in _get_custom_metrics(self.step_config, self.pipeline_helper)
         }
         self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.template)
+            metric.name: metric for metric in self.pipeline_helper.builtin_metrics()
         }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.template)
+            metric.name: metric.greater_is_better
+            for metric in self.pipeline_helper.builtin_metrics()
         }
         self.evaluation_metrics_greater_is_better.update(
             {
                 metric.name: metric.greater_is_better
-                for metric in _get_custom_metrics(self.step_config)
+                for metric in _get_custom_metrics(self.step_config, self.pipeline_helper)
             }
         )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
@@ -305,7 +300,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type=_get_model_type_from_template(self.template),
+                    model_type=self.pipeline_helper.model_type(),
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -321,7 +316,7 @@ class TrainStep(BaseStep):
 
         target_data = raw_validation_df[self.target_col]
         prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-        error_fn = _get_error_fn(self.template)
+        error_fn = self.pipeline_helper.error_fn()
         pred_and_error_df = pd.DataFrame(
             {
                 "target": target_data,
@@ -776,7 +771,6 @@ class TrainStep(BaseStep):
         if pipeline_config.get("steps", {}).get("train", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("train", {}))
         step_config["metrics"] = pipeline_config.get("metrics")
-        step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
         step_config.update(
@@ -785,7 +779,12 @@ class TrainStep(BaseStep):
                 pipeline_config=pipeline_config,
             ).to_dict()
         )
-        return cls(step_config, pipeline_root, pipeline_config=pipeline_config)
+        return cls(
+            step_config,
+            pipeline_root,
+            PipelineHelper.from_template(pipeline_config.get("template")),
+            pipeline_config,
+        )
 
     @property
     def name(self):
