@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 1.30.0 (2022-10-19)
+
+MLflow 1.30.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Add AWSSigv4 to request (#7044, @pdifranc)
+- [Pipelines] AutoML support for MLflow Pipelines using FLAML (#6959, @mshtelma)
+- [Tracking] Add update_run() Python API (#7013, @gabrielfu)
+- [Tracking] Extended `mlflow gc` to support removing deleted experiments (#6977, @shaikmoeed)
+- [Build / Tracking] Support searching and sorting experiments by `creation_time` and `last_update_time` (#6979, @harupy)
+- [Tracking] Add support for run_name synchronization when setting run name tag (#6971, @BenWilson2)
+- [Tracking] Support `run_id IN` and `run ID NOT IN` for `search_runs` (#6945, @harupy)
+- [] Modified run_info to add searchable attributes decorator and made a test (#6952, @alexacole)
+- [Docs / Scoring] Add BooleanType support to pyfunc spark udf (#6913, @BenWilson2)
+- [Tracking] Support searching for runs by `run_name` (#6899, @harupy)
+- [Sqlalchemy] Support an environment variable option to use sqlalchemy.pool.NullPool (#6883, @mingyu89)
+- [Tracking] adding user_id attribute of RunInfo in search_runs (#6881, @subramaniam02)
+- [Tracking] adding end_time attribute of RunInfo in search_runs (#6880, @subramaniam02)
+- [Docs / Pipelines] add hyperparameter tuning functionality to MLflow Pipeline train step (#6859, @prithvikannan)
+- [Models] Add environment restoration to mlflow.evaluate() (#6728, @jerrylian-db)
+- [Tracking] Add run name field to MLflow create/get/update API implementations for all stores (#6782, @apurva-koti)
+- [Tracking] Update RunInfo, CreateRun and UpdateRun proto messages to accept run names (#6798, @apurva-koti)
+
+Bug fixes:
+
+- [Models] mlflow.evaluate(): allow arbitrary positive labels (#7077, @dbczumar)
+- [Projects] fix: override image id tag when running kubernetes (#7066, @subramaniam20jan)
+- [Tracking] Fix run name handling of empty strings (#7069, @dbczumar)
+- [Pipelines] Extras (#7051, @dbczumar)
+- [Projects] Fix for git tags (#7043, @AvikantSrivastava)
+- [Sqlalchemy] Fix `SqlAlchemyStore` updating incorrect tag (#7027, @gabrielfu)
+- [UI] Do not notify user in UI on failed artifact fetch (#7001, @kevingreer)
+- [Models] Recognize mlflow-skinny as base requirement in env (#6974, @BenWilson2)
+- [Pipelines] Fixing boolean columns type for profile rendering (#6907, @sunishsheth2009)
+- [Models] Fix code path resolution on Spark model loading (#6968, @dbczumar)
+- [Models] Clear PySpark gateway environment variables for OSS SparkML flavor dependency inference (#6912, @BenWilson2)
+- [Models] change param name for optimizer decay in tf2 keras (#6937, @BenWilson2)
+- [Models] fix: remove potential duplicate downloads for spark flavor (#6903, @serena-ruan)
+- [Pipelines] Spark session jupyter (#6846, @prithvikannan)
+- [Models] Add missing pos_label to sklearn.metrics.precision_recall_curve in `mlflow.evaluate()` (#6854, @dbczumar)
+- [Models] Fix infinite recursion in `get_feature_cols` (#6831, @harupy)
+
+Documentation updates:
+
+- [Docs] Update default Keras serialization format (#7022, @balvisio)
+- [Docs] README update for MLflow-skinny additional dependencies (#6948, @BenWilson2)
+- [Docs] Add additional information about bug reports (#6950, @BenWilson2)
+- [] Update tracking.rst (#6879, @jspablo)
+
+Small bug fixes and documentation updates:
+
+#7093, #7095, #7092, #7064, #7049, #6921, #6920, #6940, #6926, #6923, #6862, @jerrylian-db; #7067, #6946, #6954, #6938, @mingyu89; #7047, #7087, #7056, #7010, #6936, #6925, #6892, #6860, #6828, @sunishsheth2009; #7061, #7058, #7098, #7071, #7073, #7057, #7038, #7029, #6918, #6993, #6944, #6976, #6960, #6933, #6943, #6941, #6900, #6901, #6898, #6890, #6888, #6886, #6887, #6885, #6884, #6849, #6835, #6834, @harupy; #7094, #7065, #7053, #7026, #7033, #7035, #7034, #7021, #7020, #6999, #6998, #6996, #6990, #6989, #6967, #6934, #6924, #6896, #6895, #6876, #6875, #6861, @prithvikannan; #7081, #7030, #7031, #6965, #6750, @bbarnes52; #7080, #7039, #7012, #7004, @dbczumar; #7054, #6991, @jinzhang21; #7055, #7037, #7036, #6949, #6951, #6909, @apurva-koti; #6815, @michaguenther; #6897, @chaturvedakash; #7025, #6981, #6829, #6830, @BenWilson2; #6982, @vadim; #6985, #6927, @kriscon-db; #6917, #6919, #6872, #6855, @WeichenXu123; #6980, @utkarsh867; #6973, #6935, @wentinghu; #6930, @mingyangge-db; #6956, @RohanBha1; #6916, @av-maslov; #6824, @shrinath-suresh; #6732, @oojo12; #6807, @ikrizanic
+
 ## 1.29.0 (2022-09-16)
 
 MLflow 1.29.0 includes several major features and improvements
