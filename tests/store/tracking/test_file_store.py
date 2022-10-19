@@ -164,11 +164,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_experiment(experiment_ids[1])
 
         experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        assert [e.name for e in experiments] == ["a", "Default"]
+        assert {e.name for e in experiments} == {"a", "Default"}
         experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
         assert [e.name for e in experiments] == ["b"]
         experiments = self.store.search_experiments(view_type=ViewType.ALL)
-        assert [e.name for e in experiments] == ["b", "a", "Default"]
+        assert {e.name for e in experiments} == {"b", "a", "Default"}
 
     def test_search_experiments_filter_by_attribute(self):
         self.initialize()
@@ -182,11 +182,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
         assert [e.name for e in experiments] == ["a"]
         experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+        assert {e.name for e in experiments} == {"Abc", "ab", "Default"}
         experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
-        assert [e.name for e in experiments] == ["ab", "a"]
+        assert {e.name for e in experiments} == {"ab", "a"}
         experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "a"]
+        assert {e.name for e in experiments} == {"Abc", "ab", "a"}
         experiments = self.store.search_experiments(
             filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
         )
@@ -261,9 +261,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         reversed_experiment_names = experiment_names[::-1]
 
         experiments = self.store.search_experiments()
-        assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
+        assert {e.name for e in experiments} == set(reversed_experiment_names + ["Default"])
         experiments = self.store.search_experiments(max_results=3)
-        assert [e.name for e in experiments] == reversed_experiment_names[:3]
+        assert {e.name for e in experiments} == set(reversed_experiment_names[:3])
 
     def test_search_experiments_max_results_validation(self):
         self.initialize()
@@ -281,15 +281,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         reversed_experiment_names = experiment_names[::-1]
 
         experiments = self.store.search_experiments(max_results=4)
-        assert [e.name for e in experiments] == reversed_experiment_names[:4]
+        assert {e.name for e in experiments} == set(reversed_experiment_names[:4])
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[4:8]
+        assert {e.name for e in experiments} == set(reversed_experiment_names[4:8])
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
+        assert {e.name for e in experiments} == set(reversed_experiment_names[8:] + ["Default"])
         assert experiments.token is None
 
     def _verify_experiment(self, fs, exp_id):

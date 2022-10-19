@@ -96,6 +96,9 @@ RUN apt-get install -y --no-install-recommends \
          maven \
     && rm -rf /var/lib/apt/lists/*
 
+# Increase default timeout for API throttling
+ENV PIP_DEFAULT_TIMEOUT=100
+
 {setup_miniconda}
 {setup_pyenv_and_virtualenv}
 
