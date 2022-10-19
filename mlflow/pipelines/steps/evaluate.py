@@ -285,25 +285,37 @@ class EvaluateStep(BaseStep):
             )
 
         # Tab 2: SHAP plots.
-        shap_plot_tab = card.add_tab(
-            "Feature Importance",
-            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
-            '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
-            '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
+        # shap_plot_tab = card.add_tab(
+        #     "Feature Importance",
+        #     '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
+        #     '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
+        #     '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
+        # )
+
+        # shap_bar_plot_path = os.path.join(
+        #     output_directory,
+        #     "eval_validation/artifacts",
+        #     "shap_feature_importance_plot_on_data_validation.png",
+        # )
+        # shap_beeswarm_plot_path = os.path.join(
+        #     output_directory,
+        #     "eval_validation/artifacts",
+        #     "shap_beeswarm_plot_on_data_validation.png",
+        # )
+        # shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
+        # shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+        plot_tab = card.add_tab(
+            "ROC Plot",
+            '<h3 class="section-title">ROC on Validation Dataset</h3>'
+            '<h3 class="section-title">ROC Curve Plot</h3>{{ROC_CURVE_PLOT}}',
         )
 
-        shap_bar_plot_path = os.path.join(
+        roc_plot_path = os.path.join(
             output_directory,
             "eval_validation/artifacts",
-            "shap_feature_importance_plot_on_data_validation.png",
+            "roc_curve_plot_on_data_validation.png",
         )
-        shap_beeswarm_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            "shap_beeswarm_plot_on_data_validation.png",
-        )
-        shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
-        shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+        plot_tab.add_image("ROC_CURVE_PLOT", roc_plot_path, width=800)
 
         # Tab 3: Run summary.
         run_summary_card_tab = card.add_tab(
