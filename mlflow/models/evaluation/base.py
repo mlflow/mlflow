@@ -1201,7 +1201,7 @@ should be at least 0.05 greater than baseline model accuracy
             for key in validation_thresholds.keys():
                 assert type(key) is str
             for threshold in validation_thresholds.values():
-                assert type(threshold) is MetricThreshold
+                assert isinstance(threshold, MetricThreshold)
         except AssertionError:
             raise MlflowException(
                 message="The validation thresholds argument must be a dictionary that maps strings "
