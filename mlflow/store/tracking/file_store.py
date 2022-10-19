@@ -285,7 +285,7 @@ class FileStore(AbstractStore):
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
         sorted_experiments = SearchExperimentsUtils.sort(
-            filtered, order_by or ["last_update_time DESC"]
+            filtered, order_by or ["creation_time DESC"]
         )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
@@ -354,11 +354,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        experiment_id = (
-            _generate_unique_integer_id()
-            if self._has_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-            else FileStore.DEFAULT_EXPERIMENT_ID
-        )
+        experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):

@@ -761,14 +761,13 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
-    assert {e.name for e in experiments} == {"a", "Default"}
+    assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
     experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    assert {e.name for e in experiments} == {"Abc", "a", "Default"}
+    assert [e.name for e in experiments] == ["Abc", "a", "Default"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    # ordering is slightly different between filestore and sqlalchemy store.
-    assert {e.name for e in experiments} == {"Abc", "ab", "a", "Default"}
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
