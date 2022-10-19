@@ -310,15 +310,14 @@ class TrainStep(BaseStep):
             experiment_ids=exp_id,
             run_view_type=ViewType.ACTIVE_ONLY,
             max_results=search_max_results,
-            order_by=[f"metrics.{self.primary_metric}_on_data_validation {primary_metric_order}"],
+            order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
         )
 
         metric_names = self.evaluation_metrics.keys()
-        metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
 
         leaderboard_items = []
         for old_run in search_result:
-            if all(metric_key in old_run.data.metrics for metric_key in metric_keys):
+            if all(metric_key in old_run.data.metrics for metric_key in metric_names):
                 leaderboard_items.append(
                     {
                         "Run ID": old_run.info.run_id,
@@ -327,7 +326,7 @@ class TrainStep(BaseStep):
                         ),
                         **{
                             metric_name: old_run.data.metrics[metric_key]
-                            for metric_name, metric_key in zip(metric_names, metric_keys)
+                            for metric_name, metric_key in zip(metric_names, metric_names)
                         },
                     }
                 )
@@ -393,7 +392,7 @@ class TrainStep(BaseStep):
 
     def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
-        primary_metric_tag = f"metrics.{self.primary_metric}_on_data_validation"
+        primary_metric_tag = f"metrics.{self.primary_metric}"
         order_str = (
             "DESC" if self.evaluation_metrics_greater_is_better[self.primary_metric] else "ASC"
         )
@@ -404,11 +403,9 @@ class TrainStep(BaseStep):
         )
         if params:
             params = [f"params.{param}" for param in params]
-            tuning_runs = tuning_runs.filter(
-                [f"metrics.{self.primary_metric}_on_data_validation", *params]
-            )
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}", *params])
         else:
-            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}_on_data_validation"])
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}"])
         tuning_runs = tuning_runs.reset_index().rename(
             columns={"index": "Model Rank", primary_metric_tag: self.primary_metric}
         )
