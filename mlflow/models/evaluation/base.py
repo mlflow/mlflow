@@ -1114,46 +1114,46 @@ def evaluate(
                                    )
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
-                                             :py:class:`mlflow.models.MetricThreshold` used for
-                                             model validation. Each metric name must either be the
-                                             name of a builtin metric or the name of a custom
-                                             metric defined in the ``custom_metrics`` parameter.
+                                  :py:class:`mlflow.models.MetricThreshold` used for
+                                  model validation. Each metric name must either be the
+                                  name of a builtin metric or the name of a custom
+                                  metric defined in the ``custom_metrics`` parameter.
 
-                                             .. code-block:: python
-                                                 :caption: Example of Model Validation
+                                  .. code-block:: python
+                                      :caption: Example of Model Validation
 
-                                                 from mlflow.models import MetricThreshold
+                                      from mlflow.models import MetricThreshold
 
-                                                 thresholds = {
-                                                     "accuracy_score": MetricThreshold(
-                                                         threshold=0.8,            # accuracy \
+                                      thresholds = {
+                                          "accuracy_score": MetricThreshold(
+                                              threshold=0.8,            # accuracy \
 should be >=0.8
-                                                         min_absolute_change=0.05, # accuracy \
+                                              min_absolute_change=0.05, # accuracy \
 should be at least 5 percent greater than baseline model accuracy
-                                                         min_relative_change=0.05, # accuracy \
+                                              min_relative_change=0.05, # accuracy \
 should be at least 0.05 greater than baseline model accuracy
-                                                         higher_is_better=True
-                                                     ),
-                                                 }
+                                              higher_is_better=True
+                                          ),
+                                      }
 
-                                                 with mlflow.start_run():
-                                                     mlflow.evaluate(
-                                                         model=your_candidate_model,
-                                                         data,
-                                                         targets,
-                                                         model_type,
-                                                         dataset_name,
-                                                         evaluators,
-                                                         validation_thresholds=thresholds,
-                                                         baseline_model=your_baseline_model,
-                                                     )
+                                      with mlflow.start_run():
+                                          mlflow.evaluate(
+                                              model=your_candidate_model,
+                                              data,
+                                              targets,
+                                              model_type,
+                                              dataset_name,
+                                              evaluators,
+                                              validation_thresholds=thresholds,
+                                              baseline_model=your_baseline_model,
+                                          )
                                             
-                                            See :ref:`the Model Validation documentation \
-<model-validation>` for more details.
+                                  See :ref:`the Model Validation documentation <model-validation>` 
+                                  for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-                                      flavor. If specified, the candidate ``model`` is compared to
-                                      this baseline for model validation purposes.
+                           flavor. If specified, the candidate ``model`` is compared to this 
+                           baseline for model validation purposes.
 
     :param env_manager: Specify an environment manager to load the candidate ``model`` and 
                         ``baseline_model`` in isolated Python evironments and restore their 
