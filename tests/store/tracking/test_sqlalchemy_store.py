@@ -13,6 +13,7 @@ import uuid
 import json
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
+from packaging.version import Version
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
@@ -1237,9 +1238,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
         with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
             self.store.set_experiment_tag(exp_id, longTag)
-        # test can set tags that are somewhat long
-        longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
-        self.store.set_experiment_tag(exp_id, longTag)
+        if not (
+            # TODO: Remove this condition once https://github.com/sqlalchemy/sqlalchemy/issues/8661
+            # is fixed.
+            self.store._get_dialect() == MSSQL
+            and Version(sqlalchemy.__version__) > Version("1.4")
+        ):
+            # test can set tags that are somewhat long
+            longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
+            self.store.set_experiment_tag(exp_id, longTag)
         # test cannot set tags on deleted experiments
         self.store.delete_experiment(exp_id)
         with pytest.raises(MlflowException, match="must be in the 'active' state"):
