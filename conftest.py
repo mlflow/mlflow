@@ -100,8 +100,12 @@ def pytest_terminal_summary(
 ):  # pylint: disable=unused-argument
     yield
     failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports and len(failed_test_reports) <= 50:
+    if failed_test_reports:
         terminalreporter.section("command to run failed tests")
-        ids = [repr(report.nodeid) for report in failed_test_reports]
+        if len(failed_test_reports) <= 30:
+            ids = [repr(report.nodeid) for report in failed_test_reports]
+        else:
+            # Use dict.fromkeys to preserve the order
+            ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
