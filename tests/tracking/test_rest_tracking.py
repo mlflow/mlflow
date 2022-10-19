@@ -604,8 +604,8 @@ def test_log_batch_validation(mlflow_client):
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
-        mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
+        mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
                 mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
