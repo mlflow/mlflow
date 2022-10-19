@@ -17,7 +17,7 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import (
     get_step_output_path,
     _get_execution_directory_basename,
-    _REGRESSION_MAKEFILE_FORMAT_STRING,
+    _MAKEFILE_FORMAT_STRING,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
@@ -339,9 +339,9 @@ def test_print_cached_steps_and_running_steps(capsys):
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
-    malformed_makefile = _REGRESSION_MAKEFILE_FORMAT_STRING + "non_existing_cmd"
+    malformed_makefile = _MAKEFILE_FORMAT_STRING + "non_existing_cmd"
     with mock.patch(
-        "mlflow.pipelines.utils.execution._REGRESSION_MAKEFILE_FORMAT_STRING",
+        "mlflow.pipelines.utils.execution._MAKEFILE_FORMAT_STRING",
         new=malformed_makefile,
     ):
         p = Pipeline(profile="local")
@@ -363,13 +363,13 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
     split = "# Run MLP step: split"
-    tokens = _REGRESSION_MAKEFILE_FORMAT_STRING.split(split)
+    tokens = _MAKEFILE_FORMAT_STRING.split(split)
     assert len(tokens) == 2
     tokens[1] = "\n\tnon-existing-cmd" + tokens[1]
     malformed_makefile_rte = split.join(tokens)
 
     with mock.patch(
-        "mlflow.pipelines.utils.execution._REGRESSION_MAKEFILE_FORMAT_STRING",
+        "mlflow.pipelines.utils.execution._MAKEFILE_FORMAT_STRING",
         new=malformed_makefile_rte,
     ):
         p = Pipeline(profile="local")

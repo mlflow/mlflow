@@ -398,8 +398,8 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template) -> 
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
 
-    if template == "regression/v1":
-        makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+    if template == "regression/v1" or template == "classification/v1":
+        makefile_to_use = _MAKEFILE_FORMAT_STRING
         steps_folder_path = os.path.join(pipeline_root_path, "steps")
         if not os.path.exists(steps_folder_path):
             os.mkdir(steps_folder_path)
@@ -514,7 +514,7 @@ class _MakefilePathFormat:
 # Makefile contents for cache-aware pipeline execution. These contents include variable placeholders
 # that need to be formatted (substituted) with the pipeline root directory in order to produce a
 # valid Makefile
-_REGRESSION_MAKEFILE_FORMAT_STRING = r"""
+_MAKEFILE_FORMAT_STRING = r"""
 # Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
 # invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
 ingest:
