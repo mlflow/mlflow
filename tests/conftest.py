@@ -41,6 +41,12 @@ def tracking_uri_mock(tmpdir, request):
             del os.environ["MLFLOW_TRACKING_URI"]
 
 
+@pytest.fixture(autouse=True)
+def reset_active_experiment_id():
+    yield
+    mlflow.tracking.fluent._active_experiment_id = None
+
+
 @pytest.fixture(autouse=True, scope="session")
 def enable_test_mode_by_default_for_autologging_integrations():
     """
