@@ -436,6 +436,20 @@ class CustomDataset(_PandasConvertibleDataset):
             self.custom_loader_method_name,
         ) = custom_loader_method.rsplit(".", 1)
 
+    def _validate_user_code_output(self, func, *args):
+        import pandas as pd
+
+        ingested_df = func(*args)
+        if not isinstance(ingested_df, pd.DataFrame):
+            raise MlflowException(
+                message=(
+                    "The `ingested_data` is not a DataFrame, please make sure "
+                    f"'{self.custom_loader_method_name}' returns a Pandas DataFrame object."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from None
+        return ingested_df
+
     def _load_file_as_pandas_dataframe(self, local_data_file_path: str):
         try:
             sys.path.append(self.pipeline_root)
@@ -454,7 +468,11 @@ class CustomDataset(_PandasConvertibleDataset):
             ) from e
 
         try:
-            return custom_loader_method(local_data_file_path, self.dataset_format)
+            return self._validate_user_code_output(
+                custom_loader_method, local_data_file_path, self.dataset_format
+            )
+        except MlflowException as e:
+            raise e
         except NotImplementedError:
             raise MlflowException(
                 message=(

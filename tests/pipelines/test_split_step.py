@@ -10,6 +10,7 @@ from mlflow.pipelines.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
     _make_elem_hashable,
+    _validate_user_code_output,
     SplitStep,
 )
 from unittest import mock
@@ -151,3 +152,43 @@ def test_split_step_skips_profiling_when_specified(tmp_path):
         split_step.run(str(split_output_dir))
 
     mock_profiling.assert_not_called()
+
+
+def test_validation_split_step_validates_split_correctly():
+    train_df = pd.DataFrame({"v": [10, 20, 30], "w": [1, 2, 3]})
+    validation_df = pd.DataFrame({"v": [40, 50, 60], "w": [4, 5, 6]})
+    test_df = pd.DataFrame({"v": [70, 80, 90], "w": [7, 8, 9]})
+
+    def correct_post_split(train_df, validation_df, test_df):
+        return (train_df, validation_df, test_df)
+
+    (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+        correct_post_split, train_df, validation_df, test_df
+    )
+
+    assert train_df.equals(out_train_df)
+    assert validation_df.equals(out_validation_df)
+    assert test_df.equals(out_test_df)
+
+    def drop_post_split(train_df, validation_df, test_df):
+        train_df = train_df.drop(columns=["w"])
+        return (train_df, validation_df, test_df)
+
+    with pytest.raises(
+        MlflowException,
+        match="Column list for train dataset pre-slit .* and post split is .*",
+    ):
+        (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+            drop_post_split, train_df, validation_df, test_df
+        )
+
+    def incorrect_post_split(_, validation_df, test_df):
+        return ([], validation_df, test_df)
+
+    with pytest.raises(
+        MlflowException,
+        match="The split data is not a DataFrame, please return the correct data.",
+    ):
+        (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+            incorrect_post_split, train_df, validation_df, test_df
+        )
