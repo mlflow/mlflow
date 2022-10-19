@@ -29,7 +29,7 @@ class DummyEvaluator(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    def _log_metrics(self, run_id, metrics, dataset_name):
+    def _log_metrics(self, run_id, metrics):
         """
         Helper method to log metrics into specified run.
         """
@@ -38,7 +38,7 @@ class DummyEvaluator(ModelEvaluator):
         client.log_batch(
             run_id,
             metrics=[
-                Metric(key=f"{key}_on_{dataset_name}", value=value, timestamp=timestamp, step=0)
+                Metric(key=key, value=value, timestamp=timestamp, step=0)
                 for key, value in metrics.items()
             ],
         )
@@ -50,9 +50,9 @@ class DummyEvaluator(ModelEvaluator):
             metrics = {"accuracy_score": accuracy_score}
             artifacts = {}
             if not is_baseline_model:
-                self._log_metrics(self.run_id, metrics, self.dataset.name)
+                self._log_metrics(self.run_id, metrics)
                 confusion_matrix = sk_metrics.confusion_matrix(self.y, y_pred)
-                confusion_matrix_artifact_name = f"confusion_matrix_on_{self.dataset.name}"
+                confusion_matrix_artifact_name = "confusion_matrix"
                 confusion_matrix_artifact = Array2DEvaluationArtifact(
                     uri=get_artifact_uri(self.run_id, confusion_matrix_artifact_name + ".csv"),
                     content=confusion_matrix,
@@ -74,9 +74,7 @@ class DummyEvaluator(ModelEvaluator):
                 img_buf.seek(0)
                 confusion_matrix_image = Image.open(img_buf)
 
-                confusion_matrix_image_artifact_name = (
-                    f"confusion_matrix_image_on_{self.dataset.name}"
-                )
+                confusion_matrix_image_artifact_name = "confusion_matrix_image"
                 confusion_matrix_image_artifact = ImageEvaluationArtifact(
                     uri=get_artifact_uri(
                         self.run_id, confusion_matrix_image_artifact_name + ".png"
@@ -102,7 +100,7 @@ class DummyEvaluator(ModelEvaluator):
                 "mean_squared_error": mean_squared_error,
             }
             if not is_baseline_model:
-                self._log_metrics(self.run_id, metrics, self.dataset.name)
+                self._log_metrics(self.run_id, metrics)
             artifacts = {}
         else:
             raise ValueError(f"Unsupported model type {self.model_type}")

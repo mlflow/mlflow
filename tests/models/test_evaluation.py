@@ -385,7 +385,7 @@ def test_classifier_evaluate(
         "accuracy_score": expected_accuracy_score,
     }
     expected_saved_metrics = {
-        "accuracy_score_on_iris_dataset": expected_accuracy_score,
+        "accuracy_score": expected_accuracy_score,
     }
 
     expected_csv_artifact = confusion_matrix(y_true, y_pred)
@@ -405,10 +405,10 @@ def test_classifier_evaluate(
             baseline_model=baseline_model_uri,
         )
 
-    csv_artifact_name = "confusion_matrix_on_iris_dataset"
+    csv_artifact_name = "confusion_matrix"
     saved_csv_artifact_path = get_local_artifact_path(run.info.run_id, csv_artifact_name + ".csv")
 
-    png_artifact_name = "confusion_matrix_image_on_iris_dataset"
+    png_artifact_name = "confusion_matrix_image"
     saved_png_artifact_path = get_local_artifact_path(run.info.run_id, png_artifact_name) + ".png"
 
     _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
@@ -451,21 +451,21 @@ def test_classifier_evaluate(
 
         with open(temp_dir.path("artifacts_metadata.json"), "r") as fp:
             json_dict = json.load(fp)
-            assert "confusion_matrix_on_iris_dataset" in json_dict
-            assert json_dict["confusion_matrix_on_iris_dataset"] == {
+            assert "confusion_matrix" in json_dict
+            assert json_dict["confusion_matrix"] == {
                 "uri": confusion_matrix_artifact.uri,
                 "class_name": "mlflow_test_plugin.dummy_evaluator.Array2DEvaluationArtifact",
             }
 
-            assert "confusion_matrix_image_on_iris_dataset" in json_dict
-            assert json_dict["confusion_matrix_image_on_iris_dataset"] == {
+            assert "confusion_matrix_image" in json_dict
+            assert json_dict["confusion_matrix_image"] == {
                 "uri": confusion_matrix_image_artifact.uri,
                 "class_name": "mlflow.models.evaluation.artifacts.ImageEvaluationArtifact",
             }
 
         assert set(os.listdir(temp_dir.path("artifacts"))) == {
-            "confusion_matrix_on_iris_dataset.csv",
-            "confusion_matrix_image_on_iris_dataset.png",
+            "confusion_matrix.csv",
+            "confusion_matrix_image.png",
         }
 
         loaded_eval_result = EvaluationResult.load(temp_dir_path)
@@ -523,8 +523,8 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
         "mean_squared_error": expected_mse,
     }
     expected_saved_metrics = {
-        "mean_absolute_error_on_diabetes_dataset": expected_mae,
-        "mean_squared_error_on_diabetes_dataset": expected_mse,
+        "mean_absolute_error": expected_mae,
+        "mean_squared_error": expected_mse,
     }
 
     with mlflow.start_run() as run:
@@ -547,8 +547,6 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
 
-    dataset_name = "diabetes_pd"
-
     with mlflow.start_run() as run:
         eval_result = evaluate(
             linear_regressor_model_uri,
@@ -559,9 +557,8 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
-    augment_name = f"_on_data_{dataset_name}"
     for k, v in eval_result.metrics.items():
-        assert v == saved_metrics[f"{k}{augment_name}"]
+        assert v == saved_metrics[k]
 
 
 def test_dataset_name():
