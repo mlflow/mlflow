@@ -926,7 +926,7 @@ class DefaultEvaluator(ModelEvaluator):
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
             artifact_name, raw_artifact, custom_metric_tuple
         )
-        artifact_file_local_path = self.temp_dir.path(inferred_ext)
+        artifact_file_local_path = self.temp_dir.path(artifact_name + inferred_ext)
 
         if pathlib.Path(artifact_file_local_path).exists():
             raise MlflowException(
