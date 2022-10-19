@@ -1,11 +1,9 @@
-import time
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
     Column,
     String,
     ForeignKey,
-    Integer,
     CheckConstraint,
     BigInteger,
     PrimaryKeyConstraint,
@@ -28,6 +26,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
+from mlflow.utils.time_utils import get_current_time_millis
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -48,14 +47,15 @@ RunStatusTypes = [
 
 class SqlExperiment(Base):
     """
-    DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
+    DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in the
+    ``experiments`` table.
     """
 
     __tablename__ = "experiments"
 
-    experiment_id = Column(Integer, autoincrement=True)
+    experiment_id = Column(BigInteger, nullable=False, autoincrement=False)
     """
-    Experiment ID: `Integer`. *Primary Key* for ``experiment`` table.
+    Experiment ID: `BigInteger`. *Primary Key* for the ``experiments`` table.
     """
     name = Column(String(256), unique=True, nullable=False)
     """
@@ -72,11 +72,11 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
-    creation_time = Column(BigInteger(), default=int(time.time() * 1000))
+    creation_time = Column(BigInteger, default=get_current_time_millis)
     """
     Creation time of experiment: `BigInteger`.
     """
-    last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
     """
     Last Update time of experiment: `BigInteger`.
     """
@@ -146,7 +146,7 @@ class SqlRun(Base):
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
     """
-    start_time = Column(BigInteger, default=int(time.time() * 1000))
+    start_time = Column(BigInteger, default=get_current_time_millis)
     """
     Run start time: `BigInteger`. Defaults to current system time.
     """
@@ -171,7 +171,7 @@ class SqlRun(Base):
     """
     Default artifact location for this run: `String` (limit 200 characters).
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(BigInteger, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this run belongs to: *Foreign Key* into ``experiment`` table.
     """
@@ -249,7 +249,7 @@ class SqlExperimentTag(Base):
     """
     Value associated with tag: `String` (limit 5000 characters). Could be *null*.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    experiment_id = Column(BigInteger, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this tag belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -329,7 +329,7 @@ class SqlMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
+    timestamp = Column(BigInteger, default=get_current_time_millis)
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
@@ -384,7 +384,7 @@ class SqlLatestMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
+    timestamp = Column(BigInteger, default=get_current_time_millis)
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``latest_metrics`` table.
