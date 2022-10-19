@@ -244,6 +244,11 @@ class SplitStep(BaseStep):
             train_df = train_df[post_split_filter(train_df)]
             validation_df = validation_df[post_split_filter(validation_df)]
             test_df = test_df[post_split_filter(test_df)]
+
+        if min(len(train_df), len(validation_df), len(test_df)) < 4:
+            raise MlflowException(
+                "Train, validation, and testing datasets cannot be less than 4 rows."
+            )
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
