@@ -6,6 +6,7 @@ on:
 jobs:
   stale:
     runs-on: ubuntu-latest
+    if: "!(github.event_name == 'schedule' && github.repository != 'mlflow/mlflow')"
     steps:
       - uses: harupy/stale@mlflow-stale-bot
         with:

@@ -42,6 +42,7 @@ defaults:
 jobs:
   skinny:
     runs-on: ubuntu-latest
+    if: "!(github.event_name == 'schedule' && github.repository != 'mlflow/mlflow')"
     steps:
       - uses: actions/checkout@v3
         with:
