@@ -109,7 +109,7 @@ def spark_session():
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "iris_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -119,7 +119,7 @@ def iris_dataset():
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "diabetes_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -128,7 +128,7 @@ def diabetes_dataset():
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    constructor_args = {"data": spark_df, "targets": "label", "name": "diabetes_spark_dataset"}
+    constructor_args = {"data": spark_df, "targets": "label"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -138,7 +138,7 @@ def diabetes_spark_dataset():
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "breast_cancer_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -327,7 +327,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_dataset"}
+    constructor_args = {"data": data, "targets": "y"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -339,7 +339,7 @@ def iris_pandas_df_num_cols_dataset():
     eval_X, eval_y = X[0::3], y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_num_cols_dataset"}
+    constructor_args = {"data": data, "targets": "y"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
