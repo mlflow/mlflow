@@ -11,7 +11,6 @@ import time
 import mlflow
 import uuid
 import json
-import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -182,7 +181,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 # Reset experiment_id to start at 1
                 reset_experiment_id = self._get_query_to_reset_experiment_id()
                 if reset_experiment_id:
-                    session.execute(reset_experiment_id)
+                    session.execute(sqlalchemy.sql.text(reset_experiment_id))
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -817,19 +816,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
-            m1 = models.SqlMetric(key="accuracy", value=0.89)
-            m2 = models.SqlMetric(key="recal", value=0.89)
-            p1 = models.SqlParam(key="loss", value="test param")
-            p2 = models.SqlParam(key="blue", value="test param")
+            run_id = uuid.uuid4().hex
+            run_data = models.SqlRun(run_uuid=run_id)
+            m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
+            m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
+            p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
+            p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
 
             session.add_all([m1, m2, p1, p2])
-
-            run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
-            run_data.params.append(p1)
-            run_data.params.append(p2)
-            run_data.metrics.append(m1)
-            run_data.metrics.append(m2)
-
             session.add(run_data)
             session.commit()
 
@@ -2566,15 +2560,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 }
             )
             current_run += 1
-        metrics = pd.DataFrame(metrics_list)
-        metrics.to_sql("metrics", self.store.engine, if_exists="append", index=False)
-        params = pd.DataFrame(params_list)
-        params.to_sql("params", self.store.engine, if_exists="append", index=False)
-        tags = pd.DataFrame(tags_list)
-        tags.to_sql("tags", self.store.engine, if_exists="append", index=False)
-        pd.DataFrame(latest_metrics_list).to_sql(
-            "latest_metrics", self.store.engine, if_exists="append", index=False
-        )
+
+        with self.store.engine.begin() as conn:
+            conn.execute(sqlalchemy.insert(SqlParam), params_list)
+            conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
+            conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
+            conn.execute(sqlalchemy.insert(SqlTag), tags_list)
+
         return experiment_id, run_ids
 
     def test_search_runs_returns_expected_results_with_large_experiment(self):
@@ -2696,19 +2688,31 @@ class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
 
+class TextClauseMatcher:
+    def __init__(self, text):
+        self.text = text
+
+    def __eq__(self, other):
+        return self.text == other.text
+
+
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
 class TestZeroValueInsertion(unittest.TestCase):
     def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MYSQL
         SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+        )
 
     def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MSSQL
         SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments ON;")
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+        )
 
     def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
@@ -2716,7 +2720,7 @@ class TestZeroValueInsertion(unittest.TestCase):
         SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
             mock_store, mock_session
         )
-        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='';")
+        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
 
     def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
@@ -2724,7 +2728,9 @@ class TestZeroValueInsertion(unittest.TestCase):
         SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
             mock_store, mock_session
         )
-        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+        )
 
 
 def test_get_attribute_name():

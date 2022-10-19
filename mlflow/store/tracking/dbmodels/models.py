@@ -289,7 +289,7 @@ class SqlTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(250), nullable=True)
+    value = Column(String(5000), nullable=True)
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """
