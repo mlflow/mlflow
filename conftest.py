@@ -92,3 +92,16 @@ def pytest_collection_modifyitems(session, config, items):  # pylint: disable=un
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_terminal_summary(
+    terminalreporter, exitstatus, config
+):  # pylint: disable=unused-argument
+    yield
+    failed_test_reports = terminalreporter.stats.get("failed", [])
+    if failed_test_reports and len(failed_test_reports) <= 50:
+        terminalreporter.section("command to run failed tests")
+        ids = [repr(report.nodeid) for report in failed_test_reports]
+        terminalreporter.write(" ".join(["pytest"] + ids))
+        terminalreporter.write("\n" * 2)
