@@ -255,7 +255,7 @@ def _create_virtualenv(
                 _logger.warning(
                     "Failed to symlink model directory during dependency installation"
                     " Copying instead. Exception: %s",
-                    e
+                    e,
                 )
                 shutil.rmtree(model_dir)
                 shutil.copytree(local_model_path, model_dir)
