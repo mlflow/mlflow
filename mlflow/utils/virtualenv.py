@@ -9,6 +9,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model, MLMODEL_FILE_NAME
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.requirements_utils import _parse_requirements
 from mlflow.utils.environment import (
@@ -237,15 +238,15 @@ def _create_virtualenv(
 
     _logger.info("Installing dependencies")
     for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
-        # Create a temporary requirements file in the model directory to resolve the references
-        # in it correctly.
-        tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
-        local_model_path.joinpath(tmp_req_file).write_text("\n".join(deps))
-        try:
+        with TempDir() as t:
+            # Create a temporary requirements file in the model directory to resolve the references
+            # in it correctly. To do this, we must copy the model directory to accommodate
+            # deployment tools that store models in a read-only mount
+            shutil.copytree(local_model_path, t.path())
+            tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
+            t.path(tmp_req_file).write_text("\n".join(deps))
             cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
             _exec_cmd(cmd, capture_output=capture_output, cwd=local_model_path, extra_env=extra_env)
-        finally:
-            local_model_path.joinpath(tmp_req_file).unlink()
 
     return activate_cmd
 
