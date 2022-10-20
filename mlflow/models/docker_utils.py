@@ -211,6 +211,16 @@ def _build_image(
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
+            with open(mlflow.__version__, "w") as f1:
+                f1.write(
+                    _generate_dockerfile_content(
+                        setup_miniconda=setup_miniconda,
+                        setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
+                        install_mlflow=install_mlflow,
+                        custom_setup_steps=custom_setup_steps,
+                        entrypoint=entrypoint,
+                    )
+                )
             f.write(
                 _generate_dockerfile_content(
                     setup_miniconda=setup_miniconda,

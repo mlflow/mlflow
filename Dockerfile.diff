@@ -1,0 +1,40 @@
+diff --git a/Dockerfile.1.29.1.dev0 b/Dockerfile.2.0.0.dev0
+index e8ba007fd..306591d17 100644
+--- a/Dockerfile.1.29.1.dev0
++++ b/Dockerfile.2.0.0.dev0
+@@ -6,11 +6,24 @@ RUN apt-get -y update
+ RUN apt-get install -y --no-install-recommends          wget          curl          nginx          ca-certificates          bzip2          build-essential          cmake          openjdk-8-jdk          git-core          maven     && rm -rf /var/lib/apt/lists/*
+ 
+ 
+-# Setup miniconda
+-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+-RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
+-ENV PATH="/miniconda/bin:$PATH"
+ 
++# Setup pyenv
++RUN apt -y update
++RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
++RUN apt-get install -y \
++    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
++    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
++RUN git clone \
++    --depth 1 \
++    --branch $(git ls-remote --tags https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
++    https://github.com/pyenv/pyenv.git /root/.pyenv
++ENV PYENV_ROOT="/root/.pyenv"
++ENV PATH="$PYENV_ROOT/bin:$PATH"
++RUN apt install -y python3.7
++RUN ln -s -f $(which python3.7) /usr/bin/python
++RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
++RUN python /tmp/get-pip.py
++RUN pip install virtualenv
+ 
+ 
+ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+@@ -32,5 +45,5 @@ RUN python -c "from mlflow.models.container import _install_pyfunc_deps;_install
+ RUN chmod o+rwX /opt/mlflow/
+ 
+ 
+-        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C;         C._init(sys.argv[1], 'conda')"]
++        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C;         C._init(sys.argv[1], 'virtualenv')"]
+         
