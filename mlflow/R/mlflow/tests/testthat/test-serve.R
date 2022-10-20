@@ -55,21 +55,7 @@ test_that("mlflow can serve a model function", {
     stdout = "|",
     stderr = "|"
   )
-  Sys.sleep(10)
-  tryCatch(
-    {
-      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
-    },
-    error = function(e) {
-      write("FAILED!", stderr())
-      error_text <- testthat_model_server$read_error()
-      testthat_model_server$kill()
-      stop(e$message, ": ", error_text)
-    }
-  )
-
-  expect_equal(status_code, 200)
-
+  wait_for_server_to_start(testthat_model_server, port)
   newdata <- iris[1:2, c("Sepal.Length", "Petal.Width")]
 
   http_prediction <- httr::content(

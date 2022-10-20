@@ -9,6 +9,7 @@ import botocore
 import numpy as np
 from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
+from moto.core import DEFAULT_ACCOUNT_ID
 
 import mlflow
 import mlflow.pyfunc
@@ -53,7 +54,7 @@ def sagemaker_client():
 
 
 def get_sagemaker_backend(region_name):
-    return mock_sagemaker.backends[region_name]
+    return mock_sagemaker.backends[DEFAULT_ACCOUNT_ID][region_name]
 
 
 def mock_sagemaker_aws_services(fn):

@@ -47,7 +47,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.7.6"
+    maximum: "1.7.7"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -153,7 +153,7 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -161,7 +161,7 @@ lightgbm:
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -180,7 +180,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.6"
+    maximum: "1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |

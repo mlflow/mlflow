@@ -109,6 +109,45 @@ def _create_hash_buckets(input_df):
     return hash_buckets
 
 
+def _validate_user_code_output(post_split, train_df, validation_df, test_df):
+    try:
+        (
+            post_filter_train_df,
+            post_filter_validation_df,
+            post_filter_test_df,
+        ) = post_split(train_df, validation_df, test_df)
+    except Exception:
+        raise MlflowException(
+            message="Error in cleaning up the data frame post split step."
+            " Expected output is a tuple with (train_df, validation_df, test_df)"
+        ) from None
+
+    import pandas as pd
+
+    for (post_split_df, pre_split_df, split_type) in [
+        [post_filter_train_df, train_df, "train"],
+        [post_filter_validation_df, validation_df, "validation"],
+        [post_filter_test_df, test_df, "test"],
+    ]:
+        if not isinstance(post_split_df, pd.DataFrame):
+            raise MlflowException(
+                message="The split data is not a DataFrame, please return the correct data."
+            ) from None
+        if list(pre_split_df.columns) != list(post_split_df.columns):
+            raise MlflowException(
+                message="The number of columns post split step are different."
+                f" Column list for {split_type} dataset pre-slit is {list(pre_split_df.columns)}"
+                f" and post split is {list(post_split_df.columns)}. "
+                "Split filter function should be used to filter rows rather than filtering columns."
+            ) from None
+
+    return (
+        post_filter_train_df,
+        post_filter_validation_df,
+        post_filter_test_df,
+    )
+
+
 class SplitStep(BaseStep):
     def _validate_and_apply_step_config(self):
         self.run_end_time = None
@@ -228,7 +267,12 @@ class SplitStep(BaseStep):
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
             _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
-            (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
+            (
+                train_df,
+                validation_df,
+                test_df,
+            ) = _validate_user_code_output(post_split, train_df, validation_df, test_df)
+
         elif post_split_filter_config is not None:
             (
                 post_split_filter_module_name,
