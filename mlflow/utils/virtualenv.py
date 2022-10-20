@@ -258,7 +258,7 @@ def _create_virtualenv(
                 shutil.copytree(local_model_path, model_dir)
 
             tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
-            t.path(tmp_req_file).write_text("\n".join(deps))
+            Path(model_dir).joinpath(tmp_req_file).write_text("\n".join(deps))
             cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
             _exec_cmd(cmd, capture_output=capture_output, cwd=local_model_path, extra_env=extra_env)
 
