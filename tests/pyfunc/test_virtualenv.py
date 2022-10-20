@@ -68,8 +68,7 @@ def test_restore_environment_with_virtualenv(sklearn_model):
 
 
 @use_temp_mlflow_env_root
-@pytest.mark.parametrize("simulate_symlink_fail", [False, True])
-def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path, simulate_symlink_fail):
+def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
     model_path = str(tmp_path / "model")
     mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
     os.chmod(
@@ -77,12 +76,7 @@ def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path, simu
         S_IRUSR | S_IRGRP | S_IROTH | S_IXUSR | S_IXGRP | S_IXOTH,
     )
 
-    if simulate_symlink_fail:
-        with mock.patch("os.symlink", side_effect=Exception("Symlink failed!")):
-            scores = serve_and_score(model_path, sklearn_model.X_pred)
-    else:
-        scores = serve_and_score(model_path, sklearn_model.X_pred)
-
+    scores = serve_and_score(model_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
