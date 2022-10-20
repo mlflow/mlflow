@@ -2,7 +2,7 @@ import os
 import sys
 from collections import namedtuple
 from pathlib import Path
-from stat import S_IREAD, S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
+from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
 
 import pytest
 import numpy as np
@@ -72,7 +72,7 @@ def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
     mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
     os.chmod(
         model_path,
-        S_IRUSR|S_IRGRP|S_IROTH|S_IXUSR|S_IXGRP|S_IXOTH,
+        S_IRUSR | S_IRGRP | S_IROTH | S_IXUSR | S_IXGRP | S_IXOTH,
     )
 
     scores = serve_and_score(model_path, sklearn_model.X_pred)
