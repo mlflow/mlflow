@@ -14,8 +14,6 @@ matplotlib
 shap>=0.40
 plotly
 kaleido
-# The latest flask version requires werkzeug>=2.2.0
-werkzeug>=2.2.0
 # Required by mlflow.keras / mlflow.pytorch tests.
 transformers
 # Required by tuning tests
