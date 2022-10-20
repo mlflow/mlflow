@@ -240,9 +240,24 @@ def _create_virtualenv(
     for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
         with TempDir() as t:
             # Create a temporary requirements file in the model directory to resolve the references
-            # in it correctly. To do this, we must copy the model directory to accommodate
-            # deployment tools that store models in a read-only mount
-            shutil.copytree(local_model_path, t.path())
+            # in it correctly. To do this, we must first symlink or copy the model directory's
+            # contents to a temporary location for compatibility with deployment tools that store
+            # models in a read-only mount
+            model_dir = t.path("model")
+            os.makedirs(model_dir)
+            try:
+                for model_item in os.listdir(local_model_path):
+                    os.symlink(model_item, os.path.join(model_dir, model_item))
+            except Exception as e:
+                _logger.warning(
+                    "Failed to symlink model directory during dependency installation"
+                    " Copying instead. Exception: %s",
+                    e
+                )
+                shutil.rmtree(model_dir)
+                os.makedirs(model_dir)
+                shutil.copytree(local_model_path, t.path())
+
             tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
             t.path(tmp_req_file).write_text("\n".join(deps))
             cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
