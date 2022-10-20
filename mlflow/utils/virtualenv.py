@@ -244,8 +244,8 @@ def _create_virtualenv(
             # contents to a temporary location for compatibility with deployment tools that store
             # models in a read-only mount
             model_dir = t.path("model")
-            os.makedirs(model_dir)
             try:
+                os.makedirs(model_dir)
                 for model_item in os.listdir(local_model_path):
                     os.symlink(model_item, os.path.join(model_dir, model_item))
             except Exception as e:
