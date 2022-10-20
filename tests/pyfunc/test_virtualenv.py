@@ -1,6 +1,8 @@
+import os
 import sys
-from pathlib import Path
 from collections import namedtuple
+from pathlib import Path
+from stat import S_IREAD, S_IRGRP, S_IROTH
 
 import pytest
 import numpy as np
@@ -56,7 +58,7 @@ use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__
 
 
 @use_temp_mlflow_env_root
-def test_serve_and_score(sklearn_model):
+def test_restore_environment_with_virtualenv(sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
 
@@ -65,11 +67,16 @@ def test_serve_and_score(sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_restore_environment_with_virtualenv(sklearn_model):
-    with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
+    model_path = str(tmp_path / "model")
+    mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
+    os.chmod(model_path, S_IREAD|S_IRGRP|S_IROTH)
+    for dirpath, _, filenames in os.walk(model_path):
+        os.chmod(dirpath, S_IREAD|S_IRGRP|S_IROTH)
+        for filename in filenames:
+            os.chmod(os.path.join(dirpath, filename), S_IREAD|S_IRGRP|S_IROTH)
 
-    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    scores = serve_and_score(model_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
