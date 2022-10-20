@@ -20,7 +20,7 @@ class SageMakerResponse(BaseResponse):
 
     @property
     def sagemaker_backend(self):
-        return sagemaker_backends[self.region]
+        return sagemaker_backends[DEFAULT_ACCOUNT_ID][self.region]
 
     @property
     def request_params(self):
