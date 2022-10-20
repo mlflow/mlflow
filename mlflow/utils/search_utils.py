@@ -686,8 +686,8 @@ class SearchUtils:
 
 
 class SearchExperimentsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
+    VALID_SEARCH_ATTRIBUTE_KEYS = ("name", "creation_time", "last_update_time", "experiment_id")
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "creation_time", "last_update_time", "experiment_id")
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -811,8 +811,8 @@ class SearchExperimentsUtils(SearchUtils):
                 raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
         # Add a tie-breaker
-        if not any(key == "experiment_id" for key, _ in order_by):
-            order_by.append(("experiment_id", False))
+        if not any(key == "last_update_time" for key, _ in order_by):
+            order_by.append(("last_update_time", False))
 
         # https://stackoverflow.com/a/56842689
         class _Reversor:

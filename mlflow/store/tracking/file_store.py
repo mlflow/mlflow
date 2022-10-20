@@ -38,7 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.name_utils import _generate_random_name
+from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -74,6 +74,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, _get_run_name_from_tags
 
@@ -149,16 +150,19 @@ class FileStore(AbstractStore):
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
-            mkdir(self.root_directory)
-            self._create_experiment_with_id(
-                name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                artifact_uri=None,
-                tags=None,
-            )
+            self._create_default_experiment()
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
+
+    def _create_default_experiment(self):
+        mkdir(self.root_directory)
+        self._create_experiment_with_id(
+            name=Experiment.DEFAULT_EXPERIMENT_NAME,
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            artifact_uri=None,
+            tags=None,
+        )
 
     def _check_root_dir(self):
         """
@@ -280,7 +284,9 @@ class FileStore(AbstractStore):
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
-        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        sorted_experiments = SearchExperimentsUtils.sort(
+            filtered, order_by or ["creation_time DESC"]
+        )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
         )
@@ -308,7 +314,7 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        creation_time = int(time.time() * 1000)
+        creation_time = get_current_time_millis()
         experiment = Experiment(
             experiment_id,
             name,
@@ -348,17 +354,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        # Get all existing experiments and find the one with largest numerical ID.
-        # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [
-            int(e)
-            for e in (
-                self._get_active_experiments(full_path=False)
-                + self._get_deleted_experiments(full_path=False)
-            )
-            if e.isdigit()
-        ]
-        experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+        experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
@@ -409,6 +405,12 @@ class FileStore(AbstractStore):
         return experiment
 
     def delete_experiment(self, experiment_id):
+        if str(experiment_id) == str(FileStore.DEFAULT_EXPERIMENT_ID):
+            raise MlflowException(
+                "Cannot delete the default experiment "
+                f"'{FileStore.DEFAULT_EXPERIMENT_ID}'. This is an internally "
+                f"reserved experiment."
+            )
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException(
@@ -416,7 +418,7 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         experiment = self._get_experiment(experiment_id)
-        experiment._set_last_update_time(int(time.time() * 1000))
+        experiment._set_last_update_time(get_current_time_millis())
         meta_dir = os.path.join(self.root_directory, experiment_id)
         FileStore._overwrite_yaml(
             root=meta_dir,
@@ -442,7 +444,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
-        experiment._set_last_update_time(int(time.time() * 1000))
+        experiment._set_last_update_time(get_current_time_millis())
         FileStore._overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
@@ -461,7 +463,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
-        experiment._set_last_update_time(int(time.time() * 1000))
+        experiment._set_last_update_time(get_current_time_millis())
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
@@ -480,7 +482,7 @@ class FileStore(AbstractStore):
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
+        self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
 
     def _hard_delete_run(self, run_id):
         """
@@ -497,7 +499,7 @@ class FileStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = int(time.time() * 1000)
+        current_time = get_current_time_millis()
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
             experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
