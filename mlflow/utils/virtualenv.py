@@ -247,7 +247,10 @@ def _create_virtualenv(
             try:
                 os.makedirs(model_dir)
                 for model_item in os.listdir(local_model_path):
-                    os.symlink(model_item, os.path.join(model_dir, model_item))
+                    os.symlink(
+                        src=os.path.join(local_model_path, model_item),
+                        dst=os.path.join(model_dir, model_item),
+                    )
             except Exception as e:
                 _logger.warning(
                     "Failed to symlink model directory during dependency installation"
@@ -260,7 +263,7 @@ def _create_virtualenv(
             tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
             Path(model_dir).joinpath(tmp_req_file).write_text("\n".join(deps))
             cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
-            _exec_cmd(cmd, capture_output=capture_output, cwd=local_model_path, extra_env=extra_env)
+            _exec_cmd(cmd, capture_output=capture_output, cwd=model_dir, extra_env=extra_env)
 
     return activate_cmd
 
