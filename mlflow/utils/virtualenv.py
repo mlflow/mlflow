@@ -243,13 +243,13 @@ def _create_virtualenv(
             # in it correctly. To do this, we must first symlink or copy the model directory's
             # contents to a temporary location for compatibility with deployment tools that store
             # models in a read-only mount
-            model_dir = t.path("model")
+            tmp_model_dir = t.path("model")
+            os.makedirs(tmp_model_dir)
             try:
-                os.makedirs(model_dir)
                 for model_item in os.listdir(local_model_path):
                     os.symlink(
                         src=os.path.join(local_model_path, model_item),
-                        dst=os.path.join(model_dir, model_item),
+                        dst=os.path.join(tmp_model_dir, model_item),
                     )
             except Exception as e:
                 _logger.warning(
@@ -257,15 +257,36 @@ def _create_virtualenv(
                     " Copying instead. Exception: %s",
                     e,
                 )
-                shutil.rmtree(model_dir)
-                shutil.copytree(local_model_path, model_dir)
+                shutil.rmtree(tmp_model_dir)
+                _copy_model_to_writeable_destination(local_model_path, tmp_model_dir)
 
             tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
-            Path(model_dir).joinpath(tmp_req_file).write_text("\n".join(deps))
+            Path(tmp_model_dir).joinpath(tmp_req_file).write_text("\n".join(deps))
             cmd = _join_commands(activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}")
-            _exec_cmd(cmd, capture_output=capture_output, cwd=model_dir, extra_env=extra_env)
+            _exec_cmd(cmd, capture_output=capture_output, cwd=tmp_model_dir, extra_env=extra_env)
 
     return activate_cmd
+
+
+def _copy_model_to_writeable_destination(model_src, dst):
+    """
+    Copies the specified `model_src` directory, which may be read-only, to the writeable `dst`
+    directory.
+    """
+    os.makedirs(dst, exist_ok=True)
+    for model_item in os.listdir(model_src):
+        # Copy individual files and subdirectories, rather than using `shutil.copytree()`
+        # because `shutil.copytree()` will apply the permissions from the source directory,
+        # which may be read-only
+        if os.path.isdir(model_item):
+            copy_fn = shutil.copytree
+        else:
+            copy_fn = shutil.copy2
+
+        copy_fn(
+            src=os.path.join(model_src, model_item),
+            dst=os.path.join(dst, model_item),
+        )
 
 
 def _get_virtualenv_extra_env_vars(env_root_dir=None):

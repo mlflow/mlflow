@@ -3,6 +3,7 @@ import sys
 from collections import namedtuple
 from pathlib import Path
 from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
+from unittest import mock
 
 import pytest
 import numpy as np
@@ -67,7 +68,8 @@ def test_restore_environment_with_virtualenv(sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
+@pytest.mark.parametrize("simulate_symlink_fail", [False, True])
+def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path, simulate_symlink_fail):
     model_path = str(tmp_path / "model")
     mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
     os.chmod(
@@ -75,7 +77,12 @@ def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
         S_IRUSR | S_IRGRP | S_IROTH | S_IXUSR | S_IXGRP | S_IXOTH,
     )
 
-    scores = serve_and_score(model_path, sklearn_model.X_pred)
+    if simulate_symlink_fail:
+        with mock.patch("os.symlink", side_effect=Exception("Symlink failed!")):
+            scores = serve_and_score(model_path, sklearn_model.X_pred)
+    else:
+        scores = serve_and_score(model_path, sklearn_model.X_pred)
+
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
