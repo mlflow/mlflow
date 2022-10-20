@@ -37,8 +37,10 @@ def pandas_df():
             "C": [-9.2, 82.5, 3.40],
         }
     )
-    df.index.rename("index", inplace=True)
-    return df
+    # duplicate the df so that each partition is above min size
+    df2 = pd.concat([df] * 10, ignore_index=True)
+    df2.index.rename("index", inplace=True)
+    return df2
 
 
 @pytest.fixture
@@ -60,7 +62,9 @@ def test_pipeline(
         pipeline_config={
             "target_col": "C",
             "steps": {
-                "split": {},
+                "split": {
+                    "split_ratios": [0.34, 0.33, 0.33],
+                },
             },
         },
         pipeline_root=os.getcwd(),
@@ -466,7 +470,7 @@ def test_run_pipeline_step_after_change_clears_downstream_step_state(test_pipeli
             "target_col": "C",
             "steps": {
                 "split": {
-                    "split_ratios": [0.8, 0.1, 0.1],
+                    "split_ratios": [0.5, 0.25, 0.25],
                 },
             },
         },
