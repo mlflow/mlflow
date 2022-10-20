@@ -1,5 +1,3 @@
-# CHANGELOG
-
 ## 1.30.0 (2022-10-19)
 
 MLflow 1.30.0 includes several major features and improvements
@@ -7,34 +5,41 @@ MLflow 1.30.0 includes several major features and improvements
 Features:
 
 - [Pipelines] Introduce hyperparameter tuning support to MLflow Pipelines (#6859, @prithvikannan)
+- [Pipelines] Introduce support for prediction outlier comparison to training data set (#6991, @jinzhang21) 
+- [Pipelines] Introduce support for recording all training parameters for reproducibility (#7026, #7094, @prithvikannan)
+- [Pipelines] Add support for `Delta` tables as a datasource in the ingest step (#7010, @sunishsheth2009)
+- [Pipelines] Add expanded support for data profiling up to 10,000 columns (#7035, @prithvikanna)
 - [Pipelines] Add support for AutoML in MLflow Pipelines using FLAML (#6959, @mshtelma)
+- [Pipelines] Add support for simplified transform step execution by allowing for unspecified configuration (#6909, @apurva-koti)
+- [Pipelines] Introduce a data preview tab to the transform step card (#7033, @prithvikannan)
 - [Tracking] Introduce `run_name` attribute for `create_run`, `get_run` and `update_run` APIs (#6782, #6798 @apurva-koti)
 - [Tracking] Add support for searching by `creation_time` and `last_update_time` for the `search_experiments` API  (#6979, @harupy)
 - [Tracking] Add support for search terms `run_id IN` and `run ID NOT IN` for the `search_runs` API (#6945, @harupy)
 - [Tracking] Add support for searching by `user_id` and `end_time` for the `search_runs` API (#6881, #6880 @subramaniam02)
 - [Tracking] Add support for searching by `run_name` and `run_id` for the `search_runs` API (#6899, @harupy; #6952, @alexacole)
-- [Tracking] Add support for synchronizing run `name` and run name tag (#6971, @BenWilson2)
+- [Tracking] Add support for synchronizing run `name` attribute and `mlflow.runName` tag (#6971, @BenWilson2)
 - [Tracking] Add support for signed tracking server requests using AWSSigv4 and AWS IAM (#7044, @pdifranc)
 - [Tracking] Introduce the `update_run()` API for modifying the `status` and `name` attributes of existing runs (#7013, @gabrielfu)
 - [Tracking] Add support for experiment deletion in the `mlflow gc` cli API (#6977, @shaikmoeed)
 - [Models] Add support for environment restoration in the `evaluate()` API (#6728, @jerrylian-db)
-- [Models] Remove restrictions on binary classification labels in the `evaluate` API (#7077, @dbczumar)
-- [Scoring] Add support for `BooleanType` to `pyfunc` spark udf (#6913, @BenWilson2)
-- [Sqlalchemy] Add support for configurable `Pool` class options for `sqlalchemy` (#6883, @mingyu89)
+- [Models] Remove restrictions on binary classification labels in the `evaluate()` API (#7077, @dbczumar)
+- [Scoring] Add support for `BooleanType` to `mlflow.pyfunc.spark_udf()` (#6913, @BenWilson2)
+- [SQLAlchemy] Add support for configurable `Pool` class options for `SqlAlchemyStore` (#6883, @mingyu89)
 
 Bug fixes:
 
 - [Pipelines] Enable Pipeline subprocess commands to create a new `SparkSession` if one does not exist (#6846, @prithvikannan)
-- [Pipelines] Fix an issue in rendering `bool` column types for `pandas_renderer()` (#6907, @sunishsheth2009)
-- [Tracking] Fix a bug in the handling of run names defined as empty strings (#7069, @dbczumar)
+- [Pipelines] Fix a rendering issue with `bool` column types in Step Card data profiles (#6907, @sunishsheth2009)
+- [Pipelines] Add validation and an exception if required step files are missing (#7067, @mingyu89)
+- [Pipelines] Change step configuration validation to only be performed during runtime execution of a step (#6967, @prithvikannan)
+- [Tracking] Fix infinite recursion bug when inferring the model schema in `mlflow.pyspark.ml.autolog()` (#6831, @harupy)
 - [UI] Remove the browser error notification when failing to fetch artifacts (#7001, @kevingreer)
-- [Models] Allow `mlflow-skinny` package to serve as base requirement in `MLModel` requirements (#6974, @BenWilson2)
-- [Models] Fix an issue with code path resolution for loading `SparkML` models (#6968, @dbczumar)
-- [Models] Fix an issue with dependency inference in logging `SparkML` models (#6912, @BenWilson2)
-- [Models] Fix an issue involving potential duplicate downloads for `SparkML` models (#6903, @serena-ruan)
+- [Models] Allow `mlflow-skinny` package to serve as base requirement in `MLmodel` requirements (#6974, @BenWilson2)
+- [Models] Fix an issue with code path resolution for loading SparkML models (#6968, @dbczumar)
+- [Models] Fix an issue with dependency inference in logging SparkML models (#6912, @BenWilson2)
+- [Models] Fix an issue involving potential duplicate downloads for SparkML models (#6903, @serena-ruan)
 - [Models] Add missing `pos_label` to `sklearn.metrics.precision_recall_curve` in `mlflow.evaluate()` (#6854, @dbczumar)
-- [Models] Fix infinite recursion in `get_feature_cols` (#6831, @harupy)
-- [Sqlalchemy] Fix a bug in `SqlAlchemyStore` where `set_tag()` updates the incorrect tags (#7027, @gabrielfu)
+- [SQLAlchemy] Fix a bug in `SqlAlchemyStore` where `set_tag()` updates the incorrect tags (#7027, @gabrielfu)
 
 Documentation updates:
 
@@ -42,7 +47,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#7093, #7095, #7092, #7064, #7049, #6921, #6920, #6940, #6926, #6923, #6862, @jerrylian-db; #7067, #6946, #6954, #6938, @mingyu89; #7047, #7087, #7056, #7010, #6936, #6925, #6892, #6860, #6828, @sunishsheth2009; #7061, #7058, #7098, #7071, #7073, #7057, #7038, #7029, #6918, #6993, #6944, #6976, #6960, #6933, #6943, #6941, #6900, #6901, #6898, #6890, #6888, #6886, #6887, #6885, #6884, #6849, #6835, #6834, @harupy; #7094, #7065, #7053, #7026, #7033, #7035, #7034, #7021, #7020, #6999, #6998, #6996, #6990, #6989, #6967, #6934, #6924, #6896, #6895, #6876, #6875, #6861, @prithvikannan; #7081, #7030, #7031, #6965, #6750, @bbarnes52; #7080, #7051, #7039, #7012, #7004, @dbczumar; #7054, #6991, @jinzhang21; #7055, #7037, #7036, #6949, #6951, #6909, @apurva-koti; #6815, @michaguenther; #6897, @chaturvedakash; #7025, #6981, #6950, #6948, #6937, #6829, #6830, @BenWilson2; #6982, @vadim; #6985, #6927, @kriscon-db; #6917, #6919, #6872, #6855, @WeichenXu123; #6980, @utkarsh867; #6973, #6935, @wentinghu; #6930, @mingyangge-db; #6956, @RohanBha1; #6916, @av-maslov; #6824, @shrinath-suresh; #6732, @oojo12; #6807, @ikrizanic; #7066, @subramaniam20jan; #7043, @AvikantSrivastava; #6879, @jspablo
+#7093, #7095, #7092, #7064, #7049, #6921, #6920, #6940, #6926, #6923, #6862, @jerrylian-db; #6946, #6954, #6938, @mingyu89; #7047, #7087, #7056, #6936, #6925, #6892, #6860, #6828, @sunishsheth2009; #7061, #7058, #7098, #7071, #7073, #7057, #7038, #7029, #6918, #6993, #6944, #6976, #6960, #6933, #6943, #6941, #6900, #6901, #6898, #6890, #6888, #6886, #6887, #6885, #6884, #6849, #6835, #6834, @harupy; #7094, #7065, #7053, #7026, #7034, #7021, #7020, #6999, #6998, #6996, #6990, #6989, #6934, #6924, #6896, #6895, #6876, #6875, #6861, @prithvikannan; #7081, #7030, #7031, #6965, #6750, @bbarnes52; #7080, #7069, #7051, #7039, #7012, #7004, @dbczumar; #7054, @jinzhang21; #7055, #7037, #7036, #6949, #6951, @apurva-koti; #6815, @michaguenther; #6897, @chaturvedakash; #7025, #6981, #6950, #6948, #6937, #6829, #6830, @BenWilson2; #6982, @vadim; #6985, #6927, @kriscon-db; #6917, #6919, #6872, #6855, @WeichenXu123; #6980, @utkarsh867; #6973, #6935, @wentinghu; #6930, @mingyangge-db; #6956, @RohanBha1; #6916, @av-maslov; #6824, @shrinath-suresh; #6732, @oojo12; #6807, @ikrizanic; #7066, @subramaniam20jan; #7043, @AvikantSrivastava; #6879, @jspablo
 
 ## 1.29.0 (2022-09-16)
 
