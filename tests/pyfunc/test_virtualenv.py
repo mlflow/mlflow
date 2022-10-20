@@ -2,7 +2,7 @@ import os
 import sys
 from collections import namedtuple
 from pathlib import Path
-from stat import S_IREAD, S_IRGRP, S_IROTH
+from stat import S_IREAD, S_IRUSR, S_IRGRP, S_IROTH
 
 import pytest
 import numpy as np
@@ -70,11 +70,7 @@ def test_restore_environment_with_virtualenv(sklearn_model):
 def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
     model_path = str(tmp_path / "model")
     mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
-    os.chmod(model_path, S_IREAD|S_IRGRP|S_IROTH)
-    for dirpath, _, filenames in os.walk(model_path):
-        os.chmod(dirpath, S_IREAD|S_IRGRP|S_IROTH)
-        for filename in filenames:
-            os.chmod(os.path.join(dirpath, filename), S_IREAD|S_IRGRP|S_IROTH)
+    os.chmod(model_path, S_IRUSR|S_IREAD|S_IRGRP|S_IROTH)
 
     scores = serve_and_score(model_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
