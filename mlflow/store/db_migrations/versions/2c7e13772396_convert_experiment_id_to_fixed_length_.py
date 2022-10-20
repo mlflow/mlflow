@@ -1,9 +1,12 @@
-"""convert experiment id to fixed length random
+"""convert experiment id to fixed length random integer
 
 Revision ID: 2c7e13772396
 Revises: 97727af70f4d
 Create Date: 2022-10-18 16:39:31.183846
 
+This migration converts the primary key `experiment_id` within the Experiments table from an
+auto-incrementing primary key to a non-nullable unique-constrained Integer column. This is to
+support concurrent experiment creation and avoid collisions.
 """
 from alembic import op
 import sqlalchemy as sa

@@ -377,6 +377,12 @@ class SqlAlchemyStore(AbstractStore):
             return experiment.to_mlflow_entity() if experiment is not None else None
 
     def delete_experiment(self, experiment_id):
+        if str(experiment_id) == str(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID):
+            raise MlflowException(
+                "Cannot delete the default experiment "
+                f"'{SqlAlchemyStore.DEFAULT_EXPERIMENT_ID}'. This is an internally "
+                f"reserved experiment."
+            )
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED

@@ -74,9 +74,9 @@ def clean_mlruns_dir():
 def test_resolve_experiment_id(experiment_name, experiment_id, expected):
     actual_id = _resolve_experiment_id(experiment_name=experiment_name, experiment_id=experiment_id)
     if expected == "generated":
-        assert _EXPERIMENT_ID_FIXED_WIDTH == len(actual_id)
+        assert len(actual_id) == _EXPERIMENT_ID_FIXED_WIDTH
     else:
-        assert expected == actual_id
+        assert actual_id == expected
 
 
 def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():

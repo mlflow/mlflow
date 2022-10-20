@@ -604,7 +604,6 @@ def test_log_batch_validation(mlflow_client):
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
-        mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
         mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
@@ -762,13 +761,13 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
-    assert {e.name for e in experiments} == {"a", "Default"}
+    assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
     experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    assert {e.name for e in experiments} == {"Abc", "a", "Default"}
+    assert [e.name for e in experiments] == ["Abc", "a", "Default"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert {e.name for e in experiments} == {"Abc", "ab", "a", "Default"}
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]

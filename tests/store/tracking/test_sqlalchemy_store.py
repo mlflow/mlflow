@@ -182,7 +182,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(first.experiment_id, SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
         self.assertEqual(first.name, "Default")
 
-    def test_default_experiment_lifecycle(self):
+    def test_experiment_lifecycle(self):
         default_experiment = self.store.get_experiment(
             experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         )
@@ -193,35 +193,41 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         all_experiments = [e.name for e in self.store.search_experiments()]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
-        self.store.delete_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
+        self._experiment_factory("toBeDeleted")
+        to_be_deleted = self.store.get_experiment_by_name("toBeDeleted")
+        self.store.delete_experiment(to_be_deleted.experiment_id)
 
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
+        self.assertCountEqual(
+            ["aNothEr", "Default"], [e.name for e in self.store.search_experiments()]
+        )
         all_experiment_ids = [e.experiment_id for e in self.store.search_experiments()]
         another = self.store.get_experiment(all_experiment_ids[0])
-        self.assertEqual("aNothEr", another.name)
+        default = self.store.get_experiment(all_experiment_ids[1])
+        self.assertEqual(["aNothEr", "Default"], [another.name, default.name])
 
-        default_experiment = self.store.get_experiment(
-            experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
-        )
-        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+        deleted = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
+        self.assertEqual(len(deleted), 1)
+
+        self.assertEqual(deleted[0].name, "toBeDeleted")
+        self.assertEqual(deleted[0].lifecycle_stage, entities.LifecycleStage.DELETED)
 
         # destroy SqlStore and make a new one
         del self.store
         self.store = self._get_store(self.db_url)
 
-        # test that default experiment is not reactivated
-        default_experiment = self.store.get_experiment(
-            experiment_id=SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+        # test that deleted experiment is not reactivated
+        deleted_experiment = self.store.get_experiment(experiment_id=to_be_deleted.experiment_id)
+        self.assertEqual(deleted_experiment.name, "toBeDeleted")
+        self.assertEqual(deleted_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        # Ensure that deleted experiment is still marked as deleted
+        self.assertCountEqual(
+            ["aNothEr", "Default"], [e.name for e in self.store.search_experiments()]
         )
-        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
-
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
         all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
-        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
+        self.assertCountEqual({"aNothEr", "toBeDeleted", "Default"}, set(all_experiments))
 
-        # ensure that experiment ID dor active experiment is unchanged
+        # ensure that experiment ID or active experiment is unchanged
         all_experiment_ids = [e.experiment_id for e in self.store.search_experiments()]
         another = self.store.get_experiment(all_experiment_ids[0])
         self.assertEqual("aNothEr", another.name)
@@ -522,6 +528,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert len(experiment.tags) == 2
         assert experiment.tags["key1"] == "val1"
         assert experiment.tags["key2"] == "val2"
+
+    def test_attempting_to_remove_default_experiment_raises(self):
+        def _is_default_in_experiments(view_type):
+            search_result = self.store.search_experiments(view_type=view_type)
+            ids = [experiment.experiment_id for experiment in search_result]
+            return self.store.DEFAULT_EXPERIMENT_ID in ids
+
+        self.assertTrue(_is_default_in_experiments(ViewType.ACTIVE_ONLY))
+
+        with pytest.raises(MlflowException, match="Cannot delete the default experiment"):
+            self.store.delete_experiment(self.store.DEFAULT_EXPERIMENT_ID)
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -2281,14 +2298,6 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     assert fetched_run.info.run_id == run_id
     assert metric.key in fetched_run.data.metrics
     assert param.key in fetched_run.data.params
-
-
-def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
-    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.delete_experiment("0")
-    assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
-    SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
 
 class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
