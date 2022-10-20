@@ -298,6 +298,18 @@ class EvaluateStep(BaseStep):
                 + criteria_html,
             )
 
+        # Tab 2: Classifier plots.
+        classifiers_plot_tab = card.add_tab(
+            "Classifier Plots on the Validation Dataset",
+            '<h3 class="section-title">Confusion Matrix Plot</h3>{{CONFUSION_MATRIX_PLOT}}',
+        )
+        confusion_matrix_path = os.path.join(
+            output_directory,
+            "eval_validation/artifacts",
+            "confusion_matrix_on_data_validation.png",
+        )
+        classifiers_plot_tab.add_image("CONFUSION_MATRIX_PLOT", confusion_matrix_path, width=400)
+
         # Tab 2: SHAP plots.
         shap_plot_tab = card.add_tab(
             "Feature Importance",
