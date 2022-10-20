@@ -703,6 +703,52 @@ via :py:func:`mlflow.pyfunc.load_model()`.
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
     logging multiple copies of the same model.
 
+PyTorch pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal PyTorch model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+    
+    import numpy as np
+    import mlflow
+    import torch
+    from torch import nn
+
+
+    class Net(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.l1 = nn.Linear(6, 1)
+
+        def forward(self, x):
+            return self.l1(x)
+
+
+    net = Net()
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+
+    X = torch.randn(6)
+    y = torch.randn(1)
+
+    epochs = 5
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = net(X)
+
+        loss = loss_function(outputs, y)
+        loss.backward()
+
+        optimizer.step()
+
+    with mlflow.start_run() as run:
+        mlflow.pytorch.save_model(net, "net")
+
+    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri="net")
+
+    predictions = pytorch_pyfunc.predict(np.array([3.4, -1.2, 4.8, 7.1, 9.4, -6.9], np.float32))
+
 For more information, see :py:mod:`mlflow.pytorch`.
 
 Scikit-learn (``sklearn``)
