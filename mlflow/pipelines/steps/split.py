@@ -10,7 +10,7 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 
 
 _logger = logging.getLogger(__name__)
@@ -288,6 +288,14 @@ class SplitStep(BaseStep):
             train_df = train_df[post_split_filter(train_df)]
             validation_df = validation_df[post_split_filter(validation_df)]
             test_df = test_df[post_split_filter(test_df)]
+
+        if min(len(train_df), len(validation_df), len(test_df)) < 4:
+            raise MlflowException(
+                f"Train, validation, and testing datasets cannot be less than 4 rows. Train has "
+                f"{len(train_df)} rows, validation has {len(validation_df)} rows, and test has "
+                f"{len(test_df)} rows.",
+                error_code=BAD_REQUEST,
+            )
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
