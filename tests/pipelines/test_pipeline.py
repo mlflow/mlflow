@@ -204,7 +204,7 @@ def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fail
     with open(profile_path, "r") as f:
         profile_contents = yaml.safe_load(f)
 
-    profile_contents["INGEST_DATA_LOCATION"] = "a bad location"
+    profile_contents["INGEST_STEP_CONFIG"] = {"using": "parquet", "location": "a bad location"}
 
     with open(profile_path, "w") as f:
         yaml.safe_dump(profile_contents, f)

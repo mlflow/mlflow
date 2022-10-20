@@ -107,13 +107,15 @@ def test_predict_step_runs(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {
+                "model_uri": model_uri,
+            },
             "steps": {
                 "predict": {
-                    "model_uri": model_uri,
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                }
-            }
+                },
+            },
         }
     )
     predict_step = PredictStep.from_pipeline_config(
@@ -142,13 +144,13 @@ def test_predict_step_uses_register_step_model_name(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {"model_name": rm_name},
             "steps": {
-                "register": {"model_name": rm_name},
                 "predict": {
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 },
-            }
+            },
         }
     )
     predict_step = PredictStep.from_pipeline_config(
@@ -180,13 +182,13 @@ def test_predict_step_uses_register_step_output(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {"model_name": register_step_rm_name},
             "steps": {
-                "register": {"model_name": register_step_rm_name},
                 "predict": {
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 },
-            }
+            },
         }
     )
     predict_step = PredictStep.from_pipeline_config(
@@ -214,14 +216,13 @@ def test_predict_model_uri_takes_precendence_over_model_name(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {"model_name": register_step_rm_name, "model_uri": model_uri},
             "steps": {
-                "register": {"model_name": register_step_rm_name},
                 "predict": {
-                    "model_uri": model_uri,
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                 },
-            }
+            },
         }
     )
     predict_step = PredictStep.from_pipeline_config(
@@ -245,12 +246,12 @@ def test_predict_step_output_formats(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "model_uri": model_uri,
-                    "output_format": output_format,
-                }
-            }
+                    "using": output_format,
+                },
+            },
         }
     )
     if output_format == "table":
@@ -295,14 +296,14 @@ def test_predict_correctly_handles_save_modes(
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
         {
+            "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "model_uri": model_uri,
-                    "output_format": output_format,
+                    "using": output_format,
                     "output_location": output_path,
                     "save_mode": save_mode,
-                }
-            }
+                },
+            },
         }
     )
 
@@ -316,15 +317,15 @@ def test_predict_correctly_handles_save_modes(
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_predict_throws_when_improperly_configured():
-    for required_key in ["output_format", "output_location"]:
+    for required_key in ["using", "output_location"]:
         pipeline_config = {
+            "model_registry": {"model_uri": "models:/taxi_fare_regressor/Production"},
             "steps": {
                 "predict": {
-                    "model_uri": "models:/taxi_fare_regressor/Production",
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": "random/path",
-                }
-            }
+                },
+            },
         }
         pipeline_config["steps"]["predict"].pop(required_key)
         predict_step = PredictStep.from_pipeline_config(
@@ -338,19 +339,17 @@ def test_predict_throws_when_improperly_configured():
 
     predict_step = PredictStep.from_pipeline_config(
         pipeline_config={
+            "model_registry": {"model_uri": "my model"},
             "steps": {
                 "predict": {
-                    "model_uri": "my model",
-                    "output_format": "fancy_format",
+                    "using": "fancy_format",
                     "output_location": "random/path",
-                }
-            }
+                },
+            },
         },
         pipeline_root=os.getcwd(),
     )
-    with pytest.raises(
-        MlflowException, match="Invalid `output_format` in predict step configuration"
-    ):
+    with pytest.raises(MlflowException, match="Invalid `using` in predict step configuration"):
         predict_step._validate_and_apply_step_config()
 
 
@@ -359,7 +358,7 @@ def test_predict_throws_when_no_model_is_specified():
     pipeline_config = {
         "steps": {
             "predict": {
-                "output_format": "parquet",
+                "using": "parquet",
                 "output_location": "random/path",
             }
         }
@@ -382,14 +381,14 @@ def test_predict_skips_profiling_when_specified(
         pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
         pipeline_config.update(
             {
+                "model_registry": {"model_uri": model_uri},
                 "steps": {
                     "predict": {
-                        "model_uri": model_uri,
-                        "output_format": "parquet",
+                        "using": "parquet",
                         "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
                         "skip_data_profiling": True,
-                    }
-                }
+                    },
+                },
             }
         )
         predict_step = PredictStep.from_pipeline_config(
@@ -421,13 +420,13 @@ def test_predict_uses_registry_uri(
     pipeline_config.update({"model_registry": {"uri": str(registry_uri)}})
     pipeline_config.update(
         {
+            "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "model_uri": model_uri,
-                    "output_format": "parquet",
+                    "using": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                }
-            }
+                },
+            },
         }
     )
     PredictStep.from_pipeline_config(

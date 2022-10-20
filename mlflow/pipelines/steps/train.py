@@ -817,7 +817,10 @@ class TrainStep(BaseStep):
         step_config = {}
         if pipeline_config.get("steps", {}).get("train", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("train", {}))
-        step_config["metrics"] = pipeline_config.get("metrics")
+        if pipeline_config.get("custom_metrics") is not None:
+            step_config["custom_metrics"] = pipeline_config["custom_metrics"]
+        if pipeline_config.get("primary_metric") is not None:
+            step_config["primary_metric"] = pipeline_config["primary_metric"]
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")

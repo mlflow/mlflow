@@ -40,11 +40,11 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     ]
 
     def _validate_and_apply_step_config(self):
-        dataset_format = self.step_config.get("format")
+        dataset_format = self.step_config.get("using")
         if not dataset_format:
             raise MlflowException(
                 message=(
-                    "Dataset format must be specified via the `format` key within the `data`"
+                    "Dataset format must be specified via the `using` key within the `ingest`"
                     " section of pipeline.yaml"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -211,15 +211,12 @@ class IngestStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-
-        data_config = pipeline_config.get("data", {})
         ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
         target_config = {"target_col": pipeline_config.get("target_col")}
         if "positive_class" in pipeline_config:
             target_config["positive_class"] = pipeline_config.get("positive_class")
         return cls(
             step_config={
-                **data_config,
                 **ingest_config,
                 **target_config,
                 **{"template_name": pipeline_config.get("template")},
@@ -251,10 +248,9 @@ class IngestScoringStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        data_config = pipeline_config.get("data_scoring", {})
-        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+        step_config = pipeline_config.get("steps", {}).get("register", {})
         return cls(
-            step_config={**data_config, **ingest_config},
+            step_config=step_config,
             pipeline_root=pipeline_root,
         )
 

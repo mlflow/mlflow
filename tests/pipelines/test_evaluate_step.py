@@ -73,11 +73,10 @@ steps:
         threshold: {mae_threshold}
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
@@ -238,11 +237,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -281,11 +279,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -324,14 +321,13 @@ steps:
         threshold: 10
       - metric: mean_absolute_error
         threshold: 10
-metrics:
-  custom:
-    - name: mean_absolute_error
-      function: mean_absolute_error
-      greater_is_better: False
-    - name: root_mean_squared_error
-      function: root_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: mean_absolute_error
+    function: mean_absolute_error
+    greater_is_better: False
+  - name: root_mean_squared_error
+    function: root_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )

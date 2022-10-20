@@ -44,6 +44,8 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
@@ -54,13 +56,11 @@ steps:
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
   register:
-    model_name: "demo_model"
     {allow_non_validated_model}
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
@@ -116,10 +116,11 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
   register:
-    model_name: "demo_model"
     {allow_non_validated_model}
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
@@ -158,6 +159,8 @@ def test_usage_tracking_correctly_added(
         """
 template: "regression/v1"
 target_col: "y"
+model_registry:
+  model_name: "demo_model"
 experiment:
   tracking_uri: {tracking_uri}
 steps:
@@ -169,13 +172,10 @@ steps:
         threshold: 1_000_000
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
         )
@@ -224,7 +224,8 @@ target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
 model_registry:
-  uri: {registry_uri}
+  registry_uri: {registry_uri}
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
@@ -234,13 +235,10 @@ steps:
         threshold: 1_000_000
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             registry_uri=registry_uri,
@@ -287,13 +285,13 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
