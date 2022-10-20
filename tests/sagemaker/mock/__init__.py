@@ -1079,4 +1079,4 @@ class TransformJobDescription:
 # Create a SageMaker backend for EC2 region: "us-west-2"
 sagemaker_backends = BackendDict(SageMakerBackend, "sagemaker")
 
-mock_sagemaker = base_decorator(sagemaker_backends)
+mock_sagemaker = base_decorator(sagemaker_backends)[DEFAULT_ACCOUNT_ID]
