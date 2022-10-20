@@ -255,8 +255,7 @@ def _create_virtualenv(
                     e
                 )
                 shutil.rmtree(model_dir)
-                os.makedirs(model_dir)
-                shutil.copytree(local_model_path, t.path())
+                shutil.copytree(local_model_path, model_dir)
 
             tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
             t.path(tmp_req_file).write_text("\n".join(deps))
