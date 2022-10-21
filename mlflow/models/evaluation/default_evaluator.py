@@ -528,12 +528,6 @@ class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    def _gen_log_key(self, key):
-        if self.evaluator_config.get("log_metrics_with_dataset_info", True):
-            return f"{key}_on_data_{self.dataset_name}"
-        else:
-            return key
-
     def _log_metrics(self):
         """
         Helper method to log metrics into specified run.
@@ -543,7 +537,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.run_id,
             metrics=[
                 Metric(
-                    key=self._gen_log_key(key),
+                    key=key,
                     value=value,
                     timestamp=timestamp,
                     step=0,
@@ -559,7 +553,7 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = self._gen_log_key(artifact_name) + ".png"
+        artifact_file_name = f"{artifact_name}.png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -575,7 +569,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = self._gen_log_key(artifact_name) + ".csv"
+        artifact_file_name = f"{artifact_name}.csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         mlflow.log_artifact(artifact_file_local_path)
@@ -746,7 +740,7 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            mlflow.shap.log_explainer(explainer, artifact_path=self._gen_log_key("explainer"))
+            mlflow.shap.log_explainer(explainer, artifact_path="explainer")
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
@@ -932,8 +926,7 @@ class DefaultEvaluator(ModelEvaluator):
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
             artifact_name, raw_artifact, custom_metric_tuple
         )
-        artifact_file_name = self._gen_log_key(artifact_name) + inferred_ext
-        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+        artifact_file_local_path = self.temp_dir.path(artifact_name + inferred_ext)
 
         if pathlib.Path(artifact_file_local_path).exists():
             raise MlflowException(
@@ -983,7 +976,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
-        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
+        artifact = inferred_type(uri=mlflow.get_artifact_uri(inferred_ext))
         artifact._load(artifact_file_local_path)
         return artifact
 

@@ -850,7 +850,6 @@ def evaluate(
     *,
     targets,
     model_type: str,
-    dataset_name=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
@@ -896,10 +895,6 @@ def evaluate(
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
 
-     - The logged MLflow metric keys are constructed using the format:
-       ``{metric_name}_on_{dataset_name}``. Any preexisting metrics with the same name are
-       overwritten.
-
      - The metrics/artifacts listed above are logged to the active MLflow run.
        If no active run exists, a new MLflow run is created for logging these metrics and
        artifacts.
@@ -926,9 +921,6 @@ def evaluate(
           larger than the configured maximum, these curves are not logged.
         - **metric_prefix**: An optional prefix to prepend to the name of each metric produced
           during evaluation.
-        - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
-          information about the evaluation dataset in the name of each metric logged to MLflow
-          Tracking during evaluation, default value is True.
         - **pos_label**: The positive label to use when computing classification metrics such as
           precision, recall, f1, etc. for binary classification models (default: ``1``). For
           multiclass classification and regression models, this parameter will be ignored.
@@ -991,10 +983,6 @@ def evaluate(
 
     :param model_type: A string describing the model type. The default evaluator
                        supports ``"regressor"`` and ``"classifier"`` as model types.
-
-    :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (``“``).
-                         The name is logged to the ``mlflow.datasets`` tag for lineage tracking
-                         purposes. If not specified, the dataset hash is used as the dataset name.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1106,7 +1094,6 @@ def evaluate(
                                        data,
                                        targets,
                                        model_type,
-                                       dataset_name,
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
@@ -1140,7 +1127,6 @@ should be at least 0.05 greater than baseline model accuracy
                                                          data,
                                                          targets,
                                                          model_type,
-                                                         dataset_name,
                                                          evaluators,
                                                          custom_metrics=[custom_l1_loss],
                                                          validation_thresholds=thresholds,
@@ -1208,7 +1194,6 @@ should be at least 0.05 greater than baseline model accuracy
     dataset = EvaluationDataset(
         data,
         targets=targets,
-        name=dataset_name,
         path=dataset_path,
         feature_names=feature_names,
     )

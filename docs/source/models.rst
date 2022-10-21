@@ -1184,7 +1184,6 @@ and behavior:
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             evaluators=["default"],
         )
 
@@ -1271,7 +1270,6 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
             data=eval_data,
             targets="target",
             model_type="regressor",
-            dataset_name="cali_housing",
             evaluators=["default"],
             custom_metrics=[example_custom_metric_fn],
         )
@@ -1335,7 +1333,6 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             validation_thresholds=thresholds,
             baseline_model=baseline_model_uri,
         )

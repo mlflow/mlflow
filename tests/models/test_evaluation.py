@@ -109,7 +109,7 @@ def spark_session():
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "iris_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -119,7 +119,7 @@ def iris_dataset():
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "diabetes_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -128,7 +128,7 @@ def diabetes_dataset():
 @pytest.fixture(scope="module")
 def diabetes_spark_dataset():
     spark_df = get_diabetes_spark_dataset().sample(fraction=0.3, seed=1)
-    constructor_args = {"data": spark_df, "targets": "label", "name": "diabetes_spark_dataset"}
+    constructor_args = {"data": spark_df, "targets": "label"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -138,7 +138,7 @@ def diabetes_spark_dataset():
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
     eval_X, eval_y = X[0::3], y[0::3]
-    constructor_args = {"data": eval_X, "targets": eval_y, "name": "breast_cancer_dataset"}
+    constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -327,7 +327,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_dataset"}
+    constructor_args = {"data": data, "targets": "y"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -339,7 +339,7 @@ def iris_pandas_df_num_cols_dataset():
     eval_X, eval_y = X[0::3], y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
-    constructor_args = {"data": data, "targets": "y", "name": "iris_pandas_df_num_cols_dataset"}
+    constructor_args = {"data": data, "targets": "y"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
@@ -385,7 +385,7 @@ def test_classifier_evaluate(
         "accuracy_score": expected_accuracy_score,
     }
     expected_saved_metrics = {
-        "accuracy_score_on_iris_dataset": expected_accuracy_score,
+        "accuracy_score": expected_accuracy_score,
     }
 
     expected_csv_artifact = confusion_matrix(y_true, y_pred)
@@ -401,15 +401,14 @@ def test_classifier_evaluate(
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="dummy_evaluator",
             baseline_model=baseline_model_uri,
         )
 
-    csv_artifact_name = "confusion_matrix_on_iris_dataset"
+    csv_artifact_name = "confusion_matrix"
     saved_csv_artifact_path = get_local_artifact_path(run.info.run_id, csv_artifact_name + ".csv")
 
-    png_artifact_name = "confusion_matrix_image_on_iris_dataset"
+    png_artifact_name = "confusion_matrix_image"
     saved_png_artifact_path = get_local_artifact_path(run.info.run_id, png_artifact_name) + ".png"
 
     _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
@@ -452,21 +451,21 @@ def test_classifier_evaluate(
 
         with open(temp_dir.path("artifacts_metadata.json"), "r") as fp:
             json_dict = json.load(fp)
-            assert "confusion_matrix_on_iris_dataset" in json_dict
-            assert json_dict["confusion_matrix_on_iris_dataset"] == {
+            assert "confusion_matrix" in json_dict
+            assert json_dict["confusion_matrix"] == {
                 "uri": confusion_matrix_artifact.uri,
                 "class_name": "mlflow_test_plugin.dummy_evaluator.Array2DEvaluationArtifact",
             }
 
-            assert "confusion_matrix_image_on_iris_dataset" in json_dict
-            assert json_dict["confusion_matrix_image_on_iris_dataset"] == {
+            assert "confusion_matrix_image" in json_dict
+            assert json_dict["confusion_matrix_image"] == {
                 "uri": confusion_matrix_image_artifact.uri,
                 "class_name": "mlflow.models.evaluation.artifacts.ImageEvaluationArtifact",
             }
 
         assert set(os.listdir(temp_dir.path("artifacts"))) == {
-            "confusion_matrix_on_iris_dataset.csv",
-            "confusion_matrix_image_on_iris_dataset.png",
+            "confusion_matrix.csv",
+            "confusion_matrix_image.png",
         }
 
         loaded_eval_result = EvaluationResult.load(temp_dir_path)
@@ -524,8 +523,8 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
         "mean_squared_error": expected_mse,
     }
     expected_saved_metrics = {
-        "mean_absolute_error_on_diabetes_dataset": expected_mae,
-        "mean_squared_error_on_diabetes_dataset": expected_mse,
+        "mean_absolute_error": expected_mae,
+        "mean_squared_error": expected_mse,
     }
 
     with mlflow.start_run() as run:
@@ -534,7 +533,6 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
             evaluators="dummy_evaluator",
             baseline_model=baseline_model_uri,
         )
@@ -549,22 +547,18 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
 
-    dataset_name = "diabetes_pd"
-
     with mlflow.start_run() as run:
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=df,
             targets="y",
             model_type="regressor",
-            dataset_name=dataset_name,
             evaluators=["default"],
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
-    augment_name = f"_on_data_{dataset_name}"
     for k, v in eval_result.metrics.items():
-        assert v == saved_metrics[f"{k}{augment_name}"]
+        assert v == saved_metrics[k]
 
 
 def test_dataset_name():
@@ -768,7 +762,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                         data=iris_dataset._constructor_args["data"],
                         model_type="classifier",
                         targets=iris_dataset._constructor_args["targets"],
-                        dataset_name=iris_dataset.name,
                         evaluators="test_evaluator1",
                         evaluator_config=evaluator1_config,
                     )
@@ -787,7 +780,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
@@ -843,7 +835,6 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
                 custom_metrics=None,
@@ -906,7 +897,6 @@ def test_evaluate_with_multi_evaluators(
                         iris_dataset._constructor_args["data"],
                         model_type="classifier",
                         targets=iris_dataset._constructor_args["targets"],
-                        dataset_name=iris_dataset.name,
                         evaluators=evaluators,
                         evaluator_config={
                             "test_evaluator1": evaluator1_config,
@@ -1018,7 +1008,6 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
                 iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators=None,
                 baseline_model=multiclass_logistic_regressor_model_uri,
                 env_manager="virtualenv",
@@ -1030,7 +1019,6 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
                 iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators=None,
                 baseline_model=multiclass_logistic_regressor_model_uri,
                 env_manager="manager",
@@ -1080,7 +1068,6 @@ def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators=None,
             env_manager=env_manager,
         )
@@ -1111,7 +1098,6 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators=None,
             baseline_model=multiclass_logistic_regressor_model_uri,
             env_manager="virtualenv",
