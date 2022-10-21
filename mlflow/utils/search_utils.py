@@ -1056,7 +1056,6 @@ class SearchModelUtils(SearchUtils):
 
 class SearchModelVersionUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"creation_timestamp", "last_updated_timestamp"}
-    # what should we support here?
     VALID_SEARCH_ATTRIBUTE_KEYS = {
         "name",
         "run_id",
@@ -1160,12 +1159,8 @@ class SearchModelVersionUtils(SearchUtils):
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
             return False
-        # elif token.value in cls.VALID_SEARCH_ATTRIBUTE_KEYS:
-        #     return False
-        # elif isinstance(token.ttype, type(TokenType.Literal)):
-        #     return False
-        # else:
-        return True
+        else:
+            return True
 
     @classmethod
     def parse_search_filter(cls, filter_string):

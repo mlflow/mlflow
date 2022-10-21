@@ -1344,3 +1344,33 @@ class TestFileStore(unittest.TestCase):
         ) as exception_context:
             fs.delete_model_version_tag(name1, "I am not a version", "key")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_pyfunc_model_registry_with_file_store(self):
+        import mlflow
+        from mlflow import MlflowClient
+        from mlflow.pyfunc import PythonModel
+
+        class MyModel(PythonModel):
+            def predict(self, context, model_input):
+                return 7
+
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
+            )
+            mlflow.pyfunc.log_model(
+                python_model=MyModel(), artifact_path="foo", registered_model_name="model2"
+            )
+            mlflow.pyfunc.log_model(
+                python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
+            )
+
+        client = MlflowClient()
+        models = client.search_registered_models()
+        assert len(models) == 2
+        assert models[0].name == "model1"
+        assert models[1].name == "model2"
+        mv1 = client.search_model_versions("name = 'model1'")
+        assert len(mv1) == 2 and mv1[0].name == "model1"
+        mv2 = client.search_model_versions("name = 'model2'")
+        assert len(mv2) == 1 and mv2[0].name == "model2"
