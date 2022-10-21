@@ -140,7 +140,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         path_to_bin = ("bin", "python")
     else:
         # pyenv-win doesn't provide the `pyenv root` command
-        pyenv_root = pyenv_root or os.getenv("PYENV_ROOT")
+        pyenv_root = os.getenv("PYENV_ROOT")
         if pyenv_root is None:
             raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
         path_to_bin = ("python.exe",)
