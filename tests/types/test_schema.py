@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import numpy as np
 import pandas as pd
 import pytest
@@ -513,5 +514,8 @@ def test_enforce_tensor_spec_variable_signature():
     standard_spec = _infer_schema(standard_array).inputs[0]
     result_array = _enforce_tensor_spec(standard_array, standard_spec)
     np.testing.assert_array_equal(standard_array, result_array)
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(r"Shape of input (2,) does not match expected shape (-1, 2, 3)."),
+    ):
         _enforce_tensor_spec(ragged_array, standard_spec)
