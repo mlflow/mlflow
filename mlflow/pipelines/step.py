@@ -66,7 +66,8 @@ class StepExecutionState:
         :param status: The execution status of the step.
         :param last_updated_timestamp: The timestamp of the last execution status update, measured
                                        in seconds since the UNIX epoch.
-        :param stack_trace: The stack trace of the last execution. None if the step execution succeeds.
+        :param stack_trace: The stack trace of the last execution. None if the step execution
+                            succeeds.
         """
         self.status = status
         self.last_updated_timestamp = last_updated_timestamp
@@ -136,7 +137,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             self._validate_and_apply_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
-        except Exception as e:
+        except Exception:
             stack_trace = traceback.format_exc()
             self._update_status(
                 status=StepStatus.FAILED, output_directory=output_directory, stack_trace=stack_trace
