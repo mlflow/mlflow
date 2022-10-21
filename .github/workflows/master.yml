@@ -304,6 +304,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-python
+      - run: pip install -e .
       - run: python a.py
 
   ubuntu:
