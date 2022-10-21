@@ -59,15 +59,18 @@ class StepExecutionState:
 
     _KEY_STATUS = "pipeline_step_execution_status"
     _KEY_LAST_UPDATED_TIMESTAMP = "pipeline_step_execution_last_updated_timestamp"
+    _KEY_STACK_TRACE = "pipeline_step_stack_trace"
 
-    def __init__(self, status: StepStatus, last_updated_timestamp: int):
+    def __init__(self, status: StepStatus, last_updated_timestamp: int, stack_trace: str):
         """
         :param status: The execution status of the step.
         :param last_updated_timestamp: The timestamp of the last execution status update, measured
                                        in seconds since the UNIX epoch.
+        :param stack_trace: The stack trace of the last execution. None if the step execution succeeds.
         """
         self.status = status
         self.last_updated_timestamp = last_updated_timestamp
+        self.stack_trace = stack_trace
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -76,6 +79,7 @@ class StepExecutionState:
         return {
             StepExecutionState._KEY_STATUS: self.status.value,
             StepExecutionState._KEY_LAST_UPDATED_TIMESTAMP: self.last_updated_timestamp,
+            StepExecutionState._KEY_STACK_TRACE: self.stack_trace,
         }
 
     @classmethod
@@ -86,6 +90,7 @@ class StepExecutionState:
         return cls(
             status=StepStatus[state_dict[StepExecutionState._KEY_STATUS]],
             last_updated_timestamp=state_dict[StepExecutionState._KEY_LAST_UPDATED_TIMESTAMP],
+            stack_trace=state_dict[StepExecutionState._KEY_STACK_TRACE],
         )
 
 
@@ -131,12 +136,15 @@ class BaseStep(metaclass=abc.ABCMeta):
             self._validate_and_apply_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
-        except Exception:
-            self._update_status(status=StepStatus.FAILED, output_directory=output_directory)
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            self._update_status(
+                status=StepStatus.FAILED, output_directory=output_directory, stack_trace=stack_trace
+            )
             self.step_card = FailureCard(
                 pipeline_name=self.pipeline_name,
                 step_name=self.name,
-                failure_traceback=traceback.format_exc(),
+                failure_traceback=stack_trace,
             )
             raise
         finally:
@@ -272,7 +280,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             with open(execution_state_file_path, "r") as f:
                 return StepExecutionState.from_dict(json.load(f))
         else:
-            return StepExecutionState(StepStatus.UNKNOWN, 0)
+            return StepExecutionState(StepStatus.UNKNOWN, 0, None)
 
     def _serialize_card(self, start_timestamp: float, output_directory: str) -> None:
         if self.step_card is None:
@@ -288,8 +296,12 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_card.save(path=output_directory)
         self.step_card.save_as_html(path=output_directory)
 
-    def _update_status(self, status: StepStatus, output_directory: str) -> None:
-        execution_state = StepExecutionState(status=status, last_updated_timestamp=time.time())
+    def _update_status(
+        self, status: StepStatus, output_directory: str, stack_trace: str = None
+    ) -> None:
+        execution_state = StepExecutionState(
+            status=status, last_updated_timestamp=time.time(), stack_trace=stack_trace
+        )
         with open(os.path.join(output_directory, BaseStep._EXECUTION_STATE_FILE_NAME), "w") as f:
             json.dump(execution_state.to_dict(), f)
 
