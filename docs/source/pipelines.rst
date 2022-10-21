@@ -157,27 +157,6 @@ The general model development workflow for MLflow Pipelines can be summarized th
    Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
    and a |Jupyter Notebook| for running the pipeline and inspecting its results.
 
-    .. figure:: _static/images/pipelines_evaluate_step_card.png
-      :width: 60%
-
-      An example step card produced by running the **evaluate** step of the
-      :ref:`MLflow Regression Pipeline <mlflow-regression-pipeline>`. The step card results
-      indicate that the trained model passed all performance validations and is ready for
-      registration with the :ref:`MLflow Model Registry <registry>`.
-
-
-    .. figure:: _static/images/pipelines_databricks_logged_artifacts.png
-      :width: 60%
-
-      An example MLflow run view page, showing that artifacts from pipeline steps are mostly logged
-      and sharable through the MLflow experiment.
- 
-    .. note::
-      Data profiling is often best viewed with "quantiles" mode. To switch it on, on the Facet
-      data profile, find ``Chart to show``, click the selector below, and choose ``Quantiles``.
-
-    |
-
     .. code-section::
 
         .. code-block:: python
@@ -209,17 +188,37 @@ The general model development workflow for MLflow Pipelines can be summarized th
           # Inspect the resulting model performance evaluations
           mlflow pipelines inspect --step evaluate --profile local
 
-      .. figure:: _static/images/pipelines_databricks_notebook_ui.png
-        :scale: 25
 
-        Example pipeline run from the |Databricks Notebook| included in the
-        |MLflow Pipelines Regression Template|.
+    .. figure:: _static/images/pipelines_evaluate_step_card.png
+      :width: 60%
+
+      An example step card produced by running the **evaluate** step of the
+      :ref:`MLflow Regression Pipeline <mlflow-regression-pipeline>`. The step card results
+      indicate that the trained model passed all performance validations and is ready for
+      registration with the :ref:`MLflow Model Registry <registry>`.
+
+
+    .. figure:: _static/images/pipelines_databricks_logged_artifacts.png
+      :width: 60%
+
+      An example MLflow run view page, showing that artifacts from pipeline steps are mostly logged
+      and sharable through the MLflow experiment.
+ 
+    .. figure:: _static/images/pipelines_databricks_notebook_ui.png
+      :scale: 25
+
+      Example pipeline run from the |Databricks Notebook| included in the
+      |MLflow Pipelines Regression Template|.
+
+    .. note::
+      Data profiling is often best viewed with "quantiles" mode. To switch it on, on the Facet
+      data profile, find ``Chart to show``, click the selector below, and choose ``Quantiles``.
 
 4. Iterate over step 2 and 3: make changes in an individual step, and test them by running
    the step and observing the results it produces.
    Use ``Pipeline.inspect()`` to visualize the overall Pipeline dependency graph and artifacts
    each step produces.
-   Use ``Pipeline.get_artifact()`` API to further inspect the step output in a notebook.
+   Use ``Pipeline.get_artifact()`` to further inspect individual step outputs in a notebook.
 
    MLflow Pipelines intelligently caches results from each :ref:`Pipeline Step <steps-key-concept>`,
    ensuring that steps are only executed if their inputs, code, or configurations have changed,
@@ -247,13 +246,14 @@ The general model development workflow for MLflow Pipelines can be summarized th
 
 Development environments
 ~~~~~~~~~~~~~~~~~~~~~~~~
-We recommend to develop models with MLflow Pipelines with one of the following environment settings:
+We recommend using one of the following environment configurations to develop models with MLflow Pipelines:
 
 [**Databricks**]
   - Edit YAML config and Python files in Databricks Repos. Open separate browser tabs for each
     file module that you wish to modify. For example,
     one for the pipeline config file ``pipeline.yaml``,
-    one for the driver noteoobk ``notebooks/databricks.py``,
+    one for the profile config file ``profile/databricks.yaml``,
+    one for the driver notebook ``notebooks/databricks.py``,
     and one for the current step (e.g. train) under development ``steps/train.py``.
   - Use ``notebooks/databricks.py`` as the driver to run pipeline steps and inspect its output.
   - Pin the workspace browser for easy file navigation.
@@ -271,7 +271,7 @@ We recommend to develop models with MLflow Pipelines with one of the following e
 [**Edit locally with IDE (VSCode) and run on Databricks**]
   - Edit files on your local machine with VSCode and Jupyter plugin.
   - Use |dbx| to sync them to |Databricks Repos| as demonstrated below.
-  - On Databricks, use the ``notebooks/databricks.py`` as the driver to run pipeline steps and inspect its output.
+  - On Databricks, use the ``notebooks/databricks.py`` notebook as the driver to run pipeline steps and inspect their outputs.
 
   .. code-block:: sh
    :caption: Example workflow for efficiently editing a pipeline on a local machine
