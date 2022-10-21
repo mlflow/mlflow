@@ -142,12 +142,7 @@ jobs:
         test $err = 0
     - name: Rebuild images with SQLAlchemy 2.x
       run: |
-        sed -i '/sqlalchemy.*/d' requirements/core-requirements.txt
-        # https://github.com/sqlalchemy/sqlalchemy/commit/f4214975a7deb5e13f8b6cf21e39697821396a7f
-        # is a patch for https://github.com/sqlalchemy/sqlalchemy/issues/8661. Tests that log a tag
-        # with a long value (e.g. `"a" * 5000`) fail because of this issue. Install sqlalchemy from
-        # this commit until a new 2.x version is published on PyPI.
-        echo 'sqlalchemy@git+https://github.com/sqlalchemy/sqlalchemy.git@f4214975a7deb5e13f8b6cf21e39697821396a7f' >> requirements/core-requirements.txt
+        sed -i 's/sqlalchemy.*/sqlalchemy==2.0.0b2/g' requirements/core-requirements.txt
         git diff
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Run tests
