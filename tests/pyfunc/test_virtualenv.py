@@ -3,7 +3,6 @@ import sys
 from collections import namedtuple
 from pathlib import Path
 from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
-from unittest import mock
 
 import pytest
 import numpy as np
