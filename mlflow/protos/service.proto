@@ -698,7 +698,11 @@ message GetExperiment {
     optional Experiment experiment = 1;
 
     // Reserved for runs field, which was removed in MLflow 2.0
-    reserved 2;
+    //
+    // NB: We cannot use the reserved keyword for compatibility with
+    // documentation generation tooling, so we comment out the line
+    // below
+    // reserved 2;
   }
 }
 
