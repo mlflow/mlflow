@@ -492,3 +492,26 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     schema = Schema([ColSpec(DataType.integer)])
     spark_type = schema.as_spark_schema()
     assert isinstance(spark_type, IntegerType)
+
+
+def test_enforce_tensor_spec_variable_signature():
+    standard_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3], [1, 2, 3]]])
+    ragged_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3]]], dtype=object)
+    inferred_schema = _infer_schema(ragged_array)
+    inferred_spec = inferred_schema.inputs[0]
+    result_array = _enforce_tensor_spec(standard_array, inferred_spec)
+    np.testing.assert_array_equal(standard_array, result_array)
+    result_array = _enforce_tensor_spec(ragged_array, inferred_spec)
+    np.testing.assert_array_equal(ragged_array, result_array)
+
+    manual_spec = TensorSpec(np.dtype(object), (-1, -1, 3))
+    result_array = _enforce_tensor_spec(standard_array, manual_spec)
+    np.testing.assert_array_equal(standard_array, result_array)
+    result_array = _enforce_tensor_spec(ragged_array, manual_spec)
+    np.testing.assert_array_equal(ragged_array, result_array)
+
+    standard_spec = _infer_schema(standard_array).inputs[0]
+    result_array = _enforce_tensor_spec(standard_array, standard_spec)
+    np.testing.assert_array_equal(standard_array, result_array)
+    with pytest.raises(MlflowException):
+        _enforce_tensor_spec(ragged_array, standard_spec)

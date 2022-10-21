@@ -289,9 +289,22 @@ def _enforce_tensor_spec(
     Enforce the input tensor shape and type matches the provided tensor spec.
     """
     expected_shape = tensor_spec.shape
+    expected_type = tensor_spec.type
     actual_shape = values.shape
-
     actual_type = values.dtype if isinstance(values, np.ndarray) else values.data.dtype
+
+    # This logic is for handling "ragged" arrays. The first check is for a standard numpy shape representation of
+    # a ragged array. The second is for handling a more manual specification of shape while support an input which
+    # is a ragged array.
+    if len(expected_shape) == 1 and expected_shape[0] == -1 and expected_type == np.dtype("O"):
+        return values
+    if (
+        len(expected_shape) > 1
+        and -1 in expected_shape[1:]
+        and len(actual_shape) == 1
+        and actual_type == np.dtype("O")
+    ):
+        return values
 
     if len(expected_shape) != len(actual_shape):
         raise MlflowException(
@@ -308,10 +321,14 @@ def _enforce_tensor_spec(
                     actual_shape, expected_shape
                 )
             )
-    if clean_tensor_type(actual_type) != tensor_spec.type:
+    # Second clause provides support for signatures which support ragged arrays, but where the actual input
+    # isn't ragged
+    if clean_tensor_type(actual_type) != expected_type and (
+        -1 not in expected_shape[1:] or expected_type != np.dtype("O")
+    ):
         raise MlflowException(
             "dtype of input {0} does not match expected dtype {1}".format(
-                values.dtype, tensor_spec.type
+                actual_type, expected_type
             )
         )
     return values
