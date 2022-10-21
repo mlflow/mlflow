@@ -1,6 +1,10 @@
 import time
+import mlflow
+import uuid
 
-for i in range(1000):
-    print(int(time.time() * 1000))
-    time.sleep(0.001)
-    print(int(time.time() * 1000))
+client = mlflow.MlflowClient()
+
+for i in range(10):
+    print("Before", int(time.time() * 1000))
+    client.create_experiment(uuid.uuid4().hex)
+    print("After", int(time.time() * 1000))
