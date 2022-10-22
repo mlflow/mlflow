@@ -25,11 +25,12 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     current_version = re.escape(get_current_version())
     # Java
     suffix = "-SNAPSHOT" if add_dev_suffix else ""
-    replace_occurrences(
-        files=Path("mlflow", "java").rglob("*.xml"),
-        pattern=rf"{current_version}(-SNAPSHOT)?",
-        repl=new_version + suffix,
-    )
+    for java_extension in ["xml", "java"]:
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
+            pattern=rf"{current_version}(-SNAPSHOT)?",
+            repl=new_version + suffix,
+        )
     # Python
     suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
