@@ -142,7 +142,7 @@ jobs:
         test $err = 0
     - name: Rebuild images with SQLAlchemy 2.x
       run: |
-        sed -i 's/sqlalchemy.*/sqlalchemy==2.0.0b2/g' requirements/core-requirements.txt
+        sed -i 's/sqlalchemy.*/sqlalchemy>=2.0.0b0/g' requirements/core-requirements.txt
         git diff
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Run tests
