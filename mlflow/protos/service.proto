@@ -702,6 +702,7 @@ message GetExperiment {
     // NB: We cannot use the reserved keyword for compatibility with
     // documentation generation tooling, so we comment out the line
     // below
+    //
     // reserved 2;
   }
 }
