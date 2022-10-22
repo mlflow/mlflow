@@ -26,8 +26,7 @@ def use_dev_mlflow_for_projects():
 
     conda_env = read_yaml(TEST_VIRTUALENV_CONDA_PROJECT_DIR, "conda.yaml")
     conda_pip_dependencies = [
-        item for item in conda_env["dependencies"] if isinstance(item, dict)
-        and "pip" in item
+        item for item in conda_env["dependencies"] if isinstance(item, dict) and "pip" in item
     ][0]["pip"]
     if "mlflow" in conda_pip_dependencies:
         conda_pip_dependencies.remove("mlflow")
