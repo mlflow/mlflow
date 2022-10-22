@@ -15,8 +15,6 @@ waitress<3; platform_system == 'Windows'
 scikit-learn<2
 pyarrow<10,>=4.0.0
 shap<1,>=0.40
-pandas-profiling<4,>=3.1
-ipython<9,>=7.0
 markdown<4,>=3.3
 Jinja2<4,>=2.11; platform_system != 'Windows'
 Jinja2<4,>=3.0; platform_system == 'Windows'
