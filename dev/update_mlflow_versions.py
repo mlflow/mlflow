@@ -16,7 +16,8 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
     pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()
-        assert pattern.search(old_text), f"Pattern {pattern} not found in {f}"
+        if not pattern.search(old_text):
+            continue
         new_text = pattern.sub(repl, old_text)
         f.write_text(new_text)
 
@@ -57,7 +58,7 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     # R
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
-        pattern=current_version,
+        pattern=f"Version: {current_version}",
         repl=new_version,
     )
 
