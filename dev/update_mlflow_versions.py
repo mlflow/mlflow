@@ -59,7 +59,7 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
         pattern=f"Version: {current_version}",
-        repl=new_version,
+        repl=f"Version: {new_version}",
     )
 
 
