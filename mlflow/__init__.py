@@ -42,7 +42,6 @@ from mlflow import projects  # pylint: disable=unused-import
 from mlflow import tracking  # pylint: disable=unused-import
 from mlflow import models  # pylint: disable=unused-import
 from mlflow import artifacts  # pylint: disable=unused-import
-from mlflow import pipelines  # pylint: disable=unused-import
 from mlflow import client  # pylint: disable=unused-import
 from mlflow import exceptions  # pylint: disable=unused-import
 
@@ -58,6 +57,7 @@ try:
     from mlflow import lightgbm
     from mlflow import mleap
     from mlflow import onnx
+    from mlflow import pipelines
     from mlflow import pyfunc
     from mlflow import pytorch
     from mlflow import sklearn

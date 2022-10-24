@@ -43,6 +43,7 @@ class RunInfo(_MLflowObject):
         lifecycle_stage,
         artifact_uri=None,
         run_id=None,
+        run_name=None,
     ):
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
@@ -64,6 +65,7 @@ class RunInfo(_MLflowObject):
         self._end_time = end_time
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
+        self._run_name = run_name
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -71,7 +73,7 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None):
+    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None, run_name=None):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
         if status:
@@ -80,6 +82,8 @@ class RunInfo(_MLflowObject):
             proto.end_time = end_time
         if lifecycle_stage:
             proto.lifecycle_stage = lifecycle_stage
+        if run_name:
+            proto.run_name = run_name
         return RunInfo.from_proto(proto)
 
     @property
@@ -87,7 +91,7 @@ class RunInfo(_MLflowObject):
         """[Deprecated, use run_id instead] String containing run UUID."""
         return self._run_uuid
 
-    @property
+    @searchable_attribute
     def run_id(self):
         """String containing run id."""
         return self._run_id
@@ -97,7 +101,15 @@ class RunInfo(_MLflowObject):
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
-    @property
+    @searchable_attribute
+    def run_name(self):
+        """String containing run name."""
+        return self._run_name
+
+    def _set_run_name(self, new_name):
+        self._run_name = new_name
+
+    @searchable_attribute
     def user_id(self):
         """String ID of the user who initiated this run."""
         return self._user_id
@@ -115,7 +127,7 @@ class RunInfo(_MLflowObject):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
-    @orderable_attribute
+    @searchable_attribute
     def end_time(self):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
@@ -133,6 +145,8 @@ class RunInfo(_MLflowObject):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
         proto.run_id = self.run_id
+        if self.run_name is not None:
+            proto.run_name = self.run_name
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
         proto.status = RunStatus.from_string(self.status)
@@ -154,6 +168,7 @@ class RunInfo(_MLflowObject):
         return cls(
             run_uuid=proto.run_uuid,
             run_id=proto.run_id,
+            run_name=proto.run_name,
             experiment_id=proto.experiment_id,
             user_id=proto.user_id,
             status=RunStatus.to_string(proto.status),

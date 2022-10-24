@@ -10,6 +10,7 @@ from mlflow.pipelines.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
     _make_elem_hashable,
+    _validate_user_code_output,
     SplitStep,
 )
 from unittest import mock
@@ -38,7 +39,7 @@ def test_split_step_run(tmp_path):
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
         split_step = SplitStep({"split_ratios": split_ratios, "target_col": "y"}, "fake_root")
-        split_step._run(str(split_output_dir))
+        split_step.run(str(split_output_dir))
 
     (split_output_dir / "summary.html").exists()
     (split_output_dir / "card.html").exists()
@@ -91,10 +92,7 @@ def test_hash_pandas_dataframe_deterministic():
         }
     )
     result = _hash_pandas_dataframe(pdf)
-    assert result.tolist() == [
-        2331111997514652279,
-        12302536142759575339,
-    ]
+    assert result.tolist() == [2331111997514652279, 12302536142759575339]
 
 
 def test_get_split_df():
@@ -113,12 +111,10 @@ def test_get_split_df():
 def test_from_pipeline_config_fails_without_target_col(tmp_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch(
-        "mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"
-    ), pytest.raises(
-        MlflowException, match="Missing target_col config"
-    ):
-        _ = SplitStep.from_pipeline_config({}, "fake_root")
+    ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
+        split_step = SplitStep.from_pipeline_config({}, "fake_root")
+        with pytest.raises(MlflowException, match="Missing target_col config"):
+            split_step._validate_and_apply_step_config()
 
 
 def test_from_pipeline_config_works_with_target_col(tmp_path):
@@ -148,11 +144,51 @@ def test_split_step_skips_profiling_when_specified(tmp_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch(
-        "mlflow.pipelines.utils.step.get_pandas_data_profile"
+        "mlflow.pipelines.utils.step.get_pandas_data_profiles"
     ) as mock_profiling, mock.patch(
         "mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"
     ):
         split_step = SplitStep({"target_col": "y", "skip_data_profiling": True}, "fake_root")
-        split_step._run(str(split_output_dir))
+        split_step.run(str(split_output_dir))
 
     mock_profiling.assert_not_called()
+
+
+def test_validation_split_step_validates_split_correctly():
+    train_df = pd.DataFrame({"v": [10, 20, 30], "w": [1, 2, 3]})
+    validation_df = pd.DataFrame({"v": [40, 50, 60], "w": [4, 5, 6]})
+    test_df = pd.DataFrame({"v": [70, 80, 90], "w": [7, 8, 9]})
+
+    def correct_post_split(train_df, validation_df, test_df):
+        return (train_df, validation_df, test_df)
+
+    (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+        correct_post_split, train_df, validation_df, test_df
+    )
+
+    assert train_df.equals(out_train_df)
+    assert validation_df.equals(out_validation_df)
+    assert test_df.equals(out_test_df)
+
+    def drop_post_split(train_df, validation_df, test_df):
+        train_df = train_df.drop(columns=["w"])
+        return (train_df, validation_df, test_df)
+
+    with pytest.raises(
+        MlflowException,
+        match="Column list for train dataset pre-slit .* and post split is .*",
+    ):
+        (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+            drop_post_split, train_df, validation_df, test_df
+        )
+
+    def incorrect_post_split(_, validation_df, test_df):
+        return ([], validation_df, test_df)
+
+    with pytest.raises(
+        MlflowException,
+        match="The split data is not a DataFrame, please return the correct data.",
+    ):
+        (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
+            incorrect_post_split, train_df, validation_df, test_df
+        )

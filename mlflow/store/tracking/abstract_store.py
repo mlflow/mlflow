@@ -58,26 +58,39 @@ class AbstractStore:
             supported.
 
             Identifiers
-              - ``name``: Experiment name.
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive pattern match.
+            Comparators for string attributes and tags
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``LIKE``: Case-sensitive pattern match
+              - ``ILIKE``: Case-insensitive pattern match
+
+            Comparators for numeric attributes
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``<``: Less than
+              - ``<=``: Less than or equal to
+              - ``>``: Greater than
+              - ``>=``: Greater than or equal to
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following identifiers are supported.
+            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
+            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
+            which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name.
-            - ``experiment_id``: Experiment ID.
+            - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
@@ -176,7 +189,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         """
         Update the metadata of the specified run.
 
@@ -185,7 +198,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.

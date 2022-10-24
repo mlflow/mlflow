@@ -33,10 +33,10 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_run(self, run_id):
         raise NotImplementedError()
 
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         raise NotImplementedError()
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         raise NotImplementedError()
 
     def delete_run(self, run_id):

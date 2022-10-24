@@ -245,7 +245,7 @@ const styles = {
   xAxisControls: (theme) => ({
     label: { marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs },
   }),
-  controlsWrapper: { minWidth: 300 },
+  controlsWrapper: { minWidth: '20%', maxWidth: '30%' },
   axisSelector: { width: '100%' },
   centeredControlsWrapper: {
     // Make controls aligned to plotly line chart

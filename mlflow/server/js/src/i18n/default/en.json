@@ -531,6 +531,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "NFUJyk": {
+    "defaultMessage": "Load model",
+    "description": "Code comment which states how to load a SparkML model"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -762,6 +766,10 @@
   "Z5en2d": {
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
+  },
+  "ZGrkWk": {
+    "defaultMessage": "Perform inference via model.transform()",
+    "description": "Code comment which states how we can perform SparkML inference"
   },
   "ZYBoeF": {
     "defaultMessage": "Transition to",

@@ -64,7 +64,7 @@ def validate_docker_env(project):
         )
 
 
-def build_docker_image(work_dir, repository_uri, base_image, run_id):
+def build_docker_image(work_dir, repository_uri, base_image, run_id, skip_image_build):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
@@ -77,21 +77,30 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
         workdir=MLFLOW_DOCKER_WORKDIR_PATH,
     )
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
-    with open(build_ctx_path, "rb") as docker_build_ctx:
-        _logger.info("=== Building docker image %s ===", image_uri)
-        client = docker.from_env()
-        image, _ = client.images.build(
-            tag=image_uri,
-            forcerm=True,
-            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-            fileobj=docker_build_ctx,
-            custom_context=True,
-            encoding="gzip",
-        )
-    try:
-        os.remove(build_ctx_path)
-    except Exception:
-        _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
+    client = docker.from_env()
+    if skip_image_build:
+        if not client.images.list(name=base_image):
+            _logger.info(f"Pulling {base_image}")
+            image = client.images.pull(image_uri)
+        else:
+            _logger.info(f"{base_image} already exists")
+            image = client.images.get(base_image)
+        image_uri = base_image
+    else:
+        with open(build_ctx_path, "rb") as docker_build_ctx:
+            _logger.info("=== Building docker image %s ===", image_uri)
+            image, _ = client.images.build(
+                tag=image_uri,
+                forcerm=True,
+                dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
+                fileobj=docker_build_ctx,
+                custom_context=True,
+                encoding="gzip",
+            )
+        try:
+            os.remove(build_ctx_path)
+        except Exception:
+            _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_URI, image_uri)
     tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_ID, image.id)
     return image

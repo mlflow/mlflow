@@ -5,7 +5,6 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 import os
 
 import atexit
-import time
 import logging
 import inspect
 from copy import deepcopy
@@ -36,12 +35,12 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
-    MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
+from mlflow.utils.time_utils import get_current_time_millis
 
 
 if TYPE_CHECKING:
@@ -202,7 +201,7 @@ def start_run(
                           activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
                           environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
                           or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
+    :param run_name: Name of new run.
                      Used only when ``run_id`` is unspecified. If a new run is created and
                      ``run_name`` is not specified, a unique name will be generated for the run.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
@@ -308,7 +307,7 @@ def start_run(
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
         )
         tags = tags or {}
         if description:
@@ -345,12 +344,12 @@ def start_run(
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
-        if run_name is not None:
-            user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = client.create_run(experiment_id=exp_id_for_run, tags=resolved_tags)
+        active_run_obj = client.create_run(
+            experiment_id=exp_id_for_run, tags=resolved_tags, run_name=run_name
+        )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -642,7 +641,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
             mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
+    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
 
 
 def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
@@ -671,7 +670,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
             mlflow.log_metrics(metrics)
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = int(time.time() * 1000)
+    timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
@@ -1090,26 +1089,39 @@ def search_experiments(
         experiments. The following identifiers, comparators, and logical operators are supported.
 
         Identifiers
-          - ``name``: Experiment name.
+          - ``name``: Experiment name
+          - ``creation_time``: Experiment creation time
+          - ``last_update_time``: Experiment last update time
           - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
             spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-        Comparators
-          - ``=``: Equal to.
-          - ``!=``: Not equal to.
-          - ``LIKE``: Case-sensitive pattern match.
-          - ``ILIKE``: Case-insensitive pattern match.
+        Comparators for string attributes and tags
+            - ``=``: Equal to
+            - ``!=``: Not equal to
+            - ``LIKE``: Case-sensitive pattern match
+            - ``ILIKE``: Case-insensitive pattern match
+
+        Comparators for numeric attributes
+            - ``=``: Equal to
+            - ``!=``: Not equal to
+            - ``<``: Less than
+            - ``<=``: Less than or equal to
+            - ``>``: Greater than
+            - ``>=``: Greater than or equal to
 
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
     :param order_by:
         List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-        ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is equivalent to
-        ``"name ASC"``. The following fields are supported.
+        ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
+        equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
+        which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name.
-            - ``experiment_id``: Experiment ID.
+            - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
 
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 

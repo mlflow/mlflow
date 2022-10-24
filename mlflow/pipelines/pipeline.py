@@ -1,8 +1,11 @@
 import abc
 import logging
+import os
 
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.step import BaseStep, StepStatus
+from mlflow.pipelines import dag_help_strings
+from mlflow.pipelines.artifacts import Artifact
+from mlflow.pipelines.step import BaseStep, StepStatus, StepClass
 from mlflow.pipelines.utils import (
     get_pipeline_config,
     get_pipeline_name,
@@ -11,6 +14,7 @@ from mlflow.pipelines.utils import (
 from mlflow.pipelines.utils.execution import (
     clean_execution_state,
     run_pipeline_step,
+    get_or_create_base_execution_directory,
     get_step_output_path,
 )
 from mlflow.pipelines.utils.step import display_html
@@ -152,15 +156,18 @@ class _BasePipeline:
         return self._steps[step_names.index(step_name)]
 
     @experimental
-    @abc.abstractmethod
     def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
         The returned list should be a sublist of self._steps.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        subgraph = []
+        if target_step.step_class == StepClass.UNKNOWN:
+            return subgraph
+        for step in self._steps:
+            if target_step.step_class() == step.step_class():
+                subgraph.append(step)
+        return subgraph
 
     @experimental
     @abc.abstractmethod
@@ -183,14 +190,129 @@ class _BasePipeline:
         pass
 
     @experimental
-    @abc.abstractmethod
     def _get_pipeline_dag_file(self) -> str:
         """
         Returns absolute path to the pipeline DAG representation HTML file.
-
-        Concrete pipeline class should implement this method.
         """
-        pass
+        import jinja2
+
+        j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
+        pipeline_dag_template = j2_env.get_template("resources/pipeline_dag_template.html").render(
+            {
+                "pipeline_yaml_help": {
+                    "help_string_type": "yaml",
+                    "help_string": dag_help_strings.PIPELINE_YAML,
+                },
+                "ingest_step_help": {
+                    "help_string": dag_help_strings.INGEST_STEP,
+                    "help_string_type": "text",
+                },
+                "ingest_user_code_help": {
+                    "help_string": dag_help_strings.INGEST_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "ingested_data_help": {
+                    "help_string": dag_help_strings.INGESTED_DATA,
+                    "help_string_type": "text",
+                },
+                "split_step_help": {
+                    "help_string": dag_help_strings.SPLIT_STEP,
+                    "help_string_type": "text",
+                },
+                "split_user_code_help": {
+                    "help_string": dag_help_strings.SPLIT_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "training_data_help": {
+                    "help_string": dag_help_strings.TRAINING_DATA,
+                    "help_string_type": "text",
+                },
+                "validation_data_help": {
+                    "help_string": dag_help_strings.VALIDATION_DATA,
+                    "help_string_type": "text",
+                },
+                "test_data_help": {
+                    "help_string": dag_help_strings.TEST_DATA,
+                    "help_string_type": "text",
+                },
+                "transform_step_help": {
+                    "help_string": dag_help_strings.TRANSFORM_STEP,
+                    "help_string_type": "text",
+                },
+                "transform_user_code_help": {
+                    "help_string": dag_help_strings.TRANSFORM_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "fitted_transformer_help": {
+                    "help_string": dag_help_strings.FITTED_TRANSFORMER,
+                    "help_string_type": "text",
+                },
+                "transformed_training_and_validation_data_help": {
+                    "help_string": dag_help_strings.TRANSFORMED_TRAINING_AND_VALIDATION_DATA,
+                    "help_string_type": "text",
+                },
+                "train_step_help": {
+                    "help_string": dag_help_strings.TRAIN_STEP,
+                    "help_string_type": "text",
+                },
+                "train_user_code_help": {
+                    "help_string": dag_help_strings.TRAIN_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "fitted_model_help": {
+                    "help_string": dag_help_strings.FITTED_MODEL,
+                    "help_string_type": "text",
+                },
+                "mlflow_run_help": {
+                    "help_string": dag_help_strings.MLFLOW_RUN,
+                    "help_string_type": "text",
+                },
+                "custom_metrics_user_code_help": {
+                    "help_string": dag_help_strings.CUSTOM_METRICS_USER_CODE,
+                    "help_string_type": "python",
+                },
+                "evaluate_step_help": {
+                    "help_string": dag_help_strings.EVALUATE_STEP,
+                    "help_string_type": "text",
+                },
+                "model_validation_status_help": {
+                    "help_string": dag_help_strings.MODEL_VALIDATION_STATUS,
+                    "help_string_type": "text",
+                },
+                "register_step_help": {
+                    "help_string": dag_help_strings.REGISTER_STEP,
+                    "help_string_type": "text",
+                },
+                "registered_model_version_help": {
+                    "help_string": dag_help_strings.REGISTERED_MODEL_VERSION,
+                    "help_string_type": "text",
+                },
+                "ingest_scoring_step_help": {
+                    "help_string": dag_help_strings.INGEST_SCORING_STEP,
+                    "help_string_type": "text",
+                },
+                "ingested_scoring_data_help": {
+                    "help_string": dag_help_strings.INGESTED_SCORING_DATA,
+                    "help_string_type": "text",
+                },
+                "predict_step_help": {
+                    "help_string": dag_help_strings.PREDICT_STEP,
+                    "help_string_type": "text",
+                },
+                "scored_data_help": {
+                    "help_string": dag_help_strings.SCORED_DATA,
+                    "help_string_type": "text",
+                },
+            }
+        )
+
+        pipeline_dag_file = os.path.join(
+            get_or_create_base_execution_directory(self._pipeline_root_path), "pipeline_dag.html"
+        )
+        with open(pipeline_dag_file, "w") as f:
+            f.write(pipeline_dag_template)
+
+        return pipeline_dag_file
 
     def _resolve_pipeline_steps(self) -> List[BaseStep]:
         """
@@ -204,7 +326,6 @@ class _BasePipeline:
         ]
 
     @experimental
-    @abc.abstractmethod
     def get_artifact(self, artifact_name: str):
         """
         Read an artifact from pipeline output. artifact names can be obtained from
@@ -213,19 +334,25 @@ class _BasePipeline:
         Returns None if the specified artifact is not found.
         Raise an error if the artifact is not supported.
         """
-        pass
+        return self._get_artifact(artifact_name).load()
 
     @experimental
-    @abc.abstractmethod
-    def _get_artifact_path(self, artifact_name: str):
+    def _get_artifact(self, artifact_name: str) -> Artifact:
         """
-        Get a path of an artifact from pipeline output. artifact names can be obtained from
-        `Pipeline.inspect()` or `Pipeline.run()` output.
+        Read an Artifact object from pipeline output. artifact names can be obtained
+        from `Pipeline.inspect()` or `Pipeline.run()` output.
 
         Returns None if the specified artifact is not found.
         Raise an error if the artifact is not supported.
         """
-        pass
+        for step in self._steps:
+            for artifact in step.get_artifacts():
+                if artifact.name() == artifact_name:
+                    return artifact
+        raise MlflowException(
+            f"The artifact with name '{artifact_name}' is not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline

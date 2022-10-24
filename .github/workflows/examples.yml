@@ -35,6 +35,7 @@ env:
 jobs:
   examples:
     runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -61,7 +62,7 @@ jobs:
 
         echo -e "CHANGED_FILES:\nCHANGED_FILES"
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
-        echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
+        echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
     - uses: ./.github/actions/setup-python
 
@@ -88,6 +89,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -112,7 +114,7 @@ jobs:
 
         echo -e "CHANGED_FILES:\nCHANGED_FILES"
         echo "DOCKER_CHANGED: $DOCKER_CHANGED"
-        echo "::set-output name=docker_changed::$DOCKER_CHANGED"
+        echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}

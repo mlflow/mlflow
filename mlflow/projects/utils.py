@@ -39,6 +39,7 @@ PROJECT_ENV_MANAGER = "ENV_MANAGER"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
+SKIP_IMAGE_BUILD = "SKIP_IMAGE_BUILD"
 GIT_FETCH_DEPTH = 1
 
 
@@ -208,7 +209,7 @@ def _fetch_git_repo(uri, version, dst_dir):
         origin = repo.create_remote("origin", uri)
     if version is not None:
         try:
-            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
+            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH, tags=True)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(

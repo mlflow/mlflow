@@ -47,7 +47,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.7.1"
+    maximum: "1.7.7"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -67,7 +67,7 @@ tensorflow:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.9.1"
+    maximum: "2.10.0"
     requirements:
       "< 2.6.0": ["protobuf<4.0.0"]
       # Requirements to run tests for keras
@@ -83,7 +83,7 @@ tensorflow:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.9.1"
+    maximum: "2.10.0"
     requirements:
       "< 2.6.0": ["protobuf<4.0.0"]
       "== dev": ["scikit-learn"]
@@ -100,7 +100,7 @@ keras:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.9.0"
+    maximum: "2.10.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
       "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
@@ -112,7 +112,7 @@ keras:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.9.0"
+    maximum: "2.10.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -131,7 +131,7 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.6.1"
+    maximum: "1.6.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -139,7 +139,7 @@ xgboost:
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.6.1"
+    maximum: "1.6.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -153,7 +153,7 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -161,7 +161,7 @@ lightgbm:
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -180,7 +180,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.6"
+    maximum: "1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -311,7 +311,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -331,7 +331,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -383,7 +383,7 @@ prophet:
 
   models:
     minimum: "1.0.1"
-    maximum: "1.1"
+    maximum: "1.1.1"
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 

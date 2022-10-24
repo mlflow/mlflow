@@ -9,8 +9,10 @@ from functools import reduce
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+from sqlalchemy import sql
 from sqlalchemy.future import select
 
+from mlflow.entities import RunTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -25,7 +27,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLatestMetric,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment, RunTag
+from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
@@ -56,6 +58,7 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -161,18 +164,18 @@ class SqlAlchemyStore(AbstractStore):
         if self.db_type == MYSQL:
             # config letting MySQL override default
             # to allow 0 value for experiment ID (auto increment column)
-            session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+            session.execute(sql.text("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';"))
         if self.db_type == MSSQL:
             # config letting MSSQL override default
             # to allow any manual value inserted into IDENTITY column
-            session.execute("SET IDENTITY_INSERT experiments ON;")
+            session.execute(sql.text("SET IDENTITY_INSERT experiments ON;"))
 
     # DB helper methods to allow zero values for columns with auto increments
     def _unset_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
-            session.execute("SET @@SESSION.sql_mode='';")
+            session.execute(sql.text("SET @@SESSION.sql_mode='';"))
         if self.db_type == MSSQL:
-            session.execute("SET IDENTITY_INSERT experiments OFF;")
+            session.execute(sql.text("SET IDENTITY_INSERT experiments OFF;"))
 
     def _create_default_experiment(self, session):
         """
@@ -184,11 +187,14 @@ class SqlAlchemyStore(AbstractStore):
         ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
+        creation_time = get_current_time_millis()
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
+            SqlExperiment.creation_time.name: creation_time,
+            SqlExperiment.last_update_time.name: creation_time,
         }
 
         def decorate(s):
@@ -204,7 +210,9 @@ class SqlAlchemyStore(AbstractStore):
         try:
             self._set_zero_value_insertion_for_autoincrement_column(session)
             session.execute(
-                "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+                sql.text(
+                    "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+                )
             )
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
@@ -240,7 +248,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = int(time.time() * 1000)
+                creation_time = get_current_time_millis()
                 experiment = SqlExperiment(
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
@@ -476,15 +484,26 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_deleted(session, run)
             self._save_to_db(objs=experiment, session=session)
 
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete a experiment (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(
+                experiment_id=experiment_id, session=session, view_type=ViewType.DELETED_ONLY
+            )
+            session.delete(experiment)
+
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
-        run.deleted_time = int(time.time() * 1000)
+        run.deleted_time = get_current_time_millis()
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
@@ -500,7 +519,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_active(session, run)
@@ -513,10 +532,10 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
 
             experiment.name = new_name
-            experiment.last_update_time = int(time.time() * 1000)
+            experiment.last_update_time = get_current_time_millis()
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -529,8 +548,9 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
+            run_name = run_name if run_name else _generate_random_name()
             run = SqlRun(
-                name="",
+                name=run_name,
                 artifact_uri=artifact_location,
                 run_uuid=run_id,
                 experiment_id=experiment_id,
@@ -546,11 +566,8 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            if tags is None:
-                tags = [RunTag(MLFLOW_RUN_NAME, _generate_random_name())]
-            elif MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-                tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
-
+            tags = tags or []
+            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
@@ -613,12 +630,19 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
+            if run_name:
+                run.name = run_name
+                run_name_tag = self._try_get_run_tag(session, run_id, MLFLOW_RUN_NAME)
+                if run_name_tag is None:
+                    run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
+                else:
+                    run_name_tag.value = run_name
 
             self._save_to_db(objs=run, session=session)
             run = run.to_mlflow_entity()
@@ -627,13 +651,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
-        tags = (
+        return (
             session.query(SqlTag)
             .options(*query_options)
-            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey)
-            .all()
+            .filter(SqlTag.run_uuid == run_id, SqlTag.key == tagKey)
+            .one_or_none()
         )
-        return None if not tags else tags[0]
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -655,7 +678,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.DELETED
-            run.deleted_time = int(time.time() * 1000)
+            run.deleted_time = get_current_time_millis()
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -674,7 +697,7 @@ class SqlAlchemyStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = int(time.time() * 1000)
+        current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             runs = (
                 session.query(SqlRun)
@@ -942,52 +965,36 @@ class SqlAlchemyStore(AbstractStore):
         if not params:
             return
 
-        param_instances = [
-            SqlParam(run_uuid=run_id, key=param.key, value=param.value) for param in params
-        ]
-
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            # commit the session to make sure that we catch any IntegrityError
-            # and try to handle them.
-            try:
-                self._save_to_db(session=session, objs=param_instances)
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                # Roll back the current session to make it usable for further transactions. In the
-                # event of an error during "commit", a rollback is required in order to continue
-                # using the session. In this case, we re-use the session because the SqlRun, `run`,
-                # is lazily evaluated during the invocation of `run.params`.
-                session.rollback()
-
-                # in case of an integrity error, compare the parameters of the
-                # run. If the parameters match the ones whom being saved,
-                # ignore the exception since idempotency is reached.
-                # Also, multiple params for the same key can still be passed within
-                # the same batch. So, handle them by selecting the first param
-                # for the given key
-                run_params = {param.key: param.value for param in run.params}
-                non_matching_params = []
-                for param in param_instances:
-                    existing_value = run_params.get(param.key)
-                    if param.value != existing_value:
+            existing_params = {p.key: p.value for p in run.params}
+            new_params = []
+            non_matching_params = []
+            for param in params:
+                if param.key in existing_params:
+                    if param.value != existing_params[param.key]:
                         non_matching_params.append(
                             {
                                 "key": param.key,
-                                "old_value": existing_value,
+                                "old_value": existing_params[param.key],
                                 "new_value": param.value,
                             }
                         )
+                    continue
+                new_params.append(SqlParam(run_uuid=run_id, key=param.key, value=param.value))
 
-                if non_matching_params:
-                    raise MlflowException(
-                        "Changing param values is not allowed. Params were already logged='{}'"
-                        " for run ID='{}'.".format(non_matching_params, run_id),
-                        INVALID_PARAMETER_VALUE,
-                    )
-                # if there's no mismatch, do not raise an Exception since
-                # we are sure that idempotency is reached.
+            if non_matching_params:
+                raise MlflowException(
+                    "Changing param values is not allowed. Params were already logged='{}'"
+                    " for run ID='{}'.".format(non_matching_params, run_id),
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            if not new_params:
+                return
+
+            self._save_to_db(session=session, objs=new_params)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -1017,7 +1024,12 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+            if tag.key == MLFLOW_RUN_NAME:
+                run_status = RunStatus.from_string(run.status)
+                self.update_run_info(run_id, run_status, run.end_time, tag.value)
+            else:
+                # NB: Updating the run_info will set the tag. No need to do it twice.
+                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def _set_tags(self, run_id, tags):
         """
@@ -1047,25 +1059,32 @@ class SqlAlchemyStore(AbstractStore):
 
                     new_tag_dict = {}
                     for tag in tags:
-                        current_tag = current_tags.get(tag.key)
-                        new_tag = new_tag_dict.get(tag.key)
-
-                        # update the SqlTag if it is already present in DB
-                        if current_tag:
-                            current_tag.value = tag.value
-                            continue
-
-                        # if a SqlTag instance is already present in `new_tag_dict`,
-                        # this means that multiple tags with the same key were passed to `set_tags`.
-                        # In this case, we resolve potential conflicts by updating the value of the
-                        # existing instance to the value of `tag`
-                        if new_tag:
-                            new_tag.value = tag.value
-                        # otherwise, put it into the dict
+                        # NB: If the run name tag is explicitly set, update the run info attribute
+                        # and do not resubmit the tag for overwrite as the tag will be set within
+                        # `set_tag()` with a call to `update_run_info()`
+                        if tag.key == MLFLOW_RUN_NAME:
+                            self.set_tag(run_id, tag)
                         else:
-                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+                            current_tag = current_tags.get(tag.key)
+                            new_tag = new_tag_dict.get(tag.key)
 
-                        new_tag_dict[tag.key] = new_tag
+                            # update the SqlTag if it is already present in DB
+                            if current_tag:
+                                current_tag.value = tag.value
+                                continue
+
+                            # if a SqlTag instance is already present in `new_tag_dict`,
+                            # this means that multiple tags with the same key were passed to
+                            # `set_tags`.
+                            # In this case, we resolve potential conflicts by updating the value
+                            # of the existing instance to the value of `tag`
+                            if new_tag:
+                                new_tag.value = tag.value
+                            # otherwise, put it into the dict
+                            else:
+                                new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                            new_tag_dict[tag.key] = new_tag
 
                     # finally, save new entries to DB.
                     self._save_to_db(session=session, objs=list(new_tag_dict.values()))
@@ -1141,8 +1160,11 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
-                stmt = stmt.join(j)
+            attribute_filters, non_attribute_filters = _get_sqlalchemy_filter_clauses(
+                parsed_filters, session, self._get_dialect()
+            )
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -1156,7 +1178,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters, self._get_dialect()),
+                    *attribute_filters,
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -1222,58 +1244,70 @@ def _get_attributes_filtering_clauses(parsed, dialect):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator, dialect)
-                clauses.append(op(value))
-            elif comparator in SearchUtils.filter_ops:
-                op = SearchUtils.filter_ops.get(comparator)
-                clauses.append(op(attribute, value))
+            clauses.append(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attribute, value)
+            )
     return clauses
 
 
-def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
-    key_type = sql_statement.get("type")
-    key_name = sql_statement.get("key")
-    value = sql_statement.get("value")
-    comparator = sql_statement.get("comparator").upper()
-
-    if SearchUtils.is_metric(key_type, comparator):
-        entity = SqlLatestMetric
-        value = float(value)
-    elif SearchUtils.is_param(key_type, comparator):
-        entity = SqlParam
-    elif SearchUtils.is_tag(key_type, comparator):
-        entity = SqlTag
-    elif SearchUtils.is_string_attribute(
-        key_type, key_name, comparator
-    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
-        return None
-    else:
-        raise MlflowException(
-            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
-        )
-
-    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator, dialect)
-        return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
-    elif comparator in SearchUtils.filter_ops:
-        op = SearchUtils.filter_ops.get(comparator)
-        return (
-            session.query(entity).filter(entity.key == key_name, op(entity.value, value)).subquery()
-        )
-    else:
-        return None
-
-
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
-    """creates SqlAlchemy subqueries
-    that will be inner-joined to SQLRun to act as multi-clause filters."""
-    filters = []
+    """
+    Creates run attribute filters and subqueries that will be inner-joined to SqlRun to act as
+    multi-clause filters and return them as a tuple.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
     for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session, dialect)
-        if filter_query is not None:
-            filters.append(filter_query)
-    return filters
+        key_type = sql_statement.get("type")
+        key_name = sql_statement.get("key")
+        value = sql_statement.get("value")
+        comparator = sql_statement.get("comparator").upper()
+
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
+            if key_name == "run_name":
+                # Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
+                # The name column in the runs table is empty for runs logged in MLflow <= 1.29.0.
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                    SqlTag.key, MLFLOW_RUN_NAME
+                )
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlTag.value, value
+                )
+                non_attribute_filters.append(
+                    session.query(SqlTag).filter(key_filter, val_filter).subquery()
+                )
+            else:
+                attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    attribute, value
+                )
+                attribute_filters.append(attr_filter)
+        else:
+            if SearchUtils.is_metric(key_type, comparator):
+                entity = SqlLatestMetric
+                value = float(value)
+            elif SearchUtils.is_param(key_type, comparator):
+                entity = SqlParam
+            elif SearchUtils.is_tag(key_type, comparator):
+                entity = SqlTag
+            else:
+                raise MlflowException(
+                    "Invalid search expression type '%s'" % key_type,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                entity.value, value
+            )
+            non_attribute_filters.append(
+                session.query(entity).filter(key_filter, val_filter).subquery()
+            )
+
+    return attribute_filters, non_attribute_filters
 
 
 def _get_orderby_clauses(order_by_list, session):
@@ -1323,22 +1357,18 @@ def _get_orderby_clauses(order_by_list, session):
             # avoid ambiguity
             if SearchUtils.is_metric(key_type, "="):
                 case = sql.case(
-                    [
-                        # Ideally the use of "IS" is preferred here but owing to sqlalchemy
-                        # translation in MSSQL we are forced to use "=" instead.
-                        # These 2 options are functionally identical / unchanged because
-                        # the column (is_nan) is not nullable. However it could become an issue
-                        # if this precondition changes in the future.
-                        (subquery.c.is_nan == sqlalchemy.true(), 1),
-                        (order_value.is_(None), 2),
-                    ],
+                    # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                    # translation in MSSQL we are forced to use "=" instead.
+                    # These 2 options are functionally identical / unchanged because
+                    # the column (is_nan) is not nullable. However it could become an issue
+                    # if this precondition changes in the future.
+                    (subquery.c.is_nan == sqlalchemy.true(), 1),
+                    (order_value.is_(None), 2),
                     else_=0,
                 ).label("clause_%s" % clause_id)
 
             else:  # other entities do not have an 'is_nan' field
-                case = sql.case([(order_value.is_(None), 1)], else_=0).label(
-                    "clause_%s" % clause_id
-                )
+                case = sql.case((order_value.is_(None), 1), else_=0).label("clause_%s" % clause_id)
             clauses.append(case.name)
             select_clauses.append(case)
             select_clauses.append(order_value)
@@ -1369,22 +1399,32 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            attr = getattr(SqlExperiment, key)
-            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if SearchExperimentsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for attribute: {comparator}"
+                    f"Invalid comparator for string attribute: {comparator}"
                 )
-            f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-            attribute_filters.append(f)
+            if SearchExperimentsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlExperiment, key)
+            attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            attribute_filters.append(attr_filter)
         elif type_ == "tag":
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            val_filter = SearchUtils.get_sql_filter_ops(
-                SqlExperimentTag.value, comparator, dialect
-            )(value)
-            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                SqlExperimentTag.value, value
+            )
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                SqlExperimentTag.key, key
+            )
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
             )
@@ -1397,7 +1437,8 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+        SearchExperimentsUtils.parse_order_by_for_search_experiments,
+        order_by or ["last_update_time DESC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))

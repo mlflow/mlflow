@@ -1,18 +1,18 @@
 name: Preview docs
 
-on: [status]
+on:
+  pull_request_target:
 jobs:
   main:
-    if: "github.event.context == 'ci/circleci: build_doc'"
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     steps:
-      - uses: larsoner/circleci-artifacts-redirector-action@0.3.1
-        id: create-link
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          artifact-path: 0/docs/build/html/index.html
-          circleci-jobs: build_doc
-          job-title: Preview docs
-      - name: Check URL
+      - uses: actions/checkout@v3
+      - name: Install dependencies
         run: |
-          curl --fail ${{ steps.create-link.outputs.url }}
+          pip install requests
+      - name: Create preview link
+        env:
+          GITHUB_TOKEN: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+        run: |
+          python dev/preview_docs.py --commit-sha ${{ github.event.pull_request.head.sha }} --pull-number ${{ github.event.pull_request.number }}

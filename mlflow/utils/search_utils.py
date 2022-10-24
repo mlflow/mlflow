@@ -15,21 +15,30 @@ from sqlparse.sql import (
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
+from packaging.version import Version
 
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
 
 import math
 
 
-def _case_sensitive_match(string, pattern):
-    return re.match(pattern, string) is not None
+def _convert_like_pattern_to_regex(pattern, flags=0):
+    if not pattern.startswith("%"):
+        pattern = "^" + pattern
+    if not pattern.endswith("%"):
+        pattern = pattern + "$"
+    return re.compile(pattern.replace("_", ".").replace("%", ".*"), flags)
 
 
-def _case_insensitive_match(string, pattern):
-    return re.match(pattern, string, flags=re.IGNORECASE) is not None
+def _like(string, pattern):
+    return _convert_like_pattern_to_regex(pattern).match(string) is not None
+
+
+def _ilike(string, pattern):
+    return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
 class SearchUtils:
@@ -41,14 +50,9 @@ class SearchUtils:
     VALID_METRIC_COMPARATORS = {">", ">=", "!=", "=", "<", "<="}
     VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = {"start_time"}
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = {LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
-        {"="}
-    )
-    VALID_MODEL_VERSIONS_SEARCH_COMPARATORS = {"=", "IN"}
+    NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -84,51 +88,69 @@ class SearchUtils:
     # We encourage users to use timestamp for order-by
     RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = {ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP}
 
-    filter_ops = {
-        ">": operator.gt,
-        ">=": operator.ge,
-        "=": operator.eq,
-        "!=": operator.ne,
-        "<=": operator.le,
-        "<": operator.lt,
-        "LIKE": _case_sensitive_match,
-        "ILIKE": _case_insensitive_match,
-    }
+    @staticmethod
+    def get_comparison_func(comparator):
+        return {
+            ">": operator.gt,
+            ">=": operator.ge,
+            "=": operator.eq,
+            "!=": operator.ne,
+            "<=": operator.le,
+            "<": operator.lt,
+            "LIKE": _like,
+            "ILIKE": _ilike,
+            "IN": lambda x, y: x in y,
+            "NOT IN": lambda x, y: x not in y,
+        }[comparator]
 
-    @classmethod
-    def get_sql_filter_ops(cls, column, operator, dialect):
+    @staticmethod
+    def get_sql_comparison_func(comparator, dialect):
         import sqlalchemy as sa
 
-        col = f"{column.class_.__tablename__}.{column.key}"
+        def comparison_func(column, value):
+            if comparator == "LIKE":
+                return column.like(value)
+            elif comparator == "ILIKE":
+                return column.ilike(value)
+            elif comparator == "IN":
+                return column.in_(value)
+            elif comparator == "NOT IN":
+                return ~column.in_(value)
+            return SearchUtils.get_comparison_func(comparator)(column, value)
 
-        # Use case-sensitive collation for MSSQL
-        if dialect == MSSQL:
-            column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+        def mssql_comparison_func(column, value):
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
 
-        # Use non-binary ahead of binary comparison for runtime performance
-        # Use non-binary ahead of binary comparison for runtime performance
-        def case_sensitive_mysql_eq(value):
-            return sa.text(f"({col} = :value AND BINARY {col} = :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            return comparison_func(collated, value)
 
-        def case_sensitive_mysql_ne(value):
-            return sa.text(f"({col} != :value OR BINARY {col} != :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+        def mysql_comparison_func(column, value):
+            if not isinstance(column.type, sa.types.String):
+                return comparison_func(column, value)
 
-        def case_sensitive_mysql_like(value):
-            return sa.text(f"({col} LIKE :value AND BINARY {col} LIKE :value)").bindparams(
-                sa.bindparam("value", value=value, unique=True)
-            )
+            # MySQL is case insensitive by default, so we need to use the binary operator to
+            # perform case sensitive comparisons.
+            templates = {
+                # Use non-binary ahead of binary comparison for runtime performance
+                "=": "({column} = :value AND BINARY {column} = :value)",
+                "!=": "({column} != :value OR BINARY {column} != :value)",
+                "LIKE": "({column} LIKE :value AND BINARY {column} LIKE :value)",
+            }
+            if comparator in templates:
+                column = f"{column.class_.__tablename__}.{column.key}"
+                return sa.text(templates[comparator].format(column=column)).bindparams(
+                    sa.bindparam("value", value=value, unique=True)
+                )
 
-        sql_filter_ops = {
-            "=": case_sensitive_mysql_eq if dialect == MYSQL else column.__eq__,
-            "!=": case_sensitive_mysql_ne if dialect == MYSQL else column.__ne__,
-            "LIKE": case_sensitive_mysql_like if dialect == MYSQL else column.like,
-            "ILIKE": column.ilike,
-        }
-        return sql_filter_ops[operator]
+            return comparison_func(column, value)
+
+        return {
+            POSTGRES: comparison_func,
+            SQLITE: comparison_func,
+            MSSQL: mssql_comparison_func,
+            MYSQL: mysql_comparison_func,
+        }[dialect]
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -235,6 +257,14 @@ class SearchUtils:
                 return token.value
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                if key != "run_id":
+                    raise MlflowException(
+                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value for attributes. "
@@ -388,14 +418,6 @@ class SearchUtils:
         return False
 
     @classmethod
-    def _convert_like_pattern_to_regex(cls, pattern):
-        if not pattern.startswith("%"):
-            pattern = "^" + pattern
-        if not pattern.endswith("%"):
-            pattern = pattern + "$"
-        return pattern.replace("_", ".").replace("%", ".*")
-
-    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -421,13 +443,7 @@ class SearchUtils:
         if lhs is None:
             return False
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        else:
-            return False
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, runs, filter_string):
@@ -456,14 +472,22 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
+        ttype_for_timestamp = (
+            TokenType.Name.Builtin
+            if Version(sqlparse.__version__) >= Version("0.4.3")
+            else TokenType.Keyword
+        )
+
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
         elif len(statement.tokens) == 1 and statement.tokens[0].match(
-            ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
+            statement.tokens[0].match(
+                ttype=ttype_for_timestamp, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            )
             and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
@@ -643,7 +667,16 @@ class SearchUtils:
                 " expected a non-empty list of string values, but got empty list",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        elif not isinstance(value_token._groupable_tokens[0], IdentifierList):
+
+        # Single element (e.g. `('x')`)
+        if (
+            len(value_token._groupable_tokens) == 1
+            and value_token._groupable_tokens[0].ttype is TokenType.String.Single
+        ):
+            return
+
+        # Multiple elements (e.g. `('x','y')`)
+        if not isinstance(value_token._groupable_tokens[0], IdentifierList):
             raise MlflowException(
                 "While parsing a list in the query,"
                 " expected a non-empty list of string values, but got ill-formed list.",
@@ -667,7 +700,8 @@ class SearchUtils:
     @classmethod
     def _parse_list_from_sql_token(cls, token):
         try:
-            return ast.literal_eval(token.value)
+            str_or_tuple = ast.literal_eval(token.value)
+            return [str_or_tuple] if isinstance(str_or_tuple, str) else str_or_tuple
         except SyntaxError:
             raise MlflowException(
                 "While parsing a list in the query,"
@@ -675,10 +709,20 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    @classmethod
+    def _parse_run_ids(cls, token):
+        cls._check_valid_identifier_list(token)
+        run_id_list = cls._parse_list_from_sql_token(token)
+        # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
+        # case letters, so that we filter out run_ids containing upper case letters here.
+        run_id_list = [run_id for run_id in run_id_list if run_id.islower()]
+        return run_id_list
+
 
 class SearchExperimentsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
+    NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -759,8 +803,11 @@ class SearchExperimentsUtils(SearchUtils):
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
-        if cls.is_attribute(key_type, comparator):
+        if cls.is_string_attribute(key_type, key, comparator):
             lhs = getattr(experiment, key)
+        elif cls.is_numeric_attribute(key_type, key, comparator):
+            lhs = getattr(experiment, key)
+            value = float(value)
         elif cls.is_tag(key_type, comparator):
             if key not in experiment.tags:
                 return False
@@ -772,13 +819,7 @@ class SearchExperimentsUtils(SearchUtils):
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
             )
 
-        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            value = cls._convert_like_pattern_to_regex(value)
-
-        if comparator in cls.filter_ops.keys():
-            return cls.filter_ops.get(comparator)(lhs, value)
-        else:
-            return False
+        return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
     @classmethod
     def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed
@@ -889,18 +930,13 @@ class SearchModelUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                cls._check_valid_identifier_list(token)
                 if key != "run_id":
                     raise MlflowException(
-                        "Only run_id attribute support compare with a list of quoted string "
-                        "values.",
+                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                run_id_list = cls._parse_list_from_sql_token(token)
-                # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
-                # case letters, so that we filter out run_ids containing upper case letters here.
-                run_id_list = [run_id for run_id in run_id_list if run_id.islower()]
-                return run_id_list
+                return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "

@@ -40,6 +40,7 @@ from tests.helper_functions import (
     PROTOBUF_REQUIREMENT,
     pyfunc_generate_dockerfile,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
@@ -517,7 +518,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
 
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
-    with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
+    with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
@@ -577,7 +578,7 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
+    with pytest.raises(MlflowException, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
             ["--model-uri", "model", "--env-manager", "abc"],

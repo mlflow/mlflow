@@ -83,7 +83,9 @@ def score_model_in_sagemaker_docker_container(
         cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
         env=env,
     )
-    return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(
+        proc, 5000, data, content_type, activity_polling_timeout_seconds, False
+    )
 
 
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
@@ -207,10 +209,14 @@ def pyfunc_serve_and_score_model(
         str(port),
         "--install-mlflow",
     ]
+    validate_version = True
     if extra_args is not None:
         scoring_cmd += extra_args
+        validate_version = "--enable-mlserver" not in extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
+    )
 
 
 def _get_mlflow_home():
@@ -248,12 +254,14 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=250, validate_version=True):
         self._proc = proc
         self._port = port
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
+        self._validate_version = validate_version
 
     def __enter__(self):
+        ping_status = None
         for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
             time.sleep(1)
@@ -265,9 +273,16 @@ class RestEndpoint:
                     break
             except Exception:
                 _logger.info(f"connection attempt {i} failed, server is not up yet")
-        if ping_status.status_code != 200:
+        if ping_status is None or ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         _logger.info(f"server up, ping status {ping_status}")
+
+        if self._validate_version:
+            resp_status = requests.get(url="http://localhost:%d/version" % self._port)
+            version = resp_status.text
+            _logger.info(f"mlflow server version {version}")
+            if version != mlflow.__version__:
+                raise Exception("version path is not returning correct mlflow version")
         return self
 
     def __exit__(self, tp, val, traceback):
@@ -308,12 +323,16 @@ class RestEndpoint:
         return response
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(
+    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
+):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
-    with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+    ) as endpoint:
         return endpoint.invoke(data, content_type)
 
 

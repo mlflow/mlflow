@@ -58,7 +58,21 @@ class ShowArtifactPage extends Component {
       }
       if (this.props.size > MAX_PREVIEW_ARTIFACT_SIZE_MB * ONE_MB) {
         return getFileTooLargeView();
-      } else if (!this.props.isDirectory && normalizedExtension) {
+      } else if (this.props.isDirectory) {
+        if (
+          this.props.runTags &&
+          getLoggedModelPathsFromTags(this.props.runTags).includes(this.props.path)
+        ) {
+          return (
+            <ShowArtifactLoggedModelView
+              runUuid={this.props.runUuid}
+              path={this.props.path}
+              artifactRootUri={this.props.artifactRootUri}
+              registeredModelLink={registeredModelLink}
+            />
+          );
+        }
+      } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
@@ -71,18 +85,6 @@ class ShowArtifactPage extends Component {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
-        } else if (
-          this.props.runTags &&
-          getLoggedModelPathsFromTags(this.props.runTags).includes(normalizedExtension)
-        ) {
-          return (
-            <ShowArtifactLoggedModelView
-              runUuid={this.props.runUuid}
-              path={this.props.path}
-              artifactRootUri={this.props.artifactRootUri}
-              registeredModelLink={registeredModelLink}
-            />
-          );
         }
       }
     }

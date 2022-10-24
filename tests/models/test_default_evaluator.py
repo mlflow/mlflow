@@ -1848,7 +1848,7 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
-            model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
+            model_type="classifier",
             targets="target",
             dataset_name="iris",
             evaluators="default",
@@ -1874,11 +1874,55 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
 
 
-@pytest.mark.parametrize("pos_label", [None, 0, 1])
+@pytest.mark.parametrize(
+    "env_manager",
+    ["virtualenv", "conda"],
+)
+def test_evaluation_with_env_restoration(
+    multiclass_logistic_regressor_model_uri, iris_dataset, env_manager
+):
+    with mlflow.start_run() as run:
+        result = evaluate(
+            model=multiclass_logistic_regressor_model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators="default",
+            env_manager=env_manager,
+        )
+
+    _, metrics, _, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    y = iris_dataset.labels_data
+    y_pred = model.predict(iris_dataset.features_data)
+
+    expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=None)
+
+    for metric_key, expected_metric_val in expected_metrics.items():
+        assert np.isclose(
+            expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
+        )
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
+
+    assert set(artifacts) == {
+        "per_class_metrics_on_data_iris_dataset.csv",
+        "confusion_matrix_on_data_iris_dataset.png",
+    }
+    assert result.artifacts.keys() == {
+        "per_class_metrics",
+        "confusion_matrix",
+    }
+
+
+@pytest.mark.parametrize("pos_label", [None, 0, 1, 2])
 def test_evaluation_binary_classification_with_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
     y = y.head(len(X))
+    if pos_label == 2:
+        y = [2 if trg == 1 else trg for trg in y]
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)

@@ -40,7 +40,7 @@ from tests.pipelines.helper_functions import (
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
 # `pipeline.run(step=None)` is called
-_STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate", "register"]
+_STEP_NAMES = ["ingest", "split", "transform", "train", "evaluate", "register"]
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
@@ -109,8 +109,7 @@ def test_pipelines_execution_directory_is_managed_as_expected(
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
         assert step_outputs_path.exists()
         first_output = next(step_outputs_path.iterdir(), None)
-        # TODO: Assert that the ingest step has outputs once ingest execution has been implemented
-        assert first_output is not None or step_name == "ingest"
+        assert first_output is not None
 
     # Clean the pipeline and verify that all step outputs have been removed
     p.clean()
@@ -154,6 +153,7 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
         run_id=logged_run.info.run_id, path="train"
     )
     assert {artifact.path for artifact in artifacts} == {
+        "train/best_parameters.yaml",
         "train/card.html",
         "train/estimator",
         "train/model",
@@ -281,12 +281,7 @@ def test_pipeline_get_artifacts():
         pipeline.get_artifact("abcde")
 
     pipeline.clean()
-    with mock.patch("mlflow.pipelines.regression.v1.pipeline._logger.warning") as mock_warning:
-        pipeline.get_artifact("ingested_data")
-        mock_warning.assert_called_once_with(
-            "The artifact with name 'ingested_data' was not found."
-            " Re-run the 'ingest' step to generate it."
-        )
+    assert not pipeline.get_artifact("ingested_data")
 
 
 def test_generate_worst_examples_dataframe():
@@ -300,7 +295,7 @@ def test_generate_worst_examples_dataframe():
     predictions = [5, 3, 4]
 
     result_df = BaseStep._generate_worst_examples_dataframe(
-        test_df, predictions, target_col, worst_k=2
+        test_df, predictions, predictions - test_df[target_col].to_numpy(), target_col, worst_k=2
     )
 
     def assert_result_correct(df):
@@ -315,7 +310,7 @@ def test_generate_worst_examples_dataframe():
 
     test_df2 = test_df.set_axis([2, 1, 0], axis="index")
     result_df2 = BaseStep._generate_worst_examples_dataframe(
-        test_df2, predictions, target_col, worst_k=2
+        test_df2, predictions, predictions - test_df2[target_col].to_numpy(), target_col, worst_k=2
     )
     assert_result_correct(result_df2)
 
@@ -336,9 +331,9 @@ def test_print_cached_steps_and_running_steps(capsys):
     captured = capsys.readouterr()
     output_info = captured.err
     cached_step_pattern = "{step}: No changes. Skipping."
-    for step in _STEP_NAMES:
-        # Check for printed message when every step is cached
-        assert re.search(cached_step_pattern.format(step=step), output_info) is not None
+    cached_steps = ", ".join(_STEP_NAMES)
+    # Check for printed message when steps are cached
+    assert re.search(cached_step_pattern.format(step=cached_steps), output_info) is not None
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")

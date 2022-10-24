@@ -8,7 +8,6 @@ import sys
 import posixpath
 import pytest
 import logging
-import time
 import tempfile
 import urllib.parse
 from unittest import mock
@@ -23,7 +22,6 @@ from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
-    MLFLOW_RUN_NAME,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
@@ -31,6 +29,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -207,6 +206,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_version = "abc"
     create_run_kwargs = {
         "start_time": 456,
+        "run_name": "my name",
         "tags": {
             MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",
@@ -214,7 +214,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
             MLFLOW_GIT_COMMIT: source_version,
             MLFLOW_PARENT_RUN_ID: "7",
-            MLFLOW_RUN_NAME: "my name",
             "my": "tag",
             "other": "tag",
         },
@@ -232,10 +231,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         assert run.info.experiment_id == experiment_id
         assert run.info.user_id == user
         assert run.info.start_time == create_run_kwargs["start_time"]
+        assert run.info.run_name == "my name"
         for tag in create_run_kwargs["tags"]:
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
-        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
         assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
@@ -638,7 +637,7 @@ def test_set_terminated_defaults(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
     assert mlflow_client.get_run(run_id).info.status == "FINISHED"
-    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
+    assert mlflow_client.get_run(run_id).info.end_time <= get_current_time_millis()
 
 
 def test_set_terminated_status(mlflow_client):
@@ -649,7 +648,7 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, "FAILED")
     assert mlflow_client.get_run(run_id).info.status == "FAILED"
-    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
+    assert mlflow_client.get_run(run_id).info.end_time <= get_current_time_millis()
 
 
 def test_artifacts(mlflow_client, tmp_path):
@@ -770,4 +769,4 @@ def test_search_experiments(mlflow_client):
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
+    assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]

@@ -9,12 +9,14 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
-    BUILTIN_PIPELINE_METRICS,
+    _get_builtin_metrics,
     _get_custom_metrics,
     _get_primary_metric,
+    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
@@ -44,16 +46,32 @@ class EvaluateStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
+
+    def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self.template = self.step_config.get("template_name")
+        if self.template is None:
+            raise MlflowException(
+                "Missing template_name config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
-        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
-        self.evaluation_metrics.update(
-            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
-        )
+        self.user_defined_custom_metrics = {
+            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+        }
+        self.evaluation_metrics = {
+            metric.name: metric for metric in _get_builtin_metrics(self.template)
+        }
+        self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
-                f"The primary metric {self.primary_metric} is a custom metric, but its"
+                f"The primary metric '{self.primary_metric}' is a custom metric, but its"
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -158,7 +176,7 @@ class EvaluateStep(BaseStep):
                     model=model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.template),
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -213,13 +231,16 @@ class EvaluateStep(BaseStep):
         card = BaseCard(self.pipeline_name, self.name)
         # Tab 0: model performance summary.
         metric_df = (
-            get_merged_eval_metrics(eval_metrics, ordered_metric_names=[self.primary_metric])
+            get_merged_eval_metrics(
+                eval_metrics,
+                ordered_metric_names=[self.primary_metric, *self.user_defined_custom_metrics],
+            )
             .reset_index()
             .rename(columns={"index": "Metric"})
         )
 
         def row_style(row):
-            if row.Metric == self.primary_metric:
+            if row.Metric == self.primary_metric or row.Metric in self.user_defined_custom_metrics:
                 return pd.Series("font-weight: bold", row.index)
             else:
                 return pd.Series("", row.index)
@@ -231,7 +252,7 @@ class EvaluateStep(BaseStep):
         )
 
         card.add_tab(
-            "Model Performance Summary Metrics",
+            "Model Performance (Test)",
             "<h3 class='section-title'>Summary Metrics</h3>"
             "<b>NOTE</b>: Use evaluation metrics over test dataset with care. "
             "Fine-tuning model over the test dataset is not advised."
@@ -257,7 +278,7 @@ class EvaluateStep(BaseStep):
             criteria_html = BaseCard.render_table(
                 result_df.style.format({"value": "{:.6g}", "threshold": "{:.6g}"})
             )
-            card.add_tab("Model Validation Results", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
+            card.add_tab("Model Validation", "{{ METRIC_VALIDATION_RESULTS }}").add_html(
                 "METRIC_VALIDATION_RESULTS",
                 "<h3 class='section-title'>Model Validation Results (Test Dataset)</h3> "
                 + criteria_html,
@@ -265,7 +286,8 @@ class EvaluateStep(BaseStep):
 
         # Tab 2: SHAP plots.
         shap_plot_tab = card.add_tab(
-            "Feature Importance (Validation Dataset)",
+            "Feature Importance",
+            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
             '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
             '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
         )
@@ -323,14 +345,12 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"].get("evaluate") or {}
-        except KeyError:
-            raise MlflowException(
-                "Config for evaluate step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
-        step_config["metrics"] = pipeline_config.get("metrics")
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("evaluate", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("evaluate", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
+        step_config["metrics"] = pipeline_config.get("metrics")
+        step_config["template_name"] = pipeline_config.get("template")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
@@ -348,3 +368,6 @@ class EvaluateStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
+
+    def step_class(self):
+        return StepClass.TRAINING

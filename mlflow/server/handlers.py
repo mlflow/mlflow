@@ -80,7 +80,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
@@ -667,17 +666,22 @@ def _update_experiment():
 @_disable_if_artifacts_only
 def _create_run():
     request_message = _get_request_message(
-        CreateRun(), schema={"experiment_id": [_assert_string], "start_time": [_assert_intlike]}
+        CreateRun(),
+        schema={
+            "experiment_id": [_assert_string],
+            "start_time": [_assert_intlike],
+            "run_name": [_assert_string],
+        },
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
-    if MLFLOW_RUN_NAME not in [tag.key for tag in tags]:
-        tags.append(RunTag(MLFLOW_RUN_NAME, _generate_random_name()))
+    run_name = _generate_random_name() if not request_message.run_name else request_message.run_name
     run = _get_tracking_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
         start_time=request_message.start_time,
         tags=tags,
+        run_name=run_name,
     )
 
     response_message = CreateRun.Response()
@@ -696,11 +700,12 @@ def _update_run():
             "run_id": [_assert_required, _assert_string],
             "end_time": [_assert_intlike],
             "status": [_assert_string],
+            "run_name": [_assert_string],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time
+        run_id, request_message.status, request_message.end_time, request_message.run_name
     )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")

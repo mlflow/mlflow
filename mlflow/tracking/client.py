@@ -221,6 +221,7 @@ class MlflowClient:
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
+        run_name: Optional[str] = None,
     ) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
@@ -233,6 +234,7 @@ class MlflowClient:
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
+        :param run_name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
 
         .. code-block:: python
@@ -242,14 +244,16 @@ class MlflowClient:
 
             # Create a run with a tag under the default experiment (whose id is '0').
             tags = {"engineering": "ML Platform"}
+            name = "platform-run-24"
             client = MlflowClient()
             experiment_id = "0"
-            run = client.create_run(experiment_id, tags=tags)
+            run = client.create_run(experiment_id, tags=tags, run_name=name)
 
             # Show newly created run metadata info
             print("Run tags: {}".format(run.data.tags))
             print("Experiment id: {}".format(run.info.experiment_id))
             print("Run id: {}".format(run.info.run_id))
+            print("Run name: {}".format(run.info.run_name))
             print("lifecycle_stage: {}".format(run.info.lifecycle_stage))
             print("status: {}".format(run.info.status))
 
@@ -259,10 +263,11 @@ class MlflowClient:
             Run tags: {'engineering': 'ML Platform'}
             Experiment id: 0
             Run id: 65fb9e2198764354bab398105f2e70c1
+            Run name: platform-run-24
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(experiment_id, start_time, tags)
+        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
     @deprecated(alternative="search_runs()")
     def list_run_infos(
@@ -419,26 +424,39 @@ class MlflowClient:
             supported.
 
             Identifiers
-              - ``name``: Experiment name.
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive pattern match.
+            Comparators for string attributes and tags
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``LIKE``: Case-sensitive pattern match
+              - ``ILIKE``: Case-insensitive pattern match
+
+            Comparators for numeric attributes
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``<``: Less than
+              - ``<=``: Less than or equal to
+              - ``>``: Greater than
+              - ``>=``: Greater than or equal to
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following identifiers are supported.
+            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
+            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
+            which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name.
-            - ``experiment_id``: Experiment ID.
+            - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
@@ -974,6 +992,53 @@ class MlflowClient:
         """
         self._tracking_client.delete_tag(run_id, key)
 
+    def update_run(
+        self, run_id: str, status: Optional[str] = None, name: Optional[str] = None
+    ) -> None:
+        """
+        Update a run with the specified ID to a new status or name.
+
+        :param run_id: The ID of the Run to update.
+        :param status: The new status of the run to set, if specified.
+                       At least one of ``status`` or ``name`` should be specified.
+        :param name: The new name of the run to set, if specified.
+                     At least one of ``name`` or ``status`` should be specified.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            def print_run_info(run):
+                print("run_id: {}".format(run.info.run_id))
+                print("run_name: {}".format(run.info.run_name))
+                print("status: {}".format(run.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Update run and fetch info
+            client.update_run(run.info.run_id, "FINISHED", "new_name")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: judicious-hog-915
+            status: RUNNING
+            --
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: new_name
+            status: FINISHED
+        """
+        self._tracking_client.update_run(run_id, status, name)
+
     def log_batch(
         self,
         run_id: str,
@@ -1162,7 +1227,7 @@ class MlflowClient:
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
