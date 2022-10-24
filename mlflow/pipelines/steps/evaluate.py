@@ -122,14 +122,15 @@ class EvaluateStep(BaseStep):
     def _run(self, output_directory):
         def warn(*args, **kwargs):
             import sys
+            import datetime
 
+            timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
             stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
             frame = sys._getframe(stacklevel)
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(
-                f"{filename}:{lineno}: {args[0]}\n"
-            )
+            message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
+            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
 
         import warnings
 
