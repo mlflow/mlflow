@@ -126,6 +126,10 @@ def _add_code_to_system_path(code_path):
         for p in Path(code_path).rglob("*.py")
         if p.is_file() and p.name != "__init__.py" and p.name != "__main__.py"
     ]
+    # Add python modules
+    for code_dir in _get_code_dirs(code_path):
+        modules += [module for module in sys.modules if module.startswith(Path(code_dir).name)]
+
     for module in modules:
         sys.modules.pop(module, None)
 
