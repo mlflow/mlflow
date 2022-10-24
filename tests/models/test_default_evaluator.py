@@ -1916,13 +1916,19 @@ def test_evaluation_with_env_restoration(
     }
 
 
-@pytest.mark.parametrize("pos_label", [None, 0, 1, 2])
+@pytest.mark.parametrize("pos_label", [None])
+# @pytest.mark.parametrize("pos_label", [None, 0, 1, 2])
 def test_evaluation_binary_classification_with_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
     y = y.head(len(X))
     if pos_label == 2:
         y = [2 if trg == 1 else trg for trg in y]
+    elif pos_label == None:
+        # Use a different positive class other than the 1 to verify
+        # that an unspecified `pos_label` doesn't cause problems
+        # for binary classification tasks with nonstandard labels
+        y = [10 if trg == 1 else trg for trg in y]
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
@@ -1937,7 +1943,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             evaluator_config=None if pos_label is None else {"pos_label": pos_label},
         )
         y_pred = model.predict(X)
-        pl = 1 if pos_label is None else pos_label
+        pl = 10 if pos_label is None else pos_label
         precision = precision_score(y, y_pred, pos_label=pl)
         recall = recall_score(y, y_pred, pos_label=pl)
         f1 = f1_score(y, y_pred, pos_label=pl)

@@ -932,8 +932,8 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
-        - **pos_label**: The positive label to use when computing classification metrics such as
-          precision, recall, f1, etc. for binary classification models (default: ``1``). For
+        - **pos_label**: If specified, the positive label to use when computing classification
+          metrics such as precision, recall, f1, etc. for binary classification models. For
           multiclass classification and regression models, this parameter will be ignored.
         - **average**: The averaging method to use when computing classification metrics such as
           precision, recall, f1, etc. for multiclass classification models
