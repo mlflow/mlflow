@@ -323,7 +323,7 @@ class EvaluateStep(BaseStep):
         # Tab 3: Warning log outputs.
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
-            warnings_output_tab = card.add_tab("Warning Outputs", "{{ STEP_WARNINGS }}")
+            warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
             warnings_output_tab.add_html(
                 "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
             )
