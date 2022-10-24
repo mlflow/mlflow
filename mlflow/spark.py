@@ -56,6 +56,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir, write_to
+from mlflow.utils.model_utils import _get_sig_configuration
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -811,6 +812,8 @@ def _load_pyfunc(path):
     # is no good workaround at the moment.
     import pyspark
 
+    signature = _get_sig_configuration(model_path=os.path.join(path, os.pardir))
+
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
         # NB: If there is no existing Spark context, create a new local one.
@@ -829,7 +832,7 @@ def _load_pyfunc(path):
             .master("local[1]")
             .getOrCreate()
         )
-    return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
+    return _PyFuncModelWrapper(spark, _load_model(model_uri=path), signature=signature)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
@@ -887,13 +890,16 @@ class _PyFuncModelWrapper:
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
 
-    def __init__(self, spark, spark_model):
+    def __init__(self, spark, spark_model, signature=None):
         self.spark = spark
         self.spark_model = spark_model
+        self.signature = signature
 
     def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
+        If a signature with named model outputs has been defined these outputs will be stored
+        as predictions. If no such signature, a "prediction" column will be stored as a prediction.
 
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
@@ -903,24 +909,34 @@ class _PyFuncModelWrapper:
         spark_df = _find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
-        prediction_column = "prediction"
-        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
-            "outputCol"
-        ):
-            from pyspark.sql import SparkSession
+        if self.signature is not None and self.signature.outputs.has_input_names():
+            prediction_columns = self.signature.outputs.input_names()
+            return [
+                [x[field] for field in prediction_columns]
+                for x in self.spark_model.transform(spark_df).select(*prediction_columns).collect()
+            ]
+        else:
+            prediction_column = "prediction"
+            if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
+                "outputCol"
+            ):
+                from pyspark.sql import SparkSession
 
-            spark = SparkSession.builder.getOrCreate()
-            # do a transform with an empty input DataFrame
-            # to get the schema of the transformed DataFrame
-            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
-            # Ensure prediction column doesn't already exist
-            if prediction_column not in transformed_df.columns:
-                # make sure predict work by default for Transformers
-                self.spark_model.stages[-1].setOutputCol(prediction_column)
-        return [
-            x.prediction
-            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
-        ]
+                spark = SparkSession.builder.getOrCreate()
+                # do a transform with an empty input DataFrame
+                # to get the schema of the transformed DataFrame
+                transformed_df = self.spark_model.transform(
+                    spark.createDataFrame([], spark_df.schema)
+                )
+                # Ensure prediction column doesn't already exist
+                if prediction_column not in transformed_df.columns:
+                    # make sure predict work by default for Transformers
+                    self.spark_model.stages[-1].setOutputCol(prediction_column)
+
+            return [
+                x[prediction_column]
+                for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
+            ]
 
 
 @autologging_integration(FLAVOR_NAME)

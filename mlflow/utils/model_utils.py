@@ -13,6 +13,28 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 FLAVOR_CONFIG_CODE = "code"
 
 
+def _get_sig_configuration(model_path):
+    """
+    Obtains the signature from python-flavored model from the specified
+    MLflow model path.
+
+    :param model_path: The path to the root directory of the MLflow model for which to load
+                       the specified flavor configuration.
+    :return: signature
+    """
+    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+    if not os.path.exists(model_configuration_path):
+        raise MlflowException(
+            'Could not find an "{model_file}" configuration file at "{model_path}"'.format(
+                model_file=MLMODEL_FILE_NAME, model_path=model_path
+            ),
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    model_conf = Model.load(model_configuration_path)
+    return model_conf.signature
+
+
 def _get_flavor_configuration(model_path, flavor_name):
     """
     Obtains the configuration for the specified flavor from the specified
