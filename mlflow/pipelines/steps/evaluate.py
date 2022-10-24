@@ -121,7 +121,7 @@ class EvaluateStep(BaseStep):
 
     def _run(self, output_directory):
         def warn(*args, **kwargs):  # pylint: disable=unused-argument
-            open(os.path.join(output_directory, "sklearn_logs.txt"), "a").write(args[0] + "\n")
+            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(args[0] + "\n")
 
         import warnings
 
@@ -312,11 +312,11 @@ class EvaluateStep(BaseStep):
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         # Tab 3: Sklearn log outputs.
-        sklearn_output_path = os.path.join(output_directory, "sklearn_logs.txt")
-        if os.path.exists(sklearn_output_path):
-            sklearn_output_tab = card.add_tab("Sklearn Log Outputs", "{{ SKLEARN_LOGS }}")
-            sklearn_output_tab.add_html(
-                "SKLEARN_LOGS", f"<pre>{open(sklearn_output_path).read()}</pre>"
+        warning_output_path = os.path.join(output_directory, "warning_logs.txt")
+        if os.path.exists(warning_output_path):
+            warnings_output_tab = card.add_tab("Warning Outputs", "{{ STEP_WARNINGS }}")
+            warnings_output_tab.add_html(
+                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
             )
 
         # Tab 4: Run summary.
