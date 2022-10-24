@@ -2,7 +2,7 @@
 set -ex
 
 # Install mlflow (assuming the repository root is mounted to the working directory)
-if [ "$INSTALL_MLFLOW" = "true" ]; then
+if [ "$INSTALL_MLFLOW_FROM_REPO" = "true" ]; then
   pip install --no-deps -e .
 fi
 
