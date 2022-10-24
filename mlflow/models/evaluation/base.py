@@ -34,6 +34,14 @@ from decimal import Decimal
 _logger = logging.getLogger(__name__)
 
 
+class EvaluationMetric:
+    def __init__(self, eval_fn, name, greater_is_better, long_name=None):
+        self.eval_fn = eval_fn
+        self.name = name
+        self.greater_is_better = greater_is_better
+        self.long_name = long_name or name
+
+
 class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
@@ -511,6 +519,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        custom_artifacts=None,
         baseline_model=None,
         **kwargs,
     ):
@@ -783,6 +792,7 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
+    custom_artifacts,
     baseline_model,
 ):
     """
@@ -820,6 +830,7 @@ def _evaluate(
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )
             eval_results.append(eval_result)
@@ -859,6 +870,7 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
+    custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
     env_manager="local",
@@ -1114,6 +1126,7 @@ def evaluate(
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
 
+    :param custom_artifacts: TODO
     :param validation_thresholds: (Optional) A dictionary of metric name to
                                   :py:class:`mlflow.models.MetricThreshold` used for
                                   model validation. Each metric name must either be the
@@ -1248,6 +1261,7 @@ should be at least 0.05 greater than baseline model accuracy
                 evaluator_name_list=evaluator_name_list,
                 evaluator_name_to_conf_map=evaluator_name_to_conf_map,
                 custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )
         finally:
