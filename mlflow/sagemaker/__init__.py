@@ -2017,29 +2017,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          If it is also not specified in the ``target_uri``,
                          defaults to ``us-west-2``.
 
-                       - ``mode``: The mode in which to deploy the application.
-                         Must be one of the following:
-
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
-                             Create a SageMaker endpoint from the given model.
-                             This is the default mode.
-
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                             If an application of the specified name exists, its model(s) is
-                             replaced with the specified model. If no such application exists,
-                             it is created with the specified name and model.
-
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
-                             Add the specified model to a pre-existing application with the
-                             specified name, if one exists. If the application does not exist,
-                             a new application is created with the specified name and model.
-                             NOTE: If the application **already exists**, the specified model is
-                             added to the application's corresponding SageMaker endpoint with an
-                             initial weight of zero (0). To route traffic to the model,
-                             update the application's associated endpoint configuration using
-                             either the AWS console or the ``UpdateEndpointWeightsAndCapacities``
-                             function defined in https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
-
                        - ``archive``: If ``True``, any pre-existing SageMaker application resources
                          that become inactive (i.e. as a result of deploying in
                          ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
@@ -2113,7 +2090,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 bucket_name="my-s3-bucket",
                 image_url="1234.dkr.ecr.us-east-1.amazonaws.com/mlflow-test:1.23.1",
                 region_name="us-east-1",
-                mode="create",
                 archive=False,
                 instance_type="ml.m5.4xlarge",
                 instance_count=1,
@@ -2140,7 +2116,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C bucket_name=my-s3-bucket \\
                     -C image_url=1234.dkr.ecr.us-east-1.amazonaws.com/mlflow-test:1.23.1 \\
                     -C region_name=us-east-1 \\
-                    -C mode=create \\
                     -C archive=False \\
                     -C instance_type=ml.m5.4xlarge \\
                     -C instance_count=1 \\
@@ -2166,7 +2141,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             bucket=final_config["bucket"],
             image_url=final_config["image_url"],
             region_name=final_config["region_name"],
-            mode=final_config["mode"],
+            mode=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
             archive=final_config["archive"],
             instance_type=final_config["instance_type"],
             instance_count=final_config["instance_count"],
