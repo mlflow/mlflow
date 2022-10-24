@@ -207,8 +207,14 @@ class TrainStep(BaseStep):
             return tuning_param == logged_param
 
     def _run(self, output_directory):
-        def warn(*args, **kwargs):  # pylint: disable=unused-argument
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(args[0] + "\n")
+        def warn(*args, **kwargs):
+            stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
+            frame = sys._getframe(stacklevel)
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(
+                f"{filename}:{lineno}: {args[0]}\n"
+            )
 
         import warnings
 
