@@ -120,6 +120,12 @@ class EvaluateStep(BaseStep):
         return summary
 
     def _run(self, output_directory):
+        def warn(*args, **kwargs):  # pylint: disable=unused-argument
+            open(os.path.join(output_directory, "sklearn_logs.txt"), "a").write(args[0] + "\n")
+
+        import warnings
+
+        warnings.warn = warn
         import pandas as pd
 
         self._validate_validation_criteria()
