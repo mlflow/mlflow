@@ -745,7 +745,15 @@ class TrainStep(BaseStep):
                 ),
             )
 
-        # Tab 10: Run summary.
+        # Tab 10: Sklearn log outputs.
+        sklearn_output_path = os.path.join(output_directory, "sklearn_logs.txt")
+        if os.path.exists(sklearn_output_path):
+            sklearn_output_tab = card.add_tab("Sklearn Log Outputs", "{{ SKLEARN_LOGS }}")
+            sklearn_output_tab.add_html(
+                "SKLEARN_LOGS", f"<pre>{open(sklearn_output_path).read()}</pre>"
+            )
+
+        # Tab 11: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
