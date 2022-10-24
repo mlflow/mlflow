@@ -881,8 +881,8 @@ def test_get_regressor_metrics(use_sample_weights):
             "mean_absolute_error": 0.35000000000000003,
             "mean_squared_error": 0.155,
             "root_mean_squared_error": 0.39370039370059057,
-            "sum_on_label": -5.199999999999999,
-            "mean_on_label": -1.7333333333333332,
+            "sum_on_target": -5.199999999999999,
+            "mean_on_target": -1.7333333333333332,
             "r2_score": 0.9780003154076644,
             "max_error": 0.5,
             "mean_absolute_percentage_error": 0.1479076479076479,
@@ -893,8 +893,8 @@ def test_get_regressor_metrics(use_sample_weights):
             "mean_absolute_error": 0.3333333333333333,
             "mean_squared_error": 0.13999999999999999,
             "root_mean_squared_error": 0.3741657386773941,
-            "sum_on_label": -0.2999999999999998,
-            "mean_on_label": -0.09999999999999994,
+            "sum_on_target": -0.2999999999999998,
+            "mean_on_target": -0.09999999999999994,
             "r2_score": 0.976457399103139,
             "max_error": 0.5,
             "mean_absolute_percentage_error": 0.18470418470418468,
@@ -1412,7 +1412,7 @@ def test_evaluate_custom_metric_success():
     def example_custom_metric(_, given_metrics):
         return {
             "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
-            "sum_on_label_minus_5": given_metrics["sum_on_label"] - 5,
+            "sum_on_target_minus_5": given_metrics["sum_on_target"] - 5,
             "example_np_metric_1": np.float32(123.2),
             "example_np_metric_2": np.ulonglong(10000000),
         }
@@ -1422,7 +1422,7 @@ def test_evaluate_custom_metric_success():
     )
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
-        "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
+        "sum_on_target_minus_5": metrics["sum_on_target"] - 5,
         "example_np_metric_1": np.float32(123.2),
         "example_np_metric_2": np.ulonglong(10000000),
     }
@@ -1432,7 +1432,7 @@ def test_evaluate_custom_metric_success():
         return (
             {
                 "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
-                "sum_on_label_minus_5": given_metrics["sum_on_label"] - 5,
+                "sum_on_target_minus_5": given_metrics["sum_on_target"] - 5,
                 "example_np_metric_1": np.float32(123.2),
                 "example_np_metric_2": np.ulonglong(10000000),
             },
@@ -1447,7 +1447,7 @@ def test_evaluate_custom_metric_success():
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
-        "sum_on_label_minus_5": metrics["sum_on_label"] - 5,
+        "sum_on_target_minus_5": metrics["sum_on_target"] - 5,
         "example_np_metric_1": np.float32(123.2),
         "example_np_metric_2": np.ulonglong(10000000),
     }
