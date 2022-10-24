@@ -6,7 +6,6 @@ import sys
 import datetime
 import yaml
 
-
 import cloudpickle
 
 import mlflow
@@ -208,7 +207,7 @@ class TrainStep(BaseStep):
             return tuning_param == logged_param
 
     def _run(self, output_directory):
-        def warn(*args, **kwargs): # pylint: disable=unused-argument
+        def warn(*args, **kwargs):  # pylint: disable=unused-argument
             open(os.path.join(output_directory, "sklearn_logs.txt"), "a").write(args[0] + "\n")
 
         import warnings
@@ -373,6 +372,7 @@ class TrainStep(BaseStep):
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
             self._log_step_card(run.info.run_id, step_name)
+
         return card
 
     def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
