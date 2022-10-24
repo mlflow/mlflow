@@ -1070,7 +1070,7 @@ class DefaultEvaluator(ModelEvaluator):
                         self.label_list, np.where(self.label_list == self.pos_label)
                     )
                     self.label_list = np.append(self.label_list, self.pos_label)
-                else:
+                elif self.pos_label is None:
                     self.pos_label = self.label_list[-1]
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
