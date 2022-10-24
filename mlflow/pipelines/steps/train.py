@@ -745,7 +745,7 @@ class TrainStep(BaseStep):
                 ),
             )
 
-        # Tab 10: Sklearn log outputs.
+        # Tab 10: Warning log outputs.
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Outputs", "{{ STEP_WARNINGS }}")

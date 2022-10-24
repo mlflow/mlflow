@@ -311,7 +311,7 @@ class EvaluateStep(BaseStep):
         shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
-        # Tab 3: Sklearn log outputs.
+        # Tab 3: Warning log outputs.
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Outputs", "{{ STEP_WARNINGS }}")
