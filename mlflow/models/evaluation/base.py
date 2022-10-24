@@ -881,7 +881,7 @@ def evaluate(
 
      - For regressor models, the default evaluator additionally logs:
         - **metrics**: example_count, mean_absolute_error, mean_squared_error,
-          root_mean_squared_error, sum_on_label, mean_on_label, r2_score, max_error,
+          root_mean_squared_error, sum_on_target, mean_on_target, r2_score, max_error,
           mean_absolute_percentage_error.
 
      - For binary classifiers, the default evaluator additionally logs:
