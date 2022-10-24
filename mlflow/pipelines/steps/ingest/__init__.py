@@ -248,7 +248,7 @@ class IngestScoringStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        step_config = pipeline_config.get("steps", {}).get("register", {})
+        step_config = pipeline_config.get("steps", {}).get("ingest_scoring", {})
         return cls(
             step_config=step_config,
             pipeline_root=pipeline_root,

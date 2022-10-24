@@ -144,15 +144,15 @@ def setup_train_step_with_automl(
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
 
     custom_metric = """
-    custom:
-      - name: weighted_mean_squared_error
-        function: weighted_mean_squared_error
-        greater_is_better: False
+    - name: weighted_mean_squared_error
+      function: weighted_mean_squared_error
+      greater_is_better: False
             """
     pipeline_yaml.write_text(
         f"""
   template: regression/v1
   target_col: y
+  primary_metric: { primary_metric }
   profile: test_profile
   run_args:
     step: train
@@ -168,9 +168,8 @@ def setup_train_step_with_automl(
           - xgboost
           - rf
           - lgbm
-  metrics:
+  custom_metrics:
     { custom_metric if generate_custom_metrics else "" }
-    primary: { primary_metric }
         """
     )
     pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)

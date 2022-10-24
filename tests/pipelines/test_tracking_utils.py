@@ -43,9 +43,9 @@ def test_get_pipeline_tracking_config_returns_expected_config(
 
     profile_contents = {
         "experiment": {},
-        "INGEST_STEP_CONFIG": None,
-        "REGISTER_STEP_CONFIG": None,
-        "PREDICT_STEP_CONFIG": None,
+        "INGEST_CONFIG": None,
+        "INGEST_SCORING_CONFIG": None,
+        "PREDICT_CONFIG": None,
     }
     if tracking_uri is not None:
         profile_contents["experiment"]["tracking_uri"] = tracking_uri
@@ -97,9 +97,9 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
 
         profile_contents = {
             "experiment": {},
-            "INGEST_STEP_CONFIG": None,
-            "REGISTER_STEP_CONFIG": None,
-            "PREDICT_STEP_CONFIG": None,
+            "INGEST_CONFIG": None,
+            "INGEST_SCORING_CONFIG": None,
+            "PREDICT_CONFIG": None,
         }
         if tracking_uri is not None:
             profile_contents["experiment"]["tracking_uri"] = tracking_uri

@@ -417,10 +417,11 @@ def test_predict_uses_registry_uri(
     mlflow.set_registry_uri("")
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update({"model_registry": {"uri": str(registry_uri)}})
+    pipeline_config.update(
+        {"model_registry": {"registry_uri": str(registry_uri), "model_uri": model_uri}}
+    )
     pipeline_config.update(
         {
-            "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
                     "using": "parquet",
