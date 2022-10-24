@@ -427,7 +427,7 @@ class _CustomArtifact(NamedTuple):
 
     function : the custom artifact function
     name : the name of the custom artifact function
-    index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    index : the index of the function in the ``custom_artifacts`` argument of mlflow.evaluate
     artifacts_dir : the path to a temporary directory to store produced artifacts of the function
     """
 
