@@ -608,7 +608,7 @@ class FileStore(AbstractStore):
         run_name_tag = _get_run_name_from_tags(tags)
         if run_name and run_name_tag:
             raise MlflowException(
-                "Both 'run_name' argument and 'mlflow.runName' tag (deprecated) are specified. "
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
                 "Remove 'mlflow.runName' tag.",
                 INVALID_PARAMETER_VALUE,
             )
