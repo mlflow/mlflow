@@ -919,9 +919,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with pytest.raises(
             MlflowException,
-            match=re.escape(
-                "Both 'run_name' argument and 'mlflow.runName' tag are specified."
-            ),
+            match=re.escape("Both 'run_name' argument and 'mlflow.runName' tag are specified."),
         ):
             self.store.create_run(
                 experiment_id=experiment_id,
