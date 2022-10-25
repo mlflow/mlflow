@@ -40,10 +40,6 @@ class AliasedGroup(click.Group):
         cmd_name = "server" if cmd_name == "ui" else cmd_name
         return super().get_command(ctx, cmd_name)
 
-    def resolve_command(self, ctx, args):
-        _, cmd, args = super().resolve_command(ctx, args)
-        return cmd.name, cmd, args
-
 
 @click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
