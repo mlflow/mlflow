@@ -234,7 +234,7 @@ def get_facets_polyfills() -> str:
      * })();
     */
     """
-    return '<script>!function(){let t=window.URL;window.URL=function(n,e){return"string"==typeof e&&e.startsWith("blob:")?new URL(e):new t(n,e)}}();</script>'  # pylint: disable=line-too-long
+    return '!function(){let t=window.URL;window.URL=function(n,e){return"string"==typeof e&&e.startsWith("blob:")?new URL(e):new t(n,e)}}();'  # pylint: disable=line-too-long
 
 
 def construct_facets_html(
@@ -252,7 +252,7 @@ def construct_facets_html(
     polyfills_code = get_facets_polyfills()
 
     html_template = """
-        {polyfills_code}
+        <script>{polyfills_code}</script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.3.3/webcomponents-lite.js"></script>
         <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
