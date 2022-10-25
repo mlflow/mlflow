@@ -31,7 +31,9 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.7
+RUN apt install software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt install -y python3.7
 RUN ln -s -f $(which python3.7) /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN python /tmp/get-pip.py
