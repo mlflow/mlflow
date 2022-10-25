@@ -45,7 +45,7 @@ class EvaluationMetric:
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, numeric],
+                builtin_metrics: Dict[str, float],
             ) -> float:
                 \"\"\"
                 :param eval_df:
@@ -101,7 +101,7 @@ def make_metric(
 
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, numeric],
+                builtin_metrics: Dict[str, float],
             ) -> float:
                 \"\"\"
                 :param eval_df:
@@ -1152,7 +1152,7 @@ def evaluate(
 
             def custom_artifact(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                builtin_metrics: Dict[str, numeric],
+                builtin_metrics: Dict[str, float],
                 artifacts_dir: str,
             ) -> Dict[str, Any]:
                 \"\"\"
