@@ -46,7 +46,7 @@ class EvaluationMetric:
             def eval_fn(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 builtin_metrics: Dict[str, numeric],
-            ) -> Dict[str, numeric]:
+            ) -> float:
                 \"\"\"
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
@@ -59,7 +59,7 @@ class EvaluationMetric:
                     the metrics. Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
-                    A dictionary containing the metric names and values.
+                    The metric value.
                 \"\"\"
                 ...
 
@@ -1087,8 +1087,7 @@ def evaluate(
 
 
             def root_mean_square_error(eval_df, _builtin_metrics):
-                rmse = np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
-                return {"rmse": rmse}
+                return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
 
 
             rmse_metric = mlflow.models.EvaluationMetric(

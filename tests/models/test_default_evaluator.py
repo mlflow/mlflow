@@ -1971,7 +1971,7 @@ def test_evaluation_multiclass_classification_with_average(average):
         np.testing.assert_allclose(result.metrics["f1_score"], f1)
 
 
-def test_custom_metrics_and_artifacts():
+def test_custom_metrics():
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
         model = LogisticRegression().fit(X, y)
@@ -1985,17 +1985,33 @@ def test_custom_metrics_and_artifacts():
             evaluators="default",
             custom_metrics=[
                 EvaluationMetric(
-                    lambda *_args, **_kwargs: {"custom_metric": 1.0},
-                    name="custom_metric",
+                    lambda _eval_df, _builtin_metrics: 1.0,
+                    name="cm",
                     greater_is_better=True,
-                    long_name="long_custom_metric",
+                    long_name="custom_metric",
                 )
             ],
+            evaluator_config={"log_model_explainability": False},  # For faster evaluation
+        )
+        np.testing.assert_allclose(result.metrics["cm"], 1.0)
+
+
+def test_custom_artifacts():
+    X, y = load_iris(as_frame=True, return_X_y=True)
+    with mlflow.start_run():
+        model = LogisticRegression().fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier",
+            targets="target",
+            dataset_name="iris",
+            evaluators="default",
             custom_artifacts=[
                 lambda *_args, **_kwargs: {"custom_artifact.json": {"k": "v"}},
             ],
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
-        np.testing.assert_allclose(result.metrics["custom_metric"], 1.0)
         custom_artifact = result.artifacts["custom_artifact.json"]
         assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}

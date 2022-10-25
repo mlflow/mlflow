@@ -441,12 +441,6 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
-def _is_valid_metrics(metrics):
-    return isinstance(metrics, dict) and all(
-        isinstance(k, str) and _is_numeric(v) for k, v in metrics.items()
-    )
-
-
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
@@ -457,25 +451,22 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A dictionary of metrics.
+    :return: A scala metric value.
     """
     exception_header = (
         f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
         " in the `custom_metrics` parameter"
     )
 
-    metrics = custom_metric_tuple.function(eval_df, builtin_metrics)
+    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
-    if metrics is None:
+    if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    if not _is_valid_metrics(metrics):
-        raise MlflowException(
-            f"{exception_header} did not return metrics as a dictionary of string metric names "
-            "with numerical values."
-        )
+    if not _is_numeric(metric):
+        raise MlflowException(f"{exception_header} did not return a scala numeric value.")
 
-    return metrics
+    return metric
 
 
 def _is_valid_artifacts(artifacts):
@@ -1016,14 +1007,14 @@ class DefaultEvaluator(ModelEvaluator):
                 index=index,
                 name=custom_metric.name,
             )
-            metric_results = _evaluate_custom_metric(
+            metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df.copy(),
                 copy.deepcopy(builtin_metrics),
             )
-            self.metrics.update(metric_results)
+            self.metrics.update({custom_metric.name: metric_result})
 
-        for index, custom_artifact in enumerate(self.custom_artifacts):
+        for index, custom_artifact in enumerate(self.custom_artifacts or []):
             with tempfile.TemporaryDirectory() as artifacts_dir:
                 # deepcopying eval_df and builtin_metrics for each custom metric function call,
                 # in case the user modifies them inside their function(s).
