@@ -57,7 +57,7 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
@@ -548,7 +548,17 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
-            run_name = run_name if run_name else _generate_random_name()
+            tags = tags or []
+            run_name_tag = _get_run_name_from_tags(tags)
+            if run_name and run_name_tag:
+                raise MlflowException(
+                    "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
+                    "Remove 'mlflow.runName' tag.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            run_name = run_name or run_name_tag or _generate_random_name()
+            if not run_name_tag:
+                tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run = SqlRun(
                 name=run_name,
                 artifact_uri=artifact_location,
@@ -566,8 +576,6 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags = tags or []
-            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 
