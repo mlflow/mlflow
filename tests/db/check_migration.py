@@ -3,16 +3,15 @@ Usage
 -----
 export MLFLOW_TRACKING_URI=sqlite:///mlruns.db
 
-# pre-migration
+# pre migration
 python tests/db/check_migration.py pre-migration
 
-# post-migration
+# post migration
 python tests/db/check_migration.py post-migration
 """
 import os
 import uuid
 from pathlib import Path
-from contextlib import contextmanager
 
 import click
 import pandas as pd
@@ -80,10 +79,8 @@ def log_everything():
     )
 
 
-@contextmanager
 def connect_to_mlflow_db():
-    with sa.create_engine(os.environ["MLFLOW_TRACKING_URI"]).connect() as conn:
-        yield conn
+    return sa.create_engine(os.environ["MLFLOW_TRACKING_URI"]).connect()
 
 
 @click.group()
