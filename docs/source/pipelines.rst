@@ -35,12 +35,7 @@ MLflow Pipelines is available as an extension of the
 `MLflow Python library <https://pypi.org/project/mlflow/>`_. You can install MLflow Pipelines
 as follows:
 
-- **Local**: Install MLflow Pipelines from PyPI:
-
-  .. code-block:: sh
-
-      pip install mlflow[pipelines]
-
+- **Local**: Install MLflow Pipelines from PyPI: ``pip install mlflow[pipelines]``.
   Note that MLflow Pipelines requires `Make <https://www.gnu.org/software/make>`_,
   which may not be preinstalled on some Windows systems.
   Windows users must install Make before using MLflow Pipelines. For more information about
@@ -48,11 +43,13 @@ as follows:
 
 - **Databricks**: Install MLflow Pipelines from a Databricks Notebook by running
   ``%pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
-  following the PyPI library installation instructions at
-  https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster
-  and specifying the ``mlflow[pipelines]`` package string. Note that
-  `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
-  or greater is required in order to install MLflow Pipelines on Databricks.
+  following the PyPI library installation instructions `here
+  <https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster>`_
+  and specifying the ``mlflow[pipelines]`` package string.
+
+  .. note::
+    `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
+    or greater is required in order to install MLflow Pipelines on Databricks.
 
 NYC taxi fare prediction example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -149,7 +146,9 @@ The general model development workflow for using MLflow Pipelines is as follows:
       .. image:: _static/images/pipelines_databricks_fixme.png
         :width: 60%
 
-3. Run the pipeline and inspect its results. When a pipeline run completes, MLflow Pipelines
+3. Run the pipeline by selecting a desired profile. Profiles are used to quickly switch environment
+   specific pipeline settings, such as ingest data location.
+   When a pipeline run completes, you may inspect the run results. MLflow Pipelines
    creates and displays an interactive **Step Card** with the results of the last executed
    :ref:`step <steps-key-concept>`.
    Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
@@ -260,10 +259,10 @@ We recommend using one of the following environment configurations to develop mo
 
 [**Local with Jupyter Notebook**]
   - Use ``notebooks/jupyter.ipynb`` as the driver to run pipeline steps and inspect its output.
-  - Edit ``pipeline.yaml``, ``steps/*.py`` and ``profiles/*.yaml`` accordingly with an IDE of your
+  - Edit ``pipeline.yaml``, ``steps/*.py`` and ``profiles/*.yaml`` accordingly with an editor of your
     choice.
-  - To run the entire pipeline, either user ``notebooks/jupyter.ipynb`` or on commandline with
-    ``mlflow pipelines run --profile local`` (change root to the project root first).
+  - To run the entire pipeline, either run ``notebooks/jupyter.ipynb`` or on commandline, invoke
+    ``mlflow pipelines run --profile local`` (change the current working directory to the project root first).
 
 [**Edit locally with IDE (VSCode) and run on Databricks**]
   - Edit files on your local machine with VSCode and Jupyter plugin.
