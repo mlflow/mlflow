@@ -136,12 +136,30 @@ def test_validate_method_validates_the_transformer():
     validated_transformer = _validate_user_code_output(correct_transformer)
     assert transformer == validated_transformer
 
-    class InCorrectTransformer:
+    class InCorrectFitTransformer:
         def pick(self):
             return "pick"
 
         def transform(self):
             return "transform"
+
+    inCorrectFitTransformer = InCorrectFitTransformer()
+
+    def incorrect__fit_transformer():
+        return inCorrectFitTransformer
+
+    with pytest.raises(
+        MlflowException,
+        match="The transformer provided doesn't have a fit method.",
+    ):
+        validated_transformer = _validate_user_code_output(incorrect__fit_transformer)
+
+    class InCorrectTransformer:
+        def pick(self):
+            return "pick"
+
+        def fit(self):
+            return "fit"
 
     inCorrectTransformer = InCorrectTransformer()
 
@@ -150,6 +168,6 @@ def test_validate_method_validates_the_transformer():
 
     with pytest.raises(
         MlflowException,
-        match="The transformer provided doesn't have a fit and transform method.",
+        match="The transformer provided doesn't have a transform method.",
     ):
         validated_transformer = _validate_user_code_output(incorrect_transformer)
