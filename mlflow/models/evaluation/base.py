@@ -35,6 +35,59 @@ _logger = logging.getLogger(__name__)
 
 
 class EvaluationMetric:
+    """
+    A model evaluation metric.
+
+    :param eval_fn:
+        A function that computes the metric with the following signature:
+
+        .. code-block:: python
+
+            def eval_fn(
+                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                builtin_metrics: Dict[str, numeric],
+            ) -> Dict[str, numeric]:
+                \"\"\"
+                :param eval_df:
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
+                    on that row.
+                :param builtin_metrics:
+                    A dictionary containing the metrics calculated by the default evaluator.
+                    The keys are the names of the metrics and the values are the scalar values of
+                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    will be returned based on the type of model (i.e. classifier or regressor).
+                :return:
+                    A dictionary containing the metric names and values.
+                \"\"\"
+                ...
+
+    :param name: The name of the metric.
+    :param greater_is_better: Whether a higher value of the metric is better.
+    :param long_name: (Optional) The long name of the metric. For example, ``"mean_square_error"``
+        for ``"mse"``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+        from mlflow.models import EvaluationMetric
+
+        def squared_diff_plus_one(eval_df, builtin_metrics):
+            res = np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2)
+            return {"squared_diff_plus_one": res}
+
+        squared_diff_plus_one_metric = EvaluationMetric(
+            eval_fn=squared_diff_plus_one,
+            name=squared_diff_plus_one_metric.__name__,
+            greater_is_better=False,
+            squared_diff_plus_one
+        )
+        mlflow.evaluate(..., custom_metrics=[squared_diff_plus_one_metric])
+    """
+
     def __init__(self, eval_fn, name, greater_is_better, long_name=None):
         self.eval_fn = eval_fn
         self.name = name
