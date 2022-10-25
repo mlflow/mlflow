@@ -32,7 +32,7 @@ def metrics_only_fn(eval_df, builtin_metrics):
     """
     return {
         "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
-        "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
+        "sum_on_target_divided_by_two": builtin_metrics["sum_on_target"] / 2,
     }
 
 
@@ -115,7 +115,7 @@ def mixed_example_fn(eval_df, builtin_metrics, artifacts_dir):
         "squared_diff_divided_two": np.sum(
             np.abs(eval_df["prediction"] - eval_df["target"]) ** 2 / 2
         ),
-        "sum_on_label_multiplied_by_three": builtin_metrics["sum_on_label"] * 3,
+        "sum_on_target_multiplied_by_three": builtin_metrics["sum_on_target"] * 3,
     }
     example_dict = {"hello": "there", "test_list": [0.1, 0.3, 4]}
     example_dict.update(builtin_metrics)

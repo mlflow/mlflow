@@ -212,6 +212,30 @@ def convert_to_comparison_proto(
     return feature_stats_list
 
 
+def get_facets_polyfills() -> str:
+    """
+    A JS polyfill/monkey-patching function that fixes issue where objectURL passed as a
+    "base" argument to the URL constructor ends up in a "invalid URL" exception.
+
+    Polymer is using parent's URL in its internal asset URL resolution system, while MLFLow
+    artifact rendering engine uses object URLs to display iframed artifacts code. This ends up
+    in object URL being used in `new URL()` constructor which needs to be patched.
+
+    Original function code:
+
+    (function patchURLConstructor() {
+        const _originalURLConstructor = window.URL;
+        window.URL = function (url, base) {
+            if (typeof base === "string" && base.startsWith("blob:")) {
+                return new URL(base);
+            }
+            return new _originalURLConstructor(url, base);
+        };
+    })();
+    """
+    return '!function(){let t=window.URL;window.URL=function(n,e){return"string"==typeof e&&e.startsWith("blob:")?new URL(e):new t(n,e)}}();'  # pylint: disable=line-too-long
+
+
 def construct_facets_html(
     proto: facet_feature_statistics_pb2.DatasetFeatureStatisticsList, compare: bool = False
 ) -> str:
@@ -224,12 +248,15 @@ def construct_facets_html(
     """
     # facets_html_bundle = _get_facets_html_bundle()
     protostr = base64.b64encode(proto.SerializeToString()).decode("utf-8")
+    polyfills_code = get_facets_polyfills()
+
     html_template = """
+        <script>{polyfills_code}</script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.3.3/webcomponents-lite.js"></script>
         <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
     """
-    html = html_template.format(protostr=protostr, compare=compare)
+    html = html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
     return html
 
 
