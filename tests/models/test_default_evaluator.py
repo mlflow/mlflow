@@ -1916,8 +1916,7 @@ def test_evaluation_with_env_restoration(
     }
 
 
-@pytest.mark.parametrize("pos_label", [None])
-# @pytest.mark.parametrize("pos_label", [None, 0, 1, 2])
+@pytest.mark.parametrize("pos_label", [None, 0, 1, 2])
 def test_evaluation_binary_classification_with_pos_label(pos_label):
     X, y = load_breast_cancer(as_frame=True, return_X_y=True)
     X = X.iloc[:, :4].head(100)
