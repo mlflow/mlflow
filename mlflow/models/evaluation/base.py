@@ -94,6 +94,15 @@ class EvaluationMetric:
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
 
+    def __str__(self):
+        if self.long_name:
+            return (
+                f"EvaluationMetric(name={self.name}, long_name={self.long_name}, "
+                f"greater_is_better={self.greater_is_better})"
+            )
+        else:
+            return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
+
 
 class EvaluationArtifact(metaclass=ABCMeta):
     """
