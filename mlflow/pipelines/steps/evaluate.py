@@ -284,7 +284,66 @@ class EvaluateStep(BaseStep):
                 + criteria_html,
             )
 
-        # Tab 2: SHAP plots.
+        # Tab 2: Classifier plots.
+        if self.template == "classification/v1":
+            classifiers_plot_tab = card.add_tab(
+                "Classifier Plots on the Validation Dataset",
+                "{{ CONFUSION_MATRIX }} {{CONFUSION_MATRIX_PLOT}}"
+                + "{{ LIFT_CURVE }} {{LIFT_CURVE_PLOT}}"
+                + "{{ PR_CURVE }} {{PR_CURVE_PLOT}}"
+                + "{{ ROC_CURVE }} {{ROC_CURVE_PLOT}}",
+            )
+            confusion_matrix_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "confusion_matrix_on_data_validation.png",
+            )
+            if os.path.exists(confusion_matrix_path):
+                classifiers_plot_tab.add_html(
+                    "CONFUSION_MATRIX",
+                    '<h3 class="section-title">Confusion Matrix Plot</h3>',
+                )
+                classifiers_plot_tab.add_image(
+                    "CONFUSION_MATRIX_PLOT", confusion_matrix_path, width=400
+                )
+
+            lift_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "lift_curve_plot_on_data_validation.png",
+            )
+            if os.path.exists(lift_curve_path):
+                classifiers_plot_tab.add_html(
+                    "LIFT_CURVE",
+                    '<h3 class="section-title">Lift Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("LIFT_CURVE_PLOT", lift_curve_path, width=400)
+
+            pr_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "precision_recall_curve_plot_on_data_validation.png",
+            )
+            if os.path.exists(pr_curve_path):
+                classifiers_plot_tab.add_html(
+                    "PR_CURVE",
+                    '<h3 class="section-title">Precision Recall Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("PR_CURVE_PLOT", pr_curve_path, width=400)
+
+            roc_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "roc_curve_plot_on_data_validation.png",
+            )
+            if os.path.exists(roc_curve_path):
+                classifiers_plot_tab.add_html(
+                    "ROC_CURVE",
+                    '<h3 class="section-title">ROC Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("ROC_CURVE_PLOT", roc_curve_path, width=400)
+
+        # Tab 3: SHAP plots.
         shap_plot_tab = card.add_tab(
             "Feature Importance",
             '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
