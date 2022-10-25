@@ -85,7 +85,7 @@ _DOCKERFILE_TEMPLATE = """
 FROM ubuntu:20.04
 
 RUN apt-get -y update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends \
          wget \
          curl \
          nginx \
