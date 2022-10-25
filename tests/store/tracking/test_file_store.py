@@ -8,6 +8,7 @@ import time
 import unittest
 import uuid
 from pathlib import Path
+import re
 
 import pytest
 from unittest import mock
@@ -818,6 +819,28 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = fs.get_run(run.info.run_id)
         assert run.info.run_name == "my name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
+
+        run_id = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            run_name=None,
+            tags=[RunTag(MLFLOW_RUN_NAME, "test")],
+        ).info.run_id
+        run = fs.get_run(run_id)
+        assert run.info.run_name == "test"
+
+        with pytest.raises(
+            MlflowException,
+            match=re.escape("Both 'run_name' argument and 'mlflow.runName' tag are specified."),
+        ):
+            fs.create_run(
+                experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+                user_id="user",
+                start_time=0,
+                run_name="test",
+                tags=[RunTag(MLFLOW_RUN_NAME, "test")],
+            )
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
