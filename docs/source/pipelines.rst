@@ -210,7 +210,7 @@ The general model development workflow for using MLflow Pipelines is as follows:
       Data profiling is often best viewed with "quantiles" mode. To switch it on, on the Facet
       data profile, find ``Chart to show``, click the selector below, and choose ``Quantiles``.
 
-4. Iterate over step 2 and 3: make changes in an individual step, and test them by running
+4. Iterate over step 2 and 3: make changes to an individual step, and test them by running
    the step and observing the results it produces.
    Use ``Pipeline.inspect()`` to visualize the overall Pipeline dependency graph and artifacts
    each step produces.
