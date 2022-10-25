@@ -41,7 +41,7 @@ as follows:
 
       pip install mlflow[pipelines]
 
-  Note that MLflow Pipelines requires [Make](https://www.gnu.org/software/make/),
+  Note that MLflow Pipelines requires `Make <https://www.gnu.org/software/make>`_,
   which may not be preinstalled on some Windows systems.
   Windows users must install Make before using MLflow Pipelines. For more information about
   installing Make on Windows, see https://gnuwin32.sourceforge.net/install.html.
@@ -122,15 +122,13 @@ Usage
 Model development workflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The general model development workflow for MLflow Pipelines can be summarized through the following
-4 steps:
+The general model development workflow for using MLflow Pipelines is as follows:
 
 1. Clone a :ref:`Pipeline Template <pipeline-templates>` git repository corresponding to the ML
    problem that you wish to solve. Follow the template's README file for template-specific
    instructions.
 
-    - [Local] See example below for cloning the |MLflow Pipelines Regression Template| on a local
-      machine.
+    - [Local] Clone the |MLflow Pipelines Regression Template| into a local directory.
 
     .. code-block:: sh
 
@@ -141,7 +139,7 @@ The general model development workflow for MLflow Pipelines can be summarized th
       .. image:: _static/images/pipelines_databricks_repo_ui.png
         :width: 60%
 
-2. Edit required fields by searching comments ``FIXME::REQUIRED`` in ``pipeline.yaml`` and
+2. Edit required fields marked by ``FIXME::REQUIRED`` comments in ``pipeline.yaml`` and
    ``profiles/*.yaml``. The pipeline is runnable once all required fields are filled with
    proper values. You may proceed to step 3 if this is the first time going through this step.
    Otherwise, continue to edit the YAML config files as well as ``steps/*.py`` files,
@@ -201,8 +199,7 @@ The general model development workflow for MLflow Pipelines can be summarized th
     .. figure:: _static/images/pipelines_databricks_logged_artifacts.png
       :width: 60%
 
-      An example MLflow run view page, showing that artifacts from pipeline steps are mostly logged
-      and sharable through the MLflow experiment.
+      An example MLflow run view page, showing artifacts logged from the Pipeline's steps.
  
     .. figure:: _static/images/pipelines_databricks_notebook_ui.png
       :scale: 25
