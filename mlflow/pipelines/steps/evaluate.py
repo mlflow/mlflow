@@ -137,6 +137,8 @@ class EvaluateStep(BaseStep):
         warnings.warn = warn
         import pandas as pd
 
+        open(os.path.join(output_directory, "warning_logs.txt"), "w")
+
         self._validate_validation_criteria()
 
         test_df_path = get_step_output_path(

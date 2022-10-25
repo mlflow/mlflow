@@ -224,6 +224,8 @@ class TrainStep(BaseStep):
         from sklearn.pipeline import make_pipeline
         from mlflow.models.signature import infer_signature
 
+        open(os.path.join(output_directory, "warning_logs.txt"), "w")
+
         apply_pipeline_tracking_config(self.tracking_config)
 
         transformed_training_data_path = get_step_output_path(
