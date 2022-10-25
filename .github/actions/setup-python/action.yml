@@ -35,7 +35,7 @@ runs:
           echo "Invalid python version: '$python_version'. Must be one of ['3.7', '3.8']"
           exit 1
         fi
-        echo "::set-output name=version::$python_version"
-    - uses: actions/setup-python@v3
+        echo "version=$python_version" >> $GITHUB_OUTPUT
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}

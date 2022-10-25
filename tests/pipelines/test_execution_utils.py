@@ -37,8 +37,10 @@ def pandas_df():
             "C": [-9.2, 82.5, 3.40],
         }
     )
-    df.index.rename("index", inplace=True)
-    return df
+    # duplicate the df so that each partition is above min size
+    df2 = pd.concat([df] * 10, ignore_index=True)
+    df2.index.rename("index", inplace=True)
+    return df2
 
 
 @pytest.fixture
@@ -60,7 +62,9 @@ def test_pipeline(
         pipeline_config={
             "target_col": "C",
             "steps": {
-                "split": {},
+                "split": {
+                    "split_ratios": [0.34, 0.33, 0.33],
+                },
             },
         },
         pipeline_root=os.getcwd(),
@@ -102,6 +106,34 @@ def clean_test_pipeline(enter_test_pipeline_directory):  # pylint: disable=unuse
         yield
     finally:
         Pipeline(profile="local").clean()
+
+
+def test_create_required_step_files(tmp_path):
+    class TestStep(BaseStepImplemented):
+        def __init__(self):  # pylint: disable=super-init-not-called
+            pass
+
+        @property
+        def name(self):
+            return "test_step"
+
+    def check_required_files(check_exist):
+        for required_file in [
+            "steps",
+            "steps/ingest.py",
+            "steps/split.py",
+            "steps/train.py",
+            "steps/transform.py",
+            "steps/custom_metrics.py",
+        ]:
+            assert (tmp_path / required_file).exists() is check_exist
+
+    test_step = TestStep()
+    check_required_files(False)
+    _get_or_create_execution_directory(
+        pipeline_root_path=tmp_path, pipeline_steps=[test_step], template="regression/v1"
+    )
+    check_required_files(True)
 
 
 def test_get_or_create_execution_directory_is_idempotent(tmp_path):
@@ -438,7 +470,7 @@ def test_run_pipeline_step_after_change_clears_downstream_step_state(test_pipeli
             "target_col": "C",
             "steps": {
                 "split": {
-                    "split_ratios": [0.8, 0.1, 0.1],
+                    "split_ratios": [0.5, 0.25, 0.25],
                 },
             },
         },

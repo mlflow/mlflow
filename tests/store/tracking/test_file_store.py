@@ -7,6 +7,7 @@ import tempfile
 import time
 import unittest
 import uuid
+from pathlib import Path
 
 import pytest
 from unittest import mock
@@ -26,6 +27,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
@@ -130,7 +132,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 metrics = {}
                 for _ in range(3):
                     metric_name = random_str(random_int(10, 12))
-                    timestamp = int(time.time())
+                    timestamp = get_current_time_millis()
                     metric_file = os.path.join(metrics_folder, metric_name)
                     values = []
                     for _ in range(10):
@@ -213,6 +215,64 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [e.name for e in experiments] == ["ab"]
 
+    def test_search_experiments_filter_by_time_attribute(self):
+        self.initialize()
+        # Sleep to ensure that the first experiment has a different creation_time than the default
+        # experiment and eliminate flakiness.
+        time.sleep(0.001)
+        time_before_create1 = get_current_time_millis()
+        exp_id1 = self.store.create_experiment("1")
+        exp1 = self.store.get_experiment(exp_id1)
+        time.sleep(0.001)
+        time_before_create2 = get_current_time_millis()
+        exp_id2 = self.store.create_experiment("2")
+        exp2 = self.store.get_experiment(exp_id2)
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time = {exp1.creation_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time != {exp1.creation_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2, self.store.DEFAULT_EXPERIMENT_ID]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time >= {time_before_create1}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"creation_time < {time_before_create2}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1, self.store.DEFAULT_EXPERIMENT_ID]
+
+        now = get_current_time_millis()
+        experiments = self.store.search_experiments(filter_string=f"creation_time >= {now}")
+        assert experiments == []
+
+        time_before_rename = get_current_time_millis()
+        self.store.rename_experiment(exp_id1, "new_name")
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time >= {time_before_rename}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id1]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time <= {get_current_time_millis()}"
+        )
+        assert [e.experiment_id for e in experiments] == [
+            exp_id1,
+            exp_id2,
+            self.store.DEFAULT_EXPERIMENT_ID,
+        ]
+
+        experiments = self.store.search_experiments(
+            filter_string=f"last_update_time = {exp2.last_update_time}"
+        )
+        assert [e.experiment_id for e in experiments] == [exp_id2]
+
     def test_search_experiments_filter_by_tag(self):
         self.initialize()
         experiments = [
@@ -276,12 +336,43 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(order_by=["name", "last_update_time asc"])
         assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
 
-        # Force the last update time to change by deleting and restoring
-        updated = self.store.get_experiment_by_name("x")
-        self.store.delete_experiment(updated.experiment_id)
-        self.store.restore_experiment(updated.experiment_id)
-        experiments = self.store.search_experiments(order_by=["last_update_time asc"])
-        assert [e.name for e in experiments] == ["Default", "y", "z", "x"]
+    def test_search_experiments_order_by_time_attribute(self):
+        self.initialize()
+        # Sleep to ensure that the first experiment has a different creation_time than the default
+        # experiment and eliminate flakiness.
+        time.sleep(0.001)
+        exp_id1 = self.store.create_experiment("1")
+        time.sleep(0.001)
+        exp_id2 = self.store.create_experiment("2")
+
+        experiments = self.store.search_experiments(order_by=["creation_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id1,
+            exp_id2,
+        ]
+
+        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
+        assert [e.experiment_id for e in experiments] == [
+            exp_id2,
+            exp_id1,
+            self.store.DEFAULT_EXPERIMENT_ID,
+        ]
+
+        experiments = self.store.search_experiments(order_by=["last_update_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id1,
+            exp_id2,
+        ]
+
+        self.store.rename_experiment(exp_id1, "new_name")
+        experiments = self.store.search_experiments(order_by=["last_update_time"])
+        assert [e.experiment_id for e in experiments] == [
+            self.store.DEFAULT_EXPERIMENT_ID,
+            exp_id2,
+            exp_id1,
+        ]
 
     def test_search_experiments_max_results(self):
         self.initialize()
@@ -401,8 +492,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
+        exp_id_ints = (int(exp_id) for exp_id in self.experiments)
+        next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
-        time_before_create = int(time.time() * 1000)
+        time_before_create = get_current_time_millis()
         created_id = fs.create_experiment(name)
         # test that newly created experiment id is random but of a fixed length
         self.assertEqual(len(created_id), _EXPERIMENT_ID_FIXED_WIDTH)
@@ -684,7 +777,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(no_tags_run.data, RunData)
-        assert len(no_tags_run.data.tags) == 0
+        assert len(no_tags_run.data.tags) == 1
+
+        run_name = no_tags_run.info.run_name
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
         run_name = no_tags_run.info.run_name
         assert run_name.split("-")[0] in _GENERATOR_PREDICATES
@@ -702,7 +798,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name=None,
         )
         assert isinstance(tags_run.data, RunData)
-        assert tags_run.data.tags == tags_dict
+        assert tags_run.data.tags == {**tags_dict, MLFLOW_RUN_NAME: tags_run.info.run_name}
+
+        name_empty_str_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id="user",
+            start_time=0,
+            tags=tags_entities,
+            run_name="",
+        )
+        run_name = name_empty_str_run.info.run_name
+        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     def test_create_run_sets_name(self):
         fs = FileStore(self.test_root)
@@ -714,8 +820,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_name="my name",
         )
 
-        run_name = run.info.run_name
-        assert run_name == "my name"
+        run = fs.get_run(run.info.run_id)
+        assert run.info.run_name == "my name"
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -997,6 +1104,110 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
+
+    def test_search_runs_run_name(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_pagination")
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=1000, tags=[], run_name="run_name2")
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+
+        fs.update_run_info(
+            run1.info.run_id,
+            RunStatus.FINISHED,
+            end_time=run1.info.end_time,
+            run_name="new_run_name1",
+        )
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        # TODO: Test attribute-based search after set_tag
+
+        # Test run name filter works for runs logged in MLflow <= 1.29.0
+        run_meta_path = Path(self.test_root, exp_id, run1.info.run_id, "meta.yaml")
+        without_run_name = run_meta_path.read_text().replace("run_name: new_run_name1\n", "")
+        run_meta_path.write_text(without_run_name)
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="tags.`mlflow.runName` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+    def test_search_runs_run_id(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_run_id")
+        # Set start_time to ensure the search result is deterministic
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1, tags=[], run_name="1")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=2, tags=[], run_name="2")
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id = '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id != '{run_id1}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        for filter_string in [
+            f"attributes.run_id IN ('{run_id1}','{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}', '{run_id2}')",
+            f"attributes.run_id IN ('{run_id1}',  '{run_id2}')",
+        ]:
+            result = fs.search_runs(
+                [exp_id], filter_string=filter_string, run_view_type=ViewType.ACTIVE_ONLY
+            )
+            assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
@@ -1430,3 +1641,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             )
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_update_run_name(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        run_id = run.info.run_id
+
+        self.assertEqual(run.info.run_name, "name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "name")
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "new name")
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, None)
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "new name")
+
+        fs.delete_tag(run_id, MLFLOW_RUN_NAME)
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "new name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), None)
+
+        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
+        run = fs.get_run(run_id)
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "another name")
+        self.assertEqual(run.info.run_name, "another name")
+
+        fs.set_tag(run_id, RunTag(MLFLOW_RUN_NAME, "yet another name"))
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "yet another name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "yet another name")
+
+        fs.log_batch(run_id, metrics=[], params=[], tags=[RunTag(MLFLOW_RUN_NAME, "batch name")])
+        run = fs.get_run(run_id)
+        self.assertEqual(run.info.run_name, "batch name")
+        self.assertEqual(run.data.tags.get(MLFLOW_RUN_NAME), "batch name")

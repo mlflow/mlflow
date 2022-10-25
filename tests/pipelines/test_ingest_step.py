@@ -242,6 +242,30 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
         ).run(output_directory=tmp_path)
 
 
+def custom_load_file_as_array(local_data_file_path, dataset_format):
+    return [local_data_file_path, dataset_format]
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.fooformat"
+    pandas_df.to_csv(dataset_path, sep="#")
+
+    with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "fooformat",
+                    "location": str(dataset_path),
+                    "custom_loader_method": (
+                        "tests.pipelines.test_ingest_step.custom_load_file_as_array"
+                    ),
+                }
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_unexpectedly(
     pandas_df, tmp_path
@@ -320,6 +344,28 @@ def test_ingests_spark_sql_successfully(spark_df, tmp_path):
                 "sql": "SELECT * FROM test_table ORDER BY id",
             }
         },
+        pipeline_root=os.getcwd(),
+    ).run(output_directory=tmp_path)
+
+    # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
+    # substantial performance cost. Accordingly, we sort the ingested DataFrame and the original
+    # DataFrame on the `id` column and reset the DataFrame index to achieve a consistent ordering
+    # before testing their equivalence
+    reloaded_df = (
+        pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        .sort_values(by="id")
+        .reset_index(drop=True)
+    )
+    spark_to_pandas_df = spark_df.toPandas().sort_values(by="id").reset_index(drop=True)
+    pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingests_spark_sql_location_successfully(spark_df, tmp_path):
+    spark_df.write.mode("overwrite").saveAsTable("test_table")
+
+    IngestStep.from_pipeline_config(
+        pipeline_config={"data": {"format": "spark_sql", "location": "test_table"}},
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
@@ -509,6 +555,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
+    assert "Data Preview" in step_card_html_content
     assert "facets-overview" in step_card_html_content
 
 
@@ -543,6 +590,7 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
         "mlflow.utils._spark_utils._get_active_spark_session",
     ) as _get_active_spark_session:
         _get_active_spark_session.return_value = None
+
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "data": {
@@ -556,63 +604,74 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_dataset_format_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "location": "my_location",
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "location": "my_location",
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_data_section_unspecified():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={},
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `data` section.*must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={},
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_required_dataset_config_keys_are_missing():
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "parquet",
+                # Missing location
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "parquet",
-                    # Missing location
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
-    with pytest.raises(MlflowException, match="The `sql` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "spark_sql",
-                    # Missing sql
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "spark_sql",
+                # Missing sql and location
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
 
+    ingest_step._validate_and_apply_step_config()
+    with pytest.raises(
+        MlflowException,
+        match="Either location or sql configuration key must be specified for "
+        "dataset with format spark_sql",
+    ):
+        ingest_step._run("output-directory")
+
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "csv",
+                "location": "my/dataset.csv",
+                # Missing custom_loader_method
+            }
+        },
+        pipeline_root=os.getcwd(),
+    )
     with pytest.raises(
         MlflowException, match="The `custom_loader_method` configuration key must be specified"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "csv",
-                    "location": "my/dataset.csv",
-                    # Missing custom_loader_method
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")

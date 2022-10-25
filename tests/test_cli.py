@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
-from mlflow.cli import server, ui
+from mlflow.cli import server, ui, gc
 from mlflow import pyfunc
 from mlflow.server import handlers
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -23,6 +23,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -168,7 +169,7 @@ def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
         "user_id": "Anderson",
-        "start_time": int(time.time()),
+        "start_time": get_current_time_millis(),
         "tags": [],
         "run_name": "name",
     }
@@ -314,6 +315,59 @@ def test_mlflow_gc_file_store_older_than(file_store):
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_experiments(get_store_details, request):
+    def invoke_gc(*args):
+        return CliRunner().invoke(gc, args, catch_exceptions=False)
+
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id_1 = store.create_experiment("1")
+    run_id_1 = store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
+    invoke_gc("--backend-store-uri", uri)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    exp_ids = [e.experiment_id for e in experiments]
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
+    assert exp_ids == [exp_id_1, store.DEFAULT_EXPERIMENT_ID]
+    assert [r.info.run_id for r in runs] == [run_id_1.info.run_id]
+
+    store.delete_experiment(exp_id_1)
+    invoke_gc("--backend-store-uri", uri)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+    assert runs == []
+
+    exp_id_2 = store.create_experiment("2")
+    exp_id_3 = store.create_experiment("3")
+    store.delete_experiment(exp_id_2)
+    store.delete_experiment(exp_id_3)
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_2)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+
+    with mock.patch("time.time", return_value=0) as mock_time:
+        exp_id_4 = store.create_experiment("4")
+        store.delete_experiment(exp_id_4)
+        mock_time.assert_called()
+
+    invoke_gc("--backend-store-uri", uri, "--older-than", "1d")
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_3, "--older-than", "0s")
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    exp_id_5 = store.create_experiment("5")
+    store.delete_experiment(exp_id_5)
+    with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
+        invoke_gc(
+            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+        )
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
 
 
 @pytest.mark.parametrize(

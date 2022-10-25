@@ -110,5 +110,5 @@ def get_artifact(profile, artifact):
     """
     Get the location of an artifact output from the pipeline.
     """
-    artifact_location = Pipeline(profile=profile)._get_artifact_path(artifact)
+    artifact_location = Pipeline(profile=profile)._get_artifact(artifact).path()
     click.echo(artifact_location)

@@ -3,7 +3,7 @@ import json
 from collections import namedtuple
 from datetime import datetime
 
-from moto.core import get_account_id
+from moto.core import DEFAULT_ACCOUNT_ID
 from moto.core import BaseBackend, BaseModel
 from moto.core.responses import BaseResponse
 from moto.core.models import base_decorator
@@ -20,7 +20,7 @@ class SageMakerResponse(BaseResponse):
 
     @property
     def sagemaker_backend(self):
-        return sagemaker_backends[self.region]
+        return sagemaker_backends[DEFAULT_ACCOUNT_ID][self.region]
 
     @property
     def request_params(self):
@@ -305,7 +305,7 @@ class SageMakerBackend(BaseBackend):
         :return: A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
-            region_name=region_name, account_id=get_account_id()
+            region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
         )
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):

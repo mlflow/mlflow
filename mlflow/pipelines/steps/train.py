@@ -11,16 +11,20 @@ import cloudpickle
 import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.pipelines.artifacts import ModelArtifact, RunArtifact, HyperParametersArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.execution import (
     get_step_output_path,
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 from mlflow.pipelines.utils.metrics import (
-    BUILTIN_PIPELINE_METRICS,
+    _get_error_fn,
+    _get_builtin_metrics,
     _get_primary_metric,
     _get_custom_metrics,
+    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import (
@@ -54,21 +58,105 @@ class TrainStep(BaseStep):
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.pipeline_config = pipeline_config
-        self.tracking_config = TrackingConfig.from_dict(step_config)
+
+    def _validate_and_apply_step_config(self):
+        self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
+        if "using" in self.step_config:
+            if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
+                raise MlflowException(
+                    f"Invalid train step configuration value {self.step_config['using']} for "
+                    f"key 'using'. Supported values are: ['estimator_spec']",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self.step_config["using"] = "estimator_spec"
+
+        if "tuning" in self.step_config:
+            if "enabled" in self.step_config["tuning"] and isinstance(
+                self.step_config["tuning"]["enabled"], bool
+            ):
+                self.step_config["tuning_enabled"] = self.step_config["tuning"]["enabled"]
+            else:
+                raise MlflowException(
+                    "The 'tuning' configuration in the train step must include an "
+                    "'enabled' key whose value is either true or false.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if self.step_config["tuning_enabled"]:
+                if "sample_fraction" in self.step_config["tuning"]:
+                    sample_fraction = float(self.step_config["tuning"]["sample_fraction"])
+                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                        self.step_config["sample_fraction"] = sample_fraction
+                    else:
+                        raise MlflowException(
+                            "The tuning 'sample_fraction' configuration in the train step "
+                            "must be between 0 and 1.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                else:
+                    self.step_config["sample_fraction"] = 1.0
+
+                if "algorithm" not in self.step_config["tuning"]:
+                    self.step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
+
+                if "parallelism" not in self.step_config["tuning"]:
+                    self.step_config["tuning"]["parallelism"] = 1
+
+                if "max_trials" not in self.step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'max_trials' configuration in the train step must be provided.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+                if "parameters" not in self.step_config["tuning"]:
+                    raise MlflowException(
+                        "The 'parameters' configuration in the train step must be provided "
+                        " when tuning is enabled.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+        else:
+            self.step_config["tuning_enabled"] = False
+
+        if "estimator_params" not in self.step_config:
+            self.step_config["estimator_params"] = {}
+
         self.target_col = self.step_config.get("target_col")
+        if self.target_col is None:
+            raise MlflowException(
+                "Missing target_col config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self.template = self.step_config.get("template_name")
+        if self.template is None:
+            raise MlflowException(
+                "Missing template_name config in pipeline config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.train_module_name, self.estimator_method_name = self.step_config[
-            "estimator_method"
-        ].rsplit(".", 1)
+        if (
+            "estimator_method" not in self.step_config
+            and self.step_config["using"] == "estimator_spec"
+        ):
+            raise MlflowException(
+                "Missing 'estimator_method' configuration in the train step, "
+                "which is using 'estimator_spec'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
-        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
+        self.evaluation_metrics = {
+            metric.name: metric for metric in _get_builtin_metrics(self.template)
+        }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in BUILTIN_PIPELINE_METRICS
+            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.template)
         }
         self.evaluation_metrics_greater_is_better.update(
             {
@@ -78,7 +166,7 @@ class TrainStep(BaseStep):
         )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
-                f"The primary metric {self.primary_metric} is a custom metric, but its"
+                f"The primary metric '{self.primary_metric}' is a custom metric, but its"
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -163,11 +251,6 @@ class TrainStep(BaseStep):
             relative_path="transformer.pkl",
         )
 
-        sys.path.append(self.pipeline_root)
-        estimator_fn = getattr(
-            importlib.import_module(self.train_module_name), self.estimator_method_name
-        )
-
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
@@ -180,26 +263,13 @@ class TrainStep(BaseStep):
         best_estimator_params = None
         mlflow.autolog(log_models=False, silent=True)
         with mlflow.start_run(tags=tags) as run:
-            estimator_hardcoded_params = self.step_config["estimator_params"]
-            if self.step_config["tuning_enabled"]:
-                best_estimator_params = self._tune_and_get_best_estimator_params(
-                    run.info.run_id,
-                    estimator_hardcoded_params,
-                    estimator_fn,
-                    X_train,
-                    y_train,
-                    validation_df,
-                    output_directory,
-                )
-                estimator = estimator_fn(best_estimator_params)
-            elif len(estimator_hardcoded_params) > 0:
-                estimator = estimator_fn(estimator_hardcoded_params)
-            else:
-                estimator = estimator_fn()
 
+            estimator = self._resolve_estimator(
+                X_train, y_train, validation_df, run, output_directory
+            )
             estimator.fit(X_train, y_train)
 
-            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train, tags)
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
 
             # Create a pipeline consisting of the transformer+model for test data evaluation
             with open(transformer_path, "rb") as f:
@@ -236,7 +306,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.template),
                     evaluators="default",
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
@@ -251,16 +321,20 @@ class TrainStep(BaseStep):
 
         target_data = raw_validation_df[self.target_col]
         prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
+        error_fn = _get_error_fn(self.template)
         pred_and_error_df = pd.DataFrame(
             {
                 "target": target_data,
                 "prediction": prediction_result,
-                "error": prediction_result - target_data,
+                "error": error_fn(prediction_result, target_data.to_numpy()),
             }
         )
         train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
         worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-            raw_train_df, train_predictions, self.target_col
+            raw_train_df,
+            train_predictions,
+            error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+            self.target_col,
         )
         leaderboard_df = None
         try:
@@ -284,6 +358,7 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
+            train_df=raw_train_df,
             output_directory=output_directory,
             leaderboard_df=leaderboard_df,
             tuning_df=tuning_df,
@@ -293,6 +368,83 @@ class TrainStep(BaseStep):
             self._log_step_card(run.info.run_id, step_name)
 
         return card
+
+    def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
+        train_module_name, estimator_method_name = self.step_config["estimator_method"].rsplit(
+            ".", 1
+        )
+        sys.path.append(self.pipeline_root)
+        estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
+        estimator_hardcoded_params = self.step_config["estimator_params"]
+        if self.step_config["tuning_enabled"]:
+            estimator_hardcoded_params, best_hp_params = self._tune_and_get_best_estimator_params(
+                run.info.run_id,
+                estimator_hardcoded_params,
+                estimator_fn,
+                X_train,
+                y_train,
+                validation_df,
+            )
+            best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
+            estimator = estimator_fn(best_combined_params)
+            all_estimator_params = estimator.get_params()
+            default_params = dict(
+                set(all_estimator_params.items()) - set(best_combined_params.items())
+            )
+            self._write_best_parameters_outputs(
+                output_directory,
+                best_hp_params=best_hp_params,
+                best_hardcoded_params=estimator_hardcoded_params,
+                default_params=default_params,
+            )
+        elif len(estimator_hardcoded_params) > 0:
+            estimator = estimator_fn(estimator_hardcoded_params)
+            all_estimator_params = estimator.get_params()
+            default_params = dict(
+                set(all_estimator_params.items()) - set(estimator_hardcoded_params.items())
+            )
+            self._write_best_parameters_outputs(
+                output_directory,
+                best_hardcoded_params=estimator_hardcoded_params,
+                default_params=default_params,
+            )
+        else:
+            estimator = estimator_fn()
+            default_params = estimator.get_params()
+            self._write_best_parameters_outputs(output_directory, default_params=default_params)
+        return estimator
+
+    def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
+        plugin_str = plugin_str.replace("/", ".")
+        estimator_fn = getattr(
+            importlib.import_module(f"mlflow.pipelines.steps.{plugin_str}"),
+            "get_estimator_and_best_params",
+        )
+        estimator, best_parameters = estimator_fn(
+            X_train,
+            y_train,
+            self.task,
+            self.step_config,
+            self.pipeline_root,
+            self.evaluation_metrics,
+            self.primary_metric,
+        )
+        self.best_estimator_name = estimator.__class__.__name__
+        self.best_estimator_class = (
+            f"{estimator.__class__.__module__}.{estimator.__class__.__name__}"
+        )
+        self.best_parameters = best_parameters
+        self._write_best_parameters_outputs(output_directory, automl_params=best_parameters)
+        return estimator
+
+    def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
+        using_plugin = self.step_config.get("using", "estimator_spec")
+        if using_plugin == "estimator_spec":
+            return self._get_user_defined_estimator(
+                X_train, y_train, validation_df, run, output_directory
+            )
+        else:
+            return self._resolve_estimator_plugin(using_plugin, X_train, y_train, output_directory)
 
     def _get_leaderboard_df(self, run, eval_metrics):
         import pandas as pd
@@ -421,6 +573,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
+        train_df,
         output_directory,
         leaderboard_df=None,
         tuning_df=None,
@@ -512,7 +665,19 @@ class TrainStep(BaseStep):
             )
         )
 
-        # Tab 6: Leaderboard
+        # Tab 6: Worst predictions profile vs train profile.
+        if not self.skip_data_profiling:
+            worst_prediction_profile = get_pandas_data_profiles(
+                [
+                    ["Worst Predictions", worst_examples_df.reset_index(drop=True)],
+                    ["Train", train_df.reset_index(drop=True)],
+                ]
+            )
+            card.add_tab(
+                "Data Profile (Worst vs Train)", "{{ WORST_EXAMPLES_COMP }}"
+            ).add_pandas_profile("WORST_EXAMPLES_COMP", worst_prediction_profile)
+
+        # Tab 7: Leaderboard
         if leaderboard_df is not None:
             (
                 card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
@@ -520,22 +685,34 @@ class TrainStep(BaseStep):
                 )
             )
 
-        # Tab 7: Best Parameters
-        if self.step_config["tuning_enabled"]:
+        # Tab 8: Best Parameters (AutoML and Tuning)
+        is_automl_run = self.step_config["using"].startswith("automl")
+        best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
+
+        if os.path.exists(best_parameters_yaml):
             best_parameters_card_tab = card.add_tab(
-                "Best Parameters",
+                f"Best Parameters {' (AutoML)' if is_automl_run else ''}",
                 "{{ BEST_PARAMETERS }} ",
             )
-            best_parameters_yaml = os.path.join(output_directory, "best_parameters.yaml")
-            if os.path.exists(best_parameters_yaml):
-                best_hardcoded_parameters = open(best_parameters_yaml).read()
-                best_parameters_card_tab.add_html(
-                    "BEST_PARAMETERS",
-                    f"<b>Best parameters:</b><br>"
-                    f"<pre>{best_hardcoded_parameters}</pre><br><br>",
-                )
 
-        # Tab 8: HP trials
+            if is_automl_run:
+                automl_estimator_str = (
+                    f"<b>Best estimator:</b><br>"
+                    f"<pre>{self.best_estimator_name}</pre><br>"
+                    f"<b>Best estimator class:</b><br>"
+                    f"<pre>{self.best_estimator_class}</pre><br><br>"
+                )
+            else:
+                automl_estimator_str = ""
+
+            best_parameters = open(best_parameters_yaml).read()
+            best_parameters_card_tab.add_html(
+                "BEST_PARAMETERS",
+                f"{automl_estimator_str}<b>Best parameters:</b><br>"
+                f"<pre>{best_parameters}</pre><br><br>",
+            )
+
+        # Tab 9: HP trials
         if tuning_df is not None:
             tuning_trials_card_tab = card.add_tab(
                 "Tuning Trials",
@@ -559,7 +736,7 @@ class TrainStep(BaseStep):
                 ),
             )
 
-        # Tab 9: Run summary.
+        # Tab 10: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
@@ -592,83 +769,19 @@ class TrainStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        try:
-            step_config = pipeline_config["steps"]["train"]
-            step_config["metrics"] = pipeline_config.get("metrics")
-            step_config["template_name"] = pipeline_config.get("template")
-            step_config["profile"] = pipeline_config.get("profile")
-            if "using" in step_config:
-                if step_config["using"] not in ["estimator_spec"]:
-                    raise MlflowException(
-                        f"Invalid train step configuration value {step_config['using']} for key "
-                        f"'using'. Supported values are: ['estimator_spec']",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-            else:
-                step_config["using"] = "estimator_spec"
-
-            if "tuning" in step_config:
-                if "enabled" in step_config["tuning"] and isinstance(
-                    step_config["tuning"]["enabled"], bool
-                ):
-                    step_config["tuning_enabled"] = step_config["tuning"]["enabled"]
-                else:
-                    raise MlflowException(
-                        "The 'tuning' configuration in the train step must include an "
-                        "'enabled' key whose value is either true or false.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                if step_config["tuning_enabled"]:
-                    if "sample_fraction" in step_config["tuning"]:
-                        sample_fraction = float(step_config["tuning"]["sample_fraction"])
-                        if sample_fraction > 0 and sample_fraction <= 1.0:
-                            step_config["sample_fraction"] = sample_fraction
-                        else:
-                            raise MlflowException(
-                                "The tuning 'sample_fraction' configuration in the train step "
-                                "must be between 0 and 1.",
-                                error_code=INVALID_PARAMETER_VALUE,
-                            )
-                    else:
-                        step_config["sample_fraction"] = 1.0
-
-                    if "algorithm" not in step_config["tuning"]:
-                        step_config["tuning"]["algorithm"] = "hyperopt.rand.suggest"
-
-                    if "parallelism" not in step_config["tuning"]:
-                        step_config["tuning"]["parallelism"] = 1
-
-                    if "max_trials" not in step_config["tuning"]:
-                        raise MlflowException(
-                            "The 'max_trials' configuration in the train step must be provided.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
-                    if "parameters" not in step_config["tuning"]:
-                        raise MlflowException(
-                            "The 'parameters' configuration in the train step must be provided "
-                            " when tuning is enabled.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
-            else:
-                step_config["tuning_enabled"] = False
-
-            if "estimator_params" not in step_config:
-                step_config["estimator_params"] = {}
-
-            step_config.update(
-                get_pipeline_tracking_config(
-                    pipeline_root_path=pipeline_root,
-                    pipeline_config=pipeline_config,
-                ).to_dict()
-            )
-        except KeyError:
-            raise MlflowException(
-                "Config for train step is not found.", error_code=INVALID_PARAMETER_VALUE
-            )
+        step_config = {}
+        if pipeline_config.get("steps", {}).get("train", {}) is not None:
+            step_config.update(pipeline_config.get("steps", {}).get("train", {}))
+        step_config["metrics"] = pipeline_config.get("metrics")
+        step_config["template_name"] = pipeline_config.get("template")
+        step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
+        step_config.update(
+            get_pipeline_tracking_config(
+                pipeline_root_path=pipeline_root,
+                pipeline_config=pipeline_config,
+            ).to_dict()
+        )
         return cls(step_config, pipeline_root, pipeline_config=pipeline_config)
 
     @property
@@ -681,6 +794,18 @@ class TrainStep(BaseStep):
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
 
+    def get_artifacts(self):
+        return [
+            ModelArtifact(
+                "model", self.pipeline_root, self.name, self.tracking_config.tracking_uri
+            ),
+            RunArtifact("run", self.pipeline_root, self.name, self.tracking_config.tracking_uri),
+            HyperParametersArtifact("best_parameters", self.pipeline_root, self.name),
+        ]
+
+    def step_class(self):
+        return StepClass.TRAINING
+
     def _tune_and_get_best_estimator_params(
         self,
         parent_run_id,
@@ -689,7 +814,6 @@ class TrainStep(BaseStep):
         X_train,
         y_train,
         validation_df,
-        output_directory,
     ):
         tuning_params = self.step_config["tuning"]
         try:
@@ -738,6 +862,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
+                    dataset_name="validation",
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),
@@ -827,14 +952,12 @@ class TrainStep(BaseStep):
                 best_hardcoded_params = estimator_hardcoded_params
         else:
             best_hardcoded_params = {}
-        best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
-        self._write_tuning_yaml_outputs(best_hp_params, best_hardcoded_params, output_directory)
-        return best_combined_params
+        return (best_hardcoded_params, best_hp_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
         from mlflow.models.signature import infer_signature
 
-        if hasattr(estimator, "best_score_"):
+        if hasattr(estimator, "best_score_") and (type(estimator.best_score_) in [int, float]):
             mlflow.log_metric("best_cv_score", estimator.best_score_)
         if hasattr(estimator, "best_params_"):
             mlflow.log_params(estimator.best_params_)
@@ -859,18 +982,30 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_tuning_yaml_outputs(self, best_hp_params, best_hardcoded_params, output_directory):
-        best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
-        if os.path.exists(best_parameters_path):
-            os.remove(best_parameters_path)
-        with open(best_parameters_path, "a") as file:
-            file.write("# tuned hyperparameters\n")
-            self._safe_dump_with_numeric_values(best_hp_params, file, default_flow_style=False)
-            file.write("\n# hardcoded parameters\n")
-            self._safe_dump_with_numeric_values(
-                best_hardcoded_params, file, default_flow_style=False
-            )
-        mlflow.log_artifact(best_parameters_path)
+    def _write_best_parameters_outputs(  # pylint: disable=dangerous-default-value
+        self,
+        output_directory,
+        best_hp_params={},
+        best_hardcoded_params={},
+        automl_params={},
+        default_params={},
+    ):
+        if best_hp_params or best_hardcoded_params or automl_params or default_params:
+            best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
+            if os.path.exists(best_parameters_path):
+                os.remove(best_parameters_path)
+            with open(best_parameters_path, "a") as file:
+                self._write_one_param_output(automl_params, file, "automl parameters")
+                self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
+                self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
+                self._write_one_param_output(default_params, file, "default parameters")
+            mlflow.log_artifact(best_parameters_path, artifact_path="train")
+
+    def _write_one_param_output(self, params, file, caption):
+        if params:
+            file.write(f"# {caption} \n")
+            self._safe_dump_with_numeric_values(params, file, default_flow_style=False)
+            file.write("\n")
 
     def _safe_dump_with_numeric_values(self, data, file, **kwargs):
         import numpy as np

@@ -48,11 +48,20 @@
 
     <div class="wrapper">
       <div class="mermaid pane-loading">
-          flowchart TB
-          pipeline([pipeline.yaml])
+          flowchart TD
 
-          ingestUserCode([steps/ingest.py]) --> ingestMLPStep[["<font>ingest</font>"]]
-          ingestMLPStep --> dataParquet[(ingested_data)]
+          subgraph " "
+            pipeline([pipeline.yaml])
+
+            ingestUserCode([steps/ingest.py]) --> ingestMLPStep[["<font>ingest</font>"]]
+            ingestMLPStep --> dataParquet[(ingested_data)]
+
+            ingestScoringUserCode([steps/ingest.py]) --> ingestScoringMLPStep[["<font>ingest_scoring</font>"]]
+            ingestScoringMLPStep --> dataScoringParquet[(ingested_scoring_data)]
+
+            dataScoring[(ingested_scoring_data)] --> predictMLPStep[["<font>predict</font>"]]
+            predictMLPStep --> dataScored[(scored_data)]
+          end
 
           data[(ingested_data)] --> splitStep[["<font>split</font>"]]
           transformUserCode([steps/transform.py]) --> transformMLPStep
@@ -95,6 +104,9 @@
           click registerMLPStep renderMoreInformation "{{register_step_help}}"
           click customMetricsUserCode renderMoreInformation "{{custom_metrics_user_code_help}}"
           click splitUserCode renderMoreInformation "{{split_user_code_help}}"
+          click ingestScoringUserCode renderMoreInformation "{{ingest_user_code_help}}"
+          click ingestScoringMLPStep renderMoreInformation "{{ingest_scoring_step_help}}"
+          click predictMLPStep renderMoreInformation "{{predict_step_help}}"
 
           click pipeline renderMoreInformation "{{pipeline_yaml_help}}"
           click dataParquet renderMoreInformation "{{ingested_data_help}}"
@@ -108,6 +120,9 @@
           click transformer renderMoreInformation "{{fitted_transformer_help}}"
           click model_validation_status renderMoreInformation "{{model_validation_status_help}}"
           click registered_model_version renderMoreInformation "{{registered_model_version_help}}"
+          click dataScoringParquet renderMoreInformation "{{ingested_scoring_data_help}}"
+          click dataScoring renderMoreInformation "{{ingested_scoring_data_help}}"
+          click dataScored renderMoreInformation "{{scored_data_help}}"
 
       </div>
       <div id="editor"></div>
@@ -130,6 +145,7 @@
             startOnLoad:true,
             securityLevel:'loose',
             theme: (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "default",
+            themeCSS: ".cluster rect { fill: none; stroke: none; }",
             flowchart:{
                 useMaxWidth:true,
                 htmlLabels:true,

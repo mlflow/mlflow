@@ -1,0 +1,17 @@
+channels:
+- conda-forge
+dependencies:
+- python=3.8.2
+- pip
+- pip:
+  - mlflow
+  - sklearn
+  - cloudpickle==1.6.0
+  - boto3
+  - transformers>=4.0.0
+  - pandas
+  - torch>=1.11.0
+  - torchdata
+  - torchtext==0.12.0
+  - pytorch-lightning==1.7.6
+  - protobuf<4.0.0

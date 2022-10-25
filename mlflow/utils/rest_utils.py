@@ -154,6 +154,12 @@ def http_request(
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
 
+    if host_creds.aws_sigv4:
+        # will overwrite the Authorization header
+        from requests_auth_aws_sigv4 import AWSSigV4
+
+        kwargs["auth"] = AWSSigV4("execute-api")
+
     cleaned_hostname = strip_suffix(hostname, "/")
     url = "%s%s" % (cleaned_hostname, endpoint)
     try:
@@ -299,9 +305,9 @@ def cloud_storage_http_request(
     **kwargs,
 ):
     """
-    Performs an HTTP PUT/GET request using Python's `requests` module with automatic retry.
+    Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
 
-    :param method: string of 'PUT' or 'GET', specify to do http PUT or GET
+    :param method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH
     :param url: the target URL address for the HTTP request.
     :param max_retries: maximum number of retries before throwing an exception.
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
@@ -314,7 +320,7 @@ def cloud_storage_http_request(
 
     :return requests.Response object.
     """
-    if method.lower() not in ("put", "get"):
+    if method.lower() not in ("put", "get", "patch"):
         raise ValueError("Illegal http method: " + method)
     try:
         with _get_http_response_with_retries(
@@ -335,6 +341,9 @@ class MlflowHostCreds:
         If this is specified, username must also be specified.
     :param token: Token to use with Bearer authentication when talking to server.
         If provided, user/password authentication will be ignored.
+    :param aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
+        Keys for signing the request can be passed via ENV variables,
+        or will be fetched via boto3 session.
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
@@ -354,6 +363,7 @@ class MlflowHostCreds:
         username=None,
         password=None,
         token=None,
+        aws_sigv4=False,
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
@@ -378,6 +388,7 @@ class MlflowHostCreds:
         self.username = username
         self.password = password
         self.token = token
+        self.aws_sigv4 = aws_sigv4
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path

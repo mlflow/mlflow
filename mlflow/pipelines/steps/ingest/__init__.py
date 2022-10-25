@@ -4,8 +4,10 @@ import os
 
 from pathlib import Path
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.artifacts import DataframeArtifact
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df
@@ -16,6 +18,7 @@ from mlflow.pipelines.steps.ingest.datasets import (
     CustomDataset,
 )
 from typing import Dict, Any
+import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
@@ -36,11 +39,14 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         CustomDataset,
     ]
 
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
-        super().__init__(step_config, pipeline_root)
 
-        dataset_format = step_config.get("format")
-        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
+    def _validate_and_apply_step_config(self):
+        if len(self.step_config) == 0:
+            raise MlflowException(
+                message="The `data` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        dataset_format = self.step_config.get("format")
         if not dataset_format:
             raise MlflowException(
                 message=(
@@ -53,8 +59,8 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
                 self.dataset = dataset_class.from_config(
-                    dataset_config=step_config,
-                    pipeline_root=pipeline_root,
+                    dataset_config=self.step_config,
+                    pipeline_root=self.pipeline_root,
                 )
                 break
         else:
@@ -62,9 +68,9 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 message=f"Unrecognized dataset format: {dataset_format}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
     def _run(self, output_directory: str) -> BaseCard:
-        import pandas as pd
 
         dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
@@ -89,8 +95,9 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
         step_card = self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
-            ingested_rows=ingested_df.size,
+            ingested_rows=len(ingested_df),
             schema=schema,
+            data_preview=ingested_df.head(),
             dataset_src_location=getattr(self.dataset, "location", None),
             dataset_sql=getattr(self.dataset, "sql", None),
         )
@@ -101,6 +108,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ingested_dataset_profile: str,
         ingested_rows: int,
         schema: Dict,
+        data_preview: pd.DataFrame = None,
         dataset_src_location: str = None,
         dataset_sql: str = None,
     ) -> BaseCard:
@@ -138,7 +146,14 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         # Tab #2 -- Ingested dataset schema.
         schema_html = BaseCard.render_table(schema["fields"])
         card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
-        (  # Tab #3 -- Step run summary.
+
+        if data_preview is not None:
+            # Tab #3 -- Ingested dataset preview.
+            card.add_tab("Data Preview", "{{DATA_PREVIEW}}").add_html(
+                "DATA_PREVIEW", BaseCard.render_table(data_preview)
+            )
+
+        (  # Tab #4 -- Step run summary.
             card.add_tab(
                 "Run Summary",
                 "{{ INGESTED_ROWS }}"
@@ -161,21 +176,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         )
         return card
 
-    @classmethod
-    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        if "data" not in pipeline_config:
-            raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_config = pipeline_config["data"]
-        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
-
-        return cls(
-            step_config={**data_config, **ingest_config},
-            pipeline_root=pipeline_root,
-        )
-
 
 class IngestStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "dataset.parquet"
@@ -186,14 +186,9 @@ class IngestStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        if "data" not in pipeline_config:
-            raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_config = pipeline_config["data"]
-        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
 
+        data_config = pipeline_config.get("data", {})
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
         return cls(
             step_config={**data_config, **ingest_config},
             pipeline_root=pipeline_root,
@@ -202,6 +197,16 @@ class IngestStep(BaseIngestStep):
     @property
     def name(self) -> str:
         return "ingest"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_data", self.pipeline_root, self.name, IngestStep._DATASET_OUTPUT_NAME
+            )
+        ]
+
+    def step_class(self):
+        return StepClass.TRAINING
 
 
 class IngestScoringStep(BaseIngestStep):
@@ -213,19 +218,26 @@ class IngestScoringStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        if "data_scoring" not in pipeline_config:
-            raise MlflowException(
-                message="The `data_scoring` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        data_scoring_config = pipeline_config["data_scoring"]
+        data_config = pipeline_config.get("data_scoring", {})
         ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
-
         return cls(
-            step_config={**data_scoring_config, **ingest_config},
+            step_config={**data_config, **ingest_config},
             pipeline_root=pipeline_root,
         )
 
     @property
     def name(self) -> str:
         return "ingest_scoring"
+
+    def get_artifacts(self):
+        return [
+            DataframeArtifact(
+                "ingested_scoring_data",
+                self.pipeline_root,
+                self.name,
+                IngestScoringStep._DATASET_OUTPUT_NAME,
+            )
+        ]
+
+    def step_class(self):
+        return StepClass.PREDICTION

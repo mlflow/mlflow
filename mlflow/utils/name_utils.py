@@ -67,7 +67,6 @@ _GENERATOR_NOUNS = [
     "calf",
     "carp",
     "cat",
-    "chick",
     "chimp",
     "cod",
     "colt",

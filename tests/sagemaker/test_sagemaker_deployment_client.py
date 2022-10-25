@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
+from moto.core import DEFAULT_ACCOUNT_ID
 
 import mlflow
 import mlflow.pyfunc
@@ -80,7 +81,7 @@ def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name, en
 
 
 def get_sagemaker_backend(region_name):
-    return mock_sagemaker.backends[region_name]
+    return mock_sagemaker.backends[DEFAULT_ACCOUNT_ID][region_name]
 
 
 def mock_sagemaker_aws_services(fn):

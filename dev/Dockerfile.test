@@ -22,6 +22,6 @@ RUN pip install -r requirements/test-requirements.txt -r requirements/lint-requi
 
 # Add the rest of files and install mlflow in editable form + packages necessary for development
 ADD . /app
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e .[pipelines]
 
 CMD ["bash"]

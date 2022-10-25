@@ -10,11 +10,15 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
 
+# Regex for valid param and metric names: may only contain slashes, alphanumerics,
+# underscores, periods, dashes, and spaces.
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
+# Regex: starting with an alphanumeric, optionally followed by up to 63 characters
+# including alphanumerics, underscores, or dashes.
 _EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
 
 _BAD_CHARACTERS_MESSAGE = (

@@ -9,6 +9,7 @@ from click import UsageError
 from datetime import timedelta
 
 import mlflow.db
+from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
 from mlflow import projects
@@ -530,16 +531,36 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids):
+@click.option(
+    "--experiment-ids",
+    default=None,
+    help="Optional comma separated list of experiments to be permanently deleted including "
+    "all of their associated runs. If experiment ids are not specified, data is removed for all "
+    "experiments in the `deleted` lifecycle stage.",
+)
+def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    import warnings
+    from mlflow.utils.time_utils import get_current_time_millis
+
     backend_store = _get_store(backend_store_uri, None)
+    skip_experiments = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
+
+    if not hasattr(backend_store, "_hard_delete_experiment"):
+        warnings.warn(
+            "The specified backend does not allow hard-deleting experiments. Experiments"
+            " will be skipped.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        skip_experiments = True
 
     time_delta = 0
 
@@ -561,16 +582,76 @@ def gc(older_than, backend_store_uri, run_ids):
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
         run_ids = deleted_run_ids_older_than
-
     else:
         run_ids = run_ids.split(",")
 
-    for run_id in run_ids:
+    time_threshold = get_current_time_millis() - time_delta
+    if not skip_experiments:
+        if experiment_ids:
+            experiment_ids = experiment_ids.split(",")
+            experiments = [backend_store.get_experiment(id) for id in experiment_ids]
+
+            # Ensure that the specified experiments are soft-deleted
+            active_experiment_ids = [
+                e.experiment_id for e in experiments if e.lifecycle_stage != LifecycleStage.DELETED
+            ]
+            if active_experiment_ids:
+                raise MlflowException(
+                    f"Experiments {active_experiment_ids} are not in the deleted lifecycle stage. "
+                    "Only experiments in the deleted lifecycle stage can be hard-deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Ensure that the specified experiments are old enough
+            if older_than:
+                non_old_experiment_ids = [
+                    e.experiment_id
+                    for e in experiments
+                    if e.last_update_time is None or e.last_update_time >= time_threshold
+                ]
+                if non_old_experiment_ids:
+                    raise MlflowException(
+                        f"Experiments {non_old_experiment_ids} are not older than the required"
+                        f"age. Only experiments older than {older_than} can be deleted.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+        else:
+            filter_string = f"last_update_time < {time_threshold}" if older_than else None
+
+            def fetch_experiments(token=None):
+                page = backend_store.search_experiments(
+                    view_type=ViewType.DELETED_ONLY,
+                    filter_string=filter_string,
+                    page_token=token,
+                )
+                return (page + fetch_experiments(page.token)) if page.token else page
+
+            experiment_ids = [exp.experiment_id for exp in fetch_experiments()]
+
+        def fetch_runs(token=None):
+            page = backend_store.search_runs(
+                experiment_ids=experiment_ids,
+                filter_string="",
+                run_view_type=ViewType.DELETED_ONLY,
+                page_token=token,
+            )
+            return (page + fetch_runs(page.token)) if page.token else page
+
+        run_ids.extend([run.info.run_id for run in fetch_runs()])
+
+    for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run % is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted." % run_id
+                "Run % is not in `deleted` lifecycle stage. Only runs in"
+                " `deleted` lifecycle stage can be deleted." % run_id
+            )
+        # raise MlflowException if run_id is newer than older_than parameter
+        if older_than and run_id not in deleted_run_ids_older_than:
+            raise MlflowException(
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         # raise MlflowException if run_id is newer than older_than parameter
         if older_than and run_id not in deleted_run_ids_older_than:
@@ -583,6 +664,11 @@ def gc(older_than, backend_store_uri, run_ids):
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
+
+    if not skip_experiments:
+        for experiment_id in experiment_ids:
+            backend_store._hard_delete_experiment(experiment_id)
+            click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
 cli.add_command(mlflow.deployments.cli.commands)
@@ -599,6 +685,14 @@ try:
     cli.add_command(mlflow.models.cli.commands)
 except ImportError as e:
     pass
+
+try:
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.pipelines.cli.commands)
+except ImportError as e:
+    pass
+
 
 try:
     import mlflow.pipelines.cli  # pylint: disable=unused-import

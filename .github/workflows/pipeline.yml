@@ -46,6 +46,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -64,6 +65,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
         run: |
           pip install -r requirements/test-requirements.txt
