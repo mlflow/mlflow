@@ -65,6 +65,7 @@ Collate:
     'databricks-utils.R'
     'globals.R'
     'imports.R'
+    'install.R'
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'

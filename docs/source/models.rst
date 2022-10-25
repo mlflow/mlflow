@@ -603,16 +603,11 @@ Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
-and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
-and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format in Python. Similarly, in R, you can save or log the model using
+and R clients. In R, you can save or log the model using
 `mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
-These functions serialize Keras models in the `SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
-using the Keras library's built-in model persistence functions. MLflow Models
-produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be
-scored with both DataFrame input and numpy array input. Finally, you can use the :py:func:`mlflow.keras.load_model()`
-function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+These functions serialize Keras models models as HDF5 files using the Keras library's built-in
+model persistence functions. You can use
+`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -641,7 +636,7 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
         )
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-        model_info = mlflow.keras.log_model(keras_model=model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model=model, artifact_path="model")
 
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
@@ -653,7 +648,6 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
     shutil.rmtree(local_artifact_dir)
 
-For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
