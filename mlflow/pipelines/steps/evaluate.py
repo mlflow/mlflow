@@ -120,82 +120,103 @@ class EvaluateStep(BaseStep):
         return summary
 
     def _run(self, output_directory):
-        import pandas as pd
+        def my_warn(*args, **kwargs):
+            import sys
+            import datetime
 
-        self._validate_validation_criteria()
+            timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
+            frame = sys._getframe(stacklevel)
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
+            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
 
-        test_df_path = get_step_output_path(
-            pipeline_root_path=self.pipeline_root,
-            step_name="split",
-            relative_path="test.parquet",
-        )
-        test_df = pd.read_parquet(test_df_path)
+        import warnings
 
-        validation_df_path = get_step_output_path(
-            pipeline_root_path=self.pipeline_root,
-            step_name="split",
-            relative_path="validation.parquet",
-        )
-        validation_df = pd.read_parquet(validation_df_path)
+        original_warn = warnings.warn
+        warnings.warn = my_warn
+        try:
+            import pandas as pd
 
-        run_id_path = get_step_output_path(
-            pipeline_root_path=self.pipeline_root,
-            step_name="train",
-            relative_path="run_id",
-        )
-        run_id = Path(run_id_path).read_text()
+            open(os.path.join(output_directory, "warning_logs.txt"), "w")
 
-        model_uri = get_step_output_path(
-            pipeline_root_path=self.pipeline_root,
-            step_name="train",
-            relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
-        )
+            self._validate_validation_criteria()
 
-        apply_pipeline_tracking_config(self.tracking_config)
-        exp_id = _get_experiment_id()
+            test_df_path = get_step_output_path(
+                pipeline_root_path=self.pipeline_root,
+                step_name="split",
+                relative_path="test.parquet",
+            )
+            test_df = pd.read_parquet(test_df_path)
 
-        primary_metric_greater_is_better = self.evaluation_metrics[
-            self.primary_metric
-        ].greater_is_better
+            validation_df_path = get_step_output_path(
+                pipeline_root_path=self.pipeline_root,
+                step_name="split",
+                relative_path="validation.parquet",
+            )
+            validation_df = pd.read_parquet(validation_df_path)
 
-        _set_experiment_primary_metric(
-            exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
-        )
+            run_id_path = get_step_output_path(
+                pipeline_root_path=self.pipeline_root,
+                step_name="train",
+                relative_path="run_id",
+            )
+            run_id = Path(run_id_path).read_text()
 
-        with mlflow.start_run(run_id=run_id):
-            eval_metrics = {}
-            for dataset_name, dataset, evaluator_config in (
-                (
-                    "validation",
-                    validation_df,
-                    {"explainability_algorithm": "kernel", "explainability_nsamples": 10},
-                ),
-                ("test", test_df, {"log_model_explainability": False}),
-            ):
-                eval_result = mlflow.evaluate(
-                    model=model_uri,
-                    data=dataset,
-                    targets=self.target_col,
-                    model_type=_get_model_type_from_template(self.template),
-                    evaluators="default",
-                    dataset_name=dataset_name,
-                    custom_metrics=_load_custom_metric_functions(
-                        self.pipeline_root,
-                        self.evaluation_metrics.values(),
+            model_uri = get_step_output_path(
+                pipeline_root_path=self.pipeline_root,
+                step_name="train",
+                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+            )
+
+            apply_pipeline_tracking_config(self.tracking_config)
+            exp_id = _get_experiment_id()
+
+            primary_metric_greater_is_better = self.evaluation_metrics[
+                self.primary_metric
+            ].greater_is_better
+
+            _set_experiment_primary_metric(
+                exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
+            )
+
+            with mlflow.start_run(run_id=run_id):
+                eval_metrics = {}
+                for dataset_name, dataset, evaluator_config in (
+                    (
+                        "validation",
+                        validation_df,
+                        {"explainability_algorithm": "kernel", "explainability_nsamples": 10},
                     ),
-                    evaluator_config=evaluator_config,
-                )
-                eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                eval_metrics[dataset_name] = eval_result.metrics
+                    ("test", test_df, {"log_model_explainability": False}),
+                ):
+                    eval_result = mlflow.evaluate(
+                        model=model_uri,
+                        data=dataset,
+                        targets=self.target_col,
+                        model_type=_get_model_type_from_template(self.template),
+                        evaluators="default",
+                        dataset_name=dataset_name,
+                        custom_metrics=_load_custom_metric_functions(
+                            self.pipeline_root,
+                            self.evaluation_metrics.values(),
+                        ),
+                        evaluator_config=evaluator_config,
+                    )
+                    eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
+                    eval_metrics[dataset_name] = eval_result.metrics
 
-            validation_results = self._validate_model(eval_metrics, output_directory)
+                validation_results = self._validate_model(eval_metrics, output_directory)
 
-        card = self._build_profiles_and_card(
-            run_id, model_uri, eval_metrics, validation_results, output_directory
-        )
-        card.save_as_html(output_directory)
-        self._log_step_card(run_id, self.name)
-        return card
+            card = self._build_profiles_and_card(
+                run_id, model_uri, eval_metrics, validation_results, output_directory
+            )
+            card.save_as_html(output_directory)
+            self._log_step_card(run_id, self.name)
+            return card
+        finally:
+            warnings.warn = original_warn
 
     def _validate_model(self, eval_metrics, output_directory):
         validation_criteria = self.step_config.get("validation_criteria")
@@ -364,7 +385,15 @@ class EvaluateStep(BaseStep):
         shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
-        # Tab 3: Run summary.
+        # Tab 3: Warning log outputs.
+        warning_output_path = os.path.join(output_directory, "warning_logs.txt")
+        if os.path.exists(warning_output_path):
+            warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
+            warnings_output_tab.add_html(
+                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
+            )
+
+        # Tab 4: Run summary.
         run_summary_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} "
