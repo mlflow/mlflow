@@ -33,6 +33,7 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       matrix:
         type: ["full", "skinny"]

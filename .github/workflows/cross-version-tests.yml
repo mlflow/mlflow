@@ -40,6 +40,7 @@ defaults:
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -104,6 +105,7 @@ jobs:
     needs: set-matrix
     if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}

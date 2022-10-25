@@ -41,6 +41,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v3
       with:
@@ -69,6 +70,7 @@ jobs:
   # while also verifying certain dependencies are omitted.
   python-skinny:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v3
       with:
@@ -85,6 +87,7 @@ jobs:
 
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v3
       with:
@@ -113,6 +116,7 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v3
       with:
@@ -167,6 +171,7 @@ jobs:
 
   java:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
     - uses: actions/checkout@v3
       with:
@@ -185,6 +190,7 @@ jobs:
 
   flavors:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -211,6 +217,7 @@ jobs:
   # run these tests in a separate job.
   models:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -231,6 +238,7 @@ jobs:
 
   pyfunc:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -251,6 +259,7 @@ jobs:
 
   sagemaker:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:

@@ -21,6 +21,7 @@ defaults:
 jobs:
   check-comment:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
     outputs:
       should_autoformat: ${{ fromJSON(steps.create-status.outputs.result).shouldAutoformat }}
@@ -48,6 +49,7 @@ jobs:
 
   check-diff:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     outputs:
@@ -75,6 +77,7 @@ jobs:
   protos:
     # Generate a patch to update proto code.
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: [check-comment, check-diff]
     if: ${{ needs.check-diff.outputs.protos_changed == 'true' }}
     outputs:
@@ -107,6 +110,7 @@ jobs:
   python:
     # Generate a patch to format python files.
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: [check-comment, check-diff]
     if: ${{ needs.check-diff.outputs.py_changed == 'true' }}
     outputs:
@@ -140,6 +144,7 @@ jobs:
   ui:
     # Generate a patch to format files for MLflow UI.
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: [check-comment, check-diff]
     if: ${{ needs.check-diff.outputs.ui_changed == 'true' }}
     outputs:
@@ -179,6 +184,7 @@ jobs:
   apply-patches:
     # Apply the patches and commit changes to the PR branch.
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: [check-comment, check-diff, protos, python, ui]
     if: |
       always() &&
@@ -224,6 +230,7 @@ jobs:
 
   update-status:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     needs: [check-comment, check-diff, protos, python, ui, apply-patches]
     if: ${{ always() && needs.check-comment.outputs.should_autoformat == 'true' }}
     steps:
