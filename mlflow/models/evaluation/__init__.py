@@ -4,6 +4,7 @@ from mlflow.models.evaluation.base import (
     EvaluationResult,
     EvaluationMetric,
     EvaluationArtifact,
+    make_metric,
     evaluate,
     list_evaluators,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "EvaluationResult",
     "EvaluationMetric",
     "EvaluationArtifact",
+    "make_metric",
     "evaluate",
     "list_evaluators",
     "MetricThreshold",

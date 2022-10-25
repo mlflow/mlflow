@@ -26,6 +26,7 @@ from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
 from .evaluation import (
     evaluate,
+    make_metric,
     EvaluationMetric,
     EvaluationArtifact,
     EvaluationResult,
@@ -38,6 +39,7 @@ __all__ = [
     "FlavorBackend",
     "infer_pip_requirements",
     "evaluate",
+    "make_metric",
     "EvaluationMetric",
     "EvaluationArtifact",
     "EvaluationResult",

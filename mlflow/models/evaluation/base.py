@@ -85,6 +85,52 @@ class EvaluationMetric:
             return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
 
 
+def make_metric(
+    eval_fn,
+    name,
+    greater_is_better,
+    long_name=None,
+):
+    """
+    A factory function to create an :py:class:`EvaluationMetric` object.
+
+    :param eval_fn:
+        A function that computes the metric with the following signature:
+
+        .. code-block:: python
+
+            def eval_fn(
+                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                builtin_metrics: Dict[str, numeric],
+            ) -> float:
+                \"\"\"
+                :param eval_df:
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
+                    on that row.
+                :param builtin_metrics:
+                    A dictionary containing the metrics calculated by the default evaluator.
+                    The keys are the names of the metrics and the values are the scalar values of
+                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    will be returned based on the type of model (i.e. classifier or regressor).
+                :return:
+                    The metric value.
+                \"\"\"
+                ...
+
+    :param name: The name of the metric.
+    :param greater_is_better: Whether a higher value of the metric is better.
+    :param long_name: (Optional) The long name of the metric. For example, ``"mean_square_error"``
+        for ``"mse"``.
+
+    .. seealso::
+
+        :py:class:`EvaluationMetric`
+    """
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
+
+
 class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
