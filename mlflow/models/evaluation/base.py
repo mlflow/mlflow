@@ -126,7 +126,8 @@ def make_metric(
 
     .. seealso::
 
-        :py:class:`EvaluationMetric`
+        - :py:class:`mlflow.models.EvaluationMetric`
+        - :py:func:`mlflow.evaluate`
     """
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
 
@@ -1136,7 +1137,7 @@ def evaluate(
                 return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
 
 
-            rmse_metric = mlflow.models.EvaluationMetric(
+            rmse_metric = mlflow.models.make_metric(
                 eval_fn=root_mean_square_error,
                 name="rmse",
                 long_name=root_mean_square_error.__name__,
@@ -1166,11 +1167,11 @@ def evaluate(
                     the metrics. Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :param artifacts_dir:
-                    the path to a temporary directory that can be used by the custom artifacts
-                    function to temporarily store produced artifacts. The directory will be deleted
-                    after the artifacts are logged.
+                    A temporary directory path that can be used by the custom artifacts function to
+                    temporarily store produced artifacts. The directory will be deleted after the
+                    artifacts are logged.
                 :return:
-                    A dictionary containing the artifact names and contents.
+                    A dictionary containing the artifact names and objects.
                 \"\"\"
                 ...
 
