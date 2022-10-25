@@ -1070,6 +1070,8 @@ class DefaultEvaluator(ModelEvaluator):
                         self.label_list, np.where(self.label_list == self.pos_label)
                     )
                     self.label_list = np.append(self.label_list, self.pos_label)
+                elif self.pos_label is None:
+                    self.pos_label = self.label_list[-1]
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
@@ -1208,7 +1210,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
-        self.pos_label = self.evaluator_config.get("pos_label", 1)
+        self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
