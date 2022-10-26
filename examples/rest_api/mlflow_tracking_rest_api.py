@@ -11,9 +11,8 @@ https://www.mlflow.org/docs/latest/rest-api.html
 
 import argparse
 import os
+import time
 import requests
-
-from mlflow.utils.time_utils import get_current_time_millis
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -30,7 +29,7 @@ class MLflowTrackingRestApi:
         # user_id is deprecated and will be removed from the API in a future release
         payload = {
             "experiment_id": self.experiment_id,
-            "start_time": get_current_time_millis(),
+            "start_time": int(time.time() * 1000),
             "user_id": _get_user_id(),
         }
         r = requests.post(url, json=payload)
@@ -124,12 +123,7 @@ if __name__ == "__main__":
     else:
         print("Logging parameter failed!")
     # Metric is a key/val pair (key/val have str/float types)
-    metric = {
-        "key": "precision",
-        "value": 0.769,
-        "timestamp": get_current_time_millis(),
-        "step": 1,
-    }
+    metric = {"key": "precision", "value": 0.769, "timestamp": int(time.time() * 1000), "step": 1}
     status_code = mlflow_rest.log_metric(metric)
     if status_code == 200:
         print(

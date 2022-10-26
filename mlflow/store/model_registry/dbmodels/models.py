@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import (
     Column,
     String,
@@ -18,7 +20,6 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
-from mlflow.utils.time_utils import get_current_time_millis
 
 
 class SqlRegisteredModel(Base):
@@ -26,7 +27,7 @@ class SqlRegisteredModel(Base):
 
     name = Column(String(256), unique=True, nullable=False)
 
-    creation_time = Column(BigInteger, default=get_current_time_millis)
+    creation_time = Column(BigInteger, default=lambda: int(time.time() * 1000))
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 
@@ -65,7 +66,7 @@ class SqlModelVersion(Base):
 
     version = Column(Integer, nullable=False)
 
-    creation_time = Column(BigInteger, default=get_current_time_millis)
+    creation_time = Column(BigInteger, default=lambda: int(time.time() * 1000))
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 

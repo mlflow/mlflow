@@ -24,7 +24,6 @@ from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.version import VERSION
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -630,9 +629,6 @@ def test_scoring_server_client(sklearn_model, model_path):
         data = pd.DataFrame(sklearn_model.inference_data)
         result = client.invoke(data).get_predictions().to_numpy()[:, 0]
         np.testing.assert_allclose(result, expected_result, rtol=1e-5)
-
-        version = client.get_version()
-        assert version == VERSION
     finally:
         if server_proc is not None:
             os.kill(server_proc.pid, signal.SIGTERM)

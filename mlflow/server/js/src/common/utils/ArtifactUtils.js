@@ -1,5 +1,6 @@
 import { ErrorWrapper } from './ErrorWrapper';
 import { getDefaultHeaders, HTTPMethods } from './FetchUtils';
+import Utils from './Utils';
 
 /**
  * Fetches the specified artifact, returning a Promise that resolves with
@@ -36,7 +37,7 @@ export function getArtifactContent(artifactLocation, isBinary = false) {
         fileReader.readAsText(blob);
       }
     } catch (error) {
-      console.error(error);
+      Utils.logErrorAndNotifyUser(error);
       reject(error);
     }
   });

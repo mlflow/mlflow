@@ -1,12 +1,9 @@
 import os
 import re
-import difflib
 from pathlib import Path
 from collections import namedtuple
 
 import pytest
-from packaging.version import Version
-import sqlalchemy
 from sqlalchemy.schema import MetaData, CreateTable
 from sqlalchemy import create_engine
 
@@ -27,8 +24,8 @@ def get_tracking_uri():
 
 def dump_schema(db_uri):
     engine = create_engine(db_uri)
-    created_tables_metadata = MetaData()
-    created_tables_metadata.reflect(bind=engine)
+    created_tables_metadata = MetaData(bind=engine)
+    created_tables_metadata.reflect()
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
     lines = []
@@ -123,13 +120,10 @@ def initialize_database():
 
 def get_schema_update_command(dialect):
     this_script = Path(__file__).relative_to(Path.cwd())
-    docker_compose_yml = this_script.parent / "compose.yml"
+    docker_compose_yml = this_script.parent / "docker-compose.yml"
     return f"docker-compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
 
 
-@pytest.mark.skipif(
-    Version(sqlalchemy.__version__) > Version("1.4"), reason="Use 1.4 for schema check"
-)
 def test_schema_is_up_to_date():
     initialize_database()
     tracking_uri = get_tracking_uri()
@@ -142,23 +136,6 @@ def test_schema_is_up_to_date():
         f"{schema_path.relative_to(Path.cwd())} is not up-to-date. "
         f"Please run this command to update it: {update_command}"
     )
-    diff = "".join(
-        difflib.ndiff(
-            existing_schema.splitlines(keepends=True), latest_schema.splitlines(keepends=True)
-        )
-    )
-    rel_path = schema_path.relative_to(Path.cwd())
-    message = f"""
-=================================== EXPECTED ===================================
-{latest_schema}
-==================================== ACTUAL ====================================
-{existing_schema}
-===================================== DIFF =====================================
-{diff}
-================================== HOW TO FIX ==================================
-Manually copy & paste the expected schema in {rel_path} or run the following command:
-{update_command}
-"""
     assert schema_equal(existing_schema, latest_schema), message
 
 

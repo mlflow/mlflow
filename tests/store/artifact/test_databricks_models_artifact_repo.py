@@ -221,10 +221,8 @@ class TestDatabricksModelArtifactRepository:
         signed_uri_response_mock = mock.MagicMock()
         signed_uri_response_mock.status_code = 200
         signed_uri_mock = {
-            "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
-            "headers": [{"name": "header_name", "value": "header_value"}],
+            "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567"
         }
-        expected_headers = {"header_name": "header_value"}
         signed_uri_response_mock.text = json.dumps(signed_uri_mock)
         with mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
@@ -235,12 +233,7 @@ class TestDatabricksModelArtifactRepository:
             download_mock.return_value = None
             databricks_model_artifact_repo.download_artifacts(remote_file_path, local_path)
             call_endpoint_mock.assert_called_with(ANY, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
-            download_mock.assert_called_with(
-                signed_uri_mock["signed_uri"],
-                ANY,
-                ANY,
-                expected_headers,
-            )
+            download_mock.assert_called_with(signed_uri_mock["signed_uri"], ANY, ANY)
 
     def test_download_file_get_request_fail(self, databricks_model_artifact_repo):
         with mock.patch(

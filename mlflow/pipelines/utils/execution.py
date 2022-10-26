@@ -328,9 +328,8 @@ class _ExecutionPlan:
         return pipeline_step_names[:first_step_index]
 
     def print(self) -> None:
-        if len(self.steps_cached) > 0:
-            steps_cached_str = ", ".join(self.steps_cached)
-            _logger.info(self._FORMAT_STEPS_CACHED, steps_cached_str)
+        steps_cached_str = ", ".join(self.steps_cached)
+        _logger.info(self._FORMAT_STEPS_CACHED, steps_cached_str)
 
 
 def _run_make(
@@ -400,28 +399,6 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template) -> 
 
     if template == "regression/v1":
         makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
-        steps_folder_path = os.path.join(pipeline_root_path, "steps")
-        if not os.path.exists(steps_folder_path):
-            os.mkdir(steps_folder_path)
-        for required_file in [
-            "ingest.py",
-            "split.py",
-            "train.py",
-            "transform.py",
-            "custom_metrics.py",
-        ]:
-            required_file_path = os.path.join(steps_folder_path, required_file)
-            if not os.path.exists(required_file_path):
-                try:
-                    with open(required_file_path, "w") as f:
-                        f.write("# Created by MLflow Pipeliens\n")
-                except OSError:
-                    pass
-            if not os.path.exists(required_file_path):
-                raise ValueError(
-                    f"Can not find required file {required_file_path} from steps folder. "
-                    "Please create empty python file if the step is not used."
-                )
     else:
         raise ValueError(f"Invalid template: {template}")
 
@@ -580,19 +557,11 @@ ingest_scoring:
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.ingest import IngestScoringStep; IngestScoringStep.from_step_config_path(step_config_path='{path:exe/steps/ingest_scoring/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest_scoring/outputs}')"
 
-<<<<<<< HEAD
 # Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
 # target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
 steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
-=======
-# Define a separate target for the ingested dataset that recursively invokes make with the 
-# `ingest_scoring` target. Downstream steps depend on the ingested dataset target, rather than the 
-# `ingest_scoring` target, ensuring that data is only ingested for downstream steps if it is not
-# already present on the local filesystem
-steps/ingest_scoring/outputs/scoring-dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
->>>>>>> ca98d871f01272b277746e5ce9372f242211ae75
 	# Run MLP step: ingest_scoring
 	$(MAKE) ingest_scoring
 
@@ -600,11 +569,7 @@ predict_objects = steps/predict/outputs/scored.parquet
 
 predict: $(predict_objects)
 
-<<<<<<< HEAD
 steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
-=======
-steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/scoring-dataset.parquet steps/predict/conf.yaml
->>>>>>> ca98d871f01272b277746e5ce9372f242211ae75
 	# Run MLP step: predict
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"

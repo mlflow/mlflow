@@ -9,14 +9,12 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
-    _get_builtin_metrics,
+    BUILTIN_PIPELINE_METRICS,
     _get_custom_metrics,
     _get_primary_metric,
-    _get_model_type_from_template,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
@@ -46,32 +44,17 @@ class EvaluateStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
-
-    def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
-        if self.target_col is None:
-            raise MlflowException(
-                "Missing target_col config in pipeline config.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        self.template = self.step_config.get("template_name")
-        if self.template is None:
-            raise MlflowException(
-                "Missing template_name config in pipeline config.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
-        self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.template)
-        }
+        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
-                f"The primary metric '{self.primary_metric}' is a custom metric, but its"
+                f"The primary metric {self.primary_metric} is a custom metric, but its"
                 " corresponding custom metric configuration is missing from `pipeline.yaml`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -176,7 +159,7 @@ class EvaluateStep(BaseStep):
                     model=model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type=_get_model_type_from_template(self.template),
+                    model_type="regressor",
                     evaluators="default",
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
@@ -323,6 +306,30 @@ class EvaluateStep(BaseStep):
             run_id=run_id,
             artifact_path=f"train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}",
         )
+        run_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+        )
+        model_uri = f"runs:/{run_id}/train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}"
+        model_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+            artifact_path=f"train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}",
+        )
+
+        if run_url is not None:
+            run_summary_card_tab.add_html(
+                "RUN_ID", f"<b>MLflow Run ID:</b> <a href={run_url}>{run_id}</a><br><br>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("RUN_ID", f"**MLflow Run ID:** `{run_id}`")
+
+        if model_url is not None:
+            run_summary_card_tab.add_html(
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
         if run_url is not None:
             run_summary_card_tab.add_html(
@@ -342,12 +349,14 @@ class EvaluateStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = {}
-        if pipeline_config.get("steps", {}).get("evaluate", {}) is not None:
-            step_config.update(pipeline_config.get("steps", {}).get("evaluate", {}))
-        step_config["target_col"] = pipeline_config.get("target_col")
+        try:
+            step_config = pipeline_config["steps"].get("evaluate") or {}
+        except KeyError:
+            raise MlflowException(
+                "Config for evaluate step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
         step_config["metrics"] = pipeline_config.get("metrics")
-        step_config["template_name"] = pipeline_config.get("template")
+        step_config["target_col"] = pipeline_config.get("target_col")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
@@ -365,6 +374,3 @@ class EvaluateStep(BaseStep):
         environ = get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
         environ.update(get_run_tags_env_vars(pipeline_root_path=self.pipeline_root))
         return environ
-
-    def step_class(self):
-        return StepClass.TRAINING

@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
 _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
+_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
@@ -68,11 +68,9 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         html_file_path = html_file_path if html_data is None else None
 
         if is_in_databricks_runtime():
-            from packaging import version
-
             dbr_version_image_key = get_databricks_runtime()
             dbr_version = dbr_version_image_key.split("-")[0]
-            if version.parse(dbr_version) < version.parse("11.x"):
+            if int(dbr_version.split(".")[0]) < 11:
                 raise MlflowException(
                     f"Use Databricks Runtime 11 or newer with MLflow Pipelines. "
                     f"Current version is {dbr_version} ",

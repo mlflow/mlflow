@@ -40,7 +40,6 @@ defaults:
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
@@ -50,13 +49,15 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/setup-python
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
       - name: Install dependencies
         run: |
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
       - name: Check labels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v4
         id: check-labels
         with:
           script: |
@@ -66,7 +67,7 @@ jobs:
                 only_latest: false,
               };
             }
-            const labels = await github.rest.issues.listLabelsOnIssue({
+            const labels = await github.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
@@ -123,7 +124,7 @@ jobs:
           else
             java_version=11
           fi
-          echo "version=$java_version" >> $GITHUB_OUTPUT
+          echo "::set-output name=version::$java_version"
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
@@ -139,7 +140,7 @@ jobs:
           else
             python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
           fi
-          echo "version=$python_version" >> $GITHUB_OUTPUT
+          echo "::set-output name=version::$python_version"
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
@@ -151,7 +152,7 @@ jobs:
         run: |
           date=$(date -u "+%Y%m%d")
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
-          echo "key=$ImageOS-$ImageVersion-wheels-$date-$hash" >> $GITHUB_OUTPUT
+          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
       - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}

@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Any
@@ -5,10 +6,8 @@ from typing import Dict, Any
 import mlflow
 from mlflow.entities import SourceType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
-from mlflow.pipelines.artifacts import ModelVersionArtifact, RegisteredModelVersionInfo
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.step import StepClass
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.tracking import (
@@ -23,27 +22,23 @@ from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLAT
 
 _logger = logging.getLogger(__name__)
 
-_REGISTERED_MV_INFO_FILE = "registered_model_version.json"
-
 
 class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
-
-    def _validate_and_apply_step_config(self):
+        self.tracking_config = TrackingConfig.from_dict(step_config)
         self.num_dropped_rows = None
         self.model_uri = None
         self.model_details = None
+        self.alerts = None
         self.version = None
 
-        self.register_model_name = self.step_config.get("model_name")
-        if self.register_model_name is None:
+        if "model_name" not in self.step_config:
             raise MlflowException(
                 "Missing 'model_name' config in register step config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
+        self.register_model_name = self.step_config["model_name"]
         self.allow_non_validated_model = self.step_config.get("allow_non_validated_model", False)
         self.registry_uri = self.step_config.get("registry_uri", None)
 
@@ -68,12 +63,12 @@ class RegisterStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
         }
-        self.model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=run_id, artifact_path=artifact_path
-        )
         if model_validation == "VALIDATED" or (
             model_validation == "UNKNOWN" and self.allow_non_validated_model
         ):
+            self.model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=run_id, artifact_path=artifact_path
+            )
             if self.registry_uri:
                 mlflow.set_registry_uri(self.registry_uri)
             self.model_details = mlflow.register_model(
@@ -87,12 +82,12 @@ class RegisterStep(BaseStep):
                 name=self.register_model_name, version=self.version
             )
             registered_model_info.to_json(
-                path=str(Path(output_directory) / _REGISTERED_MV_INFO_FILE)
+                path=str(Path(output_directory) / "registered_model_version.json")
             )
         else:
-            raise MlflowException(
-                f"Model registration on {self.model_uri} failed because it "
-                "is not validated. Bypass by setting allow_non_validated_model to True. "
+            self.alerts = (
+                "Model registration skipped.  Please check the validation "
+                "result from Evaluate step."
             )
 
         card = self._build_card(run_id)
@@ -161,21 +156,30 @@ class RegisterStep(BaseStep):
                 f"**Model Source URI:** `{self.model_uri}`",
             )
 
+        if self.alerts is not None:
+            card_tab.add_markdown(
+                "ALERTS",
+                f"**Alerts:** `{self.alerts}`",
+            )
+
         return card
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = {}
-        if pipeline_config.get("steps", {}).get("register") is not None:
-            step_config.update(pipeline_config.get("steps", {}).get("register"))
-        step_config["template_name"] = pipeline_config.get("template")
-        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
-        step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=pipeline_root,
-                pipeline_config=pipeline_config,
-            ).to_dict()
-        )
+        try:
+            step_config = pipeline_config["steps"]["register"]
+            step_config["template_name"] = pipeline_config.get("template")
+            step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+            step_config.update(
+                get_pipeline_tracking_config(
+                    pipeline_root_path=pipeline_root,
+                    pipeline_config=pipeline_config,
+                ).to_dict()
+            )
+        except KeyError:
+            raise MlflowException(
+                "Config for register step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
         return cls(step_config, pipeline_root)
 
     @property
@@ -186,15 +190,31 @@ class RegisterStep(BaseStep):
     def environment(self):
         return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
 
-    def get_artifacts(self):
-        return [
-            ModelVersionArtifact(
-                "registered_model_version",
-                self.pipeline_root,
-                self.name,
-                self.tracking_config.tracking_uri,
-            )
-        ]
 
-    def step_class(self):
-        return StepClass.TRAINING
+class RegisteredModelVersionInfo:
+    _KEY_REGISTERED_MODEL_NAME = "registered_model_name"
+    _KEY_REGISTERED_MODEL_VERSION = "registered_model_version"
+
+    def __init__(self, name: str, version: int):
+        self.name = name
+        self.version = version
+
+    def to_json(self, path):
+        registered_model_info_dict = {
+            RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_NAME: self.name,
+            RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_VERSION: self.version,
+        }
+        with open(path, "w") as f:
+            json.dump(registered_model_info_dict, f)
+
+    @classmethod
+    def from_json(cls, path):
+        with open(path, "r") as f:
+            registered_model_info_dict = json.load(f)
+
+        return cls(
+            name=registered_model_info_dict[RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_NAME],
+            version=registered_model_info_dict[
+                RegisteredModelVersionInfo._KEY_REGISTERED_MODEL_VERSION
+            ],
+        )

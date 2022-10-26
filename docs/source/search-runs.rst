@@ -86,7 +86,7 @@ that have a leading number. If an entity name contains a leading number, enclose
 Run Attributes
 ~~~~~~~~~~~~~~
 
-You can search using the following run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``run_id``, ``run_name``, ``status``, ``artifact_uri``, ``user_id``, ``start_time`` and ``end_time``. The ``run_id``, ``run_name``, ``status``, ``user_id`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
+You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
 
 .. note::
 
@@ -97,28 +97,21 @@ You can search using the following run attributes contained in :py:class:`mlflow
 
 .. code-block:: sql
 
-  attributes.artifact_uri = 'models:/mymodel/1'
-  attributes.status = 'ACTIVE'
-  # RHS value for start_time and end_time are unix timestamp
-  attributes.start_time >= 1664067852747
-  attributes.end_time < 1664067852747
-  attributes.user_id = 'user1'
-  attributes.run_name = 'my-run'
-  attributes.run_id = 'a1b2c3d4'
-  attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
+  attributes.artifact_uri
+
 
 .. _mlflow_tags:
 
 MLflow Tags
 ~~~~~~~~~~~
 
-You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search by owner of an MLflow run, specify ``tags."mlflow.user"`` or ``tags.`mlflow.user```.
+You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```.
 
 .. rubric:: Examples
 
 .. code-block:: sql
 
-  tags."mlflow.user"
+  tags."mlflow.runName"
 
 .. code-block:: sql
 

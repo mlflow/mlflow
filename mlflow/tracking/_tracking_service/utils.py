@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Union
 from contextlib import contextmanager
 
-from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
@@ -155,7 +154,6 @@ def _get_default_host_creds(store_uri):
         username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
         password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
         server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),

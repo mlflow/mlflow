@@ -5,19 +5,10 @@ from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.pipelines.artifacts import DataframeArtifact, RegisteredModelVersionInfo
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.step import StepClass
-from mlflow.pipelines.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.step import get_pandas_data_profiles
-from mlflow.pipelines.utils.tracking import (
-    get_pipeline_tracking_config,
-    apply_pipeline_tracking_config,
-    TrackingConfig,
-)
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import (
     _get_active_spark_session,
@@ -39,39 +30,10 @@ _ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.tracking_config = TrackingConfig.from_dict(self.step_config)
+        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
-    def _validate_and_apply_step_config(self):
-        required_configuration_keys = ["output_format", "output_location"]
-        for key in required_configuration_keys:
-            if key not in self.step_config:
-                raise MlflowException(
-                    f"The `{key}` configuration key must be specified for the predict step.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        if self.step_config["output_format"] not in {"parquet", "delta", "table"}:
-            raise MlflowException(
-                "Invalid `output_format` in predict step configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if "model_uri" not in self.step_config:
-            try:
-                register_config = self.step_config["register"]
-                model_name = register_config["model_name"]
-            except KeyError:
-                raise MlflowException(
-                    "No model specified for batch scoring: predict step does not have `model_uri` "
-                    "configuration key and register step does not have `model_name` configuration "
-                    " key.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            else:
-                self.step_config["model_uri"] = f"models:/{model_name}/latest"
-        self.registry_uri = self.step_config.get("registry_uri", None)
-        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.save_mode = self.step_config.get("save_mode", "default")
         self.run_end_time = None
         self.execution_duration = None
 
@@ -120,46 +82,27 @@ class PredictStep(BaseStep):
 
         run_start_time = time.time()
 
-        apply_pipeline_tracking_config(self.tracking_config)
-        if self.registry_uri:
-            mlflow.set_registry_uri(self.registry_uri)
-
         # Get or create spark session
         try:
             spark = _get_active_spark_session()
             if spark:
                 _logger.info("Found active spark session")
             else:
-                _logger.info("Creating new spark session")
                 spark = _create_local_spark_session_for_pipelines()
+                _logger.info("Creating new spark session")
         except Exception as e:
             raise MlflowException(
                 message=(
-                    "Encountered an error while getting or creating an active Spark session to"
-                    " score dataset with spark UDF."
+                    "Encountered an error while searching for an active Spark session to"
+                    " score dataset with spark UDF. Please create a Spark session and try again."
                 ),
                 error_code=BAD_REQUEST,
             ) from e
-
-        # check if output location is already populated for non-delta output formats
-        output_format = self.step_config["output_format"]
-        output_location = self.step_config["output_location"]
-        output_populated = False
-        if self.save_mode in ["default", "error", "errorifexists"]:
-            if output_format == "parquet" or output_format == "delta":
-                output_populated = os.path.exists(output_location)
-            else:
-                try:
-                    output_populated = spark._jsparkSession.catalog().tableExists(output_location)
-                except Exception:
-                    # swallow spark failures
-                    pass
-        if output_populated:
+        if not spark:
             raise MlflowException(
                 message=(
-                    f"Output location `{output_location}` of format `{output_format}` is already "
-                    "populated. To overwrite, please change the spark `save_mode` in the predict "
-                    "step configuration."
+                    "No active SparkSession detected to score dataset with spark UDF. "
+                    "Please create a Spark session and try again."
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -179,33 +122,22 @@ class PredictStep(BaseStep):
                 f"This column will be dropped in favor of the predict output column name."
             )
 
-        # get model uri
+        # score dataset
         model_uri = self.step_config["model_uri"]
-        registered_model_file_path = get_step_output_path(
-            pipeline_root_path=self.pipeline_root,
-            step_name="register",
-            relative_path=_REGISTERED_MV_INFO_FILE,
-        )
-        if os.path.exists(registered_model_file_path):
-            rmi = RegisteredModelVersionInfo.from_json(path=registered_model_file_path)
-            model_uri = f"models:/{rmi.name}/{rmi.version}"
-
-        # scored dataset
-        result_type = self.step_config.get("result_type", "double")
-        predict = mlflow.pyfunc.spark_udf(
-            spark, model_uri, result_type=result_type, env_manager=_ENV_MANAGER
-        )
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=_ENV_MANAGER)
         scored_sdf = input_sdf.withColumn(
             _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
         )
 
         # save predictions
-        if output_format in ["parquet", "delta"]:
-            scored_sdf.coalesce(1).write.format(output_format).mode(self.save_mode).save(
-                output_location
+        # note: the current output writing logic allows no overwrites
+        output_format = self.step_config["output_format"]
+        if output_format == "parquet" or output_format == "delta":
+            scored_sdf.coalesce(1).write.format(output_format).save(
+                self.step_config["output_location"]
             )
         else:
-            scored_sdf.write.format("delta").mode(self.save_mode).saveAsTable(output_location)
+            scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
         write_spark_dataframe_to_parquet_on_local_disk(
@@ -218,33 +150,39 @@ class PredictStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = {}
-        if pipeline_config.get("steps", {}).get("predict", {}) is not None:
-            step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
-        step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
-        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
-        step_config.update(
-            get_pipeline_tracking_config(
-                pipeline_root_path=pipeline_root,
-                pipeline_config=pipeline_config,
-            ).to_dict()
-        )
+        try:
+            step_config = pipeline_config["steps"]["predict"]
+        except KeyError:
+            raise MlflowException(
+                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
+        required_configuration_keys = ["output_format", "output_location"]
+        for key in required_configuration_keys:
+            if key not in step_config:
+                raise MlflowException(
+                    f"The `{key}` configuration key must be specified for the predict step.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if step_config["output_format"] not in {"parquet", "delta", "table"}:
+            raise MlflowException(
+                "Invalid `output_format` in predict step configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if "model_uri" not in step_config:
+            try:
+                register_config = pipeline_config["steps"]["register"]
+                model_name = register_config["model_name"]
+            except KeyError:
+                raise MlflowException(
+                    "No model specified for batch scoring: predict step does not have `model_uri` "
+                    "configuration key and register step does not have `model_name` configuration "
+                    " key.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                step_config["model_uri"] = f"models:/{model_name}/latest"
         return cls(step_config, pipeline_root)
 
     @property
     def name(self):
         return "predict"
-
-    @property
-    def environment(self):
-        return get_databricks_env_vars(tracking_uri=self.tracking_config.tracking_uri)
-
-    def get_artifacts(self):
-        return [
-            DataframeArtifact(
-                "scored_data", self.pipeline_root, self.name, _SCORED_OUTPUT_FILE_NAME
-            )
-        ]
-
-    def step_class(self):
-        return StepClass.PREDICTION

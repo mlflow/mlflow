@@ -31,7 +31,6 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _log_child_runs_info,
     _log_estimator_content,
-    _is_estimator_html_repr_supported,
 )
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
@@ -1631,10 +1630,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    assert len(params) > 0
-    assert len(metrics) > 0
-    assert len(tags) > 0
-    assert artifacts == (["estimator.html"] if _is_estimator_html_repr_supported() else [])
+    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
 
 
 def test_autolog_registering_model():

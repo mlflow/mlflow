@@ -36,69 +36,13 @@ class PipelineMetric:
         )
 
 
-BUILTIN_CLASSIFICATION_PIPELINE_METRICS = [
-    PipelineMetric(name="true_negatives", greater_is_better=True),
-    PipelineMetric(name="false_positives", greater_is_better=False),
-    PipelineMetric(name="false_negatives", greater_is_better=False),
-    PipelineMetric(name="true_positives", greater_is_better=True),
-    PipelineMetric(name="recall", greater_is_better=True),
-    PipelineMetric(name="precision", greater_is_better=True),
-    PipelineMetric(name="f1_score", greater_is_better=True),
-    PipelineMetric(name="accuracy_score", greater_is_better=True),
-    PipelineMetric(name="log_loss", greater_is_better=False),
-    PipelineMetric(name="roc_auc", greater_is_better=True),
-    PipelineMetric(name="precision_recall_auc", greater_is_better=True),
-]
-
-BUILTIN_REGRESSION_PIPELINE_METRICS = [
+BUILTIN_PIPELINE_METRICS = [
     PipelineMetric(name="mean_absolute_error", greater_is_better=False),
     PipelineMetric(name="mean_squared_error", greater_is_better=False),
     PipelineMetric(name="root_mean_squared_error", greater_is_better=False),
     PipelineMetric(name="max_error", greater_is_better=False),
     PipelineMetric(name="mean_absolute_percentage_error", greater_is_better=False),
 ]
-
-
-def _get_error_fn(tmpl: str):
-    """
-    :param tmpl: The template kind, e.g. `regression/v1`.
-    :return: The error function for the provided template.
-    """
-    if tmpl == "regression/v1":
-        return lambda predictions, targets: predictions - targets
-    raise MlflowException(
-        f"No error function for template kind {tmpl}",
-        error_code=INVALID_PARAMETER_VALUE,
-    )
-
-
-def _get_model_type_from_template(tmpl: str) -> str:
-    """
-    :param tmpl: The template kind, e.g. `regression/v1`.
-    :return: A model type literal compatible with the mlflow evaluation service, e.g. regressor.
-    """
-    if tmpl == "regression/v1":
-        return "regressor"
-    raise MlflowException(
-        f"No model type for template kind {tmpl}",
-        error_code=INVALID_PARAMETER_VALUE,
-    )
-
-
-def _get_builtin_metrics(tmpl: str) -> str:
-    """
-    :param tmpl: The template kind, e.g. `regression/v1`.
-    :return: The builtin metrics for the mlflow evaluation service for the model type for
-    this template.
-    """
-    if tmpl == "regression/v1":
-        return BUILTIN_REGRESSION_PIPELINE_METRICS
-    elif tmpl == "classification/v1":
-        return BUILTIN_CLASSIFICATION_PIPELINE_METRICS
-    raise MlflowException(
-        f"No builtin metrics for template kind {tmpl}",
-        error_code=INVALID_PARAMETER_VALUE,
-    )
 
 
 def _get_custom_metrics(step_config: Dict) -> List[Dict]:
@@ -112,9 +56,7 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
         PipelineMetric.from_custom_metric_dict(metric_dict) for metric_dict in custom_metric_dicts
     ]
     custom_metric_names = {metric.name for metric in custom_metrics}
-    builtin_metric_names = {
-        metric.name for metric in _get_builtin_metrics(step_config.get("template_name"))
-    }
+    builtin_metric_names = {metric.name for metric in BUILTIN_PIPELINE_METRICS}
     overridden_builtin_metrics = custom_metric_names.intersection(builtin_metric_names)
     if overridden_builtin_metrics:
         _logger.warning(

@@ -190,37 +190,6 @@ def test_validation_faulty_baseline_model(
             )
 
 
-@pytest.mark.parametrize(
-    "validation_thresholds",
-    [
-        pytest.param(1, id="param_not_dict"),
-        pytest.param(
-            {1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)}, id="key_not_str"
-        ),
-        pytest.param({"accuracy": 1}, id="value_not_metric_threshold"),
-    ],
-)
-def test_validation_faulty_validation_thresholds(
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
-    validation_thresholds,
-):
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
-    ):
-        with pytest.raises(
-            MlflowException,
-            match="The validation thresholds argument",
-        ):
-            evaluate(
-                multiclass_logistic_regressor_model_uri,
-                data=iris_dataset._constructor_args["data"],
-                model_type="classifier",
-                targets=iris_dataset._constructor_args["targets"],
-                validation_thresholds=validation_thresholds,
-            )
-
-
 @pytest.fixture
 def value_threshold_test_spec(request):
     """

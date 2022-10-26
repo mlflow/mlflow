@@ -252,22 +252,17 @@ class BaseCard:
                         ("text-align", "left"),
                         ("padding", "5px"),
                     ],
-                },
+                }
             ]
         )
         if hide_index:
-            rendered_table = (
+            return (
                 styler.hide(axis="index").to_html()
                 if pandas_version >= Version("1.4.0")
                 else styler.hide_index().render()
             )
         else:
-            rendered_table = (
-                styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
-            )
-        return '<div style="max-height: 500px; overflow: scroll;">{src}</div>'.format(
-            src=rendered_table
-        )
+            return styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
 
 
 class FailureCard(BaseCard):

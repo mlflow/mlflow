@@ -9,6 +9,7 @@ Remove this developer API.
 """
 
 import os
+import time
 import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
@@ -27,7 +28,6 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
 )
-from mlflow.utils.time_utils import get_current_time_millis
 
 
 _logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ class MlflowAutologgingQueueingClient:
         step specified by `step`.
         """
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
-        timestamp_ms = get_current_time_millis()
+        timestamp_ms = int(time.time() * 1000)
         metrics_arr = [
             Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
         ]

@@ -128,6 +128,9 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
+        ("attribute.end_time != 1", "Invalid attribute key"),
+        ("attribute.run_id != 1", "Invalid attribute key"),
+        ("attribute.run_uuid != 1", "Invalid attribute key"),
         ("attribute.experiment_id != 1", "Invalid attribute key"),
         ("attribute.lifecycle_stage = 'ACTIVE'", "Invalid attribute key"),
         ("attribute.name != 1", "Invalid attribute key"),
@@ -320,60 +323,6 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
 
 
-def test_filter_runs_by_user_id():
-    runs = [
-        Run(
-            run_info=RunInfo(
-                run_uuid="a",
-                run_id="a",
-                experiment_id=0,
-                user_id="user-id",
-                status=RunStatus.to_string(RunStatus.FINISHED),
-                start_time=1,
-                end_time=1,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData(),
-        ),
-        Run(
-            run_info=RunInfo(
-                run_uuid="b",
-                run_id="b",
-                experiment_id=0,
-                user_id="user-id2",
-                status=RunStatus.to_string(RunStatus.FINISHED),
-                start_time=1,
-                end_time=1,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData(),
-        ),
-    ]
-    assert SearchUtils.filter(runs, "attribute.user_id = 'user-id2'")[0] == runs[1]
-
-
-def test_filter_runs_by_end_time():
-    runs = [
-        Run(
-            run_info=RunInfo(
-                run_uuid=run_id,
-                run_id=run_id,
-                experiment_id=0,
-                user_id="user-id",
-                status=RunStatus.to_string(RunStatus.FINISHED),
-                start_time=idx,
-                end_time=idx,
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            ),
-            run_data=RunData(),
-        )
-        for idx, run_id in enumerate(["a", "b", "c"])
-    ]
-    assert SearchUtils.filter(runs, "attribute.end_time >= 0") == runs
-    assert SearchUtils.filter(runs, "attribute.end_time > 1") == runs[2:]
-    assert SearchUtils.filter(runs, "attribute.end_time = 2") == runs[2:]
-
-
 @pytest.mark.parametrize(
     ("order_bys", "matching_runs"),
     [
@@ -490,6 +439,7 @@ def test_order_by_metric_with_nans_infs_nones():
         ("`metrics.A", "Invalid order_by clause"),
         ("`metrics.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
+        ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
         ("params.my_param ", "Invalid order_by clause"),

@@ -14,6 +14,4 @@ public class MlflowTagConstants {
   public static final String DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID";
   public static final String DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType";
   public static final String DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL";
-  public static final String MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType";
-  public static final String MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId";
 }

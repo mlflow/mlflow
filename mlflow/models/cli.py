@@ -175,7 +175,7 @@ def generate_dockerfile(
 
 @commands.command("build-docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
-@click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
+@click.option("--name", "-n", default="mlflow-pyfunc", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
@@ -209,8 +209,8 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 
     .. warning::
 
-        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
-        MLeap model server.
+        The image built without ``--model-uri`` doesn't support serving models with RFunc or Java
+        MLeap model servers.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),

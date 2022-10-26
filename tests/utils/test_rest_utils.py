@@ -162,40 +162,6 @@ def test_http_request_with_basic_auth(request):
 
 
 @mock.patch("requests.Session.request")
-@mock.patch.dict(
-    os.environ,
-    {
-        "AWS_ACCESS_KEY_ID": "access-key",
-        "AWS_SECRET_ACCESS_KEY": "secret-key",
-        "AWS_DEFAULT_REGION": "eu-west-1",
-    },
-)
-def test_http_request_with_aws_sigv4(request):
-    """This test requires the "requests_auth_aws_sigv4" package to be installed"""
-
-    from requests_auth_aws_sigv4 import AWSSigV4
-
-    aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
-    response = mock.MagicMock()
-    response.status_code = 200
-    request.return_value = response
-    http_request(aws_sigv4, "/my/endpoint", "GET")
-
-    class AuthMatcher:
-        def __eq__(self, other):
-            return isinstance(other, AWSSigV4)
-
-    request.assert_called_once_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        verify=mock.ANY,
-        headers=mock.ANY,
-        timeout=mock.ANY,
-        auth=AuthMatcher(),
-    )
-
-
-@mock.patch("requests.Session.request")
 def test_http_request_with_token(request):
     host_only = MlflowHostCreds("http://my-host", token="my-token")
     response = mock.MagicMock()

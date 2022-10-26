@@ -1,3 +1,4 @@
+import time
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -27,7 +28,6 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
-from mlflow.utils.time_utils import get_current_time_millis
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -72,11 +72,11 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
-    creation_time = Column(BigInteger(), default=get_current_time_millis)
+    creation_time = Column(BigInteger(), default=int(time.time() * 1000))
     """
     Creation time of experiment: `BigInteger`.
     """
-    last_update_time = Column(BigInteger(), default=get_current_time_millis)
+    last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
     """
     Last Update time of experiment: `BigInteger`.
     """
@@ -146,7 +146,7 @@ class SqlRun(Base):
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
     """
-    start_time = Column(BigInteger, default=get_current_time_millis)
+    start_time = Column(BigInteger, default=int(time.time() * 1000))
     """
     Run start time: `BigInteger`. Defaults to current system time.
     """
@@ -198,9 +198,7 @@ class SqlRun(Base):
         # Currently, MLflow Search attributes defined in `SearchUtils.VALID_SEARCH_ATTRIBUTE_KEYS`
         # share the same names as their corresponding `SqlRun` attributes. Therefore, this function
         # returns the same attribute name
-        return {"run_name": "name", "run_id": "run_uuid"}.get(
-            mlflow_attribute_name, mlflow_attribute_name
-        )
+        return mlflow_attribute_name
 
     def to_mlflow_entity(self):
         """
@@ -289,7 +287,7 @@ class SqlTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(5000), nullable=True)
+    value = Column(String(250), nullable=True)
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """
@@ -331,7 +329,7 @@ class SqlMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=get_current_time_millis)
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
@@ -386,7 +384,7 @@ class SqlLatestMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=get_current_time_millis)
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``latest_metrics`` table.

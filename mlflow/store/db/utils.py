@@ -7,19 +7,6 @@ import logging
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
 import sqlalchemy
-from sqlalchemy import sql
-
-# We need to import sqlalchemy.pool to convert poolclass string to class object
-from sqlalchemy.pool import (
-    AssertionPool,
-    AsyncAdaptedQueuePool,
-    FallbackAsyncAdaptedQueuePool,
-    NullPool,
-    QueuePool,
-    SingletonThreadPool,
-    StaticPool,
-)
-
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
@@ -30,7 +17,6 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
-    MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
 )
 
 _logger = logging.getLogger(__name__)
@@ -92,9 +78,9 @@ def _get_managed_session_maker(SessionMaker, db_type):
         session = SessionMaker()
         try:
             if db_type == SQLITE:
-                session.execute(sql.text("PRAGMA foreign_keys = ON;"))
-                session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
-                session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+                session.execute("PRAGMA foreign_keys = ON;")
+                session.execute("PRAGMA busy_timeout = 20000;")
+                session.execute("PRAGMA case_sensitive_like = true;")
             yield session
             session.commit()
         except MlflowException:
@@ -200,7 +186,6 @@ def create_sqlalchemy_engine(db_uri):
     pool_max_overflow = MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW.get()
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
     echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
-    poolclass = MLFLOW_SQLALCHEMYSTORE_POOLCLASS.get()
     pool_kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
@@ -212,25 +197,6 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["pool_recycle"] = pool_recycle
     if echo:
         pool_kwargs["echo"] = echo
-    if poolclass:
-        pool_class_map = {
-            "AssertionPool": AssertionPool,
-            "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
-            "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
-            "NullPool": NullPool,
-            "QueuePool": QueuePool,
-            "SingletonThreadPool": SingletonThreadPool,
-            "StaticPool": StaticPool,
-        }
-        if poolclass not in pool_class_map:
-            list_str = " ".join(pool_class_map.keys())
-            err_str = (
-                f"Invalid poolclass parameter: {poolclass}. Set environment variable "
-                f"poolclass to empty or one of the following values: {list_str}"
-            )
-            _logger.warning(err_str)
-            raise ValueError(err_str)
-        pool_kwargs["poolclass"] = pool_class_map[poolclass]
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
     return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)

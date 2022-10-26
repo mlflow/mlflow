@@ -68,7 +68,7 @@ module.exports = async ({ context, github }) => {
   const { body } = context.payload.pull_request;
   getIssuesToClose(body).forEach(async (issue_number) => {
     const { owner, repo } = context.repo;
-    await github.rest.issues.addLabels({
+    await github.issues.addLabels({
       owner,
       repo,
       issue_number,

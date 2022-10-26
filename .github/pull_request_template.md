@@ -3,10 +3,9 @@
 ## Related Issues/PRs
 
 <!--
-Please reference any related feature requests, issues, or PRs here. For example, `#123`. To automatically close the referenced issues when this PR is merged, please use a closing keyword (close, fix, or resolve). For example, `Resolve #123`. See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue for more information.
+Please reference any related feature requests, issues, or PRs here. For example, `#123`. To automatically close the referenced items when this PR is merged, please use a closing keyword (close, fix, or resolve). For example, `Close #123`. See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue for more information.
 -->
-
-<!-- Resolve --> #xxx
+#xxx
 
 ## What changes are proposed in this pull request?
 
@@ -26,7 +25,10 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 ## Does this PR change the documentation?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
+- [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
+
+1. Click the `Details` link on the `Preview docs` check.
+2. Find the changed pages / sections and make sure they render correctly.
 
 ## Release Notes
 

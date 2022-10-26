@@ -12,15 +12,7 @@ import pandas as pd
 import pytest
 
 import pyspark
-from pyspark.sql.types import (
-    ArrayType,
-    DoubleType,
-    LongType,
-    StringType,
-    FloatType,
-    IntegerType,
-    BooleanType,
-)
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 from pyspark.sql.utils import AnalysisException
 
 import mlflow
@@ -45,8 +37,8 @@ from pyspark.sql.functions import pandas_udf
 from pyspark.sql.functions import col, struct
 
 
-prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
-types = [np.int32, int, str, np.float32, np.double, bool]
+prediction = [int(1), int(2), "class1", float(0.1), 0.2]
+types = [np.int32, int, str, np.float32, np.double]
 
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
@@ -83,13 +75,7 @@ def configure_environment():
 
 
 def get_spark_session(conf):
-    conf.set(key="spark.python.worker.reuse", value="true")
-    # disable task retry (i.e. make it fast fail)
-    conf.set(key="spark.task.maxFailures", value="1")
-    # Disable simplifying traceback from Python UDFs
-    conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
-    # Show jvm side stack trace.
-    conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
+    conf.set(key="spark_session.python.worker.reuse", value=True)
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
@@ -150,8 +136,6 @@ def test_spark_udf(spark, model_path):
         "double": (DoubleType(), np.number),
         "long": (LongType(), int),
         "string": (StringType(), None),
-        "bool": (BooleanType(), bool),
-        "boolean": (BooleanType(), bool),
     }
 
     for tname, tdef in type_map.items():
@@ -165,8 +149,6 @@ def test_spark_udf(spark, model_path):
                 expected = prediction_df.select_dtypes(np_type)
                 if tname == "float":
                     expected = expected.astype(np.float32)
-                if tname == "bool" or tname == "boolean":
-                    expected = expected.astype(bool)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
             pyfunc_udf = spark_udf(spark, model_path, result_type=t, env_manager="local")

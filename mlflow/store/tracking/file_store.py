@@ -76,8 +76,7 @@ from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -286,7 +285,7 @@ class FileStore(AbstractStore):
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
         sorted_experiments = SearchExperimentsUtils.sort(
-            filtered, order_by or ["last_update_time DESC"]
+            filtered, order_by or ["creation_time DESC"]
         )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
@@ -428,14 +427,6 @@ class FileStore(AbstractStore):
         )
         mv(experiment_dir, self.trash_folder)
 
-    def _hard_delete_experiment(self, experiment_id):
-        """
-        Permanently delete an experiment.
-        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
-        """
-        experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
-        shutil.rmtree(experiment_dir)
-
     def restore_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
@@ -556,8 +547,6 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
-        if run_name:
-            self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
         return new_info
 
@@ -578,7 +567,7 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
-        run_name = run_name if run_name else _generate_random_name()
+        run_name = run_name if run_name is not None else _generate_random_name()
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
@@ -602,8 +591,6 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
-        tags = tags or []
-        tags.append(RunTag(MLFLOW_RUN_NAME, run_name))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)
@@ -937,9 +924,6 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._set_run_tag(run_info, tag)
-        if tag.key == MLFLOW_RUN_NAME:
-            run_status = RunStatus.from_string(run_info.status)
-            self.update_run_info(run_id, run_status, run_info.end_time, tag.value)
 
     def _set_run_tag(self, run_info, tag):
         tag_path = self._get_tag_path(run_info.experiment_id, run_info.run_id, tag.key)
@@ -984,11 +968,6 @@ class FileStore(AbstractStore):
             for metric in metrics:
                 self._log_run_metric(run_info, metric)
             for tag in tags:
-                # NB: If the tag run name value is set, update the run info to assure
-                # synchronization.
-                if tag.key == MLFLOW_RUN_NAME:
-                    run_status = RunStatus.from_string(run_info.status)
-                    self.update_run_info(run_id, run_status, run_info.end_time, tag.value)
                 self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

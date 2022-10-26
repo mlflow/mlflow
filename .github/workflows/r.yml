@@ -20,7 +20,6 @@ env:
 jobs:
   r:
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     defaults:
       run:
         shell: bash --noprofile --norc -exo pipefail {0}
@@ -45,7 +44,7 @@ jobs:
       run: |
         # `os_name` will be like "Ubuntu-20.04.1-LTS"
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo "os-name=$os_name" >> $GITHUB_OUTPUT
+        echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       uses: actions/cache@v3
       with:

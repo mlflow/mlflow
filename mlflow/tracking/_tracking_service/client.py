@@ -4,6 +4,7 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import time
 import os
 from itertools import zip_longest
 
@@ -28,7 +29,6 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
 )
-from mlflow.utils.time_utils import get_current_time_millis
 from collections import OrderedDict
 
 
@@ -108,7 +108,7 @@ class TrackingServiceClient:
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
-            start_time=start_time or get_current_time_millis(),
+            start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
             run_name=run_name,
         )
@@ -134,39 +134,26 @@ class TrackingServiceClient:
             supported.
 
             Identifiers
-              - ``name``: Experiment name
-              - ``creation_time``: Experiment creation time
-              - ``last_update_time``: Experiment last update time
+              - ``name``: Experiment name.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators for string attributes and tags
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``LIKE``: Case-sensitive pattern match
-              - ``ILIKE``: Case-insensitive pattern match
-
-            Comparators for numeric attributes
-              - ``=``: Equal to
-              - ``!=``: Not equal to
-              - ``<``: Less than
-              - ``<=``: Less than or equal to
-              - ``>``: Greater than
-              - ``>=``: Greater than or equal to
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
-            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
-            which lists experiments updated most recently first. The following fields are supported:
+            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
+            equivalent to ``"name ASC"``. The following fields are supported.
 
-            - ``experiment_id``: Experiment ID
-            - ``name``: Experiment name
-            - ``creation_time``: Experiment creation time
-            - ``last_update_time``: Experiment last update time
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
@@ -256,7 +243,7 @@ class TrackingServiceClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else get_current_time_millis()
+        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
@@ -312,29 +299,6 @@ class TrackingServiceClient:
         :param key: Name of the tag
         """
         self.store.delete_tag(run_id, key)
-
-    def update_run(self, run_id, status=None, name=None):
-        """
-        Update a run with the specified ID to a new status or name.
-
-        :param run_id: The ID of the Run to update.
-        :param status: The new status of the run to set, if specified.
-                       At least one of ``status`` or ``name`` should be specified.
-        :param name: The new name of the run to set, if specified.
-                     At least one of ``name`` or ``status`` should be specified.
-        """
-        # Exit early
-        if status is None and name is None:
-            return
-
-        run = self.get_run(run_id)
-        status = status or run.info.status
-        self.store.update_run_info(
-            run_id=run_id,
-            run_status=RunStatus.from_string(status),
-            end_time=run.info.end_time,
-            run_name=name,
-        )
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
@@ -457,7 +421,7 @@ class TrackingServiceClient:
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
-        end_time = end_time if end_time else get_current_time_millis()
+        end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
             run_id,

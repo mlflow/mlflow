@@ -87,10 +87,10 @@ jobs:
           wheel_path=$(find dist -type f -name "*.whl")
           wheel_name=$(basename $wheel_path)
           wheel_size=$(stat -c %s $wheel_path)
-          echo "sdist-path=${sdist_path}" >> $GITHUB_OUTPUT
-          echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
-          echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
-          echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
+          echo "::set-output name=sdist-path::${sdist_path}"
+          echo "::set-output name=wheel-path::${wheel_path}"
+          echo "::set-output name=wheel-name::${wheel_name}"
+          echo "::set-output name=wheel-size::${wheel_size}"
 
       - name: Run twine check
         run: |
@@ -115,7 +115,7 @@ jobs:
           path: ${{ steps.build-dist.outputs.wheel-path }}
 
       - name: Remove old wheels
-        uses: actions/github-script@v6
+        uses: actions/github-script@v3
         if: github.event_name == 'push'
         env:
           WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
@@ -125,7 +125,7 @@ jobs:
             const { owner, repo } = context.repo;
 
             // For some reason, the newly-uploaded wheel in the previous step is not included.
-            const artifactsResp = await github.rest.actions.listArtifactsForRepo({
+            const artifactsResp = await github.actions.listArtifactsForRepo({
               owner,
               repo,
             });
@@ -151,7 +151,7 @@ jobs:
 
             // Delete old wheels
             const promises = wheels.slice(index).map(({ id: artifact_id }) =>
-              github.rest.actions.deleteArtifact({
+              github.actions.deleteArtifact({
                 owner,
                 repo,
                 artifact_id,

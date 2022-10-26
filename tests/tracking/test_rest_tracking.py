@@ -8,6 +8,7 @@ import sys
 import posixpath
 import pytest
 import logging
+import time
 import tempfile
 import urllib.parse
 
@@ -28,7 +29,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -639,7 +639,7 @@ def test_set_terminated_defaults(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
     assert mlflow_client.get_run(run_id).info.status == "FINISHED"
-    assert mlflow_client.get_run(run_id).info.end_time <= get_current_time_millis()
+    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
 def test_set_terminated_status(mlflow_client):
@@ -650,7 +650,7 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, "FAILED")
     assert mlflow_client.get_run(run_id).info.status == "FAILED"
-    assert mlflow_client.get_run(run_id).info.end_time <= get_current_time_millis()
+    assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
 def test_artifacts(mlflow_client, tmp_path):
@@ -770,4 +770,4 @@ def test_search_experiments(mlflow_client):
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]

@@ -78,9 +78,7 @@ export class RunsTableCustomHeader extends React.Component {
         {enableSorting && canonicalSortKey === orderByKey ? (
           <SortByIcon orderByAsc={orderByAsc} />
         ) : null}
-        <span data-test-id={`sort-header-${displayName}`} title={canonicalSortKey}>
-          {displayName}
-        </span>
+        <span data-test-id={`sort-header-${displayName}`}>{displayName}</span>
       </div>
     );
   }

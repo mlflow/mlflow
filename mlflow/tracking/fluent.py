@@ -5,6 +5,7 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 import os
 
 import atexit
+import time
 import logging
 import inspect
 from copy import deepcopy
@@ -38,7 +39,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
-from mlflow.utils.time_utils import get_current_time_millis
 
 
 if TYPE_CHECKING:
@@ -639,7 +639,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
             mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
+    MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
 
 
 def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
@@ -668,7 +668,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
             mlflow.log_metrics(metrics)
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = get_current_time_millis()
+    timestamp = int(time.time() * 1000)
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
@@ -1065,39 +1065,26 @@ def search_experiments(
         experiments. The following identifiers, comparators, and logical operators are supported.
 
         Identifiers
-          - ``name``: Experiment name
-          - ``creation_time``: Experiment creation time
-          - ``last_update_time``: Experiment last update time
+          - ``name``: Experiment name.
           - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
             spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-        Comparators for string attributes and tags
-            - ``=``: Equal to
-            - ``!=``: Not equal to
-            - ``LIKE``: Case-sensitive pattern match
-            - ``ILIKE``: Case-insensitive pattern match
-
-        Comparators for numeric attributes
-            - ``=``: Equal to
-            - ``!=``: Not equal to
-            - ``<``: Less than
-            - ``<=``: Less than or equal to
-            - ``>``: Greater than
-            - ``>=``: Greater than or equal to
+        Comparators
+          - ``=``: Equal to.
+          - ``!=``: Not equal to.
+          - ``LIKE``: Case-sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
 
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
     :param order_by:
         List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-        ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
-        equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
-        which lists experiments updated most recently first. The following fields are supported:
+        ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is equivalent to
+        ``"name ASC"``. The following fields are supported.
 
-            - ``experiment_id``: Experiment ID
-            - ``name``: Experiment name
-            - ``creation_time``: Experiment creation time
-            - ``last_update_time``: Experiment last update time
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
 
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
@@ -1768,9 +1755,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(
-        set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"tensorflow", "keras", "pyspark", "pyspark.ml"}
-    ):
+    for module in set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}:
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
