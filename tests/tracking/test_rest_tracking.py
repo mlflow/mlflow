@@ -9,6 +9,7 @@ import posixpath
 import pytest
 import logging
 import tempfile
+import time
 import urllib.parse
 
 import mlflow.experiments
@@ -734,9 +735,13 @@ def test_search_experiments(mlflow_client):
         ("ab", {"key": "vaLue"}),
         ("Abc", None),
     ]
-    experiment_ids = [
-        mlflow_client.create_experiment(name, tags=tags) for name, tags in experiments
-    ]
+    experiment_ids = []
+    for name, tags in experiments:
+        # sleep for windows file system current_time precision in Python to enforce
+        # deterministic ordering based on last_update_time (creation_time due to no
+        # mutation of experiment state)
+        time.sleep(0.01)
+        experiment_ids.append(mlflow_client.create_experiment(name, tags=tags))
 
     # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")

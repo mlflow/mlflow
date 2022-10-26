@@ -638,9 +638,9 @@ def test_pyfunc_serve_and_score_transformers():
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
 
-    from mlflow.deployments import PredictionsResponse
-
-    scores = PredictionsResponse.from_json(resp.content).get_predictions()
+    scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
+        predictions_format="ndarray"
+    )
     assert_array_almost_equal(scores.values, model.predict(dummy_inputs))
 
 

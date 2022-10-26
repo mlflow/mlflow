@@ -282,6 +282,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             ("exp3", [ExperimentTag("k e y", "value")]),
         ]
         for name, tags in experiments:
+            # sleep for windows file system current_time precision in Python to enforce
+            # deterministic ordering based on last_update_time (creation_time due to no
+            # mutation of experiment state)
+            time.sleep(0.01)
             self.store.create_experiment(name, tags=tags)
 
         experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
