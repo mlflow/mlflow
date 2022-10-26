@@ -10,6 +10,10 @@ def doctor():
     """
     Prints out the current environment's MLflow configuration and dependencies.
 
+    .. warning::
+
+        This API should only be used for debugging purposes.
+
     .. code-block:: python
         :caption: Example
 
