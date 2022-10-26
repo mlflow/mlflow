@@ -984,7 +984,7 @@ def evaluate(
 
      - For regressor models, the default evaluator additionally logs:
         - **metrics**: example_count, mean_absolute_error, mean_squared_error,
-          root_mean_squared_error, sum_on_label, mean_on_label, r2_score, max_error,
+          root_mean_squared_error, sum_on_target, mean_on_target, r2_score, max_error,
           mean_absolute_percentage_error.
 
      - For binary classifiers, the default evaluator additionally logs:
@@ -1035,8 +1035,8 @@ def evaluate(
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
-        - **pos_label**: The positive label to use when computing classification metrics such as
-          precision, recall, f1, etc. for binary classification models (default: ``1``). For
+        - **pos_label**: If specified, the positive label to use when computing classification
+          metrics such as precision, recall, f1, etc. for binary classification models. For
           multiclass classification and regression models, this parameter will be ignored.
         - **average**: The averaging method to use when computing classification metrics such as
           precision, recall, f1, etc. for multiclass classification models

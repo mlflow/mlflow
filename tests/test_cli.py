@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
-from mlflow.cli import server, ui, gc
+from mlflow.cli import server, gc
 from mlflow import pyfunc
 from mlflow.server import handlers
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -29,7 +29,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, 
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
-@pytest.mark.parametrize("command", ["server", "ui"])
+@pytest.mark.parametrize("command", ["server"])
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
@@ -79,7 +79,7 @@ def test_server_default_artifact_root_validation():
         run_server_mock.assert_not_called()
 
 
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -96,7 +96,7 @@ def test_tracking_uri_validation_failure(command):
         run_server_mock.assert_not_called()
 
 
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
@@ -116,7 +116,7 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         run_server_mock.assert_called()
 
 
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_registry_store_uri_different_from_tracking_store(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
@@ -490,3 +490,11 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
         )
         assert result.exit_code != 0
         run_server_mock.assert_not_called()
+
+
+def test_mlflow_ui_is_alias_for_mlflow_server():
+    mlflow_ui_stdout = subprocess.check_output(["mlflow", "ui", "--help"], text=True)
+    mlflow_server_stdout = subprocess.check_output(["mlflow", "server", "--help"], text=True)
+    assert (
+        mlflow_ui_stdout.replace("Usage: mlflow ui", "Usage: mlflow server") == mlflow_server_stdout
+    )

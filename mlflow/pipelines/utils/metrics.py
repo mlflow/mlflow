@@ -42,13 +42,10 @@ BUILTIN_CLASSIFICATION_PIPELINE_METRICS = [
     PipelineMetric(name="false_positives", greater_is_better=False),
     PipelineMetric(name="false_negatives", greater_is_better=False),
     PipelineMetric(name="true_positives", greater_is_better=True),
-    PipelineMetric(name="recall", greater_is_better=True),
-    PipelineMetric(name="precision", greater_is_better=True),
+    PipelineMetric(name="recall_score", greater_is_better=True),
+    PipelineMetric(name="precision_score", greater_is_better=True),
     PipelineMetric(name="f1_score", greater_is_better=True),
     PipelineMetric(name="accuracy_score", greater_is_better=True),
-    PipelineMetric(name="log_loss", greater_is_better=False),
-    PipelineMetric(name="roc_auc", greater_is_better=True),
-    PipelineMetric(name="precision_recall_auc", greater_is_better=True),
 ]
 
 BUILTIN_REGRESSION_PIPELINE_METRICS = [
@@ -67,6 +64,8 @@ def _get_error_fn(tmpl: str):
     """
     if tmpl == "regression/v1":
         return lambda predictions, targets: predictions - targets
+    if tmpl == "classification/v1":
+        return lambda predictions, targets: predictions != targets
     raise MlflowException(
         f"No error function for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
@@ -80,6 +79,8 @@ def _get_model_type_from_template(tmpl: str) -> str:
     """
     if tmpl == "regression/v1":
         return "regressor"
+    if tmpl == "classification/v1":
+        return "classifier"
     raise MlflowException(
         f"No model type for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,

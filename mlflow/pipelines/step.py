@@ -137,6 +137,7 @@ class BaseStep(metaclass=abc.ABCMeta):
                 pipeline_name=self.pipeline_name,
                 step_name=self.name,
                 failure_traceback=traceback.format_exc(),
+                output_directory=output_directory,
             )
             raise
         finally:
