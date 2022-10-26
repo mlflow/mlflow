@@ -3,7 +3,6 @@ import { AllHtmlEntities } from 'html-entities';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
-import { Select as AntDSelect } from 'antd';
 import { Select, Spacer } from '@databricks/design-system';
 import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
@@ -14,9 +13,8 @@ import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
-// TODO(FEINF-957): Temporarily we need to import OptGroup from antd
-const { OptGroup } = AntDSelect;
-const { Option } = Select;
+const { Option, OptGroup } = Select;
+
 export class CompareRunScatterImpl extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,

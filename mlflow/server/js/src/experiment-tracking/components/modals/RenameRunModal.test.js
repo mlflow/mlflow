@@ -2,21 +2,20 @@ import React from 'react';
 import { shallowWithInjectIntl } from '../../../common/utils/TestUtils';
 import { RenameRunModalWithIntl } from './RenameRunModal';
 import { GenericInputModal } from './GenericInputModal';
-import Utils from '../../../common/utils/Utils';
 
 describe('RenameRunModal', () => {
   let wrapper;
   let minimalProps;
-  let mockSetTagApi;
+  let mockUpdateRunApi;
 
   beforeEach(() => {
-    mockSetTagApi = jest.fn(() => Promise.resolve({}));
+    mockUpdateRunApi = jest.fn(() => Promise.resolve({}));
     minimalProps = {
       isOpen: false,
       runUuid: 'testUuid',
       runName: 'testName',
       onClose: jest.fn(() => Promise.resolve({})),
-      setTagApi: mockSetTagApi,
+      updateRunApi: mockUpdateRunApi,
     };
 
     wrapper = shallowWithInjectIntl(<RenameRunModalWithIntl {...minimalProps} />);
@@ -31,17 +30,12 @@ describe('RenameRunModal', () => {
     const values = { newName: 'renamed' };
     const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
     promise.finally(() => {
-      expect(mockSetTagApi).toHaveBeenCalledTimes(1);
-      expect(mockSetTagApi).toHaveBeenCalledWith(
-        'testUuid',
-        Utils.runNameTag,
-        'renamed',
-        expect.any(String),
-      );
+      expect(mockUpdateRunApi).toHaveBeenCalledTimes(1);
+      expect(mockUpdateRunApi).toHaveBeenCalledWith('testUuid', 'renamed', expect.any(String));
       done();
     });
 
-    const mockFailSetTagApi = jest.fn(
+    const mockFailUpdateRunApi = jest.fn(
       () =>
         new Promise((resolve, reject) => {
           window.setTimeout(() => {
@@ -49,17 +43,12 @@ describe('RenameRunModal', () => {
           }, 100);
         }),
     );
-    const failProps = { ...minimalProps, setTagApi: mockFailSetTagApi };
+    const failProps = { ...minimalProps, updateRunApi: mockFailUpdateRunApi };
     const failWrapper = shallowWithInjectIntl(<RenameRunModalWithIntl {...failProps} />);
     const failPromise = failWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failPromise.finally(() => {
-      expect(mockFailSetTagApi).toHaveBeenCalledTimes(1);
-      expect(mockFailSetTagApi).toHaveBeenCalledWith(
-        'testUuid',
-        Utils.runNameTag,
-        'renamed',
-        expect.any(String),
-      );
+      expect(mockFailUpdateRunApi).toHaveBeenCalledTimes(1);
+      expect(mockFailUpdateRunApi).toHaveBeenCalledWith('testUuid', 'renamed', expect.any(String));
       done();
     });
   });

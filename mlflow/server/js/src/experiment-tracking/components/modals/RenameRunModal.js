@@ -6,8 +6,7 @@ import { injectIntl } from 'react-intl';
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 
-import { setTagApi } from '../../actions';
-import Utils from '../../../common/utils/Utils';
+import { updateRunApi } from '../../actions';
 import { getUUID } from '../../../common/utils/ActionUtils';
 
 export class RenameRunModalImpl extends Component {
@@ -16,18 +15,20 @@ export class RenameRunModalImpl extends Component {
     runUuid: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
-    setTagApi: PropTypes.func.isRequired,
+    updateRunApi: PropTypes.func.isRequired,
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
+    onSuccess: PropTypes.func,
   };
 
   handleRenameRun = (values) => {
     // get value of input field
     const newRunName = values[NEW_NAME_FIELD];
 
-    const tagKey = Utils.runNameTag;
-    const setTagRequestId = getUUID();
+    const updateRunRequestId = getUUID();
 
-    return this.props.setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId);
+    return this.props
+      .updateRunApi(this.props.runUuid, newRunName, updateRunRequestId)
+      .then(() => this.props.onSuccess?.());
   };
 
   render() {
@@ -46,14 +47,30 @@ export class RenameRunModalImpl extends Component {
         handleSubmit={this.handleRenameRun}
         onClose={this.props.onClose}
       >
-        <RenameForm type='run' name={runName} visible={isOpen} />
+        <RenameForm
+          type='run'
+          name={runName}
+          visible={isOpen}
+          validator={async (_, value) => {
+            if (typeof value === 'string' && value.length && !value.trim()) {
+              throw new Error(
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Run name cannot consist only of whitespace!',
+                  description:
+                    "An error shown when user sets the run's name to whitespace characters only",
+                }),
+              );
+            }
+            return true;
+          }}
+        />
       </GenericInputModal>
     );
   }
 }
 
 const mapDispatchToProps = {
-  setTagApi,
+  updateRunApi,
 };
 
 export const RenameRunModalWithIntl = injectIntl(RenameRunModalImpl);

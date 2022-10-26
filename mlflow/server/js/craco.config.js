@@ -6,6 +6,7 @@ const { ModuleFederationPlugin } = require('webpack').container;
 const { execSync } = require('child_process');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
+const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
 
 const isDevserverWebsocketRequest = (request) =>
   request.url === '/ws' &&
@@ -86,11 +87,6 @@ function configureIframeCSSPublicPaths(config, env) {
     throw new Error('Failed to fix CSS paths!');
   }
 
-  return config;
-}
-
-function configureWebShared(config) {
-  config.resolve.alias['@databricks/web-shared-bundle'] = false;
   return config;
 }
 
@@ -194,7 +190,19 @@ module.exports = function ({ env }) {
         ],
       ],
     },
-    ...(proxyTarget && {
+    ...(process.env.MLFLOW_DEV_PROXY_MODE && {
+      devServer: {
+        hot: true,
+        port: process.env.DATABRICKS_DEV_PROXY_MLFLOW_PORT,
+        client: {
+          // Use the browser location and protocol to compute the URL that the client will use to connect to webpack. Webpack
+          // always listens on /ws. dev-proxy terminates SSL and handles the rewrite.
+          webSocketURL: 'auto://0.0.0.0:0/mlflow-ws',
+        },
+        open: false,
+      },
+    }),
+    ...(useProxyServer && {
       devServer: {
         hot: true,
         https: true,
@@ -227,6 +235,34 @@ module.exports = function ({ env }) {
     }),
     jest: {
       configure: (jestConfig, { env, paths, resolve, rootDir }) => {
+        /*
+         * Jest running on the currently used node version is not yet capable of ESM processing:
+         * https://jestjs.io/docs/ecmascript-modules
+         * https://nodejs.org/api/vm.html#vm_class_vm_module
+         *
+         * Since there are certain ESM-built dependencies used in MLFLow, we need
+         * to add a few exceptions to the standard ignore pattern for babel.
+         */
+        const createIgnorePatternForESM = () => {
+          // List all the modules that we *want* to be transpiled by babel
+          const transpiledModules = [
+            '@databricks/design-system',
+            '@babel/runtime/.+?/esm',
+            '@ant-design/icons',
+            '@ant-design/icons-svg',
+          ];
+
+          // We'll ignore only dependencies in 'node_modules' directly within certain
+          // directories in order to avoid false positive matches in nested modules.
+          const validNodeModulesRoots = [
+            'mlflow/web/js',
+          ];
+
+          // prettier-ignore
+          // eslint-disable-next-line max-len
+          return `(${validNodeModulesRoots.join('|')})\\/node_modules\\/((?!(${transpiledModules.join('|')})).)+(js|jsx|mjs|cjs|ts|tsx|json)$`;
+        };
+
         jestConfig.resetMocks = false; // ML-20462 Restore resetMocks
         jestConfig.collectCoverageFrom = [
           'src/**/*.{js,jsx}',
@@ -238,20 +274,20 @@ module.exports = function ({ env }) {
           'jest-canvas-mock',
           '<rootDir>/scripts/throw-on-prop-type-warning.js',
         ];
+        // Adjust config to work with dependencies using ".mjs" file extensions
+        jestConfig.moduleFileExtensions.push('mjs');
         // Remove when this issue is resolved: https://github.com/gsoft-inc/craco/issues/393
         jestConfig.transform = {
           '\\.[jt]sx?$': ['babel-jest', { configFile: './jest.babel.config.js' }],
           ...jestConfig.transform,
         };
+        jestConfig.transformIgnorePatterns = ['\\.pnp\\.[^\\/]+$', createIgnorePatternForESM()];
         jestConfig.globalSetup = '<rootDir>/scripts/global-setup.js';
         return jestConfig;
       },
     },
     webpack: {
       resolve: {
-        alias: {
-          '@databricks/web-shared-bundle': false,
-        },
         fallback: {
           buffer: require.resolve('buffer'), // Needed by js-yaml
           defineProperty: require.resolve('define-property'), // Needed by babel
@@ -262,7 +298,6 @@ module.exports = function ({ env }) {
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
-        webpackConfig = configureWebShared(webpackConfig);
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;
       },

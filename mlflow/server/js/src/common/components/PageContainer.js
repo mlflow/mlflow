@@ -3,7 +3,7 @@ import { PageWrapper, Spacer } from '@databricks/design-system';
 
 export function PageContainer(props) {
   return (
-    <PageWrapper>
+    <PageWrapper css={styles.wrapper}>
       <Spacer />
       <div {...props} css={styles.container} />
     </PageWrapper>
@@ -11,6 +11,7 @@ export function PageContainer(props) {
 }
 
 const styles = {
+  wrapper: { flex: 1 },
   container: {
     width: '100%',
     flexGrow: 1,

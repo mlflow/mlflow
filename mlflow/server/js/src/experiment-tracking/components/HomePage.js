@@ -64,8 +64,8 @@ const mapStateToProps = (state, ownProps) => {
 
   if (match.url.startsWith(Routes.compareExperimentsPageRoute)) {
     const { location } = ownProps;
-    const searchValues = qs.parse(location.search);
-    const experimentIds = JSON.parse(searchValues['?experiments']);
+    const searchValues = qs.parse(location.search, { ignoreQueryPrefix: true });
+    const experimentIds = JSON.parse(searchValues['experiments']);
     return { experimentIds, compareExperiments: true };
   }
 

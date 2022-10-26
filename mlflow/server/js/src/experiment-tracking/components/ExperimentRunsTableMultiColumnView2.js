@@ -375,7 +375,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
         const experimentName = experimentNameMap[experimentId];
         const user = Utils.getUser(runInfo, tags);
         const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
-        const runName = Utils.getRunName(tags) || '-';
+        const runName = Utils.getRunName(runInfo) || '-';
         const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
           key,
           value,

@@ -16,6 +16,13 @@ import {
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
 
+// Mock these methods because js-dom doesn't implement window.Request
+jest.mock('../../../common/utils/ArtifactUtils', () => ({
+  ...jest.requireActual('../../../common/utils/ArtifactUtils'),
+  getArtifactContent: jest.fn().mockResolvedValue(),
+  getArtifactBytesContent: jest.fn().mockResolvedValue(),
+}));
+
 describe('ShowArtifactPage', () => {
   let wrapper;
   let minimalProps;

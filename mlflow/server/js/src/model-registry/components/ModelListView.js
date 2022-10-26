@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Table, Alert } from 'antd';
+import { Table } from 'antd';
 import { Link } from 'react-router-dom';
 import './ModelListView.css';
 import { getModelPageRoute, getModelVersionPageRoute } from '../routes';
@@ -32,7 +32,13 @@ import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { PageContainer } from '../../common/components/PageContainer';
-import { Button, Popover, QuestionMarkFillIcon } from '@databricks/design-system';
+import {
+  Alert,
+  Button,
+  Popover,
+  QuestionMarkFillIcon,
+  Spacer as DuBoisSpacer,
+} from '@databricks/design-system';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -274,14 +280,10 @@ export class ModelListViewImpl extends React.Component {
     );
 
     return this.state.showOnboardingHelper ? (
-      <Alert
-        css={styles.alert}
-        message={content}
-        type='info'
-        showIcon
-        closable
-        onClose={() => this.disableOnboardingHelper()}
-      />
+      <div>
+        <Alert message={content} type='info' onClose={() => this.disableOnboardingHelper()} />
+        <DuBoisSpacer />
+      </div>
     ) : null;
   }
 
@@ -469,15 +471,6 @@ const styles = {
   },
   searchFlexBar: {
     marginBottom: '24px',
-  },
-  // TODO: Convert this into Dubois Alert
-  alert: {
-    marginBottom: 16,
-    padding: 16,
-    background: '#edfafe' /* Gray-background */,
-    border: '1px solid #eeeeee',
-    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
-    borderRadius: 4,
   },
   questionMark: {
     marginLeft: 4,

@@ -23,6 +23,7 @@ import {
   getAllParamKeysByRunUuids,
   getArtifactRootUri,
   modelVersionsByRunUuid,
+  runUuidsMatchingFilter,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
@@ -166,6 +167,53 @@ describe('test experimentsById', () => {
     const { tags } = state2.experiment1;
 
     expect(tags).toEqual(Immutable.List([ExperimentTag.fromJs(tag1), ExperimentTag.fromJs(tag2)]));
+  });
+});
+
+describe('test runUuidsMatchingFilter', () => {
+  test('should set up initial state correctly', () => {
+    expect(runUuidsMatchingFilter(undefined, {})).toEqual([]);
+  });
+  test('should do nothing without a payload', () => {
+    expect(
+      runUuidsMatchingFilter(undefined, {
+        type: fulfilled(SEARCH_RUNS_API),
+      }),
+    ).toEqual([]);
+  });
+  test('should create a new set of UUIDs', () => {
+    expect(
+      runUuidsMatchingFilter(['run01'], {
+        type: fulfilled(SEARCH_RUNS_API),
+        payload: {
+          runsMatchingFilter: [
+            {
+              info: mockRunInfo('run02', '1'),
+            },
+            {
+              info: mockRunInfo('run03', '1'),
+            },
+          ],
+        },
+      }),
+    ).toEqual(['run02', 'run03']);
+  });
+  test('should be able to append new run UUIDs', () => {
+    expect(
+      runUuidsMatchingFilter(['run01'], {
+        type: fulfilled(LOAD_MORE_RUNS_API),
+        payload: {
+          runsMatchingFilter: [
+            {
+              info: mockRunInfo('run02', '1'),
+            },
+            {
+              info: mockRunInfo('run03', '1'),
+            },
+          ],
+        },
+      }),
+    ).toEqual(['run01', 'run02', 'run03']);
   });
 });
 

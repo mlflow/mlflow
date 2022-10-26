@@ -22,7 +22,7 @@ import {
   maxMetricsByRunUuid,
 } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
-import _ from 'lodash';
+import _, { isArray } from 'lodash';
 import {
   fulfilled,
   isFulfilledApi,
@@ -82,6 +82,22 @@ export const experimentsById = (state = {}, action) => {
 
 export const getRunInfo = (runUuid, state) => {
   return state.entities.runInfosByUuid[runUuid];
+};
+
+export const runUuidsMatchingFilter = (state = [], action) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
+      const isLoadingMore = action.type === fulfilled(LOAD_MORE_RUNS_API);
+      const newState = isLoadingMore ? [...state] : [];
+      if (isArray(action.payload?.runsMatchingFilter)) {
+        newState.push(...action.payload.runsMatchingFilter.map(({ info }) => info.run_uuid));
+      }
+      return newState;
+    }
+    default:
+      return state;
+  }
 };
 
 export const runInfosByUuid = (state = {}, action) => {
@@ -379,6 +395,7 @@ export const artifactRootUriByRunUuid = (state = {}, action) => {
 export const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
+  runUuidsMatchingFilter,
   metricsByRunUuid,
   latestMetricsByRunUuid,
   minMetricsByRunUuid,

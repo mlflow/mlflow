@@ -124,6 +124,9 @@ export const RunInfo = Immutable.Record(
     // optional STRING
     user_id: undefined,
 
+    // optional STRING
+    run_name: undefined,
+
     // optional RunStatus
     status: undefined,
 
