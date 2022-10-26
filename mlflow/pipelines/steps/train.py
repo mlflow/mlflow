@@ -135,6 +135,12 @@ class TrainStep(BaseStep):
                 "Missing template_name config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "positive_class" not in self.step_config and self.template == "classification/v1":
+            raise MlflowException(
+                "`positive_class` must be specified for classification/v1 templates.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self.positive_class = self.step_config.get("positive_class")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
@@ -330,6 +336,7 @@ class TrainStep(BaseStep):
                         ),
                         evaluator_config={
                             "log_model_explainability": False,
+                            "pos_label": self.positive_class,
                         },
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
@@ -806,6 +813,8 @@ class TrainStep(BaseStep):
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
+        if "positive_class" in pipeline_config:
+            step_config["positive_class"] = pipeline_config.get("positive_class")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
