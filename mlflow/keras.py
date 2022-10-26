@@ -22,7 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -603,6 +603,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    save_format="tf",
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -668,6 +669,10 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param save_format: File format to save the model at the end of the training. Allowed
+                        values are: ``tf`` for saving the model in ``SavedModel`` format
+                        or ``h5`` for saving the model in ``HDF5`` format. Keras < 2.4.0 only
+                        supports ``HDF5`` format, so this parameter is ignored.
     """
     import keras
 
@@ -679,6 +684,13 @@ def autolog(
             ),
             FutureWarning,
             stacklevel=2,
+        )
+
+    if save_format not in ["tf", "h5"]:
+        raise MlflowException(
+            f"Invalid value for `save_format` argument: {save_format}. "
+            "Valid values for `save_format` are 'tf' or 'h5' only.",
+            INVALID_PARAMETER_VALUE,
         )
 
     def getKerasCallback(metrics_logger):
@@ -729,10 +741,16 @@ def autolog(
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
+                    kwargs = (
+                        {}
+                        if Version(keras.__version__) < Version("2.4.0")
+                        else {"save_format": save_format}
+                    )
                     log_model(
                         self.model,
                         artifact_path="model",
                         registered_model_name=registered_model_name,
+                        **kwargs,
                     )
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following

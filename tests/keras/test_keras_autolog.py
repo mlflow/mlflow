@@ -7,6 +7,7 @@ import mlflow
 import mlflow.keras
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.exceptions import MlflowException
 from unittest.mock import patch
 
 import keras
@@ -410,3 +411,24 @@ def test_autolog_registering_model(random_train_data, random_one_hot_labels):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+@pytest.mark.skipif(
+    Version(keras_version) < Version("2.4.0"),
+    reason="keras < 2.4.0 does not support save_format argument",
+)
+def test_autolog_load_saved_hdf5_model(random_train_data, random_one_hot_labels):
+    mlflow.keras.autolog(save_format="h5")
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_model()
+    with mlflow.start_run() as run:
+        model.fit(data, labels, epochs=10)
+        mlflow.keras.load_model(f"runs:/{run.info.run_id}/model")
+
+
+def test_autolog_invalid_model_save():
+    with pytest.raises(MlflowException, match="Invalid value for `save_format` argument."):
+        mlflow.keras.autolog(save_format="foo")
