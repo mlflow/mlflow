@@ -11,7 +11,12 @@ import cloudpickle
 import mlflow
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
-from mlflow.pipelines.artifacts import ModelArtifact, RunArtifact, HyperParametersArtifact
+from mlflow.pipelines.artifacts import (
+    ModelArtifact,
+    RunArtifact,
+    HyperParametersArtifact,
+    DataframeArtifact,
+)
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.step import StepClass
@@ -54,6 +59,7 @@ _logger = logging.getLogger(__name__)
 
 class TrainStep(BaseStep):
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
+    PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
@@ -353,6 +359,11 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
+            predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+            predicted_training_data.to_parquet(
+                os.path.join(output_directory, TrainStep.PREDICTED_TRAINING_DATA_RELATIVE_PATH)
+            )
+
             worst_examples_df = BaseStep._generate_worst_examples_dataframe(
                 raw_train_df,
                 train_predictions,
@@ -840,6 +851,12 @@ class TrainStep(BaseStep):
             ),
             RunArtifact("run", self.pipeline_root, self.name, self.tracking_config.tracking_uri),
             HyperParametersArtifact("best_parameters", self.pipeline_root, self.name),
+            DataframeArtifact(
+                "predicted_training_data",
+                self.pipeline_root,
+                self.name,
+                TrainStep.PREDICTED_TRAINING_DATA_RELATIVE_PATH,
+            ),
         ]
 
     def step_class(self):
