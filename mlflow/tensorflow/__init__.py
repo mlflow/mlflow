@@ -138,7 +138,30 @@ def log_model(
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
 
-    :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
+    This method saves a model with both ``python_function`` and ``tensorflow`` flavors.
+    If loaded back using the ``python_function`` flavor, the model can be used to predict on
+    pandas DataFrames, producing a pandas DataFrame whose output columns correspond to the
+    TensorFlow model's outputs. The python_function model will flatten outputs that are length-one,
+    one-dimensional tensors of a single scalar value (e.g.
+    ``{"predictions": [[1.0], [2.0], [3.0]]}``) into the scalar values (e.g.
+    ``{"predictions": [1, 2, 3]}``), so that the resulting output column is a column of scalars
+    rather than lists of length one. All other model output types are included as-is in the output
+    DataFrame.
+
+    Note that this method should not be used to log a ``tf.keras`` model. Use
+    :py:func:`mlflow.keras.log_model` instead.
+
+    :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
+                               graphs in ``SavedModel`` format.
+    :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
+                               serialized ``SavedModel`` object. For more information, see the
+                               ``tags`` parameter of the
+                               ``tf.saved_model.builder.SavedModelBuilder`` method.
+    :param tf_signature_def_key: A string identifying the input/output signature associated with the
+                                 model. This is a key within the serialized ``SavedModel`` signature
+                                 definition mapping. For more information, see the
+                                 ``signature_def_map`` parameter of the
+                                 ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
