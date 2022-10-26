@@ -7,6 +7,7 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+from collections import OrderedDict
 import importlib
 import logging
 import os
@@ -345,8 +346,7 @@ def save_model(
                           ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
                           or ``torch.jit.trace``.
 
-                          The model accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor.
+                          The model produces a single output tensor.
 
                           If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
@@ -747,34 +747,64 @@ class _PyTorchWrapper:
     def predict(self, data, device="cpu"):
         import torch
 
-        if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
-        elif isinstance(data, np.ndarray):
-            inp_data = data
-        elif isinstance(data, (list, dict)):
-            raise TypeError(
-                "The PyTorch flavor does not support List or Dict input types. "
-                "Please use a pandas.DataFrame or a numpy.ndarray"
-            )
-        else:
-            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+        def _to_tensor(data):
+            """Process inputs to tensors."""
+            if isinstance(data, pd.DataFrame):
+                inp_data = data.values.astype(np.float32)
+                input_tensor = torch.from_numpy(inp_data).to(device)
+            elif isinstance(data, np.ndarray):
+                inp_data = data
+                input_tensor = torch.from_numpy(inp_data).to(device)
+            elif isinstance(data, torch.Tensor):
+                input_tensor = data.to(device)
+            else:
+                raise TypeError(
+                    "Input data should be pandas.DataFrame, torch.Tensor, or numpy.ndarray"
+                )
+            return input_tensor
 
+        def _to_output(output, data):
+            """Process model outputs to numpy or pandas DataFrames to be compatible with input"""
+            if isinstance(data, (np.ndarray, torch.Tensor)):
+                return output.detach().cpu().numpy()
+            elif isinstance(data, pd.DataFrame):
+                predicted = pd.DataFrame(preds.numpy())
+                predicted.index = data.index
+                return predicted
+            else:
+                return output
+
+        # Check if input is iterable (e.g. dict, list, tuple, etc.)
+        if isinstance(data, (list)):
+            input_tensor = [_to_tensor(d) for d in data]
+        elif isinstance(data, tuple):
+            input_tensor = tuple([_to_tensor(d) for d in data])
+        elif isinstance(data, (dict, OrderedDict)):
+            input_tensor = {k: _to_tensor(v) for k, v in data.items()}
+        elif isinstance(data, (pd.DataFrame, np.ndarray, torch.Tensor)):
+            input_tensor = _to_tensor(data)
+        else:
+            raise TypeError(
+                "Input must be pandas.DataFrame, torch.Tensor, or numpy.ndarray"
+                " or iterable thereof!"
+            )
         self.pytorch_model.to(device)
         self.pytorch_model.eval()
         with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
                     "but got output of type '{}'".format(type(preds))
                 )
-            if isinstance(data, pd.DataFrame):
-                predicted = pd.DataFrame(preds.numpy())
-                predicted.index = data.index
+            # Convert output, trying to preserve structure of input data
+            if isinstance(preds, (list, tuple)):
+                predicted = [_to_output(p, data) for p in preds]
+            elif isinstance(preds, (dict, OrderedDict)):
+                predicted = {k: _to_output(v, data) for k, v in preds.items()}
             else:
-                predicted = preds.numpy()
-            return predicted
+                predicted = _to_output(preds, data)
+        return predicted
 
 
 @experimental
