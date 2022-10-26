@@ -10,7 +10,8 @@ def doctor(mask_envs=False):
     """
     Prints out the current environment's MLflow configuration and dependencies.
 
-    :param mask_envs: If True, mask the environment variable values in the output.
+    :param mask_envs: If True, mask the environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`)
+                      in the output.
 
     .. warning::
 
