@@ -65,7 +65,7 @@ class EvaluationMetric:
 
     :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
-    :param long_name: (Optional) The long name of the metric. For example, ``"mean_square_error"``
+    :param long_name: (Optional) The long name of the metric. For example, ``"root_mean_squared_error"``
         for ``"mse"``.
     """
 
@@ -121,7 +121,7 @@ def make_metric(
 
     :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
-    :param long_name: (Optional) The long name of the metric. For example, ``"mean_square_error"``
+    :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
 
     .. seealso::
@@ -1133,14 +1133,14 @@ def evaluate(
             import numpy as np
 
 
-            def root_mean_square_error(eval_df, _builtin_metrics):
+            def root_mean_squared_error(eval_df, _builtin_metrics):
                 return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
 
 
             rmse_metric = mlflow.models.make_metric(
-                eval_fn=root_mean_square_error,
+                eval_fn=root_mean_squared_error,
                 name="rmse",
-                long_name=root_mean_square_error.__name__,
+                long_name=root_mean_squared_error.__name__,
                 greater_is_better=False,
             )
             mlflow.evaluate(..., custom_metrics=[rmse_metric])
