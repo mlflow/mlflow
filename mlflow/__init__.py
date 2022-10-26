@@ -171,6 +171,7 @@ from mlflow.models import evaluate
 from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.projects import run
+from mlflow.doctor import doctor
 
 __all__ = [
     "ActiveRun",
@@ -214,6 +215,7 @@ __all__ = [
     "autolog",
     "evaluate",
     "last_active_run",
+    "doctor",
     "MlflowClient",
     "MlflowException",
 ] + _model_flavors_supported
