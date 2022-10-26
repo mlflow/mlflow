@@ -525,6 +525,26 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+_os_alt_seps = list(sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/")
+
+
+def validate_path_is_safe(path):
+    """
+    Validates that the specified path is safe to join with a trusted prefix. This is a security
+    measure to prevent path traversal attacks. The implementation is based on
+    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    """
+    if path != "":
+        path = posixpath.normpath(path)
+    if (
+        any(sep in path for sep in _os_alt_seps)
+        or os.path.isabs(path)
+        or path == ".."
+        or path.startswith("../")
+    ):
+        raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+
+
 @catch_mlflow_exception
 def get_artifact_handler():
     from querystring_parser import parser
@@ -532,17 +552,19 @@ def get_artifact_handler():
     query_string = request.query_string.decode("utf-8")
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
+    path = request_dict["path"]
+    validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
             proxied_artifact_root=run.info.artifact_uri,
-            relative_path=request_dict["path"],
+            relative_path=path,
         )
     else:
         artifact_repo = _get_artifact_repo(run)
-        artifact_path = request_dict["path"]
+        artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
 
@@ -897,6 +919,7 @@ def _list_artifacts():
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
+        validate_path_is_safe(path)
     else:
         path = None
     run_id = request_message.run_id or request_message.run_uuid
@@ -1296,16 +1319,17 @@ def get_model_version_artifact_handler():
     name = request_dict.get("name")
     version = request_dict.get("version")
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
-
+    path = request_dict["path"]
+    validate_path_is_safe(path)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
             proxied_artifact_root=artifact_uri,
-            relative_path=request_dict["path"],
+            relative_path=path,
         )
     else:
         artifact_repo = get_artifact_repository(artifact_uri)
-        artifact_path = request_dict["path"]
+        artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
 
