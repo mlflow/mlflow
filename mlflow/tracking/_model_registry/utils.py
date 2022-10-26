@@ -15,9 +15,10 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     get_tracking_uri,
 )
-from mlflow.utils import rest_utils
+from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+_REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -81,6 +82,10 @@ def set_registry_uri(uri: str) -> None:
 def _get_registry_uri_from_context():
     global _registry_uri
     # in the future, REGISTRY_URI env var support can go here
+    if _registry_uri is not None:
+        return _registry_uri
+    elif env.get_env(_REGISTRY_URI_ENV_VAR) is not None:
+        return env.get_env(_REGISTRY_URI_ENV_VAR)
     return _registry_uri
 
 

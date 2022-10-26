@@ -1347,13 +1347,14 @@ class TestFileStore(unittest.TestCase):
 
     def test_pyfunc_model_registry_with_file_store(self):
         import mlflow
-        from mlflow import MlflowClient
         from mlflow.pyfunc import PythonModel
 
         class MyModel(PythonModel):
             def predict(self, context, model_input):
                 return 7
 
+        fs = self.get_store()
+        mlflow.set_registry_uri(fs.root_directory)
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
                 python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
@@ -1365,12 +1366,14 @@ class TestFileStore(unittest.TestCase):
                 python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
             )
 
-        client = MlflowClient()
-        models = client.search_registered_models()
+        with mlflow.start_run():
+            mlflow.log_param("A", "B")
+
+        models = fs.search_registered_models(max_results=10)
         assert len(models) == 2
         assert models[0].name == "model1"
         assert models[1].name == "model2"
-        mv1 = client.search_model_versions("name = 'model1'")
+        mv1 = fs.search_model_versions("name = 'model1'")
         assert len(mv1) == 2 and mv1[0].name == "model1"
-        mv2 = client.search_model_versions("name = 'model2'")
+        mv2 = fs.search_model_versions("name = 'model2'")
         assert len(mv2) == 1 and mv2[0].name == "model2"
