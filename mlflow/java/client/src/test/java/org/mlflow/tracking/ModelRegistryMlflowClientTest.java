@@ -100,7 +100,7 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetModelVersion() {
         ModelVersion modelVersion = client.getModelVersion(modelName, "1");
-        validateDetailedModelVersion(modelVersion, modelName, "None", "1");
+        validateDetailedModelVersion(modelVersion, modelName, "Staging", "1");
     }
 
     @Test(expectedExceptions = MlflowHttpException.class, expectedExceptionsMessageRegExp = ".*RESOURCE_DOES_NOT_EXIST.*")
