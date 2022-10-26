@@ -72,7 +72,6 @@ CREATE TABLE runs (
 	status VARCHAR(9),
 	start_time BIGINT,
 	end_time BIGINT,
-	deleted_time BIGINT,
 	source_version VARCHAR(50),
 	lifecycle_stage VARCHAR(20),
 	artifact_uri VARCHAR(200),

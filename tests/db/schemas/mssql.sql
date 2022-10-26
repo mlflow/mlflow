@@ -71,7 +71,6 @@ CREATE TABLE runs (
 	status VARCHAR(9) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	start_time BIGINT,
 	end_time BIGINT,
-	deleted_time BIGINT,
 	source_version VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	lifecycle_stage VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	artifact_uri VARCHAR(200) COLLATE "SQL_Latin1_General_CP1_CI_AS",
