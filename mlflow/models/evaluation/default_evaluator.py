@@ -224,7 +224,7 @@ def _get_multiclass_classifier_metrics(
     average="weighted",
     sample_weights=None,
 ):
-    return _get_common_classifier_metrics(
+    metrics = _get_common_classifier_metrics(
         y_true=y_true,
         y_pred=y_pred,
         y_proba=y_proba,
@@ -233,6 +233,16 @@ def _get_multiclass_classifier_metrics(
         pos_label=None,
         sample_weights=sample_weights,
     )
+    metrics.update(
+        roc_auc=sk_metrics.roc_auc_score(
+            y_true=y_true,
+            y_score=y_proba,
+            sample_weight=sample_weights,
+            average=average,
+            multi_class="ovr",
+        )
+    )
+    return metrics
 
 
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
