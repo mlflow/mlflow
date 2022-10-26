@@ -32,7 +32,7 @@ RUN git clone \
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
 RUN apt install -y python3.8
-RUN ln -s -f $(which python3.7) /usr/bin/python
+RUN ln -s -f $(which python3.8) /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN python /tmp/get-pip.py
 RUN pip install virtualenv
