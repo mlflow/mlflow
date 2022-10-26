@@ -9,6 +9,14 @@ import mlflow
 def doctor():
     """
     Prints out the current environment's MLflow configuration and dependencies.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.doctor()
     """
     items = [
         ("Platform", platform.platform()),
