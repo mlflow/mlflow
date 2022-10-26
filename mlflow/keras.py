@@ -22,7 +22,7 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -687,9 +687,9 @@ def autolog(
 
     if save_format not in ["tf", "h5"]:
         raise MlflowException(
-            "Invalid value for `save_format` argument: {save_format}. "
+            f"Invalid value for `save_format` argument: {save_format}. "
             "Valid values for `save_format` are 'tf' or 'h5' only.",
-            INVALID_PARAMETER,
+            INVALID_PARAMETER_VALUE,
         )
 
     def getKerasCallback(metrics_logger):
