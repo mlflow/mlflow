@@ -233,15 +233,16 @@ def _get_multiclass_classifier_metrics(
         pos_label=None,
         sample_weights=sample_weights,
     )
-    metrics.update(
-        roc_auc=sk_metrics.roc_auc_score(
-            y_true=y_true,
-            y_score=y_proba,
-            sample_weight=sample_weights,
-            average=average,
-            multi_class="ovr",
+    if average in ("macro", "weighted") and y_proba is not None:
+        metrics.update(
+            roc_auc=sk_metrics.roc_auc_score(
+                y_true=y_true,
+                y_score=y_proba,
+                sample_weight=sample_weights,
+                average=average,
+                multi_class="ovr",
+            )
         )
-    )
     return metrics
 
 
