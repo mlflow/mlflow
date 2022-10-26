@@ -208,186 +208,166 @@ class TrainStep(BaseStep):
             return tuning_param == logged_param
 
     def _run(self, output_directory):
-        def my_warn(*args, **kwargs):
-            timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-            stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
-            frame = sys._getframe(stacklevel)
-            filename = frame.f_code.co_filename
-            lineno = frame.f_lineno
-            message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+        import pandas as pd
+        import shutil
+        from sklearn.pipeline import make_pipeline
+        from mlflow.models.signature import infer_signature
 
-        import warnings
+        apply_pipeline_tracking_config(self.tracking_config)
 
-        original_warn = warnings.warn
-        warnings.warn = my_warn
-        try:
-            import pandas as pd
-            import shutil
-            from sklearn.pipeline import make_pipeline
-            from mlflow.models.signature import infer_signature
+        transformed_training_data_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="transform",
+            relative_path="transformed_training_data.parquet",
+        )
+        train_df = pd.read_parquet(transformed_training_data_path)
+        X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+        transformed_validation_data_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="transform",
+            relative_path="transformed_validation_data.parquet",
+        )
+        validation_df = pd.read_parquet(transformed_validation_data_path)
 
-            apply_pipeline_tracking_config(self.tracking_config)
+        raw_training_data_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="split",
+            relative_path="train.parquet",
+        )
+        raw_train_df = pd.read_parquet(raw_training_data_path)
+        raw_X_train = raw_train_df.drop(columns=[self.target_col])
 
-            transformed_training_data_path = get_step_output_path(
-                pipeline_root_path=self.pipeline_root,
-                step_name="transform",
-                relative_path="transformed_training_data.parquet",
+        raw_validation_data_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="split",
+            relative_path="validation.parquet",
+        )
+        raw_validation_df = pd.read_parquet(raw_validation_data_path)
+
+        transformer_path = get_step_output_path(
+            pipeline_root_path=self.pipeline_root,
+            step_name="transform",
+            relative_path="transformer.pkl",
+        )
+
+        tags = {
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
+            MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+            MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
+            MLFLOW_PIPELINE_STEP_NAME: os.getenv(
+                _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
+            ),
+        }
+
+        best_estimator_params = None
+        mlflow.autolog(log_models=False, silent=True)
+        with mlflow.start_run(tags=tags) as run:
+
+            estimator = self._resolve_estimator(
+                X_train, y_train, validation_df, run, output_directory
             )
-            train_df = pd.read_parquet(transformed_training_data_path)
-            X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
+            estimator.fit(X_train, y_train)
 
-            transformed_validation_data_path = get_step_output_path(
-                pipeline_root_path=self.pipeline_root,
-                step_name="transform",
-                relative_path="transformed_validation_data.parquet",
+            logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+
+            # Create a pipeline consisting of the transformer+model for test data evaluation
+            with open(transformer_path, "rb") as f:
+                transformer = cloudpickle.load(f)
+            mlflow.sklearn.log_model(
+                transformer, "transform/transformer", code_paths=self.code_paths
             )
-            validation_df = pd.read_parquet(transformed_validation_data_path)
-
-            raw_training_data_path = get_step_output_path(
-                pipeline_root_path=self.pipeline_root,
-                step_name="split",
-                relative_path="train.parquet",
+            model = make_pipeline(transformer, estimator)
+            model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
+            model_info = mlflow.sklearn.log_model(
+                model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
             )
-            raw_train_df = pd.read_parquet(raw_training_data_path)
-            raw_X_train = raw_train_df.drop(columns=[self.target_col])
-
-            raw_validation_data_path = get_step_output_path(
+            output_model_path = get_step_output_path(
                 pipeline_root_path=self.pipeline_root,
-                step_name="split",
-                relative_path="validation.parquet",
+                step_name=self.name,
+                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
             )
-            raw_validation_df = pd.read_parquet(raw_validation_data_path)
+            if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
+                shutil.rmtree(output_model_path)
+            mlflow.sklearn.save_model(model, output_model_path)
 
-            transformer_path = get_step_output_path(
-                pipeline_root_path=self.pipeline_root,
-                step_name="transform",
-                relative_path="transformer.pkl",
+            with open(os.path.join(output_directory, "run_id"), "w") as f:
+                f.write(run.info.run_id)
+            log_code_snapshot(
+                self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
             )
 
-            tags = {
-                MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
-                MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
-                MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
-                MLFLOW_PIPELINE_STEP_NAME: os.getenv(
-                    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
-                ),
+            eval_metrics = {}
+            for dataset_name, dataset in {
+                "training": train_df,
+                "validation": validation_df,
+            }.items():
+                eval_result = mlflow.evaluate(
+                    model=logged_estimator.model_uri,
+                    data=dataset,
+                    targets=self.target_col,
+                    model_type=_get_model_type_from_template(self.template),
+                    evaluators="default",
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
+                    ),
+                    evaluator_config={
+                        "log_model_explainability": False,
+                    },
+                )
+                eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
+                eval_metrics[dataset_name] = eval_result.metrics
+
+        target_data = raw_validation_df[self.target_col]
+        prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
+        error_fn = _get_error_fn(self.template)
+        pred_and_error_df = pd.DataFrame(
+            {
+                "target": target_data,
+                "prediction": prediction_result,
+                "error": error_fn(prediction_result, target_data.to_numpy()),
             }
-
-            best_estimator_params = None
-            mlflow.autolog(log_models=False, silent=True)
-            with mlflow.start_run(tags=tags) as run:
-
-                estimator = self._resolve_estimator(
-                    X_train, y_train, validation_df, run, output_directory
-                )
-                estimator.fit(X_train, y_train)
-
-                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
-
-                # Create a pipeline consisting of the transformer+model for test data evaluation
-                with open(transformer_path, "rb") as f:
-                    transformer = cloudpickle.load(f)
-                mlflow.sklearn.log_model(
-                    transformer, "transform/transformer", code_paths=self.code_paths
-                )
-                model = make_pipeline(transformer, estimator)
-                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                model_info = mlflow.sklearn.log_model(
-                    model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
-                )
-                output_model_path = get_step_output_path(
-                    pipeline_root_path=self.pipeline_root,
-                    step_name=self.name,
-                    relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
-                )
-                if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-                    shutil.rmtree(output_model_path)
-                mlflow.sklearn.save_model(model, output_model_path)
-
-                with open(os.path.join(output_directory, "run_id"), "w") as f:
-                    f.write(run.info.run_id)
-                log_code_snapshot(
-                    self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
-                )
-
-                eval_metrics = {}
-                for dataset_name, dataset in {
-                    "training": train_df,
-                    "validation": validation_df,
-                }.items():
-                    eval_result = mlflow.evaluate(
-                        model=logged_estimator.model_uri,
-                        data=dataset,
-                        targets=self.target_col,
-                        model_type=_get_model_type_from_template(self.template),
-                        evaluators="default",
-                        dataset_name=dataset_name,
-                        custom_metrics=_load_custom_metric_functions(
-                            self.pipeline_root,
-                            self.evaluation_metrics.values(),
-                        ),
-                        evaluator_config={
-                            "log_model_explainability": False,
-                        },
-                    )
-                    eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
-
-            target_data = raw_validation_df[self.target_col]
-            prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            error_fn = _get_error_fn(self.template)
-            pred_and_error_df = pd.DataFrame(
-                {
-                    "target": target_data,
-                    "prediction": prediction_result,
-                    "error": error_fn(prediction_result, target_data.to_numpy()),
-                }
-            )
-            train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                raw_train_df,
-                train_predictions,
-                error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
-                self.target_col,
-            )
-            leaderboard_df = None
+        )
+        train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
+        worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+            raw_train_df,
+            train_predictions,
+            error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+            self.target_col,
+        )
+        leaderboard_df = None
+        try:
+            leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
+        except Exception as e:
+            _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
+        tuning_df = None
+        if self.step_config["tuning_enabled"]:
             try:
-                leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
+                tuning_df = self._get_tuning_df(run, params=best_estimator_params.keys())
             except Exception as e:
                 _logger.warning(
-                    "Failed to build model leaderboard due to unexpected failure: %s", e
+                    "Failed to build tuning results table due to unexpected failure: %s", e
                 )
-            tuning_df = None
-            if self.step_config["tuning_enabled"]:
-                try:
-                    tuning_df = self._get_tuning_df(run, params=best_estimator_params.keys())
-                except Exception as e:
-                    _logger.warning(
-                        "Failed to build tuning results table due to unexpected failure: %s", e
-                    )
 
-            card = self._build_step_card(
-                eval_metrics=eval_metrics,
-                pred_and_error_df=pred_and_error_df,
-                model=model,
-                model_schema=model_schema,
-                run_id=run.info.run_id,
-                model_uri=model_info.model_uri,
-                worst_examples_df=worst_examples_df,
-                train_df=raw_train_df,
-                output_directory=output_directory,
-                leaderboard_df=leaderboard_df,
-                tuning_df=tuning_df,
-            )
-            card.save_as_html(output_directory)
-            for step_name in ("ingest", "split", "transform", "train"):
-                self._log_step_card(run.info.run_id, step_name)
-            return card
-        finally:
-            warnings.warn = original_warn
+        card = self._build_step_card(
+            eval_metrics=eval_metrics,
+            pred_and_error_df=pred_and_error_df,
+            model=model,
+            model_schema=model_schema,
+            run_id=run.info.run_id,
+            model_uri=model_info.model_uri,
+            worst_examples_df=worst_examples_df,
+            train_df=raw_train_df,
+            output_directory=output_directory,
+            leaderboard_df=leaderboard_df,
+            tuning_df=tuning_df,
+        )
+        card.save_as_html(output_directory)
+        for step_name in ("ingest", "split", "transform", "train"):
+            self._log_step_card(run.info.run_id, step_name)
+
+        return card
 
     def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
         train_module_name, estimator_method_name = self.step_config["estimator_method"].rsplit(
@@ -756,15 +736,7 @@ class TrainStep(BaseStep):
                 ),
             )
 
-        # Tab 10: Warning log outputs.
-        warning_output_path = os.path.join(output_directory, "warning_logs.txt")
-        if os.path.exists(warning_output_path):
-            warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
-
-        # Tab 11: Run summary.
+        # Tab 10: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",

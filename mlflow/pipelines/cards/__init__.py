@@ -278,9 +278,7 @@ class FailureCard(BaseCard):
           HTML template in the process.
     """
 
-    def __init__(
-        self, pipeline_name: str, step_name: str, failure_traceback: str, output_directory: str
-    ):
+    def __init__(self, pipeline_name: str, step_name: str, failure_traceback: str):
         super().__init__(
             pipeline_name=pipeline_name,
             step_name=step_name,
@@ -289,11 +287,6 @@ class FailureCard(BaseCard):
             "STEP_STATUS",
             '<p><strong>Step status: <span style="color:red">Failed</span></strong></p>',
         )
-        self.add_tab(
-            "Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}</div>"
-        ).add_html("STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</code></p>')
-        warning_output_path = os.path.join(output_directory, "warning_logs.txt")
-        if os.path.exists(warning_output_path):
-            self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+        self.add_tab("Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}").add_html(
+            "STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</p></code>'
+        )
