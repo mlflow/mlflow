@@ -1,8 +1,18 @@
 package org.mlflow.tracking;
 
+import static org.mlflow.tracking.TestUtils.createExperimentName;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+
 import com.google.common.collect.Lists;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.UUID;
 import org.apache.commons.io.FileUtils;
-import org.mlflow.api.proto.ModelRegistry;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
@@ -12,18 +22,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.UUID;
-
-import static org.mlflow.tracking.TestUtils.createExperimentName;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
 
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
@@ -97,6 +95,17 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(modelVersion.size(), 1);
         validateDetailedModelVersion(modelVersion.get(0),
                 modelName, "Staging", "1");
+    }
+
+    @Test
+    public void testGetModelVersion() {
+        ModelVersion modelVersion = client.getModelVersion(modelName, "1");
+        validateDetailedModelVersion(modelVersion, modelName, "Staging", "1");
+    }
+
+    @Test(expectedExceptions = MlflowHttpException.class, expectedExceptionsMessageRegExp = ".*RESOURCE_DOES_NOT_EXIST.*")
+    public void testGetModelVersion_NotFound() {
+        client.getModelVersion(modelName, "2");
     }
 
     @Test

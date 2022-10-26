@@ -816,6 +816,24 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   *
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *       ModelVersion modelVersion = getModelVersion("model", "version");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @param version Version number as a string of the model version.
+   * @return a single model version
+   *        {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public ModelVersion getModelVersion(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersion(modelName, version));
+    GetModelVersion.Response response = mapper.toGetModelVersionResponse(json);
+    return response.getModelVersion();
+  }
+
+  /**
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
