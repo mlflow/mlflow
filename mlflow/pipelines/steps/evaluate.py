@@ -60,6 +60,12 @@ class EvaluateStep(BaseStep):
                 "Missing template_name config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "positive_class" not in self.step_config and self.template == "classification/v1":
+            raise MlflowException(
+                "`positive_class` must be specified for classification/v1 templates.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self.positive_class = self.step_config.get("positive_class")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
@@ -187,9 +193,17 @@ class EvaluateStep(BaseStep):
                     (
                         "validation",
                         validation_df,
-                        {"explainability_algorithm": "kernel", "explainability_nsamples": 10},
+                        {
+                            "explainability_algorithm": "kernel",
+                            "explainability_nsamples": 10,
+                            "pos_label": self.positive_class,
+                        },
                     ),
-                    ("test", test_df, {"log_model_explainability": False}),
+                    (
+                        "test",
+                        test_df,
+                        {"log_model_explainability": False, "pos_label": self.positive_class},
+                    ),
                 ):
                     eval_result = mlflow.evaluate(
                         model=model_uri,
@@ -375,6 +389,8 @@ class EvaluateStep(BaseStep):
         if pipeline_config.get("steps", {}).get("evaluate", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("evaluate", {}))
         step_config["target_col"] = pipeline_config.get("target_col")
+        if "positive_class" in pipeline_config:
+            step_config["positive_class"] = pipeline_config.get("positive_class")
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["template_name"] = pipeline_config.get("template")
         step_config.update(
