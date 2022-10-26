@@ -685,10 +685,11 @@ def autolog(
             stacklevel=2,
         )
 
-    if save_format != "tf" and save_format != "h5":
-        raise Exception(
-            "Invalid value for `save_format` argument. "
-            "Valid values for `save_format` are `tf` or `h5` only."
+    if save_format not in ["tf", "h5"]:
+        raise MlflowException(
+            "Invalid value for `save_format` argument: {save_format}. "
+            "Valid values for `save_format` are 'tf' or 'h5' only.",
+            INVALID_PARAMETER,
         )
 
     def getKerasCallback(metrics_logger):
@@ -743,7 +744,7 @@ def autolog(
                         self.model,
                         artifact_path="model",
                         registered_model_name=registered_model_name,
-                        **{"save_format": save_format},
+                        save_format=save_format,
                     )
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
