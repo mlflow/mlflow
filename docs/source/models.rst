@@ -1295,7 +1295,7 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
         """
         metrics = {
             "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
-            "sum_on_target_divided_by_two": builtin_metrics["sum_on_target"] / 2,
+            "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
         }
         plt.scatter(eval_df["prediction"], eval_df["target"])
         plt.xlabel("Targets")

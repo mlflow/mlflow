@@ -578,17 +578,7 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
-        tags = tags or []
-        run_name_tag = _get_run_name_from_tags(tags)
-        if run_name and run_name_tag:
-            raise MlflowException(
-                "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
-                "Remove 'mlflow.runName' tag.",
-                INVALID_PARAMETER_VALUE,
-            )
-        run_name = run_name or run_name_tag or _generate_random_name()
-        if not run_name_tag:
-            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+        run_name = run_name if run_name else _generate_random_name()
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
@@ -612,6 +602,8 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        tags = tags or []
+        tags.append(RunTag(MLFLOW_RUN_NAME, run_name))
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)

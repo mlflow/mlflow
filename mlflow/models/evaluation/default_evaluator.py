@@ -118,7 +118,7 @@ def _extract_predict_fn(model, raw_model):
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
-    sum_on_target = (
+    sum_on_label = (
         (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
     )
     return {
@@ -132,8 +132,8 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
         "root_mean_squared_error": sk_metrics.mean_squared_error(
             y, y_pred, sample_weight=sample_weights, squared=False
         ),
-        "sum_on_target": sum_on_target,
-        "mean_on_target": sum_on_target / len(y),
+        "sum_on_label": sum_on_label,
+        "mean_on_label": sum_on_label / len(y),
         "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
@@ -1063,8 +1063,6 @@ class DefaultEvaluator(ModelEvaluator):
                         self.label_list, np.where(self.label_list == self.pos_label)
                     )
                     self.label_list = np.append(self.label_list, self.pos_label)
-                elif self.pos_label is None:
-                    self.pos_label = self.label_list[-1]
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
@@ -1203,7 +1201,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.y = dataset.labels_data
-        self.pos_label = self.evaluator_config.get("pos_label")
+        self.pos_label = self.evaluator_config.get("pos_label", 1)
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)

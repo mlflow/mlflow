@@ -533,13 +533,3 @@ def test_virtualenv_subfield_points_to_correct_path(xgb_model, model_path):
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
     assert python_env_path.is_file()
-
-@pytest.mark.parametrize("model_format", ["xgb", "json", "ubj"])
-def test_log_model_with_model_format(xgb_model, model_format):
-    with mlflow.start_run():
-        model_info = mlflow.xgboost.log_model(xgb_model.model, "model", model_format=model_format)
-        loaded_model = mlflow.xgboost.load_model(model_info.model_uri)
-        np.testing.assert_array_almost_equal(
-            xgb_model.model.predict(xgb_model.inference_dmatrix),
-            loaded_model.predict(xgb_model.inference_dmatrix),
-        )

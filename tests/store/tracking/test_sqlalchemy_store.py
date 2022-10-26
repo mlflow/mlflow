@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 import unittest
-import re
 
 import math
 import pytest
@@ -841,27 +840,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self.store.get_run(run_id)
         self.assertEqual(run.info.run_name, configs["run_name"])
         self.assertEqual(run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME), configs["run_name"])
-        run_id = self.store.create_run(
-            experiment_id=experiment_id,
-            user_id="user",
-            start_time=0,
-            run_name=None,
-            tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test")],
-        ).info.run_id
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "test"
-
-        with pytest.raises(
-            MlflowException,
-            match=re.escape("Both 'run_name' argument and 'mlflow.runName' tag are specified."),
-        ):
-            self.store.create_run(
-                experiment_id=experiment_id,
-                user_id="user",
-                start_time=0,
-                run_name="test",
-                tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test")],
-            )
 
     def test_get_run_with_name(self):
         experiment_id = self._experiment_factory("test_get_run")
