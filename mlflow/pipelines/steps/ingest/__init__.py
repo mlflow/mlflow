@@ -39,7 +39,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         CustomDataset,
     ]
 
-
     def _validate_and_apply_step_config(self):
         if len(self.step_config) == 0:
             raise MlflowException(

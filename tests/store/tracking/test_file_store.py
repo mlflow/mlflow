@@ -493,8 +493,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.create_experiment(None)
         with pytest.raises(Exception, match="Invalid experiment name: ''"):
             fs.create_experiment("")
-        exp_id_ints = (int(exp_id) for exp_id in self.experiments)
-        next_id = str(max(exp_id_ints) + 1)
         name = random_str(25)  # since existing experiments are 10 chars long
         time_before_create = get_current_time_millis()
         created_id = fs.create_experiment(name)

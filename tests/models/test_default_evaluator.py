@@ -77,7 +77,6 @@ def evaluate_model_helper(
     data,
     targets,
     model_type: str,
-    dataset_name=None,
     evaluators=None,
     evaluator_config=None,
     eval_baseline_model_only=False,

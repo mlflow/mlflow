@@ -348,20 +348,6 @@ public class MlflowClient implements Serializable, Closeable {
     SearchExperiments.Response response = mapper.toSearchExperimentsResponse(ojson);
     return new ExperimentsPage(response.getExperimentsList(), response.getNextPageToken(),
       searchFilter, experimentViewType, maxResults, orderBy, this);
-<<<<<<< HEAD
-=======
-  }
-
-  /**
-   * @deprecated
-   * Use {@link #searchExperiments()} instead.
-   *
-   * @return  A list of all experiments.
-   */
-  public List<Experiment> listExperiments() {
-    return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
-      .getExperimentsList();
->>>>>>> ca98d871f01272b277746e5ce9372f242211ae75
   }
 
   /** @return  An experiment with the given ID. */

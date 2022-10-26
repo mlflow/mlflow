@@ -580,19 +580,11 @@ ingest_scoring:
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.ingest import IngestScoringStep; IngestScoringStep.from_step_config_path(step_config_path='{path:exe/steps/ingest_scoring/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest_scoring/outputs}')"
 
-<<<<<<< HEAD
-# Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
-# target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
-# ensuring that data is only ingested for downstream steps if it is not already present on the
-# local filesystem
-steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
-=======
 # Define a separate target for the ingested dataset that recursively invokes make with the 
 # `ingest_scoring` target. Downstream steps depend on the ingested dataset target, rather than the 
 # `ingest_scoring` target, ensuring that data is only ingested for downstream steps if it is not
 # already present on the local filesystem
 steps/ingest_scoring/outputs/scoring-dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
->>>>>>> ca98d871f01272b277746e5ce9372f242211ae75
 	# Run MLP step: ingest_scoring
 	$(MAKE) ingest_scoring
 
@@ -600,11 +592,7 @@ predict_objects = steps/predict/outputs/scored.parquet
 
 predict: $(predict_objects)
 
-<<<<<<< HEAD
-steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
-=======
 steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/scoring-dataset.parquet steps/predict/conf.yaml
->>>>>>> ca98d871f01272b277746e5ce9372f242211ae75
 	# Run MLP step: predict
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"

@@ -534,6 +534,7 @@ def test_virtualenv_subfield_points_to_correct_path(xgb_model, model_path):
     assert python_env_path.exists()
     assert python_env_path.is_file()
 
+
 @pytest.mark.parametrize("model_format", ["xgb", "json", "ubj"])
 def test_log_model_with_model_format(xgb_model, model_format):
     with mlflow.start_run():
