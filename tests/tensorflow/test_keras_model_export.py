@@ -34,6 +34,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _is_importable,
     _compare_logged_code_paths,
+    assert_array_almost_equal,
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -636,7 +637,11 @@ def test_pyfunc_serve_and_score_transformers():
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
+
+    from mlflow.deployments import PredictionsResponse
+
+    scores = PredictionsResponse.from_json(resp.content).get_predictions()
+    assert_array_almost_equal(scores.values, model.predict(dummy_inputs))
 
 
 def test_log_model_with_code_paths(model):

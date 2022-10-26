@@ -77,7 +77,6 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
-from mlflow.utils.time_utils import get_current_time_millis
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 

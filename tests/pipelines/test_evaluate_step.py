@@ -313,9 +313,9 @@ def root_mean_squared_error(eval_df, builtin_metrics):
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
     for dataset in ["validation", "test"]:
-        assert f"root_mean_squared_error_on_data_{dataset}" in logged_metrics
-        assert logged_metrics[f"root_mean_squared_error_on_data_{dataset}"] == 1
-        assert f"mean_absolute_error_on_data_{dataset}" in logged_metrics
+        assert "root_mean_squared_error" in logged_metrics
+        assert logged_metrics["root_mean_squared_error"] == 1
+        assert "mean_absolute_error" in logged_metrics
         assert logged_metrics[f"mean_absolute_error_on_data_{dataset}"] == 1
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()

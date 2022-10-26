@@ -1768,9 +1768,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(
-        set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"tensorflow", "keras", "pyspark", "pyspark.ml"}
-    ):
+    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.

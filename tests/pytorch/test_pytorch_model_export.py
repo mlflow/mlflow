@@ -37,6 +37,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _is_importable,
     _compare_logged_code_paths,
+    assert_array_almost_equal,
 )
 
 _logger = logging.getLogger(__name__)
@@ -891,7 +892,10 @@ def test_pyfunc_serve_and_score_transformers():
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
+    from mlflow.deployments import PredictionsResponse
+
+    scores = PredictionsResponse.from_json(resp.content).get_predictions()
+    assert_array_almost_equal(scores.values, model(input_ids).detach().numpy(), rtol=1e-6)
 
 
 @pytest.fixture

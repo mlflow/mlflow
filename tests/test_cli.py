@@ -329,7 +329,7 @@ def test_mlflow_gc_experiments(get_store_details, request):
     experiments = store.search_experiments(view_type=ViewType.ALL)
     exp_ids = [e.experiment_id for e in experiments]
     runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
-    assert exp_ids == [exp_id_1, store.DEFAULT_EXPERIMENT_ID]
+    assert sorted(exp_ids) == sorted([exp_id_1, store.DEFAULT_EXPERIMENT_ID])
     assert [r.info.run_id for r in runs] == [run_id_1.info.run_id]
 
     store.delete_experiment(exp_id_1)
@@ -345,7 +345,9 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_3)
     invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_2)
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    )
 
     with mock.patch("time.time", return_value=0) as mock_time:
         exp_id_4 = store.create_experiment("4")
@@ -354,7 +356,9 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
     invoke_gc("--backend-store-uri", uri, "--older-than", "1d")
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    )
 
     invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_3, "--older-than", "0s")
     experiments = store.search_experiments(view_type=ViewType.ALL)
@@ -367,7 +371,9 @@ def test_mlflow_gc_experiments(get_store_details, request):
             "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
-    assert [e.experiment_id for e in experiments] == [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+    )
 
 
 @pytest.mark.parametrize(

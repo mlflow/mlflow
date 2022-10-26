@@ -269,7 +269,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250, validate_version=True):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=60 * 8, validate_version=True):
         self._proc = proc
         self._port = port
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
