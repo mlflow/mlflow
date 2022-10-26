@@ -1462,7 +1462,9 @@ def test_evaluate_custom_metric_success():
     assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
 
 
-def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
+def _get_results_for_custom_metrics_tests(
+    model_uri, dataset, *, custom_metrics=None, custom_artifacts=None
+):
     with mlflow.start_run() as run:
         result = evaluate(
             model_uri,
@@ -1472,6 +1474,7 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
             dataset_name=dataset.name,
             evaluators="default",
             custom_metrics=custom_metrics,
+            custom_artifacts=custom_artifacts,
         )
     _, metrics, _, artifacts = get_run_data(run.info.run_id)
     return result, metrics, artifacts
@@ -1480,11 +1483,11 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
 def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exception(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    def example_custom_metric_1(_, __):
-        return {}, {"test_json_artifact": {"a": 2, "b": [1, 2]}}
+    def example_custom_artifact_1(_, __):
+        return {"test_json_artifact": {"a": 2, "b": [1, 2]}}
 
-    def example_custom_metric_2(_, __):
-        return {}, {"test_json_artifact": {"a": 3, "b": [1, 2]}}
+    def example_custom_artifact_2(_, __):
+        return {"test_json_artifact": {"a": 3, "b": [1, 2]}}
 
     with pytest.raises(
         MlflowException,
@@ -1493,29 +1496,32 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
         _get_results_for_custom_metrics_tests(
             binary_logistic_regressor_model_uri,
             breast_cancer_dataset,
-            [example_custom_metric_1, example_custom_metric_2],
+            custom_artifacts=[
+                example_custom_artifact_1,
+                example_custom_artifact_2,
+            ],
         )
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def example_custom_metric(eval_df, given_metrics, tmp_path):
-        example_metrics = {
-            "true_count": given_metrics["true_negatives"] + given_metrics["true_positives"],
-            "positive_count": np.sum(eval_df["prediction"]),
-        }
+    def example_custom_metric(_eval_df, given_metrics):
+        return given_metrics["true_negatives"] + given_metrics["true_positives"]
+
+    def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
         df = pd.DataFrame({"a": [1, 2, 3]})
         df.to_csv(path_join(tmp_path, "user_logged_df.csv"), index=False)
         np_array = np.array([1, 2, 3, 4, 5])
         np.save(path_join(tmp_path, "arr.npy"), np_array)
-
-        example_artifacts = {
+        return {
             "test_json_artifact": {"a": 3, "b": [1, 2]},
             "test_npy_artifact": path_join(tmp_path, "arr.npy"),
         }
-        return example_metrics, example_artifacts
 
     result, metrics, artifacts = _get_results_for_custom_metrics_tests(
-        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+        binary_logistic_regressor_model_uri,
+        breast_cancer_dataset,
+        custom_metrics=[example_custom_metric],
+        custom_artifacts=[example_custom_artifact],
     )
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
@@ -1568,7 +1574,7 @@ def test_custom_metric_logs_artifacts_from_paths(
     fig_dpi = 100.0
     img_formats = ("png", "jpeg", "jpg")
 
-    def example_custom_metric(_, __, tmp_path):
+    def example_custom_artifact(_, __, tmp_path):
         example_artifacts = {}
 
         # images
@@ -1607,7 +1613,9 @@ def test_custom_metric_logs_artifacts_from_paths(
         return {}, example_artifacts
 
     result, _, artifacts = _get_results_for_custom_metrics_tests(
-        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+        binary_logistic_regressor_model_uri,
+        breast_cancer_dataset,
+        custom_artifacts=[example_custom_artifact],
     )
 
     with TemporaryDirectory() as tmp_dir:
@@ -1681,8 +1689,8 @@ def test_custom_metric_logs_artifacts_from_objects(
     buf.seek(0)
     img = Image.open(buf)
 
-    def example_custom_metric(_, __):
-        return {}, {
+    def example_custom_artifact(_, __):
+        return {
             "test_image_artifact": fig,
             "test_json_artifact": {
                 "list": [1, 2, 3],
@@ -1696,7 +1704,9 @@ def test_custom_metric_logs_artifacts_from_objects(
         }
 
     result, _, artifacts = _get_results_for_custom_metrics_tests(
-        binary_logistic_regressor_model_uri, breast_cancer_dataset, [example_custom_metric]
+        binary_logistic_regressor_model_uri,
+        breast_cancer_dataset,
+        custom_artifacts=[example_custom_artifact],
     )
 
     assert "test_image_artifact" in result.artifacts

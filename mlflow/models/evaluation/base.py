@@ -65,8 +65,8 @@ class EvaluationMetric:
 
     :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
-    :param long_name: (Optional) The long name of the metric. For example, ``"root_mean_squared_error"``
-        for ``"mse"``.
+    :param long_name: (Optional) The long name of the metric. For example,
+        ``"root_mean_squared_error"`` for ``"mse"``.
     """
 
     def __init__(self, eval_fn, name, greater_is_better, long_name=None):
@@ -626,7 +626,8 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of callable custom metric functions.
+        :param custom_metrics: A list of :py:class:`EvaluationMetrics` objects.
+        :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
@@ -1171,7 +1172,8 @@ def evaluate(
                     temporarily store produced artifacts. The directory will be deleted after the
                     artifacts are logged.
                 :return:
-                    A dictionary that maps artifact names to artifact objects (e.g. a Matplotlib Figure) or to artifact paths within ``artifacts_dir``.
+                    A dictionary that maps artifact names to artifact objects
+                    (e.g. a Matplotlib Figure) or to artifact paths within ``artifacts_dir``.
                 \"\"\"
                 ...
 

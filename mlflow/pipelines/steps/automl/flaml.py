@@ -7,7 +7,7 @@ from sklearn.base import BaseEstimator
 import mlflow
 from mlflow import MlflowException
 from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
-from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metric_functions
+from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
@@ -95,9 +95,7 @@ def _create_model_automl(
             metric = _create_custom_metric_flaml(
                 primary_metric,
                 -1 if evaluation_metrics[primary_metric].greater_is_better else 1,
-                _load_custom_metric_functions(pipeline_root, [evaluation_metrics[primary_metric]])[
-                    0
-                ],
+                _load_custom_metrics(pipeline_root, [evaluation_metrics[primary_metric]])[0],
             )
         else:
             raise MlflowException(
