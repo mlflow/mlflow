@@ -671,7 +671,8 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param save_format: File format to save the model at the end of the training. Allowed
                         values are: ``tf`` for saving the model in ``SavedModel`` format
-                        or ``h5`` for saving the model in ``HDF5`` format.
+                        or ``h5`` for saving the model in ``HDF5`` format. Keras < 2.4.0 only
+                        supports ``HDF5`` format, so this parameter is ignored.
     """
     import keras
 
@@ -740,11 +741,16 @@ def autolog(
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
+                    kwargs = (
+                        {}
+                        if Version(keras.__version__) < Version("2.4.0")
+                        else {"save_format": save_format}
+                    )
                     log_model(
                         self.model,
                         artifact_path="model",
                         registered_model_name=registered_model_name,
-                        save_format=save_format,
+                        **kwargs,
                     )
 
             # As of Keras 2.4.0, Keras Callback implementations must define the following
