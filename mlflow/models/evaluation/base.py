@@ -1171,7 +1171,7 @@ def evaluate(
                     temporarily store produced artifacts. The directory will be deleted after the
                     artifacts are logged.
                 :return:
-                    A dictionary containing the artifact names and objects.
+                    A dictionary that maps artifact names to artifact objects (e.g. a Matplotlib Figure) or to artifact paths within ``artifacts_dir``.
                 \"\"\"
                 ...
 
