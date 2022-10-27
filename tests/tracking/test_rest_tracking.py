@@ -15,6 +15,8 @@ import urllib.parse
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.models import Model
 
 import mlflow.pyfunc
@@ -46,13 +48,16 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    root_artifact_uri = root_artifact_uri = str(tmp_path)
     if request.param == "file":
         uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
+        FileStore(uri)
     elif request.param == "sqlalchemy":
         path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
         uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        SqlAlchemyStore(uri, root_artifact_uri)
 
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(tmp_path))
+    url, process = _init_server(backend_uri=uri, root_artifact_uri=root_artifact_uri)
 
     yield MlflowClient(url)
 
@@ -766,7 +771,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
-    assert sorted([e.name for e in experiments]) == sorted(["a", "Default"])
+    assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])
