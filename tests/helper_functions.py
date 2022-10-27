@@ -13,6 +13,8 @@ import subprocess
 import uuid
 import sys
 import yaml
+import json
+import numbers
 
 import pytest
 
@@ -25,6 +27,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -60,6 +63,13 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
+def expect_status_code(http_response, expected_code):
+    assert http_response.status_code == expected_code, (
+        f"Unexpected status code. {http_response.status_code} != {expected_code}, "
+        f"body: {http_response.text}"
+    )
+
+
 def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
@@ -79,12 +89,17 @@ def score_model_in_sagemaker_docker_container(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    port = get_safe_port()
+    scoring_cmd = (
+        f"mlflow deployments run-local -t sagemaker --name test -m {model_uri}"
+        f" -C image=mlflow-pyfunc -C port={port} --flavor {flavor}"
+    )
     proc = _start_scoring_proc(
-        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
+        cmd=scoring_cmd.split(" "),
         env=env,
     )
     return _evaluate_scoring_proc(
-        proc, 5000, data, content_type, activity_polling_timeout_seconds, False
+        proc, port, data, content_type, activity_polling_timeout_seconds, False
     )
 
 
@@ -254,7 +269,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250, validate_version=True):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=60 * 8, validate_version=True):
         self._proc = proc
         self._port = port
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
@@ -298,23 +313,18 @@ class RestEndpoint:
                 self._proc.kill()
 
     def invoke(self, data, content_type):
-        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
         import pandas as pd
+        from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
-        if type(data) == pd.DataFrame:
-            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-                data = data.to_json(orient="records")
-            elif (
-                content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
-                or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED
-            ):
-                data = data.to_json(orient="split")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
+        if isinstance(data, pd.DataFrame):
+            if content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
                 data = data.to_csv(index=False)
             else:
-                raise Exception(
-                    "Unexpected content type for Pandas dataframe input %s" % content_type
-                )
+                assert content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
+                data = json.dumps({"dataframe_split": data.to_dict(orient="split")})
+        elif type(data) not in {str, dict}:
+            data = json.dumps({"instances": data})
+
         response = requests.post(
             url="http://localhost:%d/invocations" % self._port,
             data=data,
@@ -516,3 +526,15 @@ class StartsWithMatcher:
 class AnyStringWith(str):
     def __eq__(self, other):
         return self in other
+
+
+def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
+    import numpy as np
+
+    elem0 = actual_array[0]
+    if isinstance(elem0, numbers.Number) or (
+        isinstance(elem0, (list, np.ndarray)) and isinstance(elem0[0], numbers.Number)
+    ):
+        np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
+    else:
+        np.testing.assert_array_equal(actual_array, desired_array)

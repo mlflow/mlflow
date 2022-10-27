@@ -99,7 +99,6 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "weighted_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
@@ -134,7 +133,6 @@ steps:
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "mean_squared_error" in logged_metrics
     assert "root_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
@@ -314,11 +312,10 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    for dataset in ["validation", "test"]:
-        assert f"root_mean_squared_error_on_data_{dataset}" in logged_metrics
-        assert logged_metrics[f"root_mean_squared_error_on_data_{dataset}"] == 1
-        assert f"mean_absolute_error_on_data_{dataset}" in logged_metrics
-        assert logged_metrics[f"mean_absolute_error_on_data_{dataset}"] == 1
+    assert "root_mean_squared_error" in logged_metrics
+    assert logged_metrics["root_mean_squared_error"] == 1
+    assert "mean_absolute_error" in logged_metrics
+    assert logged_metrics["mean_absolute_error"] == 1
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     assert model_validation_status_path.read_text() == "VALIDATED"

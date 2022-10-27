@@ -1,4 +1,4 @@
-from typing import Dict, Union, Any
+from typing import Dict, Any
 import mlflow
 import hashlib
 import json
@@ -13,7 +13,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
-from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
@@ -846,14 +845,12 @@ def _evaluate(
     return merged_eval_result
 
 
-@experimental
 def evaluate(
-    model: Union[str, "mlflow.pyfunc.PyFuncModel"],
+    model: str,
     data,
     *,
     targets,
     model_type: str,
-    dataset_name=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
@@ -898,10 +895,6 @@ def evaluate(
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
-
-     - The logged MLflow metric keys are constructed using the format:
-       ``{metric_name}_on_{dataset_name}``. Any preexisting metrics with the same name are
-       overwritten.
 
      - The metrics/artifacts listed above are logged to the active MLflow run.
        If no active run exists, a new MLflow run is created for logging these metrics and
@@ -964,7 +957,7 @@ def evaluate(
           must be numeric, and each feature column must only contain scalar values.
 
      - Limitations when environment restoration is enabled:
-        - When environment restoration is enabled for the evaluated model (i.e. a non-local 
+        - When environment restoration is enabled for the evaluated model (i.e. a non-local
           ``env_manager`` is specified), the model is loaded as a client that invokes a MLflow 
           Model Scoring Server process in an independent Python environment with the model's 
           training time dependencies installed. As such, methods like ``predict_proba`` (for 
@@ -994,10 +987,6 @@ def evaluate(
 
     :param model_type: A string describing the model type. The default evaluator
                        supports ``"regressor"`` and ``"classifier"`` as model types.
-
-    :param dataset_name: (Optional) The name of the dataset, must not contain double quotes (``“``).
-                         The name is logged to the ``mlflow.datasets`` tag for lineage tracking
-                         purposes. If not specified, the dataset hash is used as the dataset name.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1109,12 +1098,12 @@ def evaluate(
                                        data,
                                        targets,
                                        model_type,
-                                       dataset_name,
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
+
                                   :py:class:`mlflow.models.MetricThreshold` used for
                                   model validation. Each metric name must either be the
                                   name of a builtin metric or the name of a custom
@@ -1233,7 +1222,6 @@ should be at least 0.05 greater than baseline model accuracy
     dataset = EvaluationDataset(
         data,
         targets=targets,
-        name=dataset_name,
         path=dataset_path,
         feature_names=feature_names,
     )

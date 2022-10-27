@@ -1,3 +1,3 @@
 [submodule "examples/pipelines/sklearn_regression_example"]
 	path = examples/pipelines/sklearn_regression_example
-	url = https://github.com/mlflow/mlr-regression-example.git
+	url = https://github.com/mlflow/mlp-regression-example.git

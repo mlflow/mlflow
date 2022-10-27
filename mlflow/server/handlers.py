@@ -33,7 +33,6 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogParam,
     SetTag,
-    ListExperiments,
     SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,
@@ -80,7 +79,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
@@ -498,7 +496,7 @@ def _disable_unless_serve_artifacts(func):
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
-                    "without `--serve-artifacts`. To enable artifacts server functionality, "
+                    "with `--no-serve-artifacts`. To enable artifacts server functionality, "
                     "run `mlflow server` with `--serve-artifacts`"
                 ),
                 503,
@@ -675,13 +673,12 @@ def _create_run():
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
-    run_name = _generate_random_name() if not request_message.run_name else request_message.run_name
     run = _get_tracking_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
         start_time=request_message.start_time,
         tags=tags,
-        run_name=run_name,
+        run_name=request_message.run_name,
     )
 
     response_message = CreateRun.Response()
@@ -969,26 +966,6 @@ def _get_metric_history():
     run_id = request_message.run_id or request_message.run_uuid
     metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _list_experiments():
-    request_message = _get_request_message(
-        ListExperiments(), schema={"max_results": [_assert_intlike], "page_token": [_assert_string]}
-    )
-    # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
-    # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
-    # #google.protobuf.message.Message.ListFields
-    params = {field.name: val for field, val in request_message.ListFields()}
-    experiment_entities = _get_tracking_store().list_experiments(**params)
-    response_message = ListExperiments.Response()
-    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
-    if experiment_entities.token:
-        response_message.next_page_token = experiment_entities.token
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -1567,9 +1544,9 @@ def _add_static_prefix(route):
 
 def _get_paths(base_path):
     """
-    A service endpoints base path is typically something like /preview/mlflow/experiment.
-    We should register paths like /api/2.0/preview/mlflow/experiment and
-    /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
+    A service endpoints base path is typically something like /mlflow/experiment.
+    We should register paths like /api/2.0/mlflow/experiment and
+    /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
     return ["/api/2.0{}".format(base_path), _add_static_prefix("/ajax-api/2.0{}".format(base_path))]
 
@@ -1627,7 +1604,6 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
-    ListExperiments: _list_experiments,
     SearchExperiments: _search_experiments,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,

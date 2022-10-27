@@ -53,6 +53,7 @@ _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
+
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
@@ -135,6 +136,12 @@ class TrainStep(BaseStep):
                 "Missing template_name config in pipeline config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "positive_class" not in self.step_config and self.template == "classification/v1":
+            raise MlflowException(
+                "`positive_class` must be specified for classification/v1 templates.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self.positive_class = self.step_config.get("positive_class")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
@@ -323,13 +330,13 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        dataset_name=dataset_name,
                         custom_metrics=_load_custom_metric_functions(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
                         ),
                         evaluator_config={
                             "log_model_explainability": False,
+                            "pos_label": self.positive_class,
                         },
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
@@ -481,15 +488,14 @@ class TrainStep(BaseStep):
             experiment_ids=exp_id,
             run_view_type=ViewType.ACTIVE_ONLY,
             max_results=search_max_results,
-            order_by=[f"metrics.{self.primary_metric}_on_data_validation {primary_metric_order}"],
+            order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
         )
 
         metric_names = self.evaluation_metrics.keys()
-        metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
 
         leaderboard_items = []
         for old_run in search_result:
-            if all(metric_key in old_run.data.metrics for metric_key in metric_keys):
+            if all(metric_key in old_run.data.metrics for metric_key in metric_names):
                 leaderboard_items.append(
                     {
                         "Run ID": old_run.info.run_id,
@@ -498,7 +504,7 @@ class TrainStep(BaseStep):
                         ),
                         **{
                             metric_name: old_run.data.metrics[metric_key]
-                            for metric_name, metric_key in zip(metric_names, metric_keys)
+                            for metric_name, metric_key in zip(metric_names, metric_names)
                         },
                     }
                 )
@@ -564,7 +570,7 @@ class TrainStep(BaseStep):
 
     def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
-        primary_metric_tag = f"metrics.{self.primary_metric}_on_data_validation"
+        primary_metric_tag = f"metrics.{self.primary_metric}"
         order_str = (
             "DESC" if self.evaluation_metrics_greater_is_better[self.primary_metric] else "ASC"
         )
@@ -575,11 +581,9 @@ class TrainStep(BaseStep):
         )
         if params:
             params = [f"params.{param}" for param in params]
-            tuning_runs = tuning_runs.filter(
-                [f"metrics.{self.primary_metric}_on_data_validation", *params]
-            )
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}", *params])
         else:
-            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}_on_data_validation"])
+            tuning_runs = tuning_runs.filter([f"metrics.{self.primary_metric}"])
         tuning_runs = tuning_runs.reset_index().rename(
             columns={"index": "Model Rank", primary_metric_tag: self.primary_metric}
         )
@@ -806,6 +810,8 @@ class TrainStep(BaseStep):
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
+        if "positive_class" in pipeline_config:
+            step_config["positive_class"] = pipeline_config.get("positive_class")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
@@ -892,7 +898,6 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
-                    dataset_name="validation",
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),

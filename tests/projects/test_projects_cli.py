@@ -16,7 +16,6 @@ from tests.projects.utils import (
     TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
     SSH_PROJECT_URI,
-    TEST_NO_SPEC_PROJECT_DIR,
     TEST_DOCKER_PROJECT_DIR,
 )
 
@@ -105,28 +104,13 @@ def test_run_local_conda_env():
     )
 
 
-def test_run_local_no_spec():
-    # Run an example project that doesn't contain an MLproject file
-    expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
-    invoke_cli_runner(
-        cli.run,
-        [
-            TEST_NO_SPEC_PROJECT_DIR,
-            "-e",
-            "check_conda_env.py",
-            "-P",
-            "conda-env-name=%s" % expected_env_name,
-        ],
-    )
-
-
 @skip_if_skinny
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
     assert GIT_PROJECT_URI.startswith("https")
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
 
 
 @pytest.mark.skipif(
@@ -137,8 +121,8 @@ def test_run_git_ssh():
     # where SSH keys are unavailable. However it should be run locally whenever logic related to
     # running Git projects is modified.
     assert SSH_PROJECT_URI.startswith("git@")
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
 
 
 @pytest.mark.skipif(

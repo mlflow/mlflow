@@ -54,15 +54,27 @@ class PandasSplitOrientedDataFrame {
    * @param frameJson A representation of the DataFrame
    */
   static PandasSplitOrientedDataFrame fromJson(String frameJson) throws IOException {
-    Map<String, List<?>> parsedFrame = SerializationUtils.fromJson(frameJson, Map.class);
-    validatePandasDataFrameJsonRepresentation(parsedFrame);
+    Map<String, Object> parsedFrame =  validatePandasDataFrameJsonRepresentation(
+        SerializationUtils.fromJson(frameJson, Map.class));
     return new PandasSplitOrientedDataFrame(
         (List<String>) parsedFrame.get(PANDAS_FRAME_KEY_COLUMN_NAMES),
         (List<List<Object>>) parsedFrame.get(PANDAS_FRAME_KEY_ROWS));
   }
 
-  private static void validatePandasDataFrameJsonRepresentation(Map<String, List<?>> parsedFrame)
-      throws InvalidSchemaException {
+  private static Map<String, List<?>> validatePandasDataFrameJsonRepresentation(
+    Map<String, Object> parsedInput) throws InvalidSchemaException {
+    Object dataframeSplitField = parsedInput.get("dataframe_split");
+    if (dataframeSplitField == null) {
+        throw new InvalidSchemaException(
+            "The JSON input is not a valid Dataframe representation in split format. "
+                + "Missing required field 'dataframe_split'");
+    }
+    if (!(dataframeSplitField instanceof Map)) {
+        throw new InvalidSchemaException(
+            "The JSON input is not a valid Dataframe representation in split format. "
+                + "'dataframe_split' must contain a dictionary.");
+    }
+    Map<String, List<?>> parsedFrame = (Map<String, List<?>>)dataframeSplitField;
     String[] expectedColumnNames =
         new String[] {PANDAS_FRAME_KEY_COLUMN_NAMES, PANDAS_FRAME_KEY_ROWS};
     for (String columnName : expectedColumnNames) {
@@ -74,6 +86,7 @@ class PandasSplitOrientedDataFrame {
                 columnName));
       }
     }
+    return parsedFrame;
   }
 
   /** @return The number of rows contained in the DataFrame */
@@ -103,7 +116,6 @@ class PandasSplitOrientedDataFrame {
       }
       mleapRows.add(leapFrameBuilder.createRowFromIterable(mleapRow));
     }
-
     return leapFrameBuilder.createFrame(leapFrameSchema, mleapRows);
   }
 }

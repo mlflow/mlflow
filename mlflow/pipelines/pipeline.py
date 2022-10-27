@@ -21,7 +21,7 @@ from mlflow.pipelines.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
+from typing import List, Union
 
 _logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
+        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         # self._steps contains concatenated ordered lists of step objects representing multiple
@@ -355,6 +356,7 @@ class _BasePipeline:
         )
 
 
+from mlflow.pipelines.classification.v1.pipeline import ClassificationPipeline
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
 
 
@@ -377,7 +379,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str) -> Union[RegressionPipeline, ClassificationPipeline]:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory

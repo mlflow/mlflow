@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import PropTypes from 'prop-types';
-import { deleteExperimentApi, listExperimentsApi } from '../../actions';
+import { deleteExperimentApi, searchExperimentsApi } from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
@@ -16,7 +16,7 @@ export class DeleteExperimentModalImpl extends Component {
     experimentId: PropTypes.string.isRequired,
     experimentName: PropTypes.string.isRequired,
     deleteExperimentApi: PropTypes.func.isRequired,
-    listExperimentsApi: PropTypes.func.isRequired,
+    searchExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
   };
 
@@ -42,7 +42,7 @@ export class DeleteExperimentModalImpl extends Component {
           }
         }
       })
-      .then(() => this.props.listExperimentsApi(deleteExperimentRequestId))
+      .then(() => this.props.searchExperimentsApi(deleteExperimentRequestId))
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
       });
@@ -83,7 +83,7 @@ export class DeleteExperimentModalImpl extends Component {
 
 const mapDispatchToProps = {
   deleteExperimentApi,
-  listExperimentsApi,
+  searchExperimentsApi,
 };
 
 export const DeleteExperimentModal = withRouter(

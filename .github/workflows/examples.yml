@@ -65,6 +65,7 @@ jobs:
         echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
     - uses: ./.github/actions/setup-python
+    - uses: ./.github/actions/setup-pyenv
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
@@ -76,6 +77,7 @@ jobs:
       env:
         SPARK_LOCAL_IP: localhost
       run: |
+        export MLFLOW_HOME=$(pwd)
         pytest tests/examples --durations=30
 
     - name: Remove conda environments

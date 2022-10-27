@@ -40,11 +40,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     ]
 
     def _validate_and_apply_step_config(self):
-        if len(self.step_config) == 0:
-            raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         dataset_format = self.step_config.get("format")
         if not dataset_format:
             raise MlflowException(
@@ -54,6 +49,23 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        if self.step_class() == StepClass.TRAINING:
+            self.target_col = self.step_config.get("target_col")
+            if self.target_col is None:
+                raise MlflowException(
+                    "Missing target_col config in pipeline config.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if (
+                "positive_class" not in self.step_config
+                and self.step_config["template_name"] == "classification/v1"
+            ):
+                raise MlflowException(
+                    "`positive_class` must be specified for classification/v1 templates.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            self.positive_class = self.step_config.get("positive_class")
         for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
                 self.dataset = dataset_class.from_config(
@@ -77,6 +89,21 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         _logger.debug("Successfully stored data in parquet format at '%s'", dataset_dst_path)
 
         ingested_df = read_parquet_as_pandas_df(data_parquet_path=dataset_dst_path)
+        if self.step_class() == StepClass.TRAINING:
+            if self.target_col not in ingested_df.columns:
+                raise MlflowException(
+                    f"Target column '{self.target_col}' not found in ingested dataset.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if self.positive_class is not None:
+                cardinality = ingested_df[self.target_col].nunique()
+                if cardinality != 2:
+                    raise MlflowException(
+                        f"Target column '{self.target_col}' must have a cardinality of 2,"
+                        f"found '{cardinality}'.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
         ingested_dataset_profile = None
         if not self.skip_data_profiling:
             _logger.debug("Profiling ingested dataset")
@@ -184,10 +211,19 @@ class IngestStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+
         data_config = pipeline_config.get("data", {})
         ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+        target_config = {"target_col": pipeline_config.get("target_col")}
+        if "positive_class" in pipeline_config:
+            target_config["positive_class"] = pipeline_config.get("positive_class")
         return cls(
-            step_config={**data_config, **ingest_config},
+            step_config={
+                **data_config,
+                **ingest_config,
+                **target_config,
+                **{"template_name": pipeline_config.get("template")},
+            },
             pipeline_root=pipeline_root,
         )
 
