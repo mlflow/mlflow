@@ -464,7 +464,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
         raise MlflowException(f"{exception_header} returned None.")
 
     if not _is_numeric(metric):
-        raise MlflowException(f"{exception_header} did not return a scala numeric value.")
+        raise MlflowException(f"{exception_header} did not return a scalar numeric value.")
 
     return metric
 
