@@ -1325,59 +1325,15 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def dummy_fn(*_):
         pass
 
-    with pytest.raises(
-        MlflowException,
-        match=f"'{dummy_fn.__name__}' (.*) returned None",
-    ):
-        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0, ""), eval_df, metrics)
+    with pytest.raises(MlflowException, match=f"'{dummy_fn.__name__}' (.*) returned None"):
+        _evaluate_custom_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_df, metrics)
 
-    def incorrect_return_type_1(*_):
-        return 3
-
-    def incorrect_return_type_2(*_):
+    def incorrect_return_type(*_):
         return "stuff", 3
 
-    for test_fn in (
-        incorrect_return_type_1,
-        incorrect_return_type_2,
-    ):
-        with pytest.raises(
-            MlflowException,
-            match=f"'{test_fn.__name__}' (.*) did not return in an expected format",
-        ):
-            _evaluate_custom_metric(
-                _CustomMetric(test_fn, test_fn.__name__, 0, ""), eval_df, metrics
-            )
-
-    def non_str_metric_name(*_):
-        return {123: 123, "a": 32.1, "b": 3}
-
-    def non_numerical_metric_value(*_):
-        return {"stuff": 12, "non_numerical_metric": "123"}
-
-    for test_fn in (
-        non_str_metric_name,
-        non_numerical_metric_value,
-    ):
-        with pytest.raises(
-            MlflowException,
-            match=f"'{test_fn.__name__}' (.*) did not return metrics as a dictionary of "
-            "string metric names with numerical values",
-        ):
-            _evaluate_custom_metric(
-                _CustomMetric(test_fn, test_fn.__name__, 0, ""), eval_df, metrics
-            )
-
-    def non_str_artifact_name(*_):
-        return {"a": 32.1, "b": 3}, {1: [1, 2, 3]}
-
-    with pytest.raises(
-        MlflowException,
-        match=f"'{non_str_artifact_name.__name__}' (.*) did not return artifacts as a "
-        "dictionary of string artifact names with their corresponding objects",
-    ):
+    with pytest.raises(MlflowException, match="did not return a scalar numeric value"):
         _evaluate_custom_metric(
-            _CustomMetric(non_str_artifact_name, non_str_artifact_name.__name__, 0, ""),
+            _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0),
             eval_df,
             metrics,
         )
@@ -1386,14 +1342,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 @pytest.mark.parametrize(
     ("fn", "expectation"),
     [
-        (lambda eval_df, _: {"pred_sum": sum(eval_df["prediction"])}, does_not_raise()),
-        (lambda eval_df, builtin_metrics: ({"test": 1.1}, {"a_list": [1, 2, 3]}), does_not_raise()),
         (
-            lambda _, __: 3,
-            pytest.raises(
-                MlflowException,
-                match="'<lambda>' (.*) did not return in an expected format",
-            ),
+            lambda eval_df, _: sum(eval_df["prediction"]),
+            does_not_raise(),
+        ),
+        (
+            lambda _, __: None,
+            pytest.raises(MlflowException, match="did not return a scalar numeric value"),
         ),
     ],
 )
@@ -1401,7 +1356,7 @@ def test_evaluate_custom_metric_lambda(fn, expectation):
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
     with expectation:
-        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0, ""), eval_df, metrics)
+        _evaluate_custom_metric(_CustomMetric(fn, "<lambda>", 0), eval_df, metrics)
 
 
 def test_evaluate_custom_metric_success():
@@ -1417,7 +1372,7 @@ def test_evaluate_custom_metric_success():
         }
 
     res_metrics, res_artifacts = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric, "", 0, ""), eval_df, metrics
+        _CustomMetric(example_custom_metric, "", 0), eval_df, metrics
     )
     assert res_metrics == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -1442,7 +1397,7 @@ def test_evaluate_custom_metric_success():
         )
 
     res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric_with_artifacts, "", 0, ""), eval_df, metrics
+        _CustomMetric(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
     )
     assert res_metrics_2 == {
         "example_count_times_1_point_5": metrics["example_count"] * 1.5,
@@ -1610,7 +1565,7 @@ def test_custom_metric_logs_artifacts_from_paths(
             f.write("hello world")
         example_artifacts["test_text_artifact"] = path_join(tmp_path, "test.txt")
 
-        return {}, example_artifacts
+        return example_artifacts
 
     result, _, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri,
