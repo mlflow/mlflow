@@ -516,7 +516,6 @@ def test_enforce_tensor_spec_variable_signature():
 
     standard_spec = _infer_schema(standard_array).inputs[0]
     assert standard_spec.shape == (-1, 2, 3)
-    assert standard_spec.type == np.dtype('int32')
 
     result_array = _enforce_tensor_spec(standard_array, standard_spec)
     np.testing.assert_array_equal(standard_array, result_array)
