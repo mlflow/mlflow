@@ -330,7 +330,7 @@ class EvaluateStep(BaseStep):
             confusion_matrix_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "confusion_matrix_on_data_validation.png",
+                "confusion_matrix.png",
             )
             if os.path.exists(confusion_matrix_path):
                 classifiers_plot_tab.add_html(
@@ -344,7 +344,7 @@ class EvaluateStep(BaseStep):
             lift_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "lift_curve_plot_on_data_validation.png",
+                "lift_curve_plot.png",
             )
             if os.path.exists(lift_curve_path):
                 classifiers_plot_tab.add_html(
@@ -356,7 +356,7 @@ class EvaluateStep(BaseStep):
             pr_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "precision_recall_curve_plot_on_data_validation.png",
+                "precision_recall_curve_plot.png",
             )
             if os.path.exists(pr_curve_path):
                 classifiers_plot_tab.add_html(
@@ -368,7 +368,7 @@ class EvaluateStep(BaseStep):
             roc_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "roc_curve_plot_on_data_validation.png",
+                "roc_curve_plot.png",
             )
             if os.path.exists(roc_curve_path):
                 classifiers_plot_tab.add_html(
