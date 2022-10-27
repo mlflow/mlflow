@@ -167,7 +167,10 @@ def _get_python_env_file(model_config):
     for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
             env = config.get(mlflow.pyfunc.ENV)
-            if env:
+            if isinstance(env, dict):
+                # Models saved in MLflow >= 2.0 use a dictionary for the pyfunc flavor
+                # `env` config, where the keys are different environment managers (e.g.
+                # conda, virtualenv) and the values are corresponding environment paths
                 return env[EnvType.VIRTUALENV]
     return _PYTHON_ENV_FILE_NAME
 
