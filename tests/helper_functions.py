@@ -99,7 +99,7 @@ def score_model_in_sagemaker_docker_container(
         env=env,
     )
     return _evaluate_scoring_proc(
-        proc, 5000, data, content_type, activity_polling_timeout_seconds, False
+        proc, port, data, content_type, activity_polling_timeout_seconds, False
     )
 
 
