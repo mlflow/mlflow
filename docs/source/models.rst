@@ -311,9 +311,19 @@ missing values.
 Handling Date and Timestamp
 """""""""""""""""""""""""""
 For datetime values, Python has precision built into the type. For example, datetime values with
-day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
+day precision have numpy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+Handling Ragged Arrays
+""""""""""""""""""""""
+Ragged arrays can be created in numpy and are produced with a shape of (-1,) and a dytpe of
+object. This will be handled by default when using ``infer_signature``, resulting in a
+signature containing ``Tensor('object', (-1,))``. A similar signature can be manually created
+containing a more detailed representation of a ragged array, for a more expressive signature,
+such as ``Tensor('object', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
+as possible given the signature provided, and will support ragged input arrays as well.
+
 
 .. _how-to-log-models-with-signatures:
 

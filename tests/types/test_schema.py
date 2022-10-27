@@ -500,6 +500,9 @@ def test_enforce_tensor_spec_variable_signature():
     ragged_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3]]], dtype=object)
     inferred_schema = _infer_schema(ragged_array)
     inferred_spec = inferred_schema.inputs[0]
+    assert inferred_spec.shape == (-1,)
+    assert inferred_spec.type == np.dtype(object)
+
     result_array = _enforce_tensor_spec(standard_array, inferred_spec)
     np.testing.assert_array_equal(standard_array, result_array)
     result_array = _enforce_tensor_spec(ragged_array, inferred_spec)
@@ -512,6 +515,9 @@ def test_enforce_tensor_spec_variable_signature():
     np.testing.assert_array_equal(ragged_array, result_array)
 
     standard_spec = _infer_schema(standard_array).inputs[0]
+    assert standard_spec.shape == (-1, 2, 3)
+    assert standard_spec.type == np.dtype('int32')
+
     result_array = _enforce_tensor_spec(standard_array, standard_spec)
     np.testing.assert_array_equal(standard_array, result_array)
     with pytest.raises(
