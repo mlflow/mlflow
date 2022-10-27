@@ -88,8 +88,8 @@ jobs:
           environment:
             MLFLOW_PIPELINES_PROFILE: local
           command: |
-            # Temporary patch for custom_metrics.py to make it return a scala value
-            cat dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
+            # Patch for custom_metrics.py to make it return a scalar value
+            cat ../../../dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
             mlp run
       - run:
           name: Run notebook
