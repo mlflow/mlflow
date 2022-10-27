@@ -142,20 +142,6 @@ metrics:
     )
     pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
     pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
-        """
-def weighted_mean_squared_error(eval_df, builtin_metrics):
-    from sklearn.metrics import mean_squared_error
-
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
-"""
-    )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
