@@ -333,12 +333,14 @@ def test_run_pipeline_step_maintains_execution_status_correctly(pandas_df, tmp_p
 
     assert get_test_pipeline_step_execution_state(ingest_step_good).status == StepStatus.UNKNOWN
     assert get_test_pipeline_step_execution_state(ingest_step_good).last_updated_timestamp == 0
+    assert get_test_pipeline_step_execution_state(ingest_step_good).stack_trace is None
     curr_time = time.time()
     run_test_pipeline_step([ingest_step_good], ingest_step_good)
     assert get_test_pipeline_step_execution_state(ingest_step_good).status == StepStatus.SUCCEEDED
     assert (
         get_test_pipeline_step_execution_state(ingest_step_good).last_updated_timestamp >= curr_time
     )
+    assert get_test_pipeline_step_execution_state(ingest_step_good).stack_trace is None
 
     ingest_step_bad = IngestStep.from_pipeline_config(
         pipeline_config={
@@ -356,6 +358,7 @@ def test_run_pipeline_step_maintains_execution_status_correctly(pandas_df, tmp_p
     assert (
         get_test_pipeline_step_execution_state(ingest_step_bad).last_updated_timestamp >= curr_time
     )
+    assert "Traceback" in get_test_pipeline_step_execution_state(ingest_step_bad).stack_trace
 
 
 def test_run_pipeline_step_returns_expected_result(test_pipeline):
