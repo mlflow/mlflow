@@ -63,16 +63,13 @@ def _create_custom_metric_flaml(
         weight_train=None,
         *args,
     ):
-        val_metrics = calc_metric(X_val, y_val, estimator)
-        if metric_name not in val_metrics:
-            raise MlflowException(
-                f"User-defined function has not calculated expected primary metric {metric_name}.\n"
-                f"The function has returned the following metrics: {val_metrics}"
-            )
-        main_metric = coeff * val_metrics[metric_name]
-        val_metrics = add_suffix(val_metrics, "val")
-        train_metrics = add_suffix(calc_metric(X_train, y_train, estimator), "train")
-        return main_metric, {**val_metrics, **train_metrics}
+        val_metric = coeff * calc_metric(X_val, y_val, estimator)
+        train_metric = add_suffix(calc_metric(X_train, y_train, estimator), "train")
+        main_metric = coeff * val_metric
+        return main_metric, {
+            f"{metric_name}_train": train_metric,
+            f"{metric_name}_val": val_metric,
+        }
 
     return custom_metric
 
