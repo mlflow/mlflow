@@ -143,7 +143,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         path_to_bin = ("bin", "python")
     else:
         # pyenv-win doesn't provide the `pyenv root` command
-        pyenv_root = os.getenv("PYENV_ROOT")
+        pyenv_root = pyenv_root or os.getenv("PYENV_ROOT")
         if pyenv_root is None:
             raise MlflowException("Environment variable 'PYENV_ROOT' must be set")
         path_to_bin = ("python.exe",)
@@ -167,7 +167,10 @@ def _get_python_env_file(model_config):
     for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
             env = config.get(mlflow.pyfunc.ENV)
-            if env:
+            if isinstance(env, dict):
+                # Models saved in MLflow >= 2.0 use a dictionary for the pyfunc flavor
+                # `env` config, where the keys are different environment managers (e.g.
+                # conda, virtualenv) and the values are corresponding environment paths
                 return env[EnvType.VIRTUALENV]
     return _PYTHON_ENV_FILE_NAME
 
