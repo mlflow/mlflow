@@ -562,7 +562,7 @@ class Environment:
         else:
             separator = " & "
 
-        command = separator.join(self._activate_cmd + command)
+        command = separator.join(map(str, self._activate_cmd + command))
         if _IS_UNIX:
             command = ["bash", "-c", command]
         else:
