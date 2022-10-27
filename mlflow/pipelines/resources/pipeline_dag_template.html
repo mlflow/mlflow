@@ -81,6 +81,7 @@
           transformer --> trainMLPStep
           trainMLPStep --> run{{run}}
           trainMLPStep --> model{{model}}
+          trainMLPStep --> predictedTrainingData[(predicted_training_data)]
 
           model --> evaluateMLPStep[["<font>evaluate</font>"]]
           splitData1 --> evaluateMLPStep
@@ -117,6 +118,7 @@
           click transformedParquet renderMoreInformation "{{transformed_training_and_validation_data_help}}"
           click run renderMoreInformation "{{mlflow_run_help}}"
           click model renderMoreInformation "{{fitted_model_help}}"
+          click predictedTrainingData renderMoreInformation "{{predicted_training_data_help}}"
           click transformer renderMoreInformation "{{fitted_transformer_help}}"
           click model_validation_status renderMoreInformation "{{model_validation_status_help}}"
           click registered_model_version renderMoreInformation "{{registered_model_version_help}}"
