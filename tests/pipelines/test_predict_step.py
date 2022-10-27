@@ -112,8 +112,10 @@ def test_predict_step_runs(
             },
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "output": {
+                        "using": "parquet",
+                        "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    }
                 },
             },
         }
@@ -147,8 +149,10 @@ def test_predict_step_uses_register_step_model_name(
             "model_registry": {"model_name": rm_name},
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "output": {
+                        "using": "parquet",
+                        "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    }
                 },
             },
         }
@@ -185,8 +189,10 @@ def test_predict_step_uses_register_step_output(
             "model_registry": {"model_name": register_step_rm_name},
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "output": {
+                        "using": "parquet",
+                        "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    }
                 },
             },
         }
@@ -219,8 +225,10 @@ def test_predict_model_uri_takes_precendence_over_model_name(
             "model_registry": {"model_name": register_step_rm_name, "model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "output": {
+                        "using": "parquet",
+                        "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    }
                 },
             },
         }
@@ -249,16 +257,18 @@ def test_predict_step_output_formats(
             "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "using": output_format,
+                    "output": {
+                        "using": output_format,
+                    }
                 },
             },
         }
     )
     if output_format == "table":
-        pipeline_config["steps"]["predict"]["output_location"] = output_name
+        pipeline_config["steps"]["predict"]["output"]["location"] = output_name
     else:
         file_name = "{}.{}".format(output_name, output_format)
-        pipeline_config["steps"]["predict"]["output_location"] = str(
+        pipeline_config["steps"]["predict"]["output"]["location"] = str(
             predict_step_output_dir / file_name
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
@@ -266,13 +276,13 @@ def test_predict_step_output_formats(
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
-@pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
+@pytest.mark.parametrize("using", ["parquet", "delta", "table"])
 @pytest.mark.parametrize("save_mode", ["default", "overwrite"])
 def test_predict_correctly_handles_save_modes(
     tmp_pipeline_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
-    output_format: str,
+    using: str,
     save_mode: str,
 ):
     rm_name = "model_" + get_random_id()
@@ -285,13 +295,13 @@ def test_predict_correctly_handles_save_modes(
         ],
         ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6", "prediction"],
     )
-    if output_format == "table":
+    if using == "table":
         output_path = get_random_id()
         sdf.write.format("delta").saveAsTable(output_path)
     else:
-        output_file = "output_{}.{}".format(get_random_id(), output_format)
+        output_file = "output_{}.{}".format(get_random_id(), using)
         output_path = str(predict_step_output_dir / output_file)
-        sdf.coalesce(1).write.format(output_format).save(output_path)
+        sdf.coalesce(1).write.format(using).save(output_path)
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     pipeline_config.update(
@@ -299,9 +309,11 @@ def test_predict_correctly_handles_save_modes(
             "model_registry": {"model_uri": model_uri},
             "steps": {
                 "predict": {
-                    "using": output_format,
-                    "output_location": output_path,
-                    "save_mode": save_mode,
+                    "output": {
+                        "using": using,
+                        "location": output_path,
+                        "save_mode": save_mode,
+                    }
                 },
             },
         }
@@ -317,17 +329,19 @@ def test_predict_correctly_handles_save_modes(
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_predict_throws_when_improperly_configured():
-    for required_key in ["using", "output_location"]:
+    for required_key in ["using", "location"]:
         pipeline_config = {
             "model_registry": {"model_uri": "models:/taxi_fare_regressor/Production"},
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": "random/path",
+                    "output": {
+                        "using": "parquet",
+                        "location": "random/path",
+                    }
                 },
             },
         }
-        pipeline_config["steps"]["predict"].pop(required_key)
+        pipeline_config["steps"]["predict"]["output"].pop(required_key)
         predict_step = PredictStep.from_pipeline_config(
             pipeline_config=pipeline_config,
             pipeline_root=os.getcwd(),
@@ -342,8 +356,10 @@ def test_predict_throws_when_improperly_configured():
             "model_registry": {"model_uri": "my model"},
             "steps": {
                 "predict": {
-                    "using": "fancy_format",
-                    "output_location": "random/path",
+                    "output": {
+                        "using": "fancy_format",
+                        "location": "random/path",
+                    }
                 },
             },
         },
@@ -358,8 +374,10 @@ def test_predict_throws_when_no_model_is_specified():
     pipeline_config = {
         "steps": {
             "predict": {
-                "using": "parquet",
-                "output_location": "random/path",
+                "output": {
+                    "using": "parquet",
+                    "location": "random/path",
+                }
             }
         }
     }
@@ -384,8 +402,10 @@ def test_predict_skips_profiling_when_specified(
                 "model_registry": {"model_uri": model_uri},
                 "steps": {
                     "predict": {
-                        "using": "parquet",
-                        "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                        "output": {
+                            "using": "parquet",
+                            "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                        },
                         "skip_data_profiling": True,
                     },
                 },
@@ -424,8 +444,10 @@ def test_predict_uses_registry_uri(
         {
             "steps": {
                 "predict": {
-                    "using": "parquet",
-                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "output": {
+                        "using": "parquet",
+                        "location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    }
                 },
             },
         }

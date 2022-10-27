@@ -44,7 +44,7 @@ class PredictStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
-        required_configuration_keys = ["using", "output_location"]
+        required_configuration_keys = ["using", "location"]
         for key in required_configuration_keys:
             if key not in self.step_config:
                 raise MlflowException(
@@ -142,7 +142,7 @@ class PredictStep(BaseStep):
 
         # check if output location is already populated for non-delta output formats
         output_format = self.step_config["using"]
-        output_location = self.step_config["output_location"]
+        output_location = self.step_config["location"]
         output_populated = False
         if self.save_mode in ["default", "error", "errorifexists"]:
             if output_format == "parquet" or output_format == "delta":
@@ -220,6 +220,10 @@ class PredictStep(BaseStep):
         step_config = {}
         if pipeline_config.get("steps", {}).get("predict", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
+        if pipeline_config.get("steps", {}).get("predict", {}).get("output", {}) is not None:
+            step_config.update(
+                pipeline_config.get("steps", {}).get("predict", {}).get("output", {})
+            )
         step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
         step_config["model_registry"] = pipeline_config.get("model_registry", {})
         if pipeline_config.get("model_registry", {}).get("model_uri") is not None:

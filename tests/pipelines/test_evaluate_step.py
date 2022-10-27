@@ -126,6 +126,7 @@ def test_evaluate_produces_expected_step_card(
 template: "classification/v1"
 positive_class: "Iris-setosa"
 target_col: "y"
+primary_metric: "f1_score"
 experiment:
   tracking_uri: {tracking_uri}
 steps:
@@ -133,8 +134,6 @@ steps:
     validation_criteria:
       - metric: f1_score
         threshold: 10
-metrics:
-  primary: "f1_score"
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
         )
