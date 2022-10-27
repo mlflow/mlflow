@@ -359,7 +359,10 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+            train_predicted_probs = model.predict_proba(raw_train_df.drop(self.target_col, axis=1))
+            predicted_training_data = raw_train_df.assign(
+                predicted_data=train_predictions, predicted_probability=train_predicted_probs[:, 0]
+            )
             predicted_training_data.to_parquet(
                 os.path.join(output_directory, TrainStep.PREDICTED_TRAINING_DATA_RELATIVE_PATH)
             )
