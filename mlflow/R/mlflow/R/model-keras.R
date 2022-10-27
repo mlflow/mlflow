@@ -14,9 +14,9 @@ mlflow_save_model.keras.engine.training.Model <- function(model,
   keras::save_model_hdf5(model, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
   version <- as.character(utils::packageVersion("keras"))
 
-  conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste("keras>=", version, sep = ""))
-  )
+  pip_deps <- list("mlflow", paste("keras>=", version, sep = ""))
+  conda_env <- create_default_conda_env_if_absent(path, conda_env, default_pip_deps = pip_deps)
+  python_env <- create_python_env(path, dependencies = pip_deps)
   keras_conf <- list(
     keras = list(
       version = "2.2.2",
@@ -24,7 +24,8 @@ mlflow_save_model.keras.engine.training.Model <- function(model,
   pyfunc_conf <- create_pyfunc_conf(
     loader_module = "mlflow.keras",
     data = "model.h5",
-    env = conda_env)
+    env = list(conda = conda_env, virtualenv = python_env),
+  )
   model_spec$flavors <- append(append(model_spec$flavors, keras_conf), pyfunc_conf)
   mlflow_write_model_spec(path, model_spec)
 

@@ -9,7 +9,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -167,7 +167,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
+    return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()

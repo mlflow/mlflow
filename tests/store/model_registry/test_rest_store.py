@@ -80,11 +80,10 @@ class TestRestStore(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _args(self, host_creds, endpoint, method, json_body, preview=True):
+    def _args(self, host_creds, endpoint, method, json_body):
         res = {
             "host_creds": host_creds,
-            "endpoint": ("/api/2.0/preview/mlflow/%s" if preview else "/api/2.0/mlflow/%s")
-            % endpoint,
+            "endpoint": "/api/2.0/mlflow/%s" % endpoint,
             "method": method,
         }
         if method == "GET":
@@ -101,8 +100,8 @@ class TestRestStore(unittest.TestCase):
         json_body = message_to_json(proto_message)
         http_request.assert_has_calls(
             [
-                mock.call(**(self._args(self.creds, endpoint, method, json_body, preview=preview)))
-                for endpoint, method, preview in endpoints
+                mock.call(**(self._args(self.creds, endpoint, method, json_body)))
+                for endpoint, method in endpoints
             ]
         )
 
@@ -201,7 +200,7 @@ class TestRestStore(unittest.TestCase):
         name = "model_1"
         self.store.get_latest_versions(name=name)
         endpoint = "registered-models/get-latest-versions"
-        endpoints = [(endpoint, "POST", False), (endpoint, "GET", True)]
+        endpoints = [(endpoint, "POST"), (endpoint, "GET")]
         self._verify_all_requests(
             mock_multiple_http_requests, endpoints, GetLatestVersions(name=name)
         )
@@ -211,7 +210,7 @@ class TestRestStore(unittest.TestCase):
         name = "model_1"
         self.store.get_latest_versions(name=name, stages=["blaah"])
         endpoint = "registered-models/get-latest-versions"
-        endpoints = [(endpoint, "POST", False), (endpoint, "GET", True)]
+        endpoints = [(endpoint, "POST"), (endpoint, "GET")]
         self._verify_all_requests(
             mock_multiple_http_requests, endpoints, GetLatestVersions(name=name, stages=["blaah"])
         )

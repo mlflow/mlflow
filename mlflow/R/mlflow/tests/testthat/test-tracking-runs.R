@@ -11,7 +11,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run <- mlflow_get_run(client = client, run$run_uuid)
@@ -95,7 +95,7 @@ test_that("mlflow_restore_run() work properly", {
   run1 <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run2 <- mlflow_get_run(client = client, run1$run_uuid)
@@ -407,21 +407,6 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     expect_equal(logged_file3$is_dir, FALSE)
     expect_equal(strtoi(logged_file3$file_size), nchar(contents))
   })
-})
-
-test_that("mlflow_list_run_infos() works", {
-  mlflow_clear_test_dir("mlruns")
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("test", 10)
-  })
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 1)
-  mlflow_set_experiment("new-experiment")
-  expect_equal(nrow(mlflow_list_run_infos()), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("new_experiment_metric", 20)
-  })
-  expect_equal(nrow(mlflow_list_run_infos()), 1)
 })
 
 test_that("mlflow_log_batch() works", {

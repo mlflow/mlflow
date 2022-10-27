@@ -264,7 +264,8 @@ def save_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
-            env=_CONDA_ENV_FILE_NAME,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
             code=code_path_subdir,
             predict_fn=pyfunc_predict_fn,
         )
@@ -612,9 +613,8 @@ class _AutologgingMetricsManager:
        because the object maybe a numpy array which does not support additional attribute
        assignment.
     (2) _log_post_training_metrics_enabled flag, in the following method scope:
-       `model.fit`, `eval_and_log_metrics`, `model.score`,
-       in order to avoid nested/duplicated autologging metric, when run into these scopes,
-       we need temporarily disable the metric autologging.
+       `model.fit` and `model.score`, in order to avoid nested/duplicated autologging metric, when
+       run into these scopes, we need temporarily disable the metric autologging.
     (3) _eval_dataset_info_map, it is a double level map:
        `_eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each
        element in the list is an id of "eval_dataset" instance.
@@ -1767,101 +1767,3 @@ def _autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
-
-
-def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None, pos_label=None):
-    """
-    Computes and logs metrics (and artifacts) for the given model and labeled dataset.
-    The metrics/artifacts mirror what is auto-logged when training a model
-    (see mlflow.sklearn.autolog).
-
-    :param model: The model to be evaluated.
-    :param X: The features for the evaluation dataset.
-    :param y_true: The labels for the evaluation dataset.
-    :param prefix: Prefix used to name metrics and artifacts.
-    :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
-    :param pos_label: The positive label used to compute binary classification metrics such as
-        precision, recall, f1, etc. This parameter is only used for binary classification model
-        - if used on multi-label model, the evaluation will fail;
-        - if used for regression model, the parameter will be ignored.
-        For multi-label classification, keep `pos_label` unset (or set to `None`), and the
-        function will calculate metrics for each label and find their average weighted by support
-        (number of true instances for each label).
-    :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
-
-    ** Example **
-
-    .. code-block:: python
-
-        from sklearn.linear_model import LinearRegression
-        import mlflow
-
-        # enable autologging
-        mlflow.sklearn.autolog()
-
-        # prepare training data
-        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
-        y = np.dot(X, np.array([1, 2])) + 3
-
-        # prepare evaluation data
-        X_eval = np.array([[3, 3], [3, 4]])
-        y_eval = np.dot(X_eval, np.array([1,2])) + 3
-
-        # train a model
-        model = LinearRegression()
-        with mlflow.start_run() as run:
-            model.fit(X, y)
-            metrics = mlflow.sklearn.eval_and_log_metrics(model, X_eval, y_eval, prefix="val_")
-
-
-    Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
-    metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
-    as 'training_XXXXX'. Metrics and artifacts are logged under the currently active run if one
-    exists, otherwise a new run is started and left active.
-
-    Raises an error if:
-      - prefix is empty
-      - model is not an sklearn estimator or does not support the 'predict' method
-    """
-    metrics_manager = _AUTOLOGGING_METRICS_MANAGER
-    with metrics_manager.disable_log_post_training_metrics():
-        return _eval_and_log_metrics_impl(
-            model, X, y_true, prefix=prefix, sample_weight=sample_weight, pos_label=pos_label
-        )
-
-
-def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight, pos_label):
-    from mlflow.sklearn.utils import _log_estimator_content
-    from sklearn.base import BaseEstimator
-
-    if prefix is None or prefix == "":
-        raise ValueError("Must specify a non-empty prefix")
-
-    if not isinstance(model, BaseEstimator):
-        raise ValueError(
-            "The provided model was not a sklearn estimator. Please ensure the passed-in model is "
-            "a sklearn estimator subclassing sklearn.base.BaseEstimator"
-        )
-
-    if not hasattr(model, "predict"):
-        raise ValueError(
-            "Model does not support predictions. Please pass a model object defining a predict() "
-            "method"
-        )
-
-    active_run = mlflow.active_run()
-    run = active_run if active_run is not None else mlflow.start_run()
-
-    with MlflowAutologgingQueueingClient() as autologging_client:
-        metrics = _log_estimator_content(
-            autologging_client=autologging_client,
-            estimator=model,
-            run_id=run.info.run_id,
-            prefix=prefix,
-            X=X,
-            y_true=y_true,
-            sample_weight=sample_weight,
-            pos_label=pos_label,
-        )
-
-    return metrics

@@ -211,7 +211,6 @@ class EvaluateStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        dataset_name=dataset_name,
                         custom_metrics=_load_custom_metric_functions(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
@@ -328,14 +327,12 @@ class EvaluateStep(BaseStep):
         )
 
         shap_bar_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            "shap_feature_importance_plot_on_data_validation.png",
+            output_directory, "eval_validation/artifacts", "shap_feature_importance_plot.png"
         )
         shap_beeswarm_plot_path = os.path.join(
             output_directory,
             "eval_validation/artifacts",
-            "shap_beeswarm_plot_on_data_validation.png",
+            "shap_beeswarm_plot.png",
         )
         shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)

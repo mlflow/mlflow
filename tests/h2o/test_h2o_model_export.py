@@ -3,6 +3,7 @@
 import os
 import pytest
 import yaml
+import json
 import pandas as pd
 from collections import namedtuple
 from unittest import mock
@@ -148,7 +149,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=h2o_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 
@@ -237,7 +238,7 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -260,7 +261,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 
@@ -314,9 +315,10 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe.as_data_frame(),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").drop("predict", axis=1)
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).drop("predict", axis=1)
     preds = model.predict(inference_dataframe).as_data_frame().drop("predict", axis=1)
     np.testing.assert_array_almost_equal(scores, preds)
 

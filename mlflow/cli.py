@@ -120,8 +120,7 @@ def cli():
     "provided is different for each execution backend and is documented "
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
-@cli_args.NO_CONDA
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_PROJECTS
 @click.option(
     "--storage-dir",
     envvar="MLFLOW_TMP_DIR",
@@ -143,13 +142,14 @@ def cli():
     "the MLflow Run name is left unset.",
 )
 @click.option(
-    "--skip-image-build",
+    "--build-image",
     is_flag=True,
     default=False,
     show_default=True,
     help=(
-        "Only valid for Docker projects. If specified, skips building a new Docker image and "
-        "directly uses the image specified by the `image` field in the MLproject file."
+        "Only valid for Docker projects. If specified, build a new Docker image that's based on "
+        "the image specified by the `image` field in the MLproject file, and contains files in the "
+        "project directory."
     ),
 )
 def run(
@@ -162,12 +162,11 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,  # pylint: disable=unused-argument
     env_manager,
     storage_dir,
     run_id,
     run_name,
-    skip_image_build,
+    build_image,
 ):
     """
     Run an MLflow project from the given URI.
@@ -214,7 +213,7 @@ def run(
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
             run_name=run_name,
-            skip_image_build=skip_image_build,
+            build_image=build_image,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
@@ -564,6 +563,13 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 f"Only runs older than {older_than} can be deleted.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        # raise MlflowException if run_id is newer than older_than parameter
+        if older_than and run_id not in deleted_run_ids_older_than:
+            raise MlflowException(
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
@@ -590,13 +596,13 @@ try:
 except ImportError as e:
     pass
 
-
 try:
-    import mlflow.azureml.cli  # pylint: disable=unused-import
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.pipelines.cli.commands)
 except ImportError as e:
     pass
+
 
 try:
     import mlflow.pipelines.cli  # pylint: disable=unused-import

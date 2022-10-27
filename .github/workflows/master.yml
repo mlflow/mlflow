@@ -243,7 +243,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install keras tensorflow pyspark
+          pip install tensorflow pyspark
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)

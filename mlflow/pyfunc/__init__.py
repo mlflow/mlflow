@@ -177,8 +177,8 @@ Workflows
    The ``loader_module`` parameter specifies the name of your loader module.
 
    For an example loader module implementation, refer to the `loader module
-   implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
-   74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/keras.py#L157-L187>`_.
+   implementation in mlflow.sklearn <https://github.com/mlflow/mlflow/blob/
+   74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/sklearn.py#L200-L205>`_.
 
 .. _pyfunc-create-custom-selecting-workflow:
 
@@ -227,6 +227,7 @@ import mlflow
 import mlflow.pyfunc.model
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
     PyFuncInput,
@@ -272,28 +273,39 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _get_flavor_configuration_from_uri,
+    _get_flavor_configuration_from_ml_model_file,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+
+
+class EnvType:
+    CONDA = "conda"
+    VIRTUALENV = "virtualenv"
+
+    def __init__(self):
+        raise NotImplementedError("This class is not meant to be instantiated.")
+
+
 PY_VERSION = "python_version"
+
 
 _logger = logging.getLogger(__name__)
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
+def add_to_model(
+    model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
+):
     """
     Add a ``pyfunc`` spec to the model configuration.
 
@@ -309,7 +321,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param loader_module: The module to be used to load the model.
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
-    :param env: Conda environment.
+    :param conda_env: Conda environment.
+    :param python_env: Python environment.
     :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
@@ -322,10 +335,19 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
         params[CODE] = code
     if data:
         params[DATA] = data
-    if env:
-        params[ENV] = env
-
+    if conda_env or python_env:
+        params[ENV] = {}
+        if conda_env:
+            params[ENV][EnvType.CONDA] = conda_env
+        if python_env:
+            params[ENV][EnvType.VIRTUALENV] = python_env
     return model.add_flavor(FLAVOR_NAME, **params)
+
+
+def _extract_conda_env(env):
+    # In MLflow < 2.0.0, the 'env' field in a pyfunc configuration is a string containing the path
+    # to a conda.yaml file.
+    return env if isinstance(env, str) else env[EnvType.CONDA]
 
 
 def _load_model_env(path):
@@ -508,15 +530,13 @@ def load_model(
 
 
 class _ServedPyFuncModel(PyFuncModel):
-    def __init__(self, model_meta: Model, client: Any, server_pid: int, env_manager: str):
+    def __init__(self, model_meta: Model, client: Any, server_pid: int):
         super().__init__(model_meta=model_meta, model_impl=client, predict_fn="invoke")
-        _EnvManager.validate(env_manager)
-        self._env_manager = env_manager
         self._client = client
         self._server_pid = server_pid
 
     def predict(self, data):
-        result = self._client.invoke(data)
+        result = self._client.invoke(data).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
         return result
@@ -526,10 +546,6 @@ class _ServedPyFuncModel(PyFuncModel):
         if self._server_pid is None:
             raise MlflowException("Served PyFunc Model is missing server process ID.")
         return self._server_pid
-
-    @property
-    def env_manager(self):
-        return self._env_manager
 
 
 def _load_model_or_server(model_uri: str, env_manager: str):
@@ -544,7 +560,6 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     :param env_manager: The environment manager to load the model.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.models.cli import _get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
@@ -555,12 +570,11 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
-    env_root_dir = _get_or_create_env_root_dir(False)
-    pyfunc_backend = _get_flavor_backend(
+    pyfunc_backend = get_flavor_backend(
         local_path,
-        install_mlflow=False,
         env_manager=env_manager,
-        env_root_dir=env_root_dir,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=True,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the
@@ -586,37 +600,34 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         raise MlflowException("MLflow model server failed to launch")
 
     return _ServedPyFuncModel(
-        model_meta=model_meta,
-        client=client,
-        server_pid=scoring_server_proc.pid,
-        env_manager=env_manager,
+        model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
     )
 
 
-def _download_model_conda_env(model_uri):
-    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
-    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
-
-
 def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    model_dir = _download_artifact_from_uri(model_uri)
+
+    def get_conda_yaml_path():
+        model_config = _get_flavor_configuration_from_ml_model_file(
+            os.path.join(model_dir, MLMODEL_FILE_NAME), flavor_name=FLAVOR_NAME
+        )
+        return os.path.join(model_dir, _extract_conda_env(model_config[ENV]))
+
     if format == "pip":
-        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
-        try:
-            return _download_artifact_from_uri(req_file_uri)
-        except Exception as e:
-            # fallback to download conda.yaml file and parse the "pip" section from it.
-            _logger.info(
-                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
-                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
-                "Other conda dependencies will be ignored."
-            )
+        requirements_file = os.path.join(model_dir, _REQUIREMENTS_FILE_NAME)
+        if os.path.exists(requirements_file):
+            return requirements_file
 
-        conda_yml_path = _download_model_conda_env(model_uri)
+        _logger.info(
+            f"{_REQUIREMENTS_FILE_NAME} is not found in the model directory. Falling back to"
+            f" extracting pip requirements from the model's 'conda.yaml' file. Conda"
+            " dependencies will be ignored."
+        )
 
-        with open(conda_yml_path, "r") as yf:
-            conda_yml = yaml.safe_load(yf)
+        with open(get_conda_yaml_path(), "r") as yf:
+            conda_yaml = yaml.safe_load(yf)
 
-        conda_deps = conda_yml.get("dependencies", [])
+        conda_deps = conda_yaml.get("dependencies", [])
         for index, dep in enumerate(conda_deps):
             if isinstance(dep, dict) and "pip" in dep:
                 pip_deps_index = index
@@ -642,8 +653,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         return pip_file_path
 
     elif format == "conda":
-        conda_yml_path = _download_model_conda_env(model_uri)
-        return conda_yml_path
+        return get_conda_yaml_path()
     else:
         raise MlflowException(
             f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
@@ -739,22 +749,10 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     return tmp_model_dir
 
 
-@cache_return_value_per_process
-def _get_or_create_env_root_dir(should_use_nfs):
-    if should_use_nfs:
-        root_tmp_dir = get_or_create_nfs_tmp_dir()
-    else:
-        root_tmp_dir = get_or_create_tmp_dir()
-
-    env_root_dir = os.path.join(root_tmp_dir, "envs")
-    os.makedirs(env_root_dir, exist_ok=True)
-    return env_root_dir
-
-
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
+def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -836,10 +834,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                         unaffected. Default value is ``local``, and the following values are
                         supported:
 
-                         - ``conda``: (Recommended) Use Conda to restore the software environment
-                           that was used to train the model.
                          - ``virtualenv``: Use virtualenv to restore the python environment that
                            was used to train the model.
+                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                           that was used to train the model.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
@@ -868,7 +866,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         StringType,
         BooleanType,
     )
-    from mlflow.models.cli import _get_flavor_backend
+
+    # Used in test to force install local version of mlflow when starting a model server
+    mlflow_home = os.environ.get("MLFLOW_HOME")
 
     _EnvManager.validate(env_manager)
 
@@ -879,7 +879,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
     result_type = "boolean" if result_type == "bool" else result_type
 
@@ -929,7 +928,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 "limitations with handling SIGKILL signals, these MLflow Model server child "
                 "processes cannot be cleaned up if the Spark Job is canceled."
             )
-
+    pyfunc_backend = pyfunc_backend = get_flavor_backend(
+        local_model_path,
+        env_manager=env_manager,
+        install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=True,
+    )
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         # Note: In databricks runtime, because databricks notebook cell output cannot capture
@@ -941,15 +945,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
         if env_manager != _EnvManager.LOCAL:
-            _get_flavor_backend(
-                local_model_path,
-                env_manager=env_manager,
-                install_mlflow=False,
-                env_root_dir=env_root_dir,
-            ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
-
-    # Broadcast local model directory to remote worker if needed.
-    if should_use_spark_to_broadcast_file:
+            pyfunc_backend.prepare_env(
+                model_uri=local_model_path, capture_output=is_in_databricks_runtime()
+            )
+    else:
+        # Broadcast local model directory to remote worker if needed.
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
@@ -1035,7 +1035,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
-
+        if mlflow_home is not None:
+            os.environ["MLFLOW_HOME"] = mlflow_home
         scoring_server_proc = None
 
         if env_manager != _EnvManager.LOCAL:
@@ -1043,21 +1044,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
-                # Create individual conda_env_root_dir for each spark UDF task process.
-                env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
-            else:
-                local_model_path_on_executor = local_model_path
-                env_root_dir_on_executor = env_root_dir
-
-            pyfunc_backend = _get_flavor_backend(
-                local_model_path_on_executor,
-                workers=1,
-                install_mlflow=False,
-                env_manager=env_manager,
-                env_root_dir=env_root_dir_on_executor,
-            )
-
-            if should_use_spark_to_broadcast_file:
                 # Call "prepare_env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
@@ -1069,11 +1055,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 pyfunc_backend.prepare_env(
                     model_uri=local_model_path_on_executor, capture_output=True
                 )
-
+            else:
+                local_model_path_on_executor = None
             # launch scoring server
             server_port = find_free_port()
             scoring_server_proc = pyfunc_backend.serve(
-                model_uri=local_model_path_on_executor,
+                model_uri=local_model_path_on_executor or local_model_path,
                 port=server_port,
                 host="127.0.0.1",
                 timeout=60,
@@ -1118,7 +1105,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
-                return client.invoke(pdf)
+                return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
@@ -1516,7 +1503,8 @@ def _save_model_with_loader_module_and_data_path(
         loader_module=loader_module,
         code=code_dir_subpath,
         data=data,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

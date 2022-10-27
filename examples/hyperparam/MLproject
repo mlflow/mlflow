@@ -1,6 +1,6 @@
 name: HyperparameterSearch
 
-conda_env: conda.yaml
+python_env: python_env.yaml
 
 entry_points:
   # train Keras DL model

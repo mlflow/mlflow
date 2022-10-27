@@ -13,7 +13,7 @@ import tempfile
 import yaml
 from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -268,140 +268,6 @@ class MlflowClient:
             status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
-
-    @deprecated(alternative="search_runs()")
-    def list_run_infos(
-        self,
-        experiment_id: str,
-        run_view_type: int = ViewType.ACTIVE_ONLY,
-        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[RunInfo]:
-        """
-        Return run information for runs which belong to the experiment_id.
-
-        :param experiment_id: The experiment id which to search
-        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-        :param max_results: Maximum number of results desired.
-        :param order_by: List of order_by clauses. Currently supported values are
-            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
-            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
-
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for the
-            next page may be obtained via the ``token`` attribute of the returned object.
-
-        .. code-block:: python
-            :caption: Example
-
-            import mlflow
-            from mlflow import MlflowClient
-            from mlflow.entities import ViewType
-
-            def print_run_infos(run_infos):
-                for r in run_infos:
-                    print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
-
-            # Create two runs
-            with mlflow.start_run() as run1:
-                mlflow.log_metric("click_rate", 1.55)
-
-            with mlflow.start_run() as run2:
-                mlflow.log_metric("click_rate", 2.50)
-
-            # Delete the last run
-            client = MlflowClient()
-            client.delete_run(run2.info.run_id)
-
-            # Get all runs under the default experiment (whose id is 0)
-            print("Active runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
-
-            print("Deleted runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
-
-            print("All runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL,
-                            order_by=["metric.click_rate DESC"]))
-
-        .. code-block:: text
-            :caption: Output
-
-            Active runs:
-            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
-            Deleted runs:
-            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
-            All runs:
-            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
-            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
-        """
-        return self._tracking_client.list_run_infos(
-            experiment_id, run_view_type, max_results, order_by, page_token
-        )
-
-    @deprecated(alternative="search_experiments()")
-    def list_experiments(
-        self,
-        view_type: int = ViewType.ACTIVE_ONLY,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[Experiment]:
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned for the File and SQL backends.
-                            For the REST backend, the server will pick a maximum number of results
-                            to return.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-
-        .. code-block:: python
-            :caption: Example
-
-            from mlflow import MlflowClient
-            from mlflow.entities import ViewType
-
-            def print_experiment_info(experiments):
-                for e in experiments:
-                    print("- experiment_id: {}, name: {}, lifecycle_stage: {}"
-                          .format(e.experiment_id, e.name, e.lifecycle_stage))
-
-            client = MlflowClient()
-            for name in ["Experiment 1", "Experiment 2"]:
-                exp_id = client.create_experiment(name)
-
-            # Delete the last experiment
-            client.delete_experiment(exp_id)
-
-            # Fetch experiments by view type
-            print("Active experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ACTIVE_ONLY))
-            print("Deleted experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.DELETED_ONLY))
-            print("All experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ALL))
-
-        .. code-block:: text
-            :caption: Output
-
-            Active experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            Deleted experiments:
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-            All experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-        """
-        return self._tracking_client.list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token
-        )
 
     def search_experiments(
         self,
@@ -1555,6 +1421,7 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
+    @deprecated("mlflow.artifacts.download_artifacts", "2.0")
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,

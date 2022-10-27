@@ -162,6 +162,11 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
 
+#: Specifies whether or not to print a warning when `--env-manager=conda` is specified.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING", False
+)
 #: Specifies the ``poolclass`` parameter to use for ``sqlalchemy.create_engine`` in the
 #: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass
 #: for more information.

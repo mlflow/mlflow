@@ -1,6 +1,6 @@
 name: spacy_ner_example
 
-conda_env: conda.yaml
+python_env: python_env.yaml
 
 entry_points:
   main:
