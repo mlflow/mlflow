@@ -146,7 +146,7 @@ metrics:
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
-    with open(evaluate_step_output_dir / "card.html", "r") as f:
+    with open(evaluate_step_output_dir / "card.html", "r", errors="ignore") as f:
         step_card_content = f.read()
 
     assert "Model Validation" in step_card_content
