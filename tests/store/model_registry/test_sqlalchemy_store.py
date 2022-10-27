@@ -7,7 +7,6 @@ import uuid
 import pytest
 
 from mlflow.entities.model_registry import (
-    RegisteredModel,
     ModelVersion,
     RegisteredModelTag,
     ModelVersionTag,
