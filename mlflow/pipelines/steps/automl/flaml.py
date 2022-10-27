@@ -6,6 +6,7 @@ from sklearn.base import BaseEstimator
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.models import EvaluationMetric
 from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
 from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metrics
 
@@ -35,7 +36,9 @@ def get_estimator_and_best_params(
     )
 
 
-def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: callable) -> callable:
+def _create_custom_metric_flaml(
+    metric_name: str, coeff: int, eval_metric: EvaluationMetric
+) -> callable:
     def add_suffix(metrics: Dict[str, float], suffix: str) -> Dict[str, float]:
         return {f"{k}_{suffix}": v for k, v in metrics.items()}
 
@@ -45,7 +48,7 @@ def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: calla
         res_df = pd.DataFrame()
         res_df["prediction"] = y_pred
         res_df["target"] = y.values
-        return custom_func(res_df, builtin_metrics)
+        return eval_metric.eval_fn(res_df, builtin_metrics)
 
     # pylint: disable=keyword-arg-before-vararg
     # pylint: disable=unused-argument
