@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import pytest
 import shutil
-from sklearn.datasets import load_diabetes
+from sklearn.datasets import load_diabetes, load_iris
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
@@ -19,20 +19,27 @@ from tests.pipelines.helper_functions import (
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
     train_and_log_model,
+    train_and_log_classification_model,
 )  # pylint: enable=unused-import
 
 
 @pytest.fixture(autouse=True)
-def evaluation_inputs(tmp_pipeline_exec_path):
+def evaluation_inputs(request, tmp_pipeline_exec_path):
     split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
-    X, y = load_diabetes(as_frame=True, return_X_y=True)
+    if "classification" in request.keywords:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+    else:
+        X, y = load_diabetes(as_frame=True, return_X_y=True)
     validation_df = X.assign(y=y).sample(n=50, random_state=9)
     validation_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_VALIDATION_FILE_NAME))
     test_df = X.assign(y=y).sample(n=100, random_state=42)
     test_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_TEST_FILE_NAME))
 
-    run_id, model = train_and_log_model()
+    if "classification" in request.keywords:
+        run_id, model = train_and_log_classification_model()
+    else:
+        run_id, model = train_and_log_model()
     train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
@@ -104,6 +111,62 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
+
+
+@pytest.mark.classification
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache")
+def test_evaluate_produces_expected_step_card(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+):
+    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir.mkdir(parents=True)
+
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    pipeline_yaml.write_text(
+        """
+template: "classification/v1"
+positive_class: "Iris-setosa"
+target_col: "y"
+experiment:
+  tracking_uri: {tracking_uri}
+steps:
+  evaluate:
+    validation_criteria:
+      - metric: f1_score
+        threshold: 10
+metrics:
+  primary: "f1_score"
+""".format(
+            tracking_uri=mlflow.get_tracking_uri(),
+        )
+    )
+    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+    pipeline_steps_dir.mkdir(parents=True)
+    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+        """
+def weighted_mean_squared_error(eval_df, builtin_metrics):
+    from sklearn.metrics import mean_squared_error
+
+    return {
+        "weighted_mean_squared_error": mean_squared_error(
+            eval_df["prediction"],
+            eval_df["target"],
+            sample_weight=1 / eval_df["prediction"].values,
+        )
+    }
+"""
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step.run(str(evaluate_step_output_dir))
+
+    with open(evaluate_step_output_dir / "card.html", "r") as f:
+        step_card_content = f.read()
+
+    assert "Model Validation" in step_card_content
+    assert "Classifier Plots on the Validation Dataset" in step_card_content
+    assert "Warning Logs" in step_card_content
+    assert "Run Summary" in step_card_content
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
