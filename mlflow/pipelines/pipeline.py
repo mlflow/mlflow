@@ -268,6 +268,10 @@ class _BasePipeline:
                     "help_string": dag_help_strings.MLFLOW_RUN,
                     "help_string_type": "text",
                 },
+                "predicted_training_data_help": {
+                    "help_string": dag_help_strings.PREDICTED_TRAINING_DATA,
+                    "help_string_type": "text",
+                },
                 "custom_metrics_user_code_help": {
                     "help_string": dag_help_strings.CUSTOM_METRICS_USER_CODE,
                     "help_string_type": "python",
