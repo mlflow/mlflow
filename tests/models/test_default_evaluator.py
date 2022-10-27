@@ -959,6 +959,7 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
             "log_loss": 0.7515668165194579,
             "precision_score": 0.8300395256916996,
             "recall_score": 0.8695652173913042,
+            "roc_auc": 0.8992673992673993,
         }
     else:
         expected_metrics = {
@@ -968,6 +969,7 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
             "log_loss": 1.1658691395263094,
             "precision_score": 0.3,
             "recall_score": 0.4,
+            "roc_auc": 0.5833333333333334,
         }
 
     metrics = _get_multiclass_classifier_metrics(
