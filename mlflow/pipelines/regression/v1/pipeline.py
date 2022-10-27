@@ -345,6 +345,7 @@ class RegressionPipeline(_BasePipeline):
             train_df: pd.DataFrame = regression_pipeline.get_artifact("training_data")
             trained_model: PyFuncModel = regression_pipeline.get_artifact("model")
         """
+
         return super().get_artifact(artifact_name=artifact_name)
 
     def clean(self, step: str = None) -> None:

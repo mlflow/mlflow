@@ -13,7 +13,7 @@ from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
-from mlflow.utils.proto_json_utils import _dataframe_from_json
+from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
 from unittest import mock
 from scipy.sparse import csc_matrix
@@ -122,7 +122,7 @@ def test_model_log():
         }
         assert loaded_model.signature == sig
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = _dataframe_from_json(path)
+        x = dataframe_from_raw_json(path)
         assert x.to_dict(orient="records")[0] == input_example
         assert not hasattr(loaded_model, "databricks_runtime")
 
@@ -176,7 +176,7 @@ def test_model_info():
         }
 
         path = os.path.join(local_path, model_info.saved_input_example_info["artifact_path"])
-        x = _dataframe_from_json(path)
+        x = dataframe_from_raw_json(path)
         assert x.to_dict(orient="records")[0] == input_example
 
         model_signature = model_info_fetched.signature
@@ -220,7 +220,7 @@ def test_model_log_with_databricks_runtime():
         }
         assert loaded_model.signature == sig
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = _dataframe_from_json(path)
+        x = dataframe_from_raw_json(path)
         assert x.to_dict(orient="records")[0] == input_example
         assert loaded_model.databricks_runtime == dbr
 
@@ -253,7 +253,7 @@ def test_model_log_with_input_example_succeeds():
         local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
-        x = _dataframe_from_json(path, schema=sig.inputs)
+        x = dataframe_from_raw_json(path, schema=sig.inputs)
 
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())

@@ -171,14 +171,14 @@ mlflow_predict <- function(model, data, ...) {
 #                     data is written out to stdout.
 
 mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NULL,
-                                 content_type = NULL, json_format = NULL) {
+                                 content_type = NULL) {
   model <- mlflow_load_model(model_path)
   input_path <- input_path %||% "stdin"
   output_path <- output_path %||% stdout()
 
   data <- switch(
     content_type %||% "json",
-    json = parse_json(input_path, json_format %||% "split"),
+    json = parse_json(input_path),
     csv = utils::read.csv(input_path),
     stop("Unsupported input file format.")
   )
@@ -193,23 +193,39 @@ supported_model_flavors <- function() {
              ~ gsub("mlflow_load_flavor\\.mlflow_flavor_", "", .x))
 }
 
-# Helper function to parse data frame from json based on given the json_fomat.
-# The default behavior is to parse the data in the Pandas "split" orient.
-parse_json <- function(input_path, json_format="split") {
-  switch(json_format,
-    split = {
-      json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
-      elms <- names(json)
+# Helper function to parse data frame from json.
+parse_json <- function(input_path) {
+  json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
+  data_fields <- intersect(names(json), c("dataframe_split", "dataframe_records"))
+  if (length(data_fields) != 1) {
+    stop(paste(
+      "Invalid input. The input must contain 'dataframe_split' or 'dataframe_records' but not both.",
+      "Got input fields", names(json))
+    )
+  }
+  switch(data_fields[[1]],
+    dataframe_split = {
+      elms <- names(json$dataframe_split)
       if (length(setdiff(elms, c("columns", "index", "data"))) != 0
-      || length(setdiff(c("columns", "data"), elms) != 0)) {
+      || length(setdiff(c("data"), elms) != 0)) {
         stop(paste("Invalid input. Make sure the input json data is in 'split' format.", elms))
       }
-      df <- data.frame(json$data, row.names = json$index)
-      names(df) <- json$columns
+      data <- if (any(class(json$dataframe_split$data) == "list")) {
+        max_len <- max(sapply(json$dataframe_split$data, length))
+        fill_nas <- function(row) {
+          append(row, rep(NA, max_len - length(row)))
+        }
+        rows <- lapply(json$dataframe_split$data, fill_nas)
+        Reduce(rbind, rows)
+      } else {
+        json$dataframe_split$data
+      }
+
+      df <- data.frame(data, row.names=json$dataframe_split$index)
+      names(df) <- json$dataframe_split$columns
       df
     },
-    records = jsonlite::fromJSON(input_path, simplifyVector = TRUE),
-    stop(paste("Unsupported JSON format", json_format,
-               ". Supported formats are 'split' or 'records'"))
+    dataframe_records = json$dataframe_records,
+    stop(paste("Unsupported JSON format"))
   )
 }

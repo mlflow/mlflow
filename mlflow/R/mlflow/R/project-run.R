@@ -31,9 +31,8 @@
 #' @param backend Execution backend to use for run.
 #' @param backend_config Path to JSON file which will be passed to the backend. For the Databricks backend,
 #'   it should describe the cluster to use when launching a run on Databricks.
-#' @param no_conda If specified, assume that MLflow is running within a Conda environment with the necessary
-#'   dependencies for the current project instead of attempting to create a new Conda environment. Only
-#'   valid if running locally.
+#' @param env_manager If specified, create an environment for the project using the specified environment manager.
+#'   Available options are 'local', 'virtualenv', and 'conda'.
 #' @param storage_dir Valid only when `backend` is local. MLflow downloads artifacts from distributed URIs passed to
 #'  parameters of type `path` to subdirectories of `storage_dir`.
 #'
@@ -42,7 +41,7 @@
 #' @export
 mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, parameters = NULL,
                        experiment_id = NULL, experiment_name = NULL, backend = NULL, backend_config = NULL,
-                       no_conda = FALSE, storage_dir = NULL) {
+                       env_manager = NULL, storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
     stop("Specify only one of `experiment_name` or `experiment_id`.")
   }
@@ -64,9 +63,9 @@ mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, parameters
     mlflow_cli_param("--backend", backend) %>%
     mlflow_cli_param("--backend-config", backend_config) %>%
     mlflow_cli_param("--storage-dir", storage_dir) %>%
+    mlflow_cli_param("--env-manager", env_manager) %>%
     c(param_list)
 
-  args <- if (!no_conda) args else c(args, "--no-conda")
   result <- do.call(mlflow_cli, c("run", args))
   matches <- regexec(".*Run \\(ID \\'([^\\']+).*", result$stderr)
   run_id <- regmatches(result$stderr, matches)[[1]][[2]]

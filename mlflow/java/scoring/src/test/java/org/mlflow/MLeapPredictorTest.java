@@ -59,7 +59,8 @@ public class MLeapPredictorTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    Map<String, List<?>> sampleInput = (Map<String, List<?>>)SerializationUtils.fromJson(sampleInputJson, Map.class)
+        .get("dataframe_split");
     List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
     List<String> columnNames = (List<String>) sampleInput.get("columns");
     int topicIndex = columnNames.indexOf("topic");

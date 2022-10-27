@@ -1,6 +1,8 @@
+import os
 import sys
-from pathlib import Path
 from collections import namedtuple
+from pathlib import Path
+from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
 
 import pytest
 import numpy as np
@@ -10,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 
 import mlflow
-from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
 from mlflow.utils.virtualenv import (
     _MLFLOW_ENV_ROOT_ENV_VAR,
@@ -38,7 +40,7 @@ def serve_and_score(model_uri, data, extra_args=None):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=data,
-        content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager=virtualenv"] + (extra_args or []),
     )
     return pd.read_json(resp.content, orient="records").values.squeeze()
@@ -56,7 +58,7 @@ use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__
 
 
 @use_temp_mlflow_env_root
-def test_serve_and_score(sklearn_model):
+def test_restore_environment_with_virtualenv(sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
 
@@ -65,11 +67,15 @@ def test_serve_and_score(sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_restore_environment_with_virtualenv(sklearn_model):
-    with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
+    model_path = str(tmp_path / "model")
+    mlflow.sklearn.save_model(sklearn_model.model, path=model_path)
+    os.chmod(
+        model_path,
+        S_IRUSR | S_IRGRP | S_IROTH | S_IXUSR | S_IXGRP | S_IXOTH,
+    )
 
-    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    scores = serve_and_score(model_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 

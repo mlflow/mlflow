@@ -86,8 +86,8 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
 #: Specifies whether MLFlow HTTP requests should be signed using AWS signature V4. It will overwrite
-#: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header
-# See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
+#: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
+#: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
 
 #: Specifies the chunk size to use when downloading a file from GCS
@@ -162,6 +162,11 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
 
+#: Specifies whether or not to print a warning when `--env-manager=conda` is specified.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING", False
+)
 #: Specifies the ``poolclass`` parameter to use for ``sqlalchemy.create_engine`` in the
 #: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.poolclass
 #: for more information.

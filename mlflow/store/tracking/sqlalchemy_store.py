@@ -52,12 +52,11 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_experiment_tag,
     _validate_tag,
-    _validate_list_experiments_max_results,
     _validate_param_keys_unique,
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
@@ -153,7 +152,7 @@ class SqlAlchemyStore(AbstractStore):
         if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
-        if len(self.list_experiments(view_type=ViewType.ALL)) == 0:
+        if len(self.search_experiments(view_type=ViewType.ALL)) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
@@ -273,85 +272,6 @@ class SqlAlchemyStore(AbstractStore):
             session.flush()
             return str(experiment.experiment_id)
 
-    def _list_experiments(
-        self,
-        ids=None,
-        names=None,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-        eager=False,
-    ):
-        """
-        :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
-                      are not eagerly loaded and will be loaded if/when their corresponding
-                      object properties are accessed from a resulting ``SqlExperiment`` object.
-        """
-        stages = LifecycleStage.view_type_to_stages(view_type)
-        conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
-        if ids and len(ids) > 0:
-            int_ids = [int(eid) for eid in ids]
-            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
-        if names and len(names) > 0:
-            conditions.append(SqlExperiment.name.in_(names))
-
-        max_results_for_query = None
-        if max_results is not None:
-            max_results_for_query = max_results + 1
-
-            def compute_next_token(current_size):
-                next_token = None
-                if max_results_for_query == current_size:
-                    final_offset = offset + max_results
-                    next_token = SearchUtils.create_page_token(final_offset)
-
-                return next_token
-
-        with self.ManagedSessionMaker() as session:
-            query_options = self._get_eager_experiment_query_options() if eager else []
-            if max_results is not None:
-                offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-                queried_experiments = (
-                    session.query(SqlExperiment)
-                    .options(*query_options)
-                    .order_by(SqlExperiment.experiment_id)
-                    .filter(*conditions)
-                    .offset(offset)
-                    .limit(max_results_for_query)
-                    .all()
-                )
-            else:
-                queried_experiments = (
-                    session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
-                )
-
-            experiments = [exp.to_mlflow_entity() for exp in queried_experiments]
-        if max_results is not None:
-            return PagedList(experiments[:max_results], compute_next_token(len(experiments)))
-        else:
-            return PagedList(experiments, None)
-
-    def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-    ):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        _validate_list_experiments_max_results(max_results)
-        return self._list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token, eager=True
-        )
-
     def _search_experiments(
         self,
         view_type,
@@ -362,7 +282,7 @@ class SqlAlchemyStore(AbstractStore):
     ):
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results + 1 == current_size:
                 final_offset = offset + max_results
                 next_token = SearchExperimentsUtils.create_page_token(final_offset)
 
@@ -396,13 +316,13 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
                 .order_by(*order_by_clauses)
                 .offset(offset)
-                .limit(max_results)
+                .limit(max_results + 1)
             )
             queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
             experiments = [e.to_mlflow_entity() for e in queried_experiments]
             next_page_token = compute_next_token(len(experiments))
 
-        return experiments, next_page_token
+        return experiments[:max_results], next_page_token
 
     def search_experiments(
         self,
@@ -548,7 +468,17 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
-            run_name = run_name if run_name else _generate_random_name()
+            tags = tags or []
+            run_name_tag = _get_run_name_from_tags(tags)
+            if run_name and run_name_tag:
+                raise MlflowException(
+                    "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
+                    "Remove 'mlflow.runName' tag.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            run_name = run_name or run_name_tag or _generate_random_name()
+            if not run_name_tag:
+                tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run = SqlRun(
                 name=run_name,
                 artifact_uri=artifact_location,
@@ -566,8 +496,6 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags = tags or []
-            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             self._save_to_db(objs=run, session=session)
 

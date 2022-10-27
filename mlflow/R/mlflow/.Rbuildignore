@@ -5,6 +5,7 @@ mlruns
 packrat
 ^\.run-tests\.R$
 ^\.create-test-env\.R$
+^\.install-mlflow-r\.R$
 ^\.spark-version$
 ^\.dump-r-dependencies\.R$
 ^README.Rmd$

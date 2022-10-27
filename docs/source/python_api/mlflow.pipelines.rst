@@ -18,3 +18,12 @@ Regression Pipeline
 .. autoclass:: mlflow.pipelines.regression.v1.pipeline.RegressionPipeline()
     :members:
     :undoc-members:
+
+Classification Pipeline
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: mlflow.pipelines.classification.v1.pipeline
+
+.. autoclass:: mlflow.pipelines.classification.v1.pipeline.ClassificationPipeline()
+    :members:
+    :undoc-members:

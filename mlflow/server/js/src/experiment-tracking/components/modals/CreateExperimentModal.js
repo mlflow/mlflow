@@ -9,7 +9,7 @@ import { GenericInputModal } from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
 import { getExperimentNameValidator } from '../../../common/forms/validations';
 
-import { createExperimentApi, listExperimentsApi } from '../../actions';
+import { createExperimentApi, searchExperimentsApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
 
 export class CreateExperimentModalImpl extends Component {
@@ -18,7 +18,7 @@ export class CreateExperimentModalImpl extends Component {
     onClose: PropTypes.func.isRequired,
     experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     createExperimentApi: PropTypes.func.isRequired,
-    listExperimentsApi: PropTypes.func.isRequired,
+    searchExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
   };
 
@@ -27,10 +27,10 @@ export class CreateExperimentModalImpl extends Component {
     const experimentName = values[EXP_NAME_FIELD];
     const artifactLocation = values[ARTIFACT_LOCATION];
 
-    // Both createExperimentApi and listExperimentsApi calls need to be fulfilled sequentially
+    // Both createExperimentApi and searchExperimentsApi calls need to be fulfilled sequentially
     // before redirecting the user to the newly created experiment page (history.push())
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
-    await this.props.listExperimentsApi();
+    await this.props.searchExperimentsApi();
 
     const {
       value: { experiment_id: newExperimentId },
@@ -69,7 +69,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = {
   createExperimentApi,
-  listExperimentsApi,
+  searchExperimentsApi,
 };
 
 export const CreateExperimentModal = withRouter(

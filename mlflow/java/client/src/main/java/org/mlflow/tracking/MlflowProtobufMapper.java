@@ -160,8 +160,16 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeGetModelVersionDetails(String modelName, String version) {
-    return print(GetModelVersion.newBuilder().setName(modelName).setVersion(version));
+  String makeGetModelVersion(String modelName, String modelVersion) {
+    try {
+      return new URIBuilder("model-versions/get")
+          .addParameter("name", modelName)
+          .addParameter("version", modelVersion)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
   }
 
   String makeGetModelVersionDownloadUri(String modelName, String modelVersion) {
@@ -186,14 +194,14 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
-  SearchExperiments.Response toSearchExperimentsResponse(String json) {
-    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
+  GetExperimentByName.Response toGetExperimentByNameResponse(String json) {
+    GetExperimentByName.Response.Builder builder = GetExperimentByName.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
 
-  ListExperiments.Response toListExperimentsResponse(String json) {
-    ListExperiments.Response.Builder builder = ListExperiments.Response.newBuilder();
+  SearchExperiments.Response toSearchExperimentsResponse(String json) {
+    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
@@ -230,6 +238,12 @@ class MlflowProtobufMapper {
 
   GetLatestVersions.Response toGetLatestVersionsResponse(String json) {
     GetLatestVersions.Response.Builder builder = GetLatestVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetModelVersion.Response toGetModelVersionResponse(String json) {
+    GetModelVersion.Response.Builder builder = GetModelVersion.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
