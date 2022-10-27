@@ -44,4 +44,6 @@ def get_nfs_cache_root_dir():
         else:
             return None
     else:
-        return _get_active_spark_session().conf.get("spark.mlflow.nfs.rootDir", None)
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get("spark.mlflow.nfs.rootDir", None)

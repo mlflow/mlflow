@@ -9,12 +9,14 @@ import posixpath
 import pytest
 import logging
 import tempfile
+import time
 import urllib.parse
-from unittest import mock
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.models import Model
 
 import mlflow.pyfunc
@@ -37,6 +39,7 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
+from mlflow.artifacts import download_artifacts
 
 
 _logger = logging.getLogger(__name__)
@@ -45,13 +48,16 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    root_artifact_uri = root_artifact_uri = str(tmp_path)
     if request.param == "file":
         uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
+        FileStore(uri)
     elif request.param == "sqlalchemy":
         path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
         uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        SqlAlchemyStore(uri, root_artifact_uri)
 
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(tmp_path))
+    url, process = _init_server(backend_uri=uri, root_artifact_uri=root_artifact_uri)
 
     yield MlflowClient(url)
 
@@ -75,7 +81,7 @@ def create_experiments(client, names):
     return [client.create_experiment(n) for n in names]
 
 
-def test_create_get_list_experiment(mlflow_client):
+def test_create_get_search_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
         "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
     )
@@ -86,25 +92,27 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"
 
-    experiments = mlflow_client.list_experiments()
+    experiments = mlflow_client.search_experiments()
     assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert {e.name for e in mlflow_client.list_experiments()} == {"Default"}
-    assert {e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)} == {"Default"}
-    assert {e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)} == {
+    assert {e.name for e in mlflow_client.search_experiments()} == {"Default"}
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)} == {
+        "Default"
+    }
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)} == {
         "My Experiment"
     }
-    assert {e.name for e in mlflow_client.list_experiments(ViewType.ALL)} == {
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)} == {
         "My Experiment",
         "Default",
     }
-    active_exps_paginated = mlflow_client.list_experiments(max_results=1)
+    active_exps_paginated = mlflow_client.search_experiments(max_results=1)
     assert {e.name for e in active_exps_paginated} == {"Default"}
     assert active_exps_paginated.token is None
 
-    all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
+    all_exps_paginated = mlflow_client.search_experiments(max_results=1, view_type=ViewType.ALL)
     first_page_names = {e.name for e in all_exps_paginated}
-    all_exps_second_page = mlflow_client.list_experiments(
+    all_exps_second_page = mlflow_client.search_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )
     second_page_names = {e.name for e in all_exps_second_page}
@@ -236,7 +244,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
-        assert mlflow_client.list_run_infos(experiment_id) == [run.info]
+        assert [run.info for run in mlflow_client.search_runs([experiment_id])] == [run.info]
 
 
 def test_create_run_defaults(mlflow_client):
@@ -602,8 +610,8 @@ def test_log_batch_validation(mlflow_client):
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
-        mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
+        mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
                 mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
@@ -674,11 +682,15 @@ def test_artifacts(mlflow_client, tmp_path):
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
     assert {a.path for a in dir_artifacts_list} == {"dir/my.file"}
 
-    all_artifacts = mlflow_client.download_artifacts(run_id, ".")
+    all_artifacts = download_artifacts(
+        run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"
     assert open("%s/dir/my.file" % all_artifacts, "r").read() == "Hello, World!"
 
-    dir_artifacts = mlflow_client.download_artifacts(run_id, "dir")
+    dir_artifacts = download_artifacts(
+        run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 
@@ -707,16 +719,11 @@ def test_search_validation(mlflow_client):
 
 def test_get_experiment_by_name(mlflow_client):
     name = "test_get_experiment_by_name"
-    with mock.patch.object(
-        MlflowClient,
-        "list_experiments",
-        side_effect=Exception("should not be called"),
-    ):
-        experiment_id = mlflow_client.create_experiment(name)
-        res = mlflow_client.get_experiment_by_name(name)
-        assert res.experiment_id == experiment_id
-        assert res.name == name
-        assert mlflow_client.get_experiment_by_name("idontexist") is None
+    experiment_id = mlflow_client.create_experiment(name)
+    res = mlflow_client.get_experiment_by_name(name)
+    assert res.experiment_id == experiment_id
+    assert res.name == name
+    assert mlflow_client.get_experiment_by_name("idontexist") is None
 
 
 def test_get_experiment(mlflow_client):
@@ -733,9 +740,13 @@ def test_search_experiments(mlflow_client):
         ("ab", {"key": "vaLue"}),
         ("Abc", None),
     ]
-    experiment_ids = [
-        mlflow_client.create_experiment(name, tags=tags) for name, tags in experiments
-    ]
+    experiment_ids = []
+    for name, tags in experiments:
+        # sleep for windows file system current_time precision in Python to enforce
+        # deterministic ordering based on last_update_time (creation_time due to no
+        # mutation of experiment state)
+        time.sleep(0.001)
+        experiment_ids.append(mlflow_client.create_experiment(name, tags=tags))
 
     # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")

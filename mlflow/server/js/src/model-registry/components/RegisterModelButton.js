@@ -12,7 +12,6 @@ import {
 import {
   createRegisteredModelApi,
   createModelVersionApi,
-  listRegisteredModelsApi,
   searchModelVersionsApi,
   searchRegisteredModelsApi,
 } from '../actions';
@@ -34,7 +33,6 @@ export class RegisterModelButtonImpl extends React.Component {
     modelByName: PropTypes.object.isRequired,
     createRegisteredModelApi: PropTypes.func.isRequired,
     createModelVersionApi: PropTypes.func.isRequired,
-    listRegisteredModelsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
     searchRegisteredModelsApi: PropTypes.func.isRequired,
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
@@ -124,13 +122,13 @@ export class RegisterModelButtonImpl extends React.Component {
   };
 
   componentDidMount() {
-    this.props.listRegisteredModelsApi();
+    this.props.searchRegisteredModelsApi();
   }
 
   componentDidUpdate(prevProps, prevState) {
     // Repopulate registered model list every time user launch the modal
     if (prevState.visible === false && this.state.visible === true) {
-      this.props.listRegisteredModelsApi();
+      this.props.searchRegisteredModelsApi();
     }
   }
 
@@ -204,7 +202,6 @@ const mapStateToProps = (state) => ({
 const mapDispatchToProps = {
   createRegisteredModelApi,
   createModelVersionApi,
-  listRegisteredModelsApi,
   searchModelVersionsApi,
   searchRegisteredModelsApi,
 };

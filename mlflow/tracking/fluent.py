@@ -8,10 +8,9 @@ import atexit
 import logging
 import inspect
 from copy import deepcopy
-from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -23,8 +22,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils import env
-from mlflow.utils.annotations import deprecated
+from mlflow.utils import env, get_results_from_paginated_fn
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -1049,28 +1047,6 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
-@deprecated(alternative="search_experiments()")
-def list_experiments(
-    view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: Optional[int] = None,
-) -> List[Experiment]:
-    """
-    :param view_type: Qualify requested type of experiments.
-    :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                        passed, all experiments will be returned.
-    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
-    """
-
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().list_experiments(
-            view_type=view_type,
-            max_results=number_to_get,
-            page_token=next_page_token,
-        )
-
-    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
-
-
 def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
@@ -1181,7 +1157,7 @@ def search_experiments(
             page_token=next_page_token,
         )
 
-    return _paginate(
+    return get_results_from_paginated_fn(
         pagination_wrapper_func,
         SEARCH_MAX_RESULTS_DEFAULT,
         max_results,
@@ -1446,7 +1422,7 @@ def search_runs(
 
     if search_all_experiments and no_ids_or_names:
         experiment_ids = [
-            exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
+            exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
     elif no_ids_or_names:
         experiment_ids = _get_experiment_id()
@@ -1466,7 +1442,11 @@ def search_runs(
             next_page_token,
         )
 
-    runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+    runs = get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        NUM_RUNS_PER_PAGE_PANDAS,
+        max_results,
+    )
 
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
@@ -1544,110 +1524,6 @@ def search_runs(
         )
 
 
-@deprecated(alternative="search_runs()")
-def list_run_infos(
-    experiment_id: str,
-    run_view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-    order_by: Optional[List[str]] = None,
-) -> List[RunInfo]:
-    """
-    Return run information for runs which belong to the experiment_id.
-
-    :param experiment_id: The experiment id which to search
-    :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-    :param max_results: Maximum number of results desired.
-    :param order_by: List of order_by clauses. Currently supported values are
-           are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
-           For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
-
-    :return: A list of :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the
-        search expressions.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-        from mlflow.entities import ViewType
-
-        # Create two runs
-        with mlflow.start_run() as run1:
-            mlflow.log_param("p", 0)
-
-        with mlflow.start_run() as run2:
-            mlflow.log_param("p", 1)
-
-        # Delete the last run
-        mlflow.delete_run(run2.info.run_id)
-
-        def print_run_infos(run_infos):
-            for r in run_infos:
-                print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
-
-        print("Active runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
-
-        print("Deleted runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
-
-        print("All runs:")
-        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL))
-
-    .. code-block:: text
-        :caption: Output
-
-        Active runs:
-        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
-        Deleted runs:
-        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
-        All runs:
-        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
-        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
-    """
-
-    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
-    # full thing is a mess
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().list_run_infos(
-            experiment_id, run_view_type, number_to_get, order_by, next_page_token
-        )
-
-    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
-
-
-def _paginate(paginated_fn, max_results_per_page, max_results=None):
-    """
-    Intended to be a general use pagination utility.
-
-    :param paginated_fn:
-    :type paginated_fn: This function is expected to take in the number of results to retrieve
-        per page and a pagination token, and return a PagedList object
-    :param max_results_per_page:
-    :type max_results_per_page: The maximum number of results to retrieve per page
-    :param max_results:
-    :type max_results: The maximum number of results to retrieve overall. If unspecified,
-                       all results will be retrieved.
-    :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
-        entities than specified by max_results
-    :rtype: list[object]
-    """
-    all_results = []
-    next_page_token = None
-    returns_all = max_results is None
-    while returns_all or len(all_results) < max_results:
-        num_to_get = max_results_per_page if returns_all else max_results - len(all_results)
-        if num_to_get < max_results_per_page:
-            page_results = paginated_fn(num_to_get, next_page_token)
-        else:
-            page_results = paginated_fn(max_results_per_page, next_page_token)
-        all_results.extend(page_results)
-        if hasattr(page_results, "token") and page_results.token:
-            next_page_token = page_results.token
-        else:
-            break
-    return all_results
-
-
 def _get_or_start_run():
     if len(_active_run_stack) > 0:
         return _active_run_stack[-1]
@@ -1656,18 +1532,40 @@ def _get_or_start_run():
 
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
+    experiment_id = env.get_env(_EXPERIMENT_ID_ENV_VAR)
     if experiment_name is not None:
         exp = MlflowClient().get_experiment_by_name(experiment_name)
-        return exp.experiment_id if exp else None
-    return env.get_env(_EXPERIMENT_ID_ENV_VAR)
+        if exp:
+            if experiment_id and experiment_id != exp.experiment_id:
+                raise MlflowException(
+                    message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                    f"value `{experiment_id}` does not match the experiment id "
+                    f"`{exp.experiment_id}` for experiment name `{experiment_name}`",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                return exp.experiment_id
+        else:
+            experiment_id = MlflowClient().create_experiment(name=experiment_name)
+            return experiment_id
+    if experiment_id is not None:
+        try:
+            exp = MlflowClient().get_experiment(experiment_id)
+            return exp.experiment_id
+        except MlflowException as exc:
+            raise MlflowException(
+                message=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable "
+                f"value `{experiment_id}` does not exist in the tracking server. Provide a valid "
+                f"experiment_id.",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from exc
 
 
 def _get_experiment_id():
-    return (
-        _active_experiment_id
-        or _get_experiment_id_from_env()
-        or default_experiment_registry.get_experiment_id()
-    )
+    if _active_experiment_id:
+        return _active_experiment_id
+    else:
+        return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
 @autologging_integration("mlflow")
@@ -1788,7 +1686,6 @@ def autolog(
     """
     from mlflow import (
         tensorflow,
-        keras,
         gluon,
         xgboost,
         lightgbm,
@@ -1806,7 +1703,6 @@ def autolog(
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
         "tensorflow": tensorflow.autolog,
-        "keras": keras.autolog,
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
@@ -1872,63 +1768,8 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(
-        set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"tensorflow", "keras", "pyspark", "pyspark.ml"}
-    ):
+    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
-
-    FULLY_IMPORTED_KERAS = False
-    TF_AUTOLOG_SETUP_CALLED = False
-
-    def conditionally_set_up_keras_autologging(keras_module):
-        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
-        FULLY_IMPORTED_KERAS = True
-
-        if Version(keras_module.__version__) >= Version("2.6.0"):
-            # NB: Keras unconditionally depends on TensorFlow beginning with Version 2.6.0, and
-            # many classes defined in the `keras` module are aliases of classes in the `tf.keras`
-            # module. Accordingly, TensorFlow autologging serves as a replacement for Keras
-            # autologging in Keras >= 2.6.0
-            try:
-                import tensorflow
-
-                setup_autologging(tensorflow)
-                TF_AUTOLOG_SETUP_CALLED = True
-            except Exception as e:
-                _logger.debug(
-                    "Failed to set up TensorFlow autologging for tf.keras models upon"
-                    " Keras library import: %s",
-                    str(e),
-                )
-                raise
-        else:
-            setup_autologging(keras_module)
-
-    register_post_import_hook(conditionally_set_up_keras_autologging, "keras", overwrite=True)
-
-    def set_up_tensorflow_autologging(tensorflow_module):
-        import sys
-
-        nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
-        if "keras" in sys.modules and not FULLY_IMPORTED_KERAS:
-            # In Keras >= 2.6.0, importing Keras imports the TensorFlow library, which can
-            # trigger this autologging import hook for TensorFlow before the entire Keras import
-            # procedure is completed. Attempting to set up autologging before the Keras import
-            # procedure has completed will result in a failure due to the unavailability of
-            # certain modules. In this case, we terminate the TensorFlow autologging import hook
-            # and rely on the Keras autologging import hook to successfully set up TensorFlow
-            # autologging for tf.keras models once the Keras import procedure has completed
-            return
-
-        # By design, in Keras >= 2.6.0, Keras needs to enable tensorflow autologging so that
-        # tf.keras models always use tensorflow autologging, rather than vanilla keras autologging.
-        # As a result, Keras autologging must call `mlflow.tensorflow.autolog()` in Keras >= 2.6.0.
-        # Accordingly, we insert this check to ensure that importing tensorflow, which may import
-        # keras, does not enable tensorflow autologging twice.
-        if not TF_AUTOLOG_SETUP_CALLED:
-            setup_autologging(tensorflow_module)
-
-    register_post_import_hook(set_up_tensorflow_autologging, "tensorflow", overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly

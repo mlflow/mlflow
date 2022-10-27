@@ -90,7 +90,7 @@ class WheeledModel:
         :param mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
                              updated model metadata.
         """
-        from mlflow.pyfunc import FLAVOR_NAME, ENV
+        from mlflow.pyfunc import FLAVOR_NAME, ENV, _extract_conda_env
 
         path = os.path.abspath(path)
         _validate_and_prepare_target_save_path(path)
@@ -107,7 +107,7 @@ class WheeledModel:
         if model_metadata.__dict__.get(_WHEELS_FOLDER_NAME, None) is not None:
             raise MlflowException("Model libraries are already added", BAD_REQUEST)
 
-        conda_env = model_metadata.flavors.get(FLAVOR_NAME, {}).get(ENV, None)
+        conda_env = _extract_conda_env(model_metadata.flavors.get(FLAVOR_NAME, {}).get(ENV, None))
         conda_env_path = os.path.join(local_model_path, conda_env)
         if conda_env is None and not os.path.isfile(pip_requirements_path):
             raise MlflowException(

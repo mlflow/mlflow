@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -36,6 +37,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _is_importable,
     _compare_logged_code_paths,
+    assert_array_almost_equal,
 )
 
 _logger = logging.getLogger(__name__)
@@ -358,7 +360,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pytorch_custom_env
 
@@ -444,7 +446,7 @@ def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -470,7 +472,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pytorch_custom_env
 
@@ -563,12 +565,12 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
@@ -598,12 +600,12 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=main_scoped_subclassed_model, data=data),
@@ -630,7 +632,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
-        def predict(self, context, model_input):
+        def predict(self, _, model_input):
             with torch.no_grad():
                 input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
                 output_tensor = self.pytorch_model(input_tensor)
@@ -654,12 +656,12 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
@@ -850,10 +852,12 @@ def test_pyfunc_serve_and_score(data):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data[0],
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.DataFrame(json.loads(resp.content))
+    from mlflow.deployments import PredictionsResponse
+
+    scores = PredictionsResponse.from_json(resp.content).get_predictions()
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
@@ -888,7 +892,12 @@ def test_pyfunc_serve_and_score_transformers():
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    np.testing.assert_array_equal(json.loads(resp.content), model(input_ids).detach().numpy())
+    from mlflow.deployments import PredictionsResponse
+
+    scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
+        predictions_format="ndarray"
+    )
+    assert_array_almost_equal(scores, model(input_ids).detach().numpy(), rtol=1e-6)
 
 
 @pytest.fixture
@@ -1172,3 +1181,12 @@ def test_log_model_with_code_paths(sequential_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.pytorch.FLAVOR_NAME)
         mlflow.pytorch.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(model_path):
+    model = get_sequential_model()
+    mlflow.pytorch.save_model(model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

@@ -20,7 +20,6 @@ Launches the MLflow user interface.
 \examples{
 \dontrun{
 library(mlflow)
-install_mlflow()
 
 # launch mlflow ui locally
 mlflow_ui()

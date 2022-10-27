@@ -1,3 +1,4 @@
+from pathlib import Path
 from packaging.version import Version
 import os
 import yaml
@@ -156,7 +157,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, conda_env=gluon_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != gluon_custom_env
 
@@ -234,7 +235,7 @@ def test_model_save_accepts_conda_env_as_dict(gluon_model, model_path):
     mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -257,7 +258,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != gluon_custom_env
 
@@ -298,12 +299,16 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records"
-    ).values.astype(np.float32)
+    from mlflow.deployments import PredictionsResponse
+
+    response_values = (
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        .get_predictions()
+        .values.astype(np.float32)
+    )
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
 
 
@@ -317,3 +322,11 @@ def test_log_model_with_code_paths(gluon_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.gluon.FLAVOR_NAME)
         mlflow.gluon.load_model(model_uri, ctx.cpu())
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(gluon_model, model_path):
+    mlflow.gluon.save_model(gluon_model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

@@ -431,35 +431,6 @@ mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_cli
   trimws(result$stdout)
 }
 
-#' List Run Infos
-#'
-#' Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the
-#' specified experiment.
-#'
-#' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
-#' @param run_view_type Run view type.
-#' @template roxlate-client
-#' @export
-mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
-                                  experiment_id = NULL, client = NULL) {
-  experiment_id <- resolve_experiment_id(experiment_id)
-  client <- resolve_client(client)
-
-  run_view_type <- match.arg(run_view_type)
-  experiment_ids <- cast_string_list(experiment_id)
-
-  response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
-    experiment_ids = experiment_ids,
-    filter = NULL,
-    run_view_type = run_view_type
-  ))
-
-  run_infos_list <- response$runs %>%
-    purrr::map("info") %>%
-    purrr::map(parse_run_info)
-  do.call("rbind", run_infos_list) %||% data.frame()
-}
-
 #' Log Artifact
 #'
 #' Logs a specific file or directory as an artifact for a run.

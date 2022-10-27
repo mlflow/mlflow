@@ -27,7 +27,7 @@ Inference is performed by sending JSON POST requests to http://localhost:5000/in
 
 .. code-block:: bash
 
-  curl -X POST -d "{\"data\":[[0.0199132142,0.0506801187,0.1048086895,0.0700725447,-0.0359677813,-0.0266789028,-0.0249926566,-0.002592262,0.0037117382,0.0403433716]]}" -H "Content-Type: application/json; format=pandas-split" http://localhost:5000/invocations
+  curl -X POST -d "{\"dataframe_split\": {\"data\":[[0.0199132142,0.0506801187,0.1048086895,0.0700725447,-0.0359677813,-0.0266789028,-0.0249926566,-0.002592262,0.0037117382,0.0403433716]]}}" -H "Content-Type: application/json" http://localhost:5000/invocations
 
 Which returns ``[235.11371081266924]``.
 

@@ -77,7 +77,6 @@ def evaluate_model_helper(
     data,
     targets,
     model_type: str,
-    dataset_name=None,
     evaluators=None,
     evaluator_config=None,
     eval_baseline_model_only=False,
@@ -104,7 +103,6 @@ def evaluate_model_helper(
         data=data,
         model_type=model_type,
         targets=targets,
-        dataset_name=dataset_name,
         evaluators=evaluators,
         evaluator_config=evaluator_config,
         baseline_model=baseline_model,
@@ -161,7 +159,6 @@ def test_regressor_evaluation(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -188,7 +185,7 @@ def test_regressor_evaluation(
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
-            metrics[metric_key + "_on_data_diabetes_dataset"],
+            metrics[metric_key],
             rtol=1e-3,
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
@@ -198,9 +195,9 @@ def test_regressor_evaluation(
     ]
 
     assert set(artifacts) == {
-        "shap_beeswarm_plot_on_data_diabetes_dataset.png",
-        "shap_feature_importance_plot_on_data_diabetes_dataset.png",
-        "shap_summary_plot_on_data_diabetes_dataset.png",
+        "shap_beeswarm_plot.png",
+        "shap_feature_importance_plot.png",
+        "shap_summary_plot.png",
     }
 
     assert result.artifacts.keys() == {
@@ -221,7 +218,6 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -261,7 +257,6 @@ def test_regressor_evaluation_with_int_targets(
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"].astype(np.int64),
-            dataset_name=diabetes_dataset.name,
             evaluators="default",
         )
         result.save(tmp_path)
@@ -291,7 +286,6 @@ def test_multi_classifier_evaluation(
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -317,9 +311,7 @@ def test_multi_classifier_evaluation(
     )
 
     for metric_key, expected_metric_val in expected_metrics.items():
-        assert np.isclose(
-            expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
-        )
+        assert np.isclose(expected_metric_val, metrics[metric_key], rtol=1e-3)
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
@@ -327,14 +319,14 @@ def test_multi_classifier_evaluation(
     ]
 
     assert set(artifacts) == {
-        "shap_beeswarm_plot_on_data_iris_dataset.png",
-        "per_class_metrics_on_data_iris_dataset.csv",
-        "roc_curve_plot_on_data_iris_dataset.png",
-        "precision_recall_curve_plot_on_data_iris_dataset.png",
-        "shap_feature_importance_plot_on_data_iris_dataset.png",
-        "explainer_on_data_iris_dataset",
-        "confusion_matrix_on_data_iris_dataset.png",
-        "shap_summary_plot_on_data_iris_dataset.png",
+        "shap_beeswarm_plot.png",
+        "per_class_metrics.csv",
+        "roc_curve_plot.png",
+        "precision_recall_curve_plot.png",
+        "shap_feature_importance_plot.png",
+        "explainer",
+        "confusion_matrix.png",
+        "shap_summary_plot.png",
     }
     assert result.artifacts.keys() == {
         "per_class_metrics",
@@ -358,7 +350,6 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -420,7 +411,6 @@ def test_bin_classifier_evaluation(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
             evaluator_config={
@@ -450,7 +440,7 @@ def test_bin_classifier_evaluation(
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
-            metrics[metric_key + "_on_data_breast_cancer_dataset"],
+            metrics[metric_key],
             rtol=1e-3,
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
@@ -460,13 +450,13 @@ def test_bin_classifier_evaluation(
     ]
 
     assert set(artifacts) == {
-        "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
-        "lift_curve_plot_on_data_breast_cancer_dataset.png",
-        "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
-        "precision_recall_curve_plot_on_data_breast_cancer_dataset.png",
-        "confusion_matrix_on_data_breast_cancer_dataset.png",
-        "shap_summary_plot_on_data_breast_cancer_dataset.png",
-        "roc_curve_plot_on_data_breast_cancer_dataset.png",
+        "shap_feature_importance_plot.png",
+        "lift_curve_plot.png",
+        "shap_beeswarm_plot.png",
+        "precision_recall_curve_plot.png",
+        "confusion_matrix.png",
+        "shap_summary_plot.png",
+        "roc_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "roc_curve_plot",
@@ -490,7 +480,6 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -546,7 +535,6 @@ def test_spark_regressor_model_evaluation(
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_spark_dataset._constructor_args["targets"],
-            dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
         )
@@ -564,7 +552,7 @@ def test_spark_regressor_model_evaluation(
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
-            metrics[metric_key + "_on_data_diabetes_spark_dataset"],
+            metrics[metric_key],
             rtol=1e-3,
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
@@ -590,7 +578,6 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_spark_dataset._constructor_args["targets"],
-            dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -635,7 +622,6 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=False,
         )
@@ -657,7 +643,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
-            metrics[metric_key + "_on_data_breast_cancer_dataset"],
+            metrics[metric_key],
             rtol=1e-3,
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
@@ -667,10 +653,10 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     ]
 
     assert set(artifacts) == {
-        "confusion_matrix_on_data_breast_cancer_dataset.png",
-        "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
-        "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
-        "shap_summary_plot_on_data_breast_cancer_dataset.png",
+        "confusion_matrix.png",
+        "shap_feature_importance_plot.png",
+        "shap_beeswarm_plot.png",
+        "shap_summary_plot.png",
     }
     assert result.artifacts.keys() == {
         "confusion_matrix",
@@ -687,7 +673,6 @@ def _evaluate_explainer_with_exceptions(model_uri, dataset):
             dataset._constructor_args["data"],
             model_type="classifier",
             targets=dataset._constructor_args["targets"],
-            dataset_name=dataset.name,
             evaluators="default",
             evaluator_config={
                 "ignore_exceptions": False,
@@ -721,7 +706,6 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
             evaluators="default",
             eval_baseline_model_only=True,
         )
@@ -775,22 +759,19 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(
             data[0::3],
             model_type="classifier",
             targets=target_col,
-            dataset_name="pipeline_model_dataset",
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
             eval_baseline_model_only=False,
         )
     run_data = get_run_data(run.info.run_id)
     assert {
-        "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
-        "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
-        "shap_summary_plot_on_data_pipeline_model_dataset.png",
-        "explainer_on_data_pipeline_model_dataset",
+        "shap_beeswarm_plot.png",
+        "shap_feature_importance_plot.png",
+        "shap_summary_plot.png",
+        "explainer",
     }.issubset(run_data.artifacts)
 
-    explainer = mlflow.shap.load_explainer(
-        f"runs:/{run.info.run_id}/explainer_on_data_pipeline_model_dataset"
-    )
+    explainer = mlflow.shap.load_explainer(f"runs:/{run.info.run_id}/explainer")
     assert isinstance(explainer, _PatchedKernelExplainer)
 
 
@@ -1472,7 +1453,6 @@ def _get_results_for_custom_metrics_tests(model_uri, dataset, custom_metrics):
             dataset._constructor_args["data"],
             model_type="classifier",
             targets=dataset._constructor_args["targets"],
-            dataset_name=dataset.name,
             evaluators="default",
             custom_metrics=custom_metrics,
         )
@@ -1530,9 +1510,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
 
-    assert "true_count_on_data_breast_cancer_dataset" in metrics
+    assert "true_count" in metrics
     assert np.isclose(
-        metrics["true_count_on_data_breast_cancer_dataset"],
+        metrics["true_count"],
         expected_metrics["true_negatives"] + expected_metrics["true_positives"],
         rtol=1e-3,
     )
@@ -1543,20 +1523,18 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
         rtol=1e-3,
     )
 
-    assert "positive_count_on_data_breast_cancer_dataset" in metrics
-    assert np.isclose(
-        metrics["positive_count_on_data_breast_cancer_dataset"], np.sum(y_pred), rtol=1e-3
-    )
+    assert "positive_count" in metrics
+    assert np.isclose(metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
     assert "positive_count" in result.metrics
     assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
 
     assert "test_json_artifact" in result.artifacts
-    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert "test_json_artifact.json" in artifacts
     assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
     assert result.artifacts["test_json_artifact"].content == {"a": 3, "b": [1, 2]}
 
     assert "test_npy_artifact" in result.artifacts
-    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert "test_npy_artifact.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
     np.testing.assert_array_equal(
         result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
@@ -1616,7 +1594,7 @@ def test_custom_metric_logs_artifacts_from_paths(
     with TemporaryDirectory() as tmp_dir:
         for img_ext in img_formats:
             assert f"test_{img_ext}_artifact" in result.artifacts
-            assert f"test_{img_ext}_artifact_on_data_breast_cancer_dataset.{img_ext}" in artifacts
+            assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
             assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
             fig = plt.figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
@@ -1634,33 +1612,33 @@ def test_custom_metric_logs_artifacts_from_paths(
                 assert (fig_dpi, fig_dpi) == pytest.approx(img.info.get("dpi"), 0.001)
 
     assert "test_json_artifact" in result.artifacts
-    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert "test_json_artifact.json" in artifacts
     assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
     assert result.artifacts["test_json_artifact"].content == [1, 2, 3]
 
     assert "test_npy_artifact" in result.artifacts
-    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert "test_npy_artifact.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
     np.testing.assert_array_equal(
         result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
     )
 
     assert "test_csv_artifact" in result.artifacts
-    assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
+    assert "test_csv_artifact.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
     pd.testing.assert_frame_equal(
         result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
     )
 
     assert "test_parquet_artifact" in result.artifacts
-    assert "test_parquet_artifact_on_data_breast_cancer_dataset.parquet" in artifacts
+    assert "test_parquet_artifact.parquet" in artifacts
     assert isinstance(result.artifacts["test_parquet_artifact"], ParquetEvaluationArtifact)
     pd.testing.assert_frame_equal(
         result.artifacts["test_parquet_artifact"].content, pd.DataFrame({"test": [1, 2, 3]})
     )
 
     assert "test_text_artifact" in result.artifacts
-    assert "test_text_artifact_on_data_breast_cancer_dataset.txt" in artifacts
+    assert "test_text_artifact.txt" in artifacts
     assert isinstance(result.artifacts["test_text_artifact"], TextEvaluationArtifact)
     assert result.artifacts["test_text_artifact"].content == "hello world"
 
@@ -1703,13 +1681,13 @@ def test_custom_metric_logs_artifacts_from_objects(
     )
 
     assert "test_image_artifact" in result.artifacts
-    assert "test_image_artifact_on_data_breast_cancer_dataset.png" in artifacts
+    assert "test_image_artifact.png" in artifacts
     assert isinstance(result.artifacts["test_image_artifact"], ImageEvaluationArtifact)
     img_diff = ImageChops.difference(result.artifacts["test_image_artifact"].content, img).getbbox()
     assert img_diff is None
 
     assert "test_json_artifact" in result.artifacts
-    assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert "test_json_artifact.json" in artifacts
     assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
     assert result.artifacts["test_json_artifact"].content == {
         "list": [1, 2, 3],
@@ -1718,26 +1696,26 @@ def test_custom_metric_logs_artifacts_from_objects(
     }
 
     assert "test_npy_artifact" in result.artifacts
-    assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
+    assert "test_npy_artifact.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
     np.testing.assert_array_equal(
         result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
     )
 
     assert "test_csv_artifact" in result.artifacts
-    assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
+    assert "test_csv_artifact.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
     pd.testing.assert_frame_equal(
         result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
     )
 
     assert "test_json_text_artifact" in result.artifacts
-    assert "test_json_text_artifact_on_data_breast_cancer_dataset.json" in artifacts
+    assert "test_json_text_artifact.json" in artifacts
     assert isinstance(result.artifacts["test_json_text_artifact"], JsonEvaluationArtifact)
     assert result.artifacts["test_json_text_artifact"].content == {"a": [1, 2, 3], "c": 3.4}
 
     assert "test_pickled_artifact" in result.artifacts
-    assert "test_pickled_artifact_on_data_breast_cancer_dataset.pickle" in artifacts
+    assert "test_pickled_artifact.pickle" in artifacts
     assert isinstance(result.artifacts["test_pickled_artifact"], PickleEvaluationArtifact)
     assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
 
@@ -1755,7 +1733,6 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
                 diabetes_dataset._constructor_args["data"],
                 model_type="regressor",
                 targets=diabetes_dataset._constructor_args["targets"],
-                dataset_name=diabetes_dataset.name,
                 evaluators="default",
             )
         mock_score.assert_called_once()
@@ -1778,7 +1755,6 @@ def test_autologging_is_disabled_during_evaluate(model):
                 X.assign(target=y),
                 model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
                 targets="target",
-                dataset_name="iris",
                 evaluators="default",
             )
 
@@ -1818,7 +1794,6 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
         evaluate(
             pipeline_model_uri,
             evaluation_data,
-            dataset_name="iris",
             model_type="regressor",
             targets="labels",
             evaluators="default",
@@ -1833,15 +1808,14 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
         _, _, _, artifacts = get_run_data(run.info.run_id)
         assert set(artifacts) >= {
-            "shap_beeswarm_plot_on_data_iris.png",
-            "shap_feature_importance_plot_on_data_iris.png",
-            "shap_summary_plot_on_data_iris.png",
+            "shap_beeswarm_plot.png",
+            "shap_feature_importance_plot.png",
+            "shap_summary_plot.png",
         }
 
 
 @pytest.mark.parametrize("prefix", ["train_", None])
-@pytest.mark.parametrize("log_metrics_with_dataset_info", [True, False])
-def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
+def test_evaluation_metric_name_configs(prefix):
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run() as run:
         model = LogisticRegression()
@@ -1850,14 +1824,10 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
-            model_type="classifier",
+            model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
             targets="target",
-            dataset_name="iris",
             evaluators="default",
-            evaluator_config={
-                "metric_prefix": prefix,
-                "log_metrics_with_dataset_info": log_metrics_with_dataset_info,
-            },
+            evaluator_config={"metric_prefix": prefix},
         )
 
     _, metrics, _, _ = get_run_data(run.info.run_id)
@@ -1866,14 +1836,6 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     if prefix is not None:
         assert all(metric_name.startswith(prefix) for metric_name in metrics)
         assert all(metric_name.startswith(prefix) for metric_name in result.metrics)
-
-    if log_metrics_with_dataset_info:
-        assert all("on_data_iris" in metric_name for metric_name in metrics)
-    else:
-        assert all("on_data_iris" not in metric_name for metric_name in metrics)
-
-    # Dataset info should only be included in logged metric names
-    assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
 
 
 @pytest.mark.parametrize(
@@ -1889,7 +1851,6 @@ def test_evaluation_with_env_restoration(
             data=iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
             evaluators="default",
             env_manager=env_manager,
         )
@@ -1903,14 +1864,12 @@ def test_evaluation_with_env_restoration(
     expected_metrics = _get_multiclass_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=None)
 
     for metric_key, expected_metric_val in expected_metrics.items():
-        assert np.isclose(
-            expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
-        )
+        assert np.isclose(expected_metric_val, metrics[metric_key], rtol=1e-3)
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert set(artifacts) == {
-        "per_class_metrics_on_data_iris_dataset.csv",
-        "confusion_matrix_on_data_iris_dataset.png",
+        "per_class_metrics.csv",
+        "confusion_matrix.png",
     }
     assert result.artifacts.keys() == {
         "per_class_metrics",
@@ -1939,7 +1898,6 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="breast_cancer",
             evaluators="default",
             evaluator_config=None if pos_label is None else {"pos_label": pos_label},
         )
@@ -1965,7 +1923,6 @@ def test_evaluation_multiclass_classification_with_average(average):
             X.assign(target=y),
             model_type="classifier",
             targets="target",
-            dataset_name="iris",
             evaluators="default",
             evaluator_config=None if average is None else {"average": average},
         )

@@ -194,14 +194,14 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
-  SearchExperiments.Response toSearchExperimentsResponse(String json) {
-    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
+  GetExperimentByName.Response toGetExperimentByNameResponse(String json) {
+    GetExperimentByName.Response.Builder builder = GetExperimentByName.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
 
-  ListExperiments.Response toListExperimentsResponse(String json) {
-    ListExperiments.Response.Builder builder = ListExperiments.Response.newBuilder();
+  SearchExperiments.Response toSearchExperimentsResponse(String json) {
+    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }

@@ -28,10 +28,6 @@ pandas:
   pip_release: pandas
   max_major_version: 1
 
-prometheus-flask-exporter:
-  pip_release: prometheus-flask-exporter
-  max_major_version: 0
-
 querystring_parser:
   pip_release: querystring_parser
   max_major_version: 1
@@ -49,4 +45,37 @@ gunicorn:
 waitress:
   pip_release: waitress
   max_major_version: 2
+  markers: "platform_system == 'Windows'"
+
+scikit-learn:
+  pip_release: scikit-learn
+  max_major_version: 1
+
+pyarrow:
+  pip_release: pyarrow
+  minimum: "4.0.0"
+  max_major_version: 9
+
+shap:
+  pip_release: shap
+  minimum: "0.40"
+  max_major_version: 0
+
+markdown:
+  pip_release: markdown
+  minimum: "3.3"
+  max_major_version: 3
+
+Jinja2-non-windows:
+  pip_release: Jinja2
+  minimum: "2.11"
+  max_major_version: 3
+  markers: "platform_system != 'Windows'"
+
+Jinja2-windows:
+  pip_release: Jinja2
+  # `mlflow.pyfunc.spark_udf` doesn't work properly with Jinja2==2.11 on Windows.
+  # See https://github.com/mlflow/mlflow/pull/6931 for more information.
+  minimum: "3.0"
+  max_major_version: 3
   markers: "platform_system == 'Windows'"

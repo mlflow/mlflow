@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import os
 import pytest
@@ -16,6 +17,7 @@ import yaml
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
@@ -277,13 +279,13 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=x,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+
+    model_output = PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
-        .values.flatten()
-        .astype(np.float32),
+        model_output.get_predictions().values.flatten().astype(np.float32),
         predicted,
         rtol=1e-05,
         atol=1e-05,
@@ -317,11 +319,14 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=data_multiple_inputs,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+
+    model_output = PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records").values,
+        model_output.get_predictions().values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
         atol=1e-05,
@@ -466,7 +471,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=onnx_custom_env)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != onnx_custom_env
 
@@ -548,7 +553,7 @@ def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -571,7 +576,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != onnx_custom_env
 
@@ -638,3 +643,11 @@ def test_log_model_with_code_paths(onnx_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.onnx.FLAVOR_NAME)
         mlflow.onnx.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(onnx_model, model_path):
+    mlflow.onnx.save_model(onnx_model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

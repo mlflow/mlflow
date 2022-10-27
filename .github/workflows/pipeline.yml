@@ -50,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install -e .[pipelines]
+          pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
       - name: Run tests
@@ -71,7 +71,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install -e .[pipelines]
+          pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
       - name: Download Hadoop winutils for Spark

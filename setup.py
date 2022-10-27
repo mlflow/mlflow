@@ -147,6 +147,9 @@ setup(
             "mlserver>=0.5.3",
             "mlserver-mlflow>=0.5.3",
             "virtualenv",
+            # Required for exporting metrics from the MLflow server to Prometheus
+            # as part of the MLflow server monitoring add-on
+            "prometheus-flask-exporter",
         ],
         "pipelines": [
             "scikit-learn>=1.0",

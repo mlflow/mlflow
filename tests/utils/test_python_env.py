@@ -2,6 +2,7 @@ import pytest
 from unittest import mock
 
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils import PYTHON_VERSION
 
 
 def test_constructor_argument_validation():
@@ -88,7 +89,7 @@ dependencies:
     assert python_env.dependencies == ["a", "b"]
 
 
-def test_from_conda_yaml_python_dependency_is_missing(tmp_path):
+def test_from_conda_yaml_use_current_python_version_when_no_python_spec_in_conda_yaml(tmp_path):
     content = """
 name: example
 channels:
@@ -101,8 +102,7 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    with pytest.raises(Exception, match="Could not extract python version"):
-        _PythonEnv.from_conda_yaml(yaml_path)
+    assert _PythonEnv.from_conda_yaml(yaml_path).python == PYTHON_VERSION
 
 
 def test_from_conda_yaml_invalid_python_comparator(tmp_path):

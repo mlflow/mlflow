@@ -41,7 +41,7 @@ def _exec_cmd(
     """
     A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
 
-    :param cmd: The command to run, as a list of strings.
+    :param cmd: The command to run, as a string or a list of strings
     :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
     :param extra_env: Extra environment variables to be defined when running the child process.
                       If this argument is specified, `kwargs` cannot contain `env`.
@@ -75,7 +75,8 @@ def _exec_cmd(
     # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
     # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
     # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
-    cmd = list(map(str, cmd))
+    if isinstance(cmd, list):
+        cmd = list(map(str, cmd))
 
     if capture_output or stream_output:
         if kwargs.get("stdout") is not None or kwargs.get("stderr") is not None:

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import qs from 'qs';
-import { listExperimentsApi } from '../actions';
+import { searchExperimentsApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import './HomePage.css';
 import HomeView from './HomeView';
@@ -12,7 +12,7 @@ import Routes from '../routes';
 export class HomePageImpl extends Component {
   static propTypes = {
     history: PropTypes.shape({}),
-    dispatchListExperimentsApi: PropTypes.func.isRequired,
+    dispatchSearchExperimentsApi: PropTypes.func.isRequired,
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
   };
@@ -22,12 +22,12 @@ export class HomePageImpl extends Component {
   };
 
   state = {
-    listExperimentsRequestId: getUUID(),
+    searchExperimentsRequestId: getUUID(),
   };
 
   componentDidMount() {
     if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
-      this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
+      this.props.dispatchSearchExperimentsApi(this.state.searchExperimentsRequestId);
     }
   }
 
@@ -43,7 +43,7 @@ export class HomePageImpl extends Component {
       homeView
     ) : (
       <RequestStateWrapper
-        requestIds={[this.state.listExperimentsRequestId]}
+        requestIds={[this.state.searchExperimentsRequestId]}
         // eslint-disable-next-line no-trailing-spaces
       >
         {homeView}
@@ -74,8 +74,8 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = (dispatch) => {
   return {
-    dispatchListExperimentsApi: (requestId) => {
-      return dispatch(listExperimentsApi(requestId));
+    dispatchSearchExperimentsApi: (requestId) => {
+      return dispatch(searchExperimentsApi(requestId));
     },
   };
 };

@@ -1,6 +1,5 @@
 import copy
 import pytest
-from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -194,16 +193,6 @@ def test_validate_experiment_name():
     for invalid_name in ["", 12, 12.7, None, {}, []]:
         with pytest.raises(MlflowException, match="Invalid experiment name"):
             _validate_experiment_name(invalid_name)
-
-
-def test_validate_list_experiments_max_results():
-    client = MlflowClient()
-    client.list_experiments(max_results=50)
-    with pytest.raises(MlflowException, match="It must be at most 50000"):
-        client.list_experiments(max_results=50001)
-    for invalid_num in [-12, 0]:
-        with pytest.raises(MlflowException, match="It must be at least 1"):
-            client.list_experiments(max_results=invalid_num)
 
 
 def test_db_type():

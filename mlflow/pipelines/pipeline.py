@@ -45,6 +45,7 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
+        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         # self._steps contains concatenated ordered lists of step objects representing multiple

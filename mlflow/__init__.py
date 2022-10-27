@@ -53,7 +53,6 @@ try:
     from mlflow import fastai
     from mlflow import gluon
     from mlflow import h2o
-    from mlflow import keras
     from mlflow import lightgbm
     from mlflow import mleap
     from mlflow import onnx
@@ -78,7 +77,6 @@ try:
         "fastai",
         "gluon",
         "h2o",
-        "keras",
         "lightgbm",
         "mleap",
         "onnx",
@@ -89,6 +87,7 @@ try:
         "spark",
         "statsmodels",
         "tensorflow",
+        "keras",
         "xgboost",
         "shap",
         "paddle",
@@ -141,11 +140,9 @@ from mlflow.tracking.fluent import (
     start_run,
     end_run,
     search_runs,
-    list_run_infos,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
-    list_experiments,
     search_experiments,
     create_experiment,
     set_experiment,
@@ -199,7 +196,6 @@ __all__ = [
     "is_tracking_uri_set",
     "get_experiment",
     "get_experiment_by_name",
-    "list_experiments",
     "search_experiments",
     "create_experiment",
     "set_experiment",
@@ -210,7 +206,6 @@ __all__ = [
     "register_model",
     "get_registry_uri",
     "set_registry_uri",
-    "list_run_infos",
     "autolog",
     "evaluate",
     "last_active_run",
