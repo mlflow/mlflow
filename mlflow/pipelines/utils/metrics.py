@@ -138,7 +138,7 @@ def _load_custom_metrics(
         custom_metrics_mod = importlib.import_module("steps.custom_metrics")
         return [
             make_metric(
-                getattr(custom_metrics_mod, custom_metrics.name),
+                getattr(custom_metrics_mod, custom_metric.name),
                 custom_metric.name,
                 custom_metric.greater_is_better,
             )

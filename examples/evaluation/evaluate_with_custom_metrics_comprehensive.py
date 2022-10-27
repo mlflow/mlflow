@@ -25,7 +25,7 @@ eval_data = X_test.copy()
 eval_data["target"] = y_test
 
 
-def custom_metric(eval_df, builtin_metrics):
+def custom_metric(eval_df, _builtin_metrics):
     return np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2)
 
 
@@ -34,7 +34,7 @@ class ExampleClass:
         self.x = x
 
 
-def custom_artifact(eval_df, builtin_metrics):
+def custom_artifact(eval_df, builtin_metrics, _artifacts_dir):
     example_np_arr = np.array([1, 2, 3])
     example_df = pd.DataFrame({"test": [2.2, 3.1], "test2": [3, 2]})
     example_dict = {"hello": "there", "test_list": [0.1, 0.3, 4]}

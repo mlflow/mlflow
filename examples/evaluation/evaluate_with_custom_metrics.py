@@ -23,7 +23,7 @@ eval_data = X_test.copy()
 eval_data["target"] = y_test
 
 
-def squared_diff_plus_one(eval_df, builtin_metrics):
+def squared_diff_plus_one(eval_df, _builtin_metrics):
     """
     This example custom metric function creates a metric based on the ``prediction`` and
     ``target`` columns in ``eval_df`.
@@ -31,15 +31,15 @@ def squared_diff_plus_one(eval_df, builtin_metrics):
     return np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2)
 
 
-def sum_on_label_divided_by_two(eval_df, builtin_metrics):
+def sum_on_label_divided_by_two(_eval_df, builtin_metrics):
     """
     This example custom metric function creates a metric derived from existing metrics in
     ``builtin_metrics``.
     """
-    return builtin_metrics["sum_on_label"] / 2
+    return builtin_metrics["sum_on_target"] / 2
 
 
-def prediction_target_scatter(eval_df, builtin_metrics, artifacts_dir):
+def prediction_target_scatter(eval_df, _builtin_metrics, artifacts_dir):
     """
     This example custom artifact generates and saves a scatter plot to ``artifacts_dir`` that
     visualizes the relationship between the predictions and targets for the given model to a
