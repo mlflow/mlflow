@@ -103,9 +103,9 @@ except ImportError as e:
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-# TODO: Comment out this block when we deprecate support for python 3.7.
+# TODO: Comment out this block when we deprecate support for python 3.8.
 # _major = 3
-# _minor = 7
+# _minor = 8
 # _deprecated_version = (_major, _minor)
 # _min_supported_version = (_major, _minor + 1)
 

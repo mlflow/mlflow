@@ -239,7 +239,7 @@ Virtualenv environment
   .. code-block:: yaml
 
       # Python version required to run the project.
-      python: "3.7.13"
+      python: "3.8.15"
       # Dependencies required to build packages. This field is optional.
       build_dependencies:
         - pip
@@ -313,15 +313,15 @@ Docker container environment
   .. code-block:: yaml
 
     docker_env:
-      image: python:3.7
+      image: python:3.8
 
   .. code-block:: bash
 
     mlflow run ... --skip-image-build
 
   By default, MLflow builds a new image that's based on the specified image and files contained in
-  the project directory. To disable this behavior and use the image directly, run the project with the 
-  ``--skip-image-build`` argument specified. In the above example, the image ``python:3.7`` is pulled from Docker Hub if
+  the project directory. To disable this behavior and use the image directly, run the project with the
+  ``--skip-image-build`` argument specified. In the above example, the image ``python:3.8`` is pulled from Docker Hub if
   it's not present locally and the project is run in a container created from this image.
 
 .. _mlproject-command-syntax:

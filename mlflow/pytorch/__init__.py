@@ -108,7 +108,7 @@ def get_default_conda_env():
 
         conda env {'name': 'mlflow-env',
                    'channels': ['conda-forge'],
-                   'dependencies': ['python=3.7.5',
+                   'dependencies': ['python=3.8.15',
                                     {'pip': ['torch==1.5.1',
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}

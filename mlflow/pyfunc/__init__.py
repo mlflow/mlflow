@@ -28,9 +28,9 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
     List[Any], Dict[str, Any]]
   ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
-All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
-tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
-(unnamed tensors).
+All PyFunc models will support `pandas.DataFrame` as input and PyFunc deep learning models will
+also support tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and
+`numpy.ndarrays` (unnamed tensors).
 
 
 .. _pyfunc-filesystem-format:

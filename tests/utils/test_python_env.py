@@ -18,9 +18,9 @@ def test_constructor_argument_validation():
 
 def test_to_yaml(tmp_path):
     yaml_path = tmp_path / "python_env.yaml"
-    _PythonEnv("3.7.5", ["a"], ["b"]).to_yaml(yaml_path)
+    _PythonEnv("3.8.15", ["a"], ["b"]).to_yaml(yaml_path)
     expected_content = """
-python: 3.7.5
+python: 3.8.15
 build_dependencies:
 - a
 dependencies:
@@ -31,7 +31,7 @@ dependencies:
 
 def test_from_yaml(tmp_path):
     content = """
-python: 3.7.5
+python: 3.8.15
 build_dependencies:
 - a
 - b
@@ -42,7 +42,7 @@ dependencies:
     yaml_path = tmp_path / "test.yaml"
     yaml_path.write_text(content)
     python_env = _PythonEnv.from_yaml(yaml_path)
-    assert python_env.python == "3.7.5"
+    assert python_env.python == "3.8.15"
     assert python_env.build_dependencies == ["a", "b"]
     assert python_env.dependencies == ["c", "d"]
 
@@ -53,7 +53,7 @@ name: example
 channels:
   - conda-forge
 dependencies:
-  - python=3.7.5
+  - python=3.8.15
   - pip
   - pip:
     - a
@@ -62,7 +62,7 @@ dependencies:
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
     python_env = _PythonEnv.from_conda_yaml(yaml_path)
-    assert python_env.python == "3.7.5"
+    assert python_env.python == "3.8.15"
     assert python_env.build_dependencies == ["pip"]
     assert python_env.dependencies == ["a", "b"]
 
@@ -73,7 +73,7 @@ name: example
 channels:
   - conda-forge
 dependencies:
-  - python=3.7.5
+  - python=3.8.15
   - pip=1.2.3
   - wheel==4.5.6
   - setuptools<=7.8.9
@@ -84,7 +84,7 @@ dependencies:
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
     python_env = _PythonEnv.from_conda_yaml(yaml_path)
-    assert python_env.python == "3.7.5"
+    assert python_env.python == "3.8.15"
     assert python_env.build_dependencies == ["pip==1.2.3", "wheel==4.5.6", "setuptools<=7.8.9"]
     assert python_env.dependencies == ["a", "b"]
 
@@ -111,7 +111,7 @@ name: example
 channels:
   - conda-forge
 dependencies:
-  - python<3.7.9
+  - python<3.8.15
   - pip:
     - a
     - b
