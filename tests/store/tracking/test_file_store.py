@@ -589,7 +589,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_name = fs.get_experiment(exp_id).name
 
         exp1 = fs.get_experiment(exp_id)
-        time.sleep(0.01)
+        time.sleep(0.001)
 
         # delete it
         fs.delete_experiment(exp_id)

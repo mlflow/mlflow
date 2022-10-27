@@ -740,7 +740,7 @@ def test_search_experiments(mlflow_client):
         # sleep for windows file system current_time precision in Python to enforce
         # deterministic ordering based on last_update_time (creation_time due to no
         # mutation of experiment state)
-        time.sleep(0.01)
+        time.sleep(0.001)
         experiment_ids.append(mlflow_client.create_experiment(name, tags=tags))
 
     # filter_string
@@ -766,7 +766,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["Abc", "ab"]
     # page_token
     experiments = mlflow_client.search_experiments(page_token=experiments.token)
-    assert [e.name for e in experiments] == ["a", "Default"]
+    assert sorted([e.name for e in experiments]) == sorted(["a", "Default"])
 
     # view_type
     mlflow_client.delete_experiment(experiment_ids[1])

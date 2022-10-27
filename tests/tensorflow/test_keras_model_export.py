@@ -641,7 +641,7 @@ def test_pyfunc_serve_and_score_transformers():
     scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
         predictions_format="ndarray"
     )
-    assert_array_almost_equal(scores.values, model.predict(dummy_inputs))
+    assert_array_almost_equal(scores, model.predict(dummy_inputs))
 
 
 def test_log_model_with_code_paths(model):
