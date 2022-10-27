@@ -41,7 +41,6 @@ Imports:
     openssl,
     processx,
     purrr,
-    reticulate,
     rlang (>= 0.2.0),
     swagger,
     tibble (>= 2.0.0),
@@ -55,8 +54,9 @@ Suggests:
     keras,
     lintr,
     sparklyr,
-    stringi (< 1.4.4),
+    stringi,
     testthat (>= 2.0.0),
+    reticulate,
     xgboost
 Encoding: UTF-8
 RoxygenNote: 7.1.2
