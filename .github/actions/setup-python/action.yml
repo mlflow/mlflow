@@ -24,7 +24,11 @@ runs:
           python_version=$(python setup.py -q min_python_version)
         fi
         if [[ "$python_version" == "3.8" ]]; then
-          python_version="3.8.12"
+          if [ ${{ runner.os }} == "Windows" ]; then
+            # GitHub Actions does not have a Python 3.8.12 binary for Windows as of Oct. 27 2022
+            python_version="3.8.10"
+          else
+            python_version="3.8.12"
         else
           echo "Invalid python version: '$python_version'. Must be '3.8'"
           exit 1
