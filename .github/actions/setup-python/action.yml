@@ -29,6 +29,7 @@ runs:
             python_version="3.8.10"
           else
             python_version="3.8.12"
+          fi
         else
           echo "Invalid python version: '$python_version'. Must be '3.8'"
           exit 1
