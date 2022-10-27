@@ -358,7 +358,7 @@ def test_run_pipeline_step_maintains_execution_status_correctly(pandas_df, tmp_p
     assert (
         get_test_pipeline_step_execution_state(ingest_step_bad).last_updated_timestamp >= curr_time
     )
-    assert "Traceback" in get_test_pipeline_step_execution_state(ingest_step_good).stack_trace
+    assert "Traceback" in get_test_pipeline_step_execution_state(ingest_step_bad).stack_trace
 
 
 def test_run_pipeline_step_returns_expected_result(test_pipeline):
