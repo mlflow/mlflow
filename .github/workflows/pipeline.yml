@@ -55,6 +55,8 @@ jobs:
           pip install 'pyspark<3.3'
       - name: Run tests
         run: |
+          # Temporary patch for custom_metrics.py to make it return a scala value
+          cat dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines
 
@@ -82,6 +84,8 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
+          # Temporary patch for custom_metrics.py to make it return a scala value
+          cat dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines
