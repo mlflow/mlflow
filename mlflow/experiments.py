@@ -48,17 +48,17 @@ def create(experiment_name, artifact_location):
     click.echo("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
-@commands.command("list")
+@commands.command("search")
 @click.option(
     "--view",
     "-v",
     default="active_only",
-    help="Select view type for list experiments. Valid view types are "
+    help="Select view type for experiments. Valid view types are "
     "'active_only' (default), 'deleted_only', and 'all'.",
 )
-def list_experiments(view):
+def search_experiments(view):
     """
-    List all experiments in the configured tracking server.
+    Search for experiments in the configured tracking server.
     """
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     experiments = mlflow.search_experiments(view_type=view_type)
