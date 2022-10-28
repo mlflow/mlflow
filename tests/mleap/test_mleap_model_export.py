@@ -64,7 +64,9 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
-        data=spark_model_iris.pandas_df.to_json(orient="split"),
+        data=json.dumps({
+            "dataframe_split": spark_model_iris.pandas_df.to_dict(orient="split"),
+        }),
         content_type=mlflow.pyfunc.scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.mleap.FLAVOR_NAME,
     )
