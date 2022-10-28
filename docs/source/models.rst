@@ -704,7 +704,7 @@ via :py:func:`mlflow.pyfunc.load_model()`.
     logging multiple copies of the same model.
 
 PyTorch pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 For a minimal PyTorch model, an example configuration for the pyfunc predict() method is:
 
@@ -716,16 +716,7 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
     from torch import nn
 
 
-    class Net(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.l1 = nn.Linear(6, 1)
-
-        def forward(self, x):
-            return self.l1(x)
-
-
-    net = Net()
+    net = nn.Linear(6, 1)
     loss_function = nn.L1Loss()
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
 
@@ -743,11 +734,12 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
         optimizer.step()
 
     with mlflow.start_run() as run:
-        mlflow.pytorch.save_model(net, "net")
+        model_info = mlflow.pytorch.log_model(net, "model")
 
-    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri="net")
+    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
-    predictions = pytorch_pyfunc.predict(np.array([3.4, -1.2, 4.8, 7.1, 9.4, -6.9], np.float32))
+    predictions = pytorch_pyfunc.predict(torch.randn(6).numpy())
+    print(predictions)
 
 For more information, see :py:mod:`mlflow.pytorch`.
 
