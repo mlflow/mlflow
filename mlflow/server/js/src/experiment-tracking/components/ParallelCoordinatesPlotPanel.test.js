@@ -2,7 +2,6 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { ParallelCoordinatesPlotPanel, getDiffParams } from './ParallelCoordinatesPlotPanel';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
-import { Empty } from 'antd';
 
 describe('unit tests', () => {
   let wrapper;
@@ -28,13 +27,13 @@ describe('unit tests', () => {
     wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps} />);
     instance = wrapper.instance();
     expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(1);
-    expect(wrapper.find(Empty)).toHaveLength(0);
+    expect(wrapper.find('[data-testid="no-values-selected"]')).toHaveLength(0);
     instance.setState({
       selectedParamKeys: [],
       selectedMetricKeys: [],
     });
     expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(0);
-    expect(wrapper.find(Empty)).toHaveLength(1);
+    expect(wrapper.find('[data-testid="no-values-selected"]')).toHaveLength(1);
   });
 
   test('should select differing params correctly', () => {

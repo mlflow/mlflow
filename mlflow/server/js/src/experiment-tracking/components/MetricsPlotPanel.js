@@ -6,7 +6,7 @@ import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
-import { getRunTags, getRunInfo } from '../reducers/Reducers';
+import { getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
   X_AXIS_WALL,
@@ -691,7 +691,7 @@ const mapStateToProps = (state, ownProps) => {
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
-    const runDisplayName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
+    const runDisplayName = Utils.getRunDisplayName(getRunInfo(runUuid, state), runUuid);
     runDisplayNames.push(runDisplayName);
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory

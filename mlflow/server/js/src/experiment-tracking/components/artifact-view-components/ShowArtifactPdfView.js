@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Pagination, Spin } from 'antd';
+import { Pagination, Spinner } from '@databricks/design-system';
 import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
@@ -73,10 +73,15 @@ class ShowArtifactPdfView extends Component {
           <div className='paginator'>
             <Pagination
               simple
-              current={this.state.currentPage}
-              total={this.state.numPages}
+              currentPageIndex={this.state.currentPage}
+              numTotal={this.state.numPages}
               pageSize={1}
               onChange={this.onPageChange}
+              /*
+               * Currently DuBois pagination does not natively support
+               * "simple" mode which is required here, hence `dangerouslySetAntdProps`
+               */
+              dangerouslySetAntdProps={{ simple: true }}
             />
           </div>
           <div className='document'>
@@ -84,9 +89,9 @@ class ShowArtifactPdfView extends Component {
               file={this.state.pdfData}
               onLoadSuccess={this.onDocumentLoadSuccess}
               onLoadError={this.onDocumentLoadError}
-              loading={<Spin />}
+              loading={<Spinner />}
             >
-              <Page pageNumber={this.state.currentPage} loading={<Spin />} />
+              <Page pageNumber={this.state.currentPage} loading={<Spinner />} />
             </Document>
           </div>
         </div>

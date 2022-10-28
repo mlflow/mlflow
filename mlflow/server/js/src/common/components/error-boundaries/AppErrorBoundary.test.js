@@ -1,7 +1,8 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';
 import { SupportPageUrl } from '../../constants';
+import Utils from '../../utils/Utils';
 
 describe('AppErrorBoundary', () => {
   let wrapper;
@@ -11,12 +12,12 @@ describe('AppErrorBoundary', () => {
     minimalProps = {
       children: 'testChild',
     };
-    wrapper = shallow(<AppErrorBoundary {...minimalProps} />);
+    wrapper = shallow(<AppErrorBoundary {...minimalProps} />).dive();
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   test('should render with minimal props without exploding', () => {
@@ -31,5 +32,10 @@ describe('AppErrorBoundary', () => {
     expect(wrapper.find('.error-image').length).toBe(1);
     expect(wrapper.text()).not.toMatch('testChild');
     expect(wrapper.find({ href: SupportPageUrl }).length).toBe(1);
+  });
+  test('register its notifications API in global utils', () => {
+    jest.spyOn(Utils, 'registerNotificationsApi').mockImplementation(() => {});
+    mount(<AppErrorBoundary {...minimalProps} />);
+    expect(Utils.registerNotificationsApi).toBeCalledTimes(1);
   });
 });

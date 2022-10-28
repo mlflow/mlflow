@@ -14,12 +14,12 @@ import Utils from '../../common/utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
-import { Descriptions, message } from 'antd';
-import { Button } from '@databricks/design-system';
+import { Button, withNotifications } from '@databricks/design-system';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { setTagApi, deleteTagApi } from '../actions';
 import { PageHeader, OverflowMenu } from '../../shared/building_blocks/PageHeader';
+import { Descriptions } from '../../common/components/Descriptions';
 
 export class RunViewImpl extends Component {
   static propTypes = {
@@ -40,6 +40,8 @@ export class RunViewImpl extends Component {
     deleteTagApi: PropTypes.func.isRequired,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
+    notificationContextHolder: PropTypes.node.isRequired,
+    notificationAPI: PropTypes.object.isRequired,
   };
 
   state = {
@@ -66,7 +68,7 @@ export class RunViewImpl extends Component {
 
   handleAddTag = (values) => {
     const form = this.formRef.current;
-    const { runUuid } = this.props;
+    const { runUuid, notificationAPI, intl } = this.props;
 
     this.setState({ isTagsRequestPending: true });
     this.props
@@ -78,44 +80,45 @@ export class RunViewImpl extends Component {
       .catch((ex) => {
         this.setState({ isTagsRequestPending: false });
         console.error(ex);
-        const errorMessage = (
-          <FormattedMessage
-            defaultMessage='Failed to add tag. Error: {errorTrace}'
-            description='Error message when add to tag feature fails'
-            values={{ errorTrace: ex.getUserVisibleError() }}
-          />
+        const errorMessage = intl.formatMessage(
+          {
+            defaultMessage: 'Failed to add tag. Error: {errorTrace}',
+            description: 'Error message when add to tag feature fails',
+          },
+          { errorTrace: ex.getMessageField() },
         );
-        message.error(errorMessage);
+        notificationAPI.error({ message: errorMessage });
       });
   };
 
   handleSaveEdit = ({ name, value }) => {
-    const { runUuid } = this.props;
+    const { runUuid, notificationAPI, intl } = this.props;
+
     return this.props.setTagApi(runUuid, name, value).catch((ex) => {
       console.error(ex);
-      const errorMessage = (
-        <FormattedMessage
-          defaultMessage='Failed to set tag. Error: {errorTrace}'
-          description='Error message when updating or setting a tag feature fails'
-          values={{ errorTrace: ex.getUserVisibleError() }}
-        />
+      const errorMessage = intl.formatMessage(
+        {
+          defaultMessage: 'Failed to set tag. Error: {errorTrace}',
+          description: 'Error message when updating or setting a tag feature fails',
+        },
+        { errorTrace: ex.getMessageField() },
       );
-      message.error(errorMessage);
+      notificationAPI.error({ message: errorMessage });
     });
   };
 
   handleDeleteTag = ({ name }) => {
-    const { runUuid } = this.props;
+    const { runUuid, notificationAPI, intl } = this.props;
     return this.props.deleteTagApi(runUuid, name).catch((ex) => {
       console.error(ex);
-      const errorMessage = (
-        <FormattedMessage
-          defaultMessage='Failed to delete tag. Error: {errorTrace}'
-          description='Error message when deleting a tag feature fails'
-          values={{ errorTrace: ex.getUserVisibleError() }}
-        />
+      const errorMessage = intl.formatMessage(
+        {
+          defaultMessage: 'Failed to delete tag. Error: {errorTrace}',
+          description: 'Error message when deleting a tag feature fails',
+        },
+        { errorTrace: ex.getMessageField() },
       );
-      message.error(errorMessage);
+      notificationAPI.error({ message: errorMessage });
     });
   };
 
@@ -224,8 +227,16 @@ export class RunViewImpl extends Component {
   }
 
   render() {
-    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath, modelVersions } =
-      this.props;
+    const {
+      runUuid,
+      run,
+      params,
+      tags,
+      latestMetrics,
+      getMetricPagePath,
+      modelVersions,
+      notificationContextHolder,
+    } = this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
@@ -235,7 +246,7 @@ export class RunViewImpl extends Component {
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const runCommand = this.getRunCommand();
     const noteContent = noteInfo && noteInfo.content;
-    const breadcrumbs = [this.getExperimentPageLink(), this.props.runDisplayName];
+    const breadcrumbs = [this.getExperimentPageLink()];
     /* eslint-disable prefer-const */
     let feedbackForm;
     const plotTitle = this.props.intl.formatMessage({
@@ -576,6 +587,7 @@ export class RunViewImpl extends Component {
             <ArtifactPage runUuid={runUuid} modelVersions={modelVersions} runTags={tags} />
           </CollapsibleSection>
         </div>
+        {notificationContextHolder}
       </div>
     );
   }
@@ -598,8 +610,8 @@ const mapStateToProps = (state, ownProps) => {
   const params = getParams(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
-  const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
-  const runName = Utils.getRunName(tags, runUuid);
+  const runDisplayName = Utils.getRunDisplayName(run, runUuid);
+  const runName = Utils.getRunName(run, runUuid);
   return {
     run,
     experiment,
@@ -614,7 +626,7 @@ const mapStateToProps = (state, ownProps) => {
 };
 const mapDispatchToProps = { setTagApi, deleteTagApi };
 
-export const RunViewImplWithIntl = injectIntl(RunViewImpl);
+export const RunViewImplWithIntl = withNotifications(injectIntl(RunViewImpl));
 export const RunView = connect(mapStateToProps, mapDispatchToProps)(RunViewImplWithIntl);
 
 // Private helper functions.

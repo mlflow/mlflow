@@ -377,7 +377,7 @@ export class CompareRunView extends Component {
 
     const title = this.getTitle();
     /* eslint-disable-next-line prefer-const */
-    let breadcrumbs = [this.getExperimentLink(), title];
+    let breadcrumbs = [this.getExperimentLink()];
     return (
       <div className='CompareRunView' ref={this.compareRunViewRef}>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
@@ -664,7 +664,8 @@ const mapStateToProps = (state, ownProps) => {
   const { experimentIds, runUuids } = ownProps;
   const experiments = experimentIds.map((experimentId) => getExperiment(experimentId, state));
   runUuids.forEach((runUuid) => {
-    runInfos.push(getRunInfo(runUuid, state));
+    const runInfo = getRunInfo(runUuid, state);
+    runInfos.push(runInfo);
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
     const runTags = getRunTags(runUuid, state);
@@ -673,8 +674,8 @@ const mapStateToProps = (state, ownProps) => {
       value,
     }));
     tagLists.push(visibleTags);
-    runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
-    runNames.push(Utils.getRunName(runTags));
+    runDisplayNames.push(Utils.getRunDisplayName(runInfo, runUuid));
+    runNames.push(Utils.getRunName(runInfo));
   });
   return {
     experiments,

@@ -18,6 +18,13 @@ import Utils from '../../common/utils/Utils';
 
 const { Text } = Typography;
 
+// Mock these methods because js-dom doesn't implement window.Request
+jest.mock('../../common/utils/ArtifactUtils', () => ({
+  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  getArtifactContent: jest.fn().mockResolvedValue(),
+  getArtifactBytesContent: jest.fn().mockResolvedValue(),
+}));
+
 describe('ArtifactView', () => {
   let wrapper;
   let minimalProps;

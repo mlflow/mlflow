@@ -12,7 +12,7 @@ import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import Routers from '../../experiment-tracking/routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
-import { DesignSystemProvider } from '@databricks/design-system';
+import { DesignSystemContainer } from '../../common/components/DesignSystemContainer';
 
 describe('ModelVersionView', () => {
   let wrapper;
@@ -62,13 +62,13 @@ describe('ModelVersionView', () => {
     minimalStore = mockStore(minimalStoreRaw);
     createComponentInstance = (props) =>
       mountWithIntl(
-        <DesignSystemProvider>
+        <DesignSystemContainer>
           <Provider store={minimalStore}>
             <BrowserRouter>
               <ModelVersionView {...props} />
             </BrowserRouter>
           </Provider>
-        </DesignSystemProvider>,
+        </DesignSystemContainer>,
       );
   });
 
@@ -209,17 +209,15 @@ describe('ModelVersionView', () => {
     };
     wrapper = createComponentInstance(props);
 
-    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(4);
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(4);
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe(
       'Registered At',
     );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
-      'Stage',
-    );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(2).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Stage');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe(
       'Last Modified',
     );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(3).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe(
       'Source Run',
     );
   });
@@ -227,20 +225,16 @@ describe('ModelVersionView', () => {
   test('creator description rendered if user_id is available', () => {
     wrapper = createComponentInstance(minimalProps);
 
-    expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(5);
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item"]').length).toBe(5);
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(0).text()).toBe(
       'Registered At',
     );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
-      'Creator',
-    );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(2).text()).toBe(
-      'Stage',
-    );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(3).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(1).text()).toBe('Creator');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(2).text()).toBe('Stage');
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(3).text()).toBe(
       'Last Modified',
     );
-    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(4).text()).toBe(
+    expect(wrapper.find('[data-test-id="descriptions-item-label"]').at(4).text()).toBe(
       'Source Run',
     );
   });

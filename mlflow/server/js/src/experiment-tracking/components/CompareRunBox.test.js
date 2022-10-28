@@ -1,5 +1,5 @@
 import React from 'react';
-import { Select } from 'antd';
+import { Select } from '@databricks/design-system';
 import { CompareRunBox } from './CompareRunBox';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';

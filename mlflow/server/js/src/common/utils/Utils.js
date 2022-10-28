@@ -8,16 +8,10 @@ import projectSvg from '../static/project.svg';
 import jobSvg from '../static/job.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
-import { message } from 'antd';
 import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-
-message.config({
-  maxCount: 1,
-  duration: 5,
-});
 
 class Utils {
   /**
@@ -39,6 +33,29 @@ class Utils {
       });
     });
     return ret;
+  }
+
+  /**
+   * Notifications API object compatible with @databricks/design-system's Notifications.
+   * Used to display global errors.
+   */
+  static #notificationsApi = null;
+
+  /**
+   * Method used to register notifications API instance
+   */
+  static registerNotificationsApi(api) {
+    this.#notificationsApi = api;
+  }
+
+  /**
+   * Displays the error notification in the UI.
+   */
+  static displayGlobalErrorNotification(content) {
+    if (!this.#notificationsApi) {
+      return;
+    }
+    this.#notificationsApi.error({ message: content });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -576,11 +593,15 @@ class Utils {
    * Renders the run name into a string.
    * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
-  static getRunDisplayName(runTags, runUuid) {
-    return Utils.getRunName(runTags) || 'Run ' + runUuid;
+  static getRunDisplayName(runInfo, runUuid) {
+    return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runTags) {
+  static getRunName(runInfo) {
+    return runInfo.run_name || '';
+  }
+
+  static getRunNameFromTags(runTags) {
     const runNameTag = runTags[Utils.runNameTag];
     if (runNameTag) {
       return runNameTag.value;
@@ -933,10 +954,10 @@ class Utils {
   ) {
     console.error(e);
     if (typeof e === 'string') {
-      message.error(e);
+      this.displayGlobalErrorNotification(e);
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
-      message.error(e.renderHttpError());
+      this.displayGlobalErrorNotification(e.renderHttpError());
       // eslint-disable-next-line no-empty
     } else {
     }
@@ -1054,9 +1075,18 @@ class Utils {
 
   static getSupportPageUrl = () => SupportPageUrl;
 
-  static getIframeCorrectedRoute(route) {
+  static isUsingExternalRouter() {
+    // Running inside the iFrame indicates that we're using externally managed routing.
     if (window.self !== window.top || window.isTestingIframe) {
-      // If running in an iframe, include the parent params and assume mlflow served at #
+      return true;
+    }
+
+    return false;
+  }
+
+  static getIframeCorrectedRoute(route) {
+    if (this.isUsingExternalRouter()) {
+      // If using external routing, include the parent params and assume mlflow served at #
       const parentHref = window.parent.location.href;
       const parentHrefBeforeMlflowHash = parentHref.split('#')[0];
       return `${parentHrefBeforeMlflowHash}#mlflow${route}`;

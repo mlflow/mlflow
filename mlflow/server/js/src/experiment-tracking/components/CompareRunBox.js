@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import PropTypes from 'prop-types';
-import { Row, Col, Select } from 'antd';
-import { Typography } from '@databricks/design-system';
+
+import { Select, Typography, Row, Col } from '@databricks/design-system';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { LazyPlot } from './LazyPlot';
 
@@ -143,29 +143,35 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
   return (
     <Row>
       <Col span={6}>
-        <div>
-          <label htmlFor='x-axis-selector'>
-            <FormattedMessage
-              defaultMessage='X-axis:'
-              description='Label text for X-axis in box plot comparison in MLflow'
-            />
-          </label>
-        </div>
-        {renderSelector(handleXAxisChange, xAxis.value)}
+        <div css={styles.borderSpacer}>
+          <div>
+            <label htmlFor='x-axis-selector'>
+              <FormattedMessage
+                defaultMessage='X-axis:'
+                description='Label text for X-axis in box plot comparison in MLflow'
+              />
+            </label>
+          </div>
+          {renderSelector(handleXAxisChange, xAxis.value)}
 
-        <div>
-          <label htmlFor='y-axis-selector'>
-            <FormattedMessage
-              defaultMessage='Y-axis:'
-              description='Label text for Y-axis in box plot comparison in MLflow'
-            />
-          </label>
+          <div>
+            <label htmlFor='y-axis-selector'>
+              <FormattedMessage
+                defaultMessage='Y-axis:'
+                description='Label text for Y-axis in box plot comparison in MLflow'
+              />
+            </label>
+          </div>
+          {renderSelector(handleYAxisChange, yAxis.value)}
         </div>
-        {renderSelector(handleYAxisChange, yAxis.value)}
       </Col>
       <Col span={18}>{renderPlot()}</Col>
     </Row>
   );
+};
+
+const styles = {
+  borderSpacer: (theme) => ({ paddingLeft: theme.spacing.xs }),
 };
 
 CompareRunBox.propTypes = {

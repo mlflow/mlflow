@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { message } from 'antd';
+import { message, ConfigProvider } from 'antd';
 import PropTypes from 'prop-types';
 
 const isInsideShadowDOM = (element) =>
@@ -31,9 +31,11 @@ export const DesignSystemContainer = (props) => {
   }, []);
 
   return (
-    <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
-      {children}
-      <div ref={modalContainerElement} />
+    <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
+      <ConfigProvider prefixCls='ant'>
+        {children}
+        <div ref={modalContainerElement} />
+      </ConfigProvider>
     </DesignSystemProvider>
   );
 };
