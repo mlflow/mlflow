@@ -159,6 +159,7 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        self.output_probabilities = self.step_config.get("output_probabilities", False)
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
@@ -350,34 +351,52 @@ class TrainStep(BaseStep):
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            prediction_result_probs = model.predict_proba(
-                raw_validation_df.drop(self.target_col, axis=1)
-            )
+            if self.output_probabilities:
+                prediction_result_probs = model.predict_proba(
+                    raw_validation_df.drop(self.target_col, axis=1)
+                )
+                prediction_result_for_error = prediction_result_probs
+            else:
+                prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
-                self.template, probability=True, positive_class=self.positive_class
+                self.template,
+                probability=self.output_probabilities,
+                positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
                 {
                     "target": target_data,
                     "prediction": prediction_result,
-                    "error": error_fn(prediction_result_probs, target_data.to_numpy()),
+                    "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            train_predicted_probs = model.predict_proba(raw_train_df.drop(self.target_col, axis=1))
-            predicted_training_data = raw_train_df.assign(
-                predicted_data=train_predictions, predicted_probability=train_predicted_probs[:, 0]
-            )
+            if self.output_probabilities:
+                train_predicted_probs = model.predict_proba(
+                    raw_train_df.drop(self.target_col, axis=1)
+                )
+                predicted_training_data = raw_train_df.assign(
+                    predicted_data=train_predictions,
+                    predicted_probability=train_predicted_probs[:, 0],
+                )
+                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                    raw_train_df,
+                    train_predicted_probs[:, 0],
+                    error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
+                    self.target_col,
+                )
+            else:
+                predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                    raw_train_df,
+                    train_predictions,
+                    error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+                    self.target_col,
+                )
             predicted_training_data.to_parquet(
                 os.path.join(output_directory, TrainStep.PREDICTED_TRAINING_DATA_RELATIVE_PATH)
             )
 
-            worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                raw_train_df,
-                train_predicted_probs[:, 0],
-                error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
-                self.target_col,
-            )
             leaderboard_df = None
             try:
                 leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
