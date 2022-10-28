@@ -281,7 +281,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             ):
                 cur_chunk_size = len(chunk)
                 if idx == 0 and cur_chunk_size < _AZURE_MAX_BLOCK_CHUNK_SIZE:
-                    use_single_part_upload = True
+                    use_single_part_upload = False
                 self._retryable_adls_function(
                     func=patch_adls_file_upload,
                     artifact_path=artifact_path,
