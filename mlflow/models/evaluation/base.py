@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from types import LambdaType
 import mlflow
 import hashlib
 import json
@@ -86,8 +87,8 @@ class EvaluationMetric:
 
 def make_metric(
     eval_fn,
-    name,
     greater_is_better,
+    name=None,
     long_name=None,
 ):
     """
@@ -118,8 +119,9 @@ def make_metric(
                 \"\"\"
                 ...
 
-    :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
+    :param name: The name of the metric. If unspecified, it will be inferred from the
+                ``eval_fn.__name__`` attribute.
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
 
@@ -128,6 +130,19 @@ def make_metric(
         - :py:class:`mlflow.models.EvaluationMetric`
         - :py:func:`mlflow.evaluate`
     """
+    if name is None:
+        if isinstance(eval_fn, LambdaType) and eval_fn.__name__ == "<lambda>":
+            raise MlflowException(
+                "`name` must be specified if `eval_fn` is a lambda function.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not hasattr(eval_fn, "__name__"):
+            raise MlflowException(
+                "`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
+                INVALID_PARAMETER_VALUE,
+            )
+        name = eval_fn.__name__
+
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
 
 

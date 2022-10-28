@@ -1942,3 +1942,34 @@ def test_custom_artifacts():
         )
         custom_artifact = result.artifacts["custom_artifact.json"]
         assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+
+
+def test_make_metric_name_inference():
+    def metric(_df, _metrics):
+        return 1
+
+    metric = mlflow.models.make_metric(metric, greater_is_better=True)
+    assert metric.name == "metric"
+
+    metric = mlflow.models.make_metric(metric, greater_is_better=True, name="my_metric")
+    assert metric.name == "my_metric"
+
+    metric = mlflow.models.make_metric(
+        lambda _df, _metrics: 0, greater_is_better=True, name="metric"
+    )
+    assert metric.name == "metric"
+
+    with pytest.raises(
+        MlflowException, match="`name` must be specified if `eval_fn` is a lambda function."
+    ):
+        mlflow.models.make_metric(lambda _df, _metrics: 0, greater_is_better=True)
+
+    class Callable:
+        def __call__(self, _df, _metrics):
+            return 1
+
+    with pytest.raises(
+        MlflowException,
+        match="`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
+    ):
+        mlflow.models.make_metric(Callable(), greater_is_better=True)
