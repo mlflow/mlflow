@@ -206,7 +206,7 @@ export const searchRunsPayload = ({
       experiment_ids: experimentIds,
       filter: filter,
       run_view_type: runViewType,
-      max_results: maxResults || SEARCH_MAX_RESULTS,
+      max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
       order_by: orderBy,
       page_token: pageToken,
     }),
