@@ -74,7 +74,8 @@ tensorflow:
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
-      "< 2.6.0": [ "protobuf<4.0.0" ]
+      "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -89,6 +90,7 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -252,12 +254,16 @@ statsmodels:
   models:
     minimum: "0.11.1"
     maximum: "0.13.2"
+    requirements:
+      "< 0.13.0": ["scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.11.1"
     maximum: "0.13.2"
+    requirements:
+      "< 0.13.0": ["scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
