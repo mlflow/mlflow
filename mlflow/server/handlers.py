@@ -1318,9 +1318,9 @@ def get_model_version_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     name = request_dict.get("name")
     version = request_dict.get("version")
-    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     path = request_dict["path"]
     validate_path_is_safe(path)
+    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
