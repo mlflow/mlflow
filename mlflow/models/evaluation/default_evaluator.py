@@ -462,7 +462,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A scala metric value.
+    :return: A scalar metric value.
     """
     exception_header = (
         f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
