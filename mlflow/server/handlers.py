@@ -50,7 +50,6 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
-    ListRegisteredModels,
     GetRegisteredModel,
     GetLatestVersions,
     CreateModelVersion,
@@ -1164,27 +1163,6 @@ def _delete_registered_model():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_registered_models():
-
-    request_message = _get_request_message(
-        ListRegisteredModels(),
-        schema={
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
-            "page_token": [_assert_string],
-        },
-    )
-    registered_models = _get_model_registry_store().list_registered_models(
-        request_message.max_results, request_message.page_token
-    )
-    response_message = ListRegisteredModels.Response()
-    response_message.registered_models.extend([e.to_proto() for e in registered_models])
-    if registered_models.token:
-        response_message.next_page_token = registered_models.token
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_registered_models():
 
     request_message = _get_request_message(
@@ -1611,7 +1589,6 @@ HANDLERS = {
     DeleteRegisteredModel: _delete_registered_model,
     UpdateRegisteredModel: _update_registered_model,
     RenameRegisteredModel: _rename_registered_model,
-    ListRegisteredModels: _list_registered_models,
     SearchRegisteredModels: _search_registered_models,
     GetLatestVersions: _get_latest_versions,
     CreateModelVersion: _create_model_version,
