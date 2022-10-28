@@ -296,7 +296,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         data=spark_model_iris.pandas_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=1000,
     )
     from mlflow.deployments import PredictionsResponse
 
