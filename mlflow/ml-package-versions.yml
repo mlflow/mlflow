@@ -188,7 +188,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.9"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      ">= 0.0.0": ["torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
@@ -196,7 +196,7 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.9"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      ">= 0.0.0": ["torch<1.13.0", "torchvision<0.14.0"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
