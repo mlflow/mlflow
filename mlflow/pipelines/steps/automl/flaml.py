@@ -39,9 +39,6 @@ def get_estimator_and_best_params(
 def _create_custom_metric_flaml(
     metric_name: str, coeff: int, eval_metric: EvaluationMetric
 ) -> callable:
-    def add_suffix(metrics: Dict[str, float], suffix: str) -> Dict[str, float]:
-        return {f"{k}_{suffix}": v for k, v in metrics.items()}
-
     def calc_metric(X, y, estimator) -> Dict[str, float]:
         y_pred = estimator.predict(X)
         builtin_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
@@ -64,7 +61,7 @@ def _create_custom_metric_flaml(
         *args,
     ):
         val_metric = coeff * calc_metric(X_val, y_val, estimator)
-        train_metric = add_suffix(calc_metric(X_train, y_train, estimator), "train")
+        train_metric = calc_metric(X_train, y_train, estimator)
         main_metric = coeff * val_metric
         return main_metric, {
             f"{metric_name}_train": train_metric,
