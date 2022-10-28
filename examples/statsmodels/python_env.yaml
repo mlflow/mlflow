@@ -3,5 +3,5 @@ build_dependencies:
 - pip
 dependencies:
 - mlflow>=1.6.0
-- statsmodels==0.11.1
-- scikit-learn==0.22.1
+- statsmodels==0.13.2
+- scikit-learn==1.1.3
