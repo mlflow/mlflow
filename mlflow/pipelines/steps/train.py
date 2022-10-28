@@ -350,12 +350,17 @@ class TrainStep(BaseStep):
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            error_fn = _get_error_fn(self.template)
+            prediction_result_probs = model.predict_proba(
+                raw_validation_df.drop(self.target_col, axis=1)
+            )
+            error_fn = _get_error_fn(
+                self.template, probability=True, positive_class=self.positive_class
+            )
             pred_and_error_df = pd.DataFrame(
                 {
                     "target": target_data,
                     "prediction": prediction_result,
-                    "error": error_fn(prediction_result, target_data.to_numpy()),
+                    "error": error_fn(prediction_result_probs, target_data.to_numpy()),
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
@@ -369,8 +374,8 @@ class TrainStep(BaseStep):
 
             worst_examples_df = BaseStep._generate_worst_examples_dataframe(
                 raw_train_df,
-                train_predictions,
-                error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+                train_predicted_probs[:, 0],
+                error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
                 self.target_col,
             )
             leaderboard_df = None
