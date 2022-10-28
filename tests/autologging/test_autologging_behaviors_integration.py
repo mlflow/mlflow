@@ -25,7 +25,6 @@ from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-im
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
-    mlflow.keras: "keras",
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",

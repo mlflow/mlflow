@@ -26,7 +26,7 @@ from tests.statsmodels.test_statsmodels_model_export import _get_dates_from_df
 
 def get_latest_run():
     client = MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 def test_statsmodels_autolog_ends_auto_created_run():

@@ -25,7 +25,7 @@ mpl.use("Agg")
 
 def get_latest_run():
     client = MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 def get_model_conf(artifact_uri, model_subpath="model"):

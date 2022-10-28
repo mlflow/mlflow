@@ -155,6 +155,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",

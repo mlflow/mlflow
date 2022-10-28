@@ -31,8 +31,8 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.7
-RUN ln -s -f $(which python3.7) /usr/bin/python
+RUN apt install -y python3.8 python3.8-distutils
+RUN ln -s -f $(which python3.8) /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN python /tmp/get-pip.py
 RUN pip install virtualenv
@@ -80,10 +80,10 @@ DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 RUN apt-get -y update
-RUN apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends \
          wget \
          curl \
          nginx \

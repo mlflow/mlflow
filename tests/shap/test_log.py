@@ -1,5 +1,6 @@
 import mlflow
 import shap
+import json
 import numpy as np
 import pandas as pd
 import sklearn
@@ -313,9 +314,10 @@ def test_pyfunc_serve_and_score():
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(X[:3]),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
 
 

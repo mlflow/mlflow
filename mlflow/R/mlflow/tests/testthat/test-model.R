@@ -39,7 +39,7 @@ test_that("mlflow can save model function", {
   temp_in_json_split <- tempfile(fileext = ".json")
   temp_out <- tempfile(fileext = ".json")
   write.csv(iris, temp_in_csv, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_csv, "-o", temp_out, "-t", "csv")
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_csv, "-o", temp_out, "-t", "csv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -47,9 +47,8 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
   # json records
-  jsonlite::write_json(iris, temp_in_json, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json, "-o", temp_out, "-t", "json",
-             "--json-format", "records")
+  jsonlite::write_json(list(dataframe_records = iris), temp_in_json, row.names = FALSE)
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json, "-o", temp_out, "-t", "json", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -57,11 +56,14 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
   # json split
-  iris_split <- list(columns = names(iris)[1:4], index = row.names(iris),
-                     data = as.matrix(iris[, 1:4]))
+  iris_split <- list(
+    dataframe_split = list(
+      columns = names(iris)[1:4],
+      index = row.names(iris),
+      data = as.matrix(iris[, 1:4])))
   jsonlite::write_json(iris_split, temp_in_json_split, row.names = FALSE)
   mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json_split, "-o", temp_out, "-t",
-             "json", "--json-format", "split")
+             "json", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -89,13 +91,13 @@ test_that("mlflow can log model and load it back with a uri", {
   expect_true(5 == mlflow_predict(loaded_model_2, 0:10))
   temp_in  <- tempfile(fileext = ".json")
   temp_out  <- tempfile(fileext = ".json")
-  jsonlite::write_json(0:10, temp_in)
+  jsonlite::write_json(list(dataframe_records=0:10), temp_in)
   mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
-                      "--content-type", "json", "--json-format", "records")
+                      "--content-type", "json", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
   mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
-                      "--content-type", "json", "--json-format", "records")
+                      "--content-type", "json", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
 })

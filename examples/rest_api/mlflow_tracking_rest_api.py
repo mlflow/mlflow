@@ -20,7 +20,7 @@ _DEFAULT_USER_ID = "unknown"
 
 class MLflowTrackingRestApi:
     def __init__(self, hostname, port, experiment_id):
-        self.base_url = "http://" + hostname + ":" + str(port) + "/api/2.0/preview/mlflow"
+        self.base_url = "http://" + hostname + ":" + str(port) + "/api/2.0/mlflow"
         self.experiment_id = experiment_id
         self.run_id = self.create_run()
 
@@ -41,9 +41,9 @@ class MLflowTrackingRestApi:
             print("Creating run failed!")
         return run_id
 
-    def list_experiments(self):
+    def search_experiments(self):
         """Get all experiments."""
-        url = self.base_url + "/experiments/list"
+        url = self.base_url + "/experiments/search"
         r = requests.get(url)
         experiments = None
         if r.status_code == 200:

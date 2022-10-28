@@ -14,9 +14,11 @@ matplotlib
 shap>=0.40
 plotly
 kaleido
-# Required by mlflow.keras / mlflow.pytorch tests.
+# Required by mlflow.tensorflow / mlflow.pytorch tests.
 transformers
 # Required by tuning tests
 hyperopt
+# Required by pipelines tests
+ipython
 # Required by automl tests
 flaml

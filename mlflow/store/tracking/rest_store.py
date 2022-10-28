@@ -7,7 +7,6 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetRun,
     SearchRuns,
-    ListExperiments,
     SearchExperiments,
     GetMetricHistory,
     LogMetric,
@@ -55,34 +54,6 @@ class RestStore(AbstractStore):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
-
-    def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-    ):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, the server will pick a maximum number of results to return.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        req_body = message_to_json(
-            ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
-        )
-        response_proto = self._call_endpoint(ListExperiments, req_body)
-        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
-        # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
-        # returns an empty string (default value for a string proto field).
-        token = (
-            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
-        )
-        return PagedList(experiments, token)
 
     def search_experiments(
         self,
@@ -323,13 +294,8 @@ class RestStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST
             ):
                 return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
-                # Fall back to using ListExperiments-based implementation.
-                for experiment in self.list_experiments(ViewType.ALL):
-                    if experiment.name == experiment_name:
-                        return experiment
-                return None
-            raise e
+            else:
+                raise
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
@@ -343,42 +309,3 @@ class RestStore(AbstractStore):
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
         self._call_endpoint(LogModel, req_body)
-
-
-class DatabricksRestStore(RestStore):
-    """
-    Databricks-specific RestStore implementation that provides different fallback
-    behavior when hitting the GetExperimentByName REST API fails - in particular, we only
-    fall back to ListExperiments when the server responds with ENDPOINT_NOT_FOUND, rather than
-    on all internal server errors. This implementation should be deprecated once
-    GetExperimentByName is available everywhere.
-    """
-
-    def get_experiment_by_name(self, experiment_name):
-        try:
-            req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
-            response_proto = self._call_endpoint(GetExperimentByName, req_body)
-            return Experiment.from_proto(response_proto.experiment)
-        except MlflowException as e:
-            if e.error_code == databricks_pb2.ErrorCode.Name(
-                databricks_pb2.RESOURCE_DOES_NOT_EXIST
-            ):
-                return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
-                # Fall back to using ListExperiments-based implementation.
-                for experiments in self._paginate_list_experiments(ViewType.ALL):
-                    for experiment in experiments:
-                        if experiment.name == experiment_name:
-                            return experiment
-                return None
-            raise e
-
-    def _paginate_list_experiments(self, view_type):
-        page_token = None
-        while True:
-            experiments = self.list_experiments(view_type=view_type, page_token=page_token)
-            yield experiments
-
-            if not experiments.token:
-                break
-            page_token = experiments.token

@@ -181,6 +181,10 @@ MLFLOW_RUN = format_help_string(
     "The MLflow Tracking Run containing the model pipeline & its parameters, model performance metrics on the training & validation datasets, and lineage information about the current pipeline execution. The downstream 'evaluate' step logs performance metrics and model explanations from the test dataset to this MLflow Run."
 )
 
+PREDICTED_TRAINING_DATA = format_help_string(
+    "The predicted training dataset that is obtained by predicted training data using the fitted model."
+)
+
 CUSTOM_METRICS_USER_CODE = format_help_string(
     """\"\"\"\nsteps/custom_metrics.py defines customizable logic for specifying custom metrics to compute during model training and evaluation. Custom metric functions defined in `steps/custom_metrics.py` are referenced by the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. For example:
 

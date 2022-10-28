@@ -40,6 +40,7 @@ defaults:
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -88,7 +89,8 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             REPO="${{ github.repository }}"
             PR_NUMBER="${{ github.event.pull_request.number }}"
-            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/master/mlflow/ml-package-versions.yml"
+            BASE_REF="${{ github.base_ref }}"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
             CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER)"
             ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
@@ -142,6 +144,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
       - name: Get cache key
         env:
           INSTALL_COMMAND: ${{ matrix.install }}
@@ -162,7 +165,7 @@ jobs:
         run: |
           python --version
           pip install --upgrade pip wheel
-          pip install -e .
+          pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:

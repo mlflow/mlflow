@@ -35,23 +35,21 @@ MLflow Pipelines is available as an extension of the
 `MLflow Python library <https://pypi.org/project/mlflow/>`_. You can install MLflow Pipelines
 as follows:
 
-- **Local**: Install MLflow Pipelines from PyPI:
-
-  .. code-block:: sh
-
-      pip install mlflow[pipelines]
-
-  Note that MLflow Pipelines requires Make, which may not be preinstalled on some Windows systems.
+- **Local**: Install MLflow Pipelines from PyPI: ``pip install mlflow[pipelines]``.
+  Note that MLflow Pipelines requires `Make <https://www.gnu.org/software/make>`_,
+  which may not be preinstalled on some Windows systems.
   Windows users must install Make before using MLflow Pipelines. For more information about
   installing Make on Windows, see https://gnuwin32.sourceforge.net/install.html.
 
 - **Databricks**: Install MLflow Pipelines from a Databricks Notebook by running
   ``%pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
-  following the PyPI library installation instructions at
-  https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster
-  and specifying the ``mlflow[pipelines]`` package string. Note that
-  `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
-  or greater is required in order to install MLflow Pipelines on Databricks.
+  following the PyPI library installation instructions `here
+  <https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster>`_
+  and specifying the ``mlflow[pipelines]`` package string.
+
+  .. note::
+    `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
+    or greater is required in order to install MLflow Pipelines on Databricks.
 
 NYC taxi fare prediction example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -118,39 +116,43 @@ Key concepts
 
 Usage
 -----
+Model development workflow
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The general workflow for using MLflow Pipelines is as follows:
+The general model development workflow for using MLflow Pipelines is as follows:
 
 1. Clone a :ref:`Pipeline Template <pipeline-templates>` git repository corresponding to the ML
-   problem that you want to solve or the MLOps task that you want to perform. View the template's
-   README file for information about the :ref:`Pipeline Steps <steps-key-concept>` that it defines
-   and the results that it produces.
+   problem that you wish to solve. Follow the template's README file for template-specific
+   instructions.
+
+    - [Local] Clone the |MLflow Pipelines Regression Template| into a local directory.
 
     .. code-block:: sh
-      :caption: An example of cloning the |MLflow Pipelines Regression Template|
 
       git clone https://github.com/mlflow/mlp-regression-template
 
-    .. note::
-      On Databricks, we recommend cloning the :ref:`Pipeline Template <pipeline-templates>` git
-      repository using |Databricks Repos|.
+    - [Databricks] Clone the |MLflow Pipelines Regression Template| git repository using |Databricks Repos|.
 
       .. image:: _static/images/pipelines_databricks_repo_ui.png
         :width: 60%
 
-2. Run the pipeline and inspect its results. When a pipeline run completes, MLflow Pipelines
+2. Edit required fields marked by ``FIXME::REQUIRED`` comments in ``pipeline.yaml`` and
+   ``profiles/*.yaml``. The pipeline is runnable once all required fields are filled with
+   proper values. You may proceed to step 3 if this is the first time going through this step.
+   Otherwise, continue to edit the YAML config files as well as ``steps/*.py`` files,
+   filling out areas marked by ``FIXME::OPTIONAL`` as you see fit to
+   customize the pipeline steps to your ML problem for better model performance.
+
+      .. image:: _static/images/pipelines_databricks_fixme.png
+        :width: 60%
+
+3. Run the pipeline by selecting a desired profile. Profiles are used to quickly switch environment
+   specific pipeline settings, such as ingest data location.
+   When a pipeline run completes, you may inspect the run results. MLflow Pipelines
    creates and displays an interactive **Step Card** with the results of the last executed
    :ref:`step <steps-key-concept>`.
-
-    .. figure:: _static/images/pipelines_evaluate_step_card.png
-      :scale: 25
-
-      An example step card produced by running the **evaluate** step of the
-      :ref:`MLflow Regression Pipeline <mlflow-regression-pipeline>`. The step card results
-      indicate that the trained model passed all performance validations and is ready for
-      registration with the :ref:`MLflow Model Registry <registry>`.
-
-    |
+   Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
+   and a |Jupyter Notebook| for running the pipeline and inspecting its results.
 
     .. code-section::
 
@@ -183,56 +185,49 @@ The general workflow for using MLflow Pipelines is as follows:
           # Inspect the resulting model performance evaluations
           mlflow pipelines inspect --step evaluate --profile local
 
-    .. note::
-      Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
-      and a |Jupyter Notebook| for running the pipeline and inspecting its results.
+
+    .. figure:: _static/images/pipelines_evaluate_step_card.png
+      :width: 60%
+
+      An example step card produced by running the **evaluate** step of the
+      :ref:`MLflow Regression Pipeline <mlflow-regression-pipeline>`. The step card results
+      indicate that the trained model passed all performance validations and is ready for
+      registration with the :ref:`MLflow Model Registry <registry>`.
+
+
+    .. figure:: _static/images/pipelines_databricks_logged_artifacts.png
+      :width: 60%
+
+      An example MLflow run view page, showing artifacts logged from the Pipeline's steps.
+ 
+    .. figure:: _static/images/pipelines_databricks_notebook_ui.png
+      :scale: 25
 
       Example pipeline run from the |Databricks Notebook| included in the
-      |MLflow Pipelines Regression Template|:
-
-      .. figure:: _static/images/pipelines_databricks_notebook_ui.png
-        :scale: 25
-
-3. Make changes to the code and configurations in the :ref:`Pipeline Repository
-   <pipeline-templates-key-concept>`. Code changes are made by modifying Python modules in the
-   ``steps`` subdirectory. Configuration changes are made by editing the main ``pipeline.yaml``
-   configuration file, as well as profile-specific configuration files in the ``profiles``
-   subdirectory.
+      |MLflow Pipelines Regression Template|.
 
     .. note::
-      When making changes to pipelines on Databricks, it is recommended that you either
-      edit files on your local machine and use |dbx| to sync them to |Databricks Repos|,
-      as demonstrated below, or |edit files in Databricks Repos| by opening separate browser
-      tabs for each YAML file or Python code module that you wish to modify.
+      Data profiling is often best viewed with "quantiles" mode. To switch it on, on the Facet
+      data profile, find ``Chart to show``, click the selector below, and choose ``Quantiles``.
 
-      .. code-block:: sh
-        :caption: Example workflow for efficiently editing a pipeline on a local machine
-                  and synchronizing changes to |Databricks Repos|
+4. Iterate over step 2 and 3: make changes to an individual step, and test them by running
+   the step and observing the results it produces.
+   Use ``Pipeline.inspect()`` to visualize the overall Pipeline dependency graph and artifacts
+   each step produces.
+   Use ``Pipeline.get_artifact()`` to further inspect individual step outputs in a notebook.
 
-        # Install the Databricks CLI, which is used to remotely access your Databricks Workspace
-        pip install databricks-cli
-        # Configure remote access to your Databricks Workspace
-        databricks configure
-        # Install dbx, which is used to automatically sync changes to and from Databricks Repos
-        pip install dbx
-        # Clone the MLflow Pipelines Regression Template
-        git clone https://github.com/mlflow/mlp-regression-template
-        # Enter the MLflow Pipelines Regression Template directory and configure dbx within it
-        cd mlp-regression-template
-        dbx configure
-        # Use dbx to enable syncing from the repository directory to Databricks Repos
-        dbx sync repo -d mlp-regression-template
-        # Iteratively make changes to files in the repository directory and observe that they
-        # are automatically synced to Databricks Repos
-        ...
-
-4. Test changes by running the pipeline and observing the results it produces. MLflow Pipelines
-   intelligently caches results from each :ref:`Pipeline Step <steps-key-concept>`, ensuring that
-   steps are only executed if their inputs, code, or configurations have changed, or if such
-   changes have occurred in dependent steps. Once you are satisfied with the results of
+   MLflow Pipelines intelligently caches results from each :ref:`Pipeline Step <steps-key-concept>`,
+   ensuring that steps are only executed if their inputs, code, or configurations have changed,
+   or if such changes have occurred in dependent steps. Once you are satisfied with the results of
    your changes, commit them to a branch of the :ref:`Pipeline Repository
    <pipeline-templates-key-concept>` in order to ensure reproducibility, and share or review the
    changes with your team.
+
+      .. figure:: _static/images/pipelines_databricks_dag.png
+        :width: 60%
+
+        Example Pipeline.inspect() output, showing the dependency graph of pipeline steps and
+        artifacts each step produces.
 
     .. note::
       Before testing changes in a staging or production environment, it is recommended that you
@@ -244,6 +239,56 @@ The general workflow for using MLflow Pipelines is as follows:
       <steps-key-concept>` within the ``.mlflow`` subdirectory of the home folder on the
       local filesystem. The ``MLFLOW_PIPELINES_EXECUTION_DIRECTORY`` environment variable can
       be used to specify an alternative location for caching results.
+
+Development environments
+~~~~~~~~~~~~~~~~~~~~~~~~
+We recommend using one of the following environment configurations to develop models with MLflow Pipelines:
+
+[**Databricks**]
+  - Edit YAML config and Python files in Databricks Repos. Open separate browser tabs for each
+    file module that you wish to modify. For example,
+    one for the pipeline config file ``pipeline.yaml``,
+    one for the profile config file ``profile/databricks.yaml``,
+    one for the driver notebook ``notebooks/databricks.py``,
+    and one for the current step (e.g. train) under development ``steps/train.py``.
+  - Use ``notebooks/databricks.py`` as the driver to run pipeline steps and inspect its output.
+  - Pin the workspace browser for easy file navigation.
+
+  .. image:: _static/images/pipelines_databricks_ui.png
+    :width: 60%
+
+[**Local with Jupyter Notebook**]
+  - Use ``notebooks/jupyter.ipynb`` as the driver to run pipeline steps and inspect its output.
+  - Edit ``pipeline.yaml``, ``steps/*.py`` and ``profiles/*.yaml`` accordingly with an editor of your
+    choice.
+  - To run the entire pipeline, either run ``notebooks/jupyter.ipynb`` or on commandline, invoke
+    ``mlflow pipelines run --profile local`` (change the current working directory to the project root first).
+
+[**Edit locally with IDE (VSCode) and run on Databricks**]
+  - Edit files on your local machine with VSCode and Jupyter plugin.
+  - Use |dbx| to sync them to |Databricks Repos| as demonstrated below.
+  - On Databricks, use the ``notebooks/databricks.py`` notebook as the driver to run pipeline steps and inspect their outputs.
+
+  .. code-block:: sh
+   :caption: Example workflow for efficiently editing a pipeline on a local machine
+             and synchronizing changes to |Databricks Repos|
+
+   # Install the Databricks CLI, which is used to remotely access your Databricks Workspace
+   pip install databricks-cli
+   # Configure remote access to your Databricks Workspace
+   databricks configure
+   # Install dbx, which is used to automatically sync changes to and from Databricks Repos
+   pip install dbx
+   # Clone the MLflow Pipelines Regression Template
+   git clone https://github.com/mlflow/mlp-regression-template
+   # Enter the MLflow Pipelines Regression Template directory and configure dbx within it
+   cd mlp-regression-template
+   dbx configure
+   # Use dbx to enable syncing from the repository directory to Databricks Repos
+   dbx sync repo -d mlp-regression-template
+   # Iteratively make changes to files in the repository directory and observe that they
+   # are automatically synced to Databricks Repos
+
 
 .. _pipeline-templates:
 

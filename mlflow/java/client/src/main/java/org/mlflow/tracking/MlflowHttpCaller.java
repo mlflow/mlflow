@@ -135,9 +135,9 @@ class MlflowHttpCaller {
     fillRequestSettings(request, path);
     try {
       HttpResponse response = executeRequest(request);
-      String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-      logger.debug("Response: " + responseJosn);
-      return responseJosn;
+      String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+      logger.debug("Response: " + responseJson);
+      return responseJson;
     } catch (IOException e) {
       throw new MlflowClientException(e);
     }

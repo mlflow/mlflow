@@ -75,32 +75,6 @@ mlflow_search_experiments <- function(filter = NULL,
   ))
 }
 
-#' List Experiments
-#'
-#' Gets a list of all experiments.
-#'
-#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
-#' @template roxlate-client
-#' @export
-mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  .Deprecated("mlflow_search_experiments")
-  client <- resolve_client(client)
-  view_type <- match.arg(view_type)
-  response <-   mlflow_rest(
-    "experiments", "list",
-    client = client, verb = "GET",
-    query = list(view_type = view_type)
-  )
-
-  # Return `NULL` if no experiments
-  if (!length(response)) return(NULL)
-  purrr::map(response$experiments, function(x) {
-    x$tags <- parse_run_data(x$tags)
-    tibble::as_tibble(x)
-  }) %>%
-    do.call(rbind, .)
-}
-
 #' Set Experiment Tag
 #'
 #' Sets a tag on an experiment with the specified ID. Tags are experiment metadata that can be updated.

@@ -49,6 +49,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
         if self.step_class() == StepClass.TRAINING:
             self.target_col = self.step_config.get("target_col")
             if self.target_col is None:
@@ -210,6 +211,7 @@ class IngestStep(BaseIngestStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+
         data_config = pipeline_config.get("data", {})
         ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
         target_config = {"target_col": pipeline_config.get("target_col")}

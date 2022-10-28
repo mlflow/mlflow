@@ -13,9 +13,9 @@ from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDAT
 from mlflow.pipelines.step import BaseStep
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
-from sklearn.datasets import load_diabetes
-from sklearn.dummy import DummyRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.datasets import load_diabetes, load_iris
+from sklearn.dummy import DummyRegressor, DummyClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import pytest
 
@@ -61,6 +61,19 @@ def train_and_log_model(is_dummy=False):
             model = DummyRegressor(strategy="constant", constant=42)
         else:
             model = LinearRegression()
+        fitted_model = model.fit(X, y)
+        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        return run.info.run_id, fitted_model
+
+
+def train_and_log_classification_model(is_dummy=False):
+    mlflow.set_experiment("demo")
+    with mlflow.start_run() as run:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+        if is_dummy:
+            model = DummyClassifier(strategy="constant", constant=42)
+        else:
+            model = LogisticRegression()
         fitted_model = model.fit(X, y)
         mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
         return run.info.run_id, fitted_model
