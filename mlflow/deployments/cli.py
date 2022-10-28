@@ -317,11 +317,10 @@ def predict(target, name, input_path, output_path, endpoint):
         result = client.predict(name, df, endpoint=endpoint)
     else:
         result = client.predict(name, df)
-    if output_path:
-        with open(output_path, "w") as fp:
-            predictions_to_json(result, fp)
+    if output_path is not None:
+        result.to_json(output_path)
     else:
-        predictions_to_json(result, sys.stdout)
+        click.echo(result.to_json())
 
 
 @commands.command("explain")

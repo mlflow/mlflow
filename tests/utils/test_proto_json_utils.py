@@ -20,7 +20,7 @@ from mlflow.utils.proto_json_utils import (
     parse_dict,
     _stringify_all_experiment_ids,
     parse_tf_serving_input,
-    _dataframe_from_json,
+    dataframe_from_raw_json,
     _DateTimeEncoder,
 )
 
@@ -476,11 +476,11 @@ def test_dataframe_from_json():
             ColSpec("string", "date_string"),
         ]
     )
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
     pd.testing.assert_frame_equal(parsed, source)
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=schema
     )
     pd.testing.assert_frame_equal(parsed, source)
@@ -496,13 +496,13 @@ def test_dataframe_from_json():
             TensorSpec(np.dtype(bytes), [-1], "binary"),
         ]
     )
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
     pd.testing.assert_frame_equal(parsed, jsonable_df)
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
     )
 
@@ -521,20 +521,26 @@ def test_dataframe_from_json():
     )
     pd.testing.assert_frame_equal(
         source,
-        _dataframe_from_json(
+        dataframe_from_raw_json(
             source.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
         ),
     )
     pd.testing.assert_frame_equal(
         source,
-        _dataframe_from_json(
+        dataframe_from_raw_json(
             source.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
         ),
     )
 
     schema = Schema([ColSpec("datetime", "datetime")])
-    parsed = _dataframe_from_json(
-        '{"datetime": ["2022-01-01T00:00:00", "2022-01-02T03:04:05", "00:00:00"]}',
+    parsed = dataframe_from_raw_json(
+        """
+    [
+      {"datetime": "2022-01-01T00:00:00"}, 
+      {"datetime": "2022-01-02T03:04:05"}, 
+      {"datetime": "00:00:00"}
+    ]
+    """,
         pandas_orient="records",
         schema=schema,
     )

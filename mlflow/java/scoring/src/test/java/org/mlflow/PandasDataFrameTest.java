@@ -48,8 +48,9 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
-    sampleInput.remove("columns");
+    Map<String, Object> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    Map<String, List<?>> dataframe = (Map<String, List<?>>)sampleInput.get("dataframe_split");
+    dataframe.remove("columns");
     String missingSchemaFieldJson = SerializationUtils.toJson(sampleInput);
 
     try {
@@ -69,14 +70,19 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    Map<String, List<?>> sampleInput = (Map<String, List<?>>)SerializationUtils
+        .fromJson(sampleInputJson, Map.class)
+        .get("dataframe_split");
 
     // Remove a column from the first row of the sample input and check for an exception
     // during parsing
     Map<String, List<?>> missingColumnInFirstRowInput = new HashMap<>(sampleInput);
     List<List<Object>> rows = (List<List<Object>>) missingColumnInFirstRowInput.get("data");
     rows.get(0).remove(0);
-    String missingColumnInFirstRowJson = SerializationUtils.toJson(missingColumnInFirstRowInput);
+    HashMap<String, Object> map = new HashMap<String, Object>();
+    map.put("dataframe_split", missingColumnInFirstRowInput);
+    String missingColumnInFirstRowJson = SerializationUtils.toJson(map);
+
     try {
       PandasSplitOrientedDataFrame pandasFrame =
           PandasSplitOrientedDataFrame.fromJson(missingColumnInFirstRowJson);
@@ -114,16 +120,18 @@ public class PandasDataFrameTest {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
-    Map<String, List<?>> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
-    List<List<Object>> rows = (List<List<Object>>) sampleInput.get("data");
-    List<String> columnNames = (List<String>) sampleInput.get("columns");
+    Map<String, Object> sampleInput = SerializationUtils.fromJson(sampleInputJson, Map.class);
+    Map<String, List<?>> dataframe = (Map<String, List<?>>) sampleInput.get("dataframe_split");
+    List<List<Object>> rows = (List<List<Object>>) dataframe.get("data");
+    List<String> columnNames = (List<String>) dataframe.get("columns");
     int topicIndex = columnNames.indexOf("topic");
     columnNames.remove("topic");
     for (List<Object> row : rows) {
       row.remove(topicIndex);
     }
-    String missingDataColumnJson = SerializationUtils.toJson(sampleInput);
-
+    HashMap<String, Object> map = new HashMap<String, Object>();
+    map.put("dataframe_split", dataframe);
+    String missingDataColumnJson = SerializationUtils.toJson(map);
     PandasSplitOrientedDataFrame pandasFrame =
         PandasSplitOrientedDataFrame.fromJson(missingDataColumnJson);
     try {

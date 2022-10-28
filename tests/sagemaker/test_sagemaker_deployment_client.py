@@ -5,6 +5,7 @@ from collections import namedtuple
 from io import BytesIO
 from unittest import mock
 
+import json
 import boto3
 import botocore
 import numpy as np
@@ -190,8 +191,6 @@ def test__apply_custom_config_converts_from_string_to_bool_for_bool_fields(
 def test__apply_custom_config_converts_from_string_to_dict_for_dict_fields(
     sagemaker_deployment_client,
 ):
-    import json
-
     vpc_config = {
         "SecurityGroupIds": [
             "sg-123456abc",
@@ -1356,12 +1355,12 @@ def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_clien
 
 @mock_sagemaker_aws_services
 def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
-    output_df = pd.DataFrame({1: ["2", ".", "3"]})
+    output_df = pd.DataFrame({"1": ["2", ".", "3"]})
     boto_caller = botocore.client.BaseClient._make_api_call
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            output_json = output_df.to_json(orient="split")
+            output_json = json.dumps({"predictions": output_df.to_dict(orient="records")})
             result = dict(Body=BytesIO(bytes(output_json, encoding="utf-8")))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
@@ -1369,9 +1368,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
         df = pd.DataFrame(data=[[1, 2]], columns=["a", "b"])
-
-        result = sagemaker_deployment_client.predict("test", df)
-
+        result = sagemaker_deployment_client.predict("test", df).get_predictions()
         assert isinstance(result, pd.DataFrame)
         pd.testing.assert_frame_equal(result, output_df)
 
@@ -1382,13 +1379,13 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            result = dict(Body=BytesIO(b"[1,2,3]"))
+            result = dict(Body=BytesIO(b'{ "predictions": [1,2,3]}'))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
-        result = sagemaker_deployment_client.predict("test", np.array(range(10)))
+        result = sagemaker_deployment_client.predict("test", np.array(range(10))).get_predictions()
 
         assert isinstance(result, pd.DataFrame)
         assert list(result[0]) == [1, 2, 3]

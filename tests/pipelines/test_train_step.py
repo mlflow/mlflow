@@ -105,7 +105,7 @@ def setup_train_step_with_tuning(
                             eta0:
                                 distribution: "normal"
                                 mu: 0.01
-                                sigma: 0.0001     
+                                sigma: 0.0001
             """.format(
                 tracking_uri=mlflow.get_tracking_uri(), estimator_params=estimator_params
             )
@@ -199,6 +199,7 @@ def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tunin
 
     assert (train_step_output_dir / "model/model.pkl").exists()
     assert (train_step_output_dir / "card.html").exists()
+    assert (train_step_output_dir / "predicted_training_data.parquet").exists()
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
@@ -429,4 +430,4 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             run_id = f.read()
 
         metrics = MlflowClient().get_run(run_id).data.metrics
-        assert f"{primary_metric}_on_data_training" in metrics
+        assert primary_metric in metrics

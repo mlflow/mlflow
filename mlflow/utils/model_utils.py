@@ -65,6 +65,10 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
             ),
             RESOURCE_DOES_NOT_EXIST,
         )
+    return _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name)
+
+
+def _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name):
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(

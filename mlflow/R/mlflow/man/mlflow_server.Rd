@@ -10,7 +10,8 @@ mlflow_server(
   host = "127.0.0.1",
   port = 5000,
   workers = NULL,
-  static_prefix = NULL
+  static_prefix = NULL,
+  serve_artifacts = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ mlflow_server(
 \item{workers}{Number of gunicorn worker processes to handle requests (default: 4).}
 
 \item{static_prefix}{A prefix which will be prepended to the path of all static paths.}
+
+\item{serve_artifacts}{A flag specifying whether or not to enable artifact serving (default: FALSE).}
 }
 \description{
 Wrapper for `mlflow server`.

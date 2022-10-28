@@ -25,7 +25,7 @@ def pytorch_model():
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
     client = MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     return trainer, run
 
 
@@ -38,7 +38,7 @@ def pytorch_model_without_validation():
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
     client = MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     return trainer, run
 
 
@@ -52,7 +52,7 @@ def pytorch_model_with_steps_logged(request):
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
     client = MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     return trainer, run, log_every_n_epoch, log_every_n_step
 
 
@@ -65,7 +65,7 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
     client = MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     run_id = run.info.run_id
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
@@ -218,7 +218,7 @@ def pytorch_model_with_callback(patience):
         trainer.fit(model, dm)
 
         client = MlflowClient()
-        run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+        run = client.get_run(client.search_runs(["0"])[0].info.run_id)
 
     return trainer, run
 
@@ -271,7 +271,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
         trainer.fit(model, dm)
 
         client = MlflowClient()
-        run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+        run = client.get_run(client.search_runs(["0"])[0].info.run_id)
     run_id = run.info.run_id
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]

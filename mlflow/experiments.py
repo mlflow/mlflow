@@ -61,7 +61,7 @@ def list_experiments(view):
     List all experiments in the configured tracking server.
     """
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = mlflow.list_experiments(view_type)
+    experiments = mlflow.search_experiments(view_type=view_type)
     table = [
         [
             exp.experiment_id,

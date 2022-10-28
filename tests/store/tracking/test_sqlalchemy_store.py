@@ -5,7 +5,6 @@ import unittest
 import re
 
 import math
-import random
 import pytest
 import sqlalchemy
 import time
@@ -192,7 +191,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return self.store.create_experiment(name=names)
 
     def test_default_experiment(self):
-        experiments = self.store.list_experiments()
+        experiments = self.store.search_experiments()
         self.assertEqual(len(experiments), 1)
 
         first = experiments[0]
@@ -205,12 +204,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         self._experiment_factory("aNothEr")
-        all_experiments = [e.name for e in self.store.list_experiments()]
+        all_experiments = [e.name for e in self.store.search_experiments()]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         self.store.delete_experiment(0)
 
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
         another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
@@ -227,8 +226,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
-        all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
+        all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
         self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
@@ -246,7 +245,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_delete_experiment(self):
         experiments = self._experiment_factory(["morty", "rick", "rick and morty"])
 
-        all_experiments = self.store.list_experiments()
+        all_experiments = self.store.search_experiments()
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
 
         exp_id = experiments[0]
@@ -257,7 +256,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         updated_exp = self.store.get_experiment(exp_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
+        self.assertEqual(len(self.store.search_experiments()), len(all_experiments) - 1)
         assert updated_exp.last_update_time > exp.last_update_time
 
     def test_delete_restore_experiment_with_runs(self):
@@ -273,29 +272,40 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         updated_exp = self.store.get_experiment(experiment_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        deleted_run_list = self.store.list_run_infos(experiment_id, ViewType.DELETED_ONLY)
+        deleted_run_list = self.store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.DELETED_ONLY,
+        )
 
         self.assertEqual(len(deleted_run_list), 2)
         for deleted_run in deleted_run_list:
-            self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
-            assert deleted_run.experiment_id in experiment_id
-            assert deleted_run.run_id in run_ids
+            self.assertEqual(deleted_run.info.lifecycle_stage, entities.LifecycleStage.DELETED)
+            assert deleted_run.info.experiment_id in experiment_id
+            assert deleted_run.info.run_id in run_ids
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
+                assert (
+                    self.store._get_run(session, deleted_run.info.run_id).deleted_time is not None
+                )
 
         self.store.restore_experiment(experiment_id)
 
         updated_exp = self.store.get_experiment(experiment_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        restored_run_list = self.store.list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)
+        restored_run_list = self.store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
-            self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            self.assertEqual(restored_run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
             with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
-            assert restored_run.experiment_id in experiment_id
-            assert restored_run.run_id in run_ids
+                assert self.store._get_run(session, restored_run.info.run_id).deleted_time is None
+            assert restored_run.info.experiment_id in experiment_id
+            assert restored_run.info.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
@@ -308,82 +318,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(actual_by_name.name, name)
         self.assertEqual(actual_by_name.experiment_id, experiment_id)
         self.assertEqual(self.store.get_experiment_by_name("idontexist"), None)
-
-    def test_list_experiments(self):
-        testnames = ["blue", "red", "green"]
-
-        experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments(
-            max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
-        )
-
-        self.assertEqual(len(experiments) + 1, len(actual))  # default
-
-        with self.store.ManagedSessionMaker() as session:
-            for experiment_id in experiments:
-                res = (
-                    session.query(models.SqlExperiment)
-                    .filter_by(experiment_id=experiment_id)
-                    .first()
-                )
-                self.assertIn(res.name, testnames)
-                self.assertEqual(str(res.experiment_id), experiment_id)
-
-    def test_list_experiments_paginated_last_page(self):
-        # 9 + 1 default experiment for 10 total
-        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 9)]
-        experiments = self._experiment_factory(testnames)
-        max_results = 5
-        returned_experiments = []
-        result = self.store.list_experiments(max_results=max_results, page_token=None)
-        self.assertEqual(len(result), max_results)
-        returned_experiments.extend(result)
-        while result.token:
-            result = self.store.list_experiments(max_results=max_results, page_token=result.token)
-            self.assertEqual(len(result), max_results)
-            returned_experiments.extend(result)
-        self.assertEqual(result.token, None)
-        # make sure that at least all the experiments created in this test are found
-        returned_exp_id_set = {exp.experiment_id for exp in returned_experiments}
-        self.assertEqual(set(experiments) - returned_exp_id_set, set())
-
-    def test_list_experiments_paginated_returns_in_correct_order(self):
-        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
-        self._experiment_factory(testnames)
-
-        # test that pagination will return all valid results in sorted order
-        # by name ascending
-        result = self.store.list_experiments(max_results=3, page_token=None)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result[1:]], testnames[0:2])
-
-        result = self.store.list_experiments(max_results=4, page_token=result.token)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[2:6])
-
-        result = self.store.list_experiments(max_results=6, page_token=result.token)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[6:12])
-
-        result = self.store.list_experiments(max_results=8, page_token=result.token)
-        # this page token should be none
-        self.assertEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[12:])
-
-    def test_list_experiments_paginated_errors(self):
-        # test that providing a completely invalid page token throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid page token, could not base64-decode"
-        ) as exception_context:
-            self.store.list_experiments(page_token="evilhax", max_results=20)
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that providing too large of a max_results throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid value for request parameter max_results"
-        ) as exception_context:
-            self.store.list_experiments(page_token=None, max_results=int(1e15))
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_search_experiments_view_type(self):
         experiment_names = ["a", "b"]
@@ -1342,23 +1276,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [(m.key, m.value, m.timestamp) for m in expected],
             [(m.key, m.value, m.timestamp) for m in actual],
         )
-
-    def test_list_run_infos(self):
-        experiment_id = self._experiment_factory("test_exp")
-        r1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-
-        def _runs(experiment_id, view_type):
-            return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
-
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
-
-        self.store.delete_run(r1)
-        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
-        self.assertCountEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        self.assertCountEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = "new name"

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 from unittest import mock
+import json
 import yaml
 
 import paddle
@@ -165,7 +166,7 @@ def test_model_log(pd_model, model_path, tmpdir):
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -202,7 +203,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pd_custom_env
 
@@ -219,7 +220,7 @@ def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -239,7 +240,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_mod
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pd_custom_env
 
@@ -369,7 +370,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -463,7 +464,7 @@ def test_log_model_built_in_high_level_api(
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -540,9 +541,11 @@ def test_pyfunc_serve_and_score(pd_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(inference_dataframe),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
 
 

@@ -610,6 +610,7 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
         "mlflow.utils._spark_utils._get_active_spark_session",
     ) as _get_active_spark_session:
         _get_active_spark_session.return_value = None
+
         IngestStep.from_pipeline_config(
             pipeline_config={
                 "target_col": "label",

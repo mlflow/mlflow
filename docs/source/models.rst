@@ -376,7 +376,6 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    import mlflow.keras
     from mlflow.models.signature import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
@@ -396,7 +395,7 @@ on the ``MNIST dataset``:
     model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
 
     signature = infer_signature(testX, model.predict(testX))
-    mlflow.keras.log_model(model, "mnist_cnn", signature=signature)
+    mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
 
 The same signature can be created explicitly as follows:
 
@@ -462,7 +461,7 @@ you can log a tensor-based input example with your model:
 	[ 76,  75,   0, 255],
 	[ 33,  44,  11,  82]]
     ], dtype=np.uint8)
-    mlflow.keras.log_model(..., input_example=input_example)
+    mlflow.tensorflow.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -604,16 +603,11 @@ Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
-and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
-and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format in Python. Similarly, in R, you can save or log the model using
+and R clients. In R, you can save or log the model using
 `mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
-These functions serialize Keras models in the `SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
-using the Keras library's built-in model persistence functions. MLflow Models
-produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be
-scored with both DataFrame input and numpy array input. Finally, you can use the :py:func:`mlflow.keras.load_model()`
-function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+These functions serialize Keras models models as HDF5 files using the Keras library's built-in
+model persistence functions. You can use
+`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -642,7 +636,7 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
         )
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-        model_info = mlflow.keras.log_model(keras_model=model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model=model, artifact_path="model")
 
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
@@ -654,7 +648,6 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
     shutil.rmtree(local_artifact_dir)
 
-For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
@@ -774,15 +767,14 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows serialized TensorFlow models in
-`SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
+The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
 Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
 can be scored with both DataFrame input and numpy array input. Finally, you can use the
 :py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow graphs.
+flavor as TensorFlow Core models or Keras models.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
@@ -913,8 +905,8 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
-Pmdarima (``pmdarima``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pmdarima (``pmdarima``)
+^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
 format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
@@ -996,8 +988,8 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
-Diviner (``diviner``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Diviner (``diviner``)
+^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
 `diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
 :py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
@@ -1231,7 +1223,6 @@ and behavior:
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             evaluators=["default"],
         )
 
@@ -1318,7 +1309,6 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
             data=eval_data,
             targets="target",
             model_type="regressor",
-            dataset_name="cali_housing",
             evaluators=["default"],
             custom_metrics=[example_custom_metric_fn],
         )
@@ -1382,7 +1372,6 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             validation_thresholds=thresholds,
             baseline_model=baseline_model_uri,
         )
@@ -1613,29 +1602,30 @@ The REST API defines 4 endpoints:
 
 * ``/invocations`` used for scoring
 
-The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
+The REST API server accepts csv or json input. The input format must be specified in
+``Content-Type`` header. The value of the header must be either ``application/json`` or
+``application/csv``.
 
-* JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
-  ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-  request header value of ``application/json`` or ``application/json; format=pandas-split``.
+The csv input must be a valid pandas.DataFrame csv representation. For example,
+``data = pandas_df.to_csv()``.
 
-* JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
-  this format because it is not guaranteed to preserve column ordering.* This format is
-  specified using a ``Content-Type`` request header value of
-  ``application/json; format=pandas-records``.
+The json input must be a dictionary with exactly one of the following fields that further specify
+the type and encoding of the input data
 
-* CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
-  specified using a ``Content-Type`` request header value of ``text/csv``.
+* ``dataframe_split`` field with pandas DataFrames in the ``split`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='split')``.
 
-* Tensor input formatted as described in `TF Serving's API docs
+* ``dataframe_records`` field with pandas DataFrame in the ``records`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='records')``.*We do not
+  recommend using this format because it is not guaranteed to preserve column ordering.*
+
+* ``instances`` field with tensor input formatted as described in `TF Serving's API docs
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
-  will be cast to Numpy arrays. This format is specified using a ``Content-Type`` request header
-  value of ``application/json`` and the ``instances`` or ``inputs`` key in the request body dictionary.
+  will be cast to Numpy arrays.
 
-If the ``Content-Type`` request header has a value of ``application/json``, MLflow will infer whether
-the input format is a pandas DataFrame or TF serving (i.e tensor) input based on the data in the request
-body. For pandas DataFrame input, the orient can  also be provided explicitly by specifying the format
-in the request header as shown in the record-oriented example below.
+* ``inputs`` field with tensor input formatted as described in `TF Serving's API docs
+  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
+  will be cast to Numpy arrays.
 
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
@@ -1649,15 +1639,19 @@ Example requests:
 
     # split-oriented DataFrame input
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-        "columns": ["a", "b", "c"],
-        "data": [[1, 2, 3], [4, 5, 6]]
+      "dataframe_split": {
+          "columns": ["a", "b", "c"],
+          "data": [[1, 2, 3], [4, 5, 6]]
+      }
     }'
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_records": {
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
-    ]'
+      }
+    }'
 
     # numpy/tensor input using TF serving's "instances" format
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
@@ -1682,8 +1676,8 @@ For more information about serializing tensor inputs using the TF serving format
 
 .. _serving_with_mlserver:
 
-Serving with MLServer (experimental)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Serving with MLServer
+~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
 <https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
@@ -1727,7 +1721,6 @@ the `end-to-end example in the MLServer documentation
 visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
 
 .. note::
-    - This feature is experimental and is subject to change.
     - MLServer requires Python 3.7 or above.
 
 .. _encoding-complex-data:
@@ -1750,14 +1743,14 @@ Example requests:
 .. code-block:: bash
 
     # record-oriented DataFrame input with binary column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
         {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
         {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
     ]'
 
     # record-oriented DataFrame input with datetime column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "2020-01-01T00:00:00Z"},
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
@@ -1791,11 +1784,8 @@ MLflow currently supports the following environment management tools to restore 
 
 local
     Use the local environment. No extra tools are required.
-conda
-    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
-    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
-virtualenv
+virtualenv (preferred)
     Create environments using virtualenv and pyenv (for python version management). Virtualenv and
     pyenv (for Linux and macOS) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
 
@@ -1803,17 +1793,23 @@ virtualenv
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
 
-    .. note::
-        Virtualenv support is still experimental and may be changed in a future MLflow release.
+conda
+    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
+
+    .. warning::
+
+        By using conda, you're responsible for adhering to `Anaconda's terms of service <https://legal.anaconda.com/policies/en/?name=terms-of-service>`_.
+
+    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 
 The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
 
 .. code-block:: bash
 
-    # Use conda
-    mlflow models serve ... --env-manager=conda
     # Use virtualenv
     mlflow models predict ... --env-manager=virtualenv
+    # Use conda
+    mlflow models serve ... --env-manager=conda
 
 .. _azureml_deployment:
 
@@ -2023,9 +2019,9 @@ module accept the following data formats as input, depending on the deployment f
 Commands
 ~~~~~~~~~
 
-* :py:func:`mlflow sagemaker run-local <mlflow.sagemaker.run_local>` deploys the model locally in a
-  Docker container. The image and the environment should be identical to how the model would be run
-  remotely and it is therefore useful for testing the model prior to deployment.
+* :py:func:`mlflow deployments run-local -t sagemaker <mlflow.sagemaker.run_local>` deploys the
+  model locally in a Docker container. The image and the environment should be identical to how the
+  model would be run remotely and it is therefore useful for testing the model prior to deployment.
 
 * `mlflow sagemaker build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_
   builds an MLfLow Docker image and uploads it to ECR. The caller must have the correct permissions
@@ -2050,6 +2046,7 @@ For more info, see:
 .. code-block:: bash
 
     mlflow sagemaker --help
+    mlflow sagemaker build-and-push-container --help
     mlflow sagemaker run-local --help
     mlflow deployments help -t sagemaker
 
@@ -2165,10 +2162,6 @@ In addition to the built-in deployment tools, MLflow provides a pluggable
 models to custom targets and environments. To deploy to a custom target, you must first install an
 appropriate third-party Python plugin. See the list of known community-maintained plugins
 `here <plugins.html#deployment-plugins>`_.
-
-
-.. Note::
-    APIs for deployment to custom targets are experimental, and may be altered in a future release.
 
 
 Commands

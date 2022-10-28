@@ -4,13 +4,15 @@ import { ErrorCodes } from '../common/constants';
 import { isArray } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
 
-export const SEARCH_MAX_RESULTS = 100;
+export const RUNS_SEARCH_MAX_RESULTS = 100;
 
-export const LIST_EXPERIMENTS_API = 'LIST_EXPERIMENTS_API';
-export const listExperimentsApi = (id = getUUID()) => {
+export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
+export const searchExperimentsApi = (id = getUUID()) => {
   return {
-    type: LIST_EXPERIMENTS_API,
-    payload: MlflowService.listExperiments({}),
+    type: SEARCH_EXPERIMENTS_API,
+    payload: MlflowService.searchExperiments({
+      max_results: 20000,
+    }),
     meta: { id: id },
   };
 };

@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 import ml.combust.mleap.core.types.StructType;
@@ -136,7 +138,9 @@ public class MLeapPredictor implements Predictor {
             .collect(Collectors.toList());
 
     try {
-      String predictionsJson = SerializationUtils.toJson(predictions);
+      Map<String, List<?>> predictionMap = new HashMap<String, List<?>>();
+      predictionMap.put("predictions", predictions);
+      String predictionsJson = SerializationUtils.toJson(predictionMap);
       return new PredictorDataWrapper(predictionsJson, PredictorDataWrapper.ContentType.Json);
     } catch (JsonProcessingException e) {
       logger.error("Encountered an error while serializing the output dataframe.", e);

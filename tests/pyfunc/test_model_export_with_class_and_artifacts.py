@@ -378,12 +378,13 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=sample_input,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -409,11 +410,12 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=sample_input,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -440,12 +442,13 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=sample_input,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -493,8 +496,8 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     )
     _, stderr = process.communicate()
     assert 0 == process.wait(), "stderr = \n\n{}\n\n".format(stderr)
-
-    result_df = pandas.read_json(output_json_path, orient="records")
+    with open(output_json_path, "r") as f:
+        result_df = pd.DataFrame(data=json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
     )
@@ -540,9 +543,10 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         stdout=PIPE,
         preexec_fn=os.setsid,
     )
-    _, stderr = process.communicate()
-    assert 0 == process.wait(), "stderr = \n\n{}\n\n".format(stderr)
-    result_df = pandas.read_json(output_json_path, orient="records")
+    stdout, stderr = process.communicate()
+    assert 0 == process.wait(), f"stdout = \n\n{stdout}\n\n stderr = \n\n{stderr}\n\n"
+    with open(output_json_path, "r") as f:
+        result_df = pandas.DataFrame(json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
     )
@@ -569,7 +573,7 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
-    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env
 
@@ -710,7 +714,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
-    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env
 

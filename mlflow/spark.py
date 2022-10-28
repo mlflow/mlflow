@@ -500,7 +500,8 @@ def _save_model_metadata(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))

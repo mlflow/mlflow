@@ -4,7 +4,7 @@ import {
   GET_EXPERIMENT_API,
   GET_RUN_API,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API,
+  SEARCH_EXPERIMENTS_API,
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
@@ -44,7 +44,7 @@ export const getExperiment = (id, state) => {
 
 export const experimentsById = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(LIST_EXPERIMENTS_API): {
+    case fulfilled(SEARCH_EXPERIMENTS_API): {
       let newState = Object.assign({}, state);
       if (action.payload && action.payload.experiments) {
         // reset experimentsById state

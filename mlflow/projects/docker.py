@@ -64,7 +64,7 @@ def validate_docker_env(project):
         )
 
 
-def build_docker_image(work_dir, repository_uri, base_image, run_id, skip_image_build):
+def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
@@ -78,7 +78,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, skip_image_
     )
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     client = docker.from_env()
-    if skip_image_build:
+    if not build_image:
         if not client.images.list(name=base_image):
             _logger.info(f"Pulling {base_image}")
             image = client.images.pull(image_uri)

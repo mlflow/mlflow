@@ -211,7 +211,6 @@ class EvaluateStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        dataset_name=dataset_name,
                         custom_metrics=_load_custom_metric_functions(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
@@ -319,7 +318,66 @@ class EvaluateStep(BaseStep):
                 + criteria_html,
             )
 
-        # Tab 2: SHAP plots.
+        # Tab 2: Classifier plots.
+        if self.template == "classification/v1":
+            classifiers_plot_tab = card.add_tab(
+                "Classifier Plots on the Validation Dataset",
+                "{{ CONFUSION_MATRIX }} {{CONFUSION_MATRIX_PLOT}}"
+                + "{{ LIFT_CURVE }} {{LIFT_CURVE_PLOT}}"
+                + "{{ PR_CURVE }} {{PR_CURVE_PLOT}}"
+                + "{{ ROC_CURVE }} {{ROC_CURVE_PLOT}}",
+            )
+            confusion_matrix_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "confusion_matrix.png",
+            )
+            if os.path.exists(confusion_matrix_path):
+                classifiers_plot_tab.add_html(
+                    "CONFUSION_MATRIX",
+                    '<h3 class="section-title">Confusion Matrix Plot</h3>',
+                )
+                classifiers_plot_tab.add_image(
+                    "CONFUSION_MATRIX_PLOT", confusion_matrix_path, width=400
+                )
+
+            lift_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "lift_curve_plot.png",
+            )
+            if os.path.exists(lift_curve_path):
+                classifiers_plot_tab.add_html(
+                    "LIFT_CURVE",
+                    '<h3 class="section-title">Lift Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("LIFT_CURVE_PLOT", lift_curve_path, width=400)
+
+            pr_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "precision_recall_curve_plot.png",
+            )
+            if os.path.exists(pr_curve_path):
+                classifiers_plot_tab.add_html(
+                    "PR_CURVE",
+                    '<h3 class="section-title">Precision Recall Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("PR_CURVE_PLOT", pr_curve_path, width=400)
+
+            roc_curve_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                "roc_curve_plot.png",
+            )
+            if os.path.exists(roc_curve_path):
+                classifiers_plot_tab.add_html(
+                    "ROC_CURVE",
+                    '<h3 class="section-title">ROC Curve Plot</h3>',
+                )
+                classifiers_plot_tab.add_image("ROC_CURVE_PLOT", roc_curve_path, width=400)
+
+        # Tab 3: SHAP plots.
         shap_plot_tab = card.add_tab(
             "Feature Importance",
             '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
@@ -328,14 +386,12 @@ class EvaluateStep(BaseStep):
         )
 
         shap_bar_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            "shap_feature_importance_plot_on_data_validation.png",
+            output_directory, "eval_validation/artifacts", "shap_feature_importance_plot.png"
         )
         shap_beeswarm_plot_path = os.path.join(
             output_directory,
             "eval_validation/artifacts",
-            "shap_beeswarm_plot_on_data_validation.png",
+            "shap_beeswarm_plot.png",
         )
         shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)

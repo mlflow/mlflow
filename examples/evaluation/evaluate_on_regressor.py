@@ -20,7 +20,6 @@ with mlflow.start_run() as run:
         X_test,
         targets=y_test,
         model_type="regressor",
-        dataset_name="california_housing",
         evaluators="default",
         feature_names=california_housing_data.feature_names,
         evaluator_config={"explainability_nsamples": 1000},

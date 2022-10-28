@@ -17,6 +17,7 @@ def download_artifacts(
     run_id: Optional[str] = None,
     artifact_path: Optional[str] = None,
     dst_path: Optional[str] = None,
+    tracking_uri: Optional[str] = None,
 ) -> str:
     """
     Download an artifact file or directory to a local directory.
@@ -34,6 +35,7 @@ def download_artifacts(
                      unspecified, the artifacts are downloaded to a new uniquely-named directory on
                      the local filesystem, unless the artifacts already exist on the local
                      filesystem, in which case their local path is returned directly.
+    :param tracking_uri: The tracking URI to be used when downloading artifacts.
     :return: The location of the artifact file or directory on the local filesystem.
     """
     if (run_id, artifact_uri).count(None) != 1:
@@ -54,7 +56,8 @@ def download_artifacts(
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
     artifact_path = artifact_path if artifact_path is not None else ""
-    store = _get_store()
+
+    store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)

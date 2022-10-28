@@ -45,6 +45,7 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
+        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         # self._steps contains concatenated ordered lists of step objects representing multiple
@@ -98,20 +99,22 @@ class _BasePipeline:
         last_executed_step_output_directory = get_step_output_path(
             self._pipeline_root_path, last_executed_step.name, ""
         )
-        last_executed_step_status = last_executed_step.get_execution_state(
+        last_executed_step_state = last_executed_step.get_execution_state(
             last_executed_step_output_directory
-        ).status
-        if last_executed_step_status != StepStatus.SUCCEEDED:
+        )
+        if last_executed_step_state.status != StepStatus.SUCCEEDED:
             if step is not None:
                 raise MlflowException(
                     f"Failed to run step '{step}' of pipeline '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}'.",
+                    f" An error was encountered while running step '{last_executed_step.name}':"
+                    f" {last_executed_step_state.stack_trace}",
                     error_code=BAD_REQUEST,
                 )
             else:
                 raise MlflowException(
                     f"Failed to run pipeline '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}'.",
+                    f" An error was encountered while running step '{last_executed_step.name}':"
+                    f" {last_executed_step_state.stack_trace}",
                     error_code=BAD_REQUEST,
                 )
 
@@ -265,6 +268,10 @@ class _BasePipeline:
                 },
                 "mlflow_run_help": {
                     "help_string": dag_help_strings.MLFLOW_RUN,
+                    "help_string_type": "text",
+                },
+                "predicted_training_data_help": {
+                    "help_string": dag_help_strings.PREDICTED_TRAINING_DATA,
                     "help_string_type": "text",
                 },
                 "custom_metrics_user_code_help": {

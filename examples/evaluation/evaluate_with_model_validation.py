@@ -64,7 +64,6 @@ with mlflow.start_run() as run:
         eval_data,
         targets="label",
         model_type="classifier",
-        dataset_name="adult",
         evaluators=["default"],
         validation_thresholds=thresholds,
         custom_metrics=[double_positive],

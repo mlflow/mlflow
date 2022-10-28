@@ -54,68 +54,60 @@ test_that("mlflow_get_experiment() not found error", {
   )
 })
 
-test_that("mlflow_list_experiments() works properly", {
+test_that("mlflow_search_experiments() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
   ex1 <- mlflow_create_experiment(client = client, "foo1", "art_loc1")
   ex2 <- mlflow_create_experiment(client = client, "foo2", "art_loc2")
+  ex3 <- mlflow_create_experiment(client = client, "foo3", "art_loc3")
 
-  # client
-  experiments_list <- mlflow_list_experiments(client = client)
-  expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
-  expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
+  mlflow_set_experiment_tag("expgroup", "group1", experiment_id = ex1)
+  mlflow_set_experiment_tag("expgroup", "group1", experiment_id = ex3)
+
+  allexperiments_result <- mlflow_search_experiments(client = client)
+  allexperiments <- allexperiments_result$experiments
+  expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
+  expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
   default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
-  expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
-                                                        "art_loc1",
-                                                        "art_loc2"))
+  expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
+                                                      "art_loc1",
+                                                      "art_loc2",
+                                                      "art_loc3"))
+  expect_null(allexperiments_result$next_page_token)
 
-  # fluent
-  experiments_list <- mlflow_list_experiments()
-  expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
-  expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
-  default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
-  expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
-                                                        "art_loc1",
-                                                        "art_loc2"))
+  ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
+  expect_setequal(ex1_result$experiments$experiment_id, c(ex1))
+  expect_null(ex1_result$next_page_token)
 
-  # Returns NULL when no experiments found
-  expect_null(mlflow_list_experiments("DELETED_ONLY"))
+  exgroup1_result = mlflow_search_experiments(filter = "tags.expgroup = 'group1'")
+  expect_setequal(exgroup1_result$experiments$experiment_id, c(ex1, ex3))
+  expect_null(exgroup1_result$next_page_token)
 
-  # experiment tags are returned if at least one experiment has tags
-  mlflow_set_experiment_tag("key2", "value2", experiment_id = ex2)
-  experiments <- mlflow_list_experiments()
-  expect_true("tags" %in% names(experiments))
-  expect_setequal(
-    experiments$tags, list(NA, NA, tibble::tibble(key = "key2", value = "value2"))
+  mlflow_delete_experiment(experiment_id = ex1)
+  deleted_experiments_result <- mlflow_search_experiments(experiment_view_type = "DELETED_ONLY")
+  expect_setequal(deleted_experiments_result$experiments$experiment_id, c(ex1))
+  expect_null(deleted_experiments_result$next_page_token)
+
+  # By default, only active experiments should be returned
+  active_experiments_result <- mlflow_search_experiments()
+  expect_setequal(active_experiments_result$experiments$experiment_id, c("0", ex2, ex3))
+  expect_null(active_experiments_result$next_page_token)
+
+  order_limit_result1 <- mlflow_search_experiments(
+    max_results = 2,
+    order_by = c("attribute.name desc"),
+    experiment_view_type="ALL",
   )
+  expect_setequal(order_limit_result1$experiments$name, c("foo3", "foo2"))
 
-  # experiment tags are returned if every experiment has tags
-  mlflow_set_experiment_tag("key1", "value1", experiment_id = ex1)
-  mlflow_set_experiment_tag("key0", "value0", experiment_id = "0")
-  experiments <- mlflow_list_experiments()
-  expect_true("tags" %in% names(experiments))
-  expect_setequal(experiments$tags, list(
-    tibble::tibble(key = "key0", value = "value0"),
-    tibble::tibble(key = "key1", value = "value1"),
-    tibble::tibble(key = "key2", value = "value2")
-  ))
-
-  # experiment tags are returned correctly if multiple tags are present in
-  # one experiment
-  mlflow_set_experiment_tag("key1.2", "value1.2", experiment_id = ex1)
-  experiments <- mlflow_list_experiments()
-  tags <- experiments$tags[experiments$experiment_id %in% ex1][[1]]
-  tags <- tags[order(tags$key),]
-
-  expect_equal(
-    tags,
-    tibble::tibble(key = c("key1", "key1.2"), value = c('value1', 'value1.2'))
+  order_limit_result2 <- mlflow_search_experiments(
+    max_results = 2,
+    order_by = c("attribute.name desc"),
+    page_token = order_limit_result1$next_page_token,
+    experiment_view_type="ALL",
   )
-
-  # `view_type` is respected
-  mlflow_delete_experiment(experiment_id = "1")
-  deleted_experiments <- mlflow_list_experiments("DELETED_ONLY")
-  expect_identical(deleted_experiments$name, "foo1")
+  expect_setequal(order_limit_result2$experiments$name, c("foo1", "Default"))
+  expect_null(order_limit_result2$next_page_token)
 })
 
 test_that("mlflow_search_experiments() works properly", {
@@ -130,7 +122,7 @@ test_that("mlflow_search_experiments() works properly", {
 
   allexperiments_result <- mlflow_search_experiments(client = client)
   allexperiments <- allexperiments_result$experiments
-  expect_setequal(allexperiments$experiment_id, c("0", "1", "2", "3"))
+  expect_setequal(allexperiments$experiment_id, c("0", ex1, ex2, ex3))
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
   default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
@@ -140,21 +132,21 @@ test_that("mlflow_search_experiments() works properly", {
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
-  expect_setequal(ex1_result$experiments$experiment_id, c("1"))
+  expect_setequal(ex1_result$experiments$experiment_id, c(ex1))
   expect_null(ex1_result$next_page_token)
 
   exgroup1_result = mlflow_search_experiments(filter = "tags.expgroup = 'group1'")
-  expect_setequal(exgroup1_result$experiments$experiment_id, c("1", "3"))
+  expect_setequal(exgroup1_result$experiments$experiment_id, c(ex1, ex3))
   expect_null(exgroup1_result$next_page_token)
 
-  mlflow_delete_experiment(experiment_id = "1")
+  mlflow_delete_experiment(experiment_id = ex1)
   deleted_experiments_result <- mlflow_search_experiments(experiment_view_type = "DELETED_ONLY")
-  expect_setequal(deleted_experiments_result$experiments$experiment_id, c("1"))
+  expect_setequal(deleted_experiments_result$experiments$experiment_id, c(ex1))
   expect_null(deleted_experiments_result$next_page_token)
 
   # By default, only active experiments should be returned
   active_experiments_result <- mlflow_search_experiments()
-  expect_setequal(active_experiments_result$experiments$experiment_id, c("0", "2", "3"))
+  expect_setequal(active_experiments_result$experiments$experiment_id, c("0", ex2, ex3))
   expect_null(active_experiments_result$next_page_token)
 
   order_limit_result1 <- mlflow_search_experiments(

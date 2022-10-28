@@ -9,10 +9,14 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.utils.annotations import experimental
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
-from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import (
+    NumpyEncoder,
+    dataframe_from_raw_json,
+    parse_tf_serving_input,
+)
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 try:
@@ -239,7 +243,7 @@ def _read_example(mlflow_model: Model, path: str):
     elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
         return _read_sparse_matrix_from_json(path, example_type)
     else:
-        return _dataframe_from_json(path, schema=input_schema, precise_float=True)
+        return dataframe_from_raw_json(path, schema=input_schema)
 
 
 def _read_tensor_input_from_json(path, schema=None):
