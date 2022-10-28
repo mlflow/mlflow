@@ -2,7 +2,7 @@
 A script to automatically find the minimum required python version for a specified package.
 
 Usage:
-python dev/get_minimum_required_python.py -p scikit-learn -v 1.1.0 --python-versions "3.7,3.8"
+python dev/get_minimum_required_python.py -p scikit-learn -v 1.1.0 --python-versions "3.8"
 """
 import requests
 from packaging.version import Version

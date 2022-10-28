@@ -397,12 +397,8 @@ Therefore, we can leverage this support to build a Docker image compatible with
 these frameworks.
 
 .. note::
-  Note that this an **optional step**, which is currently only available for
-  Python models.
-  Besides this, it's also worth noting that:
-
-  - MLServer requires **Python 3.7** or above.
-  - This step requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
+  This an **optional step**, which is currently only available for Python models. This step also
+  requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
 
 To build a Docker image containing our model, we can use the ``mlflow models
 build-docker`` subcommand, alongside the ``--enable-mlserver`` flag.

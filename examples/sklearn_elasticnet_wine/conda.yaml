@@ -2,7 +2,7 @@ name: tutorial
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.8
   - pip
   - pip:
       - scikit-learn==0.23.2

@@ -1720,9 +1720,6 @@ the `end-to-end example in the MLServer documentation
 <https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ or
 visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
 
-.. note::
-    - MLServer requires Python 3.7 or above.
-
 .. _encoding-complex-data:
 
 Encoding complex data

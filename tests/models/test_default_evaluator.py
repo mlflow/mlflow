@@ -993,12 +993,12 @@ def test_gen_binary_precision_recall_curve_no_sample_weights():
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
+        np.array([1.0, 1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
+        np.array([0.5, 0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
@@ -1027,6 +1027,7 @@ def test_gen_binary_precision_recall_curve_with_sample_weights():
         np.array(
             [
                 1.0,
+                1.0,
                 0.83870968,
                 0.83870968,
                 0.83870968,
@@ -1041,7 +1042,20 @@ def test_gen_binary_precision_recall_curve_with_sample_weights():
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array([0.59615385, 0.55319149, 0.7027027, 0.72222222, 0.61538462, 0.6, 0.75, 1.0, 1.0]),
+        np.array(
+            [
+                0.54386,
+                0.59615385,
+                0.55319149,
+                0.7027027,
+                0.72222222,
+                0.61538462,
+                0.6,
+                0.75,
+                1.0,
+                1.0,
+            ]
+        ),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
@@ -1155,10 +1169,14 @@ def test_gen_multiclass_precision_recall_curve_no_sample_weights():
         curve_type="pr",
         sample_weights=None,
     )
-    expected_x_data_list = [[1.0, 0.0, 0.0], [1.0, 0.5, 0.0], [1.0, 0.5, 0.5, 0.5, 0.0, 0.0]]
+    expected_x_data_list = [
+        [1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.5, 0.0],
+        [1.0, 0.5, 0.5, 0.5, 0.0, 0.0],
+    ]
     expected_y_data_list = [
-        [0.5, 0.0, 1.0],
-        [0.66666667, 0.5, 1.0],
+        [0.2, 0.25, 0.333333, 0.5, 0.0, 1.0],
+        [0.4, 0.66666667, 0.5, 1.0],
         [0.4, 0.25, 0.33333333, 0.5, 0.0, 1.0],
     ]
     line_labels = ["label=0,AP=0.500", "label=1,AP=0.583", "label=2,AP=0.450"]
@@ -1196,10 +1214,14 @@ def test_gen_multiclass_precision_recall_curve_with_sample_weights():
         curve_type="pr",
         sample_weights=sample_weights,
     )
-    expected_x_data_list = [[1.0, 0.0, 0.0], [1.0, 0.333333, 0.0], [1.0, 0.4, 0.4, 0.4, 0.0, 0.0]]
+    expected_x_data_list = [
+        [1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.333333, 0.0],
+        [1.0, 0.4, 0.4, 0.4, 0.0, 0.0],
+    ]
     expected_y_data_list = [
-        [0.4, 0.0, 1.0],
-        [0.6, 0.333333, 1.0],
+        [0.2, 0.25, 0.333333, 0.4, 0.0, 1.0],
+        [0.3, 0.6, 0.333333, 1.0],
         [0.5, 0.285714, 0.4, 0.5, 0.0, 1.0],
     ]
     line_labels = ["label=0,AP=0.400", "label=1,AP=0.511", "label=2,AP=0.500"]
