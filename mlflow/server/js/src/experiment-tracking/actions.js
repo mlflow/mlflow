@@ -1,6 +1,8 @@
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
+import { isArray } from 'lodash';
+import { ViewType } from './sdk/MlflowEnums';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
@@ -59,6 +61,21 @@ export const updateExperimentApi = (experimentId, newExperimentName, id = getUUI
       payload: MlflowService.updateExperiment({
         experiment_id: experimentId,
         new_name: newExperimentName,
+      }),
+      meta: { id: getUUID() },
+    });
+    return updateResponse;
+  };
+};
+
+export const UPDATE_RUN_API = 'UPDATE_RUN_API';
+export const updateRunApi = (runId, newName, id = getUUID()) => {
+  return (dispatch) => {
+    const updateResponse = dispatch({
+      type: UPDATE_RUN_API,
+      payload: MlflowService.updateRun({
+        run_id: runId,
+        run_name: newName,
       }),
       meta: { id: getUUID() },
     });
@@ -151,23 +168,85 @@ export const fetchMissingParents = (searchRunsResponse) =>
       })
     : searchRunsResponse;
 
+/**
+ * Creates SQL-like expression for pinned rows
+ */
+const createPinnedRowsExpression = (runsPinned) => {
+  if (runsPinned.length < 1) {
+    return null;
+  }
+  const runIdsInQuotes = runsPinned.map((runId) => `'${runId}'`);
+  return `run_id IN (${runIdsInQuotes.join(',')})`;
+};
+
+/**
+ * Main method for fetching experiment runs payload from the API
+ */
 export const searchRunsPayload = ({
+  // Experiment IDs to fetch runs for
   experimentIds,
+  // SQL-like filter
   filter,
+  // Used to select either active or deleted runs
   runViewType,
+  // Maximum limit of result count (not accounting pinned rows)
   maxResults,
+  // Order by SQL clause
   orderBy,
+  // A pagination token from the previous result
   pageToken,
+  // Set to "true" if parents of children runs should be fetched as well
   shouldFetchParents,
-}) =>
-  MlflowService.searchRuns({
-    experiment_ids: experimentIds,
-    filter: filter,
-    run_view_type: runViewType,
-    max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
-    order_by: orderBy,
-    page_token: pageToken,
-  }).then((res) => (shouldFetchParents ? fetchMissingParents(res) : res));
+  // Array of pinned row IDs which will be fetched with another request
+  runsPinned,
+}) => {
+  // Let's start with the base request for the runs
+  const promises = [
+    MlflowService.searchRuns({
+      experiment_ids: experimentIds,
+      filter: filter,
+      run_view_type: runViewType,
+      max_results: maxResults || RUNS_SEARCH_MAX_RESULTS,
+      order_by: orderBy,
+      page_token: pageToken,
+    }),
+  ];
+
+  // If we want to have pinned runs, fetch them as well
+  // using another request with different filter
+  if (runsPinned?.length) {
+    promises.push(
+      MlflowService.searchRuns({
+        experiment_ids: experimentIds,
+        filter: createPinnedRowsExpression(runsPinned),
+        run_view_type: ViewType.ALL,
+      }),
+    );
+  }
+
+  // Wait for all requests to finish.
+  // - `baseSearchResponse` will contain all runs that match the requested filter
+  // - `pinnedSearchResponse` will contain all pinned runs, if any
+  // We will merge and return an array with those two collections
+  return Promise.all(promises).then(([baseSearchResponse, pinnedSearchResponse = {}]) => {
+    const response = baseSearchResponse;
+
+    // Place aside ans save runs that matched filter naturally (not the pinned ones):
+    response.runsMatchingFilter = baseSearchResponse.runs?.slice() || [];
+
+    // If we get pinned rows from the additional response, merge them into the base run list:
+    if (isArray(pinnedSearchResponse.runs)) {
+      if (isArray(response.runs)) {
+        response.runs.push(...pinnedSearchResponse.runs);
+      } else {
+        response.runs = pinnedSearchResponse.runs.slice();
+      }
+    }
+
+    // If there are any pending parents to fetch, do it before returning the response
+    return shouldFetchParents ? fetchMissingParents(response) : response;
+  });
+};
 
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
 export const searchRunsApi = (params) => ({

@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
-import { Select as AntDSelect } from 'antd';
 import { Switch, Select, Spacer } from '@databricks/design-system';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
@@ -14,9 +13,7 @@ import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
-// TODO(FEINF-957): Temporarily we need to import OptGroup from antd
-const { OptGroup } = AntDSelect;
-const { Option } = Select;
+const { Option, OptGroup } = Select;
 
 export class CompareRunContour extends Component {
   static propTypes = {

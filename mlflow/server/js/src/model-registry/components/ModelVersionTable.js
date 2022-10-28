@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Table, Tooltip } from 'antd';
+import { Table } from 'antd';
 import { Link } from 'react-router-dom';
-import { Typography } from '@databricks/design-system';
+import { Tooltip, Typography } from '@databricks/design-system';
 import Utils from '../../common/utils/Utils';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
 import {

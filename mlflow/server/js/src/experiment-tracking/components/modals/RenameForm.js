@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
-import { Input, Form } from 'antd';
+import { Form, Input } from '@databricks/design-system';
 
 export const NEW_NAME_FIELD = 'newName';
 
@@ -57,7 +57,11 @@ class RenameFormComponent extends Component {
           ]}
           label={`New ${this.props.type} name`}
         >
-          <Input placeholder={`Input a ${this.props.type} name`} ref={this.autoFocusInputRef} />
+          <Input
+            placeholder={`Input a ${this.props.type} name`}
+            ref={this.autoFocusInputRef}
+            data-testid='rename-modal-input'
+          />
         </Form.Item>
       </Form>
     );

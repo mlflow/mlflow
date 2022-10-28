@@ -211,7 +211,12 @@ class SearchUtils:
     @classmethod
     def _get_identifier(cls, identifier, valid_attributes):
         try:
-            entity_type, key = identifier.split(".", 1)
+            tokens = identifier.split(".", 1)
+            if len(tokens) == 1:
+                key = tokens[0]
+                entity_type = cls._ATTRIBUTE_IDENTIFIER
+            else:
+                entity_type, key = tokens
         except ValueError:
             raise MlflowException(
                 "Invalid identifier '%s'. Columns should be specified as "

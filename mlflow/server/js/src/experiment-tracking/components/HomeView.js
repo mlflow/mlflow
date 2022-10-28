@@ -4,15 +4,14 @@ import { connect } from 'react-redux';
 import { Redirect } from 'react-router';
 import { Skeleton, Spacer } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
-import ExperimentPage from './ExperimentPage';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
 import { PageContainer } from '../../common/components/PageContainer';
 import Routes from '../routes';
 
-// eslint-disable-next-line prefer-const
-let ExperimentPageComponent = ExperimentPage;
+// eslint-disable-next-line no-unused-vars
+const ExperimentPage = React.lazy(() => import('./experiment-page/ExperimentPage'));
 
 export const getFirstActiveExperiment = (experiments) => {
   const sorted = experiments.concat().sort(Utils.compareExperiments);
@@ -45,7 +44,7 @@ class HomeView extends Component {
           {hasExperiments ? (
             <PageContainer>
               <React.Suspense fallback={<Skeleton />}>
-                <ExperimentPageComponent
+                <ExperimentPage
                   experimentIds={experimentIds}
                   compareExperiments={compareExperiments}
                 />
@@ -65,10 +64,12 @@ class HomeView extends Component {
         </div>
         <PageContainer>
           {hasExperiments ? (
-            <ExperimentPageComponent
-              experimentIds={experimentIds}
-              compareExperiments={compareExperiments}
-            />
+            <React.Suspense fallback={<Skeleton />}>
+              <ExperimentPage
+                experimentIds={experimentIds}
+                compareExperiments={compareExperiments}
+              />
+            </React.Suspense>
           ) : (
             <NoExperimentView />
           )}
