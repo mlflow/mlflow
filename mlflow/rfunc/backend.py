@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -5,6 +6,8 @@ import subprocess
 from mlflow.models import FlavorBackend
 from mlflow.utils.string_utils import quote
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+
+_logger = logging.getLogger(__name__)
 
 
 class RFuncBackend(FlavorBackend):
@@ -63,7 +66,7 @@ class RFuncBackend(FlavorBackend):
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
 
         if timeout:
-            raise Exception("Timeout is not yet supported in the R backend.")
+            _logger.warning("Timeout is not yet supported in the R backend.")
 
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")

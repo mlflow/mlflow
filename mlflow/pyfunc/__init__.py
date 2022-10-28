@@ -225,6 +225,7 @@ import yaml
 
 import mlflow
 import mlflow.pyfunc.model
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -586,7 +587,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         model_uri=local_path,
         port=server_port,
         host="127.0.0.1",
-        timeout=60,
+        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
         enable_mlserver=False,
         synchronous=False,
         stdout=subprocess.PIPE,
@@ -1063,7 +1064,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 model_uri=local_model_path_on_executor or local_model_path,
                 port=server_port,
                 host="127.0.0.1",
-                timeout=60,
+                timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
                 enable_mlserver=False,
                 synchronous=False,
                 stdout=subprocess.PIPE,
