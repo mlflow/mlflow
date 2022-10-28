@@ -873,6 +873,8 @@ def autolog(
     registered_model_name=None,
     log_input_examples=False,
     log_model_signatures=True,
+    saved_model_kwargs=None,
+    keras_model_kwargs=None,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -939,6 +941,8 @@ def autolog(
                                  (for single-output models) or a mapping from
                                  ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
                                  when a signature is not present, a Pandas DataFrame is returned.
+    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
+    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
     """
     import tensorflow
 
@@ -1056,6 +1060,8 @@ def autolog(
             registered_model_name=get_autologging_config(
                 FLAVOR_NAME, "registered_model_name", None
             ),
+            saved_model_kwargs=saved_model_kwargs,
+            keras_model_kwargs=keras_model_kwargs,
         )
 
     class FitPatch(PatchFunction):
