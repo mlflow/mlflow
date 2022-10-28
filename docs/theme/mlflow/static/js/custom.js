@@ -231,12 +231,8 @@ function setupSearch() {
     docsearch({
       apiKey: algoliaConfigs.key,
       indexName: algoliaConfigs.index,
-      inputSelector: '#algolia-search',
-      debug: false,
-      autocompleteOptions: {
-        appendTo: '#algolia-wrapper',
-        hint: false
-      }
+      appId: algoliaConfigs.id,
+      container: '#algolia-docsearch',
     });
     new Tether({
         element: '#algolia-wrapper',
