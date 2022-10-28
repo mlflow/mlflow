@@ -180,3 +180,9 @@ MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
 MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT", int, 120
 )
+
+#: Specifies the MLflow Model Scoring server request timeout in seconds
+#: (default: ``60``)
+MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
+)
