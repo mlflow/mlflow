@@ -798,6 +798,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
+                    custom_artifacts=None,
                     baseline_model=None,
                 )
 
@@ -876,6 +877,7 @@ def test_evaluate_with_multi_evaluators(
             "run_id": run.info.run_id,
             "evaluator_config": evaluator_config,
             "custom_metrics": None,
+            "custom_artifacts": None,
             "baseline_model": baseline_model,
         }
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
