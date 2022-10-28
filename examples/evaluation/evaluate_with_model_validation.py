@@ -66,8 +66,7 @@ with mlflow.start_run() as run:
         validation_thresholds=thresholds,
         custom_metrics=[
             make_metric(
-                double_positive,
-                name=double_positive.__name__,
+                eval_fn=double_positive,
                 greater_is_better=False,
             )
         ],

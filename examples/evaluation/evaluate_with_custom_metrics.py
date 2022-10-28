@@ -65,13 +65,11 @@ with mlflow.start_run() as run:
         evaluators=["default"],
         custom_metrics=[
             make_metric(
-                squared_diff_plus_one,
-                name=squared_diff_plus_one.__name__,
+                eval_fn=squared_diff_plus_one,
                 greater_is_better=False,
             ),
             make_metric(
-                sum_on_label_divided_by_two,
-                name=sum_on_label_divided_by_two.__name__,
+                eval_fn=eval_sum_on_label_divided_by_two,
                 greater_is_better=True,
             ),
         ],

@@ -68,8 +68,7 @@ with mlflow.start_run() as run:
         evaluators=["default"],
         custom_metrics=[
             make_metric(
-                custom_metric,
-                custom_metric.__name__,
+                eval_fn=custom_metric,
                 greater_is_better=False,
             )
         ],

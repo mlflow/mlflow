@@ -484,7 +484,7 @@ def _is_valid_artifacts(artifacts):
     return isinstance(artifacts, dict) and all(isinstance(k, str) for k in artifacts.keys())
 
 
-def _evaluate_custom_artifact(custom_artifact_tuple, eval_df, builtin_metrics):
+def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
     """
     This function calls the `custom_artifact` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
@@ -994,16 +994,16 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
-        artifact = inferred_type(uri=mlflow.get_artifact_uri(inferred_ext))
+        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_name + inferred_ext))
         artifact._load(artifact_file_local_path)
         return artifact
 
     def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
-        if self.custom_metrics is None:
+        if not self.custom_metrics and not self.custom_artifacts:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
         eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
-        for index, custom_metric in enumerate(self.custom_metrics):
+        for index, custom_metric in enumerate(self.custom_metrics or []):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
             custom_metric_tuple = _CustomMetric(
@@ -1028,7 +1028,7 @@ class DefaultEvaluator(ModelEvaluator):
                     name=getattr(custom_artifact, "__name__", repr(custom_artifact)),
                     artifacts_dir=artifacts_dir,
                 )
-                artifact_results = _evaluate_custom_artifact(
+                artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
                     eval_df.copy(),
                     copy.deepcopy(builtin_metrics),

@@ -8,7 +8,7 @@ import pytest
 from contextlib import nullcontext as does_not_raise
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import evaluate, EvaluationMetric
+from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -28,8 +28,10 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_binary_sum_up_label_pred_prob,
     _gen_classifier_curve,
     _evaluate_custom_metric,
+    _evaluate_custom_artifacts,
     _compute_df_mode_or_mean,
     _CustomMetric,
+    _CustomArtifact,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
@@ -1331,7 +1333,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         ),
         (
             lambda _, __: None,
-            pytest.raises(MlflowException, match="did not return a scalar numeric value"),
+            pytest.raises(MlflowException, match="returned None"),
         ),
     ],
 )
@@ -1346,58 +1348,37 @@ def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
 
-    def example_custom_metric(_, given_metrics):
+    def example_count_times_1_point_5(_, given_metrics):
+        return given_metrics["example_count"] * 1.5
+
+    res_metric = _evaluate_custom_metric(
+        _CustomMetric(example_count_times_1_point_5, "", 0), eval_df, metrics
+    )
+    assert res_metric == metrics["example_count"] * 1.5
+
+
+def test_evaluate_custom_artifacts_success():
+    eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
+    metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
+
+    def example_custom_artifacts(given_df, _given_metrics, _artifact_dir):
         return {
-            "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
-            "sum_on_target_minus_5": given_metrics["sum_on_target"] - 5,
-            "example_np_metric_1": np.float32(123.2),
-            "example_np_metric_2": np.ulonglong(10000000),
+            "pred_target_abs_diff": np.abs(given_df["prediction"] - given_df["target"]),
+            "example_dictionary_artifact": {"a": 1, "b": 2},
         }
 
-    res_metrics, res_artifacts = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric, "", 0), eval_df, metrics
+    res_artifacts = _evaluate_custom_artifacts(
+        _CustomArtifact(example_custom_artifacts, "", 0, ""), eval_df, metrics
     )
-    assert res_metrics == {
-        "example_count_times_1_point_5": metrics["example_count"] * 1.5,
-        "sum_on_target_minus_5": metrics["sum_on_target"] - 5,
-        "example_np_metric_1": np.float32(123.2),
-        "example_np_metric_2": np.ulonglong(10000000),
-    }
-    assert res_artifacts is None
 
-    def example_custom_metric_with_artifacts(given_df, given_metrics):
-        return (
-            {
-                "example_count_times_1_point_5": given_metrics["example_count"] * 1.5,
-                "sum_on_target_minus_5": given_metrics["sum_on_target"] - 5,
-                "example_np_metric_1": np.float32(123.2),
-                "example_np_metric_2": np.ulonglong(10000000),
-            },
-            {
-                "pred_target_abs_diff": np.abs(given_df["prediction"] - given_df["target"]),
-                "example_dictionary_artifact": {"a": 1, "b": 2},
-            },
-        )
-
-    res_metrics_2, res_artifacts_2 = _evaluate_custom_metric(
-        _CustomMetric(example_custom_metric_with_artifacts, "", 0), eval_df, metrics
-    )
-    assert res_metrics_2 == {
-        "example_count_times_1_point_5": metrics["example_count"] * 1.5,
-        "sum_on_target_minus_5": metrics["sum_on_target"] - 5,
-        "example_np_metric_1": np.float32(123.2),
-        "example_np_metric_2": np.ulonglong(10000000),
-    }
-
-    # pylint: disable=unsupported-membership-test
-    assert isinstance(res_artifacts_2, dict)
-    assert "pred_target_abs_diff" in res_artifacts_2
+    assert isinstance(res_artifacts, dict)
+    assert "pred_target_abs_diff" in res_artifacts
     pd.testing.assert_series_equal(
-        res_artifacts_2["pred_target_abs_diff"], np.abs(eval_df["prediction"] - eval_df["target"])
+        res_artifacts["pred_target_abs_diff"], np.abs(eval_df["prediction"] - eval_df["target"])
     )
 
-    assert "example_dictionary_artifact" in res_artifacts_2
-    assert res_artifacts_2["example_dictionary_artifact"] == {"a": 1, "b": 2}
+    assert "example_dictionary_artifact" in res_artifacts
+    assert res_artifacts["example_dictionary_artifact"] == {"a": 1, "b": 2}
 
 
 def _get_results_for_custom_metrics_tests(
@@ -1420,10 +1401,10 @@ def _get_results_for_custom_metrics_tests(
 def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exception(
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
-    def example_custom_artifact_1(_, __):
+    def example_custom_artifact_1(_, __, ___):
         return {"test_json_artifact": {"a": 2, "b": [1, 2]}}
 
-    def example_custom_artifact_2(_, __):
+    def example_custom_artifact_2(_, __, ___):
         return {"test_json_artifact": {"a": 3, "b": [1, 2]}}
 
     with pytest.raises(
@@ -1441,8 +1422,11 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def example_custom_metric(_eval_df, given_metrics):
+    def true_count(_eval_df, given_metrics):
         return given_metrics["true_negatives"] + given_metrics["true_positives"]
+
+    def positive_count(eval_df, _given_metrics):
+        return np.sum(eval_df["prediction"])
 
     def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
         df = pd.DataFrame({"a": [1, 2, 3]})
@@ -1457,7 +1441,10 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     result, metrics, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri,
         breast_cancer_dataset,
-        custom_metrics=[example_custom_metric],
+        custom_metrics=[
+            make_metric(eval_fn=true_count, greater_is_better=True),
+            make_metric(eval_fn=positive_count, greater_is_better=True),
+        ],
         custom_artifacts=[example_custom_artifact],
     )
 
@@ -1624,7 +1611,7 @@ def test_custom_metric_logs_artifacts_from_objects(
     buf.seek(0)
     img = Image.open(buf)
 
-    def example_custom_artifact(_, __):
+    def example_custom_artifacts(_, __, ___):
         return {
             "test_image_artifact": fig,
             "test_json_artifact": {
@@ -1641,7 +1628,7 @@ def test_custom_metric_logs_artifacts_from_objects(
     result, _, artifacts = _get_results_for_custom_metrics_tests(
         binary_logistic_regressor_model_uri,
         breast_cancer_dataset,
-        custom_artifacts=[example_custom_artifact],
+        custom_artifacts=[example_custom_artifacts],
     )
 
     assert "test_image_artifact" in result.artifacts
@@ -1912,8 +1899,8 @@ def test_custom_metrics():
             targets="target",
             evaluators="default",
             custom_metrics=[
-                EvaluationMetric(
-                    lambda _eval_df, _builtin_metrics: 1.0,
+                make_metric(
+                    eval_fn=lambda _eval_df, _builtin_metrics: 1.0,
                     name="cm",
                     greater_is_better=True,
                     long_name="custom_metric",
@@ -1936,11 +1923,11 @@ def test_custom_artifacts():
             targets="target",
             evaluators="default",
             custom_artifacts=[
-                lambda *_args, **_kwargs: {"custom_artifact.json": {"k": "v"}},
+                lambda *_args, **_kwargs: {"custom_artifact": {"k": "v"}},
             ],
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
-        custom_artifact = result.artifacts["custom_artifact.json"]
+        custom_artifact = result.artifacts["custom_artifact"]
         assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
 
 
@@ -1948,21 +1935,19 @@ def test_make_metric_name_inference():
     def metric(_df, _metrics):
         return 1
 
-    metric = mlflow.models.make_metric(metric, greater_is_better=True)
+    metric = make_metric(eval_fn=metric, greater_is_better=True)
     assert metric.name == "metric"
 
-    metric = mlflow.models.make_metric(metric, greater_is_better=True, name="my_metric")
+    metric = make_metric(eval_fn=metric, greater_is_better=True, name="my_metric")
     assert metric.name == "my_metric"
 
-    metric = mlflow.models.make_metric(
-        lambda _df, _metrics: 0, greater_is_better=True, name="metric"
-    )
+    metric = make_metric(eval_fn=lambda _df, _metrics: 0, greater_is_better=True, name="metric")
     assert metric.name == "metric"
 
     with pytest.raises(
         MlflowException, match="`name` must be specified if `eval_fn` is a lambda function."
     ):
-        mlflow.models.make_metric(lambda _df, _metrics: 0, greater_is_better=True)
+        make_metric(eval_fn=lambda _df, _metrics: 0, greater_is_better=True)
 
     class Callable:
         def __call__(self, _df, _metrics):
@@ -1972,4 +1957,4 @@ def test_make_metric_name_inference():
         MlflowException,
         match="`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
     ):
-        mlflow.models.make_metric(Callable(), greater_is_better=True)
+        make_metric(eval_fn=Callable(), greater_is_better=True)

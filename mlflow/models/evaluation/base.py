@@ -86,6 +86,7 @@ class EvaluationMetric:
 
 
 def make_metric(
+    *,
     eval_fn,
     greater_is_better,
     name=None,
@@ -1144,8 +1145,6 @@ def evaluate(
 
             rmse_metric = mlflow.models.make_metric(
                 eval_fn=root_mean_squared_error,
-                name="rmse",
-                long_name=root_mean_squared_error.__name__,
                 greater_is_better=False,
             )
             mlflow.evaluate(..., custom_metrics=[rmse_metric])
