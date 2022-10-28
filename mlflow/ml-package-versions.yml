@@ -218,7 +218,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.5.0"
+    minimum: "1.7.0"
     maximum: "1.12.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -322,10 +322,9 @@ mleap:
     pip_release: "mleap"
 
   models:
-    minimum: "0.16.1"
+    minimum: "0.18.0"
     maximum: "0.20.0"
     requirements:
-      "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
