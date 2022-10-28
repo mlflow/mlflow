@@ -31,7 +31,7 @@ def squared_diff_plus_one(eval_df, _builtin_metrics):
     return np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2)
 
 
-def sum_on_label_divided_by_two(_eval_df, builtin_metrics):
+def sum_on_target_divided_by_two(_eval_df, builtin_metrics):
     """
     This example custom metric function creates a metric derived from existing metrics in
     ``builtin_metrics``.
@@ -69,7 +69,7 @@ with mlflow.start_run() as run:
                 greater_is_better=False,
             ),
             make_metric(
-                eval_fn=eval_sum_on_label_divided_by_two,
+                eval_fn=sum_on_target_divided_by_two,
                 greater_is_better=True,
             ),
         ],
