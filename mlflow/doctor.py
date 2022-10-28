@@ -8,16 +8,15 @@ import mlflow
 
 def doctor(mask_envs=False):
     """
-    Prints out the current environment's MLflow configuration and dependencies.
+    Prints out useful information for debugging issues with MLflow.
 
     :param mask_envs: If True, mask the environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`)
-                      in the output.
+                      in the output to prevent leaking sensitive information.
 
     .. warning::
 
         - This API should only be used for debugging purposes.
         - The output may contain sensitive information such as a database URI containing a password.
-          Please be careful when sharing the output with others.
 
     .. code-block:: python
         :caption: Example
