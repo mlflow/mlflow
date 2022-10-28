@@ -44,27 +44,26 @@ class PredictStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
-        required_configuration_keys = ["output_format", "output_location"]
+        required_configuration_keys = ["using", "location"]
         for key in required_configuration_keys:
             if key not in self.step_config:
                 raise MlflowException(
                     f"The `{key}` configuration key must be specified for the predict step.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        if self.step_config["output_format"] not in {"parquet", "delta", "table"}:
+        if self.step_config["using"] not in {"parquet", "delta", "table"}:
             raise MlflowException(
-                "Invalid `output_format` in predict step configuration.",
+                "Invalid `using` in predict step configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if "model_uri" not in self.step_config:
             try:
-                register_config = self.step_config["register"]
+                register_config = self.step_config["model_registry"]
                 model_name = register_config["model_name"]
             except KeyError:
                 raise MlflowException(
-                    "No model specified for batch scoring: predict step does not have `model_uri` "
-                    "configuration key and register step does not have `model_name` configuration "
-                    " key.",
+                    "No model specified for batch scoring: model_registry does not have "
+                    "`model_uri` and does not have `model_name` configuration key.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             else:
@@ -142,8 +141,8 @@ class PredictStep(BaseStep):
             ) from e
 
         # check if output location is already populated for non-delta output formats
-        output_format = self.step_config["output_format"]
-        output_location = self.step_config["output_location"]
+        output_format = self.step_config["using"]
+        output_location = self.step_config["location"]
         output_populated = False
         if self.save_mode in ["default", "error", "errorifexists"]:
             if output_format == "parquet" or output_format == "delta":
@@ -157,9 +156,9 @@ class PredictStep(BaseStep):
         if output_populated:
             raise MlflowException(
                 message=(
-                    f"Output location `{output_location}` of format `{output_format}` is already "
-                    "populated. To overwrite, please change the spark `save_mode` in the predict "
-                    "step configuration."
+                    f"Output location `{output_location}` using format `{output_format}` is "
+                    "already populated. To overwrite, please change the spark `save_mode` in "
+                    "the predict step configuration."
                 ),
                 error_code=BAD_REQUEST,
             )
@@ -221,8 +220,19 @@ class PredictStep(BaseStep):
         step_config = {}
         if pipeline_config.get("steps", {}).get("predict", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("predict", {}))
+        if pipeline_config.get("steps", {}).get("predict", {}).get("output", {}) is not None:
+            step_config.update(
+                pipeline_config.get("steps", {}).get("predict", {}).get("output", {})
+            )
         step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
-        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        step_config["model_registry"] = pipeline_config.get("model_registry", {})
+        if pipeline_config.get("model_registry", {}).get("model_uri") is not None:
+            step_config["model_uri"] = pipeline_config.get("model_registry", {}).get("model_uri")
+        if pipeline_config.get("model_registry", {}).get("registry_uri") is not None:
+            step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get(
+                "registry_uri"
+            )
+
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,

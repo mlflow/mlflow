@@ -450,7 +450,10 @@ class EvaluateStep(BaseStep):
         step_config["target_col"] = pipeline_config.get("target_col")
         if "positive_class" in pipeline_config:
             step_config["positive_class"] = pipeline_config.get("positive_class")
-        step_config["metrics"] = pipeline_config.get("metrics")
+        if pipeline_config.get("custom_metrics") is not None:
+            step_config["custom_metrics"] = pipeline_config["custom_metrics"]
+        if pipeline_config.get("primary_metric") is not None:
+            step_config["primary_metric"] = pipeline_config["primary_metric"]
         step_config["template_name"] = pipeline_config.get("template")
         step_config.update(
             get_pipeline_tracking_config(

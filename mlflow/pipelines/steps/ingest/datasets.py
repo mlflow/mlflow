@@ -69,9 +69,9 @@ class _Dataset:
                               local filesystem.
         :return: A `_Dataset` instance representing the configured dataset.
         """
-        if not cls.handles_format(dataset_config.get("format")):
+        if not cls.handles_format(dataset_config.get("using")):
             raise MlflowException(
-                f"Invalid format {dataset_config.get('format')} for dataset {cls}",
+                f"Invalid format {dataset_config.get('using')} for dataset {cls}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._from_config(dataset_config, pipeline_root)
@@ -121,7 +121,7 @@ class _Dataset:
         except KeyError:
             raise MlflowException(
                 f"The `{key}` configuration key must be specified for dataset with"
-                f" format '{dataset_config.get('format')}'"
+                f" using '{dataset_config.get('using')}' format"
             ) from None
 
 
@@ -167,7 +167,7 @@ class _LocationBasedDataset(_Dataset):
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             pipeline_root=pipeline_root,
-            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
+            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
         )
 
     @staticmethod
@@ -498,7 +498,7 @@ class CustomDataset(_PandasConvertibleDataset):
     def _from_config(cls, dataset_config: Dict[str, Any], pipeline_root: str) -> _DatasetType:
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
-            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
+            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
             custom_loader_method=cls._get_required_config(
                 dataset_config=dataset_config, key="custom_loader_method"
             ),
@@ -589,7 +589,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             pipeline_root=pipeline_root,
-            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
+            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
             version=dataset_config.get("version"),
             timestamp=dataset_config.get("timestamp"),
         )
@@ -633,7 +633,7 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
         return cls(
             sql=dataset_config.get("sql"),
             location=dataset_config.get("location"),
-            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
+            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
         )
 
     @staticmethod
