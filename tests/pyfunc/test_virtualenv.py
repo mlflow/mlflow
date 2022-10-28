@@ -1,6 +1,7 @@
 import os
 import sys
 from collections import namedtuple
+from io import BytesIO
 from pathlib import Path
 from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
 
@@ -46,7 +47,7 @@ def serve_and_score(model_uri, data, extra_args=None):
         content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager=virtualenv"] + (extra_args or []),
     )
-    return pd.read_json(resp.content, orient="records").values.squeeze()
+    return pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
 
 
 @pytest.fixture

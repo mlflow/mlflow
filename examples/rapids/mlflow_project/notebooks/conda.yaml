@@ -86,9 +86,9 @@ dependencies:
   - psutil=5.7.0=py37h8f50634_1
   - pyarrow=0.15.0=py37h8b68381_1
   - pyparsing=2.4.7=pyh9f0ad1d_0
-  - python=3.7.7=hcff3b4d_5
+  - python=3.8.13=h12debd9_0
   - python-dateutil=2.8.1=py_0
-  - python_abi=3.7=1_cp37m
+  - python_abi=3.8=2_cp38
   - pytz=2020.1=pyh9f0ad1d_0
   - pyyaml=5.3.1=py37h8f50634_0
   - re2=2020.04.01=he1b5a44_0

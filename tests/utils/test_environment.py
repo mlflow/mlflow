@@ -285,7 +285,7 @@ def test_process_conda_env(tmpdir):
         return {
             "name": "mlflow-env",
             "channels": ["conda-forge"],
-            "dependencies": ["python=3.7.9", "pip", {"pip": pip_deps}],
+            "dependencies": ["python=3.8.15", "pip", {"pip": pip_deps}],
         }
 
     conda_env, reqs, cons = _process_conda_env(make_conda_env(["a"]))
