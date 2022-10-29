@@ -359,8 +359,8 @@ def expand_config(config):
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
-                if cfg.requirements:
-                    requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
+                requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
+                if requirements:
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
