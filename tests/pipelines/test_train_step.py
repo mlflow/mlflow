@@ -401,13 +401,11 @@ def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
         """
             )
         if automl:
