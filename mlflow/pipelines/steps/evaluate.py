@@ -184,7 +184,7 @@ class EvaluateStep(BaseStep):
             ].greater_is_better
 
             _set_experiment_primary_metric(
-                exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
+                exp_id, f"test_{self.primary_metric}", primary_metric_greater_is_better
             )
 
             with mlflow.start_run(run_id=run_id):
@@ -197,12 +197,17 @@ class EvaluateStep(BaseStep):
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
                             "pos_label": self.positive_class,
+                            "metric_prefix": "validation_",
                         },
                     ),
                     (
                         "test",
                         test_df,
-                        {"log_model_explainability": False, "pos_label": self.positive_class},
+                        {
+                            "log_model_explainability": False,
+                            "pos_label": self.positive_class,
+                            "metric_prefix": "test_",
+                        },
                     ),
                 ):
                     eval_result = mlflow.evaluate(

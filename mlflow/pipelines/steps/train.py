@@ -343,6 +343,7 @@ class TrainStep(BaseStep):
                         evaluator_config={
                             "log_model_explainability": False,
                             "pos_label": self.positive_class,
+                            "metric_prefix": f"{dataset_name}_",
                         },
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
