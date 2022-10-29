@@ -1,5 +1,6 @@
 import mlflow
 import shap
+import json
 import numpy as np
 import pandas as pd
 import sklearn
@@ -214,7 +215,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
     with mlflow.start_run():
         mlflow.shap.log_explainer(shap_model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs], strict=True
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs], strict=False
         )
 
     # List of requirements
@@ -225,7 +226,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             ["mlflow", "a", "b", *sklearn_default_reqs],
-            strict=True,
+            strict=False,
         )
 
     # Constraints file
@@ -237,7 +238,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
             mlflow.get_artifact_uri("model"),
             ["mlflow", "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
-            strict=True,
+            strict=False,
         )
 
 
@@ -313,9 +314,10 @@ def test_pyfunc_serve_and_score():
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(X[:3]),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
 
 

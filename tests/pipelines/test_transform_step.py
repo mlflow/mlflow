@@ -1,14 +1,16 @@
 import os
 from pathlib import Path
+import pytest
 
 import pandas as pd
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.transform import TransformStep
+from mlflow.pipelines.steps.transform import TransformStep, _validate_user_code_output
 from unittest import mock
 
 # pylint: disable=unused-import
@@ -67,12 +69,36 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
             tmp_pipeline_root_path, "sklearn.preprocessing.StandardScaler"
         )
-        transform_step._run(str(transform_step_output_dir))
+        transform_step.run(str(transform_step_output_dir))
 
     assert os.path.exists(transform_step_output_dir / "transformed_training_data.parquet")
     transformed = pd.read_parquet(transform_step_output_dir / "transformed_training_data.parquet")
     assert len(transformed.columns) == 3
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
+
+
+def test_transform_steps_work_without_step_config(tmp_pipeline_root_path):
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    experiment_name = "demo"
+    MlflowClient().create_experiment(experiment_name)
+
+    pipeline_yaml.write_text(
+        """
+        template: "regression/v1"
+        target_col: "y"
+        experiment:
+          name: {experiment_name}
+          tracking_uri: {tracking_uri}
+        steps:
+          fakestep:
+            something: else
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri(),
+            experiment_name=experiment_name,
+        )
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    TransformStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
 
 
 def test_transform_empty_step(tmp_pipeline_root_path):
@@ -82,7 +108,7 @@ def test_transform_empty_step(tmp_pipeline_root_path):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
             tmp_pipeline_root_path, "steps.transform.transformer_fn"
         )
-        transform_step._run(str(transform_step_output_dir))
+        transform_step.run(str(transform_step_output_dir))
 
     assert os.path.exists(transform_step_output_dir / "transformed_training_data.parquet")
     train_transformed = pd.read_parquet(
@@ -92,3 +118,56 @@ def test_transform_empty_step(tmp_pipeline_root_path):
 
     assert train_transformed.equals(train_split) == True
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
+
+
+def test_validate_method_validates_the_transformer():
+    class Transformer:
+        def fit(self):
+            return "fit"
+
+        def transform(self):
+            return "transform"
+
+    transformer = Transformer()
+
+    def correct_transformer():
+        return transformer
+
+    validated_transformer = _validate_user_code_output(correct_transformer)
+    assert transformer == validated_transformer
+
+    class InCorrectFitTransformer:
+        def pick(self):
+            return "pick"
+
+        def transform(self):
+            return "transform"
+
+    inCorrectFitTransformer = InCorrectFitTransformer()
+
+    def incorrect__fit_transformer():
+        return inCorrectFitTransformer
+
+    with pytest.raises(
+        MlflowException,
+        match="The transformer provided doesn't have a fit method.",
+    ):
+        validated_transformer = _validate_user_code_output(incorrect__fit_transformer)
+
+    class InCorrectTransformer:
+        def pick(self):
+            return "pick"
+
+        def fit(self):
+            return "fit"
+
+    inCorrectTransformer = InCorrectTransformer()
+
+    def incorrect_transformer():
+        return inCorrectTransformer
+
+    with pytest.raises(
+        MlflowException,
+        match="The transformer provided doesn't have a transform method.",
+    ):
+        validated_transformer = _validate_user_code_output(incorrect_transformer)

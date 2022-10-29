@@ -4,7 +4,6 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import time
 import os
 from itertools import zip_longest
 
@@ -29,6 +28,7 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 from collections import OrderedDict
 
 
@@ -82,7 +82,7 @@ class TrackingServiceClient:
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -90,10 +90,11 @@ class TrackingServiceClient:
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param experiment_id: The ID of then experiment to create a run in.
+        :param experiment_id: The ID of the experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
+        :param name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 
@@ -107,52 +108,9 @@ class TrackingServiceClient:
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id,
-            start_time=start_time or int(time.time() * 1000),
+            start_time=start_time or get_current_time_millis(),
             tags=[RunTag(key, value) for (key, value) in tags.items()],
-        )
-
-    def list_run_infos(
-        self,
-        experiment_id,
-        run_view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
-        """
-        Return run information for runs which belong to the experiment_id.
-
-        :param experiment_id: The experiment id which to search
-        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-        :param max_results: Maximum number of results desired.
-        :param order_by: List of order_by clauses. Currently supported values are
-            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
-            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
-
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for the
-            next page may be obtained via the ``token`` attribute of the returned object.
-        """
-        return self.store.list_run_infos(
-            experiment_id, run_view_type, max_results, order_by, page_token
-        )
-
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired.
-                            If not passed, all experiments will be returned for the File and
-                            SQLAlchemy backends. For the REST backend, the server will determine
-                            an appropriate number of experiments to return.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        return self.store.list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token
+            run_name=run_name,
         )
 
     def search_experiments(
@@ -176,26 +134,39 @@ class TrackingServiceClient:
             supported.
 
             Identifiers
-              - ``name``: Experiment name.
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive pattern match.
+            Comparators for string attributes and tags
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``LIKE``: Case-sensitive pattern match
+              - ``ILIKE``: Case-insensitive pattern match
+
+            Comparators for numeric attributes
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``<``: Less than
+              - ``<=``: Less than or equal to
+              - ``>``: Greater than
+              - ``>=``: Greater than or equal to
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following fields are supported.
+            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
+            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
+            which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name.
-            - ``experiment_id``: Experiment ID.
+            - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
@@ -285,7 +256,7 @@ class TrackingServiceClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
+        timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
@@ -341,6 +312,29 @@ class TrackingServiceClient:
         :param key: Name of the tag
         """
         self.store.delete_tag(run_id, key)
+
+    def update_run(self, run_id, status=None, name=None):
+        """
+        Update a run with the specified ID to a new status or name.
+
+        :param run_id: The ID of the Run to update.
+        :param status: The new status of the run to set, if specified.
+                       At least one of ``status`` or ``name`` should be specified.
+        :param name: The new name of the run to set, if specified.
+                     At least one of ``name`` or ``status`` should be specified.
+        """
+        # Exit early
+        if status is None and name is None:
+            return
+
+        run = self.get_run(run_id)
+        status = status or run.info.status
+        self.store.update_run_info(
+            run_id=run_id,
+            run_status=RunStatus.from_string(status),
+            end_time=run.info.end_time,
+            run_name=name,
+        )
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
@@ -463,10 +457,13 @@ class TrackingServiceClient:
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
-        end_time = end_time if end_time else int(time.time() * 1000)
+        end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
-            run_id, run_status=RunStatus.from_string(status), end_time=end_time
+            run_id,
+            run_status=RunStatus.from_string(status),
+            end_time=end_time,
+            run_name=None,
         )
 
     def delete_run(self, run_id):

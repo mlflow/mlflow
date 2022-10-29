@@ -1,9 +1,11 @@
 from collections import namedtuple
+from pathlib import Path
 from unittest import mock
 from packaging.version import Version
 import os
 import pytest
 import yaml
+import json
 
 import catboost as cb
 import numpy as np
@@ -229,7 +231,7 @@ def test_log_model(cb_model, tmpdir):
         model_config = Model.load(os.path.join(local_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(local_path, env_path))
 
 
@@ -265,7 +267,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     mlflow.catboost.save_model(cb_model=reg_model.model, path=model_path, conda_env=custom_env)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
@@ -286,7 +288,7 @@ def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
     mlflow.catboost.save_model(cb_model=reg_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert read_yaml(saved_conda_env_path) == conda_env
 
@@ -299,7 +301,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_mo
 
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
@@ -405,10 +407,12 @@ def test_pyfunc_serve_and_score(reg_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
@@ -423,10 +427,12 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         inference_dataframe.head(3),
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
 
 
@@ -440,3 +446,11 @@ def test_log_model_with_code_paths(cb_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.catboost.FLAVOR_NAME)
         mlflow.catboost.load_model(model_uri=model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(cb_model, model_path):
+    mlflow.catboost.save_model(cb_model.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

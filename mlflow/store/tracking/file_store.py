@@ -37,6 +37,8 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -47,7 +49,6 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_batch_log_limits,
     _validate_batch_log_data,
-    _validate_list_experiments_max_results,
     _validate_param_keys_unique,
     _validate_experiment_name,
 )
@@ -73,8 +74,9 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -98,7 +100,6 @@ def _make_persisted_run_info_dict(run_info):
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict["tags"] = []
-    run_info_dict["name"] = ""
     if "status" in run_info_dict:
         # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
         # Convert from string to enum/int before storing.
@@ -149,16 +150,19 @@ class FileStore(AbstractStore):
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
-            mkdir(self.root_directory)
-            self._create_experiment_with_id(
-                name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                artifact_uri=None,
-                tags=None,
-            )
+            self._create_default_experiment()
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
+
+    def _create_default_experiment(self):
+        mkdir(self.root_directory)
+        self._create_experiment_with_id(
+            name=Experiment.DEFAULT_EXPERIMENT_NAME,
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            artifact_uri=None,
+            tags=None,
+        )
 
     def _check_root_dir(self):
         """
@@ -239,53 +243,6 @@ class FileStore(AbstractStore):
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
 
-    def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-    ):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        _validate_list_experiments_max_results(max_results)
-        self._check_root_dir()
-        rsl = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
-            rsl += self._get_active_experiments(full_path=False)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
-            rsl += self._get_deleted_experiments(full_path=False)
-
-        experiments = []
-        for exp_id in rsl:
-            try:
-                # trap and warn known issues, will raise unexpected exceptions to caller
-                experiment = self._get_experiment(exp_id, view_type)
-                if experiment:
-                    experiments.append(experiment)
-            except MissingConfigException as rnfe:
-                # Trap malformed experiments and log warnings.
-                logging.warning(
-                    "Malformed experiment '%s'. Detailed error %s",
-                    str(exp_id),
-                    str(rnfe),
-                    exc_info=True,
-                )
-        if max_results is not None:
-            experiments, next_page_token = SearchUtils.paginate(
-                experiments, page_token, max_results
-            )
-            return PagedList(experiments, next_page_token)
-        else:
-            return PagedList(experiments, None)
-
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,
@@ -319,17 +276,37 @@ class FileStore(AbstractStore):
         for exp_id in experiment_ids:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
-                experiments.append(self._get_experiment(exp_id, view_type))
+                exp = self._get_experiment(exp_id, view_type)
+                if exp is not None:
+                    experiments.append(exp)
             except MissingConfigException as e:
                 logging.warning(
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
-        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        sorted_experiments = SearchExperimentsUtils.sort(
+            filtered, order_by or ["last_update_time DESC"]
+        )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
         )
         return PagedList(experiments, next_page_token)
+
+    def get_experiment_by_name(self, experiment_name):
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_experiments(
+                view_type=ViewType.ACTIVE_ONLY,
+                max_results=number_to_get,
+                filter_string=f"name = '{experiment_name}'",
+                page_token=next_page_token,
+            )
+
+        experiments = get_results_from_paginated_fn(
+            paginated_fn=pagination_wrapper_func,
+            max_results_per_page=SEARCH_MAX_RESULTS_THRESHOLD,
+            max_results=None,
+        )
+        return experiments[0] if len(experiments) > 0 else None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
@@ -337,7 +314,15 @@ class FileStore(AbstractStore):
         )
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
+        creation_time = get_current_time_millis()
+        experiment = Experiment(
+            experiment_id,
+            name,
+            artifact_uri,
+            LifecycleStage.ACTIVE,
+            creation_time=creation_time,
+            last_update_time=creation_time,
+        )
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
         # As such, we should not include them in the meta file.
@@ -369,14 +354,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         _validate_experiment_name(name)
         self._validate_experiment_does_not_exist(name)
-        # Get all existing experiments and find the one with largest numerical ID.
-        # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [
-            int(e.experiment_id)
-            for e in self.list_experiments(ViewType.ALL)
-            if e.experiment_id.isdigit()
-        ]
-        experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+        experiment_id = _generate_unique_integer_id()
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
@@ -427,13 +405,35 @@ class FileStore(AbstractStore):
         return experiment
 
     def delete_experiment(self, experiment_id):
+        if str(experiment_id) == str(FileStore.DEFAULT_EXPERIMENT_ID):
+            raise MlflowException(
+                "Cannot delete the default experiment "
+                f"'{FileStore.DEFAULT_EXPERIMENT_ID}'. This is an internally "
+                f"reserved experiment."
+            )
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if experiment_dir is None:
             raise MlflowException(
                 "Could not find experiment with ID %s" % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
+        experiment = self._get_experiment(experiment_id)
+        experiment._set_last_update_time(get_current_time_millis())
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
         mv(experiment_dir, self.trash_folder)
+
+    def _hard_delete_experiment(self, experiment_id):
+        """
+        Permanently delete an experiment.
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
+        shutil.rmtree(experiment_dir)
 
     def restore_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
@@ -450,6 +450,14 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
+        experiment = self._get_experiment(experiment_id)
+        meta_dir = os.path.join(self.root_directory, experiment_id)
+        experiment._set_last_update_time(get_current_time_millis())
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
 
     def rename_experiment(self, experiment_id, new_name):
         _validate_experiment_name(new_name)
@@ -463,6 +471,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
+        experiment._set_last_update_time(get_current_time_millis())
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."
@@ -481,7 +490,7 @@ class FileStore(AbstractStore):
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
+        self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
 
     def _hard_delete_run(self, run_id):
         """
@@ -498,7 +507,7 @@ class FileStore(AbstractStore):
             older_than: get runs that is older than this variable in number of milliseconds.
                         defaults to 0 ms to get all deleted runs.
         """
-        current_time = int(time.time() * 1000)
+        current_time = get_current_time_millis()
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
             experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
@@ -541,15 +550,17 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
 
-    def update_run_info(self, run_id, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time, run_name):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time)
+        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
+        if run_name:
+            self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
         Creates a run with the specified attributes.
         """
@@ -566,11 +577,23 @@ class FileStore(AbstractStore):
                 "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
+        tags = tags or []
+        run_name_tag = _get_run_name_from_tags(tags)
+        if run_name and run_name_tag:
+            raise MlflowException(
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
+                "Remove 'mlflow.runName' tag.",
+                INVALID_PARAMETER_VALUE,
+            )
+        run_name = run_name or run_name_tag or _generate_random_name()
+        if not run_name_tag:
+            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
             run_uuid=run_uuid,
             run_id=run_uuid,
+            run_name=run_name,
             experiment_id=experiment_id,
             artifact_uri=artifact_uri,
             user_id=user_id,
@@ -608,6 +631,10 @@ class FileStore(AbstractStore):
         metrics = self._get_all_metrics(run_info)
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
+        if not run_info.run_name:
+            run_name = _get_run_name_from_tags(tags)
+            if run_name:
+                run_info._set_run_name(run_name)
         return Run(run_info, RunData(metrics, params, tags))
 
     def _get_run_info(self, run_uuid):
@@ -917,6 +944,9 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._set_run_tag(run_info, tag)
+        if tag.key == MLFLOW_RUN_NAME:
+            run_status = RunStatus.from_string(run_info.status)
+            self.update_run_info(run_id, run_status, run_info.end_time, tag.value)
 
     def _set_run_tag(self, run_info, tag):
         tag_path = self._get_tag_path(run_info.experiment_id, run_info.run_id, tag.key)
@@ -961,6 +991,11 @@ class FileStore(AbstractStore):
             for metric in metrics:
                 self._log_run_metric(run_info, metric)
             for tag in tags:
+                # NB: If the tag run name value is set, update the run info to assure
+                # synchronization.
+                if tag.key == MLFLOW_RUN_NAME:
+                    run_status = RunStatus.from_string(run_info.status)
+                    self.update_run_info(run_id, run_status, run_info.end_time, tag.value)
                 self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

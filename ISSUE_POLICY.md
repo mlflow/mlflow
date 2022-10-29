@@ -44,6 +44,19 @@ Feature requests typically go through the following lifecycle:
 
 ### Bug reports
 
+#### Guidelines
+In order to ensure that maintainers are able to assist in any reported bug:
+
+* Ensure that the bug report template is filled out in its entirety with appropriate levels of detail, particularly in the `Code to reproduce issue` section.
+* Verify that the bug you are reporting meets one of the following criteria:
+  * A recent release of MLflow does not support the operation you are doing that an earlier release did (a regression).
+  * A [documented feature](https://mlflow.org/docs/latest/index.html) or functionality does not work properly by executing a provided example from the docs.
+  * Any exception raised is directly from MLflow and is not the result of an underlying package's exception (e.g., don't file an issue that MLflow can't log a model that can't be trained due to a tensorflow Exception)
+* Make a best effort to diagnose and troubleshoot the issue prior to filing. 
+* Verify that the environment that you're experiencing the bug in is supported as defined in the docs.
+* Validate that MLflow supports the functionality that you're having an issue with. _A lack of a feature does not constitute a bug_.
+* Read the docs on the feature for the issue that you're reporting. If you're certain that you're following documented guidelines, please file a bug report.
+
 Bug reports typically go through the following lifecycle:
 
 1. A bug report GitHub Issue is submitted, which contains a high-level description of the bug and information required to reproduce it.

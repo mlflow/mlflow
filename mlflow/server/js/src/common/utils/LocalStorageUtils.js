@@ -51,10 +51,12 @@ class LocalStorageStore {
 
   /**
    * Save React component state in local storage.
-   * @param stateRecord: Immutable.Record instance containing component state.
+   * @param stateRecord: Immutable.Record instance or plain object containing component state.
    */
   saveComponentState(stateRecord) {
-    this.setItem(LocalStorageStore.reactComponentStateKey, JSON.stringify(stateRecord.toJSON()));
+    const targetValue =
+      typeof stateRecord.toJSON === 'function' ? stateRecord.toJSON() : stateRecord;
+    this.setItem(LocalStorageStore.reactComponentStateKey, JSON.stringify(targetValue));
   }
 
   /**

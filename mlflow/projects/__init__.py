@@ -5,7 +5,6 @@ import json
 import yaml
 import os
 import logging
-import warnings
 
 import mlflow.projects.databricks
 from mlflow import tracking
@@ -23,10 +22,16 @@ from mlflow.projects.utils import (
     PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
+    PROJECT_BUILD_IMAGE,
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PROJECT_ENV,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_RUN_NAME,
+    MLFLOW_DOCKER_IMAGE_ID,
+)
 from mlflow.utils import env_manager as _EnvManager
 import mlflow.utils.uri
 
@@ -78,6 +83,7 @@ def _run(
     env_manager,
     synchronous,
     run_name,
+    build_image,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -88,6 +94,7 @@ def _run(
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
+    backend_config[PROJECT_BUILD_IMAGE] = build_image
     # TODO: remove this check once kubernetes execution has been refactored
     if backend_name not in {"databricks", "kubernetes"}:
         backend = loader.load_backend(backend_name)
@@ -156,8 +163,12 @@ def _run(
             repository_uri=kube_config["repository-uri"],
             base_image=project.docker_env.get("image"),
             run_id=active_run.info.run_id,
+            build_image=build_image,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
+        tracking.MlflowClient().set_tag(
+            active_run.info.run_id, MLFLOW_DOCKER_IMAGE_ID, image_digest
+        )
         submitted_run = kb.run_kubernetes_job(
             project.name,
             active_run,
@@ -189,12 +200,12 @@ def run(
     experiment_id=None,
     backend="local",
     backend_config=None,
-    use_conda=None,
     storage_dir=None,
     synchronous=True,
     run_id=None,
     run_name=None,
     env_manager=None,
+    build_image=False,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -233,11 +244,6 @@ def run(
                            be passed as config to the backend. The exact content which should be
                            provided is different for each execution backend and is documented
                            at https://www.mlflow.org/docs/latest/projects.html.
-    :param use_conda: This argument is deprecated. Use `env_manager='local'` instead.
-                      If True (the default), create a new Conda environment for the run and
-                      install project dependencies within that environment. Otherwise, run the
-                      project in the current environment without installing any project
-                      dependencies.
     :param storage_dir: Used only if ``backend`` is "local". MLflow downloads artifacts from
                         distributed URIs passed to parameters of type ``path`` to subdirectories of
                         ``storage_dir``.
@@ -258,10 +264,14 @@ def run(
                         are supported:
 
                         - local: use the local environment
-                        - conda: use conda
                         - virtualenv: use virtualenv (and pyenv for Python version management)
+                        - conda: use conda
 
-                        If unspecified, default to conda.
+                        If unspecified, MLflow automatically determines the environment manager to
+                        use by inspecting files in the project directory. For example, if
+                        ``python_env.yaml`` is present, virtualenv will be used.
+    :param build_image: Whether to build a new docker image of the project or to reuse an existing
+                        image. Default: False (reuse an existing image)
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -304,19 +314,7 @@ def run(
                 )
                 raise
 
-    if use_conda is not None and env_manager is not None:
-        raise MlflowException.invalid_parameter_value(
-            "`use_conda` cannot be used with `env_manager`"
-        )
-    elif use_conda is not None:
-        warnings.warn(
-            "`use_conda` is deprecated and will be removed in a future release. "
-            "Use `env_manager=local` instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
-    elif env_manager is not None:
+    if env_manager is not None:
         _EnvManager.validate(env_manager)
 
     if backend == "databricks":
@@ -341,6 +339,7 @@ def run(
         storage_dir=storage_dir,
         synchronous=synchronous,
         run_name=run_name,
+        build_image=build_image,
     )
     if synchronous:
         _wait_for(submitted_run_obj)

@@ -1,13 +1,14 @@
-import json
 import mlflow.pipelines.utils.step as step_utils
 import numpy as np
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.pipelines.cards import pandas_renderer
 from mlflow.pipelines.utils.step import (
     display_html,
     get_merged_eval_metrics,
-    get_pandas_data_profile,
+    truncate_pandas_data_profile,
+    get_pandas_data_profiles,
 )
 from pandas import DataFrame
 from unittest import mock
@@ -36,6 +37,21 @@ def test_display_html_opens_html_file(tmp_path):
     ):
         display_html(html_file_path=html_file)
         patched_subprocess.assert_called_once()
+
+
+def test_display_html_throws_error_on_old_dbr():
+    html_data = "<!DOCTYPE html><html><body><p>Hey</p></body></html>"
+    with mock.patch(
+        "mlflow.pipelines.utils.step.is_running_in_ipython_environment", return_value=True
+    ), mock.patch(
+        "mlflow.pipelines.utils.step.is_in_databricks_runtime", return_value=True
+    ), mock.patch(
+        "mlflow.pipelines.utils.step.get_databricks_runtime",
+        return_value="10.4.x-snapshot-cpu-ml-scala2.12",
+    ), pytest.raises(
+        MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Pipelines"
+    ):
+        display_html(html_data=html_data)
 
 
 @pytest.mark.parametrize(
@@ -87,12 +103,24 @@ def test_get_data_profile_truncates_large_data_frame(
     step_utils._MAX_PROFILE_CELL_SIZE = max_cells
     step_utils._MAX_PROFILE_COL_SIZE = max_cols
     step_utils._MAX_PROFILE_ROW_SIZE = max_rows
-    profile = get_pandas_data_profile(data_frame, "fake profile")
-    assert json.loads(profile.to_json())["table"]["n_var"] == expected_cols
-    assert json.loads(profile.to_json())["variables"]["0"]["count"] == expected_rows
+    with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
+        truncated_df = truncate_pandas_data_profile("fake profile", data_frame)
+        assert truncated_df[1].shape == (expected_rows, expected_cols)
+        get_pandas_data_profiles([["fake profile", data_frame]])
+        # Initial index of [0][0][0] are from call_args_list to get the 0th call.
+        # The next [0][1] are because of the pandas_renderer get_html API
+        assert mock_pandas_renderer_html.call_args_list[0][0][0][0][1].shape == (
+            expected_rows,
+            expected_cols,
+        )
 
 
 def test_get_data_profile_works_for_empty_data_frame():
-    profile = get_pandas_data_profile(DataFrame(), "fake profile")
-    assert json.loads(profile.to_json())["table"]["n_var"] == 1  # The index
-    assert json.loads(profile.to_json())["variables"]["df_index"]["count"] == 0
+    with mock.patch.object(pandas_renderer, "get_html") as mock_pandas_renderer_html:
+        data_frame = DataFrame()
+        truncated_df = truncate_pandas_data_profile("fake profile", data_frame)
+        assert truncated_df[1].shape == (0, 0)
+        get_pandas_data_profiles([["fake profile", data_frame]])
+        # Initial index of [0][0][0] are from call_args_list to get the 0th call.
+        # The next [0][1] are because of the pandas_renderer get_html API
+        assert mock_pandas_renderer_html.call_args_list[0][0][0][0][1].shape == (0, 0)

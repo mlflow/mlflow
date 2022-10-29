@@ -5,7 +5,6 @@ import os
 import posixpath
 import random
 import tempfile
-import time
 import yaml
 import re
 
@@ -25,11 +24,13 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+    MLFLOW_RUN_NAME,
 )
 from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
@@ -143,89 +144,6 @@ def test_set_experiment_with_deleted_experiment():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_list_experiments():
-    def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
-        result = [
-            (exp.experiment_id, exp.lifecycle_stage)
-            for exp in client.list_experiments(view_type=view_type_arg)
-        ]
-
-        assert result == list(ids_to_lifecycle_stage.items())
-
-    experiment_id = mlflow.create_experiment("exp_1")
-    assert experiment_id == "1"
-    client = tracking.MlflowClient()
-    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
-    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.ACTIVE}, ViewType.ALL)
-    _assert_exps({}, ViewType.DELETED_ONLY)
-    client.delete_experiment(experiment_id)
-    _assert_exps({"0": LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
-    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.DELETED}, ViewType.ALL)
-    _assert_exps({"1": LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
-
-
-def test_list_experiments_paginated():
-    experiments = []
-    for i in range(10):
-        experiments.append(mlflow.create_experiment("paginated_exp_" + str(i)))
-    max_results = 5
-    returned_experiments = []
-    client = tracking.MlflowClient()
-    result = client.list_experiments(max_results=max_results, page_token=None)
-    assert len(result) == max_results
-    returned_experiments.extend(result)
-    while result.token:
-        result = client.list_experiments(max_results=max_results, page_token=result.token)
-        assert len(result) <= max_results
-        returned_experiments.extend(result)
-    assert result.token is None
-    returned_exp_id_set = {exp.experiment_id for exp in returned_experiments}
-    assert set(experiments) - returned_exp_id_set == set()
-
-
-def test_list_experiments_paginated_returns_in_correct_order():
-    testnames = []
-    for i in range(20):
-        name = "paginated_exp_order_" + str(i)
-        mlflow.create_experiment(name)
-        testnames.append(name)
-
-    client = tracking.MlflowClient()
-    # test that pagination will return all valid results in sorted order
-    # by name ascending
-    result = client.list_experiments(max_results=3, page_token=None)
-    assert result.token is not None
-    assert [exp.name for exp in result[1:]] == testnames[0:2]
-
-    result = client.list_experiments(max_results=4, page_token=result.token)
-    assert result.token is not None
-    assert [exp.name for exp in result] == testnames[2:6]
-
-    result = client.list_experiments(max_results=6, page_token=result.token)
-    assert result.token is not None
-    assert [exp.name for exp in result] == testnames[6:12]
-
-    result = client.list_experiments(max_results=8, page_token=result.token)
-    # this page token should be none
-    assert result.token is None
-    assert [exp.name for exp in result] == testnames[12:]
-
-
-def test_list_experiments_paginated_errors():
-    client = tracking.MlflowClient()
-    # test that providing a completely invalid page token throws
-    with pytest.raises(MlflowException, match="Invalid page token") as exception_context:
-        client.list_experiments(page_token="evilhax", max_results=20)
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-    # test that providing too large of a max_results throws
-    with pytest.raises(
-        MlflowException, match="Invalid value for request parameter max_results"
-    ) as exception_context:
-        client.list_experiments(page_token=None, max_results=int(1e15))
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id(reset_mock):
     reset_mock(
@@ -295,9 +213,9 @@ def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
-    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE}
+    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_RUN_NAME}
 
-    t = int(time.time())
+    t = get_current_time_millis()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
@@ -349,7 +267,7 @@ def test_log_batch_with_many_elements():
     expected_params = {f"param-key{i}": f"param-val{i}" for i in range(num_params)}
     exact_expected_tags = {f"tag-key{i}": f"tag-val{i}" for i in range(num_tags)}
 
-    t = int(time.time())
+    t = get_current_time_millis()
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[1])
     metrics = [
         Metric(key=key, value=value, timestamp=t, step=i)
@@ -474,7 +392,7 @@ def get_store_mock():
 
 def test_set_tags():
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
-    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE}
+    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_RUN_NAME}
     with start_run() as active_run:
         run_id = active_run.info.run_id
         mlflow.set_tags(exact_expected_tags)
@@ -720,11 +638,11 @@ def test_log_dict(subdir, extension):
 
 def test_with_startrun():
     run_id = None
-    t0 = int(time.time() * 1000)
+    t0 = get_current_time_millis()
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
         run_id = active_run.info.run_id
-    t1 = int(time.time() * 1000)
+    t1 = get_current_time_millis()
     run_info = mlflow.tracking._get_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
@@ -847,7 +765,7 @@ def test_search_runs():
     experiment_id = MlflowClient().get_experiment_by_name("exp-for-search").experiment_id
 
     # 2 runs in this experiment
-    assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
+    assert len(MlflowClient().search_runs([experiment_id], run_view_type=ViewType.ACTIVE_ONLY)) == 2
 
     # 2 runs that have metric "m1" > 0.001
     runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.0001")

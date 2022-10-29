@@ -91,18 +91,10 @@ def test_invalid_run_mode():
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-def test_use_conda():
-    """Verify that we correctly handle the `use_conda` argument."""
-    # Verify we throw an exception when conda is unavailable
-    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=EnvironmentError):
-        with pytest.raises(ExecutionException, match="Could not find Conda executable"):
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-
-
 def test_expected_tags_logged_when_using_conda():
     with mock.patch.object(MlflowClient, "set_tag") as tag_mock:
         try:
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+            mlflow.projects.run(TEST_PROJECT_DIR, env_manager="conda")
         finally:
             tag_mock.assert_has_calls(
                 [
@@ -128,7 +120,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
         entry_point="test_tracking",
         version=version,
         parameters={"use_start_run": use_start_run},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
     )
 
@@ -141,11 +133,11 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
     mlflow_service = MlflowClient()
-    run_infos = mlflow_service.list_run_infos(
-        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
+    runs = mlflow_service.search_runs(
+        [FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
     )
-    assert len(run_infos) == 1
-    store_run_id = run_infos[0].run_id
+    assert len(runs) == 1
+    store_run_id = runs[0].info.run_id
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
 
@@ -177,7 +169,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
             local_git_repo_uri + "#" + TEST_PROJECT_NAME,
             entry_point="test_tracking",
             version="badc0de",
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
 
@@ -189,7 +181,7 @@ def test_run(use_start_run):
         TEST_PROJECT_DIR,
         entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
     )
     assert submitted_run.run_id is not None
@@ -203,11 +195,11 @@ def test_run(use_start_run):
     run_id = submitted_run.run_id
     mlflow_service = MlflowClient()
 
-    run_infos = mlflow_service.list_run_infos(
-        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
+    runs = mlflow_service.search_runs(
+        [FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
     )
-    assert len(run_infos) == 1
-    store_run_id = run_infos[0].run_id
+    assert len(runs) == 1
+    store_run_id = runs[0].info.run_id
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
 
@@ -233,7 +225,7 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
             TEST_PROJECT_DIR,
             entry_point="test_tracking",
             parameters={"use_start_run": "1"},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
     assert submitted_run.run_id is not None
@@ -252,7 +244,7 @@ def test_run_with_artifact_path(tmpdir):
             TEST_PROJECT_DIR,
             entry_point="test_artifact_path",
             parameters={"model": "runs:/%s/model.pkl" % run.info.run_id},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         )
         validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -263,7 +255,7 @@ def test_run_async():
         TEST_PROJECT_DIR,
         entry_point="sleep",
         parameters={"duration": 2},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         synchronous=False,
     )
@@ -274,7 +266,7 @@ def test_run_async():
         TEST_PROJECT_DIR,
         entry_point="sleep",
         parameters={"duration": -1, "invalid-param": 30},
-        use_conda=False,
+        env_manager="local",
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         synchronous=False,
     )
@@ -369,7 +361,7 @@ def test_create_env_with_mamba():
                 mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
 
-def test_conda_environment_cleaned_up_when_pip_fails(tmp_path, capfd):
+def test_conda_environment_cleaned_up_when_pip_fails(tmp_path):
     conda_yaml = tmp_path / "conda.yaml"
     content = """
 name: {name}
@@ -389,13 +381,8 @@ dependencies:
     envs_before = mlflow.utils.conda._list_conda_environments()
 
     # `conda create` should fail because mlflow 999.999.999 doesn't exist
-    with pytest.raises(ShellCommandException, match=r".*"):
-        mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
-
-    # Ensure `conda create` failed because of pip failure
-    captured = capfd.readouterr()
-    assert "ERROR: No matching distribution found for mlflow==999.999.999" in captured.err
-    assert "CondaEnvException: Pip failed" in captured.err
+    with pytest.raises(ShellCommandException, match=r"No matching distribution found"):
+        mlflow.utils.conda.get_or_create_conda_env(conda_yaml, capture_output=True)
 
     # Ensure the environment is cleaned up
     envs_after = mlflow.utils.conda._list_conda_environments()
@@ -408,7 +395,7 @@ def test_cancel_run():
             TEST_PROJECT_DIR,
             entry_point="sleep",
             parameters={"duration": 2},
-            use_conda=False,
+            env_manager="local",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
             synchronous=False,
         )
@@ -534,7 +521,7 @@ def test_credential_propagation(get_config, synchronous):
             entry_point="sleep",
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
             parameters={"duration": 2},
-            use_conda=False,
+            env_manager="local",
             synchronous=synchronous,
         )
         _, kwargs = popen_mock.call_args

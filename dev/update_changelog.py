@@ -19,6 +19,14 @@ def extract_pr_num_from_git_log_entry(git_log_entry):
     return int(m.group(1)) if m else None
 
 
+def format_label(label: str) -> str:
+    key = label.split("/", 1)[-1]
+    return {
+        "model-registry": "Model Registry",
+        "uiux": "UI",
+    }.get(key, key.capitalize())
+
+
 class PullRequest(NamedTuple):
     title: str
     number: int
@@ -34,7 +42,15 @@ class PullRequest(NamedTuple):
         return [l for l in self.labels if l.startswith("rn/")]
 
     def __str__(self):
-        return f"{self.title} (#{self.number}, @{self.author})"
+        areas = " / ".join(
+            sorted(
+                map(
+                    format_label,
+                    filter(lambda l: l.split("/")[0] in ("area", "language"), self.labels),
+                )
+            )
+        )
+        return f"[{areas}] {self.title} (#{self.number}, @{self.author})"
 
     def __repr__(self):
         return str(self)
@@ -66,8 +82,11 @@ class Section(NamedTuple):
     default="master",
     help="Current release (candidate) branch to compare to, e.g. branch-0.9 (default: 'master').",
 )
-@click.option("--release-version", required=True, help=("MLflow version to release."))
-def main(prev_branch, curr_branch, release_version):
+@click.option("--release-version", required=True, help="MLflow version to release.")
+@click.option(
+    "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
+)
+def main(prev_branch, curr_branch, release_version, remote):
     git_log_output = subprocess.check_output(
         [
             "git",
@@ -76,7 +95,7 @@ def main(prev_branch, curr_branch, release_version):
             "--graph",
             "--cherry-pick",
             "--pretty=format:%s",
-            f"origin/{prev_branch}...origin/{curr_branch}",
+            f"{remote}/{prev_branch}...{remote}/{curr_branch}",
         ],
         text=True,
     )

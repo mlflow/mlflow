@@ -43,7 +43,7 @@ extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
 ]
-pipelines_regression_v1_files = package_files("mlflow/pipelines/regression/v1/resources")
+pipelines_template_files = package_files("mlflow/pipelines/resources")
 pipelines_files = package_files("mlflow/pipelines/cards/templates")
 
 
@@ -90,7 +90,7 @@ class ListDependencies(distutils.cmd.Command):
         print("\n".join(dependencies))
 
 
-MINIMUM_SUPPORTED_PYTHON_VERSION = "3.7"
+MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
 
 
 class MinPythonVersion(distutils.cmd.Command):
@@ -117,7 +117,7 @@ setup(
             + models_container_server_files
             + alembic_files
             + extra_files
-            + pipelines_regression_v1_files
+            + pipelines_template_files
             + pipelines_files
         ),
     }
@@ -131,6 +131,8 @@ setup(
             "scikit-learn",
             # Required to log artifacts and models to HDFS artifact locations
             "pyarrow",
+            # Required to sign outgoing request with SigV4 signature
+            "requests-auth-aws-sigv4",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             # Required to log artifacts and models to GCS artifact locations
@@ -145,6 +147,9 @@ setup(
             "mlserver>=0.5.3",
             "mlserver-mlflow>=0.5.3",
             "virtualenv",
+            # Required for exporting metrics from the MLflow server to Prometheus
+            # as part of the MLflow server monitoring add-on
+            "prometheus-flask-exporter",
         ],
         "pipelines": [
             "scikit-learn>=1.0",
@@ -153,7 +158,8 @@ setup(
             "pandas-profiling>=3.1",
             "ipython>=7.0",
             "markdown>=3.3",
-            "Jinja2>=3.0",
+            "Jinja2>=2.11; platform_system != 'Windows'",
+            "Jinja2>=3.0; platform_system == 'Windows'",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],

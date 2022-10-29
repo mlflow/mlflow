@@ -46,14 +46,17 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install -e .[pipelines]
+          pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
       - name: Run tests
         run: |
+          # Temporary patch for custom_metrics.py to make it return a scalar value
+          cat dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines
 
@@ -64,12 +67,13 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install -e .[pipelines]
+          pip install -e .
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
       - name: Download Hadoop winutils for Spark
@@ -80,6 +84,8 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
+          # Temporary patch for custom_metrics.py to make it return a scalar value
+          cat dev/custom_metrics_patch.py > examples/pipelines/sklearn_regression_example/steps/custom_metrics.py
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/pipelines

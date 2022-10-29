@@ -124,6 +124,9 @@ export const RunInfo = Immutable.Record(
     // optional STRING
     user_id: undefined,
 
+    // optional STRING
+    run_name: undefined,
+
     // optional RunStatus
     status: undefined,
 
@@ -408,12 +411,12 @@ CreateExperiment.fromJs = function fromJs(pojo) {
   return new extended_CreateExperiment(pojoWithNestedImmutables);
 };
 
-export const ListExperiments = Immutable.Record(
+export const SearchExperiments = Immutable.Record(
   {
     // optional ViewType
     view_type: undefined,
   },
-  'ListExperiments',
+  'SearchExperiments',
 );
 
 /**
@@ -421,14 +424,14 @@ export const ListExperiments = Immutable.Record(
  * This reviver allow us to keep the Immutable.Record type when serializing JSON message
  * into nested Immutable Record class.
  */
-ListExperiments.fromJsReviver = function fromJsReviver(key, value) {
+SearchExperiments.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
     default:
       return Immutable.fromJS(value);
   }
 };
 
-const extended_ListExperiments = ModelBuilder.extend(ListExperiments, {
+const extended_SearchExperiments = ModelBuilder.extend(SearchExperiments, {
   getViewType() {
     return this.view_type !== undefined ? this.view_type : 'ACTIVE_ONLY';
   },
@@ -439,11 +442,11 @@ const extended_ListExperiments = ModelBuilder.extend(ListExperiments, {
  * objects into this Immutable Record.  Example usage:
  *
  *   // The pojo is your javascript object
- *   const record = ListExperiments.fromJs(pojo);
+ *   const record = SearchExperiments.fromJs(pojo);
  */
-ListExperiments.fromJs = function fromJs(pojo) {
-  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, ListExperiments.fromJsReviver);
-  return new extended_ListExperiments(pojoWithNestedImmutables);
+SearchExperiments.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, SearchExperiments.fromJsReviver);
+  return new extended_SearchExperiments(pojoWithNestedImmutables);
 };
 
 export const GetExperiment = Immutable.Record(

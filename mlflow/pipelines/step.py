@@ -8,7 +8,7 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any
+from typing import TypeVar, Dict, Any, List
 from mlflow.pipelines.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.pipelines.utils import get_pipeline_name
 from mlflow.pipelines.utils.step import display_html
@@ -35,6 +35,19 @@ class StepStatus(Enum):
     FAILED = "FAILED"
 
 
+class StepClass(Enum):
+    """
+    Represents the class of a step.
+    """
+
+    # Indicates that the step class is unknown.
+    UNKNOWN = "UNKNOWN"
+    # Indicates that the step runs at training time.
+    TRAINING = "TRAINING"
+    # Indicates that the step runs at inference time.
+    PREDICTION = "PREDICTION"
+
+
 StepExecutionStateType = TypeVar("StepExecutionStateType", bound="StepExecutionState")
 
 
@@ -46,15 +59,19 @@ class StepExecutionState:
 
     _KEY_STATUS = "pipeline_step_execution_status"
     _KEY_LAST_UPDATED_TIMESTAMP = "pipeline_step_execution_last_updated_timestamp"
+    _KEY_STACK_TRACE = "pipeline_step_stack_trace"
 
-    def __init__(self, status: StepStatus, last_updated_timestamp: int):
+    def __init__(self, status: StepStatus, last_updated_timestamp: int, stack_trace: str):
         """
         :param status: The execution status of the step.
         :param last_updated_timestamp: The timestamp of the last execution status update, measured
                                        in seconds since the UNIX epoch.
+        :param stack_trace: The stack trace of the last execution. None if the step execution
+                            succeeds.
         """
         self.status = status
         self.last_updated_timestamp = last_updated_timestamp
+        self.stack_trace = stack_trace
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -63,6 +80,7 @@ class StepExecutionState:
         return {
             StepExecutionState._KEY_STATUS: self.status.value,
             StepExecutionState._KEY_LAST_UPDATED_TIMESTAMP: self.last_updated_timestamp,
+            StepExecutionState._KEY_STACK_TRACE: self.stack_trace,
         }
 
     @classmethod
@@ -73,6 +91,7 @@ class StepExecutionState:
         return cls(
             status=StepStatus[state_dict[StepExecutionState._KEY_STATUS]],
             last_updated_timestamp=state_dict[StepExecutionState._KEY_LAST_UPDATED_TIMESTAMP],
+            stack_trace=state_dict[StepExecutionState._KEY_STACK_TRACE],
         )
 
 
@@ -110,18 +129,24 @@ class BaseStep(metaclass=abc.ABCMeta):
                                  outputs should be stored.
         :return: None
         """
+        _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
         self._initialize_databricks_spark_connection_and_hooks_if_applicable()
         try:
             self._update_status(status=StepStatus.RUNNING, output_directory=output_directory)
+            self._validate_and_apply_step_config()
             self.step_card = self._run(output_directory=output_directory)
             self._update_status(status=StepStatus.SUCCEEDED, output_directory=output_directory)
         except Exception:
-            self._update_status(status=StepStatus.FAILED, output_directory=output_directory)
+            stack_trace = traceback.format_exc()
+            self._update_status(
+                status=StepStatus.FAILED, output_directory=output_directory, stack_trace=stack_trace
+            )
             self.step_card = FailureCard(
                 pipeline_name=self.pipeline_name,
                 step_name=self.name,
-                failure_traceback=traceback.format_exc(),
+                failure_traceback=stack_trace,
+                output_directory=output_directory,
             )
             raise
         finally:
@@ -160,6 +185,15 @@ class BaseStep(metaclass=abc.ABCMeta):
         :param output_directory: String file path to the directory where step outputs
                                  should be stored.
         :return: A BaseCard containing step execution information.
+        """
+        pass
+
+    @experimental
+    @abc.abstractmethod
+    def _validate_and_apply_step_config(self) -> None:
+        """
+        This function is responsible for validating and loading the step config for
+        a particular step. It is invoked by the internal step runner.
         """
         pass
 
@@ -216,6 +250,21 @@ class BaseStep(metaclass=abc.ABCMeta):
         return {}
 
     @experimental
+    def get_artifacts(self) -> List[Any]:
+        """
+        Returns the named artifacts produced by the step for the current class instance.
+        """
+        return {}
+
+    @experimental
+    @abc.abstractmethod
+    def step_class(self) -> StepClass:
+        """
+        Returns the step class.
+        """
+        pass
+
+    @experimental
     def get_execution_state(self, output_directory: str) -> StepExecutionState:
         """
         Returns the execution state of the step, which provides information about its
@@ -233,7 +282,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             with open(execution_state_file_path, "r") as f:
                 return StepExecutionState.from_dict(json.load(f))
         else:
-            return StepExecutionState(StepStatus.UNKNOWN, 0)
+            return StepExecutionState(StepStatus.UNKNOWN, 0, None)
 
     def _serialize_card(self, start_timestamp: float, output_directory: str) -> None:
         if self.step_card is None:
@@ -249,8 +298,12 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_card.save(path=output_directory)
         self.step_card.save_as_html(path=output_directory)
 
-    def _update_status(self, status: StepStatus, output_directory: str) -> None:
-        execution_state = StepExecutionState(status=status, last_updated_timestamp=time.time())
+    def _update_status(
+        self, status: StepStatus, output_directory: str, stack_trace: str = None
+    ) -> None:
+        execution_state = StepExecutionState(
+            status=status, last_updated_timestamp=time.time(), stack_trace=stack_trace
+        )
         with open(os.path.join(output_directory, BaseStep._EXECUTION_STATE_FILE_NAME), "w") as f:
             json.dump(execution_state.to_dict(), f)
 
@@ -320,6 +373,7 @@ class BaseStep(metaclass=abc.ABCMeta):
     def _generate_worst_examples_dataframe(
         dataframe,
         predictions,
+        error,
         target_col,
         worst_k=10,
     ):
@@ -332,7 +386,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         import numpy as np
 
         predictions = np.array(predictions)
-        abs_error = np.absolute(predictions - dataframe[target_col].to_numpy())
+        abs_error = np.absolute(error)
         worst_k_indexes = np.argsort(abs_error)[::-1][:worst_k]
         result_df = dataframe.iloc[worst_k_indexes].assign(
             prediction=predictions[worst_k_indexes],

@@ -27,7 +27,7 @@ jobs:
         with:
           submodules: recursive
       - name: Validate
-        uses: actions/github-script@v3
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

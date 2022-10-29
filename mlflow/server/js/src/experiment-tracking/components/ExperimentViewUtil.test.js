@@ -1,8 +1,6 @@
-import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { shallow } from 'enzyme';
 import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { BrowserRouter } from 'react-router-dom';
 import {
   ATTRIBUTE_COLUMN_LABELS,
   COLUMN_TYPES,
@@ -23,35 +21,6 @@ describe('ExperimentViewUtil', () => {
     const component = ExperimentViewUtil.getCheckboxForRow(true, () => {}, 'div');
     const wrapper = shallow(component);
     expect(wrapper.length).toBe(1);
-  });
-
-  test('getRunInfoCellsForRow returns a row containing userid, start time, and status', () => {
-    const runInfo = {
-      user_id: 'user1',
-      start_time: new Date('2020-01-02').getTime(),
-      status: 'FINISHED',
-    };
-    const runInfoCells = ExperimentViewUtil.getRunInfoCellsForRow(
-      runInfo,
-      {},
-      false,
-      'div',
-      () => {},
-      [],
-    );
-    const renderedCells = runInfoCells.map((c) => mount(<BrowserRouter>{c}</BrowserRouter>));
-    expect(renderedCells[0].find('.run-table-container').filter({ title: 'FINISHED' }).length).toBe(
-      1,
-    );
-    const allText = renderedCells.map((c) => c.text()).join();
-    expect(allText).toContain('user1');
-    // The start_time is localized, so it may be anywhere from -12 to +14 hours, based on the
-    // client's timezone.
-    expect(
-      allText.includes('2020-01-01') ||
-        allText.includes('2020-01-02') ||
-        allText.includes('2020-01-03'),
-    ).toBeTruthy();
   });
 
   test('clicking on getRunMetadataHeaderCells sorts column if column is sortable', () => {

@@ -25,7 +25,6 @@ from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-im
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
-    mlflow.keras: "keras",
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
@@ -314,9 +313,9 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import sklearn  # pylint: disable=unused-import,unused-variable
-    import pyspark  # pylint: disable=unused-import,unused-variable
-    import pyspark.ml  # pylint: disable=unused-import,unused-variable
+    import sklearn  # pylint: disable=unused-import
+    import pyspark  # pylint: disable=unused-import
+    import pyspark.ml  # pylint: disable=unused-import
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()

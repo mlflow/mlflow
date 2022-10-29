@@ -1,13 +1,13 @@
 import yaml
 import os
 import logging
-import sys
 import re
 import hashlib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
@@ -36,15 +36,25 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<version>[\d.]+)?$"
 )
 
+_IS_UNIX = os.name != "nt"
+
 
 class _PythonEnv:
-    """
-    Represents environment information for an MLflow Model.
-    """
 
     BUILD_PACKAGES = ("pip", "setuptools", "wheel")
 
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        """
+        Represents environment information for MLflow Models and Projects.
+
+        :param python: Python version for the environment. If unspecified, defaults to the current
+                       Python version.
+        :param build_dependencies: List of build dependencies for the environment that must
+                                   be installed before installing ``dependencies``. If unspecified,
+                                   defaults to an empty list.
+        :param dependencies: List of dependencies for the environment. If unspecified, defaults to
+                             an empty list.
+        """
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")
         if build_dependencies is not None and not isinstance(build_dependencies, list):
@@ -54,9 +64,9 @@ class _PythonEnv:
         if dependencies is not None and not isinstance(dependencies, list):
             raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
 
-        self.python = python
-        self.build_dependencies = build_dependencies
-        self.dependencies = dependencies
+        self.python = python or PYTHON_VERSION
+        self.build_dependencies = build_dependencies or []
+        self.dependencies = dependencies or []
 
     def __str__(self):
         return str(self.to_dict())
@@ -64,14 +74,10 @@ class _PythonEnv:
     @classmethod
     def current(cls):
         return cls(
-            python=cls._get_current_python(),
+            python=PYTHON_VERSION,
             build_dependencies=cls.get_current_build_dependencies(),
             dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
         )
-
-    @staticmethod
-    def _get_current_python():
-        return ".".join(map(str, sys.version_info[:3]))
 
     @staticmethod
     def _get_package_version(package_name):
@@ -159,10 +165,11 @@ class _PythonEnv:
                 )
 
         if python is None:
-            raise MlflowException(
-                f"Could not extract python version from {path}",
-                error_code=INVALID_PARAMETER_VALUE,
+            _logger.warning(
+                f"{path} does not include a python version specification. "
+                f"Using the current python version {PYTHON_VERSION}."
             )
+            python = PYTHON_VERSION
 
         if unmatched_dependencies:
             _logger.warning(
@@ -418,7 +425,7 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() == "mlflow"
+        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 
@@ -522,3 +529,52 @@ def _get_pip_install_mlflow():
         return "pip install -e {} 1>&2".format(mlflow_home)
     else:
         return "pip install mlflow=={} 1>&2".format(VERSION)
+
+
+class Environment:
+    def __init__(self, activate_cmd, extra_env=None):
+        if not isinstance(activate_cmd, list):
+            activate_cmd = [activate_cmd]
+        self._activate_cmd = activate_cmd
+        self._extra_env = extra_env or {}
+
+    def get_activate_command(self):
+        return self._activate_cmd
+
+    def execute(
+        self,
+        command,
+        command_env=None,
+        preexec_fn=None,
+        capture_output=False,
+        stdout=None,
+        stderr=None,
+        synchronous=True,
+    ):
+        if command_env is None:
+            command_env = os.environ.copy()
+        command_env = {**self._extra_env, **command_env}
+        if not isinstance(command, list):
+            command = [command]
+
+        if _IS_UNIX:
+            separator = " && "
+        else:
+            separator = " & "
+
+        command = separator.join(map(str, self._activate_cmd + command))
+        if _IS_UNIX:
+            command = ["bash", "-c", command]
+        else:
+            command = ["cmd", "/c", command]
+        _logger.info("=== Running command '%s'", command)
+        return _exec_cmd(
+            command,
+            env=command_env,
+            capture_output=capture_output,
+            synchronous=synchronous,
+            preexec_fn=preexec_fn,
+            close_fds=True,
+            stdout=stdout,
+            stderr=stderr,
+        )

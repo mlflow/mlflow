@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
-import { Input, Form } from 'antd';
+import { Form } from 'antd';
+import { Input } from '@databricks/design-system';
 import { ModelRegistryDocUrl } from '../../common/constants';
 import { FormattedMessage, injectIntl } from 'react-intl';
 

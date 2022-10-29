@@ -40,7 +40,7 @@ jobs:
 
   build_doc:
     docker:
-      - image: cimg/python:3.7
+      - image: cimg/python:3.8
 
     steps:
       - checkout
@@ -69,7 +69,7 @@ jobs:
 
   mlflow-pipelines:
     docker:
-      - image: cimg/python:3.7
+      - image: cimg/python:3.8
 
     steps:
       - checkout
@@ -81,14 +81,27 @@ jobs:
           name: Install dependencies
           command: |
             pip install -e '.[pipelines]'
+            pip install nbconvert ipykernel
       - run:
-          name: Run example
-          working_directory: examples/pipelines/sklearn_regression
+          name: Run CLI
+          working_directory: examples/pipelines/sklearn_regression_example
+          environment:
+            MLFLOW_PIPELINES_PROFILE: local
           command: |
-            export MLFLOW_PIPELINES_PROFILE=local
+            # Temporary patch for custom_metrics.py to make it return a scalar value
+            cat ../../../dev/custom_metrics_patch.py > steps/custom_metrics.py
             mlp run
+      - run:
+          name: Run notebook
+          working_directory: examples/pipelines/sklearn_regression_example
+          environment:
+            MLFLOW_PIPELINES_PROFILE: local
+          command: |
+            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
       - store_artifacts:
           path: ~/.mlflow/pipelines
+      - store_artifacts:
+          path: examples/pipelines/sklearn_regression_example/notebooks/jupyter.html
 
 workflows:
   build:

@@ -40,6 +40,8 @@ defaults:
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
@@ -49,15 +51,13 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install -r dev/requirements.txt
           pip install pytest pytest-cov
       - name: Check labels
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         id: check-labels
         with:
           script: |
@@ -67,7 +67,7 @@ jobs:
                 only_latest: false,
               };
             }
-            const labels = await github.issues.listLabelsOnIssue({
+            const labels = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
@@ -89,7 +89,8 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             REPO="${{ github.repository }}"
             PR_NUMBER="${{ github.event.pull_request.number }}"
-            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/master/mlflow/ml-package-versions.yml"
+            BASE_REF="${{ github.base_ref }}"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
             CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER)"
             ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
@@ -123,7 +124,7 @@ jobs:
           else
             java_version=11
           fi
-          echo "::set-output name=version::$java_version"
+          echo "version=$java_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
@@ -131,18 +132,12 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "xgboost" && "${{ matrix.version }}" = "dev" ]]
-          then
-            python_version=3.8
-          else
-            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
-          fi
-          echo "::set-output name=version::$python_version"
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8")
+          echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
       - name: Get cache key
         env:
           INSTALL_COMMAND: ${{ matrix.install }}
@@ -150,7 +145,7 @@ jobs:
         run: |
           date=$(date -u "+%Y%m%d")
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
-          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
+          echo "key=$ImageOS-$ImageVersion-wheels-$date-$hash" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
@@ -163,7 +158,7 @@ jobs:
         run: |
           python --version
           pip install --upgrade pip wheel
-          pip install -e .
+          pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:

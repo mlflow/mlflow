@@ -25,7 +25,8 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
     "attempt to record model metadata to the tracking store. If logging to a "
     "mlflow server via REST, consider upgrading the server version to MLflow "
-    "1.7.0 or above."
+    "1.7.0 or above. Set logging level to DEBUG via "
+    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 _MLFLOW_VERSION_KEY = "mlflow_version"
 
@@ -370,17 +371,18 @@ class Model:
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:
                 # We need to swallow all mlflow exceptions to maintain backwards compatibility with
                 # older tracking servers. Only print out a warning for now.
                 _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
+                _logger.debug("", exc_info=True)
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
-                    "runs:/%s/%s" % (run_id, artifact_path),
+                    "runs:/%s/%s" % (run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )

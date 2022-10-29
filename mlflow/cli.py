@@ -9,9 +9,9 @@ from click import UsageError
 from datetime import timedelta
 
 import mlflow.db
+from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
-import mlflow.pipelines.cli
 from mlflow import projects
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
@@ -34,7 +34,14 @@ from mlflow.exceptions import MlflowException
 _logger = logging.getLogger(__name__)
 
 
-@click.group()
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_name):
+        # `mlflow ui` is an alias for `mlflow server`
+        cmd_name = "server" if cmd_name == "ui" else cmd_name
+        return super().get_command(ctx, cmd_name)
+
+
+@click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
 def cli():
     pass
@@ -113,8 +120,7 @@ def cli():
     "provided is different for each execution backend and is documented "
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
-@cli_args.NO_CONDA
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_PROJECTS
 @click.option(
     "--storage-dir",
     envvar="MLFLOW_TMP_DIR",
@@ -135,6 +141,17 @@ def cli():
     help="The name to give the MLflow Run associated with the project execution. If not specified, "
     "the MLflow Run name is left unset.",
 )
+@click.option(
+    "--build-image",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "Only valid for Docker projects. If specified, build a new Docker image that's based on "
+        "the image specified by the `image` field in the MLproject file, and contains files in the "
+        "project directory."
+    ),
+)
 def run(
     uri,
     entry_point,
@@ -145,11 +162,11 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,  # pylint: disable=unused-argument
     env_manager,
     storage_dir,
     run_id,
     run_name,
+    build_image,
 ):
     """
     Run an MLflow project from the given URI.
@@ -196,6 +213,7 @@ def run(
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
             run_name=run_name,
+            build_image=build_image,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
@@ -239,103 +257,6 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
                 "gunicorn replaces waitress on non-Windows platforms, "
                 "cannot specify --waitress-opts"
             )
-
-
-@cli.command()
-@click.option(
-    "--backend-store-uri",
-    envvar="MLFLOW_BACKEND_STORE_URI",
-    metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-    help="URI to which to persist experiment and run data. Acceptable URIs are "
-    "SQLAlchemy-compatible database connection strings "
-    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
-)
-@click.option(
-    "--registry-store-uri",
-    envvar="MLFLOW_REGISTRY_STORE_URI",
-    metavar="URI",
-    default=None,
-    help="URI to which to persist registered models. Acceptable URIs are "
-    "SQLAlchemy-compatible database connection strings (e.g. 'sqlite:///path/to/file.db'). "
-    "If not specified, `backend-store-uri` is used.",
-)
-@click.option(
-    "--default-artifact-root",
-    envvar="MLFLOW_DEFAULT_ARTIFACT_ROOT",
-    metavar="URI",
-    default=None,
-    help="Directory in which to store artifacts for any new experiments created. For tracking "
-    "server backends that rely on SQL, this option is required in order to store artifacts. "
-    "Note that this flag does not impact already-created experiments with any previous "
-    "configuration of an MLflow server instance. "
-    "If the --serve-artifacts option is specified, the default artifact root is "
-    f"{DEFAULT_ARTIFACTS_URI}. Otherwise, the default artifact root is "
-    f"{DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}.",
-)
-@cli_args.SERVE_ARTIFACTS
-@cli_args.ARTIFACTS_DESTINATION
-@cli_args.PORT
-@cli_args.HOST
-def ui(
-    backend_store_uri,
-    registry_store_uri,
-    default_artifact_root,
-    serve_artifacts,
-    artifacts_destination,
-    port,
-    host,
-):
-    """
-    Launch the MLflow tracking UI for local viewing of run results. To launch a production
-    server, use the "mlflow server" command instead.
-
-    The UI will be visible at http://localhost:5000 by default, and only accepts connections
-    from the local machine. To let the UI server accept connections from other machines, you will
-    need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
-    address).
-    """
-    from mlflow.server import _run_server
-    from mlflow.server.handlers import initialize_backend_stores
-
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
-    # the default setting of registry_store_uri is same as backend_store_uri
-    if not registry_store_uri:
-        registry_store_uri = backend_store_uri
-
-    default_artifact_root = resolve_default_artifact_root(
-        serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
-    )
-
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
-
-    # TODO: We eventually want to disable the write path in this version of the server.
-    try:
-        _run_server(
-            backend_store_uri,
-            registry_store_uri,
-            default_artifact_root,
-            serve_artifacts,
-            False,
-            artifacts_destination,
-            host,
-            port,
-            None,
-            1,
-        )
-    except ShellCommandException:
-        eprint("Running the mlflow server failed. Please see the logs above for details.")
-        sys.exit(1)
 
 
 def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
@@ -520,16 +441,36 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, run_ids):
+@click.option(
+    "--experiment-ids",
+    default=None,
+    help="Optional comma separated list of experiments to be permanently deleted including "
+    "all of their associated runs. If experiment ids are not specified, data is removed for all "
+    "experiments in the `deleted` lifecycle stage.",
+)
+def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    import warnings
+    from mlflow.utils.time_utils import get_current_time_millis
+
     backend_store = _get_store(backend_store_uri, None)
+    skip_experiments = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
+
+    if not hasattr(backend_store, "_hard_delete_experiment"):
+        warnings.warn(
+            "The specified backend does not allow hard-deleting experiments. Experiments"
+            " will be skipped.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        skip_experiments = True
 
     time_delta = 0
 
@@ -551,16 +492,76 @@ def gc(older_than, backend_store_uri, run_ids):
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
         run_ids = deleted_run_ids_older_than
-
     else:
         run_ids = run_ids.split(",")
 
-    for run_id in run_ids:
+    time_threshold = get_current_time_millis() - time_delta
+    if not skip_experiments:
+        if experiment_ids:
+            experiment_ids = experiment_ids.split(",")
+            experiments = [backend_store.get_experiment(id) for id in experiment_ids]
+
+            # Ensure that the specified experiments are soft-deleted
+            active_experiment_ids = [
+                e.experiment_id for e in experiments if e.lifecycle_stage != LifecycleStage.DELETED
+            ]
+            if active_experiment_ids:
+                raise MlflowException(
+                    f"Experiments {active_experiment_ids} are not in the deleted lifecycle stage. "
+                    "Only experiments in the deleted lifecycle stage can be hard-deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Ensure that the specified experiments are old enough
+            if older_than:
+                non_old_experiment_ids = [
+                    e.experiment_id
+                    for e in experiments
+                    if e.last_update_time is None or e.last_update_time >= time_threshold
+                ]
+                if non_old_experiment_ids:
+                    raise MlflowException(
+                        f"Experiments {non_old_experiment_ids} are not older than the required"
+                        f"age. Only experiments older than {older_than} can be deleted.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+        else:
+            filter_string = f"last_update_time < {time_threshold}" if older_than else None
+
+            def fetch_experiments(token=None):
+                page = backend_store.search_experiments(
+                    view_type=ViewType.DELETED_ONLY,
+                    filter_string=filter_string,
+                    page_token=token,
+                )
+                return (page + fetch_experiments(page.token)) if page.token else page
+
+            experiment_ids = [exp.experiment_id for exp in fetch_experiments()]
+
+        def fetch_runs(token=None):
+            page = backend_store.search_runs(
+                experiment_ids=experiment_ids,
+                filter_string="",
+                run_view_type=ViewType.DELETED_ONLY,
+                page_token=token,
+            )
+            return (page + fetch_runs(page.token)) if page.token else page
+
+        run_ids.extend([run.info.run_id for run in fetch_runs()])
+
+    for run_id in set(run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run % is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted." % run_id
+                "Run % is not in `deleted` lifecycle stage. Only runs in"
+                " `deleted` lifecycle stage can be deleted." % run_id
+            )
+        # raise MlflowException if run_id is newer than older_than parameter
+        if older_than and run_id not in deleted_run_ids_older_than:
+            raise MlflowException(
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         # raise MlflowException if run_id is newer than older_than parameter
         if older_than and run_id not in deleted_run_ids_older_than:
@@ -574,13 +575,17 @@ def gc(older_than, backend_store_uri, run_ids):
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
+    if not skip_experiments:
+        for experiment_id in experiment_ids:
+            backend_store._hard_delete_experiment(experiment_id)
+            click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
+
 
 cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
-cli.add_command(mlflow.pipelines.cli.commands)
 
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
@@ -591,13 +596,21 @@ try:
 except ImportError as e:
     pass
 
-
 try:
-    import mlflow.azureml.cli  # pylint: disable=unused-import
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.pipelines.cli.commands)
 except ImportError as e:
     pass
+
+
+try:
+    import mlflow.pipelines.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.pipelines.cli.commands)
+except ImportError as e:
+    pass
+
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import

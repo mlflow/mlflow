@@ -1,13 +1,11 @@
-# How to test this workflow:
-# 1. Create a PR on mlflow/mlflow from your fork.
-# 1. Change the default branch of your fork to the PR branch.
-# 2. Create a GitHub token with full repo permissions.
-# 3. Register the token as a repository secret with name MLFLOW_AUTOMATION_TOKEN in your fork.
-# 4. File a PR that contains formatting issues (e.g. trailing whitespace ) in your fork.
-# 5. Comment '@mlflow-automation autoformat test' (which should NOT trigger auto formatting) on the PR and ensure that the workflow terminates successfully without pushing a commit.
-#    You can check the workflow status on https://github.com/<your github username>/mlflow/actions/workflows/autoformat.yml.
-# 6. Comment '@mlflow-automation autoformat' on the PR and ensure that the workflow pushes a commit to fix the formatting issues.
-# 7. Once you confirm everything works fine, delete the token and repository secret and reset the default branch of your fork to master.
+# How to test this workflow (assuming you have already filed a PR in https://github.com/mlflow/mlflow):
+# - Change the default branch of your fork to the PR branch (pr-branch).
+# - Create a GitHub token with full repo permissions.
+# - Register the token as a repository secret (name: MLFLOW_AUTOMATION_TOKEN) in your fork.
+# - Create a branch (test-branch) that contains formatting issues such as trailing whitespace, and file a PR from that branch in your fork.
+# - Comment '@mlflow-automation autoformat' on test-branch and ensure that the workflow pushes a commit to fix the formatting issues.
+#   You can check the workflow status on https://github.com/<your github username>/mlflow/actions/workflows/autoformat.yml.
+# - Once you confirm everything works fine, delete the token and repository secret and reset the default branch of your fork to master.
 
 # A workflow to apply autoformatting when a PR is commented with 'autoformat'.
 
@@ -34,13 +32,15 @@ jobs:
       - uses: actions/checkout@v3
       - name: Create status
         id: create-status
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const shouldAutoformat = autoformat.shouldAutoformat(context.payload.comment);
             if (shouldAutoformat) {
+              await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
             const pullInfo = await autoformat.getPullInformation(context, github);
@@ -51,13 +51,12 @@ jobs:
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     outputs:
+      protos_changed: ${{ steps.check-diff.outputs.protos_changed }}
       py_changed: ${{ steps.check-diff.outputs.py_changed }}
       ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
+      - uses: ./.github/actions/setup-python
       - run: |
           pip install requests
       - name: Check diff
@@ -66,10 +65,44 @@ jobs:
           repository="${{ github.repository }}"
           pull_number="${{ needs.check-comment.outputs.pull_number }}"
           changed_files="$(python dev/list_changed_files.py --repository $repository --pr-num $pull_number)"
+          protos_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
           py_changed=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
           ui_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
-          echo "::set-output name=py_changed::$py_changed"
-          echo "::set-output name=ui_changed::$ui_changed"
+          echo "protos_changed=$protos_changed" >> $GITHUB_OUTPUT
+          echo "py_changed=$py_changed" >> $GITHUB_OUTPUT
+          echo "ui_changed=$ui_changed" >> $GITHUB_OUTPUT
+
+  protos:
+    # Generate a patch to update proto code.
+    runs-on: ubuntu-latest
+    needs: [check-comment, check-diff]
+    if: ${{ needs.check-diff.outputs.protos_changed == 'true' }}
+    outputs:
+      has_diff: ${{ steps.check-diff.outputs.has_diff }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.ref }}
+      - name: Generate protos
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker build -t gen-protos -f dev/Dockerfile.protos .
+          docker run --rm -w /app -v $(pwd):/app gen-protos ./dev/generate-protos.sh
+      - name: Check diff
+        id: check-diff
+        run: |
+          git diff --output=protos.diff
+          has_diff=$([[ -z "$(cat protos.diff)" ]] && echo "false" || echo "true")
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v3
+        if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
+        with:
+          name: protos.${{ github.run_id }}.diff
+          path: protos.diff
+          if-no-files-found: error
+          retention-days: 1
 
   python:
     # Generate a patch to format python files.
@@ -83,9 +116,7 @@ jobs:
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install -r requirements/lint-requirements.txt
@@ -97,7 +128,7 @@ jobs:
         run: |
           git diff --output=python.diff
           has_diff=$([[ -z "$(cat python.diff)" ]] && echo "false" || echo "true")
-          echo "::set-output name=has_diff::$has_diff"
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
@@ -123,7 +154,7 @@ jobs:
           ref: ${{ needs.check-comment.outputs.ref }}
       - uses: actions/setup-node@v1
         with:
-          node-version: "16"
+          node-version: '16'
       - name: Install dependencies
         run: |
           yarn install
@@ -136,7 +167,7 @@ jobs:
         run: |
           git diff --output=ui.diff
           has_diff=$([[ -z "$(cat ui.diff)" ]] && echo "false" || echo "true")
-          echo "::set-output name=has_diff::$has_diff"
+          echo "has_diff=$has_diff" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
@@ -148,9 +179,10 @@ jobs:
   apply-patches:
     # Apply the patches and commit changes to the PR branch.
     runs-on: ubuntu-latest
-    needs: [check-comment, check-diff, python, ui]
+    needs: [check-comment, check-diff, protos, python, ui]
     if: |
       always() &&
+      (needs.protos.result == 'success' && needs.protos.outputs.has_diff == 'true') ||
       (needs.python.result == 'success' && needs.python.outputs.has_diff == 'true') ||
       (needs.ui.result == 'success' && needs.ui.outputs.has_diff == 'true')
     steps:
@@ -163,6 +195,11 @@ jobs:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
           # To make it work, commit changes using the mlflow-automation bot (https://github.com/mlflow-automation).
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+      - uses: actions/download-artifact@v3
+        if: ${{ needs.protos.result == 'success' && needs.protos.outputs.has_diff == 'true' }}
+        with:
+          name: protos.${{ github.run_id }}.diff
+          path: /tmp/patches
       - uses: actions/download-artifact@v3
         if: ${{ needs.python.result == 'success' && needs.python.outputs.has_diff == 'true' }}
         with:
@@ -187,12 +224,12 @@ jobs:
 
   update-status:
     runs-on: ubuntu-latest
-    needs: [check-comment, check-diff, python, ui, apply-patches]
+    needs: [check-comment, check-diff, protos, python, ui, apply-patches]
     if: ${{ always() && needs.check-comment.outputs.should_autoformat == 'true' }}
     steps:
       - uses: actions/checkout@v3
       - name: Update status
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

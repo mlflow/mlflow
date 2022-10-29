@@ -58,6 +58,7 @@ class ShowArtifactTextView extends Component {
         marginTop: '0',
         width: '100%',
         height: '100%',
+        padding: '5px',
       };
       const renderedContent = ShowArtifactTextView.prettifyText(language, this.state.text);
       return (

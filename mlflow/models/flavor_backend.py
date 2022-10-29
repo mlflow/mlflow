@@ -13,7 +13,7 @@ class FlavorBackend:
         self._config = config
 
     @abstractmethod
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+    def predict(self, model_uri, input_path, output_path, content_type):
         """
         Generate predictions using a saved MLflow model referenced by the given URI.
         Input and output are read from and written to a file or stdin / stdout.
@@ -24,13 +24,6 @@ class FlavorBackend:
         :param output_path: Path to the file with output predictions. If not specified, data is
                             written to stdout.
         :param content_type: Specifies the input format. Can be one of {``json``, ``csv``}
-        :param json_format: Only applies if ``content_type == json``. Specifies how is the input
-                            data encoded in json. Can be one of {``split``, ``records``} mirroring
-                            the behavior of Pandas orient attribute. The default is ``split`` which
-                            expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
-                            'data' -> [values]}``, where index is optional.
-                            For more information see
-                            https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
         """
         pass
 
@@ -69,6 +62,16 @@ class FlavorBackend:
         calling predict or serve should be fast.
         """
         pass
+
+    @abstractmethod
+    def build_image(self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver):
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_dockerfile(
+        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver
+    ):
+        raise NotImplementedError
 
     @abstractmethod
     def can_score_model(self):

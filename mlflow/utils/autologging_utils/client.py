@@ -9,7 +9,6 @@ Remove this developer API.
 """
 
 import os
-import time
 import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
@@ -28,11 +27,14 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
 )
+from mlflow.utils.time_utils import get_current_time_millis
 
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags"])
+_PendingCreateRun = namedtuple(
+    "_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"]
+)
 _PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
 
 
@@ -136,6 +138,7 @@ class MlflowAutologgingQueueingClient:
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
+        run_name: Optional[str] = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
@@ -155,6 +158,7 @@ class MlflowAutologgingQueueingClient:
                 experiment_id=experiment_id,
                 start_time=start_time,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
+                run_name=run_name,
             )
         )
         return run_id
@@ -194,7 +198,7 @@ class MlflowAutologgingQueueingClient:
         step specified by `step`.
         """
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
-        timestamp_ms = int(time.time() * 1000)
+        timestamp_ms = get_current_time_millis()
         metrics_arr = [
             Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
         ]

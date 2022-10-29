@@ -33,7 +33,6 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogParam,
     SetTag,
-    ListExperiments,
     SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,
@@ -51,7 +50,6 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
-    ListRegisteredModels,
     GetRegisteredModel,
     GetLatestVersions,
     CreateModelVersion,
@@ -497,7 +495,7 @@ def _disable_unless_serve_artifacts(func):
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
-                    "without `--serve-artifacts`. To enable artifacts server functionality, "
+                    "with `--no-serve-artifacts`. To enable artifacts server functionality, "
                     "run `mlflow server` with `--serve-artifacts`"
                 ),
                 503,
@@ -526,6 +524,26 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+_os_alt_seps = list(sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/")
+
+
+def validate_path_is_safe(path):
+    """
+    Validates that the specified path is safe to join with a trusted prefix. This is a security
+    measure to prevent path traversal attacks. The implementation is based on
+    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    """
+    if path != "":
+        path = posixpath.normpath(path)
+    if (
+        any(sep in path for sep in _os_alt_seps)
+        or os.path.isabs(path)
+        or path == ".."
+        or path.startswith("../")
+    ):
+        raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+
+
 @catch_mlflow_exception
 def get_artifact_handler():
     from querystring_parser import parser
@@ -533,17 +551,19 @@ def get_artifact_handler():
     query_string = request.query_string.decode("utf-8")
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
+    path = request_dict["path"]
+    validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
             proxied_artifact_root=run.info.artifact_uri,
-            relative_path=request_dict["path"],
+            relative_path=path,
         )
     else:
         artifact_repo = _get_artifact_repo(run)
-        artifact_path = request_dict["path"]
+        artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
 
@@ -665,7 +685,12 @@ def _update_experiment():
 @_disable_if_artifacts_only
 def _create_run():
     request_message = _get_request_message(
-        CreateRun(), schema={"experiment_id": [_assert_string], "start_time": [_assert_intlike]}
+        CreateRun(),
+        schema={
+            "experiment_id": [_assert_string],
+            "start_time": [_assert_intlike],
+            "run_name": [_assert_string],
+        },
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
@@ -674,6 +699,7 @@ def _create_run():
         user_id=request_message.user_id,
         start_time=request_message.start_time,
         tags=tags,
+        run_name=request_message.run_name,
     )
 
     response_message = CreateRun.Response()
@@ -692,11 +718,12 @@ def _update_run():
             "run_id": [_assert_required, _assert_string],
             "end_time": [_assert_intlike],
             "status": [_assert_string],
+            "run_name": [_assert_string],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time
+        run_id, request_message.status, request_message.end_time, request_message.run_name
     )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
@@ -891,6 +918,7 @@ def _list_artifacts():
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
+        validate_path_is_safe(path)
     else:
         path = None
     run_id = request_message.run_id or request_message.run_uuid
@@ -960,26 +988,6 @@ def _get_metric_history():
     run_id = request_message.run_id or request_message.run_uuid
     metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _list_experiments():
-    request_message = _get_request_message(
-        ListExperiments(), schema={"max_results": [_assert_intlike], "page_token": [_assert_string]}
-    )
-    # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
-    # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
-    # #google.protobuf.message.Message.ListFields
-    params = {field.name: val for field, val in request_message.ListFields()}
-    experiment_entities = _get_tracking_store().list_experiments(**params)
-    response_message = ListExperiments.Response()
-    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
-    if experiment_entities.token:
-        response_message.next_page_token = experiment_entities.token
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -1178,27 +1186,6 @@ def _delete_registered_model():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_registered_models():
-
-    request_message = _get_request_message(
-        ListRegisteredModels(),
-        schema={
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
-            "page_token": [_assert_string],
-        },
-    )
-    registered_models = _get_model_registry_store().list_registered_models(
-        request_message.max_results, request_message.page_token
-    )
-    response_message = ListRegisteredModels.Response()
-    response_message.registered_models.extend([e.to_proto() for e in registered_models])
-    if registered_models.token:
-        response_message.next_page_token = registered_models.token
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_registered_models():
 
     request_message = _get_request_message(
@@ -1309,17 +1296,18 @@ def get_model_version_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     name = request_dict.get("name")
     version = request_dict.get("version")
+    path = request_dict["path"]
+    validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
-
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
             proxied_artifact_root=artifact_uri,
-            relative_path=request_dict["path"],
+            relative_path=path,
         )
     else:
         artifact_repo = get_artifact_repository(artifact_uri)
-        artifact_path = request_dict["path"]
+        artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
 
@@ -1558,9 +1546,9 @@ def _add_static_prefix(route):
 
 def _get_paths(base_path):
     """
-    A service endpoints base path is typically something like /preview/mlflow/experiment.
-    We should register paths like /api/2.0/preview/mlflow/experiment and
-    /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
+    A service endpoints base path is typically something like /mlflow/experiment.
+    We should register paths like /api/2.0/mlflow/experiment and
+    /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
     return ["/api/2.0{}".format(base_path), _add_static_prefix("/ajax-api/2.0{}".format(base_path))]
 
@@ -1618,7 +1606,6 @@ HANDLERS = {
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
-    ListExperiments: _list_experiments,
     SearchExperiments: _search_experiments,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
@@ -1626,7 +1613,6 @@ HANDLERS = {
     DeleteRegisteredModel: _delete_registered_model,
     UpdateRegisteredModel: _update_registered_model,
     RenameRegisteredModel: _rename_registered_model,
-    ListRegisteredModels: _list_registered_models,
     SearchRegisteredModels: _search_registered_models,
     GetLatestVersions: _get_latest_versions,
     CreateModelVersion: _create_model_version,

@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import { Table } from '@databricks/design-system';
 import './HtmlTableView.css';
-import { Table } from 'antd';
 
 export class HtmlTableView extends Component {
   static propTypes = {

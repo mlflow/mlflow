@@ -2,6 +2,7 @@ import logging
 import os
 
 import json
+from pathlib import Path
 from unittest import mock
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.models.signature import infer_signature, ModelSignature
+from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -339,11 +341,17 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
         data=spark_model_iris.pandas_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
+    from mlflow.deployments import PredictionsResponse
+
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
+        spark_model_iris.predictions,
+        PredictionsResponse.from_json(scoring_response.content).get_predictions(
+            predictions_format="ndarray"
+        ),
+        decimal=4,
     )
 
 
@@ -360,7 +368,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
-    deployed_model_preds = np.array(json.loads(scoring_response.content))
+    deployed_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
 
     np.testing.assert_array_almost_equal(
         deployed_model_preds, spark_model_iris.predictions, decimal=4
@@ -490,7 +498,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -581,7 +589,7 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -606,7 +614,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -870,7 +878,8 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
 def test_log_model_with_code_paths(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.spark._add_code_from_conf_to_system_path"
+        "mlflow.spark._add_code_from_conf_to_system_path",
+        wraps=_add_code_from_conf_to_system_path,
     ) as add_mock:
         sparkm.log_model(
             spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
@@ -879,3 +888,11 @@ def test_log_model_with_code_paths(spark_model_iris):
         _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
         sparkm.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(spark_model_iris, model_path):
+    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
-import { modelListPageRoute, getCompareModelVersionsPageRoute, getModelPageRoute } from '../routes';
+import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
 import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
@@ -421,9 +421,6 @@ export class ModelViewImpl extends React.Component {
           defaultMessage='Registered Models'
           description='Text for link back to model page under the header on the model view page'
         />
-      </Link>,
-      <Link data-test-id='breadcrumbRegisteredModel' to={getModelPageRoute(modelName)}>
-        {modelName}
       </Link>,
     ];
     return (

@@ -13,14 +13,14 @@ from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDAT
 from mlflow.pipelines.step import BaseStep
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
-from sklearn.datasets import load_diabetes
-from sklearn.dummy import DummyRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.datasets import load_diabetes, load_iris
+from sklearn.dummy import DummyRegressor, DummyClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import pytest
 
 PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_PIPELINE_EXAMPLE_PATH"
-PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression"
+PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression_example"
 
 ## Methods
 def get_random_id(length=6):
@@ -66,18 +66,24 @@ def train_and_log_model(is_dummy=False):
         return run.info.run_id, fitted_model
 
 
+def train_and_log_classification_model(is_dummy=False):
+    mlflow.set_experiment("demo")
+    with mlflow.start_run() as run:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+        if is_dummy:
+            model = DummyClassifier(strategy="constant", constant=42)
+        else:
+            model = LogisticRegression()
+        fitted_model = model.fit(X, y)
+        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        return run.info.run_id, fitted_model
+
+
 def train_log_and_register_model(model_name, is_dummy=False):
     run_id, _ = train_and_log_model(is_dummy)
     runs_uri = "runs:/{}/train/model".format(run_id)
-    model_version = mlflow.register_model(runs_uri, model_name)
-    client = mlflow.tracking.MlflowClient()
-    client.transition_model_version_stage(
-        name=model_name,
-        version=model_version.version,
-        stage="Production",
-        archive_existing_versions=True,
-    )
-    return "models:/{model_name}/Production".format(model_name=model_name)
+    mv = mlflow.register_model(runs_uri, model_name)
+    return f"models:/{mv.name}/{mv.version}"
 
 
 ## Fixtures
@@ -127,6 +133,14 @@ def clear_custom_metrics_module_cache():
         del sys.modules[key]
 
 
+@pytest.fixture
+def registry_uri_path(tmp_path) -> Path:
+    path = tmp_path.joinpath("registry.db")
+    db_url = "sqlite:///%s" % path
+    yield db_url
+    mlflow.set_registry_uri("")
+
+
 @contextmanager
 def chdir(directory_path):
     og_dir = os.getcwd()
@@ -153,6 +167,12 @@ class BaseStepImplemented(BaseStep):
 
     @property
     def name(self):
+        pass
+
+    def _validate_and_apply_step_config(self):
+        pass
+
+    def step_class(self):
         pass
 
 

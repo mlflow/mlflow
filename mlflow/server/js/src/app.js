@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import store from './store';
 import { I18nUtils } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
+import { ConfigProvider } from 'antd';
 
 export function MLFlowRoot() {
   const { locale, messages } = I18nUtils.getIntlProviderParams();
@@ -14,8 +15,10 @@ export function MLFlowRoot() {
   return (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <DesignSystemContainer isCompact>
-          <App />
+        <DesignSystemContainer>
+          <ConfigProvider prefixCls='ant'>
+            <App />
+          </ConfigProvider>
         </DesignSystemContainer>
       </Provider>
     </IntlProvider>

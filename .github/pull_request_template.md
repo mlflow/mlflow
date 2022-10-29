@@ -3,9 +3,10 @@
 ## Related Issues/PRs
 
 <!--
-Please reference any related feature requests, issues, or PRs here. For example, `#123`. To automatically close the referenced items when this PR is merged, please use a closing keyword (close, fix, or resolve). For example, `Close #123`. See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue for more information.
+Please reference any related feature requests, issues, or PRs here. For example, `#123`. To automatically close the referenced issues when this PR is merged, please use a closing keyword (close, fix, or resolve). For example, `Resolve #123`. See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue for more information.
 -->
-#xxx
+
+<!-- Resolve --> #xxx
 
 ## What changes are proposed in this pull request?
 
@@ -14,9 +15,11 @@ Please reference any related feature requests, issues, or PRs here. For example,
 ## How is this patch tested?
 
 <!--
-If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask. We'd be happy to help.
+If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask.
 -->
-- [ ] I have written tests (not required for typo or doc fix) and confirmed the proposed feature/bug-fix/change works.
+- [ ] Existing unit/integration tests
+- [ ] New unit/integration tests
+- [ ] Manual tests (describe details, including test results, below)
 
 <!--
 Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
@@ -25,10 +28,7 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 ## Does this PR change the documentation?
 
 - [ ] No. You can skip the rest of this section.
-- [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
-
-1. Click the `Details` link on the `Preview docs` check.
-2. Find the changed pages / sections and make sure they render correctly.
+- [ ] Yes. Make sure the changed pages / sections render correctly in the documentation preview.
 
 ## Release Notes
 

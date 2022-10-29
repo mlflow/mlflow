@@ -1,3 +1,4 @@
-[submodule "examples/pipelines/sklearn_regression"]
-	path = examples/pipelines/sklearn_regression
-	url = https://github.com/mlflow/mlp-regression-template.git
+[submodule "examples/pipelines/sklearn_regression_example"]
+	path = examples/pipelines/sklearn_regression_example
+	url = https://github.com/mlflow/mlp-regression-example.git
+	branch = sunish-pipeline-2.0

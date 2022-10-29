@@ -10,11 +10,15 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
 
+# Regex for valid param and metric names: may only contain slashes, alphanumerics,
+# underscores, periods, dashes, and spaces.
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
+# Regex: starting with an alphanumeric, optionally followed by up to 63 characters
+# including alphanumerics, underscores, or dashes.
 _EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
 
 _BAD_CHARACTERS_MESSAGE = (
@@ -183,30 +187,6 @@ def _validate_model_version_tag(key, value):
     _validate_tag_value(value)
     _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
-
-
-def _validate_list_experiments_max_results(max_results):
-    """
-    Check that `max_results` is within an acceptable range and raise an exception if it isn't.
-    """
-    if max_results is None:
-        return
-
-    if max_results < 1:
-        raise MlflowException(
-            "Invalid value for request parameter max_results. "
-            "It must be at least 1, but got value {}".format(max_results),
-            INVALID_PARAMETER_VALUE,
-        )
-
-    if max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
-        raise MlflowException(
-            "Invalid value for request parameter max_results. "
-            "It must be at most {}, but got value {}".format(
-                MAX_EXPERIMENTS_LISTED_PER_PAGE, max_results
-            ),
-            INVALID_PARAMETER_VALUE,
-        )
 
 
 def _validate_param_keys_unique(params):

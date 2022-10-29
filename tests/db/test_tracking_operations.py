@@ -2,7 +2,6 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import ViewType
 
 
 pytestmark = pytest.mark.notrackingurimock
@@ -30,12 +29,6 @@ def test_search_runs():
     start_run_and_log_data()
     runs = mlflow.search_runs(experiment_ids=["0"], order_by=["param.start_time DESC"])
     mlflow.get_run(runs["run_id"][0])
-
-
-def test_list_experiments():
-    start_run_and_log_data()
-    experiments = mlflow.list_experiments(view_type=ViewType.ALL, max_results=5)
-    assert len(experiments) > 0
 
 
 def test_set_run_status_to_killed():

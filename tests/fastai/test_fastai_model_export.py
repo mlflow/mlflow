@@ -1,9 +1,11 @@
 import os
+from pathlib import Path
 import pytest
 import yaml
 from collections import namedtuple
 from unittest import mock
 
+import json
 import numpy as np
 import pandas as pd
 from sklearn import datasets
@@ -166,7 +168,7 @@ def test_model_log(fastai_model, model_path):
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
                 assert pyfunc.FLAVOR_NAME in model_config.flavors
                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
                 assert os.path.exists(os.path.join(model_path, env_path))
 
             finally:
@@ -213,7 +215,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != fastai_custom_env
 
@@ -297,7 +299,7 @@ def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -321,7 +323,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != fastai_custom_env
 
@@ -377,10 +379,12 @@ def test_pyfunc_serve_and_score(fastai_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     # `[:, -1]` extracts the prediction column
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values[:, -1]
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"]).values[
+        :, -1
+    ]
     np.testing.assert_array_almost_equal(
         scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
     )
@@ -396,3 +400,11 @@ def test_log_model_with_code_paths(fastai_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.fastai.FLAVOR_NAME)
         mlflow.fastai.load_model(model_uri=model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(fastai_model, model_path):
+    mlflow.fastai.save_model(fastai_model.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

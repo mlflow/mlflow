@@ -31,8 +31,8 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.7
-RUN ln -s -f $(which python3.7) /usr/bin/python
+RUN apt install -y python3.8 python3.8-distutils
+RUN ln -s -f $(which python3.8) /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN python /tmp/get-pip.py
 RUN pip install virtualenv
@@ -80,10 +80,10 @@ DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 RUN apt-get -y update
-RUN apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends \
          wget \
          curl \
          nginx \
@@ -152,6 +152,37 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         ).format(version=mlflow.version.VERSION, maven_proxy=maven_proxy)
 
 
+def _generate_dockerfile_content(
+    setup_miniconda, setup_pyenv_and_virtualenv, install_mlflow, custom_setup_steps, entrypoint
+):
+    """
+    Generates a Dockerfile that can be used to build a docker image, that serves ML model
+    stored and tracked in MLflow.
+
+    It just takes string parameters containing docker imperatives and has no logic
+    whatsoever. It will be more convenient if a more sophisticated function
+    with some boolean flags would be called `generate_dockerfile`
+    while this function being a backend of sorts for such function.
+
+    :param setup_miniconda: Docker instructions related to set up miniconda. If used at all,
+    variable `SETUP_MINICONDA` provides a working template for instructions. Should be either an
+    empty string or `SETUP_MINICONDA`-based instructions :param setup_pyenv_and_virtualenv:
+    Docker instructions related to set up pyenv and virtualenv. If used at all, variable
+    `SETUP_PYENV_AND_VIRTUALENV` provides a working template for instructions. Should be either
+    an empty string or `SETUP_PYENV_AND_VIRTUALENV`-based :param install_mlflow: Docker
+    instruction for installing MLflow in given Docker context dir and optional source directory
+    :param custom_setup_steps: Docker instructions for any customizations in the resulting
+    Dockerfile :param entrypoint: String containing ENTRYPOINT directive for docker image
+    """
+    return _DOCKERFILE_TEMPLATE.format(
+        setup_miniconda=setup_miniconda,
+        setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
+        install_mlflow=install_mlflow,
+        custom_setup_steps=custom_setup_steps,
+        entrypoint=entrypoint,
+    )
+
+
 def _build_image(
     image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
 ):
@@ -181,7 +212,7 @@ def _build_image(
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(
-                _DOCKERFILE_TEMPLATE.format(
+                _generate_dockerfile_content(
                     setup_miniconda=setup_miniconda,
                     setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
                     install_mlflow=install_mlflow,

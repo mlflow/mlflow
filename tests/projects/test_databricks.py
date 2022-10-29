@@ -213,6 +213,7 @@ def test_dbfs_path_exists_error_response_handling(response_mock):
 
 def test_run_databricks_validations(
     tmpdir,
+    monkeypatch,
     cluster_spec_mock,
     dbfs_mocks,
     set_tag_mock,
@@ -220,9 +221,8 @@ def test_run_databricks_validations(
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
-    with mock.patch.dict(
-        os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}
-    ), mock.patch(
+    monkeypatch.setenvs({"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"})
+    with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
@@ -232,9 +232,7 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = MlflowClient()
-        assert (
-            len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0
-        )
+        assert len(mlflow_service.search_runs([FileStore.DEFAULT_EXPERIMENT_ID])) == 0
         mlflow.set_tracking_uri("databricks")
         # Test misspecified parameters
         with pytest.raises(

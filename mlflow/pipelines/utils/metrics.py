@@ -3,6 +3,7 @@ import importlib
 import sys
 from typing import List, Dict, Optional
 
+from mlflow.models import EvaluationMetric, make_metric
 from mlflow.exceptions import MlflowException, BAD_REQUEST
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -36,7 +37,18 @@ class PipelineMetric:
         )
 
 
-BUILTIN_PIPELINE_METRICS = [
+BUILTIN_CLASSIFICATION_PIPELINE_METRICS = [
+    PipelineMetric(name="true_negatives", greater_is_better=True),
+    PipelineMetric(name="false_positives", greater_is_better=False),
+    PipelineMetric(name="false_negatives", greater_is_better=False),
+    PipelineMetric(name="true_positives", greater_is_better=True),
+    PipelineMetric(name="recall_score", greater_is_better=True),
+    PipelineMetric(name="precision_score", greater_is_better=True),
+    PipelineMetric(name="f1_score", greater_is_better=True),
+    PipelineMetric(name="accuracy_score", greater_is_better=True),
+]
+
+BUILTIN_REGRESSION_PIPELINE_METRICS = [
     PipelineMetric(name="mean_absolute_error", greater_is_better=False),
     PipelineMetric(name="mean_squared_error", greater_is_better=False),
     PipelineMetric(name="root_mean_squared_error", greater_is_better=False),
@@ -45,18 +57,66 @@ BUILTIN_PIPELINE_METRICS = [
 ]
 
 
+def _get_error_fn(tmpl: str):
+    """
+    :param tmpl: The template kind, e.g. `regression/v1`.
+    :return: The error function for the provided template.
+    """
+    if tmpl == "regression/v1":
+        return lambda predictions, targets: predictions - targets
+    if tmpl == "classification/v1":
+        return lambda predictions, targets: predictions != targets
+    raise MlflowException(
+        f"No error function for template kind {tmpl}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def _get_model_type_from_template(tmpl: str) -> str:
+    """
+    :param tmpl: The template kind, e.g. `regression/v1`.
+    :return: A model type literal compatible with the mlflow evaluation service, e.g. regressor.
+    """
+    if tmpl == "regression/v1":
+        return "regressor"
+    if tmpl == "classification/v1":
+        return "classifier"
+    raise MlflowException(
+        f"No model type for template kind {tmpl}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def _get_builtin_metrics(tmpl: str) -> str:
+    """
+    :param tmpl: The template kind, e.g. `regression/v1`.
+    :return: The builtin metrics for the mlflow evaluation service for the model type for
+    this template.
+    """
+    if tmpl == "regression/v1":
+        return BUILTIN_REGRESSION_PIPELINE_METRICS
+    elif tmpl == "classification/v1":
+        return BUILTIN_CLASSIFICATION_PIPELINE_METRICS
+    raise MlflowException(
+        f"No builtin metrics for template kind {tmpl}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
 def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     """
     :param: Configuration dictionary for the train or evaluate step.
     :return: A list of custom metrics defined in the specified configuration dictionary,
              or an empty list of the configuration dictionary does not define any custom metrics.
     """
-    custom_metric_dicts = (step_config.get("metrics") or {}).get("custom", [])
+    custom_metric_dicts = step_config.get("custom_metrics", [])
     custom_metrics = [
         PipelineMetric.from_custom_metric_dict(metric_dict) for metric_dict in custom_metric_dicts
     ]
     custom_metric_names = {metric.name for metric in custom_metrics}
-    builtin_metric_names = {metric.name for metric in BUILTIN_PIPELINE_METRICS}
+    builtin_metric_names = {
+        metric.name for metric in _get_builtin_metrics(step_config.get("template_name"))
+    }
     overridden_builtin_metrics = custom_metric_names.intersection(builtin_metric_names)
     if overridden_builtin_metrics:
         _logger.warning(
@@ -66,21 +126,23 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     return custom_metrics
 
 
-def _load_custom_metric_functions(
+def _load_custom_metrics(
     pipeline_root: str, metrics: List[PipelineMetric]
-) -> List[callable]:
-    custom_metric_function_names = [
-        metric.custom_function for metric in metrics if metric.custom_function is not None
-    ]
-    if not custom_metric_function_names:
+) -> List[EvaluationMetric]:
+    custom_metrics = [metric for metric in metrics if metric.custom_function is not None]
+    if not custom_metrics:
         return None
 
     try:
         sys.path.append(pipeline_root)
         custom_metrics_mod = importlib.import_module("steps.custom_metrics")
         return [
-            getattr(custom_metrics_mod, custom_metric_function_name)
-            for custom_metric_function_name in custom_metric_function_names
+            make_metric(
+                eval_fn=getattr(custom_metrics_mod, custom_metric.name),
+                name=custom_metric.name,
+                greater_is_better=custom_metric.greater_is_better,
+            )
+            for custom_metric in custom_metrics
         ]
     except Exception as e:
         raise MlflowException(
@@ -90,4 +152,4 @@ def _load_custom_metric_functions(
 
 
 def _get_primary_metric(step_config):
-    return (step_config.get("metrics") or {}).get("primary", "root_mean_squared_error")
+    return step_config.get("primary_metric", "root_mean_squared_error")

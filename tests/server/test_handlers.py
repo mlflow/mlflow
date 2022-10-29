@@ -26,7 +26,6 @@ from mlflow.server.handlers import (
     _update_registered_model,
     _delete_registered_model,
     _get_registered_model,
-    _list_registered_models,
     _search_registered_models,
     _get_latest_versions,
     _create_model_version,
@@ -49,7 +48,6 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
-    ListRegisteredModels,
     SearchRegisteredModels,
     GetRegisteredModel,
     GetLatestVersions,
@@ -108,7 +106,7 @@ def test_health():
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
-    assert len(create_experiment_endpoint) == 4
+    assert len(create_experiment_endpoint) == 2
 
 
 def test_all_model_registry_endpoints_available():
@@ -125,7 +123,6 @@ def test_all_model_registry_endpoints_available():
         "PATCH": [_update_registered_model, _update_model_version],
         "DELETE": [_delete_registered_model, _delete_registered_model],
         "GET": [
-            _list_registered_models,
             _search_model_versions,
             _get_latest_versions,
             _get_registered_model,
@@ -307,37 +304,6 @@ def test_delete_registered_model(mock_get_request_message, mock_model_registry_s
     _delete_registered_model()
     _, args = mock_model_registry_store.delete_registered_model.call_args
     assert args == {"name": name}
-
-
-def test_list_registered_models(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = ListRegisteredModels(max_results=50)
-    rmds = PagedList(
-        [
-            RegisteredModel(
-                name="model_1",
-                creation_timestamp=111,
-                last_updated_timestamp=222,
-                description="Test model",
-                latest_versions=[],
-            ),
-            RegisteredModel(
-                name="model_2",
-                creation_timestamp=111,
-                last_updated_timestamp=333,
-                description="Another model",
-                latest_versions=[],
-            ),
-        ],
-        "next_pt",
-    )
-    mock_model_registry_store.list_registered_models.return_value = rmds
-    resp = _list_registered_models()
-    args, _ = mock_model_registry_store.list_registered_models.call_args
-    assert args == (50, "")
-    assert json.loads(resp.get_data()) == {
-        "next_page_token": "next_pt",
-        "registered_models": jsonify(rmds),
-    }
 
 
 def test_search_registered_models(mock_get_request_message, mock_model_registry_store):

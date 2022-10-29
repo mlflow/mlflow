@@ -21,7 +21,7 @@ from mlflow import pyfunc, mleap
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.docker_utils import DISABLE_ENV_CREATION
-from mlflow.pyfunc import scoring_server, mlserver
+from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
 from mlflow.version import VERSION as MLFLOW_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
@@ -87,7 +87,7 @@ def _serve(env_manager):
 
 
 def _install_pyfunc_deps(
-    model_path=None, install_mlflow=False, enable_mlserver=False, env_manager=em.CONDA
+    model_path=None, install_mlflow=False, enable_mlserver=False, env_manager=em.VIRTUALENV
 ):
     """
     Creates a conda env for serving the model at the specified path and installs almost all serving
@@ -105,7 +105,7 @@ def _install_pyfunc_deps(
         conf = model.flavors[pyfunc.FLAVOR_NAME]
         if pyfunc.ENV in conf:
             _logger.info("creating and activating custom environment")
-            env = conf[pyfunc.ENV]
+            env = _extract_conda_env(conf[pyfunc.ENV])
             env_path_dst = os.path.join("/opt/mlflow/", env)
             env_path_dst_dir = os.path.dirname(env_path_dst)
             if not os.path.exists(env_path_dst_dir):
@@ -159,12 +159,10 @@ def _serve_pyfunc(model, env_manager):
                 enable_mlserver=enable_mlserver,
                 env_manager=env_manager,
             )
-        bash_cmds += (
-            ["source /miniconda/bin/activate custom_env"]
-            if env_manager == em.CONDA
-            else ["source /opt/activate"]
-        )
-
+        if env_manager == em.CONDA:
+            bash_cmds.append("source /miniconda/bin/activate custom_env")
+        elif env_manager == em.VIRTUALENV:
+            bash_cmds.append("source /opt/activate")
     procs = []
 
     start_nginx = True

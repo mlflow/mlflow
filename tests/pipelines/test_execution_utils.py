@@ -16,6 +16,7 @@ from mlflow.pipelines.utils.execution import (
     _get_or_create_execution_directory,
     run_pipeline_step,
     get_step_output_path,
+    _ExecutionPlan,
     _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 
@@ -36,8 +37,10 @@ def pandas_df():
             "C": [-9.2, 82.5, 3.40],
         }
     )
-    df.index.rename("index", inplace=True)
-    return df
+    # duplicate the df so that each partition is above min size
+    df2 = pd.concat([df] * 10, ignore_index=True)
+    df2.index.rename("index", inplace=True)
+    return df2
 
 
 @pytest.fixture
@@ -48,10 +51,13 @@ def test_pipeline(
     pandas_df.to_parquet(dataset_path)
     ingest_step = IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": str(dataset_path),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     )
@@ -59,7 +65,9 @@ def test_pipeline(
         pipeline_config={
             "target_col": "C",
             "steps": {
-                "split": {},
+                "split": {
+                    "split_ratios": [0.34, 0.33, 0.33],
+                },
             },
         },
         pipeline_root=os.getcwd(),
@@ -101,6 +109,34 @@ def clean_test_pipeline(enter_test_pipeline_directory):  # pylint: disable=unuse
         yield
     finally:
         Pipeline(profile="local").clean()
+
+
+def test_create_required_step_files(tmp_path):
+    class TestStep(BaseStepImplemented):
+        def __init__(self):  # pylint: disable=super-init-not-called
+            pass
+
+        @property
+        def name(self):
+            return "test_step"
+
+    def check_required_files(check_exist):
+        for required_file in [
+            "steps",
+            "steps/ingest.py",
+            "steps/split.py",
+            "steps/train.py",
+            "steps/transform.py",
+            "steps/custom_metrics.py",
+        ]:
+            assert (tmp_path / required_file).exists() is check_exist
+
+    test_step = TestStep()
+    check_required_files(False)
+    _get_or_create_execution_directory(
+        pipeline_root_path=tmp_path, pipeline_steps=[test_step], template="regression/v1"
+    )
+    check_required_files(True)
 
 
 def test_get_or_create_execution_directory_is_idempotent(tmp_path):
@@ -208,7 +244,13 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         def environment(self):
             return {"C": "D"}
 
-    with mock.patch("mlflow.pipelines.utils.execution._exec_cmd") as mock_run_in_subprocess:
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch("mlflow.pipelines.utils.execution._ExecutionPlan"):
+        process = mock.Mock()
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
         pipeline_steps = [TestStep1(), TestStep2()]
         run_pipeline_step(
             pipeline_root_path=tmp_path,
@@ -223,6 +265,39 @@ def test_run_pipeline_step_sets_environment_as_expected(tmp_path):
         "C": "D",
         _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "test_step_1",
     }
+    assert mock_run_in_subprocess.call_count == 2
+
+
+def test_run_pipeline_step_calls_execution_plan(tmp_path):
+    class TestStep(BaseStepImplemented):
+        def __init__(self):  # pylint: disable=super-init-not-called
+            self.step_config = {}
+
+        @property
+        def name(self):
+            return "test_step"
+
+    with mock.patch(
+        "mlflow.pipelines.utils.execution._exec_cmd"
+    ) as mock_run_in_subprocess, mock.patch(
+        "mlflow.pipelines.utils.execution._ExecutionPlan"
+    ) as mock_execution_plan:
+        process = mock.Mock()
+        process.poll.return_value = 0
+        process.stdout.readline = mock.Mock(side_effect="")
+        mock_run_in_subprocess.return_value = process
+
+        pipeline_steps = [TestStep()]
+        run_pipeline_step(
+            pipeline_root_path=tmp_path,
+            pipeline_steps=pipeline_steps,
+            target_step=pipeline_steps[0],
+            template="regression/v1",
+        )
+
+    execution_plan_args, _ = mock_execution_plan.call_args
+    assert execution_plan_args[0] == "test_step"
+    assert execution_plan_args[2] == ["test_step"]
 
 
 def run_test_pipeline_step(pipeline_steps, target_step):
@@ -249,29 +324,37 @@ def test_run_pipeline_step_maintains_execution_status_correctly(pandas_df, tmp_p
 
     ingest_step_good = IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": str(dataset_path),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     )
 
     assert get_test_pipeline_step_execution_state(ingest_step_good).status == StepStatus.UNKNOWN
     assert get_test_pipeline_step_execution_state(ingest_step_good).last_updated_timestamp == 0
+    assert get_test_pipeline_step_execution_state(ingest_step_good).stack_trace is None
     curr_time = time.time()
     run_test_pipeline_step([ingest_step_good], ingest_step_good)
     assert get_test_pipeline_step_execution_state(ingest_step_good).status == StepStatus.SUCCEEDED
     assert (
         get_test_pipeline_step_execution_state(ingest_step_good).last_updated_timestamp >= curr_time
     )
+    assert get_test_pipeline_step_execution_state(ingest_step_good).stack_trace is None
 
     ingest_step_bad = IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": "badlocation",
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": "badlocation",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     )
@@ -281,6 +364,7 @@ def test_run_pipeline_step_maintains_execution_status_correctly(pandas_df, tmp_p
     assert (
         get_test_pipeline_step_execution_state(ingest_step_bad).last_updated_timestamp >= curr_time
     )
+    assert "Traceback" in get_test_pipeline_step_execution_state(ingest_step_bad).stack_trace
 
 
 def test_run_pipeline_step_returns_expected_result(test_pipeline):
@@ -292,10 +376,13 @@ def test_run_pipeline_step_returns_expected_result(test_pipeline):
 
     ingest_step_bad = IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": "badlocation",
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": "badlocation",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     )
@@ -398,7 +485,7 @@ def test_run_pipeline_step_after_change_clears_downstream_step_state(test_pipeli
             "target_col": "C",
             "steps": {
                 "split": {
-                    "split_ratios": [0.8, 0.1, 0.1],
+                    "split_ratios": [0.5, 0.25, 0.25],
                 },
             },
         },
@@ -450,10 +537,13 @@ def test_run_pipeline_step_failure_clears_downstream_step_state(test_pipeline):
 
     ingest_step_bad = IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": "badlocation",
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": "badlocation",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     )
@@ -467,3 +557,22 @@ def test_run_pipeline_step_failure_clears_downstream_step_state(test_pipeline):
     assert get_test_pipeline_step_execution_state(split_step).status == StepStatus.UNKNOWN
     assert get_test_pipeline_step_execution_state(split_step).last_updated_timestamp == 0
     assert not os.listdir(get_test_pipeline_step_output_directory(split_step))
+
+
+def test_execution_plan():
+    train_subgraph = ["ingest", "split", "transform", "train", "evaluate", "register"]
+
+    # all steps are cached
+    plan = _ExecutionPlan("register", ["make: `register' is up to date."], train_subgraph)
+    assert plan.steps_cached == train_subgraph
+
+    # all steps will be executed
+    plan = _ExecutionPlan(
+        "transform",
+        ["# Run MLP step: ingest\n", "# Run MLP step: split\n", "# Run MLP step: transform\n"],
+        train_subgraph,
+    )
+    assert plan.steps_cached == []
+
+    plan = _ExecutionPlan("transform", ["# Run MLP step: transform\n"], train_subgraph)
+    assert plan.steps_cached == ["ingest", "split"]

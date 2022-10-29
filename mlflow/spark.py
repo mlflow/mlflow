@@ -145,7 +145,7 @@ def log_model(
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0',
+                                'python=3.8.15',
                                 'pyspark=2.3.0'
                             ]
                         }
@@ -386,7 +386,7 @@ class _HadoopFileSystem:
         return False
 
     @classmethod
-    def maybe_copy_from_uri(cls, src_uri, dst_path):
+    def maybe_copy_from_uri(cls, src_uri, dst_path, local_model_path=None):
         """
         Conditionally copy the file to the Hadoop DFS from the source uri.
         In case the file is already on the Hadoop DFS do nothing.
@@ -402,7 +402,9 @@ class _HadoopFileSystem:
         except Exception:
             _logger.info("URI '%s' does not point to the current DFS.", src_uri)
         _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
-        return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
+        return cls.maybe_copy_from_local_file(
+            local_model_path or _download_artifact_from_uri(src_uri), dst_path
+        )
 
     @classmethod
     def delete(cls, path):
@@ -499,7 +501,8 @@ def _save_model_metadata(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
@@ -596,7 +599,7 @@ def save_model(
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0',
+                                'python=3.8.15',
                                 'pyspark=2.3.0'
                             ]
                         }
@@ -725,7 +728,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
         )
-    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
+    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
     return PipelineModel.load(model_uri)
 
 
@@ -780,9 +783,10 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-    model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    local_mlflow_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path
+    )
+    _add_code_from_conf_to_system_path(local_mlflow_model_path, flavor_conf)
 
     if _should_use_mlflowdbfs(model_uri):
         from pyspark.ml.pipeline import PipelineModel
@@ -795,8 +799,12 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
+    sparkml_model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_sparkml_model_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
     return _load_model(
-        model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir, local_model_path=local_model_path
+        model_uri=sparkml_model_uri,
+        dfs_tmpdir_base=dfs_tmpdir,
+        local_model_path=local_sparkml_model_path,
     )
 
 

@@ -35,6 +35,7 @@ class TestRunInfo(unittest.TestCase):
         run_id = str(uuid.uuid4())
         experiment_id = str(random_int(10, 2000))
         user_id = random_str(random_int(10, 25))
+        run_name = random_str(random_int(10, 25))
         status = RunStatus.to_string(random.choice(RunStatus.all_status()))
         start_time = random_int(1, 10)
         end_time = start_time + random_int(1, 10)
@@ -43,6 +44,7 @@ class TestRunInfo(unittest.TestCase):
         ri = RunInfo(
             run_uuid=run_id,
             run_id=run_id,
+            run_name=run_name,
             experiment_id=experiment_id,
             user_id=user_id,
             status=status,
@@ -54,6 +56,7 @@ class TestRunInfo(unittest.TestCase):
         return (
             ri,
             run_id,
+            run_name,
             experiment_id,
             user_id,
             status,
@@ -67,6 +70,7 @@ class TestRunInfo(unittest.TestCase):
         (
             ri1,
             run_id,
+            run_name,
             experiment_id,
             user_id,
             status,
@@ -89,6 +93,7 @@ class TestRunInfo(unittest.TestCase):
         as_dict = {
             "run_uuid": run_id,
             "run_id": run_id,
+            "run_name": run_name,
             "experiment_id": experiment_id,
             "user_id": user_id,
             "status": status,
@@ -142,5 +147,6 @@ class TestRunInfo(unittest.TestCase):
 
     def test_searchable_attributes(self):
         self.assertSequenceEqual(
-            {"status", "artifact_uri", "start_time"}, set(RunInfo.get_searchable_attributes())
+            {"status", "artifact_uri", "start_time", "user_id", "end_time", "run_name", "run_id"},
+            set(RunInfo.get_searchable_attributes()),
         )

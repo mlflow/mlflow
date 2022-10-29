@@ -1,9 +1,6 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "@databricks/web-shared-bundle/*": ["./src/__generated__/web-shared-bundle/*"]
-    },
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,

@@ -7,7 +7,6 @@ import uuid
 import pytest
 
 from mlflow.entities.model_registry import (
-    RegisteredModel,
     ModelVersion,
     RegisteredModelTag,
     ModelVersionTag,
@@ -261,88 +260,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         ) as exception_context:
             self.store.get_model_version(name, 1)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-    def _list_registered_models(self, page_token=None, max_results=10):
-        result = self.store.list_registered_models(max_results, page_token)
-        for idx in range(len(result)):
-            result[idx] = result[idx].name
-        return result
-
-    def test_list_registered_model(self):
-        self._rm_maker("A")
-        registered_models = self.store.list_registered_models(max_results=10, page_token=None)
-        self.assertEqual(len(registered_models), 1)
-        self.assertEqual(registered_models[0].name, "A")
-        self.assertIsInstance(registered_models[0], RegisteredModel)
-
-        self._rm_maker("B")
-        self.assertEqual(set(self._list_registered_models()), {"A", "B"})
-
-        self._rm_maker("BB")
-        self._rm_maker("BA")
-        self._rm_maker("AB")
-        self._rm_maker("BBC")
-        self.assertEqual(set(self._list_registered_models()), {"A", "B", "BB", "BA", "AB", "BBC"})
-
-        # list should not return deleted models
-        self.store.delete_registered_model(name="BA")
-        self.store.delete_registered_model(name="B")
-        self.assertEqual(set(self._list_registered_models()), {"A", "BB", "AB", "BBC"})
-
-    def test_list_registered_model_paginated_last_page(self):
-        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
-
-        # test flow with fixed max_results
-        returned_rms = []
-        result = self._list_registered_models(page_token=None, max_results=25)
-        returned_rms.extend(result)
-        while result.token:
-            result = self._list_registered_models(page_token=result.token, max_results=25)
-            self.assertEqual(len(result), 25)
-            returned_rms.extend(result)
-        self.assertEqual(result.token, None)
-        self.assertEqual(set(rms), set(returned_rms))
-
-    def test_list_registered_model_paginated_returns_in_correct_order(self):
-        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
-
-        # test that pagination will return all valid results in sorted order
-        # by name ascending
-        result = self._list_registered_models(max_results=5)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual(result, rms[0:5])
-
-        result = self._list_registered_models(page_token=result.token, max_results=10)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual(result, rms[5:15])
-
-        result = self._list_registered_models(page_token=result.token, max_results=20)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual(result, rms[15:35])
-
-        result = self._list_registered_models(page_token=result.token, max_results=100)
-        # assert that page token is None
-        self.assertEqual(result.token, None)
-        self.assertEqual(result, rms[35:])
-
-    def test_list_registered_model_paginated_errors(self):
-        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
-        # test that providing a completely invalid page token throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid page token, could not base64-decode"
-        ) as exception_context:
-            self._list_registered_models(page_token="evilhax", max_results=20)
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that providing too large of a max_results throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid value for request parameter max_results"
-        ) as exception_context:
-            self._list_registered_models(page_token="evilhax", max_results=1e15)
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # list should not return deleted models
-        self.store.delete_registered_model(name="RM{0:03}".format(0))
-        self.assertEqual(set(self._list_registered_models(max_results=100)), set(rms[1:]))
 
     def test_get_latest_versions(self):
         name = "test_for_latest_versions"
@@ -1284,7 +1201,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
-            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+            with mock.patch(
+                "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
+                return_value=i,
+            ):
                 rms.append(self._rm_maker("RM{:03}".format(i)).name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
@@ -1336,10 +1256,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
         )
         self.assertEqual(rms, result)
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=1
+        ):
             rm1 = self._rm_maker("MR1").name
             rm2 = self._rm_maker("MR2").name
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=2
+        ):
             rm3 = self._rm_maker("MR3").name
             rm4 = self._rm_maker("MR4").name
         query = "name LIKE 'MR%'"

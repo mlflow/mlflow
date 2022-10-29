@@ -3,7 +3,7 @@ import shap
 from sklearn.model_selection import train_test_split
 from sklearn.dummy import DummyClassifier
 import mlflow
-from mlflow.models import MetricThreshold
+from mlflow.models import MetricThreshold, make_metric
 from mlflow.models.evaluation.validation import ModelValidationFailedException
 
 # load UCI Adult Data Set; segment it into training and test sets
@@ -21,18 +21,18 @@ eval_data = X_test
 eval_data["label"] = y_test
 
 # Define a custom metric to evaluate against
-def double_positive(_, builtin_metrics):
-    return {
-        "double_positive": builtin_metrics["true_positives"] * 2,
-    }
+def double_positive(_eval_df, builtin_metrics):
+    return builtin_metrics["true_positives"] * 2
 
 
 # Define criteria for model to be validated against
 thresholds = {
     # Specify metric value threshold
-    "precision": MetricThreshold(threshold=0.7, higher_is_better=True),  # precision should be >=0.7
+    "precision_score": MetricThreshold(
+        threshold=0.7, higher_is_better=True
+    ),  # precision should be >=0.7
     # Specify model comparison thresholds
-    "recall": MetricThreshold(
+    "recall_score": MetricThreshold(
         min_absolute_change=0.1,  # recall should be at least 0.1 greater than baseline model recall
         min_relative_change=0.1,  # recall should be at least 10 percent greater than baseline model recall
         higher_is_better=True,
@@ -62,11 +62,18 @@ with mlflow.start_run() as run:
         eval_data,
         targets="label",
         model_type="classifier",
-        dataset_name="adult",
         evaluators=["default"],
         validation_thresholds=thresholds,
-        custom_metrics=[double_positive],
+        custom_metrics=[
+            make_metric(
+                eval_fn=double_positive,
+                greater_is_better=False,
+            )
+        ],
         baseline_model=baseline_model_uri,
+        # set to env_manager to "virtualenv" or "conda" to score the candidate and baseline models
+        # in isolated Python environments where their dependencies are restored.
+        env_manager="local",
     )
     # If you would like to catch model validation failures, you can add try except clauses around
     # the mlflow.evaluate() call and catch the ModelValidationFailedException, imported at the top

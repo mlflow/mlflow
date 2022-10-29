@@ -5,6 +5,7 @@ import click
 import warnings
 
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -56,72 +57,67 @@ RUN_ID = click.option(
     help="ID of the MLflow run that generated the referenced content.",
 )
 
-NO_CONDA = click.option(
-    "--no-conda",
-    is_flag=True,
-    help="This flag is deprecated. Use `--env-manager=local` instead. "
-    "If specified, will assume that MLmodel/MLproject is running within "
-    "a Conda environment with the necessary dependencies for "
-    "the current project instead of attempting to create a new "
-    "conda environment.",
-)
 
-
-def _resolve_env_manager(ctx, _, env_manager):
-    no_conda = ctx.params.get("no_conda", False)
-    # Both `--no-conda` and `--env-manager` are specified
-    if no_conda and env_manager is not None:
-        raise click.BadParameter(
-            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
-        )
-
-    # Only `--no-conda` is specified
-    if no_conda:
-        warnings.warn(
-            (
-                "`--no-conda` is deprecated and will be removed in a future MLflow release. "
-                "Use `--env-manager=local` instead."
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        return _EnvManager.LOCAL
-
-    # Only `--env-manager` is specified
+def _resolve_env_manager(_, __, env_manager):
     if env_manager is not None:
         _EnvManager.validate(env_manager)
-        if env_manager == _EnvManager.VIRTUALENV:
+        if env_manager == _EnvManager.CONDA and not MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING.get():
             warnings.warn(
                 (
-                    "Virtualenv support is still experimental and may be changed in a future "
-                    "release without warning."
+                    "Use of conda is discouraged. If you use it, please ensure that your use of "
+                    "conda complies with Anaconda's terms of service "
+                    "(https://legal.anaconda.com/policies/en/?name=terms-of-service). "
+                    "virtualenv is the recommended tool for environment reproducibility. "
+                    f"To suppress this warning, set the {MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING} "
+                    "environment variable to 'TRUE'."
                 ),
                 UserWarning,
                 stacklevel=2,
             )
         return env_manager
 
-    # Neither `--no-conda` nor `--env-manager` is specified
     return None
 
 
-ENV_MANAGER = click.option(
-    "--env-manager",
-    default=None,
-    type=click.UNPROCESSED,
-    callback=_resolve_env_manager,
+def _create_env_manager_option(help_string):
+    return click.option(
+        "--env-manager",
+        default=None,
+        type=click.UNPROCESSED,
+        callback=_resolve_env_manager,
+        help=help_string,
+    )
+
+
+ENV_MANAGER = _create_env_manager_option(
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
-    help="""
-If specified, create an environment for MLmodel/MLproject using the specified
+    help_string="""
+If specified, create an environment for MLmodel using the specified
 environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- conda: use conda
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
 
-If unspecified, default to conda.
+If unspecified, default to virtualenv.
+""",
+)
+
+ENV_MANAGER_PROJECTS = _create_env_manager_option(
+    help_string="""
+If specified, create an environment for MLproject using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
+
+If unspecified, the appropriate environment manager is automatically selected based on
+the project configuration. For example, if `MLproject.yaml` contains a `python_env` key,
+virtualenv is used.
 """,
 )
 
@@ -156,7 +152,11 @@ PORT = click.option(
 )
 
 TIMEOUT = click.option(
-    "--timeout", "-t", help="Timeout in seconds to serve a request (default: 60)."
+    "--timeout",
+    "-t",
+    envvar="MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT",
+    default=60,
+    help="Timeout in seconds to serve a request (default: 60).",
 )
 
 # We use None to disambiguate manually selecting "4"
@@ -189,14 +189,14 @@ ARTIFACTS_DESTINATION = click.option(
 )
 
 SERVE_ARTIFACTS = click.option(
-    "--serve-artifacts",
+    "--serve-artifacts/--no-serve-artifacts",
     envvar="MLFLOW_SERVE_ARTIFACTS",
     is_flag=True,
-    default=False,
-    help="If specified, enables serving of artifact uploads, downloads, and list requests "
+    default=True,
+    help="Enables serving of artifact uploads, downloads, and list requests "
     "by routing these requests to the storage location that is specified by "
     "'--artifact-destination' directly through a proxy. The default location that "
     "these requests are served from is a local './mlartifacts' directory which can be "
-    "overridden via the '--artifacts-destination' argument. "
-    "Default: False",
+    "overridden via the '--artifacts-destination' argument. To disable artifact serving, "
+    "specify `--no-serve-artifacts`. Default: True",
 )

@@ -8,8 +8,7 @@ Create Date: 2019-05-29 10:43:52.919427
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import orm, Column, Integer, String, ForeignKey, PrimaryKeyConstraint
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, declarative_base
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 # revision identifiers, used by Alembic.

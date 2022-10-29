@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import subprocess
 import posixpath
 import sys
@@ -7,22 +8,30 @@ import warnings
 
 
 from mlflow.models import FlavorBackend
-from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
+from mlflow.models.docker_utils import (
+    _build_image,
+    _generate_dockerfile_content,
+    DISABLE_ENV_CREATION,
+    SETUP_MINICONDA,
+    SETUP_PYENV_AND_VIRTUALENV,
+    _get_mlflow_install_step,
+)
 from mlflow.models.container import ENABLE_MLSERVER
-from mlflow.pyfunc import ENV, scoring_server, mlserver
+from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 
-from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
+from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.conda import _get_conda_extra_env_vars
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
+from mlflow.utils.environment import Environment
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
-    _execute_in_virtualenv,
     _get_pip_install_mlflow,
 )
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.version import VERSION
-
 
 _logger = logging.getLogger(__name__)
 
@@ -38,8 +47,9 @@ class PyFuncBackend(FlavorBackend):
         self,
         config,
         workers=1,
-        env_manager=_EnvManager.CONDA,
+        env_manager=_EnvManager.VIRTUALENV,
         install_mlflow=False,
+        create_env_root_dir=False,
         env_root_dir=None,
         **kwargs,
     ):
@@ -53,88 +63,96 @@ class PyFuncBackend(FlavorBackend):
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
+        if env_manager == _EnvManager.CONDA and ENV not in config:
+            env_manager = _EnvManager.LOCAL
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
+        self._create_env_root_dir = create_env_root_dir
         self._env_root_dir = env_root_dir
+        self._environment = None
 
     def prepare_env(self, model_uri, capture_output=False):
-        local_path = _download_artifact_from_uri(model_uri)
+        if self._environment is not None:
+            return self._environment
 
-        command = 'python -c ""'
+        @cache_return_value_per_process
+        def _get_or_create_env_root_dir(should_use_nfs):
+            if should_use_nfs:
+                root_tmp_dir = get_or_create_nfs_tmp_dir()
+            else:
+                root_tmp_dir = get_or_create_tmp_dir()
+
+            env_root_dir = os.path.join(root_tmp_dir, "envs")
+            os.makedirs(env_root_dir, exist_ok=True)
+            return env_root_dir
+
+        local_path = _download_artifact_from_uri(model_uri)
+        if self._create_env_root_dir:
+            if self._env_root_dir is not None:
+                raise Exception("env_root_dir can not be set when create_env_root_dir=True")
+            nfs_root_dir = get_nfs_cache_root_dir()
+            env_root_dir = _get_or_create_env_root_dir(nfs_root_dir is not None)
+        else:
+            env_root_dir = self._env_root_dir
+
         if self._env_manager == _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(
                 local_path,
                 self._env_id,
-                env_root_dir=self._env_root_dir,
+                env_root_dir=env_root_dir,
                 capture_output=capture_output,
             )
-            return _execute_in_virtualenv(
-                activate_cmd,
-                command,
-                self._install_mlflow,
-                env_root_dir=self._env_root_dir,
+            self._environment = Environment(activate_cmd)
+        elif self._env_manager == _EnvManager.CONDA:
+            conda_env_path = os.path.join(local_path, _extract_conda_env(self._config[ENV]))
+            self._environment = get_or_create_conda_env(
+                conda_env_path,
+                env_id=self._env_id,
                 capture_output=capture_output,
+                env_root_dir=env_root_dir,
             )
-        elif self._env_manager == _EnvManager.LOCAL or ENV not in self._config:
-            return 0
 
-        conda_env_path = os.path.join(local_path, self._config[ENV])
-        conda_env_name = get_or_create_conda_env(
-            conda_env_path,
-            env_id=self._env_id,
-            capture_output=capture_output,
-            env_root_dir=self._env_root_dir,
-        )
+        elif self._env_manager == _EnvManager.LOCAL:
+            raise Exception("Prepare env should not be called with local env manager!")
+        else:
+            raise Exception(f"Unexpected env manager value '{self._env_manager}'")
 
-        command = 'python -c ""'
-        return _execute_in_conda_env(
-            conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
-        )
+        if self._install_mlflow:
+            self._environment.execute(_get_pip_install_mlflow())
+        else:
+            self._environment.execute('python -c ""')
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+        return self._environment
+
+    def predict(self, model_uri, input_path, output_path, content_type):
         """
-        Generate predictions using generic python model saved with MLflow.
+        Generate predictions using generic python model saved with MLflow. The expected format of
+        the input JSON is the Mlflow scoring format.
         Return the prediction results as a JSON.
         """
         local_path = _download_artifact_from_uri(model_uri)
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        command = (
-            'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-            "model_uri={model_uri}, "
-            "input_path={input_path}, "
-            "output_path={output_path}, "
-            "content_type={content_type}, "
-            'json_format={json_format})"'
-        ).format(
-            model_uri=repr(local_uri),
-            input_path=repr(input_path),
-            output_path=repr(output_path),
-            content_type=repr(content_type),
-            json_format=repr(json_format),
-        )
-        if self._env_manager == _EnvManager.CONDA and ENV in self._config:
-            conda_env_path = os.path.join(local_path, self._config[ENV])
-            conda_env_name = get_or_create_conda_env(
-                conda_env_path,
-                env_id=self._env_id,
-                capture_output=False,
-                env_root_dir=self._env_root_dir,
+
+        if self._env_manager != _EnvManager.LOCAL:
+            command = (
+                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
+                "model_uri={model_uri}, "
+                "input_path={input_path}, "
+                "output_path={output_path}, "
+                "content_type={content_type})"
+                '"'
+            ).format(
+                model_uri=repr(local_uri),
+                input_path=repr(input_path),
+                output_path=repr(output_path),
+                content_type=repr(content_type),
             )
-            return _execute_in_conda_env(
-                conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
-            )
-        elif self._env_manager == _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(
-                local_path, self._env_id, env_root_dir=self._env_root_dir
-            )
-            return _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow, env_root_dir=self._env_root_dir
-            )
+            return self.prepare_env(local_path).execute(command)
         else:
-            scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
+            scoring_server._predict(local_uri, input_path, output_path, content_type)
 
     def serve(
         self,
@@ -204,42 +222,14 @@ class PyFuncBackend(FlavorBackend):
             #  does not support prctl. We need to find an approach to address it.
             command = "exec " + command
 
-        if self._env_manager == _EnvManager.CONDA and ENV in self._config:
-            conda_env_path = os.path.join(local_path, self._config[ENV])
-
-            conda_env_name = get_or_create_conda_env(
-                conda_env_path,
-                env_id=self._env_id,
-                capture_output=False,
-                env_root_dir=self._env_root_dir,
-            )
-
-            child_proc = _execute_in_conda_env(
-                conda_env_name,
+        if self._env_manager != _EnvManager.LOCAL:
+            return self.prepare_env(local_path).execute(
                 command,
-                self._install_mlflow,
-                command_env=command_env,
-                synchronous=False,
-                preexec_fn=setup_sigterm_on_parent_death,
+                command_env,
                 stdout=stdout,
                 stderr=stderr,
-                env_root_dir=self._env_root_dir,
-            )
-        elif self._env_manager == _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(
-                local_path, self._env_id, env_root_dir=self._env_root_dir
-            )
-            child_proc = _execute_in_virtualenv(
-                activate_cmd,
-                command,
-                self._install_mlflow,
-                command_env=command_env,
-                capture_output=False,
-                synchronous=False,
-                env_root_dir=self._env_root_dir,
                 preexec_fn=setup_sigterm_on_parent_death,
-                stdout=stdout,
-                stderr=stderr,
+                synchronous=synchronous,
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -255,17 +245,17 @@ class PyFuncBackend(FlavorBackend):
                 stderr=stderr,
             )
 
-        if synchronous:
-            rc = child_proc.wait()
-            if rc != 0:
-                raise Exception(
-                    "Command '{0}' returned non zero return code. Return code = {1}".format(
-                        command, rc
+            if synchronous:
+                rc = child_proc.wait()
+                if rc != 0:
+                    raise Exception(
+                        "Command '{0}' returned non zero return code. Return code = {1}".format(
+                            command, rc
+                        )
                     )
-                )
-            return 0
-        else:
-            return child_proc
+                return 0
+            else:
+                return child_proc
 
     def can_score_model(self):
         if self._env_manager == _EnvManager.LOCAL:
@@ -282,12 +272,75 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
+    def generate_dockerfile(
+        self,
+        model_uri,
+        output_path="mlflow-dockerfile",
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+    ):
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
+
+        mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
+
+        is_conda = self._env_manager == _EnvManager.CONDA
+        setup_miniconda = ""
+        setup_pyenv_and_virtualenv = ""
+
+        if is_conda:
+            setup_miniconda = SETUP_MINICONDA
+        else:
+            setup_pyenv_and_virtualenv = SETUP_PYENV_AND_VIRTUALENV
+
+        os.makedirs(output_path, exist_ok=True)
+
+        _logger.debug("Created all folders in path", extra={"output_directory": output_path})
+        install_mlflow = _get_mlflow_install_step(output_path, mlflow_home)
+
+        custom_setup_steps = copy_model_into_container(output_path)
+
+        dockerfile_text = _generate_dockerfile_content(
+            setup_miniconda=setup_miniconda,
+            setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
+            install_mlflow=install_mlflow,
+            custom_setup_steps=custom_setup_steps,
+            entrypoint=pyfunc_entrypoint,
+        )
+        _logger.debug("generated dockerfile text", extra={"dockerfile": dockerfile_text})
+
+        with open(os.path.join(output_path, "Dockerfile"), "w") as dockerfile:
+            dockerfile.write(dockerfile_text)
+
     def build_image(
         self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
     ):
+        copy_model_into_container = self.copy_model_into_container_wrapper(
+            model_uri, install_mlflow, enable_mlserver
+        )
+        pyfunc_entrypoint = _pyfunc_entrypoint(
+            self._env_manager, model_uri, install_mlflow, enable_mlserver
+        )
+        _build_image(
+            image_name=image_name,
+            mlflow_home=mlflow_home,
+            env_manager=self._env_manager,
+            custom_setup_steps_hook=copy_model_into_container,
+            entrypoint=pyfunc_entrypoint,
+        )
+
+    def copy_model_into_container_wrapper(self, model_uri, install_mlflow, enable_mlserver):
         def copy_model_into_container(dockerfile_context_dir):
+            # This function have to be included in another,
+            # since `_build_image` function in `docker_utils` accepts only
+            # single-argument function like this
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
-            os.mkdir(model_cwd)
+            pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
             if model_uri:
                 model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
                 return """
@@ -319,107 +372,34 @@ class PyFuncBackend(FlavorBackend):
                     enable_mlserver=repr(enable_mlserver),
                 )
 
-        if model_uri:
-            # The pyfunc image runs the same server as the Sagemaker image
-            pyfunc_entrypoint = (
-                'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
-                f'C._serve({repr(self._env_manager)})"]'
-            )
-        else:
-            entrypoint_code = "; ".join(
-                [
-                    "from mlflow.models import container as C",
-                    "from mlflow.models.container import _install_pyfunc_deps",
-                    (
-                        "_install_pyfunc_deps("
-                        + '"/opt/ml/model", '
-                        + f"install_mlflow={install_mlflow}, "
-                        + f"enable_mlserver={enable_mlserver}, "
-                        + f'env_manager="{self._env_manager}"'
-                        + ")"
-                    ),
-                    'C._serve("{env_manager}")'.format(env_manager=self._env_manager),
-                ]
-            )
-            pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(
-                entrypoint_code=entrypoint_code.replace('"', '\\"')
-            )
-
-        _build_image(
-            image_name=image_name,
-            mlflow_home=mlflow_home,
-            env_manager=self._env_manager,
-            custom_setup_steps_hook=copy_model_into_container,
-            entrypoint=pyfunc_entrypoint,
-        )
+        return copy_model_into_container
 
 
-def _execute_in_conda_env(
-    conda_env_name,
-    command,
-    install_mlflow,
-    command_env=None,
-    synchronous=True,
-    preexec_fn=None,
-    stdout=None,
-    stderr=None,
-    env_root_dir=None,
-):
-    """
-    :param conda_env_path conda: conda environment file path
-    :param command: command to run on the restored conda environment.
-    :param install_mlflow: whether to install mlflow
-    :param command_env: environment for child process.
-    :param synchronous: If True, wait until server process exit and return 0, if process exit
-                        with non-zero return code, raise exception.
-                        If False, return the server process `Popen` instance immediately.
-    :param stdout: Redirect server stdout
-    :param stderr: Redirect server stderr
-    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
-    """
-    if command_env is None:
-        command_env = os.environ.copy()
-
-    if env_root_dir is not None:
-        command_env = {**command_env, **_get_conda_extra_env_vars(env_root_dir)}
-
-    activate_conda_env = get_conda_command(conda_env_name)
-    if install_mlflow:
-        pip_install_mlflow = _get_pip_install_mlflow()
-        activate_conda_env += [pip_install_mlflow]
-    if _IS_UNIX:
-        separator = " && "
-    else:
-        separator = " & "
-
-    command = separator.join(activate_conda_env + [command])
-    _logger.info("=== Running command '%s'", command)
-
-    if _IS_UNIX:
-        child = subprocess.Popen(
-            ["bash", "-c", command],
-            close_fds=True,
-            env=command_env,
-            preexec_fn=preexec_fn,
-            stdout=stdout,
-            stderr=stderr,
+def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
+    if model_uri:
+        # The pyfunc image runs the same server as the Sagemaker image
+        pyfunc_entrypoint = (
+            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
+            f'C._serve({repr(env_manager)})"]'
         )
     else:
-        child = subprocess.Popen(
-            ["cmd", "/c", command],
-            close_fds=True,
-            env=command_env,
-            preexec_fn=preexec_fn,
-            stdout=stdout,
-            stderr=stderr,
+        entrypoint_code = "; ".join(
+            [
+                "from mlflow.models import container as C",
+                "from mlflow.models.container import _install_pyfunc_deps",
+                (
+                    "_install_pyfunc_deps("
+                    + '"/opt/ml/model", '
+                    + f"install_mlflow={install_mlflow}, "
+                    + f"enable_mlserver={enable_mlserver}, "
+                    + f'env_manager="{env_manager}"'
+                    + ")"
+                ),
+                'C._serve("{env_manager}")'.format(env_manager=env_manager),
+            ]
+        )
+        pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(
+            entrypoint_code=entrypoint_code.replace('"', '\\"')
         )
 
-    if synchronous:
-        rc = child.wait()
-        if rc != 0:
-            raise Exception(
-                "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
-            )
-        return 0
-    else:
-        return child
+    return pyfunc_entrypoint

@@ -13,7 +13,7 @@ from mlflow.models.utils import (
 )
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import _dataframe_from_json
+from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
 
 @pytest.fixture
@@ -91,13 +91,13 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-        parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
+        parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
         assert (
             (
                 parsed_df.drop(columns=["binary"])
-                == _dataframe_from_json(tmp.path(filename)).drop(columns=["binary"])
+                == dataframe_from_raw_json(tmp.path(filename)).drop(columns=["binary"])
             )
             .all()
             .all()
@@ -152,7 +152,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         x = _Example(example)
         x.save(tmp.path())
         filename = x.info["artifact_path"]
-        parsed_df = _dataframe_from_json(tmp.path(filename))
+        parsed_df = dataframe_from_raw_json(tmp.path(filename))
         assert example == parsed_df.to_dict(orient="records")[0]
 
 
@@ -176,7 +176,9 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-        parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
+
+        parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
+
         # by definition of NaN, NaN == NaN is False but NaN != NaN is True
         assert (
             ((df_with_nan == parsed_df) | ((df_with_nan != df_with_nan) & (parsed_df != parsed_df)))
@@ -184,7 +186,7 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             .all()
         )
         # the frame read without schema should match except for the binary values
-        no_schema_df = _dataframe_from_json(tmp.path(filename))
+        no_schema_df = dataframe_from_raw_json(tmp.path(filename))
         a = parsed_df.drop(columns=["binary"])
         b = no_schema_df.drop(columns=["binary"])
         assert ((a == b) | ((a != a) & (b != b))).all().all()

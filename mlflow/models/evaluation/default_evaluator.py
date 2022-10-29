@@ -17,7 +17,9 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.time_utils import get_current_time_millis
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
@@ -30,12 +32,10 @@ import pandas as pd
 import numpy as np
 import copy
 import shutil
-import time
 import pickle
 from functools import partial
 import logging
 from packaging.version import Version
-import inspect
 import pathlib
 
 _logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def _extract_raw_model(model):
     """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
     try:
-        if model_loader_module == "mlflow.sklearn":
+        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
             raw_model = model._model_impl
         else:
             raw_model = None
@@ -116,17 +116,28 @@ def _extract_predict_fn(model, raw_model):
     return predict_fn, predict_proba_fn
 
 
-def _get_regressor_metrics(y, y_pred):
+def _get_regressor_metrics(y, y_pred, sample_weights):
+    sum_on_target = (
+        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
+    )
     return {
         "example_count": len(y),
-        "mean_absolute_error": sk_metrics.mean_absolute_error(y, y_pred),
-        "mean_squared_error": sk_metrics.mean_squared_error(y, y_pred),
-        "root_mean_squared_error": math.sqrt(sk_metrics.mean_squared_error(y, y_pred)),
-        "sum_on_label": sum(y),
-        "mean_on_label": sum(y) / len(y),
-        "r2_score": sk_metrics.r2_score(y, y_pred),
+        "mean_absolute_error": sk_metrics.mean_absolute_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
+        "root_mean_squared_error": sk_metrics.mean_squared_error(
+            y, y_pred, sample_weight=sample_weights, squared=False
+        ),
+        "sum_on_target": sum_on_target,
+        "mean_on_target": sum_on_target / len(y),
+        "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
-        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(y, y_pred),
+        "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
+            y, y_pred, sample_weight=sample_weights
+        ),
     }
 
 
@@ -146,52 +157,109 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
     return y_bin, y_pred_bin, y_prob_bin
 
 
-def _get_classifier_per_class_metrics(y, y_pred):
-    """
-    get classifier metrics which computing over a specific class.
-    For binary classifier, y/y_pred is for the positive class.
-    For multiclass classifier, y/y_pred sum up to a binary "is class" and "is not class".
-    """
-    metrics = {}
-    confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-    tn, fp, fn, tp = confusion_matrix.ravel()
-    metrics["true_negatives"] = tn
-    metrics["false_positives"] = fp
-    metrics["false_negatives"] = fn
-    metrics["true_positives"] = tp
-    metrics["recall"] = sk_metrics.recall_score(y, y_pred)
-    metrics["precision"] = sk_metrics.precision_score(y, y_pred)
-    metrics["f1_score"] = sk_metrics.f1_score(y, y_pred)
+def _get_common_classifier_metrics(
+    *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
+):
+    metrics = {
+        "example_count": len(y_true),
+        "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
+        "recall_score": sk_metrics.recall_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+        "precision_score": sk_metrics.precision_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+        "f1_score": sk_metrics.f1_score(
+            y_true,
+            y_pred,
+            average=average,
+            pos_label=pos_label,
+            sample_weight=sample_weights,
+        ),
+    }
+    if y_proba is not None:
+        metrics["log_loss"] = sk_metrics.log_loss(
+            y_true, y_proba, labels=labels, sample_weight=sample_weights
+        )
+
     return metrics
 
 
-def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
-    """
-    get classifier metrics which computing over all classes examples.
-    """
-    metrics = {}
-    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
-    metrics["example_count"] = len(y)
+def _get_binary_classifier_metrics(
+    *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
+):
+    tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+    return {
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        **_get_common_classifier_metrics(
+            y_true=y_true,
+            y_pred=y_pred,
+            y_proba=y_proba,
+            labels=labels,
+            average="binary",
+            pos_label=pos_label,
+            sample_weights=sample_weights,
+        ),
+    }
 
-    if not is_binomial:
-        metrics["f1_score_micro"] = sk_metrics.f1_score(y, y_pred, average="micro", labels=labels)
-        metrics["f1_score_macro"] = sk_metrics.f1_score(y, y_pred, average="macro", labels=labels)
 
-    if y_probs is not None:
-        metrics["log_loss"] = sk_metrics.log_loss(y, y_probs, labels=labels)
-
+def _get_multiclass_classifier_metrics(
+    *,
+    y_true,
+    y_pred,
+    y_proba=None,
+    labels=None,
+    average="weighted",
+    sample_weights=None,
+):
+    metrics = _get_common_classifier_metrics(
+        y_true=y_true,
+        y_pred=y_pred,
+        y_proba=y_proba,
+        labels=labels,
+        average=average,
+        pos_label=None,
+        sample_weights=sample_weights,
+    )
+    if average in ("macro", "weighted") and y_proba is not None:
+        metrics.update(
+            roc_auc=sk_metrics.roc_auc_score(
+                y_true=y_true,
+                y_score=y_proba,
+                sample_weight=sample_weights,
+                average=average,
+                multi_class="ovr",
+            )
+        )
     return metrics
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels):
+def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
-
         per_class_metrics = {"positive_class": positive_class}
-        per_class_metrics.update(_get_classifier_per_class_metrics(y_bin, y_pred_bin))
+        per_class_metrics.update(
+            _get_binary_classifier_metrics(
+                y_true=y_bin,
+                y_pred=y_pred_bin,
+                pos_label=1,
+                sample_weights=sample_weights,
+            )
+        )
         per_class_metrics_list.append(per_class_metrics)
 
     return pd.DataFrame(per_class_metrics_list)
@@ -222,7 +290,9 @@ def _gen_classifier_curve(
     y,
     y_probs,
     labels,
+    pos_label,
     curve_type,
+    sample_weights,
 ):
     """
     Generate precision-recall curve or ROC curve for classifier.
@@ -231,49 +301,80 @@ def _gen_classifier_curve(
     :param y_probs: if binary classifier, the predicted probability for positive class.
                     if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
+    :param pos_label: The label of the positive class.
     :param curve_type: "pr" or "roc"
+    :param sample_weights: Optional sample weights.
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
     """
     if curve_type == "roc":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            fpr, tpr, _ = sk_metrics.roc_curve(_y, _y_prob)
-            auc = sk_metrics.auc(fpr, tpr)
-            return fpr, tpr, f"AUC={auc:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
+            fpr, tpr, _ = sk_metrics.roc_curve(
+                _y,
+                _y_prob,
+                sample_weight=sample_weights,
+                # For multiclass classification where a one-vs-rest ROC curve is produced for each
+                # class, the positive label is binarized and should not be included in the plot
+                # legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
+            )
+            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
+        title = "ROC curve"
+        if pos_label:
+            xlabel = f"False Positive Rate (Positive label: {pos_label})"
+            ylabel = f"True Positive Rate (Positive label: {pos_label})"
     elif curve_type == "pr":
 
-        def gen_line_x_y_label_fn(_y, _y_prob):
-            precision, recall, _thresholds = sk_metrics.precision_recall_curve(_y, _y_prob)
-            ap = np.mean(precision)
-            return recall, precision, f"AP={ap:.3f}"
+        def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
+            precision, recall, _ = sk_metrics.precision_recall_curve(
+                _y,
+                _y_prob,
+                sample_weight=sample_weights,
+                # For multiclass classification where a one-vs-rest precision-recall curve is
+                # produced for each class, the positive label is binarized and should not be
+                # included in the plot legend
+                pos_label=_pos_label if _pos_label == pos_label else None,
+            )
+            # NB: We return average precision score (AP) instead of AUC because AP is more
+            # appropriate for summarizing a precision-recall curve
+            ap = sk_metrics.average_precision_score(
+                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+            )
+            return recall, precision, f"AP={ap:.3f}", ap
 
-        xlabel = "recall"
-        ylabel = "precision"
+        xlabel = "Recall"
+        ylabel = "Precision"
+        title = "Precision recall curve"
+        if pos_label:
+            xlabel = f"Recall (Positive label: {pos_label})"
+            ylabel = f"Precision (Positive label: {pos_label})"
     else:
         assert False, "illegal curve type"
 
     if is_binomial:
-        x_data, y_data, line_label = gen_line_x_y_label_fn(y, y_probs)
+        x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, pos_label)
         data_series = [(line_label, x_data, y_data)]
-        auc = sk_metrics.auc(x_data, y_data)
     else:
         curve_list = []
         for positive_class_index, positive_class in enumerate(labels):
             y_bin, _, y_prob_bin = _get_binary_sum_up_label_pred_prob(
-                positive_class_index, positive_class, y, None, y_probs
+                positive_class_index, positive_class, y, labels, y_probs
             )
 
-            x_data, y_data, line_label = gen_line_x_y_label_fn(y_bin, y_prob_bin)
-            curve_list.append((positive_class, x_data, y_data, line_label))
+            x_data, y_data, line_label, auc = gen_line_x_y_label_auc(
+                y_bin, y_prob_bin, _pos_label=1
+            )
+            curve_list.append((positive_class, x_data, y_data, line_label, auc))
 
         data_series = [
             (f"label={positive_class},{line_label}", x_data, y_data)
-            for positive_class, x_data, y_data, line_label in curve_list
+            for positive_class, x_data, y_data, line_label, _ in curve_list
         ]
-        auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
+        auc = [auc for _, _, _, _, auc in curve_list]
 
     def _do_plot(**kwargs):
         from matplotlib import pyplot
@@ -303,6 +404,7 @@ def _gen_classifier_curve(
             "xlabel": xlabel,
             "ylabel": ylabel,
             "line_kwargs": {"drawstyle": "steps-post", "linewidth": 1},
+            "title": title,
         },
         auc=auc,
     )
@@ -323,6 +425,20 @@ class _CustomMetric(NamedTuple):
     function : the custom metric function
     name : the name of the custom metric function
     index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    """
+
+    function: Callable
+    name: str
+    index: int
+
+
+class _CustomArtifact(NamedTuple):
+    """
+    A namedtuple representing a custom artifact function and its properties.
+
+    function : the custom artifact function
+    name : the name of the custom artifact function
+    index : the index of the function in the ``custom_artifacts`` argument of mlflow.evaluate
     artifacts_dir : the path to a temporary directory to store produced artifacts of the function
     """
 
@@ -330,6 +446,10 @@ class _CustomMetric(NamedTuple):
     name: str
     index: int
     artifacts_dir: str
+
+
+def _is_numeric(value):
+    return isinstance(value, (int, float, np.number))
 
 
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
@@ -342,69 +462,59 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
-             a dictionary of artifacts (which can be None if the custom metric function did
-             not produce any).
+    :return: A scalar metric value.
     """
     exception_header = (
-        f"Custom metric function '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
+        f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
         " in the `custom_metrics` parameter"
     )
 
-    if len(inspect.signature(custom_metric_tuple.function).parameters) == 3:
-        result = custom_metric_tuple.function(
-            eval_df, builtin_metrics, custom_metric_tuple.artifacts_dir
-        )
-    else:
-        result = custom_metric_tuple.function(eval_df, builtin_metrics)
+    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
-    if result is None:
+    if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    def __validate_metrics(metrics):
-        if not all(
-            isinstance(metric_name, str) and isinstance(metric_val, (int, float, np.number))
-            for metric_name, metric_val in metrics.items()
-        ):
-            raise MlflowException(
-                f"{exception_header} did not return metrics as a dictionary of string metric names "
-                "with numerical values."
-            )
+    if not _is_numeric(metric):
+        raise MlflowException(f"{exception_header} did not return a scalar numeric value.")
 
-    def __validate_artifacts(artifacts):
-        if not (
-            isinstance(artifacts, dict)
-            and all(isinstance(artifacts_name, str) for artifacts_name in artifacts.keys())
-        ):
-            raise MlflowException(
-                f"{exception_header} did not return artifacts as a dictionary of string artifact "
-                "names with their corresponding objects."
-            )
+    return metric
 
-    if isinstance(result, dict):
-        __validate_metrics(result)
-        return result, None
 
-    if (
-        isinstance(result, tuple)
-        and len(result) == 2
-        and isinstance(result[0], dict)
-        and isinstance(result[1], dict)
-    ):
-        __validate_metrics(result[0])
-        __validate_artifacts(result[1])
-        return result
+def _is_valid_artifacts(artifacts):
+    return isinstance(artifacts, dict) and all(isinstance(k, str) for k in artifacts.keys())
 
-    raise MlflowException(
-        f"{exception_header} did not return in an expected format. "
-        "The two acceptable return types are: \n"
-        "1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics \n"
-        "2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
-        "   dictionary of metrics and a dictionary of artifacts. \n"
-        "For more details refer to: "
-        "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
-        error_code=INVALID_PARAMETER_VALUE,
+
+def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
+    """
+    This function calls the `custom_artifact` function and performs validations on the returned
+    result to ensure that they are in the expected format. It will raise a MlflowException if
+    the result is not in the expected format.
+
+    :param custom_metric_tuple: Containing a user provided function and its index in the
+                                ``custom_artifacts`` parameter of ``mlflow.evaluate``
+    :param eval_df: A Pandas dataframe object containing a prediction and a target column.
+    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
+    :return: A dictionary of artifacts.
+    """
+    exception_header = (
+        f"Custom artifact function '{custom_artifact_tuple.name}' "
+        " at index {custom_artifact_tuple.index}"
+        " in the `custom_artifacts` parameter"
     )
+    artifacts = custom_artifact_tuple.function(
+        eval_df, builtin_metrics, custom_artifact_tuple.artifacts_dir
+    )
+
+    if artifacts is None:
+        raise MlflowException(f"{exception_header} returned None.")
+
+    if not _is_valid_artifacts(artifacts):
+        raise MlflowException(
+            f"{exception_header} did not return artifacts as a dictionary of string artifact "
+            "names with their corresponding objects."
+        )
+
+    return artifacts
 
 
 def _compute_df_mode_or_mean(df):
@@ -436,22 +546,16 @@ class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    def _gen_log_key(self, key):
-        if self.evaluator_config.get("log_metrics_with_dataset_info", True):
-            return f"{key}_on_data_{self.dataset_name}"
-        else:
-            return key
-
     def _log_metrics(self):
         """
         Helper method to log metrics into specified run.
         """
-        timestamp = int(time.time() * 1000)
+        timestamp = get_current_time_millis()
         self.client.log_batch(
             self.run_id,
             metrics=[
                 Metric(
-                    key=self._gen_log_key(key),
+                    key=key,
                     value=value,
                     timestamp=timestamp,
                     step=0,
@@ -467,7 +571,7 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = self._gen_log_key(artifact_name) + ".png"
+        artifact_file_name = f"{artifact_name}.png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -483,7 +587,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = self._gen_log_key(artifact_name) + ".csv"
+        artifact_file_name = f"{artifact_name}.csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         mlflow.log_artifact(artifact_file_local_path)
@@ -496,6 +600,15 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_model_explainability(self):
         if not self.evaluator_config.get("log_model_explainability", True):
+            return
+
+        if self.is_model_server and not self.evaluator_config.get(
+            "log_model_explainability", False
+        ):
+            _logger.warning(
+                "Skipping model explainability because a model server is used for environment "
+                "restoration."
+            )
             return
 
         if self.model_loader_module == "mlflow.spark":
@@ -645,7 +758,7 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            mlflow.shap.log_explainer(explainer, artifact_path=self._gen_log_key("explainer"))
+            mlflow.shap.log_explainer(explainer, artifact_path="explainer")
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
@@ -694,9 +807,11 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_sklearn_model_score_if_scorable(self):
-        if self.model_loader_module == "mlflow.sklearn":
+        if self.model_loader_module == "mlflow.sklearn" and self.raw_model is not None:
             try:
-                score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y)
+                score = self.raw_model.score(
+                    self.X.copy_to_avoid_mutation(), self.y, sample_weight=self.sample_weights
+                )
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
@@ -712,7 +827,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["roc_auc"] = self.roc_curve.auc
@@ -721,14 +838,19 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_prob,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
 
     def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, self.label_list
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            sample_weights=self.sample_weights,
         )
 
         log_roc_pr_curve = False
@@ -751,7 +873,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="roc",
+                sample_weights=self.sample_weights,
             )
 
             def plot_roc_curve():
@@ -765,7 +889,9 @@ class DefaultEvaluator(ModelEvaluator):
                 y=self.y,
                 y_probs=self.y_probs,
                 labels=self.label_list,
+                pos_label=self.pos_label,
                 curve_type="pr",
+                sample_weights=self.sample_weights,
             )
 
             def plot_pr_curve():
@@ -792,7 +918,7 @@ class DefaultEvaluator(ModelEvaluator):
             self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
 
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs),
+                lambda: plot_lift_curve(self.y, self.y_probs, pos_label=self.pos_label),
                 "lift_curve_plot",
             )
 
@@ -818,8 +944,7 @@ class DefaultEvaluator(ModelEvaluator):
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
             artifact_name, raw_artifact, custom_metric_tuple
         )
-        artifact_file_name = self._gen_log_key(artifact_name) + inferred_ext
-        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+        artifact_file_local_path = self.temp_dir.path(artifact_name + inferred_ext)
 
         if pathlib.Path(artifact_file_local_path).exists():
             raise MlflowException(
@@ -869,37 +994,51 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
-        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
+        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_name + inferred_ext))
         artifact._load(artifact_file_local_path)
         return artifact
 
     def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
-        if self.custom_metrics is None:
+        if not self.custom_metrics and not self.custom_artifacts:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
         eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
-        for index, custom_metric in enumerate(self.custom_metrics):
+        for index, custom_metric in enumerate(self.custom_metrics or []):
+            # deepcopying eval_df and builtin_metrics for each custom metric function call,
+            # in case the user modifies them inside their function(s).
+            custom_metric_tuple = _CustomMetric(
+                function=custom_metric.eval_fn,
+                index=index,
+                name=custom_metric.name,
+            )
+            metric_result = _evaluate_custom_metric(
+                custom_metric_tuple,
+                eval_df.copy(),
+                copy.deepcopy(builtin_metrics),
+            )
+            self.metrics.update({custom_metric.name: metric_result})
+
+        for index, custom_artifact in enumerate(self.custom_artifacts or []):
             with tempfile.TemporaryDirectory() as artifacts_dir:
-                custom_metric_tuple = _CustomMetric(
-                    function=custom_metric,
-                    index=index,
-                    name=getattr(custom_metric, "__name__", repr(custom_metric)),
-                    artifacts_dir=artifacts_dir,
-                )
                 # deepcopying eval_df and builtin_metrics for each custom metric function call,
                 # in case the user modifies them inside their function(s).
-                metric_results, artifact_results = _evaluate_custom_metric(
-                    custom_metric_tuple,
+                custom_artifact_tuple = _CustomArtifact(
+                    function=custom_artifact,
+                    index=index,
+                    name=getattr(custom_artifact, "__name__", repr(custom_artifact)),
+                    artifacts_dir=artifacts_dir,
+                )
+                artifact_results = _evaluate_custom_artifacts(
+                    custom_artifact_tuple,
                     eval_df.copy(),
                     copy.deepcopy(builtin_metrics),
                 )
-                self.metrics.update(metric_results)
                 if artifact_results is not None and log_to_mlflow_tracking:
                     for artifact_name, raw_artifact in artifact_results.items():
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
                             raw_artifact,
-                            custom_metric_tuple,
+                            custom_artifact_tuple,
                         )
 
     def _log_confusion_matrix(self):
@@ -908,7 +1047,11 @@ class DefaultEvaluator(ModelEvaluator):
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y, self.y_pred, labels=self.label_list, normalize="true"
+            self.y,
+            self.y_pred,
+            labels=self.label_list,
+            normalize="true",
+            sample_weight=self.sample_weights,
         )
 
         def plot_confusion_matrix():
@@ -922,10 +1065,11 @@ class DefaultEvaluator(ModelEvaluator):
                 }
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
-                sk_metrics.ConfusionMatrixDisplay(
+                disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
                 ).plot(cmap="Blues", ax=ax)
+                disp.ax_.set_title("Normalized confusion matrix")
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
@@ -946,12 +1090,13 @@ class DefaultEvaluator(ModelEvaluator):
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                if list(self.label_list) not in [[0, 1], [-1, 1]]:
-                    raise ValueError(
-                        "Binary classifier evaluation dataset positive class label must be 1 or"
-                        " True, negative class label must be 0 or -1 or False, and dataset"
-                        " must contains both positive and negative examples."
+                if self.pos_label in self.label_list:
+                    self.label_list = np.delete(
+                        self.label_list, np.where(self.label_list == self.pos_label)
                     )
+                    self.label_list = np.append(self.label_list, self.pos_label)
+                elif self.pos_label is None:
+                    self.pos_label = self.label_list[-1]
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
@@ -980,20 +1125,32 @@ class DefaultEvaluator(ModelEvaluator):
         """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
-            self.metrics.update(
-                _get_classifier_global_metrics(
-                    self.is_binomial,
-                    self.y,
-                    self.y_pred,
-                    self.y_probs,
-                    self.label_list,
-                )
-            )
             if self.is_binomial:
-                self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
+                self.metrics.update(
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=self.pos_label,
+                        sample_weights=self.sample_weights,
+                    )
+                )
                 self._compute_roc_and_pr_curve()
+            else:
+                average = self.evaluator_config.get("average", "weighted")
+                self.metrics.update(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                        sample_weights=self.sample_weights,
+                    )
+                )
         elif self.model_type == "regressor":
-            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+            self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
     def _log_metrics_and_artifacts(self):
         """
@@ -1022,6 +1179,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.temp_dir = temp_dir
             self.model = model
             self.is_baseline_model = is_baseline_model
+
+            self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
@@ -1065,6 +1224,7 @@ class DefaultEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        custom_artifacts=None,
         baseline_model=None,
         **kwargs,
     ):
@@ -1075,7 +1235,10 @@ class DefaultEvaluator(ModelEvaluator):
         self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
+        self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
+        self.pos_label = self.evaluator_config.get("pos_label")
+        self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
 

@@ -1,3 +1,4 @@
+import json
 import os
 import pytest
 
@@ -88,10 +89,29 @@ def test_predict(tmpdir):
     temp_input_file_path = tmpdir.join("input.json").strpath
     with open(temp_input_file_path, "w") as temp_input_file:
         temp_input_file.write('{"data": [5000]}')
+
+    temp_output_file_path = tmpdir.join("output.json").strpath
+
     res = runner.invoke(
         cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
     )
-    assert "1" in res.stdout
+    assert '{"predictions": [1, 2, 3]}' in res.stdout
+
+    res = runner.invoke(
+        cli.predict,
+        [
+            "--target",
+            f_target,
+            "--name",
+            f_name,
+            "--input-path",
+            temp_input_file_path,
+            "--output-path",
+            temp_output_file_path,
+        ],
+    )
+    with open(temp_output_file_path, "r") as f:
+        assert json.load(f) == {"predictions": [1, 2, 3]}
 
 
 def test_target_help():

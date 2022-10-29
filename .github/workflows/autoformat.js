@@ -2,7 +2,7 @@ const createCommitStatus = async (context, github, sha, state) => {
   const { workflow, runId } = context;
   const { owner, repo } = context.repo;
   const target_url = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-  await github.repos.createCommitStatus({
+  await github.rest.repos.createCommitStatus({
     owner,
     repo,
     sha,
@@ -20,7 +20,7 @@ const shouldAutoformat = (comment) => {
 const getPullInformation = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
-  const pr = await github.pulls.get({ owner, repo, pull_number });
+  const pr = await github.rest.pulls.get({ owner, repo, pull_number });
   const {
     sha,
     ref,
@@ -32,6 +32,17 @@ const getPullInformation = async (context, github) => {
     sha,
     ref,
   };
+};
+
+const createReaction = async (context, github) => {
+  const { owner, repo } = context.repo;
+  const { id: comment_id } = context.payload.comment;
+  await github.rest.reactions.createForIssueComment({
+    owner,
+    repo,
+    comment_id,
+    content: 'rocket',
+  });
 };
 
 const createStatus = async (context, github, core) => {
@@ -51,6 +62,7 @@ const updateStatus = async (context, github, sha, needs) => {
 module.exports = {
   shouldAutoformat,
   getPullInformation,
+  createReaction,
   createStatus,
   updateStatus,
 };

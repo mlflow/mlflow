@@ -47,7 +47,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.7.1"
+    maximum: "1.7.7"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -67,61 +67,27 @@ tensorflow:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.9.1"
+    maximum: "2.10.0"
     requirements:
-      "< 2.6.0": ["protobuf<4.0.0"]
       # Requirements to run tests for keras
-      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "< 2.6.0": [ "protobuf<4.0.0" ]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py
-
-      # Run tests for keras against keras-nightly that's installed with tf-nightly:
-      # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
-      if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_model_export.py
-      fi
+      pytest \
+        tests/tensorflow/test_load_saved_tensorflow_estimator.py \
+        tests/tensorflow/test_tensorflow2_core_model_export.py \
+        tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
+        tests/tensorflow/test_keras_model_export.py \
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.9.1"
+    maximum: "2.10.0"
     requirements:
-      "< 2.6.0": ["protobuf<4.0.0"]
       "== dev": ["scikit-learn"]
+      "< 2.6.0": ["protobuf<4.0.0"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
-
-      if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_autolog.py
-      fi
-
-keras:
-  package_info:
-    pip_release: "keras"
-
-  models:
-    minimum: "2.3.0"
-    maximum: "2.9.0"
-    requirements:
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
-      "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
-      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "transformers"]
-      "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow", "transformers"]
-    run: |
-      pytest tests/keras/test_keras_model_export.py
-
-  autologging:
-    minimum: "2.3.0"
-    maximum: "2.9.0"
-    requirements:
-      # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
-      # https://github.com/tensorflow/tensorflow/issues/38589
-      "<= 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
-      "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow"]
-    run: |
-      pytest tests/keras/test_keras_autolog.py
 
 xgboost:
   package_info:
@@ -131,7 +97,7 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.6.1"
+    maximum: "1.6.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -139,7 +105,7 @@ xgboost:
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.6.1"
+    maximum: "1.6.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -153,7 +119,7 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -161,7 +127,7 @@ lightgbm:
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -180,7 +146,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.6"
+    maximum: "1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -383,7 +349,7 @@ prophet:
 
   models:
     minimum: "1.0.1"
-    maximum: "1.1"
+    maximum: "1.1.1"
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -392,6 +358,7 @@ pmdarima:
     pip_release: "pmdarima"
     install_dev: |
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pmdarima-*.whl") ]; then
+        pip install Cython
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/alkaline-ml/pmdarima.git
       fi
       pip install $CACHE_DIR/pmdarima-*.whl

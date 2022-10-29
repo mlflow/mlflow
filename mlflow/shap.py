@@ -10,7 +10,6 @@ import mlflow
 import types
 import mlflow.utils.autologging_utils
 from mlflow import pyfunc
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.models import Model
 
@@ -149,7 +148,6 @@ def _get_conda_env_for_underlying_model(underlying_model_path):
         return yaml.safe_load(underlying_model_conda_file)
 
 
-@experimental
 def log_explanation(predict_function, features, artifact_path=None):
     r"""
     Given a ``predict_function`` capable of computing ML model output on the provided ``features``,
@@ -289,7 +287,6 @@ def log_explanation(predict_function, features, artifact_path=None):
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_explainer(
     explainer,
@@ -364,7 +361,6 @@ def log_explainer(
     )
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_explainer(
     explainer,
@@ -468,7 +464,8 @@ def save_explainer(
         loader_module="mlflow.shap",
         model_path=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
 
@@ -581,7 +578,6 @@ def _merge_environments(shap_environment, model_environment):
     )
 
 
-@experimental
 def load_explainer(model_uri):
     """
     Load a SHAP explainer from a local file or a run.
@@ -619,7 +615,6 @@ def load_explainer(model_uri):
     return _load_explainer(explainer_file=explainer_artifacts_path, model=model)
 
 
-@experimental
 def _load_explainer(explainer_file, model=None):
     """
     Load a SHAP explainer saved as an MLflow artifact on the local file system.

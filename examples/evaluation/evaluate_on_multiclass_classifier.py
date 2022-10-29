@@ -17,7 +17,6 @@ with mlflow.start_run() as run:
         X_test,
         targets=y_test,
         model_type="classifier",
-        dataset_name="multiclass-classification-dataset",
         evaluators="default",
         evaluator_config={"log_model_explainability": True, "explainability_nsamples": 1000},
     )

@@ -4,15 +4,12 @@ from pprint import pprint
 
 import mlflow
 from mlflow.tracking import MlflowClient
+from mlflow.artifacts import download_artifacts
 
 
 def save_text(path, text):
     with open(path, "w") as f:
         f.write(text)
-
-
-#  NOTE: ensure the tracking server has been started with --serve-artifacts to enable
-#        MLflow artifact serving functionality.
 
 
 def log_artifacts():
@@ -37,8 +34,8 @@ def main():
     # Download artifacts
     client = MlflowClient()
     print("Downloading artifacts")
-    pprint(os.listdir(client.download_artifacts(run_id1, "")))
-    pprint(os.listdir(client.download_artifacts(run_id1, "dir")))
+    pprint(os.listdir(download_artifacts(run_id=run_id1, artifact_path="")))
+    pprint(os.listdir(download_artifacts(run_id=run_id1, artifact_path="dir")))
 
     # List artifacts
     print("Listing artifacts")

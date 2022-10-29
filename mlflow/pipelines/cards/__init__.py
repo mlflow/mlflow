@@ -92,24 +92,18 @@ class CardTab:
         )
         self.add_html(name, img_html)
 
-    def add_pandas_profile(self, name: str, profile) -> CardTab:
+    def add_pandas_profile(self, name: str, profile: str) -> CardTab:
         """
         Add a new tab representing the provided pandas profile to the card.
 
         :param name: name of the variable in the Jinja2 template
-        :param profile: the pandas profile object
+        :param profile: html string to render profile in the step card
         :return: the updated card instance
         """
         try:
-            # Add "anchor" class to variable links to override their click behaviors using
-            # this jQuery code in pandas-profiling:
-            # https://github.com/ydataai/pandas-profiling/blob/v3.2.0/src/pandas_profiling/report/presentation/flavours/html/templates/wrapper/assets/script.js#L5-L23
-            profile_html = _PP_VARIABLE_LINK_REGEX.sub(
-                r'<a class="anchor" href="\g<href>">', profile.to_html()
-            )
             profile_iframe = (
                 "<iframe srcdoc='{src}' width='100%' height='500' frameborder='0'></iframe>"
-            ).format(src=html.escape(profile_html))
+            ).format(src=html.escape(profile))
         except Exception as e:
             profile_iframe = f"Unable to create data profile. Error found:\n{e}"
         self.add_html(name, profile_iframe)
@@ -258,17 +252,22 @@ class BaseCard:
                         ("text-align", "left"),
                         ("padding", "5px"),
                     ],
-                }
+                },
             ]
         )
         if hide_index:
-            return (
+            rendered_table = (
                 styler.hide(axis="index").to_html()
                 if pandas_version >= Version("1.4.0")
                 else styler.hide_index().render()
             )
         else:
-            return styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
+            rendered_table = (
+                styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
+            )
+        return '<div style="max-height: 500px; overflow: scroll;">{src}</div>'.format(
+            src=rendered_table
+        )
 
 
 class FailureCard(BaseCard):
@@ -279,7 +278,9 @@ class FailureCard(BaseCard):
           HTML template in the process.
     """
 
-    def __init__(self, pipeline_name: str, step_name: str, failure_traceback: str):
+    def __init__(
+        self, pipeline_name: str, step_name: str, failure_traceback: str, output_directory: str
+    ):
         super().__init__(
             pipeline_name=pipeline_name,
             step_name=step_name,
@@ -288,6 +289,11 @@ class FailureCard(BaseCard):
             "STEP_STATUS",
             '<p><strong>Step status: <span style="color:red">Failed</span></strong></p>',
         )
-        self.add_tab("Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}").add_html(
-            "STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</p></code>'
-        )
+        self.add_tab(
+            "Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}</div>"
+        ).add_html("STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</code></p>')
+        warning_output_path = os.path.join(output_directory, "warning_logs.txt")
+        if os.path.exists(warning_output_path):
+            self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
+                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
+            )

@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import pytest
 import shutil
-from sklearn.datasets import load_diabetes
+from sklearn.datasets import load_diabetes, load_iris
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
@@ -19,20 +19,27 @@ from tests.pipelines.helper_functions import (
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
     train_and_log_model,
+    train_and_log_classification_model,
 )  # pylint: enable=unused-import
 
 
 @pytest.fixture(autouse=True)
-def evaluation_inputs(tmp_pipeline_exec_path):
+def evaluation_inputs(request, tmp_pipeline_exec_path):
     split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
-    X, y = load_diabetes(as_frame=True, return_X_y=True)
+    if "classification" in request.keywords:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+    else:
+        X, y = load_diabetes(as_frame=True, return_X_y=True)
     validation_df = X.assign(y=y).sample(n=50, random_state=9)
     validation_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_VALIDATION_FILE_NAME))
     test_df = X.assign(y=y).sample(n=100, random_state=42)
     test_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_TEST_FILE_NAME))
 
-    run_id, model = train_and_log_model()
+    if "classification" in request.keywords:
+        run_id, model = train_and_log_classification_model()
+    else:
+        run_id, model = train_and_log_model()
     train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
@@ -66,11 +73,10 @@ steps:
         threshold: {mae_threshold}
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
@@ -83,28 +89,66 @@ metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "weighted_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
+
+
+@pytest.mark.classification
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache")
+def test_evaluate_produces_expected_step_card(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+):
+    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir.mkdir(parents=True)
+
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    pipeline_yaml.write_text(
+        """
+template: "classification/v1"
+positive_class: "Iris-setosa"
+target_col: "y"
+primary_metric: "f1_score"
+experiment:
+  tracking_uri: {tracking_uri}
+steps:
+  evaluate:
+    validation_criteria:
+      - metric: f1_score
+        threshold: 10
+""".format(
+            tracking_uri=mlflow.get_tracking_uri(),
+        )
+    )
+    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+    pipeline_steps_dir.mkdir(parents=True)
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step.run(str(evaluate_step_output_dir))
+
+    with open(evaluate_step_output_dir / "card.html", "r", errors="ignore") as f:
+        step_card_content = f.read()
+
+    assert "Model Validation" in step_card_content
+    assert "Classifier Plots on the Validation Dataset" in step_card_content
+    assert "Warning Logs" in step_card_content
+    assert "Run Summary" in step_card_content
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -129,12 +173,11 @@ steps:
     pipeline_steps_dir.mkdir(parents=True)
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "mean_squared_error" in logged_metrics
     assert "root_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
@@ -167,6 +210,7 @@ steps:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step._validate_and_apply_step_config()
     with pytest.raises(
         MlflowException,
         match=r"Validation criteria contain undefined metrics: \['undefined_metric'\]",
@@ -190,11 +234,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -212,7 +255,7 @@ def one(eval_df, builtin_metrics):
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, AttributeError)
     assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
@@ -233,11 +276,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -250,7 +292,7 @@ metrics:
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, ModuleNotFoundError)
     assert "No module named 'steps.custom_metrics'" in str(exc.value.__cause__)
 
@@ -276,14 +318,13 @@ steps:
         threshold: 10
       - metric: mean_absolute_error
         threshold: 10
-metrics:
-  custom:
-    - name: mean_absolute_error
-      function: mean_absolute_error
-      greater_is_better: False
-    - name: root_mean_squared_error
-      function: root_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: mean_absolute_error
+    function: mean_absolute_error
+    greater_is_better: False
+  - name: root_mean_squared_error
+    function: root_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -293,10 +334,10 @@ metrics:
     pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def mean_absolute_error(eval_df, builtin_metrics):
-    return {"mean_absolute_error": 1}
+    return 1
 
 def root_mean_squared_error(eval_df, builtin_metrics):
-    return {"root_mean_squared_error": 1}
+    return 1
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -305,7 +346,7 @@ def root_mean_squared_error(eval_df, builtin_metrics):
         evaluate_step = EvaluateStep.from_pipeline_config(
             pipeline_config, str(tmp_pipeline_root_path)
         )
-        evaluate_step._run(str(evaluate_step_output_dir))
+        evaluate_step.run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
             "Custom metrics override the following built-in metrics: %s",
             ["mean_absolute_error", "root_mean_squared_error"],
@@ -313,11 +354,10 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    for dataset in ["validation", "test"]:
-        assert f"root_mean_squared_error_on_data_{dataset}" in logged_metrics
-        assert logged_metrics[f"root_mean_squared_error_on_data_{dataset}"] == 1
-        assert f"mean_absolute_error_on_data_{dataset}" in logged_metrics
-        assert logged_metrics[f"mean_absolute_error_on_data_{dataset}"] == 1
+    assert "root_mean_squared_error" in logged_metrics
+    assert logged_metrics["root_mean_squared_error"] == 1
+    assert "mean_absolute_error" in logged_metrics
+    assert logged_metrics["mean_absolute_error"] == 1
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     assert model_validation_status_path.read_text() == "VALIDATED"
@@ -355,7 +395,7 @@ steps:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step._run(str(evaluate_step_output_dir))
+    evaluate_step.run(str(evaluate_step_output_dir))
 
     train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
     with open(train_step_output_dir / "run_id") as f:

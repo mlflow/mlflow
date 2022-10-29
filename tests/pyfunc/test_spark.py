@@ -12,7 +12,15 @@ import pandas as pd
 import pytest
 
 import pyspark
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
+from pyspark.sql.types import (
+    ArrayType,
+    DoubleType,
+    LongType,
+    StringType,
+    FloatType,
+    IntegerType,
+    BooleanType,
+)
 from pyspark.sql.utils import AnalysisException
 
 import mlflow
@@ -37,14 +45,16 @@ from pyspark.sql.functions import pandas_udf
 from pyspark.sql.functions import col, struct
 
 
-prediction = [int(1), int(2), "class1", float(0.1), 0.2]
-types = [np.int32, int, str, np.float32, np.double]
+prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
+types = [np.int32, int, str, np.float32, np.double, bool]
 
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     spark = get_spark_session(pyspark.SparkConf())
     spark_df = spark.createDataFrame(pandas_df).coalesce(1)
-    pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
+    pyfunc_udf = spark_udf(
+        spark=spark, model_uri=model_uri, result_type=result_type, env_manager="local"
+    )
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
 
@@ -73,7 +83,13 @@ def configure_environment():
 
 
 def get_spark_session(conf):
-    conf.set(key="spark_session.python.worker.reuse", value=True)
+    conf.set(key="spark.python.worker.reuse", value="true")
+    # disable task retry (i.e. make it fast fail)
+    conf.set(key="spark.task.maxFailures", value="1")
+    # Disable simplifying traceback from Python UDFs
+    conf.set(key="spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled", value="false")
+    # Show jvm side stack trace.
+    conf.set(key="spark.sql.pyspark.jvmStacktrace.enabled", value="true")
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
@@ -134,6 +150,8 @@ def test_spark_udf(spark, model_path):
         "double": (DoubleType(), np.number),
         "long": (LongType(), int),
         "string": (StringType(), None),
+        "bool": (BooleanType(), bool),
+        "boolean": (BooleanType(), bool),
     }
 
     for tname, tdef in type_map.items():
@@ -147,14 +165,16 @@ def test_spark_udf(spark, model_path):
                 expected = prediction_df.select_dtypes(np_type)
                 if tname == "float":
                     expected = expected.astype(np.float32)
+                if tname == "bool" or tname == "boolean":
+                    expected = expected.astype(bool)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
-            pyfunc_udf = spark_udf(spark, model_path, result_type=t)
+            pyfunc_udf = spark_udf(spark, model_path, result_type=t, env_manager="local")
             new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
             actual = list(new_df.select("prediction").toPandas()["prediction"])
             assert expected == actual
             if not is_array:
-                pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
+                pyfunc_udf = spark_udf(spark, model_path, result_type=tname, env_manager="local")
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
@@ -170,12 +190,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         def predict(self, context, model_input):
             import sklearn
 
-            if sklearn.__version__ == sklearn_version:
-                pred_value = 1
-            else:
-                pred_value = 0
-
-            return model_input.apply(lambda row: pred_value, axis=1)
+            return model_input.apply(lambda row: sklearn.__version__, axis=1)
 
     infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=["a", "b"]))
 
@@ -189,11 +204,15 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
             "pytest==6.2.5",
         ],
     )
+    # tests/helper_functions.py
+    from tests.helper_functions import _get_mlflow_home
 
-    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager=env_manager)
+    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
+    python_udf = mlflow.pyfunc.spark_udf(
+        spark, model_path, env_manager=env_manager, result_type="string"
+    )
     result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
-
-    assert result == 1
+    assert result == sklearn_version
 
 
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
@@ -219,7 +238,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 def test_spark_udf_with_single_arg(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            return [",".join(model_input.columns.tolist())] * len(model_input)
+            return [",".join(map(str, model_input.columns.tolist()))] * len(model_input)
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel())
@@ -254,7 +273,10 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         res = good_data.withColumn("res", udf()).select("res").toPandas()
         assert res["res"][0] == ["a", "b", "c"]
@@ -314,7 +336,10 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         data = spark.createDataFrame(
             pd.DataFrame(
@@ -342,7 +367,10 @@ def test_spark_udf_with_datetime_columns(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         data = spark.range(10).selectExpr(
             "current_timestamp() as timestamp", "current_date() as date"
@@ -442,7 +470,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager
 ):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-    from mlflow.models.cli import _get_flavor_backend
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
 
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
@@ -451,9 +479,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
 
     @pandas_udf("int")
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
-        from mlflow.models.cli import _get_flavor_backend
+        from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-        _get_flavor_backend(
+        get_flavor_backend(
             model_path, env_manager=env_manager, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
@@ -473,7 +501,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         # and the udf task starts a mlflow model server process.
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
-    _get_flavor_backend(model_path, env_manager=env_manager, install_mlflow=False).prepare_env(
+    get_flavor_backend(model_path, env_manager=env_manager, install_mlflow=False).prepare_env(
         model_uri=model_path
     )
 

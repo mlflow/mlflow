@@ -41,6 +41,12 @@ def tracking_uri_mock(tmpdir, request):
             del os.environ["MLFLOW_TRACKING_URI"]
 
 
+@pytest.fixture(autouse=True)
+def reset_active_experiment_id():
+    yield
+    mlflow.tracking.fluent._active_experiment_id = None
+
+
 @pytest.fixture(autouse=True, scope="session")
 def enable_test_mode_by_default_for_autologging_integrations():
     """
@@ -137,3 +143,22 @@ def mock_s3_bucket():
         s3_client = boto3.client("s3")
         s3_client.create_bucket(Bucket=bucket_name)
         yield bucket_name
+
+
+class ExtendedMonkeyPatch(pytest.MonkeyPatch):  # type: ignore
+    def setenvs(self, envs, prepend=None):
+        for name, value in envs.items():
+            self.setenv(name, value, prepend)
+
+    def delenvs(self, names, raising=True):
+        for name in names:
+            self.delenv(name, raising)
+
+
+@pytest.fixture
+def monkeypatch():
+    """
+    Overrides the default monkeypatch fixture to use `ExtendedMonkeyPatch`.
+    """
+    with ExtendedMonkeyPatch().context() as mp:
+        yield mp

@@ -1,10 +1,7 @@
 import classNames from 'classnames';
 import React from 'react';
 import Utils from '../../common/utils/Utils';
-import { Link } from 'react-router-dom';
-import Routes from '../routes';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { CollapsibleTagsCell } from '../../common/components/CollapsibleTagsCell';
 import _ from 'lodash';
 import ExpandableList from '../../common/components/ExpandableList';
 import registryIcon from '../../common/static/registryIcon.svg';
@@ -17,7 +14,7 @@ import {
 } from '../constants';
 import {
   CheckCircleBorderIcon,
-  Clock1Icon,
+  ClockIcon,
   XCircleBorderIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -86,108 +83,10 @@ export default class ExperimentViewUtil {
       case 'FINISHED':
         return <FinishedIcon />;
       case 'SCHEDULED':
-        return <Clock1Icon />; // This one is the same color as the link
+        return <ClockIcon />; // This one is the same color as the link
       default:
         return <i />;
     }
-  }
-
-  /**
-   * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
-   * the display row for a run.
-   */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle, excludedKeys) {
-    const CellComponent = `${cellType}`;
-    const user = Utils.getUser(runInfo, tags);
-    const queryParams = window.location && window.location.search ? window.location.search : '';
-    const sourceType = Utils.renderSource(tags, queryParams);
-    const { status, start_time: startTime, end_time: endTime } = runInfo;
-    const duration = Utils.getDuration(startTime, endTime);
-    const runName = Utils.getRunName(tags);
-    const childLeftMargin = isParent ? {} : { paddingLeft: 16 };
-    const columnProps = [
-      {
-        key: 'status',
-        className: 'run-table-container',
-        title: status,
-        children: ExperimentViewUtil.getRunStatusIcon(status),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.DATE,
-        className: 'run-table-container',
-        style: { whiteSpace: 'inherit' },
-        children: (
-          <div style={childLeftMargin}>
-            <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
-              {Utils.formatTimestamp(startTime)}
-            </Link>
-          </div>
-        ),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.DURATION,
-        className: 'run-table-container',
-        title: duration,
-        children: (
-          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {duration}
-          </div>
-        ),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.USER,
-        className: 'run-table-container',
-        title: user,
-        children: (
-          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {user}
-          </div>
-        ),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
-        className: 'run-table-container',
-        title: runName,
-        children: (
-          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {runName}
-          </div>
-        ),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.SOURCE,
-        className: 'run-table-container',
-        title: sourceType,
-        children: (
-          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {Utils.renderSourceTypeIcon(tags)}
-            {sourceType}
-          </div>
-        ),
-      },
-      {
-        key: ATTRIBUTE_COLUMN_LABELS.VERSION,
-        className: 'run-table-container',
-        children: (
-          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {Utils.renderVersion(tags)}
-          </div>
-        ),
-      },
-      {
-        key: 'Tags',
-        className: 'run-table-container',
-        children: (
-          <div style={ExperimentViewUtil.styles.runInfoCell}>
-            <CollapsibleTagsCell tags={tags} onToggle={handleCellToggle} />
-          </div>
-        ),
-      },
-    ];
-    const excludedKeysSet = new Set(excludedKeys);
-    return columnProps
-      .filter((column) => !excludedKeysSet.has(column.key))
-      .map((props) => <CellComponent {...props} />);
   }
 
   /**
@@ -266,7 +165,7 @@ export default class ExperimentViewUtil {
         Utils.formatTimestamp(runInfo.start_time),
         Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
         runInfo.run_uuid,
-        Utils.getRunName(tagsList[index]), // add run name to csv export row
+        Utils.getRunNameFromTags(tagsList[index]), // add run name to csv export row
         Utils.getSourceType(tagsList[index]),
         Utils.getSourceName(tagsList[index]),
         Utils.getUser(runInfo, tagsList[index]),

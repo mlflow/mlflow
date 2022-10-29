@@ -80,10 +80,13 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": str(dataset_path),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -124,11 +127,14 @@ def test_ingests_csv_successfully(
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "csv",
-                "location": dataset_path,
-                "custom_loader_method": "steps.ingest.load_file_as_dataframe",
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "csv",
+                    "location": dataset_path,
+                    "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -145,15 +151,18 @@ def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argu
 def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path):
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "csv",
-                "location": [
-                    "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
-                    "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
-                ],
-                "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
+            "target_col": "density",
+            "steps": {
+                "ingest": {
+                    "skip_data_profiling": True,
+                    "using": "csv",
+                    "location": [
+                        "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
+                        "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
+                    ],
+                    "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
+                }
             },
-            "steps": {"ingest": {"skip_data_profiling": True}},
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -185,13 +194,16 @@ def test_ingests_custom_format_successfully(use_relative_path, multiple_files, p
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "fooformat",
-                "location": str(dataset_path),
-                "custom_loader_method": (
-                    "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
-                ),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "fooformat",
+                    "location": str(dataset_path),
+                    "custom_loader_method": (
+                        "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                    ),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -210,11 +222,14 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_
     with pytest.raises(MlflowException, match="Failed to import custom dataset loader function"):
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    "format": "fooformat",
-                    "location": str(dataset_path),
-                    "custom_loader_method": "non.existent.module.non.existent.method",
-                }
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "fooformat",
+                        "location": str(dataset_path),
+                        "custom_loader_method": ("non.existent.module.non.existent.method"),
+                    }
+                },
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -232,11 +247,41 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
     ):
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    "format": "fooformat",
-                    "location": str(dataset_path),
-                    "custom_loader_method": "steps.ingest.load_file_as_dataframe",
-                }
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "fooformat",
+                        "location": str(dataset_path),
+                        "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                    }
+                },
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
+def custom_load_file_as_array(local_data_file_path, dataset_format):
+    return [local_data_file_path, dataset_format]
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.fooformat"
+    pandas_df.to_csv(dataset_path, sep="#")
+
+    with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "fooformat",
+                        "location": str(dataset_path),
+                        "custom_loader_method": (
+                            "tests.pipelines.test_ingest_step.custom_load_file_as_array"
+                        ),
+                    }
+                },
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -259,13 +304,16 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
         ):
             IngestStep.from_pipeline_config(
                 pipeline_config={
-                    "data": {
-                        "format": "fooformat",
-                        "location": str(dataset_path),
-                        "custom_loader_method": (
-                            "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
-                        ),
-                    }
+                    "target_col": "C",
+                    "steps": {
+                        "ingest": {
+                            "using": "fooformat",
+                            "location": str(dataset_path),
+                            "custom_loader_method": (
+                                "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                            ),
+                        }
+                    },
                 },
                 pipeline_root=os.getcwd(),
             ).run(output_directory=tmp_path)
@@ -279,10 +327,13 @@ def test_ingests_remote_s3_datasets_successfully(mock_s3_bucket, pandas_df, tmp_
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": f"s3://{mock_s3_bucket}/df.parquet",
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": f"s3://{mock_s3_bucket}/df.parquet",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -296,11 +347,14 @@ def test_ingests_remote_http_datasets_successfully(tmp_path):
     dataset_url = "https://raw.githubusercontent.com/mlflow/mlflow/594a08f2a49c5754bb65d76cd719c15c5b8266e9/examples/sklearn_elasticnet_wine/wine-quality.csv"
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "csv",
-                "location": dataset_url,
-                "custom_loader_method": "steps.ingest.load_file_as_dataframe",
-            }
+            "target_col": "density",
+            "steps": {
+                "ingest": {
+                    "using": "csv",
+                    "location": dataset_url,
+                    "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -315,10 +369,38 @@ def test_ingests_spark_sql_successfully(spark_df, tmp_path):
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "spark_sql",
-                "sql": "SELECT * FROM test_table ORDER BY id",
-            }
+            "target_col": "label",
+            "steps": {
+                "ingest": {
+                    "using": "spark_sql",
+                    "sql": "SELECT * FROM test_table ORDER BY id",
+                }
+            },
+        },
+        pipeline_root=os.getcwd(),
+    ).run(output_directory=tmp_path)
+
+    # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
+    # substantial performance cost. Accordingly, we sort the ingested DataFrame and the original
+    # DataFrame on the `id` column and reset the DataFrame index to achieve a consistent ordering
+    # before testing their equivalence
+    reloaded_df = (
+        pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        .sort_values(by="id")
+        .reset_index(drop=True)
+    )
+    spark_to_pandas_df = spark_df.toPandas().sort_values(by="id").reset_index(drop=True)
+    pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingests_spark_sql_location_successfully(spark_df, tmp_path):
+    spark_df.write.mode("overwrite").saveAsTable("test_table")
+
+    IngestStep.from_pipeline_config(
+        pipeline_config={
+            "target_col": "label",
+            "steps": {"ingest": {"using": "spark_sql", "location": "test_table"}},
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -346,10 +428,13 @@ def test_ingests_delta_successfully(use_relative_path, spark_df, tmp_path):
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "delta",
-                "location": str(dataset_path),
-            }
+            "target_col": "label",
+            "steps": {
+                "ingest": {
+                    "using": "delta",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -383,11 +468,14 @@ def test_ingests_delta_with_table_version_successfully(spark_session, spark_df, 
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "delta",
-                "location": str(dataset_path),
-                "version": version,
-            }
+            "target_col": "label",
+            "steps": {
+                "ingest": {
+                    "using": "delta",
+                    "location": str(dataset_path),
+                    "version": version,
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -437,11 +525,14 @@ def test_ingests_delta_with_timestamp_successfully(
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "delta",
-                "location": str(dataset_path),
-                "timestamp": timestamps[timestamp_idx],
-            }
+            "target_col": "label",
+            "steps": {
+                "ingest": {
+                    "using": "delta",
+                    "location": str(dataset_path),
+                    "timestamp": timestamps[timestamp_idx],
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -475,10 +566,13 @@ def test_ingest_directory_ignores_files_that_do_not_match_dataset_format(pandas_
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": str(dataset_path),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -494,10 +588,13 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     IngestStep.from_pipeline_config(
         pipeline_config={
-            "data": {
-                "format": "parquet",
-                "location": str(dataset_path),
-            }
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
+                    "location": str(dataset_path),
+                }
+            },
         },
         pipeline_root=os.getcwd(),
     ).run(output_directory=tmp_path)
@@ -509,7 +606,8 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     assert "Dataset source location" in step_card_html_content
     assert "Number of rows ingested" in step_card_html_content
-    assert "Profile of Ingested Dataset" in step_card_html_content
+    assert "Data Preview" in step_card_html_content
+    assert "facets-overview" in step_card_html_content
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -525,10 +623,37 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
     ):
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    "format": "delta",
-                    "location": str(dataset_path),
-                }
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "delta",
+                        "location": str(dataset_path),
+                    }
+                },
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spark_df, tmp_path):
+    dataset_path = tmp_path / "test.delta"
+    spark_df.write.format("delta").save(str(dataset_path))
+
+    with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+    ) as _get_active_spark_session:
+        _get_active_spark_session.return_value = None
+
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "target_col": "label",
+                "steps": {
+                    "ingest": {
+                        "using": "delta",
+                        "location": str(dataset_path),
+                    }
+                },
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -536,63 +661,86 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_dataset_format_unspecified():
-    with pytest.raises(MlflowException, match="Dataset format must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "target_col": "C",
+            "steps": {
+                "ingest": {
                     "location": "my_location",
                 }
             },
-            pipeline_root=os.getcwd(),
-        )
+        },
+        pipeline_root=os.getcwd(),
+    )
+    with pytest.raises(MlflowException, match="Dataset format must be specified"):
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_data_section_unspecified():
-    with pytest.raises(MlflowException, match="The `data` section.*must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={},
-            pipeline_root=os.getcwd(),
-        )
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={},
+        pipeline_root=os.getcwd(),
+    )
+    with pytest.raises(MlflowException, match="Dataset format must be specified"):
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_ingest_throws_when_required_dataset_config_keys_are_missing():
-    with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "parquet",
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "parquet",
                     # Missing location
                 }
             },
-            pipeline_root=os.getcwd(),
-        )
+        },
+        pipeline_root=os.getcwd(),
+    )
+    with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
+        ingest_step._validate_and_apply_step_config()
 
-    with pytest.raises(MlflowException, match="The `sql` configuration key must be specified"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "spark_sql",
-                    # Missing sql
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "spark_sql",
+                    # Missing sql and location
                 }
             },
-            pipeline_root=os.getcwd(),
-        )
+        },
+        pipeline_root=os.getcwd(),
+    )
 
+    ingest_step._validate_and_apply_step_config()
     with pytest.raises(
-        MlflowException, match="The `custom_loader_method` configuration key must be specified"
+        MlflowException,
+        match="Either location or sql configuration key must be specified for "
+        "dataset with format spark_sql",
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "csv",
+        ingest_step._run("output-directory")
+
+    ingest_step = IngestStep.from_pipeline_config(
+        pipeline_config={
+            "target_col": "C",
+            "steps": {
+                "ingest": {
+                    "using": "csv",
                     "location": "my/dataset.csv",
                     # Missing custom_loader_method
                 }
             },
-            pipeline_root=os.getcwd(),
-        )
+        },
+        pipeline_root=os.getcwd(),
+    )
+    with pytest.raises(
+        MlflowException, match="The `custom_loader_method` configuration key must be specified"
+    ):
+        ingest_step._validate_and_apply_step_config()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -605,11 +753,14 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
     ):
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    # Intentionally use an incorrect format that doesn't match the dataset
-                    "format": "parquet",
-                    "location": str(dataset_path),
-                }
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        # Intentionally use an incorrect format that doesn't match the dataset
+                        "using": "parquet",
+                        "location": str(dataset_path),
+                    }
+                },
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -626,11 +777,14 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
     ):
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    # Intentionally use an incorrect format that doesn't match the dataset
-                    "format": "parquet",
-                    "location": str(dataset_path),
-                }
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        # Intentionally use an incorrect format that doesn't match the dataset
+                        "using": "parquet",
+                        "location": str(dataset_path),
+                    }
+                },
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -641,14 +795,17 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
         IngestStep.from_pipeline_config(
             pipeline_config={
-                "data": {
-                    "format": "parquet",
-                    "location": str(dataset_path),
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "parquet",
+                        "location": str(dataset_path),
+                        "skip_data_profiling": True,
+                    }
                 },
-                "steps": {"ingest": {"skip_data_profiling": True}},
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
@@ -656,5 +813,5 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     expected_step_card_path = os.path.join(tmp_path, "card.html")
     with open(expected_step_card_path, "r") as f:
         step_card_html_content = f.read()
-    assert "Profile of Ingested Dataset" not in step_card_html_content
+    assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()

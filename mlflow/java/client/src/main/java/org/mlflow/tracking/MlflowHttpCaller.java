@@ -11,7 +11,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
@@ -21,6 +20,7 @@ import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
@@ -34,7 +34,7 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 class MlflowHttpCaller {
   private static final Logger logger = LoggerFactory.getLogger(MlflowHttpCaller.class);
   private static final String BASE_API_PATH = "api/2.0/mlflow";
-  protected HttpClient httpClient;
+  protected CloseableHttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
   private final int maxRateLimitIntervalMillis;
   private final int rateLimitRetrySleepInitMillis;
@@ -75,7 +75,7 @@ class MlflowHttpCaller {
                    int maxRateLimitIntervalMs,
                    int rateLimitRetrySleepInitMs,
                    int maxRetryAttempts,
-                   HttpClient client) {
+                   CloseableHttpClient client) {
     this(
       hostCredsProvider, maxRateLimitIntervalMs, rateLimitRetrySleepInitMs, maxRetryAttempts);
     this.httpClient = client;
@@ -135,9 +135,9 @@ class MlflowHttpCaller {
     fillRequestSettings(request, path);
     try {
       HttpResponse response = executeRequest(request);
-      String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-      logger.debug("Response: " + responseJosn);
-      return responseJosn;
+      String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+      logger.debug("Response: " + responseJson);
+      return responseJson;
     } catch (IOException e) {
       throw new MlflowClientException(e);
     }
@@ -246,5 +246,15 @@ class MlflowHttpCaller {
     }
 
     this.httpClient = builder.build();
+  }
+
+  void close() {
+    if (httpClient != null) {
+      try {
+	  httpClient.close();
+      } catch(IOException e){
+	  logger.warn("Unable to close connection to mlflow backend", e);
+      }
+    }
   }
 }

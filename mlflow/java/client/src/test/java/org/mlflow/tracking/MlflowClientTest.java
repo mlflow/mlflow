@@ -29,7 +29,6 @@ import org.mlflow.api.proto.Service.CreateRun;
 import org.mlflow.api.proto.Service.CreateExperiment;
 import org.mlflow.api.proto.Service.Experiment;
 import org.mlflow.api.proto.Service.ExperimentTag;
-import org.mlflow.api.proto.Service.GetExperiment;
 import org.mlflow.api.proto.Service.Metric;
 import org.mlflow.api.proto.Service.Param;
 import org.mlflow.api.proto.Service.Run;
@@ -78,8 +77,8 @@ public class MlflowClientTest {
   public void getCreateExperimentTest() {
     String expName = createExperimentName();
     String expId = client.createExperiment(expName);
-    GetExperiment.Response exp = client.getExperiment(expId);
-    Assert.assertEquals(exp.getExperiment().getName(), expName);
+    Experiment exp = client.getExperiment(expId);
+    Assert.assertEquals(exp.getName(), expName);
   }
 
   @Test
@@ -90,7 +89,7 @@ public class MlflowClientTest {
     request.addTags(ExperimentTag.newBuilder().setKey("key1").setValue("val1").build());
     request.addTags(ExperimentTag.newBuilder().setKey("key2").setValue("val2").build());
     String expId = client.createExperiment(request.build());
-    Experiment exp = client.getExperiment(expId).getExperiment();
+    Experiment exp = client.getExperiment(expId);
     Assert.assertEquals(exp.getTagsCount(), 2);
     for (ExperimentTag tag : exp.getTagsList()) {
       if (tag.getKey().equals("key1")) {
@@ -110,13 +109,13 @@ public class MlflowClientTest {
   public void deleteAndRestoreExperiments() {
     String expName = createExperimentName();
     String expId = client.createExperiment(expName);
-    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+    Assert.assertEquals(client.getExperiment(expId).getLifecycleStage(), "active");
 
     client.deleteExperiment(expId);
-    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "deleted");
+    Assert.assertEquals(client.getExperiment(expId).getLifecycleStage(), "deleted");
 
     client.restoreExperiment(expId);
-    Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
+    Assert.assertEquals(client.getExperiment(expId).getLifecycleStage(), "active");
   }
 
   @Test
@@ -125,29 +124,10 @@ public class MlflowClientTest {
     String newName = createExperimentName();
 
     String expId = client.createExperiment(expName);
-    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), expName);
+    Assert.assertEquals(client.getExperiment(expId).getName(), expName);
 
     client.renameExperiment(expId, newName);
-    Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), newName);
-  }
-
-  @Test
-  public void listExperimentsTest() {
-    List<Experiment> expsBefore = client.listExperiments();
-
-    String expName = createExperimentName();
-    String expId = client.createExperiment(expName);
-
-    List<Experiment> exps = client.listExperiments();
-    Assert.assertEquals(exps.size(), 1 + expsBefore.size());
-
-    java.util.Optional<Experiment> opt = getExperimentByName(exps, expName);
-    Assert.assertTrue(opt.isPresent());
-    Experiment expList = opt.get();
-    Assert.assertEquals(expList.getName(), expName);
-
-    GetExperiment.Response expGet = client.getExperiment(expId);
-    Assert.assertEquals(expGet.getExperiment(), expList);
+    Assert.assertEquals(client.getExperiment(expId).getName(), newName);
   }
 
   @Test
@@ -281,8 +261,7 @@ public class MlflowClientTest {
     Assert.assertEquals(updatedRunInfos.get(0).getStatus(), RunStatus.FINISHED);
 
     // Assert run from getExperiment
-    GetExperiment.Response expResponse = client.getExperiment(expId);
-    Experiment exp = expResponse.getExperiment();
+    Experiment exp = client.getExperiment(expId);
     Assert.assertEquals(exp.getName(), expName);
 
     // Assert run from getRun
@@ -304,24 +283,24 @@ public class MlflowClientTest {
     String expName = createExperimentName();
     String expId = client.createExperiment(expName);
     client.setExperimentTag(expId, "dataset", "imagenet1K");
-    Experiment exp = client.getExperiment(expId).getExperiment();
+    Experiment exp = client.getExperiment(expId);
     Assert.assertTrue(exp.getTagsCount() == 1);
     Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
     Assert.assertTrue(exp.getTags(0).getValue().equals("imagenet1K"));
     // test updating experiment tag
     client.setExperimentTag(expId, "dataset", "birdbike");
-    exp = client.getExperiment(expId).getExperiment();
+    exp = client.getExperiment(expId);
     Assert.assertTrue(exp.getTagsCount() == 1);
     Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
     Assert.assertTrue(exp.getTags(0).getValue().equals("birdbike"));
     // test that setting a tag on 1 experiment does not impact another experiment.
     String expId2 = client.createExperiment("randomExperimentName");
-    Experiment exp2 = client.getExperiment(expId2).getExperiment();
+    Experiment exp2 = client.getExperiment(expId2);
     Assert.assertTrue(exp2.getTagsCount() == 0);
     // test that setting a tag on different experiments maintain different values across experiments
     client.setExperimentTag(expId2, "dataset", "birds200");
-    exp = client.getExperiment(expId).getExperiment();
-    exp2 = client.getExperiment(expId2).getExperiment();
+    exp = client.getExperiment(expId);
+    exp2 = client.getExperiment(expId2);
     Assert.assertTrue(exp.getTagsCount() == 1);
     Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
     Assert.assertTrue(exp.getTags(0).getValue().equals("birdbike"));
@@ -330,7 +309,7 @@ public class MlflowClientTest {
     Assert.assertTrue(exp2.getTags(0).getValue().equals("birds200"));
     // test can set multi-line tags
     client.setExperimentTag(expId, "multiline tag", "value2\nvalue2\nvalue2");
-    exp = client.getExperiment(expId).getExperiment();
+    exp = client.getExperiment(expId);
     Assert.assertTrue(exp.getTagsCount() == 2);
     for (ExperimentTag tag : exp.getTagsList()) {
       if (tag.getKey().equals("multiline tag")) {
@@ -544,7 +523,7 @@ public class MlflowClientTest {
       Arrays.asList(1L, -5L, 4L, 4L));
 
     List<RunTag> tags = run.getData().getTagsList();
-    Assert.assertEquals(tags.size(), 1);
+    Assert.assertEquals(tags.size(), 2);
     assertTag(tags, "user_email", USER_EMAIL);
   }
 
@@ -606,14 +585,16 @@ public class MlflowClientTest {
 
       Stack<RunTag> tags = new Stack();
       tags.push(createTag("t1", "tagtagtag"));
+      tags.push(createTag("mlflow.runName", "myRun"));
       client.logBatch(runUuid, null, null, tags);
 
       Run run = client.getRun(runUuid);
       Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 1);
+      Assert.assertEquals(loggedTags.size(), 2);
       assertTag(loggedTags, "t1", "tagtagtag");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
 
     // All
@@ -627,7 +608,8 @@ public class MlflowClientTest {
         createParam("p2", "another param")));
       Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
         createTag("t2", "xx"),
-        createTag("t3", "xx")));
+        createTag("t3", "xx"),
+        createTag("mlflow.runName", "myRun")));
       client.logBatch(runUuid, metrics, params, tags);
 
       Run run = client.getRun(runUuid);
@@ -643,10 +625,11 @@ public class MlflowClientTest {
       assertParam(loggedParams, "p2", "another param");
 
       List<RunTag> loggedTags = run.getData().getTagsList();
-      Assert.assertEquals(loggedTags.size(), 3);
+      Assert.assertEquals(loggedTags.size(), 4);
       assertTag(loggedTags, "t1", "t1");
       assertTag(loggedTags, "t2", "xx");
       assertTag(loggedTags, "t3", "xx");
+      assertTag(loggedTags, "mlflow.runName", "myRun");
     }
   }
 

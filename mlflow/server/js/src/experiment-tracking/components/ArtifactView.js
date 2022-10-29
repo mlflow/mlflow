@@ -3,6 +3,7 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { injectIntl, FormattedMessage } from 'react-intl';
 import {
+  DATA_EXTENSIONS,
   getBasename,
   getExtension,
   IMAGE_EXTENSIONS,
@@ -314,6 +315,7 @@ export class ArtifactViewImpl extends Component {
             <ShowArtifactPage
               runUuid={this.props.runUuid}
               path={this.state.activeNodeId}
+              isDirectory={this.activeNodeIsDirectory()}
               size={this.getActiveNodeSize()}
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
@@ -512,6 +514,8 @@ decorators.Header = ({ style, node }) => {
     const extension = getExtension(node.name);
     if (IMAGE_EXTENSIONS.has(extension)) {
       iconType = 'file-image-o';
+    } else if (DATA_EXTENSIONS.has(extension)) {
+      iconType = 'file-excel-o';
     } else if (TEXT_EXTENSIONS.has(extension)) {
       iconType = 'file-code-o';
     } else {
