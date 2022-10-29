@@ -129,8 +129,8 @@ def spark_model_iris(iris_df):
 
 @pytest.fixture(
     scope="module",
-    params=[[("0", "double")], [("1", "double"), ("2", "double")]],
-    ids=["single", "multiple"],
+    params=[[], [("0", "double")], [("1", "double"), ("2", "double")]],
+    ids=["no-outputs", "single-output", "multiple-outputs"],
 )
 def spark_model_iris_signatures(iris_df, request):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
@@ -145,9 +145,12 @@ def spark_model_iris_signatures(iris_df, request):
     model = pipeline.fit(iris_spark_df)
     preds_df = model.transform(iris_spark_df)
     input_schema = Schema([ColSpec("double", f) for f in feature_names])
-    output_schema = Schema([ColSpec(f[1], f[0]) for f in request.param])
+    output_schema = Schema([ColSpec(f[1], f[0]) for f in request.param]) if request.param else None
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-    preds = [[x[c[0]] for c in request.param] for x in preds_df.collect()]
+    if request.param:
+        preds = [[x[c[0]] for c in request.param] for x in preds_df.collect()]
+    else:
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
     return SparkModelWithData(
         model=model,
         spark_df=iris_spark_df,

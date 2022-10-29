@@ -917,7 +917,11 @@ class _PyFuncModelWrapper:
         spark_df = _find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
-        if self.signature is not None and self.signature.outputs.has_input_names():
+        if (
+            self.signature is not None
+            and self.signature.outputs is not None
+            and self.signature.outputs.has_input_names()
+        ):
             prediction_columns = self.signature.outputs.input_names()
             return [
                 [x[field] for field in prediction_columns]
