@@ -30,7 +30,7 @@ from mlflow.pipelines.utils.metrics import (
     _get_primary_metric,
     _get_custom_metrics,
     _get_model_type_from_template,
-    _load_custom_metric_functions,
+    _load_custom_metrics,
 )
 from mlflow.pipelines.utils.step import (
     get_merged_eval_metrics,
@@ -336,7 +336,7 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        custom_metrics=_load_custom_metric_functions(
+                        custom_metrics=_load_custom_metrics(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -918,7 +918,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
-                    custom_metrics=_load_custom_metric_functions(
+                    custom_metrics=_load_custom_metrics(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),
                     ),

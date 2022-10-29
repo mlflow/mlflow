@@ -89,13 +89,11 @@ custom_metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -336,10 +334,10 @@ custom_metrics:
     pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def mean_absolute_error(eval_df, builtin_metrics):
-    return {"mean_absolute_error": 1}
+    return 1
 
 def root_mean_squared_error(eval_df, builtin_metrics):
-    return {"root_mean_squared_error": 1}
+    return 1
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)

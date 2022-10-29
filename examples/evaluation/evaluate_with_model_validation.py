@@ -3,7 +3,7 @@ import shap
 from sklearn.model_selection import train_test_split
 from sklearn.dummy import DummyClassifier
 import mlflow
-from mlflow.models import MetricThreshold
+from mlflow.models import MetricThreshold, make_metric
 from mlflow.models.evaluation.validation import ModelValidationFailedException
 
 # load UCI Adult Data Set; segment it into training and test sets
@@ -21,10 +21,8 @@ eval_data = X_test
 eval_data["label"] = y_test
 
 # Define a custom metric to evaluate against
-def double_positive(_, builtin_metrics):
-    return {
-        "double_positive": builtin_metrics["true_positives"] * 2,
-    }
+def double_positive(_eval_df, builtin_metrics):
+    return builtin_metrics["true_positives"] * 2
 
 
 # Define criteria for model to be validated against
@@ -66,7 +64,12 @@ with mlflow.start_run() as run:
         model_type="classifier",
         evaluators=["default"],
         validation_thresholds=thresholds,
-        custom_metrics=[double_positive],
+        custom_metrics=[
+            make_metric(
+                eval_fn=double_positive,
+                greater_is_better=False,
+            )
+        ],
         baseline_model=baseline_model_uri,
         # set to env_manager to "virtualenv" or "conda" to score the candidate and baseline models
         # in isolated Python environments where their dependencies are restored.
