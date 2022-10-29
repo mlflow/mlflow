@@ -151,16 +151,6 @@ setup(
             # as part of the MLflow server monitoring add-on
             "prometheus-flask-exporter",
         ],
-        "pipelines": [
-            "scikit-learn>=1.0",
-            "pyarrow>=7.0",
-            "shap>=0.40",
-            "pandas-profiling>=3.1",
-            "ipython>=7.0",
-            "markdown>=3.3",
-            "Jinja2>=2.11; platform_system != 'Windows'",
-            "Jinja2>=3.0; platform_system == 'Windows'",
-        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },

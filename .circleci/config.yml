@@ -80,7 +80,7 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            pip install -e '.[pipelines]'
+            pip install -e .
             pip install nbconvert ipykernel
       - run:
           name: Run CLI

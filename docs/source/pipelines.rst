@@ -35,17 +35,17 @@ MLflow Pipelines is available as an extension of the
 `MLflow Python library <https://pypi.org/project/mlflow/>`_. You can install MLflow Pipelines
 as follows:
 
-- **Local**: Install MLflow Pipelines from PyPI: ``pip install mlflow[pipelines]``.
+- **Local**: Install MLflow from PyPI: ``pip install mlflow``.
   Note that MLflow Pipelines requires `Make <https://www.gnu.org/software/make>`_,
   which may not be preinstalled on some Windows systems.
   Windows users must install Make before using MLflow Pipelines. For more information about
   installing Make on Windows, see https://gnuwin32.sourceforge.net/install.html.
 
 - **Databricks**: Install MLflow Pipelines from a Databricks Notebook by running
-  ``%pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
+  ``%pip install mlflow``, or install MLflow Pipelines on a Databricks Cluster by
   following the PyPI library installation instructions `here
   <https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster>`_
-  and specifying the ``mlflow[pipelines]`` package string.
+  and specifying the ``mlflow`` package string.
 
   .. note::
     `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
