@@ -261,6 +261,8 @@ def log_model(
             code_paths,
             signature=signature,
             input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
