@@ -7,14 +7,10 @@ get_python_bin <- function() {
   # MLFLOW_PYTHON_EXECUTABLE is an environment variable that's defined in a Databricks notebook
   # environment.
   mlflow_python_executable <- Sys.getenv("MLFLOW_PYTHON_EXECUTABLE")
-  print("mlflow_python_executable")
-  print(mlflow_python_executable)
   if (mlflow_python_executable != "") {
-    stdout <- system(paste(mlflow_python_executable, '-c "import sys; print(sys.executable)"' ),
-                    intern = TRUE,
-                    ignore.stderr = TRUE)
-    print("stdout")
-    print(stdout)
+    stdout <- system(paste(mlflow_python_executable, '-c "import sys; print(sys.executable)"'),
+                     intern = TRUE,
+                     ignore.stderr = TRUE)
     return(paste(stdout, collapse = ""))
   }
   python_bin <- Sys.which("python")
@@ -39,22 +35,14 @@ python_bin <- function() {
 # Python executable
 python_mlflow_bin <- function() {
   in_env <- Sys.getenv("MLFLOW_BIN")
-  print("in_env")
-  print(in_env)
   if (in_env != "") {
     return(in_env)
   }
   mlflow_bin <- Sys.which("mlflow")
-  print("mlflow_bin")
-  print(mlflow_bin)
   if (mlflow_bin != "") {
     return(mlflow_bin)
   }
-  print("mlflow_bin")
-  print(mlflow_bin)
   python_bin_dir <- dirname(python_bin())
-  print("python_bin_dir")
-  print(python_bin_dir)
   if (.Platform$OS.type == "windows") {
     file.path(python_bin_dir, "Scripts", "mlflow")
   } else {
