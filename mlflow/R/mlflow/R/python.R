@@ -1,5 +1,11 @@
 # Computes path to Python executable from the MLFLOW_PYTHON_BIN environment variable.
 get_python_bin <- function() {
+  # MLFLOW_PYTHON_EXECUTABLE is an environment variable that's defined in a Databricks notebook
+  # environment.
+  mlflow_python_executable <- Sys.getenv("MLFLOW_PYTHON_EXECUTABLE")
+  if (mlflow_python_executable != "") {
+    return(mlflow_python_executable)
+  }
   in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
   if (in_env != "") {
     return(in_env)
