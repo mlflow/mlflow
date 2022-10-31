@@ -307,10 +307,25 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
                 model = make_pipeline(transformer, estimator)
-                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                model_info = mlflow.sklearn.log_model(
-                    model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
-                )
+                if self.output_probabilities:
+                    model_schema = infer_signature(
+                        raw_X_train, model.predict_proba(raw_X_train.copy())
+                    )
+                    model_info = mlflow.sklearn.log_model(
+                        model,
+                        f"{self.name}/model",
+                        signature=model_schema,
+                        code_paths=self.code_paths,
+                        pyfunc_predict_fn="predict_proba",
+                    )
+                else:
+                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
+                    model_info = mlflow.sklearn.log_model(
+                        model,
+                        f"{self.name}/model",
+                        signature=model_schema,
+                        code_paths=self.code_paths,
+                    )
                 output_model_path = get_step_output_path(
                     pipeline_root_path=self.pipeline_root,
                     step_name=self.name,
