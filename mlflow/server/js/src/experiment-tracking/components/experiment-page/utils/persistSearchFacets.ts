@@ -5,6 +5,8 @@ import Utils from '../../../../common/utils/Utils';
 
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 
+const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
+
 /**
  * Function used by QueryString.parse(), implements better handling of booleans and undefined values
  */
@@ -72,6 +74,28 @@ function createPersistedQueryString(
 }
 
 /**
+ * Consumes object containing all fields parsed from search query and
+ * separates those relevant to the search state from the rest.
+ */
+function extractExperimentSearchFacetsState<
+  // Template for partial state type
+  PartialState extends Partial<SearchExperimentRunsFacetsState>,
+  // Template for partial state + the rest type
+  URLObject extends PartialState,
+>(rawURLSearchData: URLObject) {
+  const stateData: PartialState = {} as PartialState;
+  const restData: Omit<URLObject, keyof PartialState> = {} as Omit<URLObject, keyof PartialState>;
+
+  for (const field in rawURLSearchData) {
+    if (rawURLSearchData.hasOwnProperty(field)) {
+      const isKnownField = KNOWN_STATE_KEYS.includes(field);
+      Object.assign(isKnownField ? stateData : restData, { [field]: rawURLSearchData[field] });
+    }
+  }
+  return { stateData, restData };
+}
+
+/**
  * Persists current facets state in local storage and returns query string to be persisted in the URL.
  */
 export function persistExperimentSearchFacetsState(
@@ -131,20 +155,24 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
     arrayLimit: 500,
     decoder: urlParserDecoder,
   });
-  // The "experiments" field is used by compare experiments, let's yank it out
-  const { experiments, ...urlData } = rawUrlData;
-  // ...also ensure its sanity on a basic level
-  const safeUrlData = validateFacetsState(urlData) ? urlData : {};
+  const { restData, stateData } = extractExperimentSearchFacetsState(rawUrlData);
 
-  // Step 4: merge URL params into base (or localStorage-infused) state
-  const mergedFacetsState = mergeFacetsStates(baseState, safeUrlData);
+  // If the is at least one relevant query params in URL, take URL into consideration.
+  const isURLStateEmpty = Object.keys(stateData).length < 1;
+  if (!isURLStateEmpty) {
+    // We need merge specified fields from the URL query to the empty state.
+    // In certain scenarios, parts of the state (e.g. empty arrays) are not being persisted in the URL
+    // and we need to regenerate them.
+    const urlState = Object.assign(new SearchExperimentRunsFacetsState(), stateData);
+    baseState = mergeFacetsStates(baseState, urlState);
+  }
 
-  // Step 5: persist combined state again
-  persistLocalStorage(mergedFacetsState, idKey);
+  // Step 4: persist combined state again
+  persistLocalStorage(baseState, idKey);
 
   return {
-    state: mergedFacetsState,
-    isPristine: isEqual(new SearchExperimentRunsFacetsState(), mergedFacetsState),
-    queryString: createPersistedQueryString({ experiments, ...mergedFacetsState }),
+    state: baseState,
+    isPristine: isEqual(new SearchExperimentRunsFacetsState(), baseState),
+    queryString: createPersistedQueryString({ ...restData, ...baseState }),
   };
 }

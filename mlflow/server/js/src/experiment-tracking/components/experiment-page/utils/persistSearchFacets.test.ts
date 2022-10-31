@@ -73,8 +73,10 @@ describe('persistSearchFacet', () => {
       });
       const { state } = restoreExperimentSearchFacetsState('?searchFilter=urlfilter', 'id-key');
       expect(state.searchFilter).toEqual('urlfilter');
-      expect(state.orderByAsc).toEqual(true);
-      expect(state.orderByKey).toEqual('some-local-storage-sort-key');
+
+      // URL state (complemented with default values) should overshadow settings from the storage
+      expect(state.orderByAsc).not.toEqual(true);
+      expect(state.orderByKey).not.toEqual('some-local-storage-sort-key');
     });
 
     test('it should properly re-persist the local storage after merging', () => {
