@@ -298,6 +298,7 @@ def _enforce_tensor_spec(
     # of shape while support an input which is a ragged array.
     if len(expected_shape) == 1 and expected_shape[0] == -1 and expected_type == np.dtype("O"):
         # Sample spec: Tensor('object', (-1,))
+        # Will pass on any provided input
         return values
     if (
         len(expected_shape) > 1
@@ -306,6 +307,7 @@ def _enforce_tensor_spec(
         and actual_type == np.dtype("O")
     ):
         # Sample spec: Tensor('object', (-1, -1, -1, 3))
+        # Will pass on inputs which are ragged arrays: shape==(x,), dtype=='object'
         return values
 
     if len(expected_shape) != len(actual_shape):
