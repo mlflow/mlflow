@@ -55,7 +55,7 @@ class TestFileStore(unittest.TestCase):
         for name in self.registered_models:
             # create registered model
             creation_time = now()
-            rm_folder = os.path.join(self.test_root, name)
+            rm_folder = os.path.join(self.test_root, FileStore.MODELS_FOLDER_NAME, name)
             os.makedirs(rm_folder)
             d = {
                 "name": name,
@@ -1189,6 +1189,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_search_registered_model_order_by_errors(self):
         fs = self.get_store()
+        fs.create_registered_model("dummy")
         query = "name LIKE 'RM%'"
         # test that invalid columns throw even if they come after valid columns
         with pytest.raises(

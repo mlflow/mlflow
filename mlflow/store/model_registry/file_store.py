@@ -69,6 +69,7 @@ def _default_root_dir():
 
 
 class FileStore(AbstractStore):
+    MODELS_FOLDER_NAME = "models"
     META_DATA_FILE_NAME = "meta.yaml"
     TAGS_FOLDER_NAME = "tags"
     MODEL_VERSION_TAGS_FOLDER_NAME = "tags"
@@ -96,7 +97,7 @@ class FileStore(AbstractStore):
 
     def _validate_registered_model_does_not_exist(self, name):
         model_path = self._get_registered_model_path(name)
-        if model_path is not None:
+        if exists(model_path):
             raise MlflowException(
                 f"Registered Model (name={name}) already exists.",
                 RESOURCE_ALREADY_EXISTS,
@@ -107,7 +108,7 @@ class FileStore(AbstractStore):
         # tags are stored under TAGS_FOLDER_NAME so remove them in meta file.
         del registered_model_dict["tags"]
         del registered_model_dict["latest_versions"]
-        meta_dir = meta_dir or join(self.root_directory, registered_model.name)
+        meta_dir = meta_dir or self._get_registered_model_path(registered_model.name)
         if overwrite:
             overwrite_yaml(
                 meta_dir,
@@ -143,7 +144,8 @@ class FileStore(AbstractStore):
         self._validate_registered_model_does_not_exist(name)
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
-        meta_dir = mkdir(self.root_directory, name)
+        meta_dir = self._get_registered_model_path(name)
+        mkdir(meta_dir)
         creation_time = now()
         latest_versions = []
         registered_model = RegisteredModel(
@@ -165,11 +167,7 @@ class FileStore(AbstractStore):
     def _get_registered_model_path(self, name):
         self._check_root_dir()
         _validate_model_name(name)
-        model_path = join(self.root_directory, name)
-        if exists(model_path):
-            return model_path
-        else:
-            return None
+        return join(self.root_directory, FileStore.MODELS_FOLDER_NAME, name)
 
     def _get_registered_model_from_path(self, model_path):
         meta = FileStore._read_yaml(model_path, FileStore.META_DATA_FILE_NAME)
@@ -202,7 +200,7 @@ class FileStore(AbstractStore):
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         model_path = self._get_registered_model_path(name)
-        if model_path is None:
+        if not exists(model_path):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -210,12 +208,11 @@ class FileStore(AbstractStore):
         registered_model = self._get_registered_model_from_path(model_path)
 
         new_meta_dir = self._get_registered_model_path(new_name)
-        if new_meta_dir is None:
+        if not exists(new_meta_dir):
+            mkdir(new_meta_dir)
             updated_time = now()
             registered_model.name = new_name
             registered_model.last_updated_timestamp = updated_time
-            new_meta_dir = join(self.root_directory, new_name)
-            mkdir(new_meta_dir)
             self._save_registered_model_as_meta_file(
                 registered_model, meta_dir=new_meta_dir, overwrite=False
             )
@@ -247,7 +244,7 @@ class FileStore(AbstractStore):
         :return: None
         """
         meta_dir = self._get_registered_model_path(name)
-        if meta_dir is None:
+        if not exists(meta_dir):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -326,7 +323,7 @@ class FileStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         model_path = self._get_registered_model_path(name)
-        if model_path is None:
+        if not exists(model_path):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -344,7 +341,7 @@ class FileStore(AbstractStore):
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         registered_model_path = self._get_registered_model_path(name)
-        if registered_model_path is None:
+        if not exists(registered_model_path):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -369,7 +366,7 @@ class FileStore(AbstractStore):
         _validate_model_name(name)
         _validate_tag_name(tag_name)
         registered_model_path = self._get_registered_model_path(name)
-        if registered_model_path is None:
+        if not exists(registered_model_path):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -461,23 +458,12 @@ class FileStore(AbstractStore):
 
     def _get_model_version_dir(self, name, version):
         registered_model_path = self._get_registered_model_path(name)
-        if registered_model_path is None:
-            return None
-        return join(registered_model_path, f"version-{version}")
-
-    def _get_model_version_dir_with_check(self, name, version):
-        registered_model_version_dir = self._get_model_version_dir(name, version)
-        if registered_model_version_dir is None:
+        if not exists(registered_model_path):
             raise MlflowException(
                 f"Could not find registered model with name {name}",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        if exists(registered_model_version_dir):
-            return registered_model_version_dir
-        raise MlflowException(
-            f"Model Version (name={name}, version={version}) not found",
-            RESOURCE_DOES_NOT_EXIST,
-        )
+        return join(registered_model_path, f"version-{version}")
 
     def _get_model_version_from_dir(self, directory):
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
@@ -488,8 +474,8 @@ class FileStore(AbstractStore):
     def _save_model_version_as_meta_file(self, model_version, meta_dir=None, overwrite=True):
         model_version_dict = dict(model_version)
         del model_version_dict["tags"]
-        meta_dir = meta_dir or join(
-            self.root_directory, model_version.name, f"version-{model_version.version}"
+        meta_dir = meta_dir or self._get_model_version_dir(
+            model_version.name, model_version.version
         )
         if overwrite:
             overwrite_yaml(
@@ -635,7 +621,12 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: None
         """
-        meta_dir = self._get_model_version_dir_with_check(name, version)
+        meta_dir = self._get_model_version_dir(name, version)
+        if not exists(meta_dir):
+            raise MlflowException(
+                f"Model Version (name={name}, version={version}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
         shutil.rmtree(meta_dir)
         updated_time = now()
         self._update_registered_model_last_updated_time(name, updated_time)
@@ -650,7 +641,12 @@ class FileStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_version(version)
-        registered_model_version_dir = self._get_model_version_dir_with_check(name, version)
+        registered_model_version_dir = self._get_model_version_dir(name, version)
+        if not exists(registered_model_version_dir):
+            raise MlflowException(
+                f"Model Version (name={name}, version={version}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
         model_version = self._get_model_version_from_dir(registered_model_version_dir)
         return model_version
 
@@ -669,7 +665,9 @@ class FileStore(AbstractStore):
 
     def _get_all_registered_model_paths(self):
         self._check_root_dir()
-        model_dirs = list_subdirs(self.root_directory, full_path=True)
+        model_dirs = list_subdirs(
+            join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True
+        )
         return model_dirs
 
     def _list_model_versions_under_path(self, path):
