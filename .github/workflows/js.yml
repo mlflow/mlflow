@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - mlflow/server/js/**
+      - .github/workflows/js.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
