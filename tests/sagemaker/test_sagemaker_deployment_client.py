@@ -1361,9 +1361,9 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            assert operation_kwargs['Body'] == json.dumps({
-                "dataframe_split": input_df.to_dict(orient="split")
-            })
+            assert operation_kwargs["Body"] == json.dumps(
+                {"dataframe_split": input_df.to_dict(orient="split")}
+            )
             output_json = json.dumps({"predictions": output_df.to_dict(orient="records")})
             result = dict(Body=BytesIO(bytes(output_json, encoding="utf-8")))
         else:
@@ -1382,9 +1382,7 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            assert operation_kwargs['Body'] == json.dumps({
-                "instances": list(range(10))
-            })
+            assert operation_kwargs["Body"] == json.dumps({"instances": list(range(10))})
             result = dict(Body=BytesIO(b'{ "predictions": [1,2,3]}'))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
