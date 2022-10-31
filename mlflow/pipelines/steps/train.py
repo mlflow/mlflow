@@ -251,12 +251,17 @@ class TrainStep(BaseStep):
                 relative_path="transformed_training_data.parquet",
             )
             train_df = pd.read_parquet(transformed_training_data_path)
-            count_class_0, count_class_1 = train_df.target.value_counts()
-            if abs(count_class_0 / count_class_1) > _THRESHOLD:
-                df_class_0 = train_df[train_df["target"] == 0]
-                df_class_1 = train_df[train_df["target"] == 1]
-                df_class_0_under = df_class_0.sample(count_class_1)
-                train_df = pd.concat([df_class_0_under, df_class_1], axis=0)
+            df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
+            df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
+            _logger.info(
+                f"BEFORE BALANCE - positive count: {len(df_positive_class)}, negative count: {len(df_negative_class)}"
+            )
+            if len(df_positive_class) > len(df_negative_class):
+                df_downsampled = df_positive_class.sample(len(df_negative_class))
+                train_df = pd.concat([df_downsampled, df_negative_class], axis=0)
+            else:
+                df_downsampled = df_negative_class.sample(len(df_positive_class))
+                train_df = pd.concat([df_downsampled, df_positive_class], axis=0)
 
             X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
