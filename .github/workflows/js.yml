@@ -19,9 +19,9 @@ jobs:
   js:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, windows-latest]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             shell: bash
           - os: windows-latest
             shell: pwsh
