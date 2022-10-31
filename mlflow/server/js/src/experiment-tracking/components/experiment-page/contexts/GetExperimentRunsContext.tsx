@@ -108,14 +108,15 @@ export const GetExperimentRunsContextProvider = ({
   const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
     () => {
       // useState() initialization function that restores current search facets state
-      const { queryString, state } = restoreExperimentSearchFacetsState(
+      const { queryString, state, isPristine } = restoreExperimentSearchFacetsState(
         history.location.search,
         experimentIdsHash,
       );
 
-      // If query string differs from the current one, replace it
-      if (history.location.search !== queryString) {
-        history.push(`${history.location.pathname}${queryString}`);
+      // If resulting query string is not a default one
+      // and it differs from the current one, replace it
+      if (!isPristine && history.location.search !== queryString) {
+        history.replace(`${history.location.pathname}${queryString}`);
       }
       return state;
     },

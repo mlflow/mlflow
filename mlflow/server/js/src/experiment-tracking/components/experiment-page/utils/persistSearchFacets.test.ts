@@ -104,6 +104,11 @@ describe('persistSearchFacet', () => {
       expect(state).toBeTruthy();
       expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
     });
+
+    test('it marks the calculated state as pristine if no changes are done', () => {
+      const { isPristine } = restoreExperimentSearchFacetsState('', 'id-key');
+      expect(isPristine).toEqual(true);
+    });
   });
 
   describe('persistExperimentSearchFacetsState', () => {
@@ -153,9 +158,18 @@ describe('persistSearchFacet', () => {
         '?experiments=foobar&somethingElse=abc',
       );
 
-      expect(queryString).toEqual(
-        '?experiments=foobar&searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs',
-      );
+      let expectedQuery = '?experiments=foobar';
+      expectedQuery += `&searchFilter=${encodeURIComponent('some filter')}`;
+      expectedQuery += `&orderByKey=${encodeURIComponent('order-key')}`;
+      expectedQuery += `&orderByAsc=${encodeURIComponent('true')}`;
+      expectedQuery += `&startTime=${encodeURIComponent('ALL')}`;
+      expectedQuery += `&lifecycleFilter=${encodeURIComponent('Active')}`;
+      expectedQuery += `&modelVersionFilter=${encodeURIComponent('All Runs')}`;
+      expectedQuery += `&selectedColumns=${state.selectedColumns
+        .map((c) => encodeURIComponent(c))
+        .join(',')}`;
+
+      expect(queryString).toEqual(expectedQuery);
     });
   });
 });

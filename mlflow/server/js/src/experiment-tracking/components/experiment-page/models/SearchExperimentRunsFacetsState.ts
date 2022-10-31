@@ -1,10 +1,19 @@
 import {
+  ATTRIBUTE_COLUMN_LABELS,
+  COLUMN_TYPES,
   DEFAULT_LIFECYCLE_FILTER,
   DEFAULT_MODEL_VERSION_FILTER,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_START_TIME,
 } from '../../../constants';
+import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
+
+const DEFAULT_SELECTED_COLUMNS = [
+  // "Source" and "Model" columns are visible by default
+  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
+  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
+];
 
 /**
  * Defines persistable model respresenting sort and filter values
@@ -45,7 +54,7 @@ export class SearchExperimentRunsFacetsState {
   /**
    * Currently selected columns
    */
-  selectedColumns: string[] = [];
+  selectedColumns: string[] = [...DEFAULT_SELECTED_COLUMNS];
 
   /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that

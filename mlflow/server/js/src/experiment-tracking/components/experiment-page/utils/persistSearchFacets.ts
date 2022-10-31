@@ -1,4 +1,4 @@
-import { isArray, isObject } from 'lodash';
+import { isArray, isEqual, isObject } from 'lodash';
 import QueryString, { IParseOptions } from 'qs';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
@@ -27,10 +27,11 @@ const urlParserDecoder: IParseOptions['decoder'] = (str, defaultDecoder, _, type
 const mergeFacetsStates = (
   base: SearchExperimentRunsFacetsState,
   object: Partial<SearchExperimentRunsFacetsState>,
-): SearchExperimentRunsFacetsState => ({
-  ...base,
-  ...object,
-});
+): SearchExperimentRunsFacetsState =>
+  Object.assign(new SearchExperimentRunsFacetsState(), {
+    ...base,
+    ...object,
+  });
 
 /**
  * Performs basic checks on partial facets state model. Returns false if
@@ -143,6 +144,7 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
 
   return {
     state: mergedFacetsState,
+    isPristine: isEqual(new SearchExperimentRunsFacetsState(), mergedFacetsState),
     queryString: createPersistedQueryString({ experiments, ...mergedFacetsState }),
   };
 }

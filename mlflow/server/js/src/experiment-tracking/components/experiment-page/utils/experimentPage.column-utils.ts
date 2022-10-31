@@ -14,7 +14,7 @@ import { ExperimentNameCellRenderer } from '../components/runs/cells/ExperimentN
 import { ModelsCellRenderer } from '../components/runs/cells/ModelsCellRenderer';
 import { SourceCellRenderer } from '../components/runs/cells/SourceCellRenderer';
 import { VersionCellRenderer } from '../components/runs/cells/VersionCellRenderer';
-import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
+import type { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,

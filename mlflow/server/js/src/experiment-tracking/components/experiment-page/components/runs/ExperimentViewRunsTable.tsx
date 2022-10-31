@@ -11,7 +11,7 @@ import { FormattedMessage } from 'react-intl';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
 import { ExperimentRunsTableEmptyOverlay } from '../../../../../common/components/ExperimentRunsTableEmptyOverlay';
 import Utils from '../../../../../common/utils/Utils';
-import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../constants';
+import { ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../../constants';
 import {
   ExperimentEntity,
   UpdateExperimentSearchFacetsFn,
@@ -25,6 +25,7 @@ import {
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
   getRowId,
+  isCanonicalSortKeyOfType,
   useRunsColumnDefinitions,
 } from '../../utils/experimentPage.column-utils';
 import { RunRowType } from '../../utils/experimentPage.row-types';
@@ -285,6 +286,19 @@ export const ExperimentViewRunsTable = React.memo(
     const hasSelectedAllColumns =
       searchFacetsState.selectedColumns.length >= allAvailableColumnsCount;
 
+    // Count metrics and params columns that were not selected yet so it can be displayed in CTA
+    const moreAvailableParamsAndMetricsColumns = useMemo(() => {
+      const selectedMetricsAndParamsColumns = searchFacetsState.selectedColumns.filter(
+        (s) =>
+          isCanonicalSortKeyOfType(s, COLUMN_TYPES.METRICS) ||
+          isCanonicalSortKeyOfType(s, COLUMN_TYPES.PARAMS),
+      ).length;
+
+      const allMetricsAndParamsColumns = metricKeyList.length + paramKeyList.length;
+
+      return Math.max(0, allMetricsAndParamsColumns - selectedMetricsAndParamsColumns);
+    }, [metricKeyList.length, paramKeyList.length, searchFacetsState.selectedColumns]);
+
     return (
       <>
         <div css={styles.runsCount}>
@@ -326,6 +340,7 @@ export const ExperimentViewRunsTable = React.memo(
               isInitialized={Boolean(gridApi)}
               onClick={onAddColumnClicked}
               visible={!isLoading}
+              moreAvailableParamsAndMetricsColumnCount={moreAvailableParamsAndMetricsColumns}
             />
           )}
         </div>
