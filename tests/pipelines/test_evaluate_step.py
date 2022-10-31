@@ -257,7 +257,7 @@ def one(eval_df, builtin_metrics):
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
         evaluate_step.run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, AttributeError)
-    assert "test_weighted_mean_squared_error" in str(exc.value.__cause__)
+    assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")

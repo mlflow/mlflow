@@ -427,4 +427,4 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             run_id = f.read()
 
         metrics = MlflowClient().get_run(run_id).data.metrics
-        assert primary_metric in metrics
+        assert f"training_{primary_metric}" in metrics
