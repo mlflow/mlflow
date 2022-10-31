@@ -318,7 +318,13 @@ class TrainStep(BaseStep):
                 )
                 if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
                     shutil.rmtree(output_model_path)
-                mlflow.sklearn.save_model(model, output_model_path)
+
+                if self.output_probabilities:
+                    mlflow.sklearn.save_model(
+                        model, output_model_path, pyfunc_predict_fn="predict_proba"
+                    )
+                else:
+                    mlflow.sklearn.save_model(model, output_model_path)
 
                 with open(os.path.join(output_directory, "run_id"), "w") as f:
                     f.write(run.info.run_id)
