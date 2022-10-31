@@ -29,12 +29,17 @@ body:
     validations:
       required: true
 
-  - type: input
+  - type: textarea
     validations:
       required: true
     attributes:
       label: MLflow version
       description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+      value: |
+        ```
+        Client: 1.x.y
+        Tracking server: 1.x.y
+        ```
 
   - type: textarea
     attributes:
