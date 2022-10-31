@@ -380,9 +380,9 @@ def test_tuning_param_equal(tuning_param, logged_param):
 @pytest.mark.parametrize(
     ("automl", "primary_metric", "generate_custom_metrics"),
     [
-        (False, "root_mean_squared_error", False),
-        (True, "root_mean_squared_error", False),
-        (True, "weighted_mean_squared_error", True),
+        (False, "test_root_mean_squared_error", False),
+        (True, "test_root_mean_squared_error", False),
+        (True, "test_weighted_mean_squared_error", True),
     ],
 )
 def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_metrics):
