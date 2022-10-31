@@ -10,7 +10,12 @@ get_python_bin <- function() {
   print("mlflow_python_executable")
   print(mlflow_python_executable)
   if (mlflow_python_executable != "") {
-    return(mlflow_python_executable)
+    stdout <- system(paste(mlflow_python_executable, '-c "import sys; print(sys.executable)"' ),
+                    intern = TRUE,
+                    ignore.stderr = TRUE)
+    print("stdout")
+    print(stdout)
+    return(paste(stdout, collapse = ""))
   }
   python_bin <- Sys.which("python")
   if (python_bin != "") {
