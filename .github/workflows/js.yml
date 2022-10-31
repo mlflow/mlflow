@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - mlflow/server/js/**
+      - .github/workflows/js.yml
     branches:
       - master
       - branch-[0-9]+.[0-9]+
