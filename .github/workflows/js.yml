@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - mlflow/server/js/**
+      - .github/workflows/js.yml
     branches:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
     paths:
       - mlflow/server/js/**
+      - .github/workflows/js.yml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -34,7 +36,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
           node-version: '16'
       - name: Install dependencies
