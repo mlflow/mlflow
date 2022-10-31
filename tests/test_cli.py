@@ -8,6 +8,7 @@ import tempfile
 import time
 import subprocess
 import requests
+import sys
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -499,3 +500,27 @@ def test_mlflow_ui_is_alias_for_mlflow_server():
     assert (
         mlflow_ui_stdout.replace("Usage: mlflow ui", "Usage: mlflow server") == mlflow_server_stdout
     )
+
+
+def test_cli_with_python_mod():
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "--version",
+        ],
+        text=True,
+    )
+    assert stdout.rstrip().endswith(mlflow.__version__)
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--help",
+        ],
+        text=True,
+    )
+    assert "mlflow server" in stdout
