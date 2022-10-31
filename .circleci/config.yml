@@ -80,8 +80,8 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            pip install -e '.[pipelines]'
-            pip install nbconvert ipykernel
+            pip install -e .
+            pip install nbconvert ipykernel matplotlib
       - run:
           name: Run CLI
           working_directory: examples/pipelines/sklearn_regression_example
