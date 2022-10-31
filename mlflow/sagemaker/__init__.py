@@ -2628,7 +2628,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
             )
             if isinstance(inputs, pd.DataFrame):
-                body = (json.dumps({"dataframe_split": inputs.to_dict(orient="split")}),)
+                body = json.dumps({"dataframe_split": inputs.to_dict(orient="split")})
             else:
                 body = json.dumps({"instances": _get_jsonable_obj(inputs)})
             response = sage_client.invoke_endpoint(
