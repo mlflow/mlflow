@@ -226,8 +226,6 @@ class PredictStep(BaseStep):
             )
         step_config["register"] = pipeline_config.get("steps", {}).get("register", {})
         step_config["model_registry"] = pipeline_config.get("model_registry", {})
-        if pipeline_config.get("model_registry", {}).get("model_uri") is not None:
-            step_config["model_uri"] = pipeline_config.get("model_registry", {}).get("model_uri")
         if pipeline_config.get("model_registry", {}).get("registry_uri") is not None:
             step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get(
                 "registry_uri"
