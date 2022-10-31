@@ -920,7 +920,7 @@
     "description": "Text shown when there are no metrics to display"
   },
   "eELnVT": {
-    "defaultMessage": "Add metrics and parameters",
+    "defaultMessage": "Show more metrics and parameters",
     "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "eFCjOp": {

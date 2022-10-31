@@ -225,6 +225,7 @@ def cast_df_types_according_to_schema(pdf, schema):
             col_type = col_type_spec
         if col_name in actual_cols:
             try:
+                print("COL TYPE SPEC", col_type_spec)
                 if col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
                     pdf[col_name] = pdf[col_name].map(
@@ -235,6 +236,7 @@ def cast_df_types_according_to_schema(pdf, schema):
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
+                raise ex
                 raise MlflowFailedTypeConversion(col_name, col_type, ex)
     return pdf
 
