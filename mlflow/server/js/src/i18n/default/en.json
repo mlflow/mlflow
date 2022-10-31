@@ -211,6 +211,10 @@
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
   },
+  "7ASbrt": {
+    "defaultMessage": "Show more metrics and parameters",
+    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
+  },
   "7F/CBv": {
     "defaultMessage": "Stage",
     "description": "Column title text for model version stage in model version table"
@@ -918,10 +922,6 @@
   "eBGO2d": {
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
-  },
-  "eELnVT": {
-    "defaultMessage": "Show more metrics and parameters",
-    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "eFCjOp": {
     "defaultMessage": "Metrics",
