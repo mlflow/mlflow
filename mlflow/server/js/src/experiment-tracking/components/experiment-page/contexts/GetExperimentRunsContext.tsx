@@ -113,9 +113,9 @@ export const GetExperimentRunsContextProvider = ({
         experimentIdsHash,
       );
 
-      // If query string differs from the current one, replace it
+      // If resulting query string differs from the current one, replace it.
       if (history.location.search !== queryString) {
-        history.push(`${history.location.pathname}${queryString}`);
+        history.replace(`${history.location.pathname}${queryString}`);
       }
       return state;
     },
