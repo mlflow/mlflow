@@ -198,7 +198,7 @@ class EvaluateStep(BaseStep):
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
                             "pos_label": self.positive_class,
-                            "metric_prefix": "validation_",
+                            "metric_prefix": "val_",
                         },
                     ),
                     (
