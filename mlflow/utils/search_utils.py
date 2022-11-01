@@ -875,9 +875,7 @@ class SearchExperimentsUtils(SearchUtils):
             attr = getattr(experiment, key)
             return _Sorter(attr, ascending)
 
-        return lambda experiment: tuple(
-            _apply_sorter(experiment, k, asc) for (k, asc) in order_by
-        )
+        return lambda experiment: tuple(_apply_sorter(experiment, k, asc) for (k, asc) in order_by)
 
     @classmethod
     def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
