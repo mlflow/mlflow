@@ -6,8 +6,9 @@ from sklearn.base import BaseEstimator
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.models import EvaluationMetric
 from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
-from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metric_functions
+from mlflow.pipelines.utils.metrics import PipelineMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
@@ -35,17 +36,16 @@ def get_estimator_and_best_params(
     )
 
 
-def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: callable) -> callable:
-    def add_suffix(metrics: Dict[str, float], suffix: str) -> Dict[str, float]:
-        return {f"{k}_{suffix}": v for k, v in metrics.items()}
-
+def _create_custom_metric_flaml(
+    metric_name: str, coeff: int, eval_metric: EvaluationMetric
+) -> callable:
     def calc_metric(X, y, estimator) -> Dict[str, float]:
         y_pred = estimator.predict(X)
         builtin_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
         res_df = pd.DataFrame()
         res_df["prediction"] = y_pred
         res_df["target"] = y.values
-        return custom_func(res_df, builtin_metrics)
+        return eval_metric.eval_fn(res_df, builtin_metrics)
 
     # pylint: disable=keyword-arg-before-vararg
     # pylint: disable=unused-argument
@@ -60,16 +60,13 @@ def _create_custom_metric_flaml(metric_name: str, coeff: int, custom_func: calla
         weight_train=None,
         *args,
     ):
-        val_metrics = calc_metric(X_val, y_val, estimator)
-        if metric_name not in val_metrics:
-            raise MlflowException(
-                f"User-defined function has not calculated expected primary metric {metric_name}.\n"
-                f"The function has returned the following metrics: {val_metrics}"
-            )
-        main_metric = coeff * val_metrics[metric_name]
-        val_metrics = add_suffix(val_metrics, "val")
-        train_metrics = add_suffix(calc_metric(X_train, y_train, estimator), "train")
-        return main_metric, {**val_metrics, **train_metrics}
+        val_metric = coeff * calc_metric(X_val, y_val, estimator)
+        train_metric = calc_metric(X_train, y_train, estimator)
+        main_metric = coeff * val_metric
+        return main_metric, {
+            f"{metric_name}_train": train_metric,
+            f"{metric_name}_val": val_metric,
+        }
 
     return custom_metric
 
@@ -95,9 +92,7 @@ def _create_model_automl(
             metric = _create_custom_metric_flaml(
                 primary_metric,
                 -1 if evaluation_metrics[primary_metric].greater_is_better else 1,
-                _load_custom_metric_functions(pipeline_root, [evaluation_metrics[primary_metric]])[
-                    0
-                ],
+                _load_custom_metrics(pipeline_root, [evaluation_metrics[primary_metric]])[0],
             )
         else:
             raise MlflowException(

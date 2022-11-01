@@ -5,8 +5,9 @@ import { modelListPageRoute, getModelPageRoute } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Alert, Descriptions, message } from 'antd';
-import { Modal, Button } from '@databricks/design-system';
+import { message } from 'antd';
+import { Descriptions } from '../../common/components/Descriptions';
+import { Alert, Modal, Button } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageTagComponents,
@@ -385,13 +386,6 @@ export class ModelVersionViewImpl extends React.Component {
       <Link data-test-id='breadcrumbRegisteredModel' to={getModelPageRoute(modelName)}>
         {modelName}
       </Link>,
-      <span data-test-id='breadcrumbModelVersion'>
-        <FormattedMessage
-          defaultMessage='Version {versionNum}'
-          description='Text for current version under the header on the model version view page'
-          values={{ versionNum: modelVersion.version }}
-        />
-      </span>,
     ];
     return (
       <div>

@@ -1,4 +1,4 @@
-python: '3.7'
+python: '3.8'
 build_dependencies:
 - pip
 dependencies:
@@ -7,9 +7,8 @@ dependencies:
 - pandas
 - scipy
 - scikit-learn
-- tensorflow==1.13.1
+- tensorflow==2.10.0
 - matplotlib
-- keras==2.3.1
 - mlflow>=1.6
 - hyperopt
 - protobuf<4.0.0

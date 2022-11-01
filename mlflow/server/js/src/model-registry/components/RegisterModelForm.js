@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Select, Input } from 'antd';
+import { Form, Input, Select } from '@databricks/design-system';
 import PropTypes from 'prop-types';
 
 import './RegisterModelForm.css';

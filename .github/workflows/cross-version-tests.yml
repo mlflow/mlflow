@@ -132,14 +132,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "xgboost" && "${{ matrix.version }}" = "dev" ]]
-          then
-            python_version=3.8
-          else
-            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
-          fi
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8")
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:

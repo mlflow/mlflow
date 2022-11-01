@@ -108,15 +108,6 @@ def test_delete_registered_model(mock_store):
     mock_store.delete_registered_model.assert_called_once()
 
 
-def test_list_registered_models(mock_store):
-    mock_store.list_registered_models.return_value = PagedList(
-        [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
-    )
-    result = newModelRegistryClient().list_registered_models()
-    mock_store.list_registered_models.assert_called_once()
-    assert len(result) == 2
-
-
 def test_search_registered_models(mock_store):
     mock_store.search_registered_models.return_value = PagedList(
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""

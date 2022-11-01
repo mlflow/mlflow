@@ -14,13 +14,6 @@
   margin-bottom: 16px;
 }
 
-.breadcrumb-caret {
-  font-size: 11px;
-  vertical-align: 4px;
-  padding-left: 5px;
-  cursor: pointer;
-}
-
 .icon-pending,
 .icon-ready {
   color: green;

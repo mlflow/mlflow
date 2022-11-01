@@ -1,6 +1,7 @@
 import os
 import sys
 from collections import namedtuple
+from io import BytesIO
 from pathlib import Path
 from stat import S_IRUSR, S_IRGRP, S_IROTH, S_IXUSR, S_IXGRP, S_IXOTH
 
@@ -26,6 +27,9 @@ pytestmark = pytest.mark.skipif(
     reason="requires pyenv and virtualenv",
 )
 
+TEST_DIR = "tests"
+TEST_MLFLOW_1X_MODEL_DIR = os.path.join(TEST_DIR, "resources", "example_mlflow_1x_sklearn_model")
+
 
 @pytest.fixture(scope="module")
 def sklearn_model():
@@ -43,7 +47,7 @@ def serve_and_score(model_uri, data, extra_args=None):
         content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager=virtualenv"] + (extra_args or []),
     )
-    return pd.read_json(resp.content, orient="records").values.squeeze()
+    return pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
 
 
 @pytest.fixture
@@ -77,6 +81,17 @@ def test_serve_and_score_read_only_model_directory(sklearn_model, tmp_path):
 
     scores = serve_and_score(model_path, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
+
+
+@use_temp_mlflow_env_root
+def test_serve_and_score_1x_models():
+    X, _ = load_iris(return_X_y=True, as_frame=True)
+    X_pred = X.sample(frac=0.1, random_state=0)
+    loaded_model = mlflow.pyfunc.load_model(TEST_MLFLOW_1X_MODEL_DIR)
+    y_pred = loaded_model.predict(X_pred)
+
+    scores = serve_and_score(TEST_MLFLOW_1X_MODEL_DIR, X_pred)
+    np.testing.assert_array_almost_equal(scores, y_pred)
 
 
 @use_temp_mlflow_env_root

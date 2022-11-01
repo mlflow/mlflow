@@ -12,7 +12,6 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
-    ListRegisteredModels,
     GetRegisteredModel,
     GetLatestVersions,
     CreateModelVersion,
@@ -152,16 +151,6 @@ class TestRestStore(unittest.TestCase):
         self.store.delete_registered_model(name=name)
         self._verify_requests(
             mock_http, "registered-models/delete", "DELETE", DeleteRegisteredModel(name=name)
-        )
-
-    @mock_http_request
-    def test_list_registered_model(self, mock_http):
-        self.store.list_registered_models(max_results=50, page_token=None)
-        self._verify_requests(
-            mock_http,
-            "registered-models/list",
-            "GET",
-            ListRegisteredModels(page_token=None, max_results=50),
         )
 
     @mock_http_request

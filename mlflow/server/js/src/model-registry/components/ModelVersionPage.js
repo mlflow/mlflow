@@ -229,7 +229,7 @@ const mapStateToProps = (state, ownProps) => {
     runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
   }
   const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
-  const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunUuid());
+  const runDisplayName = tags && Utils.getRunDisplayName(runInfo, runInfo.getRunUuid());
   const { apis } = state;
   return {
     modelName,

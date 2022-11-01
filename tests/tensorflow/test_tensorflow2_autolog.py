@@ -7,6 +7,7 @@ import sys
 from unittest.mock import patch
 import json
 import functools
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -1083,6 +1084,15 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
+
+
+def test_keras_autolog_load_saved_hdf5_model(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog(keras_model_kwargs={"save_format": "h5"})
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        model.fit(keras_data_gen_sequence)
+        mlflow.tensorflow.load_model(f"runs:/{run.info.run_id}/model")
+        assert Path(run.info.artifact_uri, "model", "data", "model.h5").exists()
 
 
 def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):

@@ -92,7 +92,7 @@ def test_hash_pandas_dataframe_deterministic():
         }
     )
     result = _hash_pandas_dataframe(pdf)
-    assert result.tolist() == [2331111997514652279, 12302536142759575339]
+    assert result.tolist() == [17628718130518205164, 1442560710956928490]
 
 
 def test_get_split_df():

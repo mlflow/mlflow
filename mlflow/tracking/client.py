@@ -1843,11 +1843,11 @@ class MlflowClient:
                 client.create_registered_model(name, tags, desc)
 
             # Fetch all registered models
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
             # Delete one registered model and fetch again
             client.delete_registered_model("name1")
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
         .. code-block:: text
             :caption: Output
@@ -1865,60 +1865,6 @@ class MlflowClient:
             description: description2
         """
         self._get_registry_client().delete_registered_model(name)
-
-    @deprecated(alternative="search_registered_models()")
-    def list_registered_models(
-        self,
-        max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        page_token: Optional[str] = None,
-    ) -> PagedList[RegisteredModel]:
-        """
-        List of all registered models
-
-        :param max_results: Maximum number of registered models desired.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``list_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                 that can satisfy the search expressions. The pagination token for the next page
-                 can be obtained via the ``token`` attribute of the object.
-
-        .. code-block:: python
-            :caption: Example
-
-            import mlflow
-            from mlflow import MlflowClient
-
-            def print_model_info(models):
-                for m in models:
-                    print("--")
-                    print("name: {}".format(m.name))
-                    print("tags: {}".format(m.tags))
-                    print("description: {}".format(m.description))
-
-            mlflow.set_tracking_uri("sqlite:///mlruns.db")
-            client = MlflowClient()
-
-            # Register a couple of models with respective names, tags, and descriptions
-            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
-                                     ("name2", {"t2": "t2"}, 'description2')]:
-                client.create_registered_model(name, tags, desc)
-
-            # Fetch all registered models
-            print_model_info(client.list_registered_models())
-
-        .. code-block:: text
-            :caption: Output
-
-            --
-            name: name1
-            tags: {'t1': 't1'}
-            description: description1
-            --
-            name: name2
-            tags: {'t2': 't2'}
-            description: description2
-        """
-        return self._get_registry_client().list_registered_models(max_results, page_token)
 
     def search_registered_models(
         self,
@@ -2192,11 +2138,11 @@ class MlflowClient:
                 client.create_registered_model(name, tags)
 
             # Fetch all registered models
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
             # Delete a tag from model `name2`
             client.delete_registered_model_tag("name2", 't2')
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
         .. code-block:: text
             :caption: Output

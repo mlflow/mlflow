@@ -15,10 +15,6 @@ You install MLflow by running:
         # Install MLflow
         pip install mlflow
 
-        # Install MLflow with the experimental MLflow Pipelines component
-        pip install mlflow[pipelines]  # for pip
-        conda install -c conda-forge mlflow-pipelines  # for conda
-
         # Install MLflow with extra ML libraries and 3rd-party tools
         pip install mlflow[extras]
 
@@ -28,7 +24,6 @@ You install MLflow by running:
     .. code-block:: R
 
         install.packages("mlflow")
-        mlflow::install_mlflow()
 
 .. note::
 

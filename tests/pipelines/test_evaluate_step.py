@@ -73,11 +73,10 @@ steps:
         threshold: {mae_threshold}
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
@@ -90,13 +89,11 @@ metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -106,7 +103,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    assert "weighted_mean_squared_error" in logged_metrics
+    assert "test_weighted_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
@@ -127,6 +124,7 @@ def test_evaluate_produces_expected_step_card(
 template: "classification/v1"
 positive_class: "Iris-setosa"
 target_col: "y"
+primary_metric: "f1_score"
 experiment:
   tracking_uri: {tracking_uri}
 steps:
@@ -134,8 +132,6 @@ steps:
     validation_criteria:
       - metric: f1_score
         threshold: 10
-metrics:
-  primary: "f1_score"
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
         )
@@ -182,8 +178,8 @@ steps:
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    assert "mean_squared_error" in logged_metrics
-    assert "root_mean_squared_error" in logged_metrics
+    assert "test_mean_squared_error" in logged_metrics
+    assert "test_root_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     assert model_validation_status_path.read_text() == "UNKNOWN"
@@ -238,11 +234,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -281,11 +276,10 @@ steps:
     validation_criteria:
       - metric: weighted_mean_squared_error
         threshold: 100
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -324,14 +318,13 @@ steps:
         threshold: 10
       - metric: mean_absolute_error
         threshold: 10
-metrics:
-  custom:
-    - name: mean_absolute_error
-      function: mean_absolute_error
-      greater_is_better: False
-    - name: root_mean_squared_error
-      function: root_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: mean_absolute_error
+    function: mean_absolute_error
+    greater_is_better: False
+  - name: root_mean_squared_error
+    function: root_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )
@@ -341,10 +334,10 @@ metrics:
     pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def mean_absolute_error(eval_df, builtin_metrics):
-    return {"mean_absolute_error": 1}
+    return 1
 
 def root_mean_squared_error(eval_df, builtin_metrics):
-    return {"root_mean_squared_error": 1}
+    return 1
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -361,10 +354,10 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     logged_metrics = (
         mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     )
-    assert "root_mean_squared_error" in logged_metrics
-    assert logged_metrics["root_mean_squared_error"] == 1
-    assert "mean_absolute_error" in logged_metrics
-    assert logged_metrics["mean_absolute_error"] == 1
+    assert "test_root_mean_squared_error" in logged_metrics
+    assert logged_metrics["test_root_mean_squared_error"] == 1
+    assert "test_mean_absolute_error" in logged_metrics
+    assert logged_metrics["test_mean_absolute_error"] == 1
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     assert model_validation_status_path.read_text() == "VALIDATED"

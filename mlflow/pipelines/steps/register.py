@@ -169,7 +169,12 @@ class RegisterStep(BaseStep):
         if pipeline_config.get("steps", {}).get("register") is not None:
             step_config.update(pipeline_config.get("steps", {}).get("register"))
         step_config["template_name"] = pipeline_config.get("template")
-        step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
+        if pipeline_config.get("model_registry", {}).get("registry_uri") is not None:
+            step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get(
+                "registry_uri"
+            )
+        if pipeline_config.get("model_registry", {}).get("model_name") is not None:
+            step_config["model_name"] = pipeline_config.get("model_registry", {}).get("model_name")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,

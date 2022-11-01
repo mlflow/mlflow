@@ -4,10 +4,9 @@ import { connect } from 'react-redux';
 import { Link } from 'react-router-dom';
 import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
-import { Switch } from 'antd';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 
-import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
+import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
@@ -151,7 +150,6 @@ export class CompareModelVersionsViewImpl extends Component {
         />
       </Link>,
       <Link to={getModelPageRoute(modelName)}>{modelName}</Link>,
-      title,
     ];
 
     return (
@@ -185,7 +183,6 @@ export class CompareModelVersionsViewImpl extends Component {
               />,
               false,
               <Switch
-                size='small'
                 className='toggle-switch'
                 style={{ marginLeft: 'auto' }}
                 onChange={() => this.onToggleClick('compareByColumnNameToggle')}
@@ -419,7 +416,6 @@ export class CompareModelVersionsViewImpl extends Component {
               {additionalSwitchText}
               <Switch
                 defaultChecked
-                size='small'
                 className='toggle-switch'
                 style={leftToggle ? { marginLeft: 'auto' } : {}}
                 onChange={() => this.onToggleClick(toggleSection)}
@@ -696,10 +692,9 @@ const mapStateToProps = (state, ownProps) => {
         runInfosValid.push(true);
         metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
         paramLists.push(Object.values(getParams(runUuid, state)));
-        const runTags = getRunTags(runUuid, state);
-        runNames.push(Utils.getRunName(runTags));
+        runNames.push(Utils.getRunName(runInfo));
         // the following are used to render plots - we only include valid run IDs here
-        runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
+        runDisplayNames.push(Utils.getRunDisplayName(runInfo, runUuid));
         runUuids.push(runUuid);
       } else {
         if (runUuid) {

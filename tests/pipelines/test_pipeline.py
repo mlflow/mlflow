@@ -148,7 +148,7 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
     assert logged_run.info.artifact_uri == path_to_local_file_uri(
         str((pathlib.Path(artifact_location) / logged_run.info.run_id / "artifacts").resolve())
     )
-    assert "r2_score" in logged_run.data.metrics
+    assert "test_r2_score" in logged_run.data.metrics
     artifacts = MlflowClient(tracking_uri).list_artifacts(
         run_id=logged_run.info.run_id, path="train"
     )
@@ -204,7 +204,7 @@ def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fail
     with open(profile_path, "r") as f:
         profile_contents = yaml.safe_load(f)
 
-    profile_contents["INGEST_DATA_LOCATION"] = "a bad location"
+    profile_contents["INGEST_CONFIG"] = {"using": "parquet", "location": "a bad location"}
 
     with open(profile_path, "w") as f:
         yaml.safe_dump(profile_contents, f)

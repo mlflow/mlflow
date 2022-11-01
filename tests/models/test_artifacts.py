@@ -17,12 +17,12 @@ import pathlib
 import pytest
 
 from mlflow.models.evaluation.artifacts import _infer_artifact_type_and_ext
-from mlflow.models.evaluation.default_evaluator import _CustomMetric
+from mlflow.models.evaluation.default_evaluator import _CustomArtifact
 
 
 @pytest.fixture
 def cm_fn_tuple():
-    return _CustomMetric(lambda: None, "", 0, "")
+    return _CustomArtifact(lambda: None, "", 0, "")
 
 
 def __generate_dummy_json_file(path):

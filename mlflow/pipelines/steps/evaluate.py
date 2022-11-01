@@ -17,7 +17,7 @@ from mlflow.pipelines.utils.metrics import (
     _get_custom_metrics,
     _get_primary_metric,
     _get_model_type_from_template,
-    _load_custom_metric_functions,
+    _load_custom_metrics,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
 from mlflow.pipelines.utils.tracking import (
@@ -30,6 +30,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
 from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.string_utils import strip_prefix
 
 _logger = logging.getLogger(__name__)
 
@@ -184,7 +185,7 @@ class EvaluateStep(BaseStep):
             ].greater_is_better
 
             _set_experiment_primary_metric(
-                exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
+                exp_id, f"test_{self.primary_metric}", primary_metric_greater_is_better
             )
 
             with mlflow.start_run(run_id=run_id):
@@ -197,12 +198,17 @@ class EvaluateStep(BaseStep):
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
                             "pos_label": self.positive_class,
+                            "metric_prefix": "val_",
                         },
                     ),
                     (
                         "test",
                         test_df,
-                        {"log_model_explainability": False, "pos_label": self.positive_class},
+                        {
+                            "log_model_explainability": False,
+                            "pos_label": self.positive_class,
+                            "metric_prefix": "test_",
+                        },
                     ),
                 ):
                     eval_result = mlflow.evaluate(
@@ -211,14 +217,17 @@ class EvaluateStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        custom_metrics=_load_custom_metric_functions(
+                        custom_metrics=_load_custom_metrics(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
                         ),
                         evaluator_config=evaluator_config,
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
+                    eval_metrics[dataset_name] = {
+                        strip_prefix(k, evaluator_config["metric_prefix"]): v
+                        for k, v in eval_result.metrics.items()
+                    }
 
                 validation_results = self._validate_model(eval_metrics, output_directory)
 
@@ -330,7 +339,7 @@ class EvaluateStep(BaseStep):
             confusion_matrix_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "confusion_matrix_on_data_validation.png",
+                "confusion_matrix.png",
             )
             if os.path.exists(confusion_matrix_path):
                 classifiers_plot_tab.add_html(
@@ -344,7 +353,7 @@ class EvaluateStep(BaseStep):
             lift_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "lift_curve_plot_on_data_validation.png",
+                "lift_curve_plot.png",
             )
             if os.path.exists(lift_curve_path):
                 classifiers_plot_tab.add_html(
@@ -356,7 +365,7 @@ class EvaluateStep(BaseStep):
             pr_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "precision_recall_curve_plot_on_data_validation.png",
+                "precision_recall_curve_plot.png",
             )
             if os.path.exists(pr_curve_path):
                 classifiers_plot_tab.add_html(
@@ -368,7 +377,7 @@ class EvaluateStep(BaseStep):
             roc_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "roc_curve_plot_on_data_validation.png",
+                "roc_curve_plot.png",
             )
             if os.path.exists(roc_curve_path):
                 classifiers_plot_tab.add_html(
@@ -450,7 +459,10 @@ class EvaluateStep(BaseStep):
         step_config["target_col"] = pipeline_config.get("target_col")
         if "positive_class" in pipeline_config:
             step_config["positive_class"] = pipeline_config.get("positive_class")
-        step_config["metrics"] = pipeline_config.get("metrics")
+        if pipeline_config.get("custom_metrics") is not None:
+            step_config["custom_metrics"] = pipeline_config["custom_metrics"]
+        if pipeline_config.get("primary_metric") is not None:
+            step_config["primary_metric"] = pipeline_config["primary_metric"]
         step_config["template_name"] = pipeline_config.get("template")
         step_config.update(
             get_pipeline_tracking_config(

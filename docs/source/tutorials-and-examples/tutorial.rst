@@ -45,9 +45,7 @@ To run this tutorial, you'll need to:
 
     .. container:: R
 
-       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::install_mlflow()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
          working directory for running the tutorial. We avoid running directly from our clone of
@@ -397,12 +395,8 @@ Therefore, we can leverage this support to build a Docker image compatible with
 these frameworks.
 
 .. note::
-  Note that this an **optional step**, which is currently only available for
-  Python models.
-  Besides this, it's also worth noting that:
-
-  - MLServer requires **Python 3.7** or above.
-  - This step requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
+  This an **optional step**, which is currently only available for Python models. This step also
+  requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
 
 To build a Docker image containing our model, we can use the ``mlflow models
 build-docker`` subcommand, alongside the ``--enable-mlserver`` flag.
