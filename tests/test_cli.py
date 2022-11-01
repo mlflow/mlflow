@@ -35,7 +35,7 @@ def test_mlflow_server_command(command):
     cmd = ["mlflow", command, "--port", str(port)]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         resp = requests.get(f"http://localhost:{port}/health")
         augmented_raise_for_status(resp)
         assert resp.text == "OK"
@@ -433,7 +433,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
-    _await_server_up_or_die(port, timeout=10)
+    _await_server_up_or_die(port, timeout=20)
     resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
         "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
@@ -448,7 +448,7 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
         augmented_raise_for_status(resp)
         assert resp.status_code == 200
@@ -463,7 +463,7 @@ def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specifi
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         endpoint = "/api/2.0/mlflow-artifacts/artifacts"
         resp = requests.get(f"http://localhost:{port}{endpoint}")
         assert (
