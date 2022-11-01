@@ -862,14 +862,17 @@ class SearchExperimentsUtils(SearchUtils):
                 return other.obj == self.obj
 
             def __lt__(self, other):
-                if self.obj is None:
-                    return False
-                elif other.obj is None:
-                    return True
-                elif self.ascending:
-                    return self.obj < other.obj
+                # if self.obj is None:
+                #     return True 
+                # elif other.obj is None:
+                #     return False
+                if self.ascending:
+                    return (self.obj is None, self.obj) < (other.obj is None, other.obj)
                 else:
-                    return other.obj < self.obj
+                    print((self.obj is None, self.obj))
+                    print((other.obj is None, other.obj))
+                    print((other.obj is None, other.obj) < (self.obj is None, self.obj))
+                    return (other.obj is None, other.obj) < (self.obj is None, self.obj)
 
         def _apply_sorter(experiment, key, ascending):
             attr = getattr(experiment, key)

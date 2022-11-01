@@ -320,26 +320,33 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [e.name for e in experiments] == ["exp1"]
 
-    def test_search_experiments_order_by(self):
+    def test_search_experiments_order_by_foo(self):
         self.initialize()
         experiment_names = ["x", "y", "z"]
         time.sleep(0.05)
         self.create_experiments(experiment_names)
 
+        with mock.patch(
+            "mlflow.store.tracking.file_store.get_current_time_millis",
+            return_value=None,
+        ):
+            self.create_experiments(["n"])
+
         experiments = self.store.search_experiments(order_by=["name"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
 
         experiments = self.store.search_experiments(order_by=["name ASC"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
 
         experiments = self.store.search_experiments(order_by=["name DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+        assert [e.name for e in experiments] == ["z", "y", "x", "n", "Default"]
 
         experiments = self.store.search_experiments(order_by=["creation_time DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+        print("EINFO", [(e.name, e.last_update_time) for e in experiments])
+        assert [e.name for e in experiments] == ["z", "y", "x", "Default", "n"]
 
         experiments = self.store.search_experiments(order_by=["name", "last_update_time asc"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z", "n"]
 
     def test_search_experiments_order_by_time_attribute(self):
         self.initialize()
