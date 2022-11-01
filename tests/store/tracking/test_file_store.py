@@ -326,6 +326,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         time.sleep(0.05)
         self.create_experiments(experiment_names)
 
+        # Test the case where an experiment does not have a creation time by simulating a time of
+        # `None`. This is applicable to experiments created in older versions of MLflow where the
+        # `creation_time` attribute did not exist
         with mock.patch(
             "mlflow.store.tracking.file_store.get_current_time_millis",
             return_value=None,
