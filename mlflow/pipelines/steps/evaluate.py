@@ -30,6 +30,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
 from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.string_utils import strip_prefix
 
 _logger = logging.getLogger(__name__)
 
@@ -184,7 +185,7 @@ class EvaluateStep(BaseStep):
             ].greater_is_better
 
             _set_experiment_primary_metric(
-                exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
+                exp_id, f"test_{self.primary_metric}", primary_metric_greater_is_better
             )
 
             with mlflow.start_run(run_id=run_id):
@@ -197,12 +198,17 @@ class EvaluateStep(BaseStep):
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
                             "pos_label": self.positive_class,
+                            "metric_prefix": "val_",
                         },
                     ),
                     (
                         "test",
                         test_df,
-                        {"log_model_explainability": False, "pos_label": self.positive_class},
+                        {
+                            "log_model_explainability": False,
+                            "pos_label": self.positive_class,
+                            "metric_prefix": "test_",
+                        },
                     ),
                 ):
                     eval_result = mlflow.evaluate(
@@ -218,7 +224,10 @@ class EvaluateStep(BaseStep):
                         evaluator_config=evaluator_config,
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
+                    eval_metrics[dataset_name] = {
+                        strip_prefix(k, evaluator_config["metric_prefix"]): v
+                        for k, v in eval_result.metrics.items()
+                    }
 
                 validation_results = self._validate_model(eval_metrics, output_directory)
 

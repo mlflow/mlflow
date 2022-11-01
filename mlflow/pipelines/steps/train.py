@@ -53,6 +53,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PIPELINE_PROFILE_NAME,
     MLFLOW_PIPELINE_STEP_NAME,
 )
+from mlflow.utils.string_utils import strip_prefix
 
 _logger = logging.getLogger(__name__)
 
@@ -326,9 +327,9 @@ class TrainStep(BaseStep):
                 )
 
                 eval_metrics = {}
-                for dataset_name, dataset in {
-                    "training": train_df,
-                    "validation": validation_df,
+                for dataset_name, (dataset, metric_prefix) in {
+                    "training": (train_df, "training_"),
+                    "validation": (validation_df, "val_"),
                 }.items():
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
@@ -343,10 +344,13 @@ class TrainStep(BaseStep):
                         evaluator_config={
                             "log_model_explainability": False,
                             "pos_label": self.positive_class,
+                            "metric_prefix": metric_prefix,
                         },
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
+                    eval_metrics[dataset_name] = {
+                        strip_prefix(k, metric_prefix): v for k, v in eval_result.metrics.items()
+                    }
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
