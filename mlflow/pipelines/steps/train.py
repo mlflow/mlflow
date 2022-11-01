@@ -254,9 +254,6 @@ class TrainStep(BaseStep):
             if self.template == "classification/v1":
                 df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
                 df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
-                _logger.info(
-                    f"BEFORE BALANCE - positive count: {len(df_positive_class)}, negative count: {len(df_negative_class)}"
-                )
                 if len(df_positive_class) > len(df_negative_class):
                     df_downsampled = df_positive_class.sample(len(df_negative_class))
                     train_df = pd.concat([df_downsampled, df_negative_class], axis=0)
