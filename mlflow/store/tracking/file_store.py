@@ -285,7 +285,7 @@ class FileStore(AbstractStore):
                 )
         filtered = SearchExperimentsUtils.filter(experiments, filter_string)
         sorted_experiments = SearchExperimentsUtils.sort(
-            filtered, order_by or ["last_update_time DESC"]
+            filtered, order_by or ["creation_time DESC", "experiment_id ASC"]
         )
         experiments, next_page_token = SearchUtils.paginate(
             sorted_experiments, page_token, max_results
