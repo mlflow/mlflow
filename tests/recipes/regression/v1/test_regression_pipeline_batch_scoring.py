@@ -4,13 +4,13 @@ import pytest
 import shutil
 
 import mlflow
-from mlflow.pipelines.utils.execution import get_or_create_base_execution_directory
-from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
+from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
+from mlflow.recipes.regression.v1.recipe import RegressionRecipe
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
-    enter_pipeline_example_directory,
-    PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
+from tests.recipes.helper_functions import (
+    enter_recipe_example_directory,
+    RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
     chdir,
 )  # pylint: enable=unused-import
 
@@ -22,26 +22,26 @@ _STEP_NAMES = ["ingest_scoring", "predict"]
 @pytest.fixture(scope="module", autouse=True)
 def run_batch_scoring():
     mlflow_repo_root_directory = pathlib.Path(mlflow.__file__).parent.parent
-    pipeline_example_path = mlflow_repo_root_directory / PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
-    with chdir(pipeline_example_path):
-        p = RegressionPipeline(pipeline_root_path=pipeline_example_path, profile="local")
-        p.run("register")
-        p.run("ingest_scoring")
-        p.run("predict")
-        yield p
-        p.clean()
+    recipe_example_path = mlflow_repo_root_directory / RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
+    with chdir(recipe_example_path):
+        r = RegressionRecipe(recipe_root_path=recipe_example_path, profile="local")
+        r.run("register")
+        r.run("ingest_scoring")
+        r.run("predict")
+        yield r
+        r.clean()
         shutil.rmtree("./data/sample_output.parquet", ignore_errors=True)
 
 
-def test_pipeline_batch_dag_get_artifacts(run_batch_scoring):
-    p = run_batch_scoring
-    assert isinstance(p.get_artifact("ingested_scoring_data"), pd.DataFrame)
-    assert isinstance(p.get_artifact("scored_data"), pd.DataFrame)
+def test_recipe_batch_dag_get_artifacts(run_batch_scoring):
+    r = run_batch_scoring
+    assert isinstance(r.get_artifact("ingested_scoring_data"), pd.DataFrame)
+    assert isinstance(r.get_artifact("scored_data"), pd.DataFrame)
 
 
-def test_pipeline_batch_dag_execution_directories(enter_pipeline_example_directory):
+def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
     expected_execution_directory_location = pathlib.Path(
-        get_or_create_base_execution_directory(enter_pipeline_example_directory)
+        get_or_create_base_execution_directory(enter_recipe_example_directory)
     )
     for step_name in _STEP_NAMES:
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
@@ -52,13 +52,11 @@ def test_pipeline_batch_dag_execution_directories(enter_pipeline_example_directo
 
 # This test should run last as it cleans the batch scoring steps
 @pytest.mark.parametrize("step", _STEP_NAMES)
-def test_pipeline_batch_dag_clean_step_works(
-    step, run_batch_scoring, enter_pipeline_example_directory
-):
-    p = run_batch_scoring
-    p.clean(step)
+def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe_example_directory):
+    r = run_batch_scoring
+    r.clean(step)
     expected_execution_directory_location = pathlib.Path(
-        get_or_create_base_execution_directory(enter_pipeline_example_directory)
+        get_or_create_base_execution_directory(enter_recipe_example_directory)
     )
     step_outputs_path = expected_execution_directory_location / "steps" / step / "outputs"
     assert not list(step_outputs_path.iterdir())

@@ -8,24 +8,24 @@ from sklearn.datasets import load_diabetes, load_iris
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.pipelines.steps.evaluate import EvaluateStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
+from mlflow.recipes.steps.evaluate import EvaluateStep
 from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
+from tests.recipes.helper_functions import (
     clear_custom_metrics_module_cache,
-    tmp_pipeline_exec_path,
-    tmp_pipeline_root_path,
+    tmp_recipe_exec_path,
+    tmp_recipe_root_path,
     train_and_log_model,
     train_and_log_classification_model,
 )  # pylint: enable=unused-import
 
 
 @pytest.fixture(autouse=True)
-def evaluation_inputs(request, tmp_pipeline_exec_path):
-    split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
+def evaluation_inputs(request, tmp_recipe_exec_path):
+    split_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
     if "classification" in request.keywords:
         X, y = load_iris(as_frame=True, return_X_y=True)
@@ -40,7 +40,7 @@ def evaluation_inputs(request, tmp_pipeline_exec_path):
         run_id, model = train_and_log_classification_model()
     else:
         run_id, model = train_and_log_model()
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
+    train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
     output_model_path = train_step_output_dir.joinpath("model")
@@ -52,13 +52,13 @@ def evaluation_inputs(request, tmp_pipeline_exec_path):
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 @pytest.mark.parametrize("mae_threshold", [-1, 1_000_000])
 def test_evaluate_step_run(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path, mae_threshold: int
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, mae_threshold: int
 ):
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -82,9 +82,9 @@ custom_metrics:
             mae_threshold=mae_threshold,
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
@@ -96,8 +96,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
@@ -113,13 +113,13 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 @pytest.mark.classification
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 def test_evaluate_produces_expected_step_card(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "classification/v1"
 positive_class: "Iris-setosa"
@@ -136,10 +136,10 @@ steps:
             tracking_uri=mlflow.get_tracking_uri(),
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
     with open(evaluate_step_output_dir / "card.html", "r", errors="ignore") as f:
@@ -152,12 +152,12 @@ steps:
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
-def test_no_validation_criteria(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+def test_no_validation_criteria(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -169,10 +169,10 @@ steps:
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
     logged_metrics = (
@@ -185,10 +185,10 @@ steps:
     assert model_validation_status_path.read_text() == "UNKNOWN"
 
 
-@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
-def test_validation_criteria_contain_undefined_metrics(tmp_pipeline_root_path: Path):
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_recipe_exec_path")
+def test_validation_criteria_contain_undefined_metrics(tmp_recipe_root_path: Path):
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -205,11 +205,11 @@ steps:
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step._validate_and_apply_step_config()
     with pytest.raises(
         MlflowException,
@@ -218,12 +218,12 @@ steps:
         evaluate_step._validate_validation_criteria()
 
 
-@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_recipe_exec_path")
 def test_custom_metric_function_does_not_exist(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -242,17 +242,17 @@ custom_metrics:
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def one(eval_df, builtin_metrics):
     return {"one": 1}
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
         evaluate_step.run(str(evaluate_step_output_dir))
@@ -260,12 +260,12 @@ def one(eval_df, builtin_metrics):
     assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
 
-@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_recipe_exec_path")
 def test_custom_metrics_module_does_not_exist(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -284,12 +284,12 @@ custom_metrics:
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
         evaluate_step.run(str(evaluate_step_output_dir))
@@ -297,15 +297,15 @@ custom_metrics:
     assert "No module named 'steps.custom_metrics'" in str(exc.value.__cause__)
 
 
-@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_recipe_exec_path")
 def test_custom_metrics_override_builtin_metrics(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -329,9 +329,9 @@ custom_metrics:
             tracking_uri=mlflow.get_tracking_uri()
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def mean_absolute_error(eval_df, builtin_metrics):
     return 1
@@ -340,12 +340,10 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     return 1
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
 
-    with mock.patch("mlflow.pipelines.utils.metrics._logger.warning") as mock_warning:
-        evaluate_step = EvaluateStep.from_pipeline_config(
-            pipeline_config, str(tmp_pipeline_root_path)
-        )
+    with mock.patch("mlflow.recipes.utils.metrics._logger.warning") as mock_warning:
+        evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         evaluate_step.run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
             "Custom metrics override the following built-in metrics: %s",
@@ -364,7 +362,7 @@ def root_mean_squared_error(eval_df, builtin_metrics):
 
 
 def test_evaluate_step_writes_card_with_model_and_run_links_on_databricks(
-    monkeypatch, tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    monkeypatch, tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
     workspace_host = "https://dev.databricks.com"
     workspace_id = 123456
@@ -373,8 +371,8 @@ def test_evaluate_step_writes_card_with_model_and_run_links_on_databricks(
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_HOST", workspace_host)
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -390,14 +388,14 @@ steps:
         )
     )
 
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
+    train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     with open(train_step_output_dir / "run_id") as f:
         run_id = f.read()
 

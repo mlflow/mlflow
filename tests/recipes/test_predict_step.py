@@ -9,20 +9,20 @@ from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.artifacts import RegisteredModelVersionInfo
-from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
-from mlflow.pipelines.steps.register import _REGISTERED_MV_INFO_FILE
+from mlflow.recipes.artifacts import RegisteredModelVersionInfo
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.steps.predict import PredictStep, _INPUT_FILE_NAME, _SCORED_OUTPUT_FILE_NAME
+from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.utils.file_utils import read_yaml
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
-    enter_test_pipeline_directory,
-    enter_pipeline_example_directory,
+from tests.recipes.helper_functions import (
+    enter_test_recipe_directory,
+    enter_recipe_example_directory,
     get_random_id,
     registry_uri_path,
-    tmp_pipeline_exec_path,
-    tmp_pipeline_root_path,
+    tmp_recipe_exec_path,
+    tmp_recipe_root_path,
     train_and_log_model,
     train_log_and_register_model,
 )  # pylint: enable=unused-import
@@ -47,7 +47,7 @@ def spark_session():
 
 @pytest.fixture(autouse=True)
 def patch_env_manager():
-    with mock.patch("mlflow.pipelines.steps.predict._ENV_MANAGER", "local"):
+    with mock.patch("mlflow.recipes.steps.predict._ENV_MANAGER", "local"):
         yield
 
 
@@ -65,17 +65,17 @@ def prediction_assertions(output_dir: Path, output_format: str, output_name: str
 
 # Sets up predict step run and returns output directory
 @pytest.fixture(autouse=True)
-def predict_step_output_dir(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
-    ingest_scoring_step_output_dir = tmp_pipeline_exec_path.joinpath(
+def predict_step_output_dir(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
+    ingest_scoring_step_output_dir = tmp_recipe_exec_path.joinpath(
         "steps", "ingest_scoring", "outputs"
     )
     ingest_scoring_step_output_dir.mkdir(parents=True)
     X, _ = load_diabetes(as_frame=True, return_X_y=True)
     X.to_parquet(ingest_scoring_step_output_dir.joinpath(_INPUT_FILE_NAME))
-    predict_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "predict", "outputs")
+    predict_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "predict", "outputs")
     predict_step_output_dir.mkdir(parents=True)
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 experiment:
@@ -90,7 +90,7 @@ experiment:
 
 @pytest.mark.parametrize("register_model", [True, False])
 def test_predict_step_runs(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
     register_model: bool,
@@ -104,8 +104,8 @@ def test_predict_step_runs(
             run_id=run_id, artifact_path="train/model"
         )
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "steps": {
                 "predict": {
@@ -118,9 +118,9 @@ def test_predict_step_runs(
             },
         }
     )
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config,
-        str(tmp_pipeline_root_path),
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config,
+        str(tmp_recipe_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
 
@@ -134,15 +134,15 @@ def test_predict_step_runs(
 
 
 def test_predict_step_uses_register_step_model_name(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
 ):
     rm_name = "register_step_model"
     train_log_and_register_model(rm_name, is_dummy=True)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "model_registry": {"model_name": rm_name},
             "steps": {
@@ -155,9 +155,9 @@ def test_predict_step_uses_register_step_model_name(
             },
         }
     )
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config,
-        str(tmp_pipeline_root_path),
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config,
+        str(tmp_recipe_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
 
@@ -165,8 +165,8 @@ def test_predict_step_uses_register_step_model_name(
 
 
 def test_predict_step_uses_register_step_output(
-    tmp_pipeline_root_path: Path,
-    tmp_pipeline_exec_path: Path,
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
     predict_step_output_dir: Path,
     spark_session,
 ):
@@ -176,13 +176,13 @@ def test_predict_step_uses_register_step_output(
     train_log_and_register_model(register_step_rm_name)
 
     # Write v1 to the output directory of the register step
-    register_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "register", "outputs")
+    register_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "register", "outputs")
     register_step_output_dir.mkdir(parents=True)
     registered_model_info = RegisteredModelVersionInfo(name=register_step_rm_name, version=1)
     registered_model_info.to_json(path=str(register_step_output_dir / _REGISTERED_MV_INFO_FILE))
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "model_registry": {"model_name": register_step_rm_name},
             "steps": {
@@ -195,9 +195,9 @@ def test_predict_step_uses_register_step_output(
             },
         }
     )
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config,
-        str(tmp_pipeline_root_path),
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config,
+        str(tmp_recipe_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
 
@@ -206,7 +206,7 @@ def test_predict_step_uses_register_step_output(
 
 
 def test_predict_model_uri_takes_precendence_over_model_name(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
 ):
@@ -217,8 +217,8 @@ def test_predict_model_uri_takes_precendence_over_model_name(
 
     # Specify the normal model in the register step `model_name` config key and
     # the dummy model in the predict step `model_uri` config key
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "model_registry": {"model_name": register_step_rm_name},
             "steps": {
@@ -232,9 +232,9 @@ def test_predict_model_uri_takes_precendence_over_model_name(
             },
         }
     )
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config,
-        str(tmp_pipeline_root_path),
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config,
+        str(tmp_recipe_root_path),
     )
     predict_step.run(str(predict_step_output_dir))
 
@@ -244,14 +244,14 @@ def test_predict_model_uri_takes_precendence_over_model_name(
 
 @pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
 def test_predict_step_output_formats(
-    tmp_pipeline_root_path: Path, predict_step_output_dir: Path, spark_session, output_format: str
+    tmp_recipe_root_path: Path, predict_step_output_dir: Path, spark_session, output_format: str
 ):
     rm_name = "model_" + get_random_id()
     output_name = "output_" + get_random_id()
     model_uri = train_log_and_register_model(rm_name, is_dummy=True)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "steps": {
                 "predict": {
@@ -264,13 +264,13 @@ def test_predict_step_output_formats(
         }
     )
     if output_format == "table":
-        pipeline_config["steps"]["predict"]["output"]["location"] = output_name
+        recipe_config["steps"]["predict"]["output"]["location"] = output_name
     else:
         file_name = "{}.{}".format(output_name, output_format)
-        pipeline_config["steps"]["predict"]["output"]["location"] = str(
+        recipe_config["steps"]["predict"]["output"]["location"] = str(
             predict_step_output_dir / file_name
         )
-    predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    predict_step = PredictStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     predict_step.run(str(predict_step_output_dir))
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
@@ -278,7 +278,7 @@ def test_predict_step_output_formats(
 @pytest.mark.parametrize("using", ["parquet", "delta", "table"])
 @pytest.mark.parametrize("save_mode", ["default", "overwrite"])
 def test_predict_correctly_handles_save_modes(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
     using: str,
@@ -302,8 +302,8 @@ def test_predict_correctly_handles_save_modes(
         output_path = str(predict_step_output_dir / output_file)
         sdf.coalesce(1).write.format(using).save(output_path)
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update(
         {
             "steps": {
                 "predict": {
@@ -318,7 +318,7 @@ def test_predict_correctly_handles_save_modes(
         }
     )
 
-    predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    predict_step = PredictStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     if save_mode == "overwrite":
         predict_step.run(str(predict_step_output_dir))
     else:
@@ -326,10 +326,10 @@ def test_predict_correctly_handles_save_modes(
             predict_step.run(str(predict_step_output_dir))
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_predict_throws_when_improperly_configured():
     for required_key in ["using", "location"]:
-        pipeline_config = {
+        recipe_config = {
             "steps": {
                 "predict": {
                     "output": {
@@ -340,18 +340,18 @@ def test_predict_throws_when_improperly_configured():
                 },
             },
         }
-        pipeline_config["steps"]["predict"]["output"].pop(required_key)
-        predict_step = PredictStep.from_pipeline_config(
-            pipeline_config=pipeline_config,
-            pipeline_root=os.getcwd(),
+        recipe_config["steps"]["predict"]["output"].pop(required_key)
+        predict_step = PredictStep.from_recipe_config(
+            recipe_config=recipe_config,
+            recipe_root=os.getcwd(),
         )
         with pytest.raises(
             MlflowException, match=f"The `{required_key}` configuration key must be specified"
         ):
             predict_step._validate_and_apply_step_config()
 
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config={
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config={
             "steps": {
                 "predict": {
                     "output": {
@@ -362,15 +362,15 @@ def test_predict_throws_when_improperly_configured():
                 },
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="Invalid `using` in predict step configuration"):
         predict_step._validate_and_apply_step_config()
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_predict_throws_when_no_model_is_specified():
-    pipeline_config = {
+    recipe_config = {
         "steps": {
             "predict": {
                 "output": {
@@ -380,23 +380,23 @@ def test_predict_throws_when_no_model_is_specified():
             }
         }
     }
-    predict_step = PredictStep.from_pipeline_config(
-        pipeline_config=pipeline_config,
-        pipeline_root=os.getcwd(),
+    predict_step = PredictStep.from_recipe_config(
+        recipe_config=recipe_config,
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="No model specified for batch scoring"):
         predict_step._validate_and_apply_step_config()
 
 
 def test_predict_skips_profiling_when_specified(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
 ):
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
-        pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-        pipeline_config.update(
+    with mock.patch("mlflow.recipes.utils.step.get_pandas_data_profiles") as mock_profiling:
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        recipe_config.update(
             {
                 "steps": {
                     "predict": {
@@ -410,9 +410,9 @@ def test_predict_skips_profiling_when_specified(
                 },
             }
         )
-        predict_step = PredictStep.from_pipeline_config(
-            pipeline_config,
-            str(tmp_pipeline_root_path),
+        predict_step = PredictStep.from_recipe_config(
+            recipe_config,
+            str(tmp_recipe_root_path),
         )
         predict_step.run(str(predict_step_output_dir))
 
@@ -424,7 +424,7 @@ def test_predict_skips_profiling_when_specified(
 
 
 def test_predict_uses_registry_uri(
-    tmp_pipeline_root_path: Path,
+    tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     registry_uri_path: Path,
 ):
@@ -435,9 +435,9 @@ def test_predict_uses_registry_uri(
     # reset model registry
     mlflow.set_registry_uri("")
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    pipeline_config.update({"model_registry": {"registry_uri": str(registry_uri)}})
-    pipeline_config.update(
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    recipe_config.update({"model_registry": {"registry_uri": str(registry_uri)}})
+    recipe_config.update(
         {
             "steps": {
                 "predict": {
@@ -450,9 +450,9 @@ def test_predict_uses_registry_uri(
             },
         }
     )
-    PredictStep.from_pipeline_config(
-        pipeline_config,
-        str(tmp_pipeline_root_path),
+    PredictStep.from_recipe_config(
+        recipe_config,
+        str(tmp_recipe_root_path),
     ).run(str(predict_step_output_dir))
     assert mlflow.get_registry_uri() == registry_uri
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)

@@ -9,13 +9,13 @@ import pytest
 from pyspark.sql import SparkSession
 
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.steps.ingest import IngestStep
+from mlflow.recipes.steps.ingest import IngestStep
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
-    enter_pipeline_example_directory,
-    enter_test_pipeline_directory,
+from tests.recipes.helper_functions import (
+    enter_recipe_example_directory,
+    enter_test_recipe_directory,
 )
 
 
@@ -62,7 +62,7 @@ def spark_df(spark_session):
 
 @pytest.mark.parametrize("use_relative_path", [False, True])
 @pytest.mark.parametrize("multiple_files", [False, True])
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_df, tmp_path):
     if multiple_files:
         dataset_path = tmp_path / "dataset"
@@ -78,8 +78,8 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
     if use_relative_path:
         dataset_path = os.path.relpath(dataset_path)
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -88,7 +88,7 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
@@ -98,7 +98,7 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
 @pytest.mark.parametrize("use_relative_path", [False, True])
 @pytest.mark.parametrize("multiple_files", [False, True])
 @pytest.mark.parametrize("explicit_file_list", [False, True])
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_csv_successfully(
     use_relative_path,
     multiple_files,
@@ -125,8 +125,8 @@ def test_ingests_csv_successfully(
     else:
         dataset_path = str(dataset_path)
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -136,7 +136,7 @@ def test_ingests_csv_successfully(
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
@@ -147,10 +147,10 @@ def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argu
     return pd.read_csv(file_path, sep=";")
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path):
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "density",
             "steps": {
                 "ingest": {
@@ -160,11 +160,11 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                         "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
                         "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
                     ],
-                    "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
+                    "custom_loader_method": "tests.recipes.test_ingest_step.custom_load_wine_csv",
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     assert reloaded_df.count()[0] == 6497
@@ -176,7 +176,7 @@ def custom_load_file_as_dataframe(file_path, file_format):  # pylint: disable=un
 
 @pytest.mark.parametrize("use_relative_path", [False, True])
 @pytest.mark.parametrize("multiple_files", [False, True])
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_custom_format_successfully(use_relative_path, multiple_files, pandas_df, tmp_path):
     if multiple_files:
         dataset_path = tmp_path / "dataset"
@@ -192,27 +192,27 @@ def test_ingests_custom_format_successfully(use_relative_path, multiple_files, p
     if use_relative_path:
         dataset_path = os.path.relpath(dataset_path)
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
                     "using": "fooformat",
                     "location": str(dataset_path),
                     "custom_loader_method": (
-                        "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                        "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
                     ),
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_imported(
     pandas_df, tmp_path
 ):
@@ -220,8 +220,8 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_
     pandas_df.to_csv(dataset_path, sep="#")
 
     with pytest.raises(MlflowException, match="Failed to import custom dataset loader function"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -231,11 +231,11 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implemented_for_format(
     pandas_df, tmp_path
 ):
@@ -245,8 +245,8 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
     with pytest.raises(
         MlflowException, match="Please update the custom loader method to support this format"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -256,7 +256,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
@@ -264,30 +264,30 @@ def custom_load_file_as_array(local_data_file_path, dataset_format):
     return [local_data_file_path, dataset_format]
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.fooformat"
     pandas_df.to_csv(dataset_path, sep="#")
 
     with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
                         "using": "fooformat",
                         "location": str(dataset_path),
                         "custom_loader_method": (
-                            "tests.pipelines.test_ingest_step.custom_load_file_as_array"
+                            "tests.recipes.test_ingest_step.custom_load_file_as_array"
                         ),
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_unexpectedly(
     pandas_df, tmp_path
 ):
@@ -295,38 +295,38 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
     pandas_df.to_csv(dataset_path, sep="#")
 
     with mock.patch(
-        "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe",
+        "tests.recipes.test_ingest_step.custom_load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
     ) as mock_custom_loader:
         setattr(mock_custom_loader, "__name__", "custom_load_file_as_dataframe")
         with pytest.raises(
             MlflowException, match="Unable to load data file at path.*using custom loader method"
         ):
-            IngestStep.from_pipeline_config(
-                pipeline_config={
+            IngestStep.from_recipe_config(
+                recipe_config={
                     "target_col": "C",
                     "steps": {
                         "ingest": {
                             "using": "fooformat",
                             "location": str(dataset_path),
                             "custom_loader_method": (
-                                "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                                "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
                             ),
                         }
                     },
                 },
-                pipeline_root=os.getcwd(),
+                recipe_root=os.getcwd(),
             ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_remote_s3_datasets_successfully(mock_s3_bucket, pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
     S3ArtifactRepository(f"s3://{mock_s3_bucket}").log_artifact(str(dataset_path))
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -335,18 +335,18 @@ def test_ingests_remote_s3_datasets_successfully(mock_s3_bucket, pandas_df, tmp_
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_remote_http_datasets_successfully(tmp_path):
     dataset_url = "https://raw.githubusercontent.com/mlflow/mlflow/594a08f2a49c5754bb65d76cd719c15c5b8266e9/examples/sklearn_elasticnet_wine/wine-quality.csv"
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "density",
             "steps": {
                 "ingest": {
@@ -356,19 +356,19 @@ def test_ingests_remote_http_datasets_successfully(tmp_path):
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pd.read_csv(dataset_url, index_col=0))
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_spark_sql_successfully(spark_df, tmp_path):
     spark_df.write.mode("overwrite").saveAsTable("test_table")
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "label",
             "steps": {
                 "ingest": {
@@ -377,7 +377,7 @@ def test_ingests_spark_sql_successfully(spark_df, tmp_path):
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
@@ -393,16 +393,16 @@ def test_ingests_spark_sql_successfully(spark_df, tmp_path):
     pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_spark_sql_location_successfully(spark_df, tmp_path):
     spark_df.write.mode("overwrite").saveAsTable("test_table")
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "label",
             "steps": {"ingest": {"using": "spark_sql", "location": "test_table"}},
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
@@ -419,15 +419,15 @@ def test_ingests_spark_sql_location_successfully(spark_df, tmp_path):
 
 
 @pytest.mark.parametrize("use_relative_path", [False, True])
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_delta_successfully(use_relative_path, spark_df, tmp_path):
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
     if use_relative_path:
         dataset_path = os.path.relpath(dataset_path)
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "label",
             "steps": {
                 "ingest": {
@@ -436,7 +436,7 @@ def test_ingests_delta_successfully(use_relative_path, spark_df, tmp_path):
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
@@ -452,7 +452,7 @@ def test_ingests_delta_successfully(use_relative_path, spark_df, tmp_path):
     pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 @pytest.mark.parametrize("version", [0, 1])
 def test_ingests_delta_with_table_version_successfully(spark_session, spark_df, tmp_path, version):
     dataset_path = tmp_path / "test.delta"
@@ -466,8 +466,8 @@ def test_ingests_delta_with_table_version_successfully(spark_session, spark_df, 
     v0_df.write.format("delta").save(str(dataset_path))
     v1_df.write.format("delta").mode("overwrite").save(str(dataset_path))
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "label",
             "steps": {
                 "ingest": {
@@ -477,7 +477,7 @@ def test_ingests_delta_with_table_version_successfully(spark_session, spark_df, 
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
@@ -494,7 +494,7 @@ def test_ingests_delta_with_table_version_successfully(spark_session, spark_df, 
     pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 @pytest.mark.parametrize("timestamp_idx", [0, 1])
 def test_ingests_delta_with_timestamp_successfully(
     spark_session, spark_df, tmp_path, timestamp_idx
@@ -523,8 +523,8 @@ def test_ingests_delta_with_timestamp_successfully(
         ["id", "text", "label"],
     ).write.format("delta").mode("overwrite").save(str(dataset_path))
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "label",
             "steps": {
                 "ingest": {
@@ -534,7 +534,7 @@ def test_ingests_delta_with_timestamp_successfully(
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
@@ -551,7 +551,7 @@ def test_ingests_delta_with_timestamp_successfully(
     pd.testing.assert_frame_equal(reloaded_df, spark_to_pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_directory_ignores_files_that_do_not_match_dataset_format(pandas_df, tmp_path):
     dataset_path = tmp_path / "dataset"
     dataset_path.mkdir()
@@ -564,8 +564,8 @@ def test_ingest_directory_ignores_files_that_do_not_match_dataset_format(pandas_
     with open(dataset_path / "README", "w") as f:
         f.write("Interesting README content")
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -574,20 +574,20 @@ def test_ingest_directory_ignores_files_that_do_not_match_dataset_format(pandas_
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    IngestStep.from_pipeline_config(
-        pipeline_config={
+    IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -596,7 +596,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     ).run(output_directory=tmp_path)
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")
@@ -610,19 +610,19 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
     assert "facets-overview" in step_card_html_content
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, tmp_path):
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
 
     with mock.patch(
-        "mlflow.pipelines.steps.ingest.datasets._get_active_spark_session",
+        "mlflow.recipes.steps.ingest.datasets._get_active_spark_session",
         side_effect=Exception("Spark unavailable"),
     ), pytest.raises(
         MlflowException, match="Encountered an error while searching for an active Spark session"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -631,11 +631,11 @@ def test_ingest_throws_when_spark_unavailable_for_spark_based_dataset(spark_df, 
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spark_df, tmp_path):
     dataset_path = tmp_path / "test.delta"
     spark_df.write.format("delta").save(str(dataset_path))
@@ -645,8 +645,8 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
     ) as _get_active_spark_session:
         _get_active_spark_session.return_value = None
 
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "label",
                 "steps": {
                     "ingest": {
@@ -655,14 +655,14 @@ def test_ingest_makes_spark_session_if_not_available_for_spark_based_dataset(spa
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_when_dataset_format_unspecified():
-    ingest_step = IngestStep.from_pipeline_config(
-        pipeline_config={
+    ingest_step = IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -670,26 +670,26 @@ def test_ingest_throws_when_dataset_format_unspecified():
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
         ingest_step._validate_and_apply_step_config()
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_when_data_section_unspecified():
-    ingest_step = IngestStep.from_pipeline_config(
-        pipeline_config={},
-        pipeline_root=os.getcwd(),
+    ingest_step = IngestStep.from_recipe_config(
+        recipe_config={},
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="Dataset format must be specified"):
         ingest_step._validate_and_apply_step_config()
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_when_required_dataset_config_keys_are_missing():
-    ingest_step = IngestStep.from_pipeline_config(
-        pipeline_config={
+    ingest_step = IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -698,13 +698,13 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(MlflowException, match="The `location` configuration key must be specified"):
         ingest_step._validate_and_apply_step_config()
 
-    ingest_step = IngestStep.from_pipeline_config(
-        pipeline_config={
+    ingest_step = IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -713,7 +713,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     )
 
     ingest_step._validate_and_apply_step_config()
@@ -724,8 +724,8 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
     ):
         ingest_step._run("output-directory")
 
-    ingest_step = IngestStep.from_pipeline_config(
-        pipeline_config={
+    ingest_step = IngestStep.from_recipe_config(
+        recipe_config={
             "target_col": "C",
             "steps": {
                 "ingest": {
@@ -735,7 +735,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
                 }
             },
         },
-        pipeline_root=os.getcwd(),
+        recipe_root=os.getcwd(),
     )
     with pytest.raises(
         MlflowException, match="The `custom_loader_method` configuration key must be specified"
@@ -743,7 +743,7 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
         ingest_step._validate_and_apply_step_config()
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.csv"
     pandas_df.to_csv(dataset_path)
@@ -751,8 +751,8 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
     with pytest.raises(
         MlflowException, match="Resolved data file.*does not have the expected format"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -762,7 +762,7 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
     dataset_path = tmp_path / "dataset"
@@ -775,8 +775,8 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
     with pytest.raises(
         MlflowException, match="Did not find any data files with the specified format"
     ):
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -786,18 +786,18 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.parquet"
     pandas_df.to_parquet(dataset_path)
 
-    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profiles") as mock_profiling:
-        IngestStep.from_pipeline_config(
-            pipeline_config={
+    with mock.patch("mlflow.recipes.utils.step.get_pandas_data_profiles") as mock_profiling:
+        IngestStep.from_recipe_config(
+            recipe_config={
                 "target_col": "C",
                 "steps": {
                     "ingest": {
@@ -807,7 +807,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
                     }
                 },
             },
-            pipeline_root=os.getcwd(),
+            recipe_root=os.getcwd(),
         ).run(output_directory=tmp_path)
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")

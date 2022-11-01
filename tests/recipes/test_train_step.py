@@ -10,28 +10,28 @@ import mlflow
 import sklearn.compose
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils.execution import (
-    _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR,
-    _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
+from mlflow.recipes.utils.execution import (
+    _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR,
+    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
-from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.train import TrainStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.steps.train import TrainStep
 from unittest import mock
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import tmp_pipeline_root_path
+from tests.recipes.helper_functions import tmp_recipe_root_path
 
 # pylint: enable=unused-import
 
 # Sets up the train step output dir
-def setup_train_dataset(pipeline_root: Path):
-    split_step_output_dir = pipeline_root.joinpath("steps", "split", "outputs")
+def setup_train_dataset(recipe_root: Path):
+    split_step_output_dir = recipe_root.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
 
-    transform_step_output_dir = pipeline_root.joinpath("steps", "transform", "outputs")
+    transform_step_output_dir = recipe_root.joinpath("steps", "transform", "outputs")
     transform_step_output_dir.mkdir(parents=True)
 
-    train_step_output_dir = pipeline_root.joinpath("steps", "train", "outputs")
+    train_step_output_dir = recipe_root.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
 
     transformer = sklearn.preprocessing.FunctionTransformer(func=(lambda x: x))
@@ -61,9 +61,9 @@ def setup_train_dataset(pipeline_root: Path):
 
 # Sets up the constructed TrainStep instance
 def setup_train_step_with_tuning(
-    pipeline_root: Path, use_tuning: bool, with_hardcoded_params: bool = True
+    recipe_root: Path, use_tuning: bool, with_hardcoded_params: bool = True
 ):
-    pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    recipe_yaml = recipe_root.joinpath(_RECIPE_CONFIG_FILE_NAME)
     if with_hardcoded_params:
         estimator_params = """
                     estimator_params:
@@ -75,7 +75,7 @@ def setup_train_step_with_tuning(
     else:
         estimator_params = ""
     if use_tuning:
-        pipeline_yaml.write_text(
+        recipe_yaml.write_text(
             """
             template: "regression/v1"
             target_col: "y"
@@ -88,13 +88,13 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: estimator_spec
-                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    estimator_method: tests.recipes.test_train_step.estimator_fn
                     {estimator_params}
                     tuning:
                         enabled: true
                         max_trials: 2
                         sample_fraction: 0.5
-                        early_stop_fn: tests.pipelines.test_train_step.early_stop_fn
+                        early_stop_fn: tests.recipes.test_train_step.early_stop_fn
                         parameters:
                             alpha:
                                 distribution: "uniform"
@@ -111,7 +111,7 @@ def setup_train_step_with_tuning(
             )
         )
     else:
-        pipeline_yaml.write_text(
+        recipe_yaml.write_text(
             """
             template: "regression/v1"
             target_col: "y"
@@ -124,25 +124,25 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: estimator_spec
-                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    estimator_method: tests.recipes.test_train_step.estimator_fn
                     tuning:
                         enabled: false
             """.format(
                 tracking_uri=mlflow.get_tracking_uri()
             )
         )
-    pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_pipeline_config(pipeline_config, str(pipeline_root))
+    recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
+    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
     return train_step
 
 
-def test_train_step(tmp_pipeline_root_path):
+def test_train_step(tmp_recipe_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-        pipeline_yaml.write_text(
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+        recipe_yaml.write_text(
             """
             template: "regression/v1"
             target_col: "y"
@@ -155,15 +155,15 @@ def test_train_step(tmp_pipeline_root_path):
             steps:
                 train:
                     using: estimator_spec
-                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    estimator_method: tests.recipes.test_train_step.estimator_fn
                     tuning:
                         enabled: false
             """.format(
                 tracking_uri=mlflow.get_tracking_uri()
             )
         )
-        pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-        train_step = TrainStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
 
     run_id = train_step_output_dir.joinpath("run_id").read_text()
@@ -173,18 +173,18 @@ def test_train_step(tmp_pipeline_root_path):
 
 
 def setup_train_step_with_automl(
-    pipeline_root: Path,
+    recipe_root: Path,
     primary_metric: str = "root_mean_squared_error",
     generate_custom_metrics: bool = False,
 ):
-    pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    recipe_yaml = recipe_root.joinpath(_RECIPE_CONFIG_FILE_NAME)
 
     custom_metric = """
     - name: weighted_mean_squared_error
       function: weighted_mean_squared_error
       greater_is_better: False
             """
-    pipeline_yaml.write_text(
+    recipe_yaml.write_text(
         f"""
   template: regression/v1
   target_col: y
@@ -208,8 +208,8 @@ def setup_train_step_with_automl(
     { custom_metric if generate_custom_metrics else "" }
         """
     )
-    pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
-    train_step = TrainStep.from_pipeline_config(pipeline_config, str(pipeline_root))
+    recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
+    train_step = TrainStep.from_recipe_config(recipe_config, str(recipe_root))
     return train_step
 
 
@@ -224,12 +224,12 @@ def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tuning):
+def test_train_steps_writes_model_pkl_and_card(tmp_recipe_root_path, use_tuning):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/model.pkl").exists()
@@ -239,7 +239,7 @@ def test_train_steps_writes_model_pkl_and_card(tmp_pipeline_root_path, use_tunin
 
 @pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
-    monkeypatch, tmp_pipeline_root_path, use_tuning
+    monkeypatch, tmp_recipe_root_path, use_tuning
 ):
     workspace_host = "https://dev.databricks.com"
     workspace_id = 123456
@@ -247,10 +247,10 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_HOST", workspace_host)
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
-    monkeypatch.setenv(_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_pipeline_root_path))
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
 
-    train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-    train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
+    train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
     train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -268,12 +268,12 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_autologs(tmp_pipeline_root_path, use_tuning):
+def test_train_steps_autologs(tmp_recipe_root_path, use_tuning):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -289,16 +289,16 @@ def test_train_steps_autologs(tmp_pipeline_root_path, use_tuning):
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
+def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
     with mock.patch.dict(
         os.environ,
         {
-            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
-            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
+            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
         train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -308,18 +308,18 @@ def test_train_steps_with_correct_tags(tmp_pipeline_root_path, use_tuning):
         run_id = f.read()
 
     tags = MlflowClient().get_run(run_id).data.tags
-    assert tags["mlflow.source.type"] == "PIPELINE"
-    assert tags["mlflow.pipeline.template.name"] == "regression/v1"
-    assert tags["mlflow.pipeline.step.name"] == "train"
-    assert tags["mlflow.pipeline.profile.name"] == "test_profile"
+    assert tags["mlflow.source.type"] == "RECIPE"
+    assert tags["mlflow.recipe.template.name"] == "regression/v1"
+    assert tags["mlflow.recipe.step.name"] == "train"
+    assert tags["mlflow.recipe.profile.name"] == "test_profile"
 
 
-def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
+def test_train_step_with_tuning_best_parameters(tmp_recipe_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning=True)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
         train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
@@ -340,18 +340,18 @@ def test_train_step_with_tuning_best_parameters(tmp_pipeline_root_path):
     [(True, 3, 1, 3), (False, 3, 0, 2)],
 )
 def test_train_step_with_tuning_output_yaml_correct(
-    tmp_pipeline_root_path,
+    tmp_recipe_root_path,
     with_hardcoded_params,
     expected_num_tuned,
     expected_num_hardcoded,
     num_sections,
 ):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(
-            tmp_pipeline_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
+            tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
         )
         train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
@@ -369,12 +369,12 @@ def test_train_step_with_tuning_output_yaml_correct(
         assert len(lines) == 19 + num_sections * 2
 
 
-def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path):
+def test_train_step_with_tuning_child_runs_and_early_stop(tmp_recipe_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
-        train_step = setup_train_step_with_tuning(tmp_pipeline_root_path, use_tuning=True)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
         train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -392,8 +392,8 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_pipeline_root_path
 
 
 @pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
-def test_search_space(tmp_pipeline_root_path):
-    tuning_params_yaml = tmp_pipeline_root_path.joinpath("tuning_params.yaml")
+def test_search_space(tmp_recipe_root_path):
+    tuning_params_yaml = tmp_recipe_root_path.joinpath("tuning_params.yaml")
     tuning_params_yaml.write_text(
         """
         parameters:
@@ -403,7 +403,7 @@ def test_search_space(tmp_pipeline_root_path):
                 high: 0.01
         """
     )
-    tuning_params = read_yaml(tmp_pipeline_root_path, "tuning_params.yaml")
+    tuning_params = read_yaml(tmp_recipe_root_path, "tuning_params.yaml")
     search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
     assert "alpha" in search_space
 
@@ -421,18 +421,18 @@ def test_tuning_param_equal(tuning_param, logged_param):
         (True, "weighted_mean_squared_error", True),
     ],
 )
-def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_metrics):
+def test_automl(tmp_recipe_root_path, automl, primary_metric, generate_custom_metrics):
     with mock.patch.dict(
         os.environ,
         {
-            _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path),
-            _MLFLOW_PIPELINES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
+            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
-        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         if generate_custom_metrics:
-            pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-            pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+            recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+            recipe_steps_dir.joinpath("custom_metrics.py").write_text(
                 """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
@@ -446,13 +446,13 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             )
         if automl:
             train_step = setup_train_step_with_automl(
-                tmp_pipeline_root_path,
+                tmp_recipe_root_path,
                 primary_metric=primary_metric,
                 generate_custom_metrics=generate_custom_metrics,
             )
         else:
             train_step = setup_train_step_with_tuning(
-                tmp_pipeline_root_path,
+                tmp_recipe_root_path,
                 use_tuning=True,
                 with_hardcoded_params=False,
             )

@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.pipelines.steps.split import (
+from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.recipes.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
     _make_elem_hashable,
@@ -36,8 +36,8 @@ def test_split_step_run(tmp_path):
     split_ratios = [0.6, 0.3, 0.1]
 
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep({"split_ratios": split_ratios, "target_col": "y"}, "fake_root")
         split_step.run(str(split_output_dir))
 
@@ -96,7 +96,7 @@ def test_hash_pandas_dataframe_deterministic():
 
 
 def test_get_split_df():
-    with mock.patch("mlflow.pipelines.steps.split._SPLIT_HASH_BUCKET_NUM", 6):
+    with mock.patch("mlflow.recipes.steps.split._SPLIT_HASH_BUCKET_NUM", 6):
         split_ratios = [3, 2, 1]
         hash_buckets = pd.Series([0.3, 0.9, 0.1, 0.7, 0.2, 0.6])
         dataset = pd.DataFrame({"v": [10, 20, 30, 40, 50, 60]})
@@ -108,20 +108,20 @@ def test_get_split_df():
         assert test_df.v.tolist() == [20]
 
 
-def test_from_pipeline_config_fails_without_target_col(tmp_path):
+def test_from_recipe_config_fails_without_target_col(tmp_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
-        split_step = SplitStep.from_pipeline_config({}, "fake_root")
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+        split_step = SplitStep.from_recipe_config({}, "fake_root")
         with pytest.raises(MlflowException, match="Missing target_col config"):
             split_step._validate_and_apply_step_config()
 
 
-def test_from_pipeline_config_works_with_target_col(tmp_path):
+def test_from_recipe_config_works_with_target_col(tmp_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
-    ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
-        assert SplitStep.from_pipeline_config({"target_col": "fake_col"}, "fake_root") is not None
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+        assert SplitStep.from_recipe_config({"target_col": "fake_col"}, "fake_root") is not None
 
 
 def test_split_step_skips_profiling_when_specified(tmp_path):
@@ -142,11 +142,11 @@ def test_split_step_skips_profiling_when_specified(tmp_path):
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
 
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch(
-        "mlflow.pipelines.utils.step.get_pandas_data_profiles"
+        "mlflow.recipes.utils.step.get_pandas_data_profiles"
     ) as mock_profiling, mock.patch(
-        "mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"
+        "mlflow.recipes.step.get_recipe_name", return_value="fake_name"
     ):
         split_step = SplitStep({"target_col": "y", "skip_data_profiling": True}, "fake_root")
         split_step.run(str(split_output_dir))

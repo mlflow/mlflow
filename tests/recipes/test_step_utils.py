@@ -1,10 +1,10 @@
-import mlflow.pipelines.utils.step as step_utils
+import mlflow.recipes.utils.step as step_utils
 import numpy as np
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.cards import pandas_renderer
-from mlflow.pipelines.utils.step import (
+from mlflow.recipes.cards import pandas_renderer
+from mlflow.recipes.utils.step import (
     display_html,
     get_merged_eval_metrics,
     truncate_pandas_data_profile,
@@ -22,7 +22,7 @@ def test_display_html_raises_without_input():
 def test_display_html_opens_html_data():
     html_data = "<!DOCTYPE html><html><body><p>Hey</p></body></html>"
     with mock.patch(
-        "mlflow.pipelines.utils.step.is_running_in_ipython_environment", return_value=True
+        "mlflow.recipes.utils.step.is_running_in_ipython_environment", return_value=True
     ):
         with mock.patch("IPython.display.display") as patched_display:
             display_html(html_data=html_data)
@@ -42,14 +42,14 @@ def test_display_html_opens_html_file(tmp_path):
 def test_display_html_throws_error_on_old_dbr():
     html_data = "<!DOCTYPE html><html><body><p>Hey</p></body></html>"
     with mock.patch(
-        "mlflow.pipelines.utils.step.is_running_in_ipython_environment", return_value=True
+        "mlflow.recipes.utils.step.is_running_in_ipython_environment", return_value=True
     ), mock.patch(
-        "mlflow.pipelines.utils.step.is_in_databricks_runtime", return_value=True
+        "mlflow.recipes.utils.step.is_in_databricks_runtime", return_value=True
     ), mock.patch(
-        "mlflow.pipelines.utils.step.get_databricks_runtime",
+        "mlflow.recipes.utils.step.get_databricks_runtime",
         return_value="10.4.x-snapshot-cpu-ml-scala2.12",
     ), pytest.raises(
-        MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Pipelines"
+        MlflowException, match="Use Databricks Runtime 11 or newer with MLflow Recipes"
     ):
         display_html(html_data=html_data)
 

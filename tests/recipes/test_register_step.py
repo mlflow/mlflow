@@ -3,18 +3,18 @@ from pathlib import Path
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
 from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
+from tests.recipes.helper_functions import (
     clear_custom_metrics_module_cache,
     registry_uri_path,
     setup_model_and_evaluate,
-    tmp_pipeline_exec_path,
-    tmp_pipeline_root_path,
+    tmp_recipe_exec_path,
+    tmp_recipe_root_path,
 )  # pylint: enable=unused-import
 
 
@@ -29,16 +29,16 @@ from tests.pipelines.helper_functions import (
     ],
 )
 def test_register_step_run(
-    tmp_pipeline_root_path: Path,
-    tmp_pipeline_exec_path: Path,
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
     mae_threshold: int,
     register_flag: str,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
-        tmp_pipeline_exec_path
+        tmp_recipe_exec_path
     )
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -67,9 +67,9 @@ custom_metrics:
             allow_non_validated_model=register_flag,
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
@@ -81,11 +81,11 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 0
-    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step = RegisterStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     if mae_threshold < 0:
         with pytest.raises(MlflowException, match=r"Model registration on .* failed"):
             register_step.run(str(register_step_output_dir))
@@ -102,13 +102,13 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 @pytest.mark.parametrize("register_flag", ["", "allow_non_validated_model: true"])
 def test_register_with_no_validation_criteria(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path, register_flag: str
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, register_flag: str
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
-        tmp_pipeline_exec_path
+        tmp_recipe_exec_path
     )
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -125,13 +125,13 @@ steps:
             allow_non_validated_model=register_flag,
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
     assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 0
-    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step = RegisterStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     if register_flag == "":
         with pytest.raises(MlflowException, match=r"Model registration on .* failed"):
             register_step.run(str(register_step_output_dir))
@@ -146,14 +146,14 @@ steps:
 
 
 def test_usage_tracking_correctly_added(
-    tmp_pipeline_root_path: Path,
-    tmp_pipeline_exec_path: Path,
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
-        tmp_pipeline_exec_path
+        tmp_recipe_exec_path
     )
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -178,9 +178,9 @@ custom_metrics:
             tracking_uri=mlflow.get_tracking_uri(),
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
@@ -192,28 +192,28 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
-    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step = RegisterStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     register_step.run(str(register_step_output_dir))
     registered_models = mlflow.tracking.MlflowClient().search_registered_models()
     latest_tag = registered_models[0].latest_versions[0].tags
-    assert latest_tag["mlflow.source.type"] == "PIPELINE"
-    assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
+    assert latest_tag["mlflow.source.type"] == "RECIPE"
+    assert latest_tag["mlflow.recipe.template.name"] == "regression/v1"
 
 
 def test_register_uri(
-    tmp_pipeline_root_path: Path,
-    tmp_pipeline_exec_path: Path,
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
     registry_uri_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
-        tmp_pipeline_exec_path
+        tmp_recipe_exec_path
     )
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     registry_uri = registry_uri_path
-    pipeline_yaml.write_text(
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -240,9 +240,9 @@ custom_metrics:
             registry_uri=registry_uri,
         )
     )
-    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
-    pipeline_steps_dir.mkdir(parents=True)
-    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
@@ -254,16 +254,16 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     )
 """
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
-    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step = RegisterStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     register_step.run(str(register_step_output_dir))
     assert mlflow.get_registry_uri() == registry_uri
 
 
 def test_register_step_writes_card_with_model_link_and_version_link_on_databricks(
-    monkeypatch, tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+    monkeypatch, tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
     workspace_host = "https://dev.databricks.com"
     workspace_id = 123456
@@ -272,8 +272,8 @@ def test_register_step_writes_card_with_model_link_and_version_link_on_databrick
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_HOST", workspace_host)
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
 
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    pipeline_yaml.write_text(
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
         """
 template: "regression/v1"
 target_col: "y"
@@ -292,17 +292,17 @@ steps:
     )
 
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
-        tmp_pipeline_exec_path
+        tmp_recipe_exec_path
     )
 
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
-    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step = RegisterStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     register_step.run(str(register_step_output_dir))
 
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
+    train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     with open(train_step_output_dir / "run_id") as f:
         run_id = f.read()
 

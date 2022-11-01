@@ -3,13 +3,13 @@ import uuid
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.cards import BaseCard, CardTab
+from mlflow.recipes.cards import BaseCard, CardTab
 
 
 def test_verify_card_information():
     profile_report = "pandas-profiling"
     card = BaseCard(
-        pipeline_name="fake pipeline",
+        recipe_name="fake recipe",
         step_name="fake step",
     )
     (

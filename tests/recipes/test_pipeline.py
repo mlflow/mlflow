@@ -12,9 +12,9 @@ import mlflow
 from mlflow.entities import Run, SourceType
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
-from mlflow.pipelines.pipeline import Pipeline
-from mlflow.pipelines.step import BaseStep
-from mlflow.pipelines.utils.execution import (
+from mlflow.recipes.recipe import Recipe
+from mlflow.recipes.step import BaseStep
+from mlflow.recipes.utils.execution import (
     get_step_output_path,
     _get_execution_directory_basename,
     _MAKEFILE_FORMAT_STRING,
@@ -31,42 +31,42 @@ from mlflow.utils.mlflow_tags import (
 )
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import (
-    enter_pipeline_example_directory,
-    enter_test_pipeline_directory,
+from tests.recipes.helper_functions import (
+    enter_recipe_example_directory,
+    enter_test_recipe_directory,
     list_all_artifacts,
     chdir,
 )  # pylint: enable=unused-import
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
-# `pipeline.run(step=None)` is called
+# `recipe.run(step=None)` is called
 _STEP_NAMES = ["ingest", "split", "transform", "train", "evaluate", "register"]
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
-def test_create_pipeline_fails_with_invalid_profile():
+@pytest.mark.usefixtures("enter_recipe_example_directory")
+def test_create_recipe_fails_with_invalid_profile():
     with pytest.raises(
         MlflowException,
         match=r"(Failed to find|Did not find the YAML configuration)",
     ):
-        Pipeline(profile="local123")
+        Recipe(profile="local123")
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
-def test_create_pipeline_and_clean_works():
-    p = Pipeline(profile="local")
-    p.clean()
+@pytest.mark.usefixtures("enter_recipe_example_directory")
+def test_create_recipe_and_clean_works():
+    r = Recipe(profile="local")
+    r.clean()
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 @pytest.mark.parametrize("empty_profile", [None, ""])
-def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
+def test_create_recipe_fails_with_empty_profile_name(empty_profile):
     with pytest.raises(MlflowException, match="A profile name must be provided"):
-        _ = Pipeline(profile=empty_profile)
+        _ = Recipe(profile=empty_profile)
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
-def test_create_pipeline_fails_with_path_containing_space(tmp_path):
+@pytest.mark.usefixtures("enter_recipe_example_directory")
+def test_create_recipe_fails_with_path_containing_space(tmp_path):
     space_parent = tmp_path / "space parent"
     space_path = space_parent / "child"
     os.makedirs(space_parent, exist_ok=True)
@@ -74,35 +74,35 @@ def test_create_pipeline_fails_with_path_containing_space(tmp_path):
     copy_tree(os.getcwd(), str(space_path))
 
     with chdir(space_path), pytest.raises(
-        MlflowException, match="Pipeline directory path cannot contain spaces"
+        MlflowException, match="Recipe directory path cannot contain spaces"
     ):
-        Pipeline(profile="local")
+        Recipe(profile="local")
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 @pytest.mark.parametrize("custom_execution_directory", [None, "custom"])
-def test_pipelines_execution_directory_is_managed_as_expected(
-    custom_execution_directory, enter_pipeline_example_directory, tmp_path
+def test_recipes_execution_directory_is_managed_as_expected(
+    custom_execution_directory, enter_recipe_example_directory, tmp_path
 ):
     if custom_execution_directory is not None:
         custom_execution_directory = tmp_path / custom_execution_directory
 
     if custom_execution_directory is not None:
-        os.environ["MLFLOW_PIPELINES_EXECUTION_DIRECTORY"] = str(custom_execution_directory)
+        os.environ["MLFLOW_RECIPES_EXECUTION_DIRECTORY"] = str(custom_execution_directory)
 
     expected_execution_directory_location = (
         pathlib.Path(custom_execution_directory)
         if custom_execution_directory
         else pathlib.Path.home()
         / ".mlflow"
-        / "pipelines"
-        / _get_execution_directory_basename(enter_pipeline_example_directory)
+        / "recipes"
+        / _get_execution_directory_basename(enter_recipe_example_directory)
     )
 
-    # Run the full pipeline and verify that outputs for each step were written to the expected
+    # Run the full recipe and verify that outputs for each step were written to the expected
     # execution directory locations
-    p = Pipeline(profile="local")
-    p.run()
+    r = Recipe(profile="local")
+    r.run()
     assert (expected_execution_directory_location / "Makefile").exists()
     assert (expected_execution_directory_location / "steps").exists()
     for step_name in _STEP_NAMES:
@@ -111,15 +111,15 @@ def test_pipelines_execution_directory_is_managed_as_expected(
         first_output = next(step_outputs_path.iterdir(), None)
         assert first_output is not None
 
-    # Clean the pipeline and verify that all step outputs have been removed
-    p.clean()
+    # Clean the recipe and verify that all step outputs have been removed
+    r.clean()
     for step_name in _STEP_NAMES:
         step_outputs_path = expected_execution_directory_location / "steps" / step_name / "outputs"
         assert not list(step_outputs_path.iterdir())
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on_reruns(
+@pytest.mark.usefixtures("enter_test_recipe_directory")
+def test_recipes_log_to_expected_mlflow_backend_with_expected_run_tags_once_on_reruns(
     tmp_path,
 ):
     experiment_name = "my_test_exp"
@@ -138,9 +138,9 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
         yaml.safe_dump(profile_contents, f)
 
     mlflow.set_tracking_uri(tracking_uri)
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
-    pipeline.run()
+    recipe = Recipe(profile="local")
+    recipe.clean()
+    recipe.run()
 
     logged_runs = mlflow.search_runs(experiment_names=[experiment_name], output_format="list")
     assert len(logged_runs) == 1
@@ -159,19 +159,19 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
         "train/model",
     }
     run_tags = MlflowClient(tracking_uri).get_run(run_id=logged_run.info.run_id).data.tags
-    pipelineSourceTag = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE)}
-    assert resolve_tags(pipelineSourceTag).items() <= run_tags.items()
+    recipeSourceTag = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE)}
+    assert resolve_tags(recipeSourceTag).items() <= run_tags.items()
 
-    pipeline.run()
+    recipe.run()
     logged_runs = mlflow.search_runs(experiment_names=[experiment_name], output_format="list")
     assert len(logged_runs) == 1
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
-def test_pipelines_run_sets_mlflow_git_tags():
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
-    pipeline.run(step="train")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
+def test_recipes_run_sets_mlflow_git_tags():
+    recipe = Recipe(profile="local")
+    recipe.clean()
+    recipe.run(step="train")
 
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
     with open(profile_path, "r") as f:
@@ -198,8 +198,8 @@ def test_pipelines_run_sets_mlflow_git_tags():
     assert run_tags[MLFLOW_SOURCE_NAME] == run_tags[MLFLOW_GIT_REPO_URL]
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fails():
+@pytest.mark.usefixtures("enter_test_recipe_directory")
+def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails():
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
     with open(profile_path, "r") as f:
         profile_contents = yaml.safe_load(f)
@@ -209,15 +209,15 @@ def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fail
     with open(profile_path, "w") as f:
         yaml.safe_dump(profile_contents, f)
 
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
-    with pytest.raises(MlflowException, match="Failed to run.*test_pipeline.*ingest"):
-        pipeline.run()
-    with pytest.raises(MlflowException, match="Failed to run.*split.*test_pipeline.*ingest"):
-        pipeline.run(step="split")
+    recipe = Recipe(profile="local")
+    recipe.clean()
+    with pytest.raises(MlflowException, match="Failed to run.*test_recipe.*ingest"):
+        recipe.run()
+    with pytest.raises(MlflowException, match="Failed to run.*split.*test_recipe.*ingest"):
+        recipe.run(step="split")
 
     step_card_path = get_step_output_path(
-        pipeline_root_path=pipeline._pipeline_root_path,
+        recipe_root_path=recipe._recipe_root_path,
         step_name="ingest",
         relative_path="card.html",
     )
@@ -229,15 +229,15 @@ def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fail
     assert "Stacktrace" in card_content
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_test_step_logs_step_cards_as_artifacts():
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
-    pipeline.run()
+    recipe = Recipe(profile="local")
+    recipe.clean()
+    recipe.run()
 
-    tracking_uri = pipeline._get_step("train").tracking_config.tracking_uri
+    tracking_uri = recipe._get_step("train").tracking_config.tracking_uri
     local_run_id_path = get_step_output_path(
-        pipeline_root_path=pipeline._pipeline_root_path,
+        recipe_root_path=recipe._recipe_root_path,
         step_name="train",
         relative_path="run_id",
     )
@@ -255,33 +255,33 @@ def test_test_step_logs_step_cards_as_artifacts():
     )
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
-def test_pipeline_get_artifacts():
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
+@pytest.mark.usefixtures("enter_recipe_example_directory")
+def test_recipe_get_artifacts():
+    recipe = Recipe(profile="local")
+    recipe.clean()
 
-    pipeline.run("ingest")
-    pipeline.run("split")
-    pipeline.run("transform")
-    pipeline.run("train")
-    pipeline.run("register")
+    recipe.run("ingest")
+    recipe.run("split")
+    recipe.run("transform")
+    recipe.run("train")
+    recipe.run("register")
 
-    assert isinstance(pipeline.get_artifact("ingested_data"), pd.DataFrame)
-    assert isinstance(pipeline.get_artifact("training_data"), pd.DataFrame)
-    assert isinstance(pipeline.get_artifact("validation_data"), pd.DataFrame)
-    assert isinstance(pipeline.get_artifact("test_data"), pd.DataFrame)
-    assert isinstance(pipeline.get_artifact("transformed_training_data"), pd.DataFrame)
-    assert isinstance(pipeline.get_artifact("transformed_validation_data"), pd.DataFrame)
-    assert hasattr(pipeline.get_artifact("transformer"), "transform")
-    assert isinstance(pipeline.get_artifact("model"), mlflow.pyfunc.PyFuncModel)
-    assert isinstance(pipeline.get_artifact("run"), Run)
-    assert isinstance(pipeline.get_artifact("registered_model_version"), ModelVersion)
+    assert isinstance(recipe.get_artifact("ingested_data"), pd.DataFrame)
+    assert isinstance(recipe.get_artifact("training_data"), pd.DataFrame)
+    assert isinstance(recipe.get_artifact("validation_data"), pd.DataFrame)
+    assert isinstance(recipe.get_artifact("test_data"), pd.DataFrame)
+    assert isinstance(recipe.get_artifact("transformed_training_data"), pd.DataFrame)
+    assert isinstance(recipe.get_artifact("transformed_validation_data"), pd.DataFrame)
+    assert hasattr(recipe.get_artifact("transformer"), "transform")
+    assert isinstance(recipe.get_artifact("model"), mlflow.pyfunc.PyFuncModel)
+    assert isinstance(recipe.get_artifact("run"), Run)
+    assert isinstance(recipe.get_artifact("registered_model_version"), ModelVersion)
 
     with pytest.raises(MlflowException, match="The artifact with name 'abcde' is not supported."):
-        pipeline.get_artifact("abcde")
+        recipe.get_artifact("abcde")
 
-    pipeline.clean()
-    assert not pipeline.get_artifact("ingested_data")
+    recipe.clean()
+    assert not recipe.get_artifact("ingested_data")
 
 
 def test_generate_worst_examples_dataframe():
@@ -315,11 +315,11 @@ def test_generate_worst_examples_dataframe():
     assert_result_correct(result_df2)
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_print_cached_steps_and_running_steps(capsys):
-    pipeline = Pipeline(profile="local")
-    pipeline.clean()
-    pipeline.run()
+    recipe = Recipe(profile="local")
+    recipe.clean()
+    recipe.run()
     captured = capsys.readouterr()
     output_info = captured.out
     run_step_pattern = "Running step {step}..."
@@ -327,7 +327,7 @@ def test_print_cached_steps_and_running_steps(capsys):
         # Check for printed message when every step is actually executed
         assert re.search(run_step_pattern.format(step=step), output_info) is not None
 
-    pipeline.run()  # cached
+    recipe.run()  # cached
     captured = capsys.readouterr()
     output_info = captured.err
     cached_step_pattern = "{step}: No changes. Skipping."
@@ -336,22 +336,22 @@ def test_print_cached_steps_and_running_steps(capsys):
     assert re.search(cached_step_pattern.format(step=cached_steps), output_info) is not None
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
     malformed_makefile = _MAKEFILE_FORMAT_STRING + "non_existing_cmd"
     with mock.patch(
-        "mlflow.pipelines.utils.execution._MAKEFILE_FORMAT_STRING",
+        "mlflow.recipes.utils.execution._MAKEFILE_FORMAT_STRING",
         new=malformed_makefile,
     ):
-        p = Pipeline(profile="local")
-        p.clean()
+        r = Recipe(profile="local")
+        r.clean()
         try:
-            p.run()
+            r.run()
         except MlflowException:
             pass
         captured = capsys.readouterr()
         output_info = captured.out
-        assert re.search(r"\*\*\* missing separator.  Stop.", output_info) is not None
+        assert re.search(r"\*\*\* missing separator.  Stor.", output_info) is not None
 
         output_info = captured.err
         cached_step_pattern = "{step}: No changes. Skipping."
@@ -359,22 +359,22 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
             assert re.search(cached_step_pattern.format(step=step), output_info) is None
 
 
-@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
-    split = "# Run MLP step: split"
+    split = "# Run MLFlow Recipe step: split"
     tokens = _MAKEFILE_FORMAT_STRING.split(split)
     assert len(tokens) == 2
     tokens[1] = "\n\tnon-existing-cmd" + tokens[1]
     malformed_makefile_rte = split.join(tokens)
 
     with mock.patch(
-        "mlflow.pipelines.utils.execution._MAKEFILE_FORMAT_STRING",
+        "mlflow.recipes.utils.execution._MAKEFILE_FORMAT_STRING",
         new=malformed_makefile_rte,
     ):
-        p = Pipeline(profile="local")
-        p.clean()
+        r = Recipe(profile="local")
+        r.clean()
         try:
-            p.run(step="split")
+            r.run(step="split")
         except MlflowException:
             pass
         captured = capsys.readouterr()
@@ -387,7 +387,7 @@ def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
         assert re.search("Running step split...", output_info) is None
 
         try:
-            p.run(step="split")
+            r.run(step="split")
         except MlflowException:
             pass
         captured = capsys.readouterr()

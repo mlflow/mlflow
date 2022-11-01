@@ -8,22 +8,22 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import read_yaml
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.transform import TransformStep, _validate_user_code_output
+from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.recipes.steps.transform import TransformStep, _validate_user_code_output
 from unittest import mock
 
 # pylint: disable=unused-import
-from tests.pipelines.helper_functions import tmp_pipeline_root_path
+from tests.recipes.helper_functions import tmp_recipe_root_path
 
 # pylint: enable=unused-import
 
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir
-def set_up_transform_step(pipeline_root: Path, transform_user_module):
-    split_step_output_dir = pipeline_root.joinpath("steps", "split", "outputs")
+def set_up_transform_step(recipe_root: Path, transform_user_module):
+    split_step_output_dir = recipe_root.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
 
-    transform_step_output_dir = pipeline_root.joinpath("steps", "transform", "outputs")
+    transform_step_output_dir = recipe_root.joinpath("steps", "transform", "outputs")
     transform_step_output_dir.mkdir(parents=True)
 
     # use for train and validation, also for split
@@ -37,11 +37,11 @@ def set_up_transform_step(pipeline_root: Path, transform_user_module):
     dataset.to_parquet(str(split_step_output_dir / "validation.parquet"))
     dataset.to_parquet(str(split_step_output_dir / "train.parquet"))
 
-    pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    recipe_yaml = recipe_root.joinpath(_RECIPE_CONFIG_FILE_NAME)
     experiment_name = "demo"
     MlflowClient().create_experiment(experiment_name)
 
-    pipeline_yaml.write_text(
+    recipe_yaml.write_text(
         """
         template: "regression/v1"
         target_col: "y"
@@ -57,17 +57,17 @@ def set_up_transform_step(pipeline_root: Path, transform_user_module):
             transform_user_module=transform_user_module,
         )
     )
-    pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
-    transform_step = TransformStep.from_pipeline_config(pipeline_config, str(pipeline_root))
+    recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
+    transform_step = TransformStep.from_recipe_config(recipe_config, str(recipe_root))
     return transform_step, transform_step_output_dir, split_step_output_dir
 
 
-def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_pipeline_root_path):
+def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_recipe_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
-            tmp_pipeline_root_path, "sklearn.preprocessing.StandardScaler"
+            tmp_recipe_root_path, "sklearn.preprocessing.StandardScaler"
         )
         transform_step.run(str(transform_step_output_dir))
 
@@ -77,12 +77,12 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
 
 
-def test_transform_steps_work_without_step_config(tmp_pipeline_root_path):
-    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+def test_transform_steps_work_without_step_config(tmp_recipe_root_path):
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     experiment_name = "demo"
     MlflowClient().create_experiment(experiment_name)
 
-    pipeline_yaml.write_text(
+    recipe_yaml.write_text(
         """
         template: "regression/v1"
         target_col: "y"
@@ -97,16 +97,16 @@ def test_transform_steps_work_without_step_config(tmp_pipeline_root_path):
             experiment_name=experiment_name,
         )
     )
-    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    TransformStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    TransformStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
 
 
-def test_transform_empty_step(tmp_pipeline_root_path):
+def test_transform_empty_step(tmp_recipe_root_path):
     with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ), mock.patch("steps.transform.transformer_fn", return_value=None):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
-            tmp_pipeline_root_path, "steps.transform.transformer_fn"
+            tmp_recipe_root_path, "steps.transform.transformer_fn"
         )
         transform_step.run(str(transform_step_output_dir))
 

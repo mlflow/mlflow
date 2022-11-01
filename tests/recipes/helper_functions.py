@@ -8,9 +8,9 @@ import sys
 from typing import Generator
 
 from contextlib import contextmanager
-from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.pipelines.step import BaseStep
+from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
+from mlflow.recipes.step import BaseStep
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
 from sklearn.datasets import load_diabetes, load_iris
@@ -19,16 +19,16 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import pytest
 
-PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_PIPELINE_EXAMPLE_PATH"
-PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression_example"
+RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
+RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
 
 ## Methods
 def get_random_id(length=6):
     return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
 
-def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
-    split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
+def setup_model_and_evaluate(tmp_recipe_exec_path: Path):
+    split_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
     X, y = load_diabetes(as_frame=True, return_X_y=True)
     validation_df = X.assign(y=y).sample(n=50, random_state=9)
@@ -37,7 +37,7 @@ def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
     test_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_TEST_FILE_NAME))
 
     run_id, model = train_and_log_model()
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
+    train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
     output_model_path = train_step_output_dir.joinpath("model")
@@ -45,10 +45,10 @@ def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
         shutil.rmtree(output_model_path)
     mlflow.sklearn.save_model(model, output_model_path)
 
-    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
-    register_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "register", "outputs")
+    register_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "register", "outputs")
     register_step_output_dir.mkdir(parents=True)
     return evaluate_step_output_dir, register_step_output_dir
 
@@ -88,39 +88,39 @@ def train_log_and_register_model(model_name, is_dummy=False):
 
 ## Fixtures
 @pytest.fixture
-def enter_pipeline_example_directory():
-    pipeline_example_path = os.environ.get(PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS)
-    if pipeline_example_path is None:
+def enter_recipe_example_directory():
+    recipe_example_path = os.environ.get(RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS)
+    if recipe_example_path is None:
         mlflow_repo_root_directory = pathlib.Path(mlflow.__file__).parent.parent
-        pipeline_example_path = mlflow_repo_root_directory / PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
+        recipe_example_path = mlflow_repo_root_directory / RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
 
-    with chdir(pipeline_example_path):
-        yield pipeline_example_path
+    with chdir(recipe_example_path):
+        yield recipe_example_path
 
 
 @pytest.fixture
-def enter_test_pipeline_directory(enter_pipeline_example_directory):
-    pipeline_example_root_path = enter_pipeline_example_directory
+def enter_test_recipe_directory(enter_recipe_example_directory):
+    recipe_example_root_path = enter_recipe_example_directory
 
     with TempDir(chdr=True) as tmp:
-        test_pipeline_path = tmp.path("test_pipeline")
-        shutil.copytree(pipeline_example_root_path, test_pipeline_path)
-        os.chdir(test_pipeline_path)
+        test_recipe_path = tmp.path("test_recipe")
+        shutil.copytree(recipe_example_root_path, test_recipe_path)
+        os.chdir(test_recipe_path)
         yield os.getcwd()
 
 
 @pytest.fixture
-def tmp_pipeline_exec_path(monkeypatch, tmp_path) -> Path:
-    path = tmp_path.joinpath("pipeline_execution")
+def tmp_recipe_exec_path(monkeypatch, tmp_path) -> Path:
+    path = tmp_path.joinpath("recipe_execution")
     path.mkdir(parents=True)
-    monkeypatch.setenv(_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR, str(path))
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(path))
     yield path
     shutil.rmtree(path)
 
 
 @pytest.fixture
-def tmp_pipeline_root_path(tmp_path) -> Path:
-    path = tmp_path.joinpath("pipeline_root")
+def tmp_recipe_root_path(tmp_path) -> Path:
+    path = tmp_path.joinpath("recipe_root")
     path.mkdir(parents=True)
     yield path
     shutil.rmtree(path)
@@ -162,7 +162,7 @@ class BaseStepImplemented(BaseStep):
         pass
 
     @classmethod
-    def from_pipeline_config(cls, pipeline_config, pipeline_root):
+    def from_recipe_config(cls, recipe_config, recipe_root):
         pass
 
     @property

@@ -19,7 +19,7 @@ The batch scoring recipe contains the following sequential steps:
 The recipe steps are defined as follows:
 
    - **ingest**
-      - The **ingest** step resolves the dataset specified by the |'ingest' step section in recipe.yaml|
+      - The **ingest** step resolves the dataset specified by |'ingest' step section in recipe.yaml|
         and converts it to parquet format, leveraging the custom dataset parsing code defined in
         |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
