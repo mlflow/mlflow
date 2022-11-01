@@ -1355,7 +1355,7 @@ class TestFileStore(unittest.TestCase):
                 return 7
 
         fs = self.get_store()
-        mlflow.set_registry_uri(fs.root_directory)
+        mlflow.set_registry_uri(f"file://{fs.root_directory}")
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
                 python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
