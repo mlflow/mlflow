@@ -159,7 +159,7 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self.output_probabilities = self.step_config.get("output_probabilities", False)
+        self.predict_proba = self.step_config.get("predict_proba", False)
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
@@ -307,7 +307,7 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
                 model = make_pipeline(transformer, estimator)
-                if self.output_probabilities:
+                if self.predict_proba:
                     model_schema = infer_signature(
                         raw_X_train, model.predict_proba(raw_X_train.copy())
                     )
@@ -334,7 +334,7 @@ class TrainStep(BaseStep):
                 if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
                     shutil.rmtree(output_model_path)
 
-                if self.output_probabilities:
+                if self.predict_proba:
                     mlflow.sklearn.save_model(
                         model, output_model_path, pyfunc_predict_fn="predict_proba"
                     )
@@ -372,7 +372,7 @@ class TrainStep(BaseStep):
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            if self.output_probabilities:
+            if self.predict_proba:
                 prediction_result_probs = model.predict_proba(
                     raw_validation_df.drop(self.target_col, axis=1)
                 )
@@ -381,7 +381,7 @@ class TrainStep(BaseStep):
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.template,
-                probability=self.output_probabilities,
+                use_probability=self.predict_proba,
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
@@ -392,7 +392,7 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            if self.output_probabilities:
+            if self.predict_proba:
                 train_predicted_probs = model.predict_proba(
                     raw_train_df.drop(self.target_col, axis=1)
                 )
