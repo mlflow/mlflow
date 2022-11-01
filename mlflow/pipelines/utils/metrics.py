@@ -67,8 +67,8 @@ def _get_error_fn(tmpl: str, probability: bool = False, positive_class: Optional
         if probability:
             import numpy as np
 
-            def logloss(true_label, predicted, eps=1e-15):
-                p = np.clip(predicted, eps, 1 - eps)
+            def logloss(true_label, predicted_proba, eps=1e-15):
+                p = np.clip(predicted_proba, eps, 1 - eps)
                 if true_label == positive_class:
                     return -np.log(p)
                 else:
