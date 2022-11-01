@@ -19,10 +19,10 @@ The batch scoring recipe contains the following sequential steps:
 The recipe steps are defined as follows:
 
    - **ingest**
-      - The **ingest** step resolves the dataset specified by the |'data' section in recipe.yaml|
-        and converts it to parquet format, leveraging the custom dataset parsing code defined in
-        |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
-        validation, & test sets and use them to develop a model.
+      - The **ingest** step resolves the dataset specified by
+        |'ingest' step definition in recipe.yaml| and converts it to parquet format, leveraging
+        the custom dataset parsing code defined in |steps/ingest.py| if necessary. Subsequent steps
+        convert this dataset into training, validation, & test sets and use them to develop a model.
 
         .. note::
             If you make changes to the dataset referenced by the **ingest** step (e.g. by adding
@@ -60,7 +60,7 @@ The recipe steps are defined as follows:
         to create a model recipe. Finally, this model recipe is evaluated against the
         transformed training and validation datasets to compute performance metrics; custom
         metrics are computed according to definitions in |steps/custom_metrics.py| and the
-        |'metrics' section of recipe.yaml|. The model recipe and its associated parameters,
+        |'custom_metrics' section of recipe.yaml|. The model recipe and its associated parameters,
         performance metrics, and lineage information are logged to MLflow Tracking, producing
         an MLflow Run.
 
@@ -76,7 +76,7 @@ The recipe steps are defined as follows:
         compute a ``model_validation_status``, which indicates whether or not a model is good
         enough to be registered to the MLflow Model Registry by the subsequent **register**
         step. Custom performance metrics are computed according to definitions in
-        |steps/custom_metrics.py| and the |'metrics' section of recipe.yaml|. Model
+        |steps/custom_metrics.py| and the |'custom_metrics' section of recipe.yaml|. Model
         performance thresholds are defined in the
         |'validation_criteria' section of the 'evaluate' step definition in recipe.yaml|. Model
         performance metrics and explanations are logged to the same MLflow Tracking Run used by
@@ -101,7 +101,7 @@ The recipe steps are defined as follows:
 
    - **ingest_scoring**
       - The **ingest_scoring** step resolves the dataset specified by the
-        |'data/scoring' section in recipe.yaml| and converts it to parquet format, leveraging
+        |'ingest_scoring' section in recipe.yaml| and converts it to parquet format, leveraging
         the custom dataset parsing code defined in |steps/ingest.py| if necessary.
 
             .. note::
@@ -208,9 +208,9 @@ class ClassificationRecipe(_BaseRecipe):
                        in the recipe's configuration file (``recipe.yaml``) and converts it to
                        parquet format.
 
-                     - ``"ingest_scoring"``: resolves the dataset specified by the ``data/scoring``
-                       section in the recipe's configuration file (``recipe.yaml``) and converts
-                       it to parquet format.
+                     - ``"ingest_scoring"``: resolves the dataset specified by the
+                       ``ingest_scoring`` section in the recipe's configuration file
+                       (``recipe.yaml``) and converts it to parquet format.
 
                      - ``"split"``: splits the ingested dataset produced by the **ingest** step into
                        a training dataset for model training, a validation dataset for model

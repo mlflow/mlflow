@@ -7,6 +7,10 @@ from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.recipes.steps.evaluate import EvaluateStep
 from mlflow.recipes.steps.register import RegisterStep, _REGISTERED_MV_INFO_FILE
 from mlflow.exceptions import MlflowException
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_RECIPE_TEMPLATE_NAME,
+)
 
 # pylint: disable=unused-import
 from tests.recipes.helper_functions import (
@@ -199,8 +203,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     register_step.run(str(register_step_output_dir))
     registered_models = mlflow.tracking.MlflowClient().search_registered_models()
     latest_tag = registered_models[0].latest_versions[0].tags
-    assert latest_tag["mlflow.source.type"] == "RECIPE"
-    assert latest_tag["mlflow.recipe.template.name"] == "regression/v1"
+    assert latest_tag[MLFLOW_SOURCE_TYPE] == "PIPELINE"
+    assert latest_tag[MLFLOW_RECIPE_TEMPLATE_NAME] == "regression/v1"
 
 
 def test_register_uri(

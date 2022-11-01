@@ -17,6 +17,12 @@ from mlflow.recipes.utils.execution import (
 from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.recipes.steps.train import TrainStep
 from unittest import mock
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_RECIPE_PROFILE_NAME,
+    MLFLOW_RECIPE_STEP_NAME,
+)
 
 # pylint: disable=unused-import
 from tests.recipes.helper_functions import tmp_recipe_root_path
@@ -308,10 +314,10 @@ def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
         run_id = f.read()
 
     tags = MlflowClient().get_run(run_id).data.tags
-    assert tags["mlflow.source.type"] == "PIPELINE"
-    assert tags["mlflow.recipe.template.name"] == "regression/v1"
-    assert tags["mlflow.recipe.step.name"] == "train"
-    assert tags["mlflow.recipe.profile.name"] == "test_profile"
+    assert tags[MLFLOW_SOURCE_TYPE] == "PIPELINE"
+    assert tags[MLFLOW_RECIPE_TEMPLATE_NAME] == "regression/v1"
+    assert tags[MLFLOW_RECIPE_STEP_NAME] == "train"
+    assert tags[MLFLOW_RECIPE_PROFILE_NAME] == "test_profile"
 
 
 def test_train_step_with_tuning_best_parameters(tmp_recipe_root_path):
