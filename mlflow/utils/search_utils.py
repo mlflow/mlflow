@@ -852,23 +852,31 @@ class SearchExperimentsUtils(SearchUtils):
             order_by.append(("experiment_id", False))
 
         # https://stackoverflow.com/a/56842689
-        class _Reversor:
-            def __init__(self, obj):
+        class _Sorter:
+            def __init__(self, obj, ascending):
                 self.obj = obj
+                self.ascending = ascending
 
             # Only need < and == are needed for use as a key parameter in the sorted function
             def __eq__(self, other):
                 return other.obj == self.obj
 
             def __lt__(self, other):
-                return other.obj < self.obj
+                if self.obj is None:
+                    return False
+                elif other.obj is None:
+                    return True
+                elif self.ascending:
+                    return self.obj < other.obj
+                else:
+                    return other.obj < self.obj
 
-        def _apply_reversor(experiment, key, ascending):
+        def _apply_sorter(experiment, key, ascending):
             attr = getattr(experiment, key)
-            return attr if ascending else _Reversor(attr)
+            return _Sorter(attr, ascending)
 
         return lambda experiment: tuple(
-            _apply_reversor(experiment, k, asc) for (k, asc) in order_by
+            _apply_sorter(experiment, k, asc) for (k, asc) in order_by
         )
 
     @classmethod
