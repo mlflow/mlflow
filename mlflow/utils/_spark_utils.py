@@ -17,8 +17,8 @@ def _get_active_spark_session():
         return SparkSession._instantiatedSession
 
 
-def _create_local_spark_session_for_pipelines():
-    """Create a sparksession to be used within an pipeline step run in a subprocess locally."""
+def _create_local_spark_session_for_recipes():
+    """Create a sparksession to be used within an recipe step run in a subprocess locally."""
 
     try:
         from pyspark.sql import SparkSession
