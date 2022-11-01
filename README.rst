@@ -6,6 +6,10 @@ MLflow: A Machine Learning Lifecycle Platform
 
     <h1>MLflow 2.0</h1>
 
+.. code-block:: bash
+
+    pip install mlflow==2.0.0rc0
+
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
