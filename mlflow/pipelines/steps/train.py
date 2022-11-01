@@ -327,11 +327,10 @@ class TrainStep(BaseStep):
                 )
 
                 eval_metrics = {}
-                for dataset_name, dataset in {
-                    "training": train_df,
-                    "validation": validation_df,
+                for dataset_name, (dataset, metric_prefix) in {
+                    "training": (train_df, "training_"),
+                    "validation": (validation_df, "val_"),
                 }.items():
-                    metric_prefix = f"{dataset_name}_"
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
                         data=dataset,
