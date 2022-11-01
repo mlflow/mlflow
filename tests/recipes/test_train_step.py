@@ -308,7 +308,7 @@ def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
         run_id = f.read()
 
     tags = MlflowClient().get_run(run_id).data.tags
-    assert tags["mlflow.source.type"] == "RECIPE"
+    assert tags["mlflow.source.type"] == "PIPELINE"
     assert tags["mlflow.recipe.template.name"] == "regression/v1"
     assert tags["mlflow.recipe.step.name"] == "train"
     assert tags["mlflow.recipe.profile.name"] == "test_profile"

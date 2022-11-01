@@ -42,10 +42,10 @@ def test_get_recipe_name_returns_correctly_for_valid_recipe_directory(
 ):
     recipe_root_path = enter_recipe_example_directory
     assert pathlib.Path.cwd() == recipe_root_path
-    assert get_recipe_name() == "sklearn_regression_example"
+    assert get_recipe_name() == "regression"
 
     with chdir(tmp_path):
-        assert get_recipe_name(recipe_root_path=recipe_root_path) == "sklearn_regression_example"
+        assert get_recipe_name(recipe_root_path=recipe_root_path) == "regression"
 
 
 def test_get_recipe_name_throws_for_invalid_recipe_directory(tmp_path):

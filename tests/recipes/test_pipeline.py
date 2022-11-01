@@ -351,7 +351,7 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
             pass
         captured = capsys.readouterr()
         output_info = captured.out
-        assert re.search(r"\*\*\* missing separator.  Stor.", output_info) is not None
+        assert re.search(r"\*\*\* missing separator.  Stop.", output_info) is not None
 
         output_info = captured.err
         cached_step_pattern = "{step}: No changes. Skipping."

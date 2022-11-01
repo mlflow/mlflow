@@ -76,7 +76,7 @@ def test_recipe(
         f.write(
             "\n".join(
                 [
-                    "from sklearn.recipe import Recipe",
+                    "from sklearn.pipeline import Pipeline",
                     "from sklearn.preprocessing import FunctionTransformer",
                     "",
                     "def add_column(df):",
@@ -84,7 +84,7 @@ def test_recipe(
                     "    return df",
                     "",
                     "def transform_fn():",
-                    "    return Recipe(steps=[('add_column', FunctionTransformer(add_column))])",
+                    "    return Pipeline(steps=[('add_column', FunctionTransformer(add_column))])",
                 ]
             )
         )
