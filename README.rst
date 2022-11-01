@@ -2,9 +2,8 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-.. raw:: html
-
-    <h1>MLflow 2.0</h1>
+MLflow 2.0
+----------
 
 .. code-block:: bash
 
