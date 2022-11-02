@@ -253,6 +253,7 @@ class TrainStep(BaseStep):
             )
             train_df = pd.read_parquet(transformed_training_data_path)
             if self.template == "classification/v1" and len(train_df) > _REBALANCING_CUTOFF:
+                self.using_rebalancing = True
                 train_df = self._rebalance_classes(train_df)
 
             X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
@@ -297,7 +298,6 @@ class TrainStep(BaseStep):
             best_estimator_params = None
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(tags=tags) as run:
-
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
@@ -419,6 +419,11 @@ class TrainStep(BaseStep):
         sys.path.append(self.pipeline_root)
         estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
         estimator_hardcoded_params = self.step_config["estimator_params"]
+
+        # if using rebalancing pass in original class weights to preserve original distribution
+        if self.using_rebalancing:
+            estimator_hardcoded_params["class_weight"] = self.original_class_weights
+
         if self.step_config["tuning_enabled"]:
             estimator_hardcoded_params, best_hp_params = self._tune_and_get_best_estimator_params(
                 run.info.run_id,
@@ -1085,6 +1090,7 @@ class TrainStep(BaseStep):
 
     def _rebalance_classes(self, train_df):
         import pandas as pd
+        from sklearn.utils.class_weight import compute_class_weight
 
         resampling_minority_percentage = self.step_config.get(
             "resampling_minority_percentage", _REBALANCING_DEFAULT_RATIO
@@ -1092,6 +1098,8 @@ class TrainStep(BaseStep):
 
         df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
         df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
+
+        self.original_class_weights = compute_class_weight(train_df[self.target_col])
 
         if len(df_positive_class) > len(df_negative_class):
             df_minority_class, df_majority_class = df_negative_class, df_positive_class
