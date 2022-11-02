@@ -2,8 +2,6 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-------------
-
 Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
