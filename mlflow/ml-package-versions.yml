@@ -352,6 +352,7 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
+      sudo apt-get -y install libtbb2
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
       fi
