@@ -4,8 +4,9 @@ MLflow: A Machine Learning Lifecycle Platform
 
 ------------
 
-Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!
----------------------------------------------------------------
+.. raw:: html
+
+    <h1>Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!</h1>
 
 .. code-block:: bash
 
