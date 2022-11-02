@@ -57,7 +57,7 @@ BUILTIN_REGRESSION_PIPELINE_METRICS = [
 ]
 
 
-def _get_error_fn(tmpl: str):
+def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
     :return: The error function for the provided template.
@@ -65,7 +65,21 @@ def _get_error_fn(tmpl: str):
     if tmpl == "regression/v1":
         return lambda predictions, targets: predictions - targets
     if tmpl == "classification/v1":
-        return lambda predictions, targets: predictions != targets
+        if use_probability:
+            import numpy as np
+
+            def logloss(true_label, predicted_proba, eps=1e-15):
+                p = np.clip(predicted_proba, eps, 1 - eps)
+                if true_label == positive_class:
+                    return -np.log(p)
+                else:
+                    return -np.log(1 - p)
+
+            return lambda predictions, targets: [
+                logloss(x, y) for (x, y) in zip(targets, predictions[:, 0])
+            ]
+        else:
+            return lambda predictions, targets: predictions != targets
     raise MlflowException(
         f"No error function for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
