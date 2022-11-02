@@ -11,6 +11,8 @@ Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!
 
 `MLflow 2.0.0rc0 documentation <https://output.circle-artifacts.com/output/job/bb07270e-1101-421c-901c-01e72bc7b6df/artifacts/0/docs/build/html/index.html>`_
 
+------------
+
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
