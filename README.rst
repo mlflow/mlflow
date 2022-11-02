@@ -5,13 +5,13 @@ MLflow: A Machine Learning Lifecycle Platform
 Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Installation
+**Installation**
 
 .. code-block:: bash
 
     pip install mlflow==2.0.0rc0
 
-Documentation
+**Documentation**
 
 `MLflow 2.0.0rc0 <https://output.circle-artifacts.com/output/job/bb07270e-1101-421c-901c-01e72bc7b6df/artifacts/0/docs/build/html/index.html>`_
 
