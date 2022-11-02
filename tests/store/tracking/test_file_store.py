@@ -263,11 +263,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(
             filter_string=f"last_update_time <= {get_current_time_millis()}"
         )
-        assert [e.experiment_id for e in experiments] == [
+        assert {e.experiment_id for e in experiments} == {
             exp_id1,
             exp_id2,
             self.store.DEFAULT_EXPERIMENT_ID,
-        ]
+        }
 
         experiments = self.store.search_experiments(
             filter_string=f"last_update_time = {exp2.last_update_time}"
@@ -326,20 +326,32 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         time.sleep(0.05)
         self.create_experiments(experiment_names)
 
+        # Test the case where an experiment does not have a creation time by simulating a time of
+        # `None`. This is applicable to experiments created in older versions of MLflow where the
+        # `creation_time` attribute did not exist
+        with mock.patch(
+            "mlflow.store.tracking.file_store.get_current_time_millis",
+            return_value=None,
+        ):
+            self.create_experiments(["n"])
+
         experiments = self.store.search_experiments(order_by=["name"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
 
         experiments = self.store.search_experiments(order_by=["name ASC"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
 
         experiments = self.store.search_experiments(order_by=["name DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+        assert [e.name for e in experiments] == ["z", "y", "x", "n", "Default"]
 
         experiments = self.store.search_experiments(order_by=["creation_time DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+        assert [e.name for e in experiments] == ["z", "y", "x", "Default", "n"]
+
+        experiments = self.store.search_experiments(order_by=["creation_time ASC"])
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z", "n"]
 
         experiments = self.store.search_experiments(order_by=["name", "last_update_time asc"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
 
     def test_search_experiments_order_by_time_attribute(self):
         self.initialize()

@@ -4,6 +4,15 @@ get_python_bin <- function() {
   if (in_env != "") {
     return(in_env)
   }
+  # MLFLOW_PYTHON_EXECUTABLE is an environment variable that's defined in a Databricks notebook
+  # environment.
+  mlflow_python_executable <- Sys.getenv("MLFLOW_PYTHON_EXECUTABLE")
+  if (mlflow_python_executable != "") {
+    stdout <- system(paste(mlflow_python_executable, '-c "import sys; print(sys.executable)"'),
+                     intern = TRUE,
+                     ignore.stderr = TRUE)
+    return(paste(stdout, collapse = ""))
+  }
   python_bin <- Sys.which("python")
   if (python_bin != "") {
     return(python_bin)

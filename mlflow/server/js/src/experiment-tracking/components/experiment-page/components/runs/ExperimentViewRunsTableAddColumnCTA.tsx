@@ -194,7 +194,7 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
             <PlusCircleBorderIcon css={styles.buttonIcon} />
             <div css={styles.caption}>
               <FormattedMessage
-                defaultMessage='Add metrics and parameters'
+                defaultMessage='Show more metrics and parameters'
                 description='Label for a CTA button in experiment runs table which invokes column management dropdown'
               />{' '}
               {moreAvailableParamsAndMetricsColumnCount ? (

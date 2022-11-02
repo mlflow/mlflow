@@ -56,7 +56,7 @@ try:
     from mlflow import lightgbm
     from mlflow import mleap
     from mlflow import onnx
-    from mlflow import pipelines
+    from mlflow import recipes
     from mlflow import pyfunc
     from mlflow import pytorch
     from mlflow import sklearn
