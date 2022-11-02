@@ -151,6 +151,7 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.positive_class = self.step_config.get("positive_class")
+        self.rebalancing_enabled = self.step_config.get("rebalancing_enabled", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
@@ -252,9 +253,16 @@ class TrainStep(BaseStep):
                 relative_path="transformed_training_data.parquet",
             )
             train_df = pd.read_parquet(transformed_training_data_path)
-            if self.template == "classification/v1" and len(train_df) > _REBALANCING_CUTOFF:
-                self.using_rebalancing = True
-                train_df = self._rebalance_classes(train_df)
+            self.using_rebalancing = False
+            if self.template == "classification/v1" and self.rebalancing_enabled:
+                if len(train_df) > _REBALANCING_CUTOFF:
+                    self.using_rebalancing = True
+                    train_df = self._rebalance_classes(train_df)
+                else:
+                    _logger.info(
+                        f"Training data has less than {_REBALANCING_CUTOFF} rows, "
+                        f"skipping rebalancing."
+                    )
 
             X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
@@ -1099,6 +1107,7 @@ class TrainStep(BaseStep):
         df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
         df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
 
+        # TODO: fix this
         self.original_class_weights = compute_class_weight(train_df[self.target_col])
 
         if len(df_positive_class) > len(df_negative_class):
