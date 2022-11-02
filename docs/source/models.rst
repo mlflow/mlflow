@@ -921,10 +921,16 @@ using a ``fastai`` data loader:
 
 .. code-block:: py
 
-    from fastai.tabular.all import *
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
     import mlflow
     import mlflow.fastai
-    import pandas as pd
 
     def print_auto_logged_info(r):
         tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
@@ -996,7 +1002,14 @@ Alternatively, when using the ``python_function`` flavor, get predictions from a
 
 .. code-block:: py
 
-    from fastai.tabular.all import *
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
     import mlflow
     import mlflow.fastai
     
