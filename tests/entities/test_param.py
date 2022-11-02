@@ -6,9 +6,9 @@ from tests.helper_functions import random_str, random_int
 
 class TestParam(unittest.TestCase):
     def _check(self, param, key, value):
-        self.assertIsInstance(param, Param)
-        self.assertEqual(param.key, key)
-        self.assertEqual(param.value, value)
+        assert isinstance(param, Param)
+        assert param.key == key
+        assert param.value == value
 
     def test_creation_and_hydration(self):
         key = random_str(random_int(10, 25))  # random string on size in range [10, 25]
@@ -18,7 +18,7 @@ class TestParam(unittest.TestCase):
         self._check(param, key, value)
 
         as_dict = {"key": key, "value": value}
-        self.assertEqual(dict(param), as_dict)
+        assert dict(param) == as_dict
 
         proto = param.to_proto()
         param2 = Param.from_proto(proto)

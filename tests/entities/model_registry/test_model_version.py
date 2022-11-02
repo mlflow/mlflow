@@ -26,19 +26,19 @@ class TestModelVersion(unittest.TestCase):
         status_message,
         tags,
     ):
-        self.assertIsInstance(model_version, ModelVersion)
-        self.assertEqual(model_version.name, name)
-        self.assertEqual(model_version.version, version)
-        self.assertEqual(model_version.creation_timestamp, creation_timestamp)
-        self.assertEqual(model_version.last_updated_timestamp, last_updated_timestamp)
-        self.assertEqual(model_version.description, description)
-        self.assertEqual(model_version.user_id, user_id)
-        self.assertEqual(model_version.current_stage, current_stage)
-        self.assertEqual(model_version.source, source)
-        self.assertEqual(model_version.run_id, run_id)
-        self.assertEqual(model_version.status, status)
-        self.assertEqual(model_version.status_message, status_message)
-        self.assertEqual(model_version.tags, tags)
+        assert isinstance(model_version, ModelVersion)
+        assert model_version.name == name
+        assert model_version.version == version
+        assert model_version.creation_timestamp == creation_timestamp
+        assert model_version.last_updated_timestamp == last_updated_timestamp
+        assert model_version.description == description
+        assert model_version.user_id == user_id
+        assert model_version.current_stage == current_stage
+        assert model_version.source == source
+        assert model_version.run_id == run_id
+        assert model_version.status == status
+        assert model_version.status_message == status_message
+        assert model_version.tags == tags
 
     def test_creation_and_hydration(self):
         name = random_str()
@@ -94,15 +94,15 @@ class TestModelVersion(unittest.TestCase):
             "tags": {tag.key: tag.value for tag in (tags or [])},
         }
         model_version_as_dict = dict(mvd)
-        self.assertEqual(model_version_as_dict, expected_dict)
+        assert model_version_as_dict == expected_dict
 
         proto = mvd.to_proto()
-        self.assertEqual(proto.name, name)
-        self.assertEqual(proto.version, "5")
-        self.assertEqual(proto.status, ModelVersionStatus.from_string("READY"))
-        self.assertEqual(proto.status_message, "Model version #5 is ready to use.")
-        self.assertEqual({tag.key for tag in proto.tags}, {"key", "randomKey"})
-        self.assertEqual({tag.value for tag in proto.tags}, {"value", "not a random value"})
+        assert proto.name == name
+        assert proto.version == "5"
+        assert proto.status == ModelVersionStatus.from_string("READY")
+        assert proto.status_message == "Model version #5 is ready to use."
+        assert {tag.key for tag in proto.tags} == {"key", "randomKey"}
+        assert {tag.value for tag in proto.tags} == {"value", "not a random value"}
         mvd_2 = ModelVersion.from_proto(proto)
         self._check(
             mvd_2,

@@ -1,6 +1,7 @@
 """
 Unit tests for histogram_generator.py
 """
+import pytest
 import unittest
 
 from mlflow.protos import facet_feature_statistics_pb2
@@ -19,14 +20,20 @@ class HistogramGeneratorTestCase(unittest.TestCase):
         """
         Helper function to assert the actual histogram is almost equal to the expected histogram.
         """
-        self.assertEqual(expected.type, actual.type)
-        self.assertEqual(len(expected.buckets), len(actual.buckets))
+        assert expected.type == actual.type
+        assert len(expected.buckets) == len(actual.buckets)
         for i in range(len(expected.buckets)):
             actual_bucket = actual.buckets[i]
             expected_bucket = expected.buckets[i]
-            self.assertAlmostEqual(actual_bucket.low_value, expected_bucket.low_value, 2)
-            self.assertAlmostEqual(actual_bucket.high_value, expected_bucket.high_value, 2)
-            self.assertAlmostEqual(actual_bucket.sample_count, expected_bucket.sample_count, 2)
+            assert actual_bucket.low_value == pytest.approx(
+                expected_bucket.low_value,
+            )
+            assert actual_bucket.high_value == pytest.approx(
+                expected_bucket.high_value,
+            )
+            assert actual_bucket.sample_count == pytest.approx(
+                expected_bucket.sample_count,
+            )
 
 
 class EqualHeightHistogramGeneratorTestCase(HistogramGeneratorTestCase):
@@ -39,18 +46,20 @@ class EqualHeightHistogramGeneratorTestCase(HistogramGeneratorTestCase):
         Tests generate_equal_height_histogram returns None when quantiles is invalid.
         """
         # Empty quantiles is invalid.
-        self.assertIsNone(
-            histogram_generator.generate_equal_height_histogram(quantiles=[], num_buckets=5)
+        assert (
+            histogram_generator.generate_equal_height_histogram(quantiles=[], num_buckets=5) is None
         )
         # Quantiles which has less than 3 elements is invalid.
-        self.assertIsNone(
+        assert (
             histogram_generator.generate_equal_height_histogram(quantiles=[1, 2], num_buckets=1)
+            is None
         )
         # When (len(quantiles) - 1) % num_buckets != 0, quantiles is considered as invalid.
-        self.assertIsNone(
+        assert (
             histogram_generator.generate_equal_height_histogram(
                 quantiles=[1, 2, 3, 4, 5], num_buckets=3
             )
+            is None
         )
 
     def test_valid_quantiles(self):
