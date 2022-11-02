@@ -6,7 +6,7 @@ MLflow: A Machine Learning Lifecycle Platform
 
 .. raw:: html
 
-    <h1>Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!</h1>
+    <h2>Please help us test MLflow 2.0 by installing the MLflow 2.0 RC!</h2>
 
 .. code-block:: bash
 
