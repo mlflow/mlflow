@@ -1182,7 +1182,7 @@ class TrainStep(BaseStep):
             return train_df
 
         _logger.info(
-            f"Rebalancing classes using downsampling: original count - minority class: "
+            f"Detected class imbalance: original count - minority class: "
             f"{len(df_minority_class)} vs majority class: {len(df_majority_class)}"
         )
 
@@ -1192,6 +1192,10 @@ class TrainStep(BaseStep):
             / resampling_minority_percentage
         )
         df_majority_downsampled = df_majority_class.sample(majority_class_target)
+        _logger.info(
+            f"After downsampling: original count - minority class: "
+            f"{len(df_minority_class)} vs majority class: {len(df_majority_downsampled)}"
+        )
         train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0)
 
         return train_df
