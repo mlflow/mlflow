@@ -1,4 +1,5 @@
-import { Checkbox, Tooltip, Form } from 'antd';
+import { Form } from 'antd';
+import { Checkbox, Tooltip } from '@databricks/design-system';
 import React from 'react';
 import PropTypes from 'prop-types';
 import {

@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from types import FunctionType
 import mlflow
 import hashlib
 import json
@@ -31,6 +32,119 @@ import operator
 from decimal import Decimal
 
 _logger = logging.getLogger(__name__)
+
+
+class EvaluationMetric:
+    """
+    A model evaluation metric.
+
+    :param eval_fn:
+        A function that computes the metric with the following signature:
+
+        .. code-block:: python
+
+            def eval_fn(
+                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                builtin_metrics: Dict[str, float],
+            ) -> float:
+                \"\"\"
+                :param eval_df:
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
+                    on that row.
+                :param builtin_metrics:
+                    A dictionary containing the metrics calculated by the default evaluator.
+                    The keys are the names of the metrics and the values are the scalar values of
+                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    will be returned based on the type of model (i.e. classifier or regressor).
+                :return:
+                    The metric value.
+                \"\"\"
+                ...
+
+    :param name: The name of the metric.
+    :param greater_is_better: Whether a higher value of the metric is better.
+    :param long_name: (Optional) The long name of the metric. For example,
+        ``"root_mean_squared_error"`` for ``"mse"``.
+    """
+
+    def __init__(self, eval_fn, name, greater_is_better, long_name=None):
+        self.eval_fn = eval_fn
+        self.name = name
+        self.greater_is_better = greater_is_better
+        self.long_name = long_name or name
+
+    def __str__(self):
+        if self.long_name:
+            return (
+                f"EvaluationMetric(name={self.name}, long_name={self.long_name}, "
+                f"greater_is_better={self.greater_is_better})"
+            )
+        else:
+            return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
+
+
+def make_metric(
+    *,
+    eval_fn,
+    greater_is_better,
+    name=None,
+    long_name=None,
+):
+    """
+    A factory function to create an :py:class:`EvaluationMetric` object.
+
+    :param eval_fn:
+        A function that computes the metric with the following signature:
+
+        .. code-block:: python
+
+            def eval_fn(
+                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                builtin_metrics: Dict[str, float],
+            ) -> float:
+                \"\"\"
+                :param eval_df:
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
+                    on that row.
+                :param builtin_metrics:
+                    A dictionary containing the metrics calculated by the default evaluator.
+                    The keys are the names of the metrics and the values are the scalar values of
+                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    will be returned based on the type of model (i.e. classifier or regressor).
+                :return:
+                    The metric value.
+                \"\"\"
+                ...
+
+    :param greater_is_better: Whether a higher value of the metric is better.
+    :param name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
+                 function or the ``eval_fn.__name__`` attribute is not available.
+    :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
+        for ``"mse"``.
+
+    .. seealso::
+
+        - :py:class:`mlflow.models.EvaluationMetric`
+        - :py:func:`mlflow.evaluate`
+    """
+    if name is None:
+        if isinstance(eval_fn, FunctionType) and eval_fn.__name__ == "<lambda>":
+            raise MlflowException(
+                "`name` must be specified if `eval_fn` is a lambda function.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if not hasattr(eval_fn, "__name__"):
+            raise MlflowException(
+                "`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
+                INVALID_PARAMETER_VALUE,
+            )
+        name = eval_fn.__name__
+
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
 
 
 class EvaluationArtifact(metaclass=ABCMeta):
@@ -510,6 +624,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        custom_artifacts=None,
         baseline_model=None,
         **kwargs,
     ):
@@ -526,7 +641,8 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
-        :param custom_metrics: A list of callable custom metric functions.
+        :param custom_metrics: A list of :py:class:`EvaluationMetric` objects.
+        :param custom_artifacts: A list of callable custom artifact functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
@@ -782,6 +898,7 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
+    custom_artifacts,
     baseline_model,
 ):
     """
@@ -819,6 +936,7 @@ def _evaluate(
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )
             eval_results.append(eval_result)
@@ -856,6 +974,7 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
+    custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
     env_manager="local",
@@ -1010,97 +1129,93 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
-    :param custom_metrics: (Optional) A list of custom metric functions. A custom metric
-                           function is required to take in two parameters:
+    :param custom_metrics:
+        (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
 
-                           - ``Union[pandas.Dataframe, pyspark.sql.DataFrame]``: The first being a
-                             Pandas or Spark DataFrame containing ``prediction`` and ``target``
-                             column. The ``prediction`` column contains the predictions made by
-                             the model. The ``target`` column contains the corresponding labels
-                             to the predictions made on that row.
-                           - ``Dict``: The second is a dictionary containing the metrics calculated
-                             by the default evaluator. The keys are the names of the metrics
-                             and the values are the scalar values of the metrics. Refer to the
-                             DefaultEvaluator behavior section for what metrics will be returned
-                             based on the type of model (i.e. classifier or regressor).
-                           - (Optional) ``str``: the path to a temporary directory that can be used
-                             by the custom metric function to temporarily store produced artifacts.
-                             The directory will be deleted after the artifacts are logged.
+        .. code-block:: python
+            :caption: Example usage of custom metrics
 
-                           A custom metric function can return in the following format:
+            import mlflow
+            import numpy as np
 
-                           - ``Dict[AnyStr, Union[int, float, np.number]``: a singular dictionary of
-                             custom metrics, where the keys are the names of the metrics, and the
-                             values are the scalar values of the metrics.
-                           - ``Tuple[Dict[AnyStr, Union[int,float,np.number]], Dict[AnyStr,Any]]``:
-                             a tuple of a dict containing the custom metrics, and a dict of
-                             artifacts, where the keys are the names of the artifacts, and the
-                             values are objects representing the artifacts.
 
-                           Object types that artifacts can be represented as:
+            def root_mean_squared_error(eval_df, _builtin_metrics):
+                return np.sqrt((np.abs(eval_df["prediction"] - eval_df["target"]) ** 2).mean)
 
-                           - A string uri representing the file path to the artifact. MLflow will
-                             infer the type of the artifact based on the file extension.
-                           - A string representation of a JSON object. This will be saved as a
-                             .json artifact.
-                           - Pandas DataFrame. This will be resolved as a CSV artifact.
-                           - Numpy array. This will be saved as a .npy artifact.
-                           - Matplotlib Figure. This will be saved as an image artifact. Note that
-                             ``matplotlib.pyplot.savefig`` is called behind the scene with default
-                             configurations. To customize, either save the figure with the desired
-                             configurations and return its file path or define customizations
-                             through environment variables in ``matplotlib.rcParams``.
-                           - Other objects will be attempted to be pickled with the default
-                             protocol.
 
-                           .. code-block:: python
-                               :caption: Custom Metric Function Boilerplate
+            rmse_metric = mlflow.models.make_metric(
+                eval_fn=root_mean_squared_error,
+                greater_is_better=False,
+            )
+            mlflow.evaluate(..., custom_metrics=[rmse_metric])
 
-                               def custom_metrics_boilerplate(eval_df, builtin_metrics):
-                                   # ...
-                                   metrics: Dict[AnyStr, Union[int, float, np.number]] = some_dict
-                                   artifacts: Dict[AnyStr, Any] = some_artifact_dict
-                                   # ...
-                                   if artifacts is not None:
-                                       return metrics, artifacts
-                                   return metrics
+    :param custom_artifacts:
+        (Optional) A list of custom artifact functions with the following signature:
 
-                           .. code-block:: python
-                               :caption: Example usage of custom metrics
+        .. code-block:: python
 
-                               def squared_diff_plus_one(eval_df, builtin_metrics):
-                                   return {
-                                       "squared_diff_plus_one": (
-                                           np.sum(
-                                               np.abs(
-                                                   eval_df["prediction"] - eval_df["target"] + 1
-                                               ) ** 2
-                                           )
-                                       )
-                                   }
+            def custom_artifact(
+                eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
+                builtin_metrics: Dict[str, float],
+                artifacts_dir: str,
+            ) -> Dict[str, Any]:
+                \"\"\"
+                :param eval_df:
+                    A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
+                    The ``prediction`` column contains the predictions made by the model.
+                    The ``target`` column contains the corresponding labels to the predictions made
+                    on that row.
+                :param builtin_metrics:
+                    A dictionary containing the metrics calculated by the default evaluator.
+                    The keys are the names of the metrics and the values are the scalar values of
+                    the metrics. Refer to the DefaultEvaluator behavior section for what metrics
+                    will be returned based on the type of model (i.e. classifier or regressor).
+                :param artifacts_dir:
+                    A temporary directory path that can be used by the custom artifacts function to
+                    temporarily store produced artifacts. The directory will be deleted after the
+                    artifacts are logged.
+                :return:
+                    A dictionary that maps artifact names to artifact objects
+                    (e.g. a Matplotlib Figure) or to artifact paths within ``artifacts_dir``.
+                \"\"\"
+                ...
 
-                               def scatter_plot(eval_df, builtin_metrics, artifacts_dir):
-                                   import tempfile
-                                   plt.scatter(eval_df['prediction'], eval_df['target'])
-                                   plt.xlabel('Targets')
-                                   plt.ylabel('Predictions')
-                                   plt.title("Targets vs. Predictions")
-                                   plt.savefig(os.path.join(artifacts_dir, "example.png"))
-                                   return {}, {
-                                       "pred_target_scatter": os.path.join(
-                                            artifacts_dir, "example.png"
-                                       )
-                                   }
+        Object types that artifacts can be represented as:
 
-                               with mlflow.start_run():
-                                   mlflow.evaluate(
-                                       model,
-                                       data,
-                                       targets,
-                                       model_type,
-                                       evaluators,
-                                       custom_metrics=[squared_diff_plus_one, scatter_plot],
-                                   )
+            - A string uri representing the file path to the artifact. MLflow will infer the type of
+              the artifact based on the file extension.
+            - A string representation of a JSON object. This will be saved as a .json artifact.
+            - Pandas DataFrame. This will be resolved as a CSV artifact.
+            - Numpy array. This will be saved as a .npy artifact.
+            - Matplotlib Figure. This will be saved as an image artifact. Note that
+              ``matplotlib.pyplot.savefig`` is called behind the scene with default configurations.
+              To customize, either save the figure with the desired configurations and return its
+              file path or define customizations through environment variables in
+              ``matplotlib.rcParams``.
+            - Other objects will be attempted to be pickled with the default protocol.
+
+        .. code-block:: python
+            :caption: Example usage of custom artifacts
+
+            import mlflow
+            import matplotlib.pyplot as plt
+
+
+            def scatter_plot(eval_df, builtin_metrics, artifacts_dir):
+                plt.scatter(eval_df['prediction'], eval_df['target'])
+                plt.xlabel('Targets')
+                plt.ylabel('Predictions')
+                plt.title("Targets vs. Predictions")
+                plt.savefig(os.path.join(artifacts_dir, "example.png"))
+                plt.close()
+                return {"pred_target_scatter": os.path.join(artifacts_dir, "example.png")}
+
+
+            def pred_sample(eval_df, _builtin_metrics, _artifacts_dir):
+                return {"pred_sample": pred_sample.head(10)}
+
+
+            mlflow.evaluate(..., custom_artifacts=[scatter_plot, pred_sample])
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
 
@@ -1236,6 +1351,7 @@ should be at least 0.05 greater than baseline model accuracy
                 evaluator_name_list=evaluator_name_list,
                 evaluator_name_to_conf_map=evaluator_name_to_conf_map,
                 custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
             )
         finally:

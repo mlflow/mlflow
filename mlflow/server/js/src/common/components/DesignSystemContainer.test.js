@@ -5,7 +5,12 @@ import { message } from 'antd';
 
 let mockGetPopupContainerFn;
 
-jest.mock('antd');
+jest.mock('antd', () => ({
+  ...jest.requireActual('antd'),
+  message: { config: jest.fn() },
+  ConfigProvider: ({ children }) => children,
+}));
+
 jest.mock('@databricks/design-system', () => ({
   DesignSystemProvider: ({ getPopupContainer, children }) => {
     mockGetPopupContainerFn = getPopupContainer;

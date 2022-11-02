@@ -211,7 +211,12 @@ class SearchUtils:
     @classmethod
     def _get_identifier(cls, identifier, valid_attributes):
         try:
-            entity_type, key = identifier.split(".", 1)
+            tokens = identifier.split(".", 1)
+            if len(tokens) == 1:
+                key = tokens[0]
+                entity_type = cls._ATTRIBUTE_IDENTIFIER
+            else:
+                entity_type, key = tokens
         except ValueError:
             raise MlflowException(
                 "Invalid identifier '%s'. Columns should be specified as "
@@ -835,7 +840,7 @@ class SearchExperimentsUtils(SearchUtils):
     @classmethod
     def _get_sort_key(cls, order_by_list):
         order_by = []
-        parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list or [])
+        parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list)
         for type_, key, ascending in parsed_order_by:
             if type_ == "attribute":
                 order_by.append((key, ascending))
@@ -843,28 +848,34 @@ class SearchExperimentsUtils(SearchUtils):
                 raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
         # Add a tie-breaker
-        if not any(key == "last_update_time" for key, _ in order_by):
-            order_by.append(("last_update_time", False))
+        if not any(key == "experiment_id" for key, _ in order_by):
+            order_by.append(("experiment_id", False))
 
         # https://stackoverflow.com/a/56842689
-        class _Reversor:
-            def __init__(self, obj):
+        class _Sorter:
+            def __init__(self, obj, ascending):
                 self.obj = obj
+                self.ascending = ascending
 
             # Only need < and == are needed for use as a key parameter in the sorted function
             def __eq__(self, other):
                 return other.obj == self.obj
 
             def __lt__(self, other):
-                return other.obj < self.obj
+                if self.obj is None:
+                    return False
+                elif other.obj is None:
+                    return True
+                elif self.ascending:
+                    return self.obj < other.obj
+                else:
+                    return other.obj < self.obj
 
-        def _apply_reversor(experiment, key, ascending):
+        def _apply_sorter(experiment, key, ascending):
             attr = getattr(experiment, key)
-            return attr if ascending else _Reversor(attr)
+            return _Sorter(attr, ascending)
 
-        return lambda experiment: tuple(
-            _apply_reversor(experiment, k, asc) for (k, asc) in order_by
-        )
+        return lambda experiment: tuple(_apply_sorter(experiment, k, asc) for (k, asc) in order_by)
 
     @classmethod
     def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed

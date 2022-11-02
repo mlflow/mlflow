@@ -53,22 +53,6 @@ service MlflowService {
     };
   }
 
-  // Get a list of all experiments.
-  //
-  // Deprecated. Use Search Experiments instead.
-  rpc listExperiments (ListExperiments) returns (ListExperiments.Response) {
-    option deprecated = true;
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/experiments/list"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Experiments",
-    };
-  }
-
   rpc searchExperiments (SearchExperiments) returns (SearchExperiments.Response) {
     option (rpc) = {
       endpoints: [{
@@ -611,33 +595,6 @@ message CreateExperiment {
   message Response {
     // Unique identifier for the experiment.
     optional string experiment_id = 1;
-  }
-}
-
-message ListExperiments {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option deprecated = true;
-
-  // Qualifier for type of experiments to be returned.
-  // If unspecified, return only active experiments.
-  optional ViewType view_type = 1;
-
-  // Maximum number of experiments desired.
-  // Servers may select a desired default `max_results` value. All servers are
-  // guaranteed to support a `max_results` threshold of at least 1,000 but may
-  // support more. Callers of this endpoint are encouraged to pass max_results
-  // explicitly and leverage page_token to iterate through experiments.
-  optional int64 max_results = 2;
-
-  // Pagination token to go to the next page based on a previous query.
-  optional string page_token = 3;
-
-  message Response {
-    // All experiments.
-    repeated Experiment experiments = 1;
-
-    // Pagination token to request next page of experiments for the same query.
-    optional string next_page_token = 2;
   }
 }
 

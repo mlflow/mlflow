@@ -1,18 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { Image } from 'antd';
-import { Skeleton } from '@databricks/design-system';
+import { DesignSystemContext, Skeleton } from '@databricks/design-system';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 
-const ShowArtifactImageView = ({ runUuid, path }) => {
+const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesContent }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [imageUrl, setImageUrl] = useState(null);
+
+  const { getPopupContainer } = useContext(DesignSystemContext);
 
   useEffect(() => {
     setIsLoading(true);
-  }, [runUuid, path]);
 
-  const src = getSrc(path, runUuid);
+    // Download image contents using XHR so all necessary
+    // HTTP headers will be automatically added
+    getArtifact(getSrc(path, runUuid)).then((result) => {
+      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)])));
+      setIsLoading(false);
+    });
+  }, [runUuid, path, getArtifact]);
+
   return (
     <div css={classNames.imageOuterContainer}>
       {isLoading && <Skeleton active />}
@@ -20,7 +30,7 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
         <img
           alt={path}
           css={classNames.image}
-          src={src}
+          src={imageUrl}
           onLoad={() => setIsLoading(false)}
           onClick={() => setPreviewVisible(true)}
         />
@@ -29,10 +39,11 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
         <Image.PreviewGroup
           preview={{
             visible: previewVisible,
+            getContainer: getPopupContainer,
             onVisibleChange: (visible) => setPreviewVisible(visible),
           }}
         >
-          <Image src={src} />
+          <Image src={imageUrl} />
         </Image.PreviewGroup>
       </div>
     </div>
@@ -42,6 +53,7 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
 ShowArtifactImageView.propTypes = {
   runUuid: PropTypes.string.isRequired,
   path: PropTypes.string.isRequired,
+  getArtifact: PropTypes.func,
 };
 
 const classNames = {

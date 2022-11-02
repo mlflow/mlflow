@@ -10,6 +10,8 @@ sklearn:
   models:
     minimum: "0.22.1"
     maximum: "1.1.2"
+    requirements:
+      "< 1.0": ["scipy==1.7.3"]
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
@@ -18,6 +20,7 @@ sklearn:
     maximum: "1.1.2"
     requirements:
       ">= 0.0.0": ["matplotlib"]
+      "< 1.0": ["scipy==1.7.3"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
@@ -71,7 +74,8 @@ tensorflow:
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
-      "< 2.6.0": [ "protobuf<4.0.0" ]
+      "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -86,6 +90,7 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -183,7 +188,8 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.9"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
+      ">= 2.8.0": ["torch", "torchvision"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
@@ -191,7 +197,8 @@ fastai:
     minimum: "2.4.1"
     maximum: "2.7.9"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
+      ">= 2.8.0": ["torch", "torchvision"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
@@ -218,7 +225,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.5.0"
+    minimum: "1.7.0"
     maximum: "1.12.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -249,12 +256,16 @@ statsmodels:
   models:
     minimum: "0.11.1"
     maximum: "0.13.2"
+    requirements:
+      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.11.1"
     maximum: "0.13.2"
+    requirements:
+      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -322,10 +333,9 @@ mleap:
     pip_release: "mleap"
 
   models:
-    minimum: "0.16.1"
+    minimum: "0.18.0"
     maximum: "0.20.0"
     requirements:
-      "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -342,6 +352,7 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
+      sudo apt-get -y install libtbb2
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
       fi

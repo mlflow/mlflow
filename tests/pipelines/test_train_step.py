@@ -136,6 +136,42 @@ def setup_train_step_with_tuning(
     return train_step
 
 
+def test_train_step(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_pipeline_root_path)
+        pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+        pipeline_yaml.write_text(
+            """
+            template: "regression/v1"
+            target_col: "y"
+            profile: "test_profile"
+            run_args:
+                step: "train"
+            experiment:
+                name: "demo"
+                tracking_uri: {tracking_uri}
+            steps:
+                train:
+                    using: estimator_spec
+                    estimator_method: tests.pipelines.test_train_step.estimator_fn
+                    tuning:
+                        enabled: false
+            """.format(
+                tracking_uri=mlflow.get_tracking_uri()
+            )
+        )
+        pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    run_id = train_step_output_dir.joinpath("run_id").read_text()
+    metrics = MlflowClient().get_run(run_id).data.metrics
+    assert "val_mean_squared_error" in metrics
+    assert "training_mean_squared_error" in metrics
+
+
 def setup_train_step_with_automl(
     pipeline_root: Path,
     primary_metric: str = "root_mean_squared_error",
@@ -144,15 +180,15 @@ def setup_train_step_with_automl(
     pipeline_yaml = pipeline_root.joinpath(_PIPELINE_CONFIG_FILE_NAME)
 
     custom_metric = """
-    custom:
-      - name: weighted_mean_squared_error
-        function: weighted_mean_squared_error
-        greater_is_better: False
+    - name: weighted_mean_squared_error
+      function: weighted_mean_squared_error
+      greater_is_better: False
             """
     pipeline_yaml.write_text(
         f"""
   template: regression/v1
   target_col: y
+  primary_metric: { primary_metric }
   profile: test_profile
   run_args:
     step: train
@@ -168,9 +204,8 @@ def setup_train_step_with_automl(
           - xgboost
           - rf
           - lgbm
-  metrics:
+  custom_metrics:
     { custom_metric if generate_custom_metrics else "" }
-    primary: { primary_metric }
         """
     )
     pipeline_config = read_yaml(pipeline_root, _PIPELINE_CONFIG_FILE_NAME)
@@ -402,13 +437,11 @@ def test_automl(tmp_pipeline_root_path, automl, primary_metric, generate_custom_
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
         """
             )
         if automl:
@@ -430,4 +463,4 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             run_id = f.read()
 
         metrics = MlflowClient().get_run(run_id).data.metrics
-        assert primary_metric in metrics
+        assert f"training_{primary_metric}" in metrics

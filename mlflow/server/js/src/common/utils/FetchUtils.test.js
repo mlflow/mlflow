@@ -2,6 +2,7 @@ import {
   defaultResponseParser,
   getDefaultHeadersFromCookies,
   HTTPMethods,
+  HTTPRetryStatuses,
   jsonBigIntResponseParser,
   parseResponse,
   yamlResponseParser,
@@ -317,46 +318,60 @@ describe('FetchUtils', () => {
       });
     });
 
-    it('fetchEndpoint resolves on consecutive 429 and a final valid response', async () => {
-      const tooManyRequestsResponse = { ok: false, status: 429, statusText: 'TooManyRequests' };
-      const okResponse = {
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve('{"sorry": "I am late"}'),
-      };
-      const responses = [...Array(2).fill(tooManyRequestsResponse), okResponse];
-      // pop the head of the array on each call
-      global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
-      await expect(
-        fetchEndpoint({
-          relativeUrl: 'http://localhost:3000',
-          initialDelay: 5,
-          retries: 4,
-        }),
-      ).resolves.toEqual({ sorry: 'I am late' });
-    });
+    it.each(HTTPRetryStatuses)(
+      'fetchEndpoint resolves on consecutive retry status and a final valid response',
+      async (retryStatus) => {
+        const tooManyRequestsResponse = {
+          ok: false,
+          status: retryStatus,
+          statusText: 'TooManyRequests',
+        };
+        const okResponse = {
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve('{"sorry": "I am late"}'),
+        };
+        const responses = [...Array(2).fill(tooManyRequestsResponse), okResponse];
+        // pop the head of the array on each call
+        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+        await expect(
+          fetchEndpoint({
+            relativeUrl: 'http://localhost:3000',
+            initialDelay: 5,
+            retries: 4,
+          }),
+        ).resolves.toEqual({ sorry: 'I am late' });
+      },
+    );
 
-    it('fetchEndpoint rejects on consecutive 429 and no valid response', async () => {
-      const tooManyRequestsResponse = {
-        ok: false,
-        status: 429,
-        text: () => Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
-      };
-      const responses = Array(3).fill(tooManyRequestsResponse);
-      global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
+    it.each(HTTPRetryStatuses)(
+      'fetchEndpoint rejects on consecutive retry status and no valid response',
+      async (retryStatus) => {
+        const tooManyRequestsResponse = {
+          ok: false,
+          status: retryStatus,
+          text: () =>
+            Promise.resolve('{error_code: "TooManyRequests", message: "TooManyRequests"}'),
+        };
+        const responses = Array(3).fill(tooManyRequestsResponse);
+        global.fetch = jest.fn(() => Promise.resolve(responses.shift()));
 
-      await expect(
-        fetchEndpoint({
-          relativeUrl: 'http://localhost:3000',
-          initialDelay: 5,
-          retries: 2,
-        }),
-      ).rejects.toEqual(
-        new ErrorWrapper('{error_code: "TooManyRequests", message: "TooManyRequests"}', 429),
-      );
-    });
+        await expect(
+          fetchEndpoint({
+            relativeUrl: 'http://localhost:3000',
+            initialDelay: 5,
+            retries: 2,
+          }),
+        ).rejects.toEqual(
+          new ErrorWrapper(
+            '{error_code: "TooManyRequests", message: "TooManyRequests"}',
+            retryStatus,
+          ),
+        );
+      },
+    );
 
-    it('fetchEndpoint rejects on non 429 failures', async () => {
+    it('fetchEndpoint rejects on non retry status failures', async () => {
       const permissionDeniedResponse = {
         ok: false,
         status: 403,

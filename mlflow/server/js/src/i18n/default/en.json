@@ -31,6 +31,10 @@
     "defaultMessage": "Name",
     "description": "Column title for name column for displaying the metrics name for the experiment run"
   },
+  "/Rt/Lj": {
+    "defaultMessage": "Click to pin the run",
+    "description": "A tooltip for the pin icon button in the runs table next to the not pinned run"
+  },
   "/YdNM8": {
     "defaultMessage": "No models yet. <link>Create a model</link> to get started.",
     "description": "Placeholder text for empty models table in the registered model list page"
@@ -94,6 +98,10 @@
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "2NJ8E5": {
+    "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
+    "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
   },
   "2NfDVN": {
     "defaultMessage": "Load the model",
@@ -203,6 +211,10 @@
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
   },
+  "7ASbrt": {
+    "defaultMessage": "Show more metrics and parameters",
+    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
+  },
   "7F/CBv": {
     "defaultMessage": "Stage",
     "description": "Column title text for model version stage in model version table"
@@ -271,6 +283,10 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
+  "9Ce4Gd": {
+    "defaultMessage": "Started during",
+    "description": "Label for the start time select dropdown for experiment runs view"
+  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
@@ -294,6 +310,10 @@
   "9y+yUQ": {
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
+  },
+  "A7R0ii": {
+    "defaultMessage": "Copy path",
+    "description": "Copy tooltip to copy experiment path from experiment runs table header"
   },
   "AEzy9w": {
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
@@ -494,6 +514,10 @@
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
+  },
+  "JCboZ7": {
+    "defaultMessage": "Path copied",
+    "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
   },
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
@@ -722,10 +746,6 @@
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
-  },
-  "XIOnOe": {
-    "defaultMessage": "Version {versionNum}",
-    "description": "Text for current version under the header on the model version view page"
   },
   "XaD7FM": {
     "defaultMessage": "Select parameters/metrics to plot.",
@@ -1031,6 +1051,10 @@
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
   },
+  "llrWuc": {
+    "defaultMessage": "Sort",
+    "description": "Sort by default option for sort by select dropdown for experiment runs"
+  },
   "m9e01X": {
     "defaultMessage": "No tags to display.",
     "description": "Text shown when there are no tags to display"
@@ -1090,6 +1114,10 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "oWPgX7": {
+    "defaultMessage": "Rename",
+    "description": "Label for the rename run button above the experiment runs table"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
@@ -1187,9 +1215,17 @@
     "defaultMessage": "Comparing {runs} MLflow Runs",
     "description": "Page title for the compare runs page"
   },
+  "ugm2f6": {
+    "defaultMessage": "Unpin run",
+    "description": "A tooltip for the pin icon button in the runs table next to the pinned run"
+  },
   "umeTwG": {
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
+  },
+  "vPmud2": {
+    "defaultMessage": "Download CSV",
+    "description": "Tooltip for the download csv button to download experiments offline in a CSV format"
   },
   "vi2MM7": {
     "defaultMessage": "All",
@@ -1215,6 +1251,10 @@
     "defaultMessage": "Metrics",
     "description": "Title for metrics page"
   },
+  "x0K27S": {
+    "defaultMessage": "Nothing to compare!",
+    "description": "Header displayed in the metrics and params compare plot when no values are selected"
+  },
   "xRw7H2": {
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
@@ -1230,6 +1270,10 @@
   "yJpGwW": {
     "defaultMessage": "Deleted",
     "description": "Linked model dropdown option to show deleted experiment runs"
+  },
+  "yJu+hX": {
+    "defaultMessage": "Download",
+    "description": "String for the download csv button to download experiments offline in a CSV format"
   },
   "yK/6vg": {
     "defaultMessage": "Cancel",
@@ -1278,5 +1322,9 @@
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"
+  },
+  "ze1m7Z": {
+    "defaultMessage": "Run name cannot consist only of whitespace!",
+    "description": "An error shown when user sets the run's name to whitespace characters only"
   }
 }

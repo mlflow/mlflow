@@ -290,7 +290,7 @@ class ShowArtifactLoggedModelView extends Component {
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
-                  <span className='code-keyword'>from</span> pyspark.sql.functions
+                  <span className='code-keyword'>from</span> pyspark.sql.functions{' '}
                   <span className='code-keyword'>import</span> struct, col{`\n`}
                   logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
                 </div>

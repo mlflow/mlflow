@@ -99,20 +99,22 @@ class _BasePipeline:
         last_executed_step_output_directory = get_step_output_path(
             self._pipeline_root_path, last_executed_step.name, ""
         )
-        last_executed_step_status = last_executed_step.get_execution_state(
+        last_executed_step_state = last_executed_step.get_execution_state(
             last_executed_step_output_directory
-        ).status
-        if last_executed_step_status != StepStatus.SUCCEEDED:
+        )
+        if last_executed_step_state.status != StepStatus.SUCCEEDED:
             if step is not None:
                 raise MlflowException(
                     f"Failed to run step '{step}' of pipeline '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}'.",
+                    f" An error was encountered while running step '{last_executed_step.name}':"
+                    f" {last_executed_step_state.stack_trace}",
                     error_code=BAD_REQUEST,
                 )
             else:
                 raise MlflowException(
                     f"Failed to run pipeline '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}'.",
+                    f" An error was encountered while running step '{last_executed_step.name}':"
+                    f" {last_executed_step_state.stack_trace}",
                     error_code=BAD_REQUEST,
                 )
 

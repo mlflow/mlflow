@@ -88,7 +88,7 @@ def test_load_docker_project(tmpdir):
 def test_load_virtualenv_project(tmp_path):
     tmp_path.joinpath("MLproject").write_text("python_env: python_env.yaml")
     python_env = tmp_path.joinpath("python_env.yaml")
-    python_env.write_text("python: 3.7.10")
+    python_env.write_text("python: 3.8.15")
     project = _project_spec.load_project(tmp_path)
     assert project._entry_points == {}
     assert python_env.samefile(project.env_config_path)

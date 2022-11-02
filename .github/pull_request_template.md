@@ -15,9 +15,11 @@ Please reference any related feature requests, issues, or PRs here. For example,
 ## How is this patch tested?
 
 <!--
-If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask. We'd be happy to help.
+If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask.
 -->
-- [ ] I have written tests (not required for typo or doc fix) and confirmed the proposed feature/bug-fix/change works.
+- [ ] Existing unit/integration tests
+- [ ] New unit/integration tests
+- [ ] Manual tests (describe details, including test results, below)
 
 <!--
 Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.

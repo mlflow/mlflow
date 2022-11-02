@@ -30,9 +30,6 @@ concurrency:
 env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  # Best effort to test MLflow with newer versions of dependencies and increase
-  # the maximum supported major versions. For example, pandas > 1.3 is not installable
-  # in Python 3.7, but it is in Python 3.8.
   PYTHON_VERSION: '3.8'
 
 defaults:

@@ -44,6 +44,8 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
@@ -54,13 +56,11 @@ steps:
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
   register:
-    model_name: "demo_model"
     {allow_non_validated_model}
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
@@ -74,19 +74,17 @@ metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
+    assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     if mae_threshold < 0:
         with pytest.raises(MlflowException, match=r"Model registration on .* failed"):
@@ -98,7 +96,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
         assert model_validation_status_path.read_text() == "VALIDATED"
         mv_info_file_path = register_step_output_dir.joinpath(_REGISTERED_MV_INFO_FILE)
         assert mv_info_file_path.exists()
-        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
+        assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 1
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -116,10 +114,11 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
   register:
-    model_name: "demo_model"
     {allow_non_validated_model}
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
@@ -131,7 +130,7 @@ steps:
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 0
+    assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 0
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     if register_flag == "":
         with pytest.raises(MlflowException, match=r"Model registration on .* failed"):
@@ -143,7 +142,7 @@ steps:
         assert model_validation_status_path.read_text() == "UNKNOWN"
         mv_info_file_path = register_step_output_dir.joinpath(_REGISTERED_MV_INFO_FILE)
         assert mv_info_file_path.exists()
-        assert len(mlflow.tracking.MlflowClient().list_registered_models()) == 1
+        assert len(mlflow.tracking.MlflowClient().search_registered_models()) == 1
 
 
 def test_usage_tracking_correctly_added(
@@ -158,6 +157,8 @@ def test_usage_tracking_correctly_added(
         """
 template: "regression/v1"
 target_col: "y"
+model_registry:
+  model_name: "demo_model"
 experiment:
   tracking_uri: {tracking_uri}
 steps:
@@ -169,13 +170,10 @@ steps:
         threshold: 1_000_000
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
         )
@@ -187,13 +185,11 @@ metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -201,7 +197,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     evaluate_step.run(str(evaluate_step_output_dir))
     register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     register_step.run(str(register_step_output_dir))
-    registered_models = mlflow.tracking.MlflowClient().list_registered_models()
+    registered_models = mlflow.tracking.MlflowClient().search_registered_models()
     latest_tag = registered_models[0].latest_versions[0].tags
     assert latest_tag["mlflow.source.type"] == "PIPELINE"
     assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
@@ -224,7 +220,8 @@ target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
 model_registry:
-  uri: {registry_uri}
+  registry_uri: {registry_uri}
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
@@ -234,13 +231,10 @@ steps:
         threshold: 1_000_000
       - metric: weighted_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             registry_uri=registry_uri,
@@ -253,13 +247,11 @@ metrics:
 def weighted_mean_squared_error(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
-    return {
-        "weighted_mean_squared_error": mean_squared_error(
-            eval_df["prediction"],
-            eval_df["target"],
-            sample_weight=1 / eval_df["prediction"].values,
-        )
-    }
+    return mean_squared_error(
+        eval_df["prediction"],
+        eval_df["target"],
+        sample_weight=1 / eval_df["prediction"].values,
+    )
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
@@ -287,13 +279,13 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  model_name: "demo_model"
 steps:
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
         threshold: 1_000_000
-  register:
-    model_name: "demo_model"
 """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )

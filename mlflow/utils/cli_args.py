@@ -152,7 +152,11 @@ PORT = click.option(
 )
 
 TIMEOUT = click.option(
-    "--timeout", "-t", help="Timeout in seconds to serve a request (default: 60)."
+    "--timeout",
+    "-t",
+    envvar="MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT",
+    default=60,
+    help="Timeout in seconds to serve a request (default: 60).",
 )
 
 # We use None to disambiguate manually selecting "4"

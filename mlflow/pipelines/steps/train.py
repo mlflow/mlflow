@@ -30,7 +30,7 @@ from mlflow.pipelines.utils.metrics import (
     _get_primary_metric,
     _get_custom_metrics,
     _get_model_type_from_template,
-    _load_custom_metric_functions,
+    _load_custom_metrics,
 )
 from mlflow.pipelines.utils.step import (
     get_merged_eval_metrics,
@@ -53,6 +53,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PIPELINE_PROFILE_NAME,
     MLFLOW_PIPELINE_STEP_NAME,
 )
+from mlflow.utils.string_utils import strip_prefix
 
 _logger = logging.getLogger(__name__)
 
@@ -159,6 +160,7 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        self.predict_proba = self.step_config.get("predict_proba", False)
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
@@ -306,10 +308,25 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
                 model = make_pipeline(transformer, estimator)
-                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                model_info = mlflow.sklearn.log_model(
-                    model, f"{self.name}/model", signature=model_schema, code_paths=self.code_paths
-                )
+                if self.predict_proba:
+                    model_schema = infer_signature(
+                        raw_X_train, model.predict_proba(raw_X_train.copy())
+                    )
+                    model_info = mlflow.sklearn.log_model(
+                        model,
+                        f"{self.name}/model",
+                        signature=model_schema,
+                        code_paths=self.code_paths,
+                        pyfunc_predict_fn="predict_proba",
+                    )
+                else:
+                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
+                    model_info = mlflow.sklearn.log_model(
+                        model,
+                        f"{self.name}/model",
+                        signature=model_schema,
+                        code_paths=self.code_paths,
+                    )
                 output_model_path = get_step_output_path(
                     pipeline_root_path=self.pipeline_root,
                     step_name=self.name,
@@ -317,7 +334,13 @@ class TrainStep(BaseStep):
                 )
                 if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
                     shutil.rmtree(output_model_path)
-                mlflow.sklearn.save_model(model, output_model_path)
+
+                if self.predict_proba:
+                    mlflow.sklearn.save_model(
+                        model, output_model_path, pyfunc_predict_fn="predict_proba"
+                    )
+                else:
+                    mlflow.sklearn.save_model(model, output_model_path)
 
                 with open(os.path.join(output_directory, "run_id"), "w") as f:
                     f.write(run.info.run_id)
@@ -326,9 +349,9 @@ class TrainStep(BaseStep):
                 )
 
                 eval_metrics = {}
-                for dataset_name, dataset in {
-                    "training": train_df,
-                    "validation": validation_df,
+                for dataset_name, (dataset, metric_prefix) in {
+                    "training": (train_df, "training_"),
+                    "validation": (validation_df, "val_"),
                 }.items():
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
@@ -336,40 +359,69 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.template),
                         evaluators="default",
-                        custom_metrics=_load_custom_metric_functions(
+                        custom_metrics=_load_custom_metrics(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
                         ),
                         evaluator_config={
                             "log_model_explainability": False,
                             "pos_label": self.positive_class,
+                            "metric_prefix": metric_prefix,
                         },
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
-                    eval_metrics[dataset_name] = eval_result.metrics
+                    eval_metrics[dataset_name] = {
+                        strip_prefix(k, metric_prefix): v for k, v in eval_result.metrics.items()
+                    }
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            error_fn = _get_error_fn(self.template)
+            if self.predict_proba:
+                prediction_result_probs = model.predict_proba(
+                    raw_validation_df.drop(self.target_col, axis=1)
+                )
+                prediction_result_for_error = prediction_result_probs
+            else:
+                prediction_result_for_error = prediction_result
+            error_fn = _get_error_fn(
+                self.template,
+                use_probability=self.predict_proba,
+                positive_class=self.positive_class,
+            )
             pred_and_error_df = pd.DataFrame(
                 {
                     "target": target_data,
                     "prediction": prediction_result,
-                    "error": error_fn(prediction_result, target_data.to_numpy()),
+                    "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+            if self.predict_proba:
+                train_predicted_probs = model.predict_proba(
+                    raw_train_df.drop(self.target_col, axis=1)
+                )
+                predicted_training_data = raw_train_df.assign(
+                    predicted_data=train_predictions,
+                    predicted_probability=train_predicted_probs[:, 0],
+                )
+                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                    raw_train_df,
+                    train_predicted_probs[:, 0],
+                    error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
+                    self.target_col,
+                )
+            else:
+                predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                    raw_train_df,
+                    train_predictions,
+                    error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
+                    self.target_col,
+                )
             predicted_training_data.to_parquet(
                 os.path.join(output_directory, TrainStep.PREDICTED_TRAINING_DATA_RELATIVE_PATH)
             )
 
-            worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                raw_train_df,
-                train_predictions,
-                error_fn(train_predictions, raw_train_df[self.target_col].to_numpy()),
-                self.target_col,
-            )
             leaderboard_df = None
             try:
                 leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
@@ -817,7 +869,10 @@ class TrainStep(BaseStep):
         step_config = {}
         if pipeline_config.get("steps", {}).get("train", {}) is not None:
             step_config.update(pipeline_config.get("steps", {}).get("train", {}))
-        step_config["metrics"] = pipeline_config.get("metrics")
+        if pipeline_config.get("custom_metrics") is not None:
+            step_config["custom_metrics"] = pipeline_config["custom_metrics"]
+        if pipeline_config.get("primary_metric") is not None:
+            step_config["primary_metric"] = pipeline_config["primary_metric"]
         step_config["template_name"] = pipeline_config.get("template")
         step_config["profile"] = pipeline_config.get("profile")
         step_config["target_col"] = pipeline_config.get("target_col")
@@ -915,7 +970,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type="regressor",
                     evaluators="default",
-                    custom_metrics=_load_custom_metric_functions(
+                    custom_metrics=_load_custom_metrics(
                         self.pipeline_root,
                         self.evaluation_metrics.values(),
                     ),

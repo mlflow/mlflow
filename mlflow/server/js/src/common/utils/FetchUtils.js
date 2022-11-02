@@ -12,6 +12,10 @@ export const HTTPMethods = {
   DELETE: 'DELETE',
 };
 
+// HTTP status codes that should be retried. Includes:
+// 429 (too many requests), 556 (RCP: workspace not served by shard)
+export const HTTPRetryStatuses = [429, 556];
+
 // To enable running behind applications that require specific headers
 // to be set during HTTP requests (e.g., CSRF tokens), we support parsing
 // a set of cookies with a key prefix of "$appName-request-header-$headerName",
@@ -190,7 +194,7 @@ export const retry = async (
  * @param headerOptions: additional headers for the request
  * @param options: additional fetch options for the request
  * @param timeoutMs: timeout for the request in milliseconds, defaults to browser timeout
- * @param retries: Number of times to retry the request on 429
+ * @param retries: Number of times to retry the request on a retryable HTTP status code
  * @param initialDelay: Initial delay for the retry, will be doubled for each additional retry
  * @param success: callback on 200 responses
  * @param error: callback on non 200 responses
@@ -229,8 +233,8 @@ export const fetchEndpoint = ({
         // 200s
         successCondition: (res) => res && res.ok,
         success: ({ res }) => success({ resolve, reject, response: res }),
-        // not a 200 and also not a 429 (too many requests)
-        errorCondition: (res) => !res || (!res.ok && res.status !== 429),
+        // not a 200 and also not a retryable HTTP status code
+        errorCondition: (res) => !res || (!res.ok && !HTTPRetryStatuses.includes(res.status)),
         error: ({ res, err }) => error({ resolve, reject, response: res, err: err }),
       },
     ),
@@ -266,10 +270,11 @@ const generateJsonBody = (data) => {
 
 export const getJson = (props) => {
   const { relativeUrl, data } = props;
-  const queryParams = new URLSearchParams(filterUndefinedFields(data));
+  const queryParams = new URLSearchParams(filterUndefinedFields(data)).toString();
+  const combinedUrl = queryParams ? `${relativeUrl}?${queryParams}` : relativeUrl;
   return fetchEndpoint({
     ...props,
-    ...(queryParams && { relativeUrl: `${relativeUrl}?${queryParams}` }),
+    relativeUrl: combinedUrl,
     method: HTTPMethods.GET,
     success: defaultResponseParser,
   });

@@ -35,17 +35,17 @@ MLflow Pipelines is available as an extension of the
 `MLflow Python library <https://pypi.org/project/mlflow/>`_. You can install MLflow Pipelines
 as follows:
 
-- **Local**: Install MLflow Pipelines from PyPI: ``pip install mlflow[pipelines]``.
+- **Local**: Install MLflow from PyPI: ``pip install mlflow``.
   Note that MLflow Pipelines requires `Make <https://www.gnu.org/software/make>`_,
   which may not be preinstalled on some Windows systems.
   Windows users must install Make before using MLflow Pipelines. For more information about
   installing Make on Windows, see https://gnuwin32.sourceforge.net/install.html.
 
 - **Databricks**: Install MLflow Pipelines from a Databricks Notebook by running
-  ``%pip install mlflow[pipelines]``, or install MLflow Pipelines on a Databricks Cluster by
+  ``%pip install mlflow``, or install MLflow Pipelines on a Databricks Cluster by
   following the PyPI library installation instructions `here
   <https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster>`_
-  and specifying the ``mlflow[pipelines]`` package string.
+  and specifying the ``mlflow`` package string.
 
   .. note::
     `Databricks Runtime <https://docs.databricks.com/runtime/dbr.html>`_ version 11.0
@@ -376,11 +376,10 @@ The main components of the Pipeline Template layout, which are common across all
               overrides are supported using |Jinja2| templating syntax.
 
     template: "regression/v1"
-    data:
-      location: {{INGEST_DATA_LOCATION|default('https://nyc-tlc.s3.amazonaws.com/trip+data/yellow_tripdata_2022-01.parquet')}}
-      format: {{INGEST_DATA_FORMAT|default('parquet')}}
     target_col: "fare_amount"
+    primary_metrics: "root_mean_squared_error"
     steps:
+      ingest: {{INGEST_CONFIG}}
       split:
         split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
       transform:
@@ -395,13 +394,12 @@ The main components of the Pipeline Template layout, which are common across all
           - metric: weighted_mean_squared_error
             threshold: 20
       register:
-        model_name: "taxi_fare_regressor"
-    metrics:
-      custom:
-        - name: weighted_mean_squared_error
-          function: weighted_mean_squared_error
-          greater_is_better: False
-      primary: "root_mean_squared_error"
+        allow_non_validated_model: false
+    custom_metrics:
+      - name: weighted_mean_squared_error
+        function: weighted_mean_squared_error
+        greater_is_better: False
+      
 
 
 Working with profiles

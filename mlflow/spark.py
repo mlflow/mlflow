@@ -144,7 +144,7 @@ def log_model(
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0',
+                                'python=3.8.15',
                                 'pyspark=2.3.0'
                             ]
                         }
@@ -261,6 +261,8 @@ def log_model(
             code_paths,
             signature=signature,
             input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -598,7 +600,7 @@ def save_model(
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
                             'dependencies': [
-                                'python=3.7.0',
+                                'python=3.8.15',
                                 'pyspark=2.3.0'
                             ]
                         }

@@ -20,6 +20,8 @@ import os
 import sys
 import traceback
 
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
 # mlflow in the model's conda environment (inside) can differ. We should therefore keep mlflow
@@ -43,7 +45,6 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-
 from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
@@ -309,7 +310,7 @@ def get_cmd(
     model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
-    timeout = timeout or 60
+    timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
     if os.name != "nt":

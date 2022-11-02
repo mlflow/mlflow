@@ -1355,11 +1355,15 @@ def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_clien
 
 @mock_sagemaker_aws_services
 def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
+    input_df = pd.DataFrame(data=[[1, 2]], columns=["a", "b"])
     output_df = pd.DataFrame({"1": ["2", ".", "3"]})
     boto_caller = botocore.client.BaseClient._make_api_call
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
+            assert operation_kwargs["Body"] == json.dumps(
+                {"dataframe_split": input_df.to_dict(orient="split")}
+            )
             output_json = json.dumps({"predictions": output_df.to_dict(orient="records")})
             result = dict(Body=BytesIO(bytes(output_json, encoding="utf-8")))
         else:
@@ -1367,8 +1371,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
-        df = pd.DataFrame(data=[[1, 2]], columns=["a", "b"])
-        result = sagemaker_deployment_client.predict("test", df).get_predictions()
+        result = sagemaker_deployment_client.predict("test", input_df).get_predictions()
         assert isinstance(result, pd.DataFrame)
         pd.testing.assert_frame_equal(result, output_df)
 
@@ -1379,6 +1382,7 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
+            assert operation_kwargs["Body"] == json.dumps({"instances": list(range(10))})
             result = dict(Body=BytesIO(b'{ "predictions": [1,2,3]}'))
         else:
             result = boto_caller(self, operation_name, operation_kwargs)

@@ -3,6 +3,7 @@ import importlib
 import sys
 from typing import List, Dict, Optional
 
+from mlflow.models import EvaluationMetric, make_metric
 from mlflow.exceptions import MlflowException, BAD_REQUEST
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -56,7 +57,7 @@ BUILTIN_REGRESSION_PIPELINE_METRICS = [
 ]
 
 
-def _get_error_fn(tmpl: str):
+def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
     :return: The error function for the provided template.
@@ -64,7 +65,21 @@ def _get_error_fn(tmpl: str):
     if tmpl == "regression/v1":
         return lambda predictions, targets: predictions - targets
     if tmpl == "classification/v1":
-        return lambda predictions, targets: predictions != targets
+        if use_probability:
+            import numpy as np
+
+            def logloss(true_label, predicted_proba, eps=1e-15):
+                p = np.clip(predicted_proba, eps, 1 - eps)
+                if true_label == positive_class:
+                    return -np.log(p)
+                else:
+                    return -np.log(1 - p)
+
+            return lambda predictions, targets: [
+                logloss(x, y) for (x, y) in zip(targets, predictions[:, 0])
+            ]
+        else:
+            return lambda predictions, targets: predictions != targets
     raise MlflowException(
         f"No error function for template kind {tmpl}",
         error_code=INVALID_PARAMETER_VALUE,
@@ -108,7 +123,7 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     :return: A list of custom metrics defined in the specified configuration dictionary,
              or an empty list of the configuration dictionary does not define any custom metrics.
     """
-    custom_metric_dicts = (step_config.get("metrics") or {}).get("custom", [])
+    custom_metric_dicts = step_config.get("custom_metrics", [])
     custom_metrics = [
         PipelineMetric.from_custom_metric_dict(metric_dict) for metric_dict in custom_metric_dicts
     ]
@@ -125,21 +140,23 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     return custom_metrics
 
 
-def _load_custom_metric_functions(
+def _load_custom_metrics(
     pipeline_root: str, metrics: List[PipelineMetric]
-) -> List[callable]:
-    custom_metric_function_names = [
-        metric.custom_function for metric in metrics if metric.custom_function is not None
-    ]
-    if not custom_metric_function_names:
+) -> List[EvaluationMetric]:
+    custom_metrics = [metric for metric in metrics if metric.custom_function is not None]
+    if not custom_metrics:
         return None
 
     try:
         sys.path.append(pipeline_root)
         custom_metrics_mod = importlib.import_module("steps.custom_metrics")
         return [
-            getattr(custom_metrics_mod, custom_metric_function_name)
-            for custom_metric_function_name in custom_metric_function_names
+            make_metric(
+                eval_fn=getattr(custom_metrics_mod, custom_metric.name),
+                name=custom_metric.name,
+                greater_is_better=custom_metric.greater_is_better,
+            )
+            for custom_metric in custom_metrics
         ]
     except Exception as e:
         raise MlflowException(
@@ -149,4 +166,4 @@ def _load_custom_metric_functions(
 
 
 def _get_primary_metric(step_config):
-    return (step_config.get("metrics") or {}).get("primary", "root_mean_squared_error")
+    return step_config.get("primary_metric", "root_mean_squared_error")

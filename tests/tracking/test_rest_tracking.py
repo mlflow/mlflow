@@ -11,12 +11,14 @@ import logging
 import tempfile
 import time
 import urllib.parse
+import requests
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.handlers import validate_path_is_safe
 from mlflow.models import Model
 
 import mlflow.pyfunc
@@ -501,6 +503,66 @@ def test_set_tag_validation(mlflow_client):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "path",
+        "path/",
+        "path/to/file",
+        "path/../to/file",
+    ],
+)
+def test_validate_path_is_safe_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "../path",
+        "../../path",
+        "./../path",
+        "path/../../to/file",
+    ],
+)
+def test_validate_path_is_safe_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+def test_path_validation(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("tags validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+    invalid_path = "../path"
+
+    def assert_response(resp):
+        assert resp.status_code == 400
+        assert response.json() == {
+            "error_code": "INVALID_PARAMETER_VALUE",
+            "message": f"Invalid path: {invalid_path}",
+        }
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",
+        params={"run_id": run_id, "path": invalid_path},
+    )
+    assert_response(response)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={"run_id": run_id, "path": invalid_path},
+    )
+    assert_response(response)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}//model-versions/get-artifact",
+        params={"name": "model", "version": 1, "path": invalid_path},
+    )
+    assert_response(response)
+
+
 def test_set_experiment_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
@@ -780,4 +842,4 @@ def test_search_experiments(mlflow_client):
     experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]

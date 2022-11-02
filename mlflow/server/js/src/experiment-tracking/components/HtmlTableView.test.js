@@ -1,7 +1,7 @@
 import { shallow, mount } from 'enzyme';
-import { HtmlTableView } from './HtmlTableView';
 import React from 'react';
-import { Table } from 'antd';
+import { Table } from '@databricks/design-system';
+import { HtmlTableView } from './HtmlTableView';
 
 describe('HtmlTableView', () => {
   let wrapper;
