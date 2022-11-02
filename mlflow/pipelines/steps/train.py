@@ -1086,7 +1086,6 @@ class TrainStep(BaseStep):
     def _rebalance_classes(self, train_df):
         import pandas as pd
 
-        resampling_method = self.step_config.get("resampling_method", "downsampling")
         resampling_minority_percentage = self.step_config.get(
             "resampling_minority_percentage", _REBALANCING_DEFAULT_RATIO
         )
@@ -1100,25 +1099,16 @@ class TrainStep(BaseStep):
             df_minority_class, df_majority_class = df_positive_class, df_negative_class
 
         _logger.info(
-            f"Rebalancing classes using {resampling_method}: original count - minority class: "
+            f"Rebalancing classes using downsampling: original count - minority class: "
             f"{len(df_minority_class)} vs majority class: {len(df_majority_class)}"
         )
 
-        if resampling_method == "downsampling":
-            majority_class_target = (
-                len(df_minority_class)
-                * (1 - resampling_minority_percentage)
-                / resampling_minority_percentage
-            )
-            df_majority_downsampled = df_majority_class.sample(majority_class_target)
-            train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0)
-        else:  # upsampling
-            minority_class_target = (
-                len(df_majority_class)
-                * resampling_minority_percentage
-                / (1 - resampling_minority_percentage)
-            )
-            df_minority_upsampled = df_minority_class.sample(minority_class_target)
-            train_df = pd.concat([df_majority_class, df_minority_upsampled], axis=0)
+        majority_class_target = (
+            len(df_minority_class)
+            * (1 - resampling_minority_percentage)
+            / resampling_minority_percentage
+        )
+        df_majority_downsampled = df_majority_class.sample(majority_class_target)
+        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0)
 
         return train_df
