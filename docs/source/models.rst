@@ -916,7 +916,7 @@ The interface for utilizing a ``fastai`` model loaded as a pyfunc type for gener
 Pandas DataFrame argument. 
 
 This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.tabular.html>`_, 
-logs the experiments, saves the model in ``fastai`` format, and loads the model to get predictions
+logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
 using a ``fastai`` data loader:
 
 .. code-block:: py
