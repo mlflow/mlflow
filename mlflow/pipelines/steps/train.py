@@ -54,7 +54,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PIPELINE_STEP_NAME,
 )
 
-_THRESHOLD = 0.5
+_REBALANCING_CUTOFF = 5000
+_REBALANCING_DEFAULT_RATIO = 0.3
 
 _logger = logging.getLogger(__name__)
 
@@ -251,15 +252,8 @@ class TrainStep(BaseStep):
                 relative_path="transformed_training_data.parquet",
             )
             train_df = pd.read_parquet(transformed_training_data_path)
-            if self.template == "classification/v1":
-                df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
-                df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
-                if len(df_positive_class) > len(df_negative_class):
-                    df_downsampled = df_positive_class.sample(len(df_negative_class))
-                    train_df = pd.concat([df_downsampled, df_negative_class], axis=0)
-                else:
-                    df_downsampled = df_negative_class.sample(len(df_positive_class))
-                    train_df = pd.concat([df_downsampled, df_positive_class], axis=0)
+            if self.template == "classification/v1" and len(train_df) > _REBALANCING_CUTOFF:
+                train_df = self._rebalance_classes(train_df)
 
             X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
@@ -1088,3 +1082,43 @@ class TrainStep(BaseStep):
 
         if len(processed_data) > 0:
             yaml.safe_dump(processed_data, file, **kwargs)
+
+    def _rebalance_classes(self, train_df):
+        import pandas as pd
+
+        resampling_method = self.step_config.get("resampling_method", "downsampling")
+        resampling_minority_percentage = self.step_config.get(
+            "resampling_minority_percentage", _REBALANCING_DEFAULT_RATIO
+        )
+
+        df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
+        df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
+
+        if len(df_positive_class) > len(df_negative_class):
+            df_minority_class, df_majority_class = df_negative_class, df_positive_class
+        else:
+            df_minority_class, df_majority_class = df_positive_class, df_negative_class
+
+        _logger.info(
+            f"Rebalancing classes using {resampling_method}: original count - minority class: "
+            f"{len(df_minority_class)} vs majority class: {len(df_majority_class)}"
+        )
+
+        if resampling_method == "downsampling":
+            majority_class_target = (
+                len(df_minority_class)
+                * (1 - resampling_minority_percentage)
+                / resampling_minority_percentage
+            )
+            df_majority_downsampled = df_majority_class.sample(majority_class_target)
+            train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0)
+        else:  # upsampling
+            minority_class_target = (
+                len(df_majority_class)
+                * resampling_minority_percentage
+                / (1 - resampling_minority_percentage)
+            )
+            df_minority_upsampled = df_minority_class.sample(minority_class_target)
+            train_df = pd.concat([df_majority_class, df_minority_upsampled], axis=0)
+
+        return train_df
