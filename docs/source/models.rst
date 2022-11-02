@@ -912,6 +912,129 @@ interpreted as generic Python functions for inference via :py:func:`mlflow.pyfun
 only be scored with DataFrame input. You can also use the :py:func:`mlflow.fastai.load_model()` method to
 load MLflow Models with the ``fastai`` model flavor in native fastai format.
 
+The interface for utilizing a ``fastai`` model loaded as a pyfunc type for generating predictions uses a 
+Pandas DataFrame argument. 
+
+This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.tabular.html>`_, 
+logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
+using a ``fastai`` data loader:
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    def print_auto_logged_info(r):
+        tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+        artifacts = [f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")]
+        print("run_id: {}".format(r.info.run_id))
+        print("artifacts: {}".format(artifacts))
+        print("params: {}".format(r.data.params))
+        print("metrics: {}".format(r.data.metrics))
+        print("tags: {}".format(tags))
+
+    def main(epochs=5, learning_rate=0.01):
+
+        path = untar_data(URLs.ADULT_SAMPLE)
+        path.ls()
+
+        df = pd.read_csv(path/'adult.csv')
+
+        dls = TabularDataLoaders.from_csv(path/'adult.csv', path=path, y_names="salary",
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            procs = [Categorify, FillMissing, Normalize])
+
+        splits = RandomSplitter(valid_pct=0.2)(range_of(df))
+
+        to = TabularPandas(df, procs=[Categorify, FillMissing,Normalize],
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            y_names='salary',
+            splits=splits)
+
+        dls = to.dataloaders(bs=64)
+
+        model = tabular_learner(dls, metrics=accuracy)
+
+        mlflow.fastai.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(5, 0.01)
+            mlflow.fastai.log_model(model, "model")
+
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.fastai.load_model(model_uri)
+
+        test_df = df.copy()
+        test_df.drop(['salary'], axis=1, inplace=True)
+        dl = learn.dls.test_dl(test_df)
+
+        predictions, _ = loaded_model.get_preds(dl=dl)
+        px = pd.DataFrame(predictions).astype("float")
+        px.head(5)
+
+    main()
+
+Output (``Pandas DataFrame``):
+
+====== ========================== ==========================
+Index  Probability of first class Probability of second class
+====== ========================== ==========================
+0	   0.545088	                  0.454912
+1	   0.503172	                  0.496828
+2	   0.962663	                  0.037337
+3	   0.206107	                  0.793893
+4	   0.807599	                  0.192401
+====== ========================== ==========================
+
+Alternatively, when using the ``python_function`` flavor, get predictions from a DataFrame.
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+    
+    model_uri = ...
+
+    path = untar_data(URLs.ADULT_SAMPLE)
+    df = pd.read_csv(path/'adult.csv')
+    test_df = df.copy()
+    test_df.drop(['salary'], axis=1, inplace=True)
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri)
+    loaded_model.predict(test_df)
+
+Output (``Pandas DataFrame``):
+
+====== =======================================================
+Index  Probability of first class, Probability of second class
+====== =======================================================
+0	   [0.5450878, 0.45491222]
+1	   [0.50317234, 0.49682766]
+2	   [0.9626626, 0.037337445]
+3	   [0.20610662, 0.7938934]
+4	   [0.8075987, 0.19240129]
+====== =======================================================
+
 For more information, see :py:mod:`mlflow.fastai`.
 
 Statsmodels (``statsmodels``)
