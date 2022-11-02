@@ -293,4 +293,4 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/pipelines
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
