@@ -496,9 +496,8 @@ class TrainStep(BaseStep):
             best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
             estimator = estimator_fn(best_combined_params)
             all_estimator_params = estimator.get_params()
-            default_params = dict(
-                set(all_estimator_params.items()) - set(best_combined_params.items())
-            )
+            default_params_keys = all_estimator_params.keys() - estimator_hardcoded_params.keys()
+            default_params = {k: all_estimator_params[k] for k in default_params_keys}
             self._write_best_parameters_outputs(
                 output_directory,
                 best_hp_params=best_hp_params,
@@ -508,9 +507,8 @@ class TrainStep(BaseStep):
         elif len(estimator_hardcoded_params) > 0:
             estimator = estimator_fn(estimator_hardcoded_params)
             all_estimator_params = estimator.get_params()
-            default_params = dict(
-                set(all_estimator_params.items()) - set(estimator_hardcoded_params.items())
-            )
+            default_params_keys = all_estimator_params.keys() - estimator_hardcoded_params.keys()
+            default_params = {k: all_estimator_params[k] for k in default_params_keys}
             self._write_best_parameters_outputs(
                 output_directory,
                 best_hardcoded_params=estimator_hardcoded_params,
@@ -1140,6 +1138,8 @@ class TrainStep(BaseStep):
                 processed_data[key] = float(value)
             elif isinstance(value, np.integer):
                 processed_data[key] = int(value)
+            elif isinstance(value, dict):
+                processed_data[key] = str(value)
             else:
                 processed_data[key] = value
 
@@ -1148,6 +1148,7 @@ class TrainStep(BaseStep):
 
     def _rebalance_classes(self, train_df):
         import pandas as pd
+        import numpy as np
         from sklearn.utils.class_weight import compute_class_weight
 
         resampling_minority_percentage = self.step_config.get(
@@ -1157,20 +1158,35 @@ class TrainStep(BaseStep):
         df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
         df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
 
-        # TODO: fix this
-        self.original_class_weights = compute_class_weight(train_df[self.target_col])
+        classes = np.unique(train_df[self.target_col])
+        class_weights = compute_class_weight(
+            class_weight="balanced",
+            classes=classes,
+            y=train_df[self.target_col],
+        )
+
+        self.original_class_weights = dict(zip(classes, class_weights))
 
         if len(df_positive_class) > len(df_negative_class):
             df_minority_class, df_majority_class = df_negative_class, df_positive_class
+            original_minority_percentage = len(df_negative_class) / len(train_df)
         else:
             df_minority_class, df_majority_class = df_positive_class, df_negative_class
+            original_minority_percentage = len(df_positive_class) / len(train_df)
+
+        if original_minority_percentage >= resampling_minority_percentage:
+            _logger.info(
+                f"Class imbalance of {original_minority_percentage:.2f} "
+                f"is better than {resampling_minority_percentage}, no need to rebalance"
+            )
+            return train_df
 
         _logger.info(
             f"Rebalancing classes using downsampling: original count - minority class: "
             f"{len(df_minority_class)} vs majority class: {len(df_majority_class)}"
         )
 
-        majority_class_target = (
+        majority_class_target = int(
             len(df_minority_class)
             * (1 - resampling_minority_percentage)
             / resampling_minority_percentage
