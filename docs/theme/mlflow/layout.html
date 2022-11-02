@@ -53,6 +53,11 @@
 
   {% endif %}
 
+  {# ALGOLIA #}
+  {% if use_algolia == '1' %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@docsearch/css@3" />
+  {% endif %}
+
   {# RTD hosts this file, so just load on non RTD builds #}
   {% if not READTHEDOCS %}
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600" rel="stylesheet">
@@ -187,7 +192,7 @@
     </script>
     <div id="algolia-wrapper"></div>
     <script src="{{ pathto('_static/js/tether.min.js', 1) }}"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@docsearch/js@3.3.0/dist/umd/index.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@docsearch/js@3"></script>
   {% endif %}
 </body>
 </html>
