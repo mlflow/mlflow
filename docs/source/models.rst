@@ -1273,10 +1273,10 @@ and behavior:
 |eval_metrics_img| |eval_importance_img|
 
 .. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
-   :width: 10%
+   :width: 15%
 
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
-   :width: 89%
+   :width: 84%
 
 
 Evaluating with Custom Metrics
