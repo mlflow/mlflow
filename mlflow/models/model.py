@@ -326,6 +326,7 @@ class Model:
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        metadata=None,
         **kwargs,
     ):
         """
@@ -361,15 +362,20 @@ class Model:
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
+        :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
         :param kwargs: Extra args passed to the model flavor.
 
         :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
                  metadata of the logged model.
         """
+        if metadata is None:
+            metadata = {}
+
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
+            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, **metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
