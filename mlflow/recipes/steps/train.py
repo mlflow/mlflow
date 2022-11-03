@@ -62,6 +62,9 @@ class TrainStep(BaseStep):
 
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
     PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"
+    CONFIG_TYPE_ESTIMATOR_SPEC = "estimator_spec"
+    CONFIG_TYPE_AUTOML = "automl/flaml"
+    SUPPORTED_CONFIG_TYPES = [TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC, TrainStep.CONFIG_TYPE_AUTOML]
 
     def __init__(self, step_config, recipe_root, recipe_config=None):
         super().__init__(step_config, recipe_root)
@@ -71,14 +74,14 @@ class TrainStep(BaseStep):
     def _validate_and_apply_step_config(self):
         self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
-            if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
+            if self.step_config["using"] not in TrainStep.SUPPORTED_CONFIG_TYPES:
                 raise MlflowException(
                     f"Invalid train step configuration value {self.step_config['using']} for "
-                    f"key 'using'. Supported values are: ['estimator_spec']",
+                    f"key 'using'. Supported values are: {TrainStep.SUPPORTED_CONFIG_TYPES}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
-            self.step_config["using"] = "estimator_spec"
+            self.step_config["using"] = TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC
 
         if "tuning" in self.step_config:
             if "enabled" in self.step_config["tuning"] and isinstance(
@@ -152,11 +155,11 @@ class TrainStep(BaseStep):
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
-            and self.step_config["using"] == "estimator_spec"
+            and self.step_config["using"] == TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC
         ):
             raise MlflowException(
-                "Missing 'estimator_method' configuration in the train step, "
-                "which is using 'estimator_spec'.",
+                f"Missing 'estimator_method' configuration in the train step, "
+                f"which is using '{TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -527,8 +530,8 @@ class TrainStep(BaseStep):
         return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
-        using_plugin = self.step_config.get("using", "estimator_spec")
-        if using_plugin == "estimator_spec":
+        using_plugin = self.step_config.get("using", TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC)
+        if using_plugin == TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC:
             return self._get_user_defined_estimator(
                 X_train, y_train, validation_df, run, output_directory
             )
