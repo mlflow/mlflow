@@ -4,9 +4,9 @@
 MLflow Recipes (experimental)
 ===============================
 
-MLflow Recipes is a framework that enables data scientists to quickly develop high-quality models
-and deploy them to production. Compared to ad-hoc ML workflows, MLflow Recipes offers several
-major benefits:
+MLflow Recipes (previously known as MLflow Pipelines) is a framework that enables data scientists
+to quickly develop high-quality models and deploy them to production.
+Compared to ad-hoc ML workflows, MLflow Recipes offers several major benefits:
 
 - **Get started quickly**: :ref:`Predefined templates <recipe-templates>` for common ML tasks,
   such as :ref:`regression modeling <regression-template>`, enable data scientists to get started
@@ -133,7 +133,7 @@ The general model development workflow for using MLflow Recipes is as follows:
 
     - [Databricks] Clone the |MLflow Recipes Regression Template| git repository using |Databricks Repos|.
 
-      .. image:: _static/images/pipelines_databricks_repo_ui.png
+      .. image:: _static/images/recipes_databricks_repo_ui.png
         :width: 60%
 
 2. Edit required fields marked by ``FIXME::REQUIRED`` comments in ``recipe.yaml`` and
@@ -143,7 +143,7 @@ The general model development workflow for using MLflow Recipes is as follows:
    filling out areas marked by ``FIXME::OPTIONAL`` as you see fit to
    customize the recipe steps to your ML problem for better model performance.
 
-      .. image:: _static/images/pipelines_databricks_fixme.png
+      .. image:: _static/images/recipes_databricks_fixme.png
         :width: 60%
 
 3. Run the recipe by selecting a desired profile. Profiles are used to quickly switch environment
@@ -186,7 +186,7 @@ The general model development workflow for using MLflow Recipes is as follows:
           mlflow recipes inspect --step evaluate --profile local
 
 
-    .. figure:: _static/images/pipelines_evaluate_step_card.png
+    .. figure:: _static/images/recipes_evaluate_step_card.png
       :width: 60%
 
       An example step card produced by running the **evaluate** step of the
@@ -195,12 +195,12 @@ The general model development workflow for using MLflow Recipes is as follows:
       registration with the :ref:`MLflow Model Registry <registry>`.
 
 
-    .. figure:: _static/images/pipelines_databricks_logged_artifacts.png
+    .. figure:: _static/images/recipes_databricks_logged_artifacts.png
       :width: 60%
 
       An example MLflow run view page, showing artifacts logged from the Recipe's steps.
 
-    .. figure:: _static/images/pipelines_databricks_notebook_ui.png
+    .. figure:: _static/images/recipes_databricks_notebook_ui.png
       :scale: 25
 
       Example recipe run from the |Databricks Notebook| included in the
@@ -223,7 +223,7 @@ The general model development workflow for using MLflow Recipes is as follows:
    <recipe-templates-key-concept>` in order to ensure reproducibility, and share or review the
    changes with your team.
 
-      .. figure:: _static/images/pipelines_databricks_dag.png
+      .. figure:: _static/images/recipes_databricks_dag.png
         :width: 60%
 
         Example Recipe.inspect() output, showing the dependency graph of recipe steps and
@@ -237,7 +237,7 @@ The general model development workflow for using MLflow Recipes is as follows:
     .. note::
       By default, MLflow Recipes caches results from each :ref:`Recipe Step
       <steps-key-concept>` within the ``.mlflow`` subdirectory of the home folder on the
-      local filesystem. The ``MLFLOW_PIPELINES_EXECUTION_DIRECTORY`` environment variable can
+      local filesystem. The ``MLFLOW_RECIPES_EXECUTION_DIRECTORY`` environment variable can
       be used to specify an alternative location for caching results.
 
 Development environments
@@ -254,7 +254,7 @@ We recommend using one of the following environment configurations to develop mo
   - Use ``notebooks/databricks.py`` as the driver to run recipe steps and inspect its output.
   - Pin the workspace browser for easy file navigation.
 
-  .. image:: _static/images/pipelines_databricks_ui.png
+  .. image:: _static/images/recipes_databricks_ui.png
     :width: 60%
 
 [**Local with Jupyter Notebook**]
