@@ -6,10 +6,10 @@ from tests.helper_functions import random_str, random_int
 
 class TestFileInfo(unittest.TestCase):
     def _check(self, fi, path, is_dir, size_in_bytes):
-        self.assertIsInstance(fi, FileInfo)
-        self.assertEqual(fi.path, path)
-        self.assertEqual(fi.is_dir, is_dir)
-        self.assertEqual(fi.file_size, size_in_bytes)
+        assert isinstance(fi, FileInfo)
+        assert fi.path == path
+        assert fi.is_dir == is_dir
+        assert fi.file_size == size_in_bytes
 
     def test_creation_and_hydration(self):
         path = random_str(random_int(10, 50))
@@ -19,7 +19,7 @@ class TestFileInfo(unittest.TestCase):
         self._check(fi1, path, is_dir, size_in_bytes)
 
         as_dict = {"path": path, "is_dir": is_dir, "file_size": size_in_bytes}
-        self.assertEqual(dict(fi1), as_dict)
+        assert dict(fi1) == as_dict
 
         proto = fi1.to_proto()
         fi2 = FileInfo.from_proto(proto)
