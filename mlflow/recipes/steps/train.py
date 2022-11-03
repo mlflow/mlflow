@@ -496,7 +496,7 @@ class TrainStep(BaseStep):
             best_combined_params = dict(estimator_hardcoded_params, **best_hp_params)
             estimator = estimator_fn(best_combined_params)
             all_estimator_params = estimator.get_params()
-            default_params_keys = all_estimator_params.keys() - estimator_hardcoded_params.keys()
+            default_params_keys = all_estimator_params.keys() - best_combined_params.keys()
             default_params = {k: all_estimator_params[k] for k in default_params_keys}
             self._write_best_parameters_outputs(
                 output_directory,
