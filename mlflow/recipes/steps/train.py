@@ -72,7 +72,7 @@ class TrainStep(BaseStep):
         self.recipe_config = recipe_config
 
     def _validate_and_apply_step_config(self):
-        self.task = self.step_config.get("template_name", "regression/v1").rsplit("/", 1)[0]
+        self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
                 raise MlflowException(
@@ -140,15 +140,15 @@ class TrainStep(BaseStep):
                 "Missing target_col config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.template = self.step_config.get("template_name")
-        if self.template is None:
+        self.recipe = self.step_config.get("recipe")
+        if self.recipe is None:
             raise MlflowException(
-                "Missing template_name config in recipe config.",
+                "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if "positive_class" not in self.step_config and self.template == "classification/v1":
+        if "positive_class" not in self.step_config and self.recipe == "classification/v1":
             raise MlflowException(
-                "`positive_class` must be specified for classification/v1 templates.",
+                "`positive_class` must be specified for classification/v1 recipes.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.positive_class = self.step_config.get("positive_class")
@@ -170,11 +170,11 @@ class TrainStep(BaseStep):
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
         self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.template)
+            metric.name: metric for metric in _get_builtin_metrics(self.recipe)
         }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.template)
+            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.recipe)
         }
         self.evaluation_metrics_greater_is_better.update(
             {
@@ -258,7 +258,7 @@ class TrainStep(BaseStep):
             )
             train_df = pd.read_parquet(transformed_training_data_path)
             self.using_rebalancing = False
-            if self.template == "classification/v1":
+            if self.recipe == "classification/v1":
                 classes = np.unique(train_df[self.target_col])
                 class_weights = compute_class_weight(
                     class_weight="balanced",
@@ -308,7 +308,7 @@ class TrainStep(BaseStep):
 
             tags = {
                 MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
-                MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["template_name"],
+                MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["recipe"],
                 MLFLOW_RECIPE_PROFILE_NAME: self.step_config["profile"],
                 MLFLOW_RECIPE_STEP_NAME: os.getenv(
                     _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
@@ -381,7 +381,7 @@ class TrainStep(BaseStep):
                         model=logged_estimator.model_uri,
                         data=dataset,
                         targets=self.target_col,
-                        model_type=_get_model_type_from_template(self.template),
+                        model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
                         custom_metrics=_load_custom_metrics(
                             self.recipe_root,
@@ -408,7 +408,7 @@ class TrainStep(BaseStep):
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
-                self.template,
+                self.recipe,
                 use_probability=self.predict_proba,
                 positive_class=self.positive_class,
             )
@@ -900,7 +900,7 @@ class TrainStep(BaseStep):
             step_config["custom_metrics"] = recipe_config["custom_metrics"]
         if recipe_config.get("primary_metric") is not None:
             step_config["primary_metric"] = recipe_config["primary_metric"]
-        step_config["template_name"] = recipe_config.get("template")
+        step_config["recipe"] = recipe_config.get("recipe")
         step_config["profile"] = recipe_config.get("profile")
         step_config["target_col"] = recipe_config.get("target_col")
         if "positive_class" in recipe_config:

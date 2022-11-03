@@ -44,7 +44,7 @@ def test_register_step_run(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -114,7 +114,7 @@ def test_register_with_no_validation_criteria(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -159,7 +159,7 @@ def test_usage_tracking_correctly_added(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 model_registry:
   model_name: "demo_model"
@@ -219,7 +219,7 @@ def test_register_uri(
     registry_uri = registry_uri_path
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -279,7 +279,7 @@ def test_register_step_writes_card_with_model_link_and_version_link_on_databrick
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}

@@ -60,7 +60,7 @@ def test_evaluate_step_run(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -121,7 +121,7 @@ def test_evaluate_produces_expected_step_card(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "classification/v1"
+recipe: "classification/v1"
 positive_class: "Iris-setosa"
 target_col: "y"
 primary_metric: "f1_score"
@@ -159,7 +159,7 @@ def test_no_validation_criteria(tmp_recipe_root_path: Path, tmp_recipe_exec_path
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -190,7 +190,7 @@ def test_validation_criteria_contain_undefined_metrics(tmp_recipe_root_path: Pat
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -225,7 +225,7 @@ def test_custom_metric_function_does_not_exist(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -267,7 +267,7 @@ def test_custom_metrics_module_does_not_exist(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -307,7 +307,7 @@ def test_custom_metrics_override_builtin_metrics(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
@@ -374,7 +374,7 @@ def test_evaluate_step_writes_card_with_model_and_run_links_on_databricks(
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}

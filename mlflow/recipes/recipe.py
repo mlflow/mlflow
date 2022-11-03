@@ -53,10 +53,7 @@ class _BaseRecipe:
         # from config files using self._resolve_recipe_steps() at the beginning of __init__(),
         # run(), and inspect(), and should not reload it elsewhere.
         self._steps = self._resolve_recipe_steps()
-        self._template = get_recipe_config(self._recipe_root_path, self._profile).get(
-            # TODO: Think about renaming this to something else
-            "template"
-        )
+        self._recipe = get_recipe_config(self._recipe_root_path, self._profile).get("recipe")
 
     @experimental
     @property
@@ -90,7 +87,7 @@ class _BaseRecipe:
             self._recipe_root_path,
             self._get_subgraph_for_target_step(target_step),
             target_step,
-            self._template,
+            self._recipe,
         )
 
         self.inspect(last_executed_step.name)
@@ -428,15 +425,15 @@ class Recipe:
             ) from None
 
         recipe_config = get_recipe_config(recipe_root_path=recipe_root_path, profile=profile)
-        template = recipe_config.get("template")
-        if template is None:
+        recipe = recipe_config.get("recipe")
+        if recipe is None:
             raise MlflowException(
-                "The `template` property needs to be defined in the `recipe.yaml` file."
-                "For example: `template: regression/v1`",
+                "The `recipe` property needs to be defined in the `recipe.yaml` file."
+                "For example: `recipe: regression/v1`",
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
-        template_path = template.replace("/", ".").replace("@", ".")
-        class_name = f"mlflow.recipes.{template_path}.RecipeImpl"
+        recipe_path = recipe.replace("/", ".").replace("@", ".")
+        class_name = f"mlflow.recipes.{recipe_path}.RecipeImpl"
 
         try:
             recipe_class_module = _get_class_from_string(class_name)
@@ -444,7 +441,7 @@ class Recipe:
             if isinstance(e, ModuleNotFoundError):
                 raise MlflowException(
                     f"Failed to find Recipe {class_name}."
-                    f"Please check the correctness of the recipe template setting: {template}",
+                    f"Please check the correctness of the recipe template setting: {recipe}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from None
             else:

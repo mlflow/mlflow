@@ -43,7 +43,7 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
 
     recipe_yaml.write_text(
         """
-        template: "regression/v1"
+        recipe: "regression/v1"
         target_col: "y"
         experiment:
           name: {experiment_name}
@@ -84,7 +84,7 @@ def test_transform_steps_work_without_step_config(tmp_recipe_root_path):
 
     recipe_yaml.write_text(
         """
-        template: "regression/v1"
+        recipe: "regression/v1"
         target_col: "y"
         experiment:
           name: {experiment_name}

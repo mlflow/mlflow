@@ -66,7 +66,7 @@ class RegisterStep(BaseStep):
         artifact_path = "train/model"
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
-            MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["template_name"],
+            MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["recipe"],
         }
         self.model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=run_id, artifact_path=artifact_path
@@ -168,7 +168,7 @@ class RegisterStep(BaseStep):
         step_config = {}
         if recipe_config.get("steps", {}).get("register") is not None:
             step_config.update(recipe_config.get("steps", {}).get("register"))
-        step_config["template_name"] = recipe_config.get("template")
+        step_config["recipe"] = recipe_config.get("recipe")
         if recipe_config.get("model_registry", {}).get("registry_uri") is not None:
             step_config["registry_uri"] = recipe_config.get("model_registry", {}).get(
                 "registry_uri"
