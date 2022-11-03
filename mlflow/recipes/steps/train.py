@@ -64,7 +64,7 @@ class TrainStep(BaseStep):
     PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"
     CONFIG_TYPE_ESTIMATOR_SPEC = "estimator_spec"
     CONFIG_TYPE_AUTOML = "automl/flaml"
-    SUPPORTED_CONFIG_TYPES = [TrainStep.CONFIG_TYPE_ESTIMATOR_SPEC, TrainStep.CONFIG_TYPE_AUTOML]
+    SUPPORTED_CONFIG_TYPES = [CONFIG_TYPE_ESTIMATOR_SPEC, CONFIG_TYPE_AUTOML]
 
     def __init__(self, step_config, recipe_root, recipe_config=None):
         super().__init__(step_config, recipe_root)
