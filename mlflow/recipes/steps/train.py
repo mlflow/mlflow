@@ -152,7 +152,7 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.positive_class = self.step_config.get("positive_class")
-        self.rebalancing_enabled = self.step_config.get("rebalancing_enabled", True)
+        self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if (
             "estimator_method" not in self.step_config
@@ -241,8 +241,10 @@ class TrainStep(BaseStep):
         warnings.warn = my_warn
         try:
             import pandas as pd
+            import numpy as np
             import shutil
             from sklearn.pipeline import make_pipeline
+            from sklearn.utils.class_weight import compute_class_weight
             from mlflow.models.signature import infer_signature
 
             open(os.path.join(output_directory, "warning_logs.txt"), "w")
@@ -256,15 +258,23 @@ class TrainStep(BaseStep):
             )
             train_df = pd.read_parquet(transformed_training_data_path)
             self.using_rebalancing = False
-            if self.template == "classification/v1" and self.rebalancing_enabled:
-                if len(train_df) > _REBALANCING_CUTOFF:
-                    self.using_rebalancing = True
-                    train_df = self._rebalance_classes(train_df)
-                else:
-                    _logger.info(
-                        f"Training data has less than {_REBALANCING_CUTOFF} rows, "
-                        f"skipping rebalancing."
-                    )
+            if self.template == "classification/v1":
+                classes = np.unique(train_df[self.target_col])
+                class_weights = compute_class_weight(
+                    class_weight="balanced",
+                    classes=classes,
+                    y=train_df[self.target_col],
+                )
+                self.original_class_weights = dict(zip(classes, class_weights))
+                if self.rebalance_training_data:
+                    if len(train_df) > _REBALANCING_CUTOFF:
+                        self.using_rebalancing = True
+                        train_df = self._rebalance_classes(train_df)
+                    else:
+                        _logger.info(
+                            f"Training data has less than {_REBALANCING_CUTOFF} rows, "
+                            f"skipping rebalancing."
+                        )
 
             X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
 
@@ -1148,8 +1158,6 @@ class TrainStep(BaseStep):
 
     def _rebalance_classes(self, train_df):
         import pandas as pd
-        import numpy as np
-        from sklearn.utils.class_weight import compute_class_weight
 
         resampling_minority_percentage = self.step_config.get(
             "resampling_minority_percentage", _REBALANCING_DEFAULT_RATIO
@@ -1158,22 +1166,12 @@ class TrainStep(BaseStep):
         df_positive_class = train_df[train_df[self.target_col] == self.positive_class]
         df_negative_class = train_df[train_df[self.target_col] != self.positive_class]
 
-        classes = np.unique(train_df[self.target_col])
-        class_weights = compute_class_weight(
-            class_weight="balanced",
-            classes=classes,
-            y=train_df[self.target_col],
-        )
-
-        self.original_class_weights = dict(zip(classes, class_weights))
-
         if len(df_positive_class) > len(df_negative_class):
             df_minority_class, df_majority_class = df_negative_class, df_positive_class
-            original_minority_percentage = len(df_negative_class) / len(train_df)
         else:
             df_minority_class, df_majority_class = df_positive_class, df_negative_class
-            original_minority_percentage = len(df_positive_class) / len(train_df)
 
+        original_minority_percentage = len(df_minority_class) / len(train_df)
         if original_minority_percentage >= resampling_minority_percentage:
             _logger.info(
                 f"Class imbalance of {original_minority_percentage:.2f} "
@@ -1182,8 +1180,8 @@ class TrainStep(BaseStep):
             return train_df
 
         _logger.info(
-            f"Detected class imbalance: original count - minority class: "
-            f"{len(df_minority_class)} vs majority class: {len(df_majority_class)}"
+            f"Detected class imbalance: minority class percentage is "
+            f"{original_minority_percentage:.2f}"
         )
 
         majority_class_target = int(
@@ -1193,9 +1191,8 @@ class TrainStep(BaseStep):
         )
         df_majority_downsampled = df_majority_class.sample(majority_class_target)
         _logger.info(
-            f"After downsampling: original count - minority class: "
-            f"{len(df_minority_class)} vs majority class: {len(df_majority_downsampled)}"
+            f"After downsampling: minority class percentage is {resampling_minority_percentage:.2f}"
         )
-        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0)
+        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)
 
         return train_df
