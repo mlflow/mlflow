@@ -29,9 +29,6 @@ with mlflow.start_run() as run:
         targets="label",
         model_type="classifier",
         evaluators=["default"],
-        evaluator_config={
-            "default": {"metric_prefix": "val_"},
-        },
     )
 
 print(f"metrics:\n{result.metrics}")
