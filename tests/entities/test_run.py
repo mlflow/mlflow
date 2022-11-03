@@ -53,24 +53,21 @@ class TestRun(TestRunInfo, TestRunData):
             "lifecycle_stage": lifecycle_stage,
             "artifact_uri": artifact_uri,
         }
-        self.assertEqual(
-            run1.to_dictionary(),
-            {
-                "info": expected_info_dict,
-                "data": {
-                    "metrics": {m.key: m.value for m in metrics},
-                    "params": {p.key: p.value for p in params},
-                    "tags": {t.key: t.value for t in tags},
-                },
+        assert run1.to_dictionary() == {
+            "info": expected_info_dict,
+            "data": {
+                "metrics": {m.key: m.value for m in metrics},
+                "params": {p.key: p.value for p in params},
+                "tags": {t.key: t.value for t in tags},
             },
-        )
+        }
 
         proto = run1.to_proto()
         run2 = Run.from_proto(proto)
         self._check_run(run2, run_info, metrics, params, tags)
 
         run3 = Run(run_info, None)
-        self.assertEqual(run3.to_dictionary(), {"info": expected_info_dict})
+        assert run3.to_dictionary() == {"info": expected_info_dict}
 
     def test_string_repr(self):
         run_info = RunInfo(
