@@ -144,7 +144,7 @@ export class RunViewImpl extends Component {
         runCommand += `git checkout ${sourceVersion}\n`;
       }
 
-      runCommand += `mlflow pipelines run -p ${shellEscape(profileName)}`;
+      runCommand += `mlflow recipes run -p ${shellEscape(profileName)}`;
 
       if (stepName) {
         runCommand += ' -s ' + shellEscape(stepName);

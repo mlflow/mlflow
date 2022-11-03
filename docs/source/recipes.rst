@@ -4,9 +4,9 @@
 MLflow Recipes (experimental)
 ===============================
 
-MLflow Recipes is a framework that enables data scientists to quickly develop high-quality models
-and deploy them to production. Compared to ad-hoc ML workflows, MLflow Recipes offers several
-major benefits:
+MLflow Recipes (previously known as MLflow Pipelines) is a framework that enables data scientists
+to quickly develop high-quality models and deploy them to production.
+Compared to ad-hoc ML workflows, MLflow Recipes offers several major benefits:
 
 - **Get started quickly**: :ref:`Predefined templates <recipe-templates>` for common ML tasks,
   such as :ref:`regression modeling <regression-template>`, enable data scientists to get started
