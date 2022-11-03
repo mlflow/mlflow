@@ -1366,21 +1366,27 @@ and behavior:
     import mlflow
     from sklearn.model_selection import train_test_split
 
-    # load UCI Adult Data Set; segment it into training and test sets
+    # Load the UCI Adult Dataset
     X, y = shap.datasets.adult()
+
+    # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-    # train XGBoost model
+    # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
-    # construct an evaluation dataset from the test set
+    # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
-        model_info = mlflow.sklearn.log_model(model, "model")
+        # Log the baseline model to MLflow
+        mlflow.sklearn.log_model(model, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # Evaluate the logged model
         result = mlflow.evaluate(
-            model_info.model_uri,
+            model_uri,
             eval_data,
             targets="label",
             model_type="classifier",
@@ -1390,10 +1396,10 @@ and behavior:
 |eval_metrics_img| |eval_importance_img|
 
 .. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
-   :width: 30%
+   :width: 15%
 
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
-   :width: 69%
+   :width: 84%
 
 
 Evaluating with Custom Metrics
@@ -1475,6 +1481,14 @@ Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thr
 and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
 `the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
+The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
+been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+
+|eval_importance_compare_img|
+
+.. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
+   :width: 99%
 
 .. note:: Limitations (when the default evaluator is used):
 
