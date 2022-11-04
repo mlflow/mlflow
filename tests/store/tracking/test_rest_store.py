@@ -148,6 +148,7 @@ class TestRestStore:
 
         user_name = "mock user"
         source_name = "rest test"
+        run_name = "my name"
 
         source_name_patch = mock.patch(
             "mlflow.tracking.context.default_context._get_source_name", return_value=source_name
@@ -163,17 +164,18 @@ class TestRestStore:
         ), mock.patch(
             "time.time", return_value=13579
         ), source_name_patch, source_type_patch:
-            with mlflow.start_run(experiment_id="43", run_name="my name"):
+            with mlflow.start_run(experiment_id="43", run_name=run_name):
                 cr_body = message_to_json(
                     CreateRun(
                         experiment_id="43",
                         user_id=user_name,
-                        run_name="my name",
+                        run_name=run_name,
                         start_time=13579000,
                         tags=[
                             ProtoRunTag(key="mlflow.source.name", value=source_name),
                             ProtoRunTag(key="mlflow.source.type", value="LOCAL"),
                             ProtoRunTag(key="mlflow.user", value=user_name),
+                            ProtoRunTag(key="mlflow.runName", value=run_name),
                         ],
                     )
                 )

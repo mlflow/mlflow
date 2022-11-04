@@ -454,12 +454,14 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
     source_version_patch = mock.patch(
         "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
+    run_name = "my name"
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_RUN_NAME: run_name,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -472,7 +474,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(run_name="my name")
+        active_run = start_run(run_name=run_name)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name="my name"
         )
