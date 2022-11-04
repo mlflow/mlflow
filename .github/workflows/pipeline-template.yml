@@ -1,13 +1,13 @@
-name: Pipeline template tests
+name: Recipe template tests
 
 on:
   workflow_dispatch:
     inputs:
       repository:
         description: >
-          [Optional] Repository name with owner. For example, mlflow/mlp-regression-template.
+          [Optional] Repository name with owner. For example, mlflow/recipes-examples.
         required: true
-        default: "mlflow/mlp-regression-template"
+        default: "mlflow/recipes-examples"
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
@@ -53,7 +53,7 @@ jobs:
     - name: Run lint checks
       run: |
         cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
-  pipeline:
+  recipe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -73,7 +73,7 @@ jobs:
       - name: Run tests
         run: |
           cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
-  pipeline-windows:
+  recipe-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3

@@ -29,7 +29,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     projects
     models
     model-registry
-    pipelines
+    recipes
     plugins
     cli
     search-runs

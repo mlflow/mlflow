@@ -1,4 +1,3 @@
-[submodule "examples/pipelines/sklearn_regression_example"]
-	path = examples/pipelines/sklearn_regression_example
-	url = https://github.com/mlflow/mlp-regression-example.git
-	branch = sunish-pipeline-2.0
+[submodule "examples/recipes"]
+	path = examples/recipes
+	url = https://github.com/mlflow/recipes-examples.git
