@@ -136,6 +136,7 @@ jobs:
               java_version=11
             else
               java_version=8
+            fi
           else
             java_version=11
           fi
