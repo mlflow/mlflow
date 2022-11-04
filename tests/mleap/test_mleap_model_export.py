@@ -29,10 +29,12 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 )
 
 
+def get_mleap_version():
+    return mleap.version if isinstance(mleap.version, str) else mleap.version.__version__
+
+
 def get_mleap_jars():
-    mleap_ver = Version(
-        mleap.version if isinstance(mleap.version, str) else mleap.version.__version__
-    )
+    mleap_ver = Version(get_mleap_version())
     scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
     jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
@@ -191,6 +193,9 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
         )
 
 
+@pytest.mark.skipif(
+    Version(get_mleap_version()) >= Version("0.21.0"), reason="This test fails with MLeap >= 0.21.0"
+)
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
     spark_model_iris, model_path
 ):
