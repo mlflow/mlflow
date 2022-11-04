@@ -579,10 +579,10 @@ class FileStore(AbstractStore):
             )
         tags = tags or []
         run_name_tag = _get_run_name_from_tags(tags)
-        if run_name and run_name_tag:
+        if run_name and run_name_tag and run_name != run_name_tag:
             raise MlflowException(
-                "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
-                "Remove 'mlflow.runName' tag.",
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+                f"different values (run_name='{run_name}', mlflow.runName='{run_name_tag}').",
                 INVALID_PARAMETER_VALUE,
             )
         run_name = run_name or run_name_tag or _generate_random_name()

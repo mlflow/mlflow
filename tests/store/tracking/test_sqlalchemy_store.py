@@ -850,14 +850,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with pytest.raises(
             MlflowException,
-            match=re.escape("Both 'run_name' argument and 'mlflow.runName' tag are specified."),
+            match=re.escape(
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+                "different values (run_name='test', mlflow.runName='test_2').",
+            ),
         ):
             self.store.create_run(
                 experiment_id=experiment_id,
                 user_id="user",
                 start_time=0,
                 run_name="test",
-                tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test")],
+                tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test_2")],
             )
 
     def test_get_run_with_name(self):

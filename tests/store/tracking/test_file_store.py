@@ -847,13 +847,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         with pytest.raises(
             MlflowException,
-            match=re.escape("Both 'run_name' argument and 'mlflow.runName' tag are specified."),
+            match=re.escape(
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+                "different values (run_name='my name', mlflow.runName='test')."
+            ),
         ):
             fs.create_run(
                 experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
                 user_id="user",
                 start_time=0,
-                run_name="test",
+                run_name="my name",
                 tags=[RunTag(MLFLOW_RUN_NAME, "test")],
             )
 
