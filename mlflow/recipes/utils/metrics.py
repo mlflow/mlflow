@@ -129,7 +129,7 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     ]
     custom_metric_names = {metric.name for metric in custom_metrics}
     builtin_metric_names = {
-        metric.name for metric in _get_builtin_metrics(step_config.get("template_name"))
+        metric.name for metric in _get_builtin_metrics(step_config.get("recipe"))
     }
     overridden_builtin_metrics = custom_metric_names.intersection(builtin_metric_names)
     if overridden_builtin_metrics:

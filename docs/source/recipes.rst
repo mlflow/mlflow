@@ -375,7 +375,7 @@ The main components of the Recipe Template layout, which are common across all r
               all recipe steps; :ref:`Profile <profiles-key-concept>`-based substitutions and
               overrides are supported using |Jinja2| templating syntax.
 
-    template: "regression/v1"
+    recipe: "regression/v1"
     target_col: "fare_amount"
     primary_metrics: "root_mean_squared_error"
     steps:

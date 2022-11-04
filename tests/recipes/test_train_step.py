@@ -83,7 +83,7 @@ def setup_train_step_with_tuning(
     if use_tuning:
         recipe_yaml.write_text(
             """
-            template: "regression/v1"
+            recipe: "regression/v1"
             target_col: "y"
             profile: "test_profile"
             run_args:
@@ -119,7 +119,7 @@ def setup_train_step_with_tuning(
     else:
         recipe_yaml.write_text(
             """
-            template: "regression/v1"
+            recipe: "regression/v1"
             target_col: "y"
             profile: "test_profile"
             run_args:
@@ -150,7 +150,7 @@ def test_train_step(tmp_recipe_root_path):
         recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
         recipe_yaml.write_text(
             """
-            template: "regression/v1"
+            recipe: "regression/v1"
             target_col: "y"
             profile: "test_profile"
             run_args:
@@ -192,7 +192,7 @@ def setup_train_step_with_automl(
             """
     recipe_yaml.write_text(
         f"""
-  template: regression/v1
+  recipe: regression/v1
   target_col: y
   primary_metric: { primary_metric }
   profile: test_profile

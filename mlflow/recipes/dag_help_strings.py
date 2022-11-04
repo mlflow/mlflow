@@ -14,7 +14,7 @@ def format_help_string(help_string):
 
 RECIPE_YAML = format_help_string(
     """# recipe.yaml is the main configuration file for the recipe. It defines attributes for each step of the regression recipe, such as the dataset to use (defined in the 'data' section of the 'ingest' step definition) and the metrics to compute during model training & evaluation (defined in the 'metrics' section, which is used by the 'train' and 'evaluate' steps). recipe.yaml files also support value overrides from profiles (located in the 'profiles' subdirectory of the recipe) using Jinja2 templating syntax. An example recipe.yaml file is displayed below.\n
-template: "regression/v1"
+recipe: "regression/v1"
 # Specifies the dataset to use for model development
 data:
   location: {{INGEST_DATA_LOCATION}}

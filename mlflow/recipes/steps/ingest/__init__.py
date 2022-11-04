@@ -59,10 +59,10 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                 )
             if (
                 "positive_class" not in self.step_config
-                and self.step_config["template_name"] == "classification/v1"
+                and self.step_config["recipe"] == "classification/v1"
             ):
                 raise MlflowException(
-                    "`positive_class` must be specified for classification/v1 templates.",
+                    "`positive_class` must be specified for classification/v1 recipes.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             self.positive_class = self.step_config.get("positive_class")
@@ -219,7 +219,7 @@ class IngestStep(BaseIngestStep):
             step_config={
                 **ingest_config,
                 **target_config,
-                **{"template_name": recipe_config.get("template")},
+                **{"recipe": recipe_config.get("recipe")},
             },
             recipe_root=recipe_root,
         )
