@@ -120,6 +120,9 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
     assert mlflow.mleap.FLAVOR_NAME in config.flavors
 
 
+@pytest.mark.skipif(
+    Version(get_mleap_version()) >= Version("0.21.0"), reason="This test fails with MLeap >= 0.21.0"
+)
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
     spark_model_iris, model_path
 ):
@@ -193,9 +196,6 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
         )
 
 
-@pytest.mark.skipif(
-    Version(get_mleap_version()) >= Version("0.21.0"), reason="This test fails with MLeap >= 0.21.0"
-)
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
     spark_model_iris, model_path
 ):
