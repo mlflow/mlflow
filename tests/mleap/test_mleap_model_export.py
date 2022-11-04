@@ -29,12 +29,10 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
 )
 
 
-def get_mleap_version():
-    return mleap.version if isinstance(mleap.version, str) else mleap.version.__version__
-
-
 def get_mleap_jars():
-    mleap_ver = Version(get_mleap_version())
+    mleap_ver = Version(
+        mleap.version if isinstance(mleap.version, str) else mleap.version.__version__
+    )
     scala_ver = "2.11" if mleap_ver < Version("0.18.0") else "2.12"
     jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
@@ -120,13 +118,13 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
     assert mlflow.mleap.FLAVOR_NAME in config.flavors
 
 
-@pytest.mark.skipif(
-    Version(get_mleap_version()) >= Version("0.21.0"), reason="This test fails with MLeap >= 0.21.0"
-)
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
     spark_model_iris, model_path
 ):
-    class CustomTransformer(JavaModel):
+
+    from pyspark.ml.feature import VectorAssembler
+
+    class CustomTransformer(VectorAssembler):
         def _transform(self, dataset):
             return dataset
 
