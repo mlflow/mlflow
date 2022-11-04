@@ -167,14 +167,22 @@ def log_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+                      the training dataset). If the signature describes model output then the
+                      corresponding columns will be included in the output schema from a
+                      `predict()` transformation. For example:
 
-                      .. code-block:: python
+      .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
+        from mlflow.models.signature import infer_signature
+        train = df.drop("target_label")
+        predictions = ... # compute model predictions
+        signature = infer_signature(train, predictions)
+
+        # show how signature defines output schema in `predict` transformation
+        mlflow.spark.log_model(model, "model", signature=signature, registered_model_name="mymodel")
+        # predict will now return data corresponding to the output schema from the signature
+        print(mlflow.pyfunc.load_model("models:/mymodel/1").predict(predictions.toPandas()))
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -618,14 +626,22 @@ def save_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+                      the training dataset). If the signature describes model output then the
+                      corresponding columns will be included in the output schema from a
+                      `predict()` transformation. For example:
 
-                      .. code-block:: python
+      .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
+        from mlflow.models.signature import infer_signature
+        train = df.drop("target_label")
+        predictions = ... # compute model predictions
+        signature = infer_signature(train, predictions)
+
+        # show how signature defines output schema in `predict` transformation
+        mlflow.spark.save_model(model, path, signature=signature)
+        # predict will now return data corresponding to the output schema from the signature
+        print(mlflow.pyfunc.load_model(path).predict(predictions.toPandas()))
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -906,8 +922,12 @@ class _PyFuncModelWrapper:
     def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
-        If the Spark model has been saved with a signature, the output column names defined during signature creation will be included in the output schema from a `predict()` transformation. If no signature is present or if the model's output would otherwise produce only an output column named 'prediction', the output from this method will contain only a 'prediction' field.
-        as predictions. If no such signature, a "prediction" column will be stored as a prediction.
+        If the Spark model has been saved with a signature, the output column names defined during
+         signature creation will be included in the output schema from a `predict()` transformation.
+        If no signature is present or if the model's output would otherwise produce only an output
+        column named 'prediction', the output from this method will contain only a 'prediction'
+        field as predictions. If no such signature, a "prediction" column will be stored as a
+        prediction.
 
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
