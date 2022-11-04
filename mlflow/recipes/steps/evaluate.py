@@ -55,15 +55,15 @@ class EvaluateStep(BaseStep):
                 "Missing target_col config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.template = self.step_config.get("template_name")
-        if self.template is None:
+        self.recipe = self.step_config.get("recipe")
+        if self.recipe is None:
             raise MlflowException(
-                "Missing template_name config in recipe config.",
+                "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if "positive_class" not in self.step_config and self.template == "classification/v1":
+        if "positive_class" not in self.step_config and self.recipe == "classification/v1":
             raise MlflowException(
-                "`positive_class` must be specified for classification/v1 templates.",
+                "`positive_class` must be specified for classification/v1 recipes.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.positive_class = self.step_config.get("positive_class")
@@ -73,7 +73,7 @@ class EvaluateStep(BaseStep):
             metric.name: metric for metric in _get_custom_metrics(self.step_config)
         }
         self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.template)
+            metric.name: metric for metric in _get_builtin_metrics(self.recipe)
         }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
@@ -215,7 +215,7 @@ class EvaluateStep(BaseStep):
                         model=model_uri,
                         data=dataset,
                         targets=self.target_col,
-                        model_type=_get_model_type_from_template(self.template),
+                        model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
                         custom_metrics=_load_custom_metrics(
                             self.recipe_root,
@@ -328,7 +328,7 @@ class EvaluateStep(BaseStep):
             )
 
         # Tab 2: Classifier plots.
-        if self.template == "classification/v1":
+        if self.recipe == "classification/v1":
             classifiers_plot_tab = card.add_tab(
                 "Classifier Plots on the Validation Dataset",
                 "{{ CONFUSION_MATRIX }} {{CONFUSION_MATRIX_PLOT}}"
@@ -463,7 +463,7 @@ class EvaluateStep(BaseStep):
             step_config["custom_metrics"] = recipe_config["custom_metrics"]
         if recipe_config.get("primary_metric") is not None:
             step_config["primary_metric"] = recipe_config["primary_metric"]
-        step_config["template_name"] = recipe_config.get("template")
+        step_config["recipe"] = recipe_config.get("recipe")
         step_config.update(
             get_recipe_tracking_config(
                 recipe_root_path=recipe_root,

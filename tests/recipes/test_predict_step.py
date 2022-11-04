@@ -77,7 +77,7 @@ def predict_step_output_dir(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pa
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
-template: "regression/v1"
+recipe: "regression/v1"
 experiment:
   name: "test"
   tracking_uri: {tracking_uri}
