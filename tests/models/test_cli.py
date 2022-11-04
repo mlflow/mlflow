@@ -410,9 +410,7 @@ def test_prepare_env_fails(sk_model):
         assert p.wait() != 0
 
 
-# NB: mlserver is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -435,9 +433,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
-# NB: mlserver is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -475,9 +471,7 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-# NB: ml_serve is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
