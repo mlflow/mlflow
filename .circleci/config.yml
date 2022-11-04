@@ -81,7 +81,7 @@ jobs:
           name: Install dependencies
           command: |
             pip install -e .
-            pip install nbconvert ipykernel matplotlib
+            pip install nbconvert ipykernel
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression

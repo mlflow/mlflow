@@ -79,3 +79,7 @@ Jinja2-windows:
   minimum: "3.0"
   max_major_version: 3
   markers: "platform_system == 'Windows'"
+
+matplotlib:
+  pip_release: matplotlib
+  max_major_version: 3
