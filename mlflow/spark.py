@@ -906,7 +906,7 @@ class _PyFuncModelWrapper:
     def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
-        If a signature with named model outputs has been defined these outputs will be stored
+        If the Spark model has been saved with a signature, the output column names defined during signature creation will be included in the output schema from a `predict()` transformation. If no signature is present or if the model's output would otherwise produce only an output column named 'prediction', the output from this method will contain only a 'prediction' field.
         as predictions. If no such signature, a "prediction" column will be stored as a prediction.
 
         :param pandas_df: pandas DataFrame containing input data.
