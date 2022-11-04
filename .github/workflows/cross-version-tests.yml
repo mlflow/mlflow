@@ -131,7 +131,8 @@ jobs:
           then
             pip install packaging
             supports_java11=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') >= parse('0.21.0'))")
-            if [ "$supports_java11" = "True" ];
+            if [ "$supports_java11" = "True" ]
+            then
               java_version=11
             else
               java_version=8
