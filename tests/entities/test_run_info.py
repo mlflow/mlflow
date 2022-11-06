@@ -146,7 +146,7 @@ class TestRunInfo(unittest.TestCase):
         )
 
     def test_searchable_attributes(self):
-        assert {
+        assert set(RunInfo.get_searchable_attributes()) == {
             "status",
             "artifact_uri",
             "start_time",
@@ -154,4 +154,4 @@ class TestRunInfo(unittest.TestCase):
             "end_time",
             "run_name",
             "run_id",
-        } == set(RunInfo.get_searchable_attributes())
+        }

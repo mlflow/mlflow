@@ -205,13 +205,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.search_experiments()]
-        assert {"aNothEr", "Default"} == set(all_experiments)
+        assert set(all_experiments) == {"aNothEr", "Default"}
 
         self.store.delete_experiment(0)
 
-        assert ["aNothEr"] == [e.name for e in self.store.search_experiments()]
+        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
         another = self.store.get_experiment(1)
-        assert "aNothEr" == another.name
+        assert another.name == "aNothEr"
 
         default_experiment = self.store.get_experiment(experiment_id=0)
         assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
@@ -226,13 +226,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
         assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
 
-        assert ["aNothEr"] == [e.name for e in self.store.search_experiments()]
+        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
         all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
-        assert {"aNothEr", "Default"} == set(all_experiments)
+        assert set(all_experiments) == {"aNothEr", "Default"}
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
-        assert "aNothEr" == another.name
+        assert another.name == "aNothEr"
 
     def test_raise_duplicate_experiments(self):
         with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
@@ -944,26 +944,26 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with self.store.ManagedSessionMaker() as session:
             actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
-            assert None == actual_run
+            assert actual_run == None
             actual_metric = (
                 session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
             )
-            assert None == actual_metric
+            assert actual_metric == None
             actual_param = (
                 session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
             )
-            assert None == actual_param
+            assert actual_param == None
             actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
-            assert None == actual_tag
+            assert actual_tag == None
 
     def test_get_deleted_runs(self):
         run = self._run_factory()
         deleted_run_ids = self.store._get_deleted_runs()
-        assert [] == deleted_run_ids
+        assert deleted_run_ids == []
 
         self.store.delete_run(run.info.run_uuid)
         deleted_run_ids = self.store._get_deleted_runs()
-        assert [run.info.run_uuid] == deleted_run_ids
+        assert deleted_run_ids == [run.info.run_uuid]
 
     def test_log_metric(self):
         run = self._run_factory()
@@ -989,8 +989,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            assert 5 == len(sql_run_metrics)
-            assert 4 == len(run.data.metrics)
+            assert len(sql_run_metrics) == 5
+            assert len(run.data.metrics) == 4
             assert math.isnan(run.data.metrics["NaN"])
             assert run.data.metrics["PosInf"] == 1.7976931348623157e308
             assert run.data.metrics["NegInf"] == -1.7976931348623157e308
@@ -1109,7 +1109,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_param(run.info.run_id, param2)
 
         run = self.store.get_run(run.info.run_id)
-        assert 2 == len(run.data.params)
+        assert len(run.data.params) == 2
         assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_param_uniqueness(self):
@@ -1135,7 +1135,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_param(run.info.run_id, param2)
 
         run = self.store.get_run(run.info.run_id)
-        assert 2 == len(run.data.params)
+        assert len(run.data.params) == 2
         assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_null_param(self):
@@ -1476,7 +1476,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             create_and_log_run(names)
 
         # asc/asc
-        assert [
+        assert self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id) == [
             "-inf/4",
             "-1000/5",
             "0/6",
@@ -1485,9 +1485,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "inf/3",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id)
+        ]
 
-        assert [
+        assert self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id) == [
             "-inf/4",
             "-1000/5",
             "0/6",
@@ -1496,10 +1496,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "inf/3",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id)
+        ]
 
         # asc/desc
-        assert [
+        assert self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id) == [
             "-inf/4",
             "-1000/5",
             "0/7",
@@ -1508,9 +1508,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "inf/3",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id)
+        ]
 
-        assert [
+        assert self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id) == [
             "-inf/4",
             "-1000/5",
             "0/7",
@@ -1519,10 +1519,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "inf/3",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id)
+        ]
 
         # desc / asc
-        assert [
+        assert self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id) == [
             "inf/3",
             "1000/8",
             "0/6",
@@ -1531,10 +1531,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "-inf/4",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id)
+        ]
 
         # desc / desc
-        assert [
+        assert self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id) == [
             "inf/3",
             "1000/8",
             "0/7",
@@ -1543,7 +1543,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "-inf/4",
             "nan/2",
             "None/1",
-        ] == self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id)
+        ]
 
     def test_order_by_attributes(self):
         experiment_id = self.store.create_experiment("order_by_attributes")
@@ -1566,19 +1566,29 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             start_time += 1
 
         # asc
-        assert ["-123", "123", "234", "456", "789", "None"] == self.get_ordered_runs(
-            ["attribute.end_time asc"], experiment_id
-        )
+        assert self.get_ordered_runs(["attribute.end_time asc"], experiment_id) == [
+            "-123",
+            "123",
+            "234",
+            "456",
+            "789",
+            "None",
+        ]
 
         # desc
-        assert ["789", "456", "234", "123", "-123", "None"] == self.get_ordered_runs(
-            ["attribute.end_time desc"], experiment_id
-        )
+        assert self.get_ordered_runs(["attribute.end_time desc"], experiment_id) == [
+            "789",
+            "456",
+            "234",
+            "123",
+            "-123",
+            "None",
+        ]
 
         # Sort priority correctly handled
-        assert ["234", "None", "456", "-123", "789", "123"] == self.get_ordered_runs(
+        assert self.get_ordered_runs(
             ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
-        )
+        ) == ["234", "None", "456", "-123", "789", "123"]
 
     def test_search_vanilla(self):
         exp = self._experiment_factory("search_vanilla")
@@ -1590,7 +1600,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert sorted(
             runs,
         ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert [] == self._search(exp, run_view_type=ViewType.DELETED_ONLY)
+        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
 
         first = runs[0]
 
@@ -1601,7 +1611,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert sorted(
             runs[1:],
         ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert [first] == self._search(exp, run_view_type=ViewType.DELETED_ONLY)
+        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == [first]
 
         self.store.restore_run(first)
         assert sorted(
@@ -1610,7 +1620,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert sorted(
             runs,
         ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert [] == self._search(exp, run_view_type=ViewType.DELETED_ONLY)
+        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
 
     def test_search_params(self):
         experiment_id = self._experiment_factory("search_params")
@@ -1634,15 +1644,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         # test search returns appropriate run (same key different values per run)
         filter_string = "params.generic_2 = 'some value'"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
         filter_string = "params.generic_2 = 'another value'"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         filter_string = "params.generic_param = 'wrong_val'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_param != 'p_val'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_param != 'wrong_val'"
         assert sorted(
@@ -1654,34 +1664,34 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search(experiment_id, filter_string))
 
         filter_string = "params.p_a = 'abc'"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = "params.p_a = 'ABC'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.p_a != 'ABC'"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = "params.p_b = 'ABC'"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         filter_string = "params.generic_2 LIKE '%other%'"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         filter_string = "params.generic_2 LIKE 'other%'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_2 LIKE '%other'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_2 LIKE 'other'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_2 LIKE '%Other%'"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "params.generic_2 ILIKE '%Other%'"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory("search_tags")
@@ -1701,37 +1711,37 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert sorted(
             [r1, r2],
         ) == sorted(self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'"))
-        assert [] == self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'")
+        assert self._search(experiment_id, filter_string="tags.generic_tag = 'P_VAL'") == []
         assert sorted(
             [r1, r2],
         ) == sorted(self._search(experiment_id, filter_string="tags.generic_tag != 'P_VAL'"))
         # test search returns appropriate run (same key different values per run)
-        assert [r1] == self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
-        assert [r2] == self._search(experiment_id, filter_string="tags.generic_2 = 'another value'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
+        assert self._search(experiment_id, filter_string="tags.generic_2 = 'some value'") == [r1]
+        assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
+        assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
+        assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
         assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
         assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
-        assert [r1] == self._search(experiment_id, filter_string="tags.p_a = 'abc'")
-        assert [r2] == self._search(experiment_id, filter_string="tags.p_b = 'ABC'")
-        assert [r2] == self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'")
-        assert [] == self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'")
-        assert [r2] == self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'")
-        assert [r2] == self._search(
+        assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
+        assert self._search(experiment_id, filter_string="tags.p_b = 'ABC'") == [r2]
+        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'") == [r2]
+        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'") == []
+        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'") == []
+        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'") == []
+        assert self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'") == []
+        assert self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'") == [r2]
+        assert self._search(
             experiment_id,
             filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag = 'p_val'",
-        )
-        assert [r2] == self._search(
+        ) == [r2]
+        assert self._search(
             experiment_id,
             filter_string="tags.generic_2 ILIKE '%Other%' and " "tags.generic_tag ILIKE 'p_val'",
-        )
+        ) == [r2]
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory("search_metric")
@@ -1776,13 +1786,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common != 1.0"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "metrics.common >= 3.0"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = "metrics.common <= 0.75"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         # tests for same metric name across runs with different values and timestamps
         filter_string = "metrics.measure_a > 0.0"
@@ -1791,7 +1801,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a < 50.0"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = "metrics.measure_a < 1000.0"
         assert sorted(
@@ -1804,28 +1814,28 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a > 50.0"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         filter_string = "metrics.measure_a = 1.0"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = "metrics.measure_a = 400.0"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         # test search with unique metric keys
         filter_string = "metrics.m_a > 1.0"
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = "metrics.m_b > 1.0"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
         # there is a recorded metric this threshold but not last timestamp
         filter_string = "metrics.m_b > 5.0"
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         # metrics matches last reported timestamp for 'm_b'
         filter_string = "metrics.m_b = 4.0"
-        assert [r2] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r2]
 
     def test_search_attrs(self):
         e1 = self._experiment_factory("search_attributes_1")
@@ -1853,10 +1863,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.update_run_info(r2, RunStatus.FAILED, 300, None)
 
         filter_string = "attribute.status = 'RUNNING'"
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.status = 'FAILED'"
-        assert [r2] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r2]
 
         filter_string = "attribute.status != 'SCHEDULED'"
         assert sorted(
@@ -1864,18 +1874,18 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'SCHEDULED'"
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.status = 'KILLED'"
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
             ARTIFACT_URI, e1.upper(), r1.upper()
         )
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attr.artifact_uri != '{}/{}/{}/artifacts'".format(
             ARTIFACT_URI, e1.upper(), r1.upper()
@@ -1885,10 +1895,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.artifact_uri = 'random_artifact_path'"
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
         assert sorted(
@@ -1896,25 +1906,25 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
-        assert [] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
-        assert [r1] == self._search([e1, e2], filter_string)
+        assert self._search([e1, e2], filter_string) == [r1]
 
         for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
@@ -1948,37 +1958,37 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'"
         )
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'"
         )
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'"
         )
-        assert [r1] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == [r1]
 
         # test with mismatch param
         filter_string = (
             "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
         # test with mismatch metric
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
-        assert [] == self._search(experiment_id, filter_string)
+        assert self._search(experiment_id, filter_string) == []
 
     def test_search_with_max_results(self):
         exp = self._experiment_factory("search_with_max_results")
@@ -2344,8 +2354,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            assert 5 == len(sql_run_metrics)
-            assert 4 == len(run.data.metrics)
+            assert len(sql_run_metrics) == 5
+            assert len(run.data.metrics) == 4
             assert math.isnan(run.data.metrics["NaN"])
             assert run.data.metrics["PosInf"] == 1.7976931348623157e308
             assert run.data.metrics["NegInf"] == -1.7976931348623157e308
