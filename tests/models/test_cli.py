@@ -116,7 +116,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
             ]
             + no_conda
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
@@ -273,7 +273,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -297,7 +297,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -321,7 +321,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -338,7 +338,7 @@ def test_predict(iris_data, sk_model):
         )
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(StringIO(stdout), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -365,7 +365,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
