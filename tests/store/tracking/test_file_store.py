@@ -1064,23 +1064,23 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'"))
         # test search returns appropriate run (same key different values per run)
-        assert [r1] == self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
-        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
-        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
-        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'") == [r1]
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2='another value'") == [r2]
+        assert self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'") == []
+        assert self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'") == []
         assert sorted([r1, r2],) == sorted(
             self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
         assert sorted([r1, r2],) == sorted(
             self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
-        assert [r1] == self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
-        assert [r2] == self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'")
+        assert self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'") == [r1]
+        assert self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'") == [r2]
 
-        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
-        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
-        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
-        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'") == [r2]
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'") == []
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'") == []
+        assert self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'") == [r2]
 
     def test_search_with_max_results(self):
         fs = FileStore(self.test_root)

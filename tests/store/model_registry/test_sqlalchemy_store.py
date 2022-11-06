@@ -872,7 +872,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
 
         mvds = self.store.search_model_versions("run_id = '%s'" % run_id_1)
-        assert 1 == len(mvds)
+        assert len(mvds) == 1
         assert isinstance(mvds[0], ModelVersion)
         assert mvds[0].current_stage == "Production"
         assert mvds[0].run_id == run_id_1
@@ -1250,55 +1250,55 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             order_by=["last_updated_timestamp ASC", "name DESC"],
             max_results=100,
         )
-        assert [rm2, rm1, rm4, rm3] == result
+        assert result == [rm2, rm1, rm4, rm3]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp ASC", "name   DESC"], max_results=100
         )
-        assert [rm2, rm1, rm4, rm3] == result
+        assert result == [rm2, rm1, rm4, rm3]
         # confirm that name ascending is the default, even if ties exist on other fields
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=[], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         # test default tiebreak with descending timestamps
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
         )
-        assert [rm3, rm4, rm1, rm2] == result
+        assert result == [rm3, rm4, rm1, rm2]
         # test timestamp parsing
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp\tASC"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp\r\rASC"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp\nASC"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp  ASC"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         # validate order by key is case-insensitive
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp  asc"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp  aSC"], max_results=100
         )
-        assert [rm1, rm2, rm3, rm4] == result
+        assert result == [rm1, rm2, rm3, rm4]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp  desc", "name desc"], max_results=100
         )
-        assert [rm4, rm3, rm2, rm1] == result
+        assert result == [rm4, rm3, rm2, rm1]
         result, _ = self._search_registered_models(
             query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100
         )
-        assert [rm4, rm3, rm2, rm1] == result
+        assert result == [rm4, rm3, rm2, rm1]
 
     def test_search_registered_model_order_by_errors(self):
         query = "name LIKE 'RM%'"

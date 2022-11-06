@@ -476,9 +476,9 @@ def test_order_by_metric_with_nans_infs_nones():
     sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])]
     sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])]
     # asc
-    assert ["-inf", "-1000", "0", "1000", "inf", "nan", "None"] == sorted_runs_asc
+    assert sorted_runs_asc == ["-inf", "-1000", "0", "1000", "inf", "nan", "None"]
     # desc
-    assert ["inf", "1000", "0", "-1000", "-inf", "nan", "None"] == sorted_runs_desc
+    assert sorted_runs_desc == ["inf", "1000", "0", "-1000", "-inf", "nan", "None"]
 
 
 @pytest.mark.parametrize(

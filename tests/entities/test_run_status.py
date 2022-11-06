@@ -18,19 +18,19 @@ class TestRunStatus(unittest.TestCase):
 
     def test_status_mappings(self):
         # test enum to string mappings
-        assert "RUNNING" == RunStatus.to_string(RunStatus.RUNNING)
+        assert RunStatus.to_string(RunStatus.RUNNING) == "RUNNING"
         assert RunStatus.RUNNING == RunStatus.from_string("RUNNING")
 
-        assert "SCHEDULED" == RunStatus.to_string(RunStatus.SCHEDULED)
+        assert RunStatus.to_string(RunStatus.SCHEDULED) == "SCHEDULED"
         assert RunStatus.SCHEDULED == RunStatus.from_string("SCHEDULED")
 
-        assert "FINISHED" == RunStatus.to_string(RunStatus.FINISHED)
+        assert RunStatus.to_string(RunStatus.FINISHED) == "FINISHED"
         assert RunStatus.FINISHED == RunStatus.from_string("FINISHED")
 
-        assert "FAILED" == RunStatus.to_string(RunStatus.FAILED)
+        assert RunStatus.to_string(RunStatus.FAILED) == "FAILED"
         assert RunStatus.FAILED == RunStatus.from_string("FAILED")
 
-        assert "KILLED" == RunStatus.to_string(RunStatus.KILLED)
+        assert RunStatus.to_string(RunStatus.KILLED) == "KILLED"
         assert RunStatus.KILLED == RunStatus.from_string("KILLED")
 
         with pytest.raises(
