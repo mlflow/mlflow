@@ -37,7 +37,7 @@ export function setMLFlowHashRouting() {
 }
 
 const classNames = {
-  activeNavLink: { borderBottom: '4px solid white' },
+  activeNavLink: { borderBottom: '4px solid #43C9ED' },
 };
 
 // eslint-disable-next-line no-unused-vars

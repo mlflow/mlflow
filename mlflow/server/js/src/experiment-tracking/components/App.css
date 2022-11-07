@@ -24,7 +24,7 @@ button:hover, .btn:hover {
 .App-header {
   background-color: #2272B4;
   height: 60px;
-  color: white;
+  color: #e7f1fb;
   display: block;
 }
 
@@ -57,11 +57,11 @@ span.mlflow-version {
 }
 
 div.github {
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 div.docs {
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 .header-nav-link {
@@ -73,7 +73,7 @@ div.docs {
 }
 
 div.experiments, div.models {
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 div.header-links {
