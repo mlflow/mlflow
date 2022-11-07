@@ -61,7 +61,7 @@ jobs:
         pytest pylint_plugins/tests
     - name: Install pre-commit hooks
       run: |
-        pre-commit install -t "pre-commit" -t prepare-commit-msg
+        pre-commit install -t pre-commit -t prepare-commit-msg
     - uses: pre-commit/action@v3.0.0
 
   # python-skinny tests cover a subset of mlflow functionality
