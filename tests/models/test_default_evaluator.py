@@ -1857,7 +1857,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
     y = y.head(len(X))
     if pos_label == 2:
         y = [2 if trg == 1 else trg for trg in y]
-    elif pos_label == None:
+    elif pos_label is None:
         # Use a different positive class other than the 1 to verify
         # that an unspecified `pos_label` doesn't cause problems
         # for binary classification tasks with nonstandard labels
