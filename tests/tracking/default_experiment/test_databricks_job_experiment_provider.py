@@ -21,7 +21,7 @@ def test_databricks_job_default_experiment_in_context():
     ) as get_job_type_info:
         in_job_mock.return_value = True
         get_job_type_info.return_value = "NORMAL"
-        assert DatabricksJobExperimentProvider().in_context() == True
+        assert DatabricksJobExperimentProvider().in_context() is True
 
 
 def test_databricks_job_default_experiment_in_context_with_not_in_databricks_job():
@@ -32,7 +32,7 @@ def test_databricks_job_default_experiment_in_context_with_not_in_databricks_job
     ) as get_job_type_info:
         in_job_mock.return_value = False
         get_job_type_info.return_value = "NORMAL"
-        assert DatabricksJobExperimentProvider().in_context() == False
+        assert DatabricksJobExperimentProvider().in_context() is False
 
 
 def test_databricks_job_default_experiment_in_context_with_ephemeral_job_type():
@@ -43,7 +43,7 @@ def test_databricks_job_default_experiment_in_context_with_ephemeral_job_type():
     ) as get_job_type_info:
         in_job_mock.return_value = True
         get_job_type_info.return_value = "EPHEMERAL"
-        assert DatabricksJobExperimentProvider().in_context() == False
+        assert DatabricksJobExperimentProvider().in_context() is False
 
 
 def test_databricks_job_default_experiment_id():

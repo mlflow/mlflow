@@ -182,7 +182,7 @@ def test_get_or_create_execution_directory_is_idempotent(tmp_path):
     # Verify that the directory exists but is empty due to short circuiting after
     # failed Makefile creation
     assert execution_dir_path_1.exists()
-    assert next(execution_dir_path_1.iterdir(), None) == None
+    assert next(execution_dir_path_1.iterdir(), None) is None
 
     # Re-create the execution directory and verify that all expected contents are present
     execution_dir_path_3 = pathlib.Path(

@@ -90,7 +90,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         name = random_str() + "abCD"
         rm1 = self._rm_maker(name)
         assert rm1.name == name
-        assert rm1.description == None
+        assert rm1.description is None
 
         # error on duplicate
         with pytest.raises(
@@ -154,7 +154,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert rmd.name == name
         assert rmd.creation_timestamp == 1234000
         assert rmd.last_updated_timestamp == 1234000
-        assert rmd.description == None
+        assert rmd.description is None
         assert rmd.latest_versions == []
         assert rmd.tags == {tag.key: tag.value for tag in tags}
 
@@ -163,7 +163,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rm1 = self._rm_maker(name)
         rmd1 = self.store.get_registered_model(name=name)
         assert rm1.name == name
-        assert rmd1.description == None
+        assert rmd1.description is None
 
         # update description
         rm2 = self.store.update_registered_model(name=name, description="test model")
@@ -452,11 +452,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvd1.current_stage == "None"
         assert mvd1.creation_timestamp == 456778000
         assert mvd1.last_updated_timestamp == 456778000
-        assert mvd1.description == None
+        assert mvd1.description is None
         assert mvd1.source == "a/b/CD"
         assert mvd1.run_id == run_id
         assert mvd1.status == "READY"
-        assert mvd1.status_message == None
+        assert mvd1.status_message is None
         assert mvd1.tags == {}
 
         # new model versions for same name autoincrement versions
@@ -496,9 +496,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mv6 = self._mv_maker(name, run_id=None)
         mvd6 = self.store.get_model_version(name, mv6.version)
         assert mv6.version == 6
-        assert mv6.run_id == None
+        assert mv6.run_id is None
         assert mvd6.version == 6
-        assert mvd6.run_id == None
+        assert mvd6.run_id is None
 
     def test_update_model_version(self):
         name = "test_for_update_MV"
@@ -517,7 +517,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvd2.name == name
         assert mvd2.version == 1
         assert mvd2.current_stage == "Production"
-        assert mvd2.description == None
+        assert mvd2.description is None
 
         # update description
         self.store.update_model_version(
@@ -1143,20 +1143,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test that pagination will return all valid results in sorted order
         # by name ascending
         result, token1 = self._search_registered_models(query, max_results=5)
-        assert token1 != None
+        assert token1 is not None
         assert result == rms[0:5]
 
         result, token2 = self._search_registered_models(query, page_token=token1, max_results=10)
-        assert token2 != None
+        assert token2 is not None
         assert result == rms[5:15]
 
         result, token3 = self._search_registered_models(query, page_token=token2, max_results=20)
-        assert token3 != None
+        assert token3 is not None
         assert result == rms[15:35]
 
         result, token4 = self._search_registered_models(query, page_token=token3, max_results=100)
         # assert that page token is None
-        assert token4 == None
+        assert token4 is None
         assert result == rms[35:]
 
         # test that providing a completely invalid page token throws

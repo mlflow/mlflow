@@ -1681,7 +1681,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.delete_tag(run_id, MLFLOW_RUN_NAME)
         run = fs.get_run(run_id)
         assert run.info.run_name == "new name"
-        assert run.data.tags.get(MLFLOW_RUN_NAME) == None
+        assert run.data.tags.get(MLFLOW_RUN_NAME) is None
 
         fs.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
         run = fs.get_run(run_id)
