@@ -182,7 +182,8 @@ enable=c-extension-no-member,
        consider-merging-isinstance,
        consider-using-dict-items,
        unnecessary-comprehension,
-       consider-using-set-comprehension
+       consider-using-set-comprehension,
+       singleton-comparison
 
 [REPORTS]
 

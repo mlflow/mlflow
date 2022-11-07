@@ -378,5 +378,5 @@ def _validate_model_version_or_stage_exists(version, stage):
 
 
 def _validate_tag_value(value):
-    if value == None:
+    if value is None:
         raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)

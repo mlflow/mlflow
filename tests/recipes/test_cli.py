@@ -70,7 +70,7 @@ def test_recipes_get_artifact_works():
         env={_RECIPE_PROFILE_ENV_VAR: "local"},
     )
     assert result.exit_code == 0
-    assert result.output != None
+    assert result.output is not None
 
 
 @pytest.mark.usefixtures("enter_recipe_example_directory", "clean_up_recipe")
