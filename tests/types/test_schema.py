@@ -496,7 +496,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
 
 
 def test_enforce_tensor_spec_variable_signature():
-    standard_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3], [1, 2, 3]]])
+    standard_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3], [1, 2, 3]]], dtype=np.int32)
     ragged_array = np.array([[[1, 2, 3], [1, 2, 3]], [[1, 2, 3]]], dtype=object)
     inferred_schema = _infer_schema(ragged_array)
     inferred_spec = inferred_schema.inputs[0]
@@ -508,7 +508,7 @@ def test_enforce_tensor_spec_variable_signature():
     result_array = _enforce_tensor_spec(ragged_array, inferred_spec)
     np.testing.assert_array_equal(ragged_array, result_array)
 
-    manual_spec = TensorSpec(np.dtype(object), (-1, -1, 3))
+    manual_spec = TensorSpec(np.dtype(np.int32), (-1, -1, 3))
     result_array = _enforce_tensor_spec(standard_array, manual_spec)
     np.testing.assert_array_equal(standard_array, result_array)
     result_array = _enforce_tensor_spec(ragged_array, manual_spec)
