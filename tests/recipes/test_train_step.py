@@ -273,7 +273,7 @@ def setup_train_step_with_automl(
 
 
 def estimator_fn(estimator_params=None):
-    from sklearn.linear_model import SGDRegressorval_mean_squared_error
+    from sklearn.linear_model import SGDRegressor
 
     return SGDRegressor(random_state=42, **(estimator_params or {}))
 
