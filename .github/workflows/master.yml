@@ -62,7 +62,9 @@ jobs:
     - name: Install pre-commit hooks
       run: |
         pre-commit install -t pre-commit -t prepare-commit-msg
-    - uses: pre-commit/action@v3.0.0
+    - name: Run pre-commit
+      run: |
+        pre-commit run --all-files
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
