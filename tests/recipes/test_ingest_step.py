@@ -132,7 +132,7 @@ def test_ingests_csv_successfully(
                 "ingest": {
                     "using": "csv",
                     "location": dataset_path,
-                    "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                    "loader_method": "steps.ingest.load_file_as_dataframe",
                 }
             },
         },
@@ -160,7 +160,7 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                         "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
                         "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
                     ],
-                    "custom_loader_method": "tests.recipes.test_ingest_step.custom_load_wine_csv",
+                    "loader_method": "tests.recipes.test_ingest_step.custom_load_wine_csv",
                 }
             },
         },
@@ -199,7 +199,7 @@ def test_ingests_custom_format_successfully(use_relative_path, multiple_files, p
                 "ingest": {
                     "using": "fooformat",
                     "location": str(dataset_path),
-                    "custom_loader_method": (
+                    "loader_method": (
                         "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
                     ),
                 }
@@ -213,7 +213,7 @@ def test_ingests_custom_format_successfully(use_relative_path, multiple_files, p
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
-def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_imported(
+def test_ingest_throws_for_custom_dataset_when_loader_function_cannot_be_imported(
     pandas_df, tmp_path
 ):
     dataset_path = tmp_path / "df.fooformat"
@@ -227,7 +227,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_
                     "ingest": {
                         "using": "fooformat",
                         "location": str(dataset_path),
-                        "custom_loader_method": ("non.existent.module.non.existent.method"),
+                        "loader_method": ("non.existent.module.non.existent.method"),
                     }
                 },
             },
@@ -236,7 +236,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_cannot_be_
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
-def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implemented_for_format(
+def test_ingest_throws_for_custom_dataset_when_loader_function_not_implemented_for_format(
     pandas_df, tmp_path
 ):
     dataset_path = tmp_path / "df.fooformat"
@@ -252,7 +252,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_not_implem
                     "ingest": {
                         "using": "fooformat",
                         "location": str(dataset_path),
-                        "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                        "loader_method": "steps.ingest.load_file_as_dataframe",
                     }
                 },
             },
@@ -277,7 +277,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(panda
                     "ingest": {
                         "using": "fooformat",
                         "location": str(dataset_path),
-                        "custom_loader_method": (
+                        "loader_method": (
                             "tests.recipes.test_ingest_step.custom_load_file_as_array"
                         ),
                     }
@@ -288,7 +288,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(panda
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
-def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_unexpectedly(
+def test_ingest_throws_for_custom_dataset_when_loader_function_throws_unexpectedly(
     pandas_df, tmp_path
 ):
     dataset_path = tmp_path / "df.fooformat"
@@ -297,8 +297,8 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
     with mock.patch(
         "tests.recipes.test_ingest_step.custom_load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
-    ) as mock_custom_loader:
-        setattr(mock_custom_loader, "__name__", "custom_load_file_as_dataframe")
+    ) as mock_loader:
+        setattr(mock_loader, "__name__", "custom_load_file_as_dataframe")
         with pytest.raises(
             MlflowException, match="Unable to load data file at path.*using custom loader method"
         ):
@@ -309,7 +309,7 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
                         "ingest": {
                             "using": "fooformat",
                             "location": str(dataset_path),
-                            "custom_loader_method": (
+                            "loader_method": (
                                 "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
                             ),
                         }
@@ -352,7 +352,7 @@ def test_ingests_remote_http_datasets_successfully(tmp_path):
                 "ingest": {
                     "using": "csv",
                     "location": dataset_url,
-                    "custom_loader_method": "steps.ingest.load_file_as_dataframe",
+                    "loader_method": "steps.ingest.load_file_as_dataframe",
                 }
             },
         },
@@ -731,14 +731,14 @@ def test_ingest_throws_when_required_dataset_config_keys_are_missing():
                 "ingest": {
                     "using": "csv",
                     "location": "my/dataset.csv",
-                    # Missing custom_loader_method
+                    # Missing loader_method
                 }
             },
         },
         recipe_root=os.getcwd(),
     )
     with pytest.raises(
-        MlflowException, match="The `custom_loader_method` configuration key must be specified"
+        MlflowException, match="The `loader_method` configuration key must be specified"
     ):
         ingest_step._validate_and_apply_step_config()
 

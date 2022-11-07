@@ -104,7 +104,7 @@ def setup_train_step_with_tuning(
                 tracking_uri: {tracking_uri}
             steps:
                 train:
-                    using: estimator_spec
+                    using: custom
                     estimator_method: tests.recipes.test_train_step.estimator_fn
                     {estimator_params}
                     tuning:
@@ -140,7 +140,7 @@ def setup_train_step_with_tuning(
                 tracking_uri: {tracking_uri}
             steps:
                 train:
-                    using: estimator_spec
+                    using: custom
                     estimator_method: tests.recipes.test_train_step.estimator_fn
                     tuning:
                         enabled: false
@@ -171,7 +171,7 @@ def test_train_step(tmp_recipe_root_path):
                 tracking_uri: {tracking_uri}
             steps:
                 train:
-                    using: estimator_spec
+                    using: custom
                     estimator_method: tests.recipes.test_train_step.estimator_fn
                     tuning:
                         enabled: false
@@ -210,7 +210,7 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
                 tracking_uri: {tracking_uri}
             steps:
                 train:
-                    using: estimator_spec
+                    using: custom
                     estimator_method: tests.recipes.test_train_step.classifier_estimator_fn
                     tuning:
                         enabled: false
