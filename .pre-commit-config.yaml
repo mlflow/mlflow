@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: "dev/black.sh"
+        language: system
+        types: [python]
+        stages: [commit]
+
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: ["--rcfile=pylintrc"]
+        stages: [commit]
+
+      - id: rstcheck
+        name: rstcheck
+        entry: rstcheck
+        language: system
+        files: README.rst
+        stages: [commit]
+
+      - id: must-have-signoff
+        name: must-have-signoff
+        entry: 'grep "Signed-off-by:"'
+        language: system
+        stages: [prepare-commit-msg]
