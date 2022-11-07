@@ -231,7 +231,10 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
             name=prefix + "accuracy_score",
             function=sklearn.metrics.accuracy_score,
             arguments={
-                "y_true": y_true, "y_pred": y_pred, "normalize": True, "sample_weight": sample_weight
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "normalize": True,
+                "sample_weight": sample_weight,
             },
         ),
     ]
@@ -243,7 +246,11 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                 _SklearnMetric(
                     name=prefix + "log_loss",
                     function=sklearn.metrics.log_loss,
-                    arguments={"y_true": y_true, "y_pred": y_pred_proba, "sample_weight": sample_weight},
+                    arguments={
+                        "y_true": y_true,
+                        "y_pred": y_pred_proba,
+                        "sample_weight": sample_weight,
+                    },
                 ),
             ]
         )
