@@ -103,6 +103,13 @@ def test_health():
         assert response.get_data().decode() == "OK"
 
 
+def test_version():
+    with app.test_client() as c:
+        response = c.get("/version")
+        assert response.status_code == 200
+        assert response.get_data().decode() == mlflow.__version__
+
+
 def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]

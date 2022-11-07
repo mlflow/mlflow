@@ -1250,6 +1250,19 @@ allow passing HTTP authentication to the tracking server:
     For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
     see :ref:`Artifact Stores <artifact-stores>`.
 
+Tracking Server versioning
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The version of MLflow running on the server can be found by querying the ``/version`` endpoint.
+This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
+For example:
+
+.. code-block:: python
+
+    import requests
+    import mlflow
+    response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
+    assert response.text == mlflow.__version__ # Checking for a strict version match
+
 
 .. _system_tags:
 
