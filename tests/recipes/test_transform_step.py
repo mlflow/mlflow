@@ -116,7 +116,7 @@ def test_transform_empty_step(tmp_recipe_root_path):
     )
     train_split = pd.read_parquet(split_step_output_dir / "train.parquet")
 
-    assert train_transformed.equals(train_split) == True
+    assert train_transformed.equals(train_split) is True
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
 
 
