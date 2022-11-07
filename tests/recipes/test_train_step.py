@@ -190,7 +190,7 @@ def test_train_step(tmp_recipe_root_path):
 
 
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
-def test_train_step_imbalanced_data(tmp_recipe_root_path):
+def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
     with mock.patch.dict(
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
@@ -211,7 +211,7 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path):
             steps:
                 train:
                     using: estimator_spec
-                    estimator_method: tests.recipes.test_train_step.estimator_fn
+                    estimator_method: tests.recipes.test_train_step.classifier_estimator_fn
                     tuning:
                         enabled: false
             """.format(
@@ -222,10 +222,13 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path):
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
 
+    captured = capsys.readouterr()
+    assert "Detected class imbalance" in captured.err
+    assert "After downsampling: minority class percentage is 0.30" in captured.err
+
     run_id = train_step_output_dir.joinpath("run_id").read_text()
     metrics = MlflowClient().get_run(run_id).data.metrics
-    assert "val_mean_squared_error" in metrics
-    assert "training_mean_squared_error" in metrics
+    assert "val_f1_score" in metrics
 
 
 def setup_train_step_with_automl(
@@ -270,9 +273,15 @@ def setup_train_step_with_automl(
 
 
 def estimator_fn(estimator_params=None):
-    from sklearn.linear_model import SGDRegressor
+    from sklearn.linear_model import SGDRegressorval_mean_squared_error
 
     return SGDRegressor(random_state=42, **(estimator_params or {}))
+
+
+def classifier_estimator_fn(estimator_params=None):
+    from sklearn.linear_model import SGDClassifier
+
+    return SGDClassifier(random_state=42, **(estimator_params or {}))
 
 
 def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
