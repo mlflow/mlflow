@@ -232,7 +232,7 @@ const classNames = {
   experimentListOuterContainer: {
     boxSizing: 'border-box',
     marginLeft: '24px',
-    marginRight: '16px',
+    marginRight: '8px',
   },
   experimentListContainer: {
     overflowY: 'scroll',
