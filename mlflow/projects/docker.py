@@ -143,7 +143,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
 
 def get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
-    env_vars = dict()
+    env_vars = {}
 
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
     if local_path is not None:
