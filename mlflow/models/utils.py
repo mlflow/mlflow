@@ -456,7 +456,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
 
     if input_schema.has_input_names():
         if isinstance(pfInput, dict):
-            new_pfInput = dict()
+            new_pfInput = {}
             for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
                 if not isinstance(pfInput[col_name], np.ndarray):
                     raise MlflowException(
@@ -468,7 +468,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
                     )
                 new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)
         elif isinstance(pfInput, pd.DataFrame):
-            new_pfInput = dict()
+            new_pfInput = {}
             for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
                 new_pfInput[col_name] = _enforce_tensor_spec(
                     np.array(pfInput[col_name], dtype=tensor_spec.type), tensor_spec

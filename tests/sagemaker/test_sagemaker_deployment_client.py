@@ -298,7 +298,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
         sagemaker_deployment_client.create_deployment(
             name="test-app",
             model_uri=pretrained_model.model_uri,
-            config=dict(archive=False, synchronous=False),
+            config={"archive": False, "synchronous": False},
         )
 
     assert "Resources must be archived" in exc.value.message
@@ -602,7 +602,7 @@ def test_create_deployment_in_sync_mode_waits_for_endpoint_creation_to_complete_
     sagemaker_deployment_client.create_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(synchronous=True),
+        config={"synchronous": True},
     )
     deployment_end_time = time.time()
 
@@ -625,7 +625,7 @@ def test_create_deployment_in_asynchronous_mode_returns_before_endpoint_creation
     sagemaker_deployment_client.create_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(synchronous=False, archive=True),
+        config={"synchronous": False, "archive": True},
     )
     deployment_end_time = time.time()
 
@@ -647,14 +647,14 @@ def test_update_deployment_in_asynchronous_mode_returns_before_endpoint_creation
     sagemaker_deployment_client.create_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(synchronous=True),
+        config={"synchronous": True},
     )
 
     update_start_time = time.time()
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, synchronous=False, archive=True),
+        config={"mode": mfs.DEPLOYMENT_MODE_REPLACE, "synchronous": False, "archive": True},
     )
     update_end_time = time.time()
 
@@ -716,11 +716,11 @@ def test_create_deployment_in_replace_mode_removes_preexisting_models_from_endpo
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(
-            mode=mfs.DEPLOYMENT_MODE_ADD,
-            archive=True,
-            synchronous=False,
-        ),
+        config={
+            "mode": mfs.DEPLOYMENT_MODE_ADD,
+            "archive": True,
+            "synchronous": False,
+        },
     )
 
     endpoint_response_before_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -740,11 +740,11 @@ def test_create_deployment_in_replace_mode_removes_preexisting_models_from_endpo
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(
-            mode=mfs.DEPLOYMENT_MODE_REPLACE,
-            archive=True,
-            synchronous=False,
-        ),
+        config={
+            "mode": mfs.DEPLOYMENT_MODE_REPLACE,
+            "archive": True,
+            "synchronous": False,
+        },
     )
 
     endpoint_response_after_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -780,11 +780,11 @@ def test_create_deployment_in_add_mode_adds_new_model_to_existing_endpoint(
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(
-            mode=mfs.DEPLOYMENT_MODE_ADD,
-            archive=True,
-            synchronous=False,
-        ),
+        config={
+            "mode": mfs.DEPLOYMENT_MODE_ADD,
+            "archive": True,
+            "synchronous": False,
+        },
     )
     models_added = 2
 
@@ -804,7 +804,7 @@ def test_update_deployment_with_create_mode_raises_exception(
         sagemaker_deployment_client.update_deployment(
             name="invalid mode",
             model_uri=pretrained_model.model_uri,
-            config=dict(mode=mfs.DEPLOYMENT_MODE_CREATE),
+            config={"mode": mfs.DEPLOYMENT_MODE_CREATE},
         )
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -824,11 +824,11 @@ def test_update_deployment_in_add_mode_adds_new_model_to_existing_endpoint(
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(
-                mode=mfs.DEPLOYMENT_MODE_ADD,
-                archive=True,
-                synchronous=False,
-            ),
+            config={
+                "mode": mfs.DEPLOYMENT_MODE_ADD,
+                "archive": True,
+                "synchronous": False,
+            },
         )
         models_added += 1
 
@@ -855,11 +855,11 @@ def test_update_deployment_in_replace_mode_removes_preexisting_models_from_endpo
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(
-                mode=mfs.DEPLOYMENT_MODE_ADD,
-                archive=True,
-                synchronous=False,
-            ),
+            config={
+                "mode": mfs.DEPLOYMENT_MODE_ADD,
+                "archive": True,
+                "synchronous": False,
+            },
         )
 
     endpoint_response_before_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -879,11 +879,11 @@ def test_update_deployment_in_replace_mode_removes_preexisting_models_from_endpo
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=pretrained_model.model_uri,
-        config=dict(
-            mode=mfs.DEPLOYMENT_MODE_REPLACE,
-            archive=True,
-            synchronous=False,
-        ),
+        config={
+            "mode": mfs.DEPLOYMENT_MODE_REPLACE,
+            "archive": True,
+            "synchronous": False,
+        },
     )
 
     endpoint_response_after_replacement = sagemaker_client.describe_endpoint(EndpointName=name)
@@ -946,7 +946,7 @@ def test_update_deployment_in_replace_mode_throws_exception_after_endpoint_updat
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE),
+            config={"mode": mfs.DEPLOYMENT_MODE_REPLACE},
         )
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
@@ -992,7 +992,7 @@ def test_update_deployment_waits_for_endpoint_update_completion_before_deleting_
         sagemaker_deployment_client.update_deployment(
             name=name,
             model_uri=pretrained_model.model_uri,
-            config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, archive=False),
+            config={"mode": mfs.DEPLOYMENT_MODE_REPLACE, "archive": False},
         )
 
 
@@ -1036,7 +1036,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     sagemaker_deployment_client.update_deployment(
         name=name,
         model_uri=new_model_uri,
-        config=dict(mode=mfs.DEPLOYMENT_MODE_REPLACE, archive=True, synchronous=True),
+        config={"mode": mfs.DEPLOYMENT_MODE_REPLACE, "archive": True, "synchronous": True},
     )
 
     object_names_after_replacement = [
@@ -1153,7 +1153,7 @@ def test_delete_deployment_in_asynchronous_mode_without_archiving_raises_excepti
 ):
     with pytest.raises(MlflowException, match="Resources must be archived") as exc:
         sagemaker_deployment_client.delete_deployment(
-            name="dummy", config=dict(archive=False, synchronous=False)
+            name="dummy", config={"archive": False, "synchronous": False}
         )
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1167,11 +1167,11 @@ def test_delete_deployment_synchronous_mode_without_archiving_deletes_all_resour
     region_name = sagemaker_client.meta.region_name
 
     sagemaker_deployment_client.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+        name=name, model_uri=pretrained_model.model_uri, config={"region_name": region_name}
     )
 
     sagemaker_deployment_client.delete_deployment(
-        name=name, config=dict(archive=False, synchronous=True, region_name=region_name)
+        name=name, config={"archive": False, "synchronous": True, "region_name": region_name}
     )
 
     s3_client = boto3.client("s3", region_name=region_name)
@@ -1195,11 +1195,11 @@ def test_delete_deployment_synchronous_with_archiving_only_deletes_endpoint(
     region_name = sagemaker_client.meta.region_name
 
     sagemaker_deployment_client.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+        name=name, model_uri=pretrained_model.model_uri, config={"region_name": region_name}
     )
 
     sagemaker_deployment_client.delete_deployment(
-        name=name, config=dict(archive=True, synchronous=True, region_name=region_name)
+        name=name, config={"archive": True, "synchronous": True, "region_name": region_name}
     )
 
     s3_client = boto3.client("s3", region_name=region_name)
@@ -1245,7 +1245,7 @@ def test_get_deployment_successful(pretrained_model, sagemaker_client):
     region_name = sagemaker_client.meta.region_name
     sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
     sagemaker_deployment_client.create_deployment(
-        name=name, model_uri=pretrained_model.model_uri, config=dict(region_name=region_name)
+        name=name, model_uri=pretrained_model.model_uri, config={"region_name": region_name}
     )
 
     endpoint_description = sagemaker_deployment_client.get_deployment(name)
@@ -1302,12 +1302,12 @@ def test_list_deployments_returns_all_endpoints(pretrained_model, sagemaker_clie
     sagemaker_deployment_client.create_deployment(
         name="test-app-1",
         model_uri=pretrained_model.model_uri,
-        config=dict(region_name=region_name),
+        config={"region_name": region_name},
     )
     sagemaker_deployment_client.create_deployment(
         name="test-app-2",
         model_uri=pretrained_model.model_uri,
-        config=dict(region_name=region_name),
+        config={"region_name": region_name},
     )
 
     endpoints = sagemaker_deployment_client.list_deployments()
@@ -1365,7 +1365,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
                 {"dataframe_split": input_df.to_dict(orient="split")}
             )
             output_json = json.dumps({"predictions": output_df.to_dict(orient="records")})
-            result = dict(Body=BytesIO(bytes(output_json, encoding="utf-8")))
+            result = {"Body": BytesIO(bytes(output_json, encoding="utf-8"))}
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
@@ -1383,7 +1383,7 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
             assert operation_kwargs["Body"] == json.dumps({"instances": list(range(10))})
-            result = dict(Body=BytesIO(b'{ "predictions": [1,2,3]}'))
+            result = {"Body": BytesIO(b'{ "predictions": [1,2,3]}')}
         else:
             result = boto_caller(self, operation_name, operation_kwargs)
         return result
