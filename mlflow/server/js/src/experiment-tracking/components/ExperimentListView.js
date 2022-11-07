@@ -231,7 +231,8 @@ export class ExperimentListView extends Component {
 const classNames = {
   experimentListOuterContainer: {
     boxSizing: 'border-box',
-    marginLeft: '64px',
+    marginLeft: '24px',
+    marginRight: '16px',
   },
   experimentListContainer: {
     overflowY: 'scroll',
