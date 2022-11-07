@@ -400,8 +400,8 @@ def test_mlflow_models_serve(enable_mlserver):
 
     with mlflow.start_run():
         if enable_mlserver:
-            # We need that MLServer is present on the Conda environment, so we'll add that
-            # as an extra requirement.
+            # We need MLServer to be present on the Conda environment, so we'll
+            # add that as an extra requirement.
             mlflow.pyfunc.log_model(
                 artifact_path="model",
                 python_model=model,
@@ -419,7 +419,7 @@ def test_mlflow_models_serve(enable_mlserver):
 
     extra_args = ["--env-manager", "local"]
     if enable_mlserver:
-        extra_args = ["--enable-mlserver"]
+        extra_args += ["--enable-mlserver"]
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
