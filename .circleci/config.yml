@@ -81,7 +81,7 @@ jobs:
           name: Install dependencies
           command: |
             pip install -e .
-            pip install nbconvert ipykernel
+            pip install nbconvert ipykernel jupyterthemes
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression
@@ -96,10 +96,16 @@ jobs:
             MLFLOW_RECIPES_PROFILE: local
           command: |
             jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
+            # Run the notebook in a dark theme
+            jt -t monokai
+            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb --output dark-jupyter
+
       - store_artifacts:
           path: ~/.mlflow/recipes
       - store_artifacts:
           path: examples/recipes/regression/notebooks/jupyter.html
+      - store_artifacts:
+          path: examples/recipes/regression/notebooks/dark-jupyter.html
 
 workflows:
   build:
