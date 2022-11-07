@@ -178,7 +178,7 @@ class _PythonEnv:
                 unmatched_dependencies,
             )
 
-        return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
+        return {"python": python, "build_dependencies": build_dependencies, "dependencies": dependencies}
 
     @classmethod
     def from_conda_yaml(cls, path):

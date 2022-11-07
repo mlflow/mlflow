@@ -1190,8 +1190,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn = predict_fn
             self.predict_proba_fn = predict_proba_fn
 
-            self.metrics = dict()
-            self.baseline_metrics = dict()
+            self.metrics = {}
+            self.baseline_metrics = {}
             self.artifacts = {}
 
             if self.model_type not in ["classifier", "regressor"]:
@@ -1250,7 +1250,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if evaluator_config.get("_disable_candidate_model", False):
-            evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
+            evaluation_result = EvaluationResult(metrics={}, artifacts={})
         else:
             if baseline_model:
                 _logger.info("Evaluating candidate model:")
