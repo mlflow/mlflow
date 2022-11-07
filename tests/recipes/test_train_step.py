@@ -30,7 +30,7 @@ from tests.recipes.helper_functions import tmp_recipe_root_path
 # pylint: enable=unused-import
 
 # Sets up the train step output dir
-def setup_train_dataset(recipe_root: Path):
+def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
     split_step_output_dir = recipe_root.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
 
@@ -46,13 +46,24 @@ def setup_train_dataset(recipe_root: Path):
 
     num_rows = 100
     # use for train and validation, also for split
-    transformed_dataset = pd.DataFrame(
-        {
-            "a": list(range(num_rows)),
-            "b": list(range(num_rows)),
-            "y": [float(i % 2) for i in range(num_rows)],
-        }
-    )
+    if recipe == "regression":
+        transformed_dataset = pd.DataFrame(
+            {
+                "a": list(range(num_rows)),
+                "b": list(range(num_rows)),
+                "y": [float(i % 2) for i in range(num_rows)],
+            }
+        )
+    else:
+        import random
+
+        transformed_dataset = pd.DataFrame(
+            {
+                "a": list(range(num_rows)),
+                "b": list(range(num_rows)),
+                "y": ["a" if random.random() < 0.1 else "b" for _ in range(num_rows)],
+            }
+        )
     transformed_dataset.to_parquet(
         str(transform_step_output_dir / "transformed_training_data.parquet")
     )
@@ -178,6 +189,48 @@ def test_train_step(tmp_recipe_root_path):
     assert "training_mean_squared_error" in metrics
 
 
+@mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
+def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path, recipe="classification")
+        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+        recipe_yaml.write_text(
+            """
+            recipe: "classification/v1"
+            target_col: "y"
+            primary_metric: "f1_score"
+            profile: "test_profile"
+            positive_class: "a"
+            run_args:
+                step: "train"
+            experiment:
+                name: "demo"
+                tracking_uri: {tracking_uri}
+            steps:
+                train:
+                    using: estimator_spec
+                    estimator_method: tests.recipes.test_train_step.classifier_estimator_fn
+                    tuning:
+                        enabled: false
+            """.format(
+                tracking_uri=mlflow.get_tracking_uri()
+            )
+        )
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    captured = capsys.readouterr()
+    assert "Detected class imbalance" in captured.err
+    assert "After downsampling: minority class percentage is 0.30" in captured.err
+
+    run_id = train_step_output_dir.joinpath("run_id").read_text()
+    metrics = MlflowClient().get_run(run_id).data.metrics
+    assert "val_f1_score" in metrics
+
+
 def setup_train_step_with_automl(
     recipe_root: Path,
     primary_metric: str = "root_mean_squared_error",
@@ -223,6 +276,12 @@ def estimator_fn(estimator_params=None):
     from sklearn.linear_model import SGDRegressor
 
     return SGDRegressor(random_state=42, **(estimator_params or {}))
+
+
+def classifier_estimator_fn(estimator_params=None):
+    from sklearn.linear_model import SGDClassifier
+
+    return SGDClassifier(random_state=42, **(estimator_params or {}))
 
 
 def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
