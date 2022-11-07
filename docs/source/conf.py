@@ -125,7 +125,7 @@ todo_include_todos = False
 # a list of builtin themes.
 
 html_context = {
-    "use_algolia": os.environ.get("USE_ALGOLIA", "0"),
+    # "use_algolia": os.environ.get("USE_ALGOLIA", "0"),
     "gtm_id": os.environ.get("GTM_ID", ""),
 }
 

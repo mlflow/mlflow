@@ -87,7 +87,7 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                 link.prepend(expand);
             });
 
-            setupSearch();
+            // setupSearch();
         };
 
         nav.reset = function () {
@@ -227,29 +227,29 @@ clippy.on("success", function(e) {
     }, 1000);
 });
 
-function setupSearch() {
-    docsearch({
-      apiKey: algoliaConfigs.key,
-      indexName: algoliaConfigs.index,
-      inputSelector: '#algolia-search',
-      debug: false,
-      autocompleteOptions: {
-        appendTo: '#algolia-wrapper',
-        hint: false
-      }
-    });
-    new Tether({
-        element: '#algolia-wrapper',
-        target: '#algolia-search',
-        attachment: 'bottom left',
-        targetAttachment: 'top left',
-        targetOffset: '20px 0',
-        constraints: [{
-            to: 'window',
-            attachment: 'together'
-        }]
-    });
-}
+// function setupSearch() {
+//     docsearch({
+//       apiKey: algoliaConfigs.key,
+//       indexName: algoliaConfigs.index,
+//       inputSelector: '#algolia-search',
+//       debug: false,
+//       autocompleteOptions: {
+//         appendTo: '#algolia-wrapper',
+//         hint: false
+//       }
+//     });
+//     new Tether({
+//         element: '#algolia-wrapper',
+//         target: '#algolia-search',
+//         attachment: 'bottom left',
+//         targetAttachment: 'top left',
+//         targetOffset: '20px 0',
+//         constraints: [{
+//             to: 'window',
+//             attachment: 'together'
+//         }]
+//     });
+// }
 
 // Affix the sidebar to the side if we scroll past the header,
 // which is 55px. This ensures the sidebar is always visible,
