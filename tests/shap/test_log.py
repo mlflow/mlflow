@@ -331,3 +331,26 @@ def test_log_model_with_code_paths(shap_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.shap.FLAVOR_NAME)
         mlflow.shap.load_explainer(model_uri)
         add_mock.assert_called()
+
+
+def test_model_save_load_with_metadata(shap_model, tmpdir):
+    model_path = tmpdir.join("pyfunc_test").strpath
+    mlflow.shap.save_explainer(
+        shap_model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
+
+
+def test_model_log_with_metadata(shap_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.shap.log_explainer(
+            shap_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"

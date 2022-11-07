@@ -606,7 +606,9 @@ def test_scoring_server_client(sklearn_model, model_path):
     from mlflow.utils import find_free_port
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_model.model, path=model_path, metadata={"metadata_key": "value"}
+    )
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
 
     port = find_free_port()

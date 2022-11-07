@@ -432,3 +432,27 @@ def test_virtualenv_subfield_points_to_correct_path(model_path):
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
     assert python_env_path.is_file()
+
+
+def test_model_save_load_with_metadata(model_path):
+    ols = ols_model()
+    mlflow.statsmodels.save_model(
+        ols.model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
+
+
+def test_model_log_with_metadata():
+    ols = ols_model()
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.statsmodels.log_model(
+            ols.model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"

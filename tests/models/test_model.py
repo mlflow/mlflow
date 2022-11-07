@@ -95,7 +95,9 @@ def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata
     experiment_id = mlflow.create_experiment("test")
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
-        Model.log("some/path", TestFlavor, signature=sig, input_example=input_example, metadata=metadata)
+        Model.log(
+            "some/path", TestFlavor, signature=sig, input_example=input_example, metadata=metadata
+        )
 
     local_path = _download_artifact_from_uri(
         "runs:/{}/some/path".format(run.info.run_id), output_path=tmp_path.path("")
@@ -190,7 +192,7 @@ def test_model_info():
 def test_model_metadata():
     with TempDir(chdr=True) as tmp:
         metadata = {"metadata_key": "metadata_value"}
-        local_path, r = _log_model_with_signature_and_example(tmp, None, None, metadata)
+        local_path, _ = _log_model_with_signature_and_example(tmp, None, None, metadata)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.metadata_key == "metadata_value"
 

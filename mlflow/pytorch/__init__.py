@@ -131,6 +131,7 @@ def log_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -225,6 +226,7 @@ def log_model(
                       If ``None``, no extra files are added to the model.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -317,6 +319,7 @@ def log_model(
         extra_files=extra_files,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         **kwargs,
     )
 
@@ -335,6 +338,7 @@ def save_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -414,6 +418,7 @@ def save_model(
                       If ``None``, no extra files are added to the model.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -486,6 +491,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.add_metadata(metadata)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 

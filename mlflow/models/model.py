@@ -223,6 +223,10 @@ class Model:
         self.flavors[name] = params
         return self
 
+    def add_metadata(self, metadata):
+        """Add metadata to the model"""
+        self.__dict__.update(metadata)
+
     @property
     def signature(self):  # -> Optional[ModelSignature]
         return self._signature
@@ -362,7 +366,8 @@ class Model:
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
-        :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        :param metadata: Custom metadata dictionary passed to the model and stored in
+                         the MLmodel file.
 
         :param kwargs: Extra args passed to the model flavor.
 

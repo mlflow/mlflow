@@ -73,6 +73,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Save an H2O model to a path on the local file system.
@@ -103,6 +104,7 @@ def save_model(
                           base64-encoded.
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
     """
     import h2o
 
@@ -121,6 +123,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.add_metadata(metadata)
 
     # Save h2o-model
     if hasattr(h2o, "download_model"):
@@ -200,6 +204,7 @@ def log_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -235,6 +240,7 @@ def log_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -250,6 +256,7 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         **kwargs,
     )
 

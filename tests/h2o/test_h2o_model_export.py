@@ -333,3 +333,27 @@ def test_log_model_with_code_paths(h2o_iris_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.h2o.FLAVOR_NAME)
         mlflow.h2o.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_model_save_load_with_metadata(h2o_iris_model, model_path):
+    mlflow.h2o.save_model(
+        h2o_iris_model.model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
+
+
+def test_model_log_with_metadata(h2o_iris_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.h2o.log_model(
+            h2o_iris_model.model,
+            artifact_path=artifact_path,
+            metadata={"metadata_key": "metadata_value"},
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"

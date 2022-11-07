@@ -642,3 +642,27 @@ def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
     assert python_env_path.is_file()
+
+
+def test_model_save_load_with_metadata(sklearn_knn_model, model_path):
+    mlflow.sklearn.save_model(
+        sklearn_knn_model.model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
+
+
+def test_model_log_with_metadata(sklearn_knn_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model,
+            artifact_path=artifact_path,
+            metadata={"metadata_key": "metadata_value"},
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"

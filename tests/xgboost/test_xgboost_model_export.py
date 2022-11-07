@@ -544,3 +544,27 @@ def test_log_model_with_model_format(xgb_model, model_format):
             xgb_model.model.predict(xgb_model.inference_dmatrix),
             loaded_model.predict(xgb_model.inference_dmatrix),
         )
+
+
+def test_model_save_load_with_metadata(xgb_model, model_path):
+    mlflow.xgboost.save_model(
+        xgb_model.model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
+
+
+def test_model_log_with_metadata(xgb_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model,
+            artifact_path=artifact_path,
+            metadata={"metadata_key": "metadata_value"},
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata_key == "metadata_value"
