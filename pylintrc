@@ -184,7 +184,10 @@ enable=c-extension-no-member,
        unnecessary-comprehension,
        consider-using-set-comprehension,
        singleton-comparison,
+       use-dict-literal,
+       use-list-literal,
        unnecessary-lambda-assignment
+       
 
 [REPORTS]
 
