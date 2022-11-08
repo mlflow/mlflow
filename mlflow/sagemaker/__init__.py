@@ -1652,12 +1652,14 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
-    endpoint_config_response = sage_client.create_endpoint_config(
-        EndpointConfigName=new_config_name,
-        ProductionVariants=production_variants,
-        DataCaptureConfig=data_capture_config,
-        Tags=[{"Key": "app_name", "Value": endpoint_name}],
-    )
+    endpoint_config_kwargs = {
+        "EndpointConfigName": new_config_name,
+        "ProductionVariants": production_variants,
+        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+    }
+    if data_capture_config is not None:
+        endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+    endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created new endpoint configuration with arn: %s",
         endpoint_config_response["EndpointConfigArn"],
