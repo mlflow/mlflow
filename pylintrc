@@ -183,7 +183,9 @@ enable=c-extension-no-member,
        consider-using-dict-items,
        unnecessary-comprehension,
        consider-using-set-comprehension,
-       singleton-comparison
+       singleton-comparison,
+       use-dict-literal,
+       use-list-literal
 
 [REPORTS]
 
