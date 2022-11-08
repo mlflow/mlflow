@@ -419,7 +419,7 @@ def test_mlflow_models_serve(enable_mlserver):
 
     extra_args = ["--env-manager", "local"]
     if enable_mlserver:
-        extra_args += ["--enable-mlserver"]
+        extra_args.append("--enable-mlserver")
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
