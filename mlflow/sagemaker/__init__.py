@@ -1657,7 +1657,11 @@ def _update_sagemaker_endpoint(
         endpoint_config_response["EndpointConfigArn"],
     )
 
-    sage_client.update_endpoint(EndpointName=endpoint_name, EndpointConfigName=new_config_name)
+    sage_client.update_endpoint(
+        EndpointName=endpoint_name,
+        EndpointConfigName=new_config_name,
+        RetainAllVariantProperties=True,
+    )
     _logger.info("Updated endpoint with new configuration!")
 
     operation_start_time = time.time()
