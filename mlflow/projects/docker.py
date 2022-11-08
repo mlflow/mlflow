@@ -81,7 +81,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image
     if not build_image:
         if not client.images.list(name=base_image):
             _logger.info(f"Pulling {base_image}")
-            image = client.images.pull(image_uri)
+            image = client.images.pull(base_image)
         else:
             _logger.info(f"{base_image} already exists")
             image = client.images.get(base_image)
