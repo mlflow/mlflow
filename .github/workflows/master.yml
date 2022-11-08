@@ -64,7 +64,7 @@ jobs:
         pre-commit install -t pre-commit -t prepare-commit-msg
     - name: Run pre-commit
       run: |
-        pre-commit run --all-files
+        pre-commit run --all-files --color=always
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
