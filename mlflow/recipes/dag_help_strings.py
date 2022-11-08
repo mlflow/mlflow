@@ -19,7 +19,7 @@ recipe: "regression/v1"
 data:
   location: {{INGEST_DATA_LOCATION}}
   format: {{INGEST_DATA_FORMAT|default('parquet')}}
-  custom_loader_method: steps.ingest.load_file_as_dataframe
+  loader_method: steps.ingest.load_file_as_dataframe
 target_col: "fare_amount"
 steps:
   split:
@@ -45,12 +45,12 @@ metrics:
 """
 )
 
-INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}' section in recipe.yaml and converts it to parquet format, leveraging the custom dataset parsing code defined in `steps/ingest.py` (and referred to by the 'custom_loader_method' attribute of the '{1}' section in recipe.yaml) if necessary. {2} An example recipe.yaml '{1}' configuration is shown below.
+INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}' section in recipe.yaml and converts it to parquet format, leveraging the custom dataset parsing code defined in `steps/ingest.py` (and referred to by the 'loader_method' attribute of the '{1}' section in recipe.yaml) if necessary. {2} An example recipe.yaml '{1}' configuration is shown below.
 
 {1}:
   location: https://nyc-tlc.s3.amazonaws.com/trip+data/yellow_tripdata_2022-01.parquet
   format: {{{{INGEST_DATA_FORMAT|default('parquet')}}}}
-  custom_loader_method: steps.ingest.load_file_as_dataframe
+  loader_method: steps.ingest.load_file_as_dataframe
 """
 
 INGEST_STEP = format_help_string(
@@ -62,7 +62,7 @@ INGEST_STEP = format_help_string(
 )
 
 INGEST_USER_CODE = format_help_string(
-    """\"\"\"\nsteps/ingest.py defines customizable logic for parsing arbitrary dataset formats (i.e. formats that are not natively parsed by MLflow Recipes) via the `load_file_as_dataframe` function. Note that the Parquet, Delta, and Spark SQL dataset formats are natively parsed by MLflow Recipes, and you do not need to define custom logic for parsing them. An example `load_file_as_dataframe` implementation is displayed below (note that a different function name or module can be specified via the 'custom_loader_method' attribute of the 'data' section in recipe.yaml).\n\"\"\"\n
+    """\"\"\"\nsteps/ingest.py defines customizable logic for parsing arbitrary dataset formats (i.e. formats that are not natively parsed by MLflow Recipes) via the `load_file_as_dataframe` function. Note that the Parquet, Delta, and Spark SQL dataset formats are natively parsed by MLflow Recipes, and you do not need to define custom logic for parsing them. An example `load_file_as_dataframe` implementation is displayed below (note that a different function name or module can be specified via the 'loader_method' attribute of the 'data' section in recipe.yaml).\n\"\"\"\n
 def load_file_as_dataframe(
     file_path: str,
     file_format: str,
