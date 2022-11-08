@@ -3,7 +3,9 @@ import json
 import pkg_resources
 import platform
 import click
+
 import mlflow
+from mlflow.utils import databricks_utils
 
 
 def doctor(mask_envs=False):
@@ -74,6 +76,10 @@ def doctor(mask_envs=False):
         ("Tracking URI", mlflow.get_tracking_uri()),
         ("Registry URI", mlflow.get_registry_uri()),
     ]
+
+    if (runtime := databricks_utils.get_databricks_runtime()) is not None:
+        items.append(("Databricks runtime version", runtime))
+
     active_run = mlflow.active_run()
     if active_run:
         items.extend(
