@@ -23,7 +23,7 @@ from sqlalchemy.pool import (
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
 from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
@@ -100,6 +100,13 @@ def _get_managed_session_maker(SessionMaker, db_type):
         except MlflowException:
             session.rollback()
             raise
+        except sqlalchemy.exc.OperationalError as e:
+            session.rollback()
+            _logger.warning(
+                "SQLAlchemy database error. The following exception is caught.\n%s",
+                e,
+            )
+            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
         except sqlalchemy.exc.SQLAlchemyError as e:
             session.rollback()
             raise MlflowException(message=e, error_code=BAD_REQUEST)
