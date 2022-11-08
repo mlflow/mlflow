@@ -61,8 +61,6 @@
     {% if target_cloud == 'azure' %}
       <link rel="stylesheet" href="{{ pathto('_static/css/custom-azure.css', 1) }}" type="text/css" />
     {% endif %}
-    <link rel="stylesheet" href="{{ pathto('_static/css/algolia.css', 1) }}" type="text/css" />
-    
   {% endif %}
 
   {%- block linktags %}
@@ -178,18 +176,5 @@
 
 
   {%- block footer %} {% endblock %}
-
-  {% if use_algolia == '1' %}
-    <!-- Algolia Search -->
-    <script type="text/javascript">
-      var algoliaConfigs = {
-        key: 'b6d79a1058f2b3c1ee03bf659ade5a4b',
-        index: 'mlflow',
-      };
-    </script>
-    <div id="algolia-wrapper"></div>
-    <script src="{{ pathto('_static/js/tether.min.js', 1) }}"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
-  {% endif %}
 </body>
 </html>
