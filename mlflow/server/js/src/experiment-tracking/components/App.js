@@ -45,6 +45,7 @@ const InteractionTracker = ({ children }) => children;
 
 class App extends Component {
   render() {
+    const marginRight = 24;
     return (
       <Router
         basename={mlflowHashRouting ? '/mlflow' : undefined}
@@ -64,6 +65,7 @@ class App extends Component {
                 <NavLink
                   strict
                   to={Routes.rootRoute}
+                  css={{ marginRight }}
                   activeStyle={classNames.activeNavLink}
                   isActive={isExperimentsActive}
                   className='header-nav-link'
@@ -75,6 +77,7 @@ class App extends Component {
                 <NavLink
                   strict
                   to={modelListPageRoute}
+                  css={{ marginRight }}
                   activeStyle={classNames.activeNavLink}
                   className='header-nav-link header-nav-link-models'
                 >
@@ -84,12 +87,12 @@ class App extends Component {
                 </NavLink>
               </div>
               <div className='header-links'>
-                <a href={'https://github.com/mlflow/mlflow'}>
+                <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                   <div className='github'>
                     <span>GitHub</span>
                   </div>
                 </a>
-                <a href={HomePageDocsUrl}>
+                <a href={HomePageDocsUrl} css={{ marginRight }}>
                   <div className='docs'>
                     <span>Docs</span>
                   </div>
