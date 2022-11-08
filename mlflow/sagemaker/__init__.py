@@ -412,6 +412,7 @@ def deploy(
             sage_client=sage_client,
             s3_client=s3_client,
             variant_name=variant_name,
+            data_capture_config=data_capture_config,
         )
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -1559,6 +1560,7 @@ def _update_sagemaker_endpoint(
     sage_client,
     s3_client,
     variant_name=None,
+    data_capture_config=None,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.
@@ -1578,6 +1580,9 @@ def _update_sagemaker_endpoint(
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
     :variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param: data_capture_config: A dictionary specifying the data capture configuration to use.
+                                 For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                                 Defaults to ``None``.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
@@ -1628,11 +1633,14 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
-    endpoint_config_response = sage_client.create_endpoint_config(
-        EndpointConfigName=new_config_name,
-        ProductionVariants=production_variants,
-        Tags=[{"Key": "app_name", "Value": endpoint_name}],
-    )
+    endpoint_config_kwargs = {
+        "EndpointConfigName": new_config_name,
+        "ProductionVariants": production_variants,
+        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+    }
+    if data_capture_config is not None:
+        endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+    endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created new endpoint configuration with arn: %s",
         endpoint_config_response["EndpointConfigArn"],
