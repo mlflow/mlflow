@@ -57,6 +57,7 @@ from mlflow.utils.string_utils import strip_prefix
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
+_USER_DEFINED_TRAIN_STEP_MODULE = "steps.train"
 
 _logger = logging.getLogger(__name__)
 
@@ -480,11 +481,11 @@ class TrainStep(BaseStep):
             warnings.warn = original_warn
 
     def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
-        train_module_name, estimator_method_name = self.step_config["estimator_method"].rsplit(
-            ".", 1
-        )
         sys.path.append(self.recipe_root)
-        estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
+        estimator_fn = getattr(
+            importlib.import_module(_USER_DEFINED_TRAIN_STEP_MODULE),
+            self.step_config["estimator_method"],
+        )
         estimator_hardcoded_params = self.step_config["estimator_params"]
 
         # if using rebalancing pass in original class weights to preserve original distribution
