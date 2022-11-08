@@ -17,7 +17,7 @@ kaleido
 transformers
 # Required by tuning tests
 hyperopt
-# Required by pipelines tests
+# Required by recipes tests
 ipython
 # Required by automl tests
 flaml
