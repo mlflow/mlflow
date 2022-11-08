@@ -121,7 +121,10 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
     spark_model_iris, model_path
 ):
-    class CustomTransformer(JavaModel):
+
+    from pyspark.ml.feature import VectorAssembler
+
+    class CustomTransformer(VectorAssembler):
         def _transform(self, dataset):
             return dataset
 

@@ -74,14 +74,14 @@ class TrainStep(BaseStep):
     def _validate_and_apply_step_config(self):
         self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
-            if self.step_config["using"] not in ["estimator_spec", "automl/flaml"]:
+            if self.step_config["using"] not in ["custom", "automl/flaml"]:
                 raise MlflowException(
                     f"Invalid train step configuration value {self.step_config['using']} for "
-                    f"key 'using'. Supported values are: ['estimator_spec']",
+                    f"key 'using'. Supported values are: ['custom', 'automl/flaml']",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
-            self.step_config["using"] = "estimator_spec"
+            self.step_config["using"] = "custom"
 
         if "tuning" in self.step_config:
             if "enabled" in self.step_config["tuning"] and isinstance(
@@ -154,13 +154,10 @@ class TrainStep(BaseStep):
         self.positive_class = self.step_config.get("positive_class")
         self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        if (
-            "estimator_method" not in self.step_config
-            and self.step_config["using"] == "estimator_spec"
-        ):
+        if "estimator_method" not in self.step_config and self.step_config["using"] == "custom":
             raise MlflowException(
                 "Missing 'estimator_method' configuration in the train step, "
-                "which is using 'estimator_spec'.",
+                "which is using 'custom'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -554,8 +551,8 @@ class TrainStep(BaseStep):
         return estimator
 
     def _resolve_estimator(self, X_train, y_train, validation_df, run, output_directory):
-        using_plugin = self.step_config.get("using", "estimator_spec")
-        if using_plugin == "estimator_spec":
+        using_plugin = self.step_config.get("using", "custom")
+        if using_plugin == "custom":
             return self._get_user_defined_estimator(
                 X_train, y_train, validation_df, run, output_directory
             )

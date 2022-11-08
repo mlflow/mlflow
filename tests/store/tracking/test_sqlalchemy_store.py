@@ -317,7 +317,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual_by_name = self.store.get_experiment_by_name(name)
         assert actual_by_name.name == name
         assert actual_by_name.experiment_id == experiment_id
-        assert self.store.get_experiment_by_name("idontexist") == None
+        assert self.store.get_experiment_by_name("idontexist") is None
 
     def test_search_experiments_view_type(self):
         experiment_names = ["a", "b"]
@@ -944,17 +944,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with self.store.ManagedSessionMaker() as session:
             actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
-            assert actual_run == None
+            assert actual_run is None
             actual_metric = (
                 session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
             )
-            assert actual_metric == None
+            assert actual_metric is None
             actual_param = (
                 session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
             )
-            assert actual_param == None
+            assert actual_param is None
             actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
-            assert actual_tag == None
+            assert actual_tag is None
 
     def test_get_deleted_runs(self):
         run = self._run_factory()
@@ -1325,7 +1325,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
         run = self.store.get_run(run_id)
         assert run.info.run_name == "new name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == None
+        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) is None
 
         self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
         run = self.store.get_run(run_id)

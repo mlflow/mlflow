@@ -96,10 +96,14 @@ jobs:
             MLFLOW_RECIPES_PROFILE: local
           command: |
             jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
+            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb --output dark-jupyter --HTMLExporter.theme=dark
+
       - store_artifacts:
           path: ~/.mlflow/recipes
       - store_artifacts:
           path: examples/recipes/regression/notebooks/jupyter.html
+      - store_artifacts:
+          path: examples/recipes/regression/notebooks/dark-jupyter.html
 
 workflows:
   build:

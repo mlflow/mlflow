@@ -385,7 +385,7 @@ The main components of the Recipe Template layout, which are common across all r
       transform:
         transformer_method: steps.transform.transformer_fn
       train:
-        using: estimator_spec
+        using: custom
         estimator_method: steps.train.estimator_fn
       evaluate:
         validation_criteria:

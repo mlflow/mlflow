@@ -94,7 +94,7 @@ def convert_to_dataset_feature_statistics(
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
     try:
-        quantiles = df.select_dtypes(exclude=["bool"]).quantile(quantiles_to_get)
+        quantiles = df.select_dtypes(include="number").quantile(quantiles_to_get)
     except:
         raise MlflowException("Error in generating quantiles")
 
@@ -251,10 +251,12 @@ def construct_facets_html(
     polyfills_code = get_facets_polyfills()
 
     html_template = """
+        <div style="background-color: white">
         <script>{polyfills_code}</script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.3.3/webcomponents-lite.js"></script>
         <link rel="import" href="https://raw.githubusercontent.com/PAIR-code/facets/1.0.0/facets-dist/facets-jupyter.html" >
         <facets-overview id="facets" proto-input="{protostr}" compare-mode="{compare}"></facets-overview>
+        </div>
     """
     html = html_template.format(protostr=protostr, compare=compare, polyfills_code=polyfills_code)
     return html

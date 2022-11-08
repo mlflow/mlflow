@@ -412,14 +412,14 @@ class CustomDataset(_PandasConvertibleDataset):
         self,
         location: str,
         dataset_format: str,
-        custom_loader_method: str,
+        loader_method: str,
         recipe_root: str,
     ):
         """
         :param location: The location of the dataset
                          (e.g. '/tmp/myfile.parquet', './mypath', 's3://mybucket/mypath', ...).
         :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
-        :param custom_loader_method: The fully qualified name of the custom loader method used to
+        :param loader_method: The fully qualified name of the custom loader method used to
                                      load and convert the dataset to parquet format, e.g.
                                      `steps.ingest.load_file_as_dataframe`.
         :param recipe_root: The absolute path of the associated recipe root directory on the
@@ -432,9 +432,9 @@ class CustomDataset(_PandasConvertibleDataset):
         )
         self.recipe_root = recipe_root
         (
-            self.custom_loader_module_name,
-            self.custom_loader_method_name,
-        ) = custom_loader_method.rsplit(".", 1)
+            self.loader_module_name,
+            self.loader_method_name,
+        ) = loader_method.rsplit(".", 1)
 
     def _validate_user_code_output(self, func, *args):
         import pandas as pd
@@ -444,7 +444,7 @@ class CustomDataset(_PandasConvertibleDataset):
             raise MlflowException(
                 message=(
                     "The `ingested_data` is not a DataFrame, please make sure "
-                    f"'{self.custom_loader_method_name}' returns a Pandas DataFrame object."
+                    f"'{self.loader_method_name}' returns a Pandas DataFrame object."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
@@ -453,15 +453,15 @@ class CustomDataset(_PandasConvertibleDataset):
     def _load_file_as_pandas_dataframe(self, local_data_file_path: str):
         try:
             sys.path.append(self.recipe_root)
-            custom_loader_method = getattr(
-                importlib.import_module(self.custom_loader_module_name),
-                self.custom_loader_method_name,
+            loader_method = getattr(
+                importlib.import_module(self.loader_module_name),
+                self.loader_method_name,
             )
         except Exception as e:
             raise MlflowException(
                 message=(
                     "Failed to import custom dataset loader function"
-                    f" '{self.custom_loader_module_name}.{self.custom_loader_method_name}' for"
+                    f" '{self.loader_module_name}.{self.loader_method_name}' for"
                     f" ingesting dataset with format '{self.dataset_format}'.",
                 ),
                 error_code=BAD_REQUEST,
@@ -469,7 +469,7 @@ class CustomDataset(_PandasConvertibleDataset):
 
         try:
             return self._validate_user_code_output(
-                custom_loader_method, local_data_file_path, self.dataset_format
+                loader_method, local_data_file_path, self.dataset_format
             )
         except MlflowException as e:
             raise e
@@ -478,7 +478,7 @@ class CustomDataset(_PandasConvertibleDataset):
                 message=(
                     f"Unable to load data file at path '{local_data_file_path}' with format"
                     f" '{self.dataset_format}' using custom loader method"
-                    f" '{custom_loader_method.__name__}' because it is not"
+                    f" '{loader_method.__name__}' because it is not"
                     " supported. Please update the custom loader method to support this"
                     " format."
                 ),
@@ -489,7 +489,7 @@ class CustomDataset(_PandasConvertibleDataset):
                 message=(
                     f"Unable to load data file at path '{local_data_file_path}' with format"
                     f" '{self.dataset_format}' using custom loader method"
-                    f" '{custom_loader_method.__name__}'."
+                    f" '{loader_method.__name__}'."
                 ),
                 error_code=BAD_REQUEST,
             ) from e
@@ -499,8 +499,8 @@ class CustomDataset(_PandasConvertibleDataset):
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
-            custom_loader_method=cls._get_required_config(
-                dataset_config=dataset_config, key="custom_loader_method"
+            loader_method=cls._get_required_config(
+                dataset_config=dataset_config, key="loader_method"
             ),
             recipe_root=recipe_root,
         )
