@@ -6,12 +6,7 @@ err=0
 trap 'err=1' ERR
 
 echo -e "\n========== black ==========\n"
-if [ -z "${GITHUB_ACTIONS}" ]; then
-  black --check .
-else
-  black --check . > .black-output 2>&1
-  sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR to format./' .black-output
-fi
+./dev/black.sh
 
 echo -e "\n========== pylint ==========\n"
 pylint $(git ls-files | grep '\.py$')

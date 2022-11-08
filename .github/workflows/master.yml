@@ -59,9 +59,12 @@ jobs:
     - name: Test custom pylint-plugins
       run : |
         pytest pylint_plugins/tests
-    - name: Run lint checks
+    - name: Install pre-commit hooks
       run: |
-        ./dev/lint.sh
+        pre-commit install -t pre-commit -t prepare-commit-msg
+    - name: Run pre-commit
+      run: |
+        pre-commit run --all-files
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
