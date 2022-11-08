@@ -1599,8 +1599,7 @@ def _update_sagemaker_endpoint(
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
     :variant_name: The name to assign to the new production variant if it doesn't already exist.
-    :param: data_capture_config: A dictionary specifying the data capture configuration to use when
-                                 creating the new SageMaker model associated with this application.
+    :param: data_capture_config: A dictionary specifying the data capture configuration to use.
                                  For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                                  Defaults to ``None``.
     """
