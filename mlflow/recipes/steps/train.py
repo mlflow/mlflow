@@ -986,11 +986,15 @@ class TrainStep(BaseStep):
                     estimator, X_train_sampled, on_worker=on_worker
                 )
 
+                # eval_metrics = {}
+                # for dataset_name, (dataset, metric_prefix) in {
+                #     "validation": (validation_df, "val_"),
+                # }.items():
                 eval_result = mlflow.evaluate(
                     model=logged_estimator.model_uri,
                     data=validation_df,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
                     custom_metrics=_load_custom_metrics(
                         self.recipe_root,
@@ -998,8 +1002,14 @@ class TrainStep(BaseStep):
                     ),
                     evaluator_config={
                         "log_model_explainability": False,
+                        "pos_label": self.positive_class,
+                        # "metric_prefix": metric_prefix,
                     },
                 )
+                # eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
+                # eval_metrics[dataset_name] = {
+                #     strip_prefix(k, metric_prefix): v for k, v in eval_result.metrics.items()
+                # }
                 autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
                 manual_log_params = {}
                 for param_name, param_value in estimator_args.items():
