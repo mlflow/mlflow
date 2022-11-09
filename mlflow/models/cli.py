@@ -49,8 +49,8 @@ def serve(
 
         Models built using MLflow 1.x will require adjustments to the endpoint request payload
         if executed in an environment that has MLflow 2.x installed. In 1.x, a request payload
-        was of the form {<Optional>'columns': [str], 'data': [[<values>]]}. 2.x models require
-        payloads that contain the data referencing keys of *one of* `dataframe_split`,
+        was of the form {'columns': [str], 'data': [[...]]}. 2.x models require
+        payloads that are defined by the structural defining keys of either `dataframe_split`,
         `instances`, `inputs` or `dataframe_records`. See the examples below for demonstrations
         of the changes in 2.x.
 
@@ -82,7 +82,7 @@ def serve(
             "inputs": [[1,2],[3,4],[5,6]]
         }'
 
-        #instances format for submission of Tensor data
+        # instances format for submission of Tensor data
         curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
             "instances": [
                 {"a": "t1", "b": [1, 2, 3]},
@@ -90,7 +90,7 @@ def serve(
                 {"a": "t3", "b": [7, 8, 9]}
             ]
         }'
-        
+
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
     return get_flavor_backend(
