@@ -287,6 +287,27 @@ def save_model(
             "Saving TF2 core model or Keras Model requires ``signature`` param specified.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if len(signature.inputs.inputs) == 0:
+        raise MlflowException(
+            "The signature inputs must contain at least one field.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    for input in signature.inputs.inputs():
+        if not isinstance(input, TensorSpec):
+            raise MlflowException(
+                "All fileds in signature inputs must be tensor type.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if input.name is None:
+            raise MlflowException(
+                "All fileds in signature inputs must have a name.",
+                error_code = INVALID_PARAMETER_VALUE,
+            )
+        if input.shape[0] != -1:
+            raise MlflowException(
+                "All fileds in signature inputs must have shape that the first dimension "
+                "is a variable dimension."
+            )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
