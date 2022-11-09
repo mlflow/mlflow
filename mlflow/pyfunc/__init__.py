@@ -221,6 +221,7 @@ from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
+import pandas as pd
 import yaml
 
 import mlflow
@@ -360,6 +361,17 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+def _reshape_column_values(name, pd_series, shape, dtype):
+    flattened_numpy_arr = np.concatenate(pd_series.tolist())
+    reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(type)
+    if len(reshaped_numpy_arr) != len(pd_series):
+        raise MlflowException(
+            f"Field '{name}' data shape does not match model signature.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return reshaped_numpy_arr
+
+
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -399,6 +411,45 @@ class PyFuncModel:
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
+
+        if input_schema.is_tensor_spec() and isinstance(data, pd.DataFrame):
+            """
+            For tensor spec input schema, the model only accepts numpy array input or
+            dict type input (dict only contains numpy type values and keys must match
+            the input schema field names).
+            So this part code is to convert the pandas dataframe into a numpy array or
+            a dict. Note it contains some necessary array reshaping because the pandas
+            dataframe only support 1-dimension array value, so here it will reshape the
+            input values as the required shape according to schema field tensor spec.
+            """
+            pdf = data
+            input_specs = input_schema.inputs
+            if len(input_specs) == 1:
+                if len(pdf.columns) == 1:
+                    data = _reshape_column_values(
+                        pdf.columns[0],
+                        pdf[pdf.columns[0]],
+                        input_specs[0].shape,
+                        input_specs[0].type,
+                    )
+                else:
+                    expected_dim = len(pdf.columns)
+                    if input_specs[0].shape != (-1, expected_dim):
+                        raise MlflowException(
+                            "Input data dimension does not match model signature.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    data = pdf.to_numpy()
+            else:
+                data = {}
+                for tensor_spec in input_specs:
+                    data[tensor_spec.name] = _reshape_column_values(
+                        tensor_spec.name,
+                        pdf[tensor_spec.name],
+                        tensor_spec.shape,
+                        tensor_spec.type,
+                    )
+
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
         return self._predict_fn(data)
