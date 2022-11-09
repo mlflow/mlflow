@@ -221,7 +221,6 @@ from typing import Any, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
-import pandas as pd
 import yaml
 
 import mlflow
@@ -363,7 +362,7 @@ def _load_model_env(path):
 
 def _reshape_column_values(name, pd_series, shape, dtype):
     flattened_numpy_arr = np.concatenate(pd_series.tolist())
-    reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(type)
+    reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(dtype)
     if len(reshaped_numpy_arr) != len(pd_series):
         raise MlflowException(
             f"Field '{name}' data shape does not match model signature.",
@@ -412,15 +411,15 @@ class PyFuncModel:
         """
         input_schema = self.metadata.get_input_schema()
 
-        if input_schema.is_tensor_spec() and isinstance(data, pd.DataFrame):
+        if input_schema.is_tensor_spec() and isinstance(data, pandas.DataFrame):
             """
             For tensor spec input schema, the model only accepts numpy array input or
             dict type input (dict only contains numpy type values and keys must match
             the input schema field names).
-            So this part code is to convert the pandas dataframe into a numpy array or
-            a dict. Note it contains some necessary array reshaping because the pandas
-            dataframe only support 1-dimension array value, so here it will reshape the
-            input values as the required shape according to schema field tensor spec.
+            This portion of the code is to convert the pandas dataframe into either a numpy
+            array or a dict. Note that array reshaping is required due to pandas
+            dataframe supporting only a 1-dimension array values, so a reshaping of the
+            input values is required to conform the field to the tensor spec.
             """
             pdf = data
             input_specs = input_schema.inputs

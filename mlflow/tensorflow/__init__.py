@@ -139,6 +139,19 @@ def log_model(
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
 
+    Note: MLflow 2.0 requires that TensorFlow and `tf.Keras` models are logged with a signature.
+    A signature can be created for logging as shown below:
+
+    .. code-block:: python
+        :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            m.signature = ModelSignature(inputs=input_schema)
+
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -241,6 +254,19 @@ def save_model(
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
     the local file system.
 
+    Note: MLflow 2.0 requires that TensorFlow and `tf.Keras` models are saved with a signature.
+    A signature can be created for saving as shown below:
+
+    .. code-block:: python
+        :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            m.signature = ModelSignature(inputs=input_schema)
+
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
     :param conda_env: {{ conda_env }}
@@ -287,7 +313,8 @@ def save_model(
             "Saving TF2 core model or Keras Model requires ``signature`` param specified.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if len(signature.inputs.inputs) == 0:
+    num_inputs = len(signature.inputs.inputs)
+    if num_inputs == 0:
         raise MlflowException(
             "The signature inputs must contain at least one field.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -295,17 +322,18 @@ def save_model(
     for input in signature.inputs.inputs():
         if not isinstance(input, TensorSpec):
             raise MlflowException(
-                "All fileds in signature inputs must be tensor type.",
+                "All fileds in signature inputs must be of tensor type.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if input.name is None:
+        if num_inputs > 1 and input.name is None:
             raise MlflowException(
-                "All fileds in signature inputs must have a name.",
+                "If the signiture inputs have multiple fields, all fields in signature "
+                "inputs must have a name.",
                 error_code = INVALID_PARAMETER_VALUE,
             )
         if input.shape[0] != -1:
             raise MlflowException(
-                "All fileds in signature inputs must have shape that the first dimension "
+                "All fields in signature inputs must have a shape in which the first dimension "
                 "is a variable dimension."
             )
 
@@ -755,6 +783,11 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(self, data):
+        if not isinstance(data, (np.ndarray, list, tuple, dict)):
+            raise MlflowException(
+                f"Unsupported input data type: {type(data)}",
+                INVALID_PARAMETER_VALUE,
+            )
         return self.keras_model.predict(data)
 
 
