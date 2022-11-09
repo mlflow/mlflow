@@ -990,7 +990,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=validation_df,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
                     custom_metrics=_load_custom_metrics(
                         self.recipe_root,
@@ -998,6 +998,8 @@ class TrainStep(BaseStep):
                     ),
                     evaluator_config={
                         "log_model_explainability": False,
+                        "pos_label": self.positive_class,
+                        "metric_prefix": metric_prefix,
                     },
                 )
                 autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
