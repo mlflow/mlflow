@@ -25,6 +25,7 @@ import re
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -144,6 +145,8 @@ def log_model(
 
     .. code-block:: python
         :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -259,6 +262,8 @@ def save_model(
 
     .. code-block:: python
         :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -319,7 +324,7 @@ def save_model(
             "The signature inputs must contain at least one field.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    for input in signature.inputs.inputs():
+    for input in signature.inputs.inputs:
         if not isinstance(input, TensorSpec):
             raise MlflowException(
                 "All fileds in signature inputs must be of tensor type.",

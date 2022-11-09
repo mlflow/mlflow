@@ -8,8 +8,12 @@ import numpy as np
 import mlflow
 
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Input, Concatenate
+from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras import backend as K
+
+from mlflow.types.schema import Schema, TensorSpec
+from mlflow.models.signature import ModelSignature
 
 
 @pytest.fixture
@@ -36,7 +40,13 @@ def single_tensor_input_model(data):
     model.add(Dense(1))
     model.compile(loss="mean_squared_error", optimizer=SGD())
     model.fit(x.values, y.values)
-    return model
+
+    signature = ModelSignature(
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 4)),
+        ])
+    )
+    return model, signature
 
 
 @pytest.fixture(scope="module")
@@ -48,22 +58,79 @@ def multi_tensor_input_model(data):
     model = Model(inputs=[input_a, input_b], outputs=output)
     model.compile(loss="mean_squared_error", optimizer=SGD())
     model.fit([x.values[:, :2], x.values[:, -2:]], y)
-    return model
+
+    signature = ModelSignature(
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 2), "a"),
+            TensorSpec(np.dtype(np.float64), (-1, 2), "b"),
+        ])
+    )
+    return model, signature
+
+
+@pytest.fixture(scope="module")
+def single_multidim_tensor_input_model(data):
+    """
+    This is a model that requires a single input of shape (-1, 4, 3)
+    """
+    x, y = data
+    model = Sequential()
+    model.add(Lambda(lambda z: K.mean(z, axis=2)))
+    model.add(Dense(3, input_dim=4))
+    model.add(Dense(1))
+    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.fit(np.repeat(x.values[:, :, np.newaxis], 3, axis=2), y.values)
+    signature = ModelSignature(
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 4, 3)),
+        ])
+    )
+    return model, signature
+
+
+@pytest.fixture(scope="module")
+def multi_multidim_tensor_input_model(data):
+    """
+    This is a model that requires 2 inputs: 'a' and 'b',
+    input 'a' must be shape of (-1, 2, 3),
+    input 'b' must be shape of (-1, 2, 5),
+    """
+    x, y = data
+    input_a = Input(shape=(2, 3), name="a")
+    input_b = Input(shape=(2, 5), name="b")
+
+    input_a_sum = Lambda(lambda z: K.mean(z, axis=2))(input_a)
+    input_b_sum = Lambda(lambda z: K.mean(z, axis=2))(input_b)
+
+    output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a_sum, input_b_sum])))
+    model = Model(inputs=[input_a, input_b], outputs=output)
+    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.fit([
+        np.repeat(x.values[:, :2, np.newaxis], 3, axis=2),
+        np.repeat(x.values[:, -2:, np.newaxis], 5, axis=2),
+    ], y)
+    signature = ModelSignature(
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 2, 3), "a"),
+            TensorSpec(np.dtype(np.float64), (-1, 2, 5), "b"),
+        ])
+    )
+    return model, signature
 
 
 def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
     x, _ = data
+    model, signature = single_tensor_input_model
     model_path = os.path.join(model_path, "plain")
-    expected = single_tensor_input_model.predict(x.values)
-    mlflow.tensorflow.save_model(single_tensor_input_model, path=model_path)
+    expected = model.predict(x.values)
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
 
-    # Calling predict with a dataframe should return a dataframe
     actual = model_loaded.predict(x)
-    assert type(actual) == pd.DataFrame
-    np.testing.assert_allclose(actual.values, expected, rtol=1e-5)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
     # Calling predict with a np array should return a np array
     actual = model_loaded.predict(x.values)
@@ -73,11 +140,13 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
 
 def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
     x, _ = data
+
+    model, signature = multi_tensor_input_model
     test_input = [x.values[:, :2], x.values[:, -2:]]
 
     model_path = os.path.join(model_path, "plain")
-    expected = multi_tensor_input_model.predict(test_input)
-    mlflow.tensorflow.save_model(multi_tensor_input_model, path=model_path)
+    expected = model.predict(test_input)
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
@@ -92,6 +161,74 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
         "a": x.values[:, :2],
         "b": x.values[:, -2:],
     }
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    test_input = pd.DataFrame({
+        "a": list(x.values[:, :2]),
+        "b": list(x.values[:, -2:]),
+    })
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+
+def test_model_single_multidim_tensor_input(single_multidim_tensor_input_model, model_path, data):
+    x, _ = data
+    model, signature = single_multidim_tensor_input_model
+    test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
+    model_path = os.path.join(model_path, "plain")
+    expected = model.predict(test_input)
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+
+    # Loading Keras model via PyFunc
+    model_loaded = mlflow.pyfunc.load_model(model_path)
+
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    test_input_df = pd.DataFrame({
+        "x": list(test_input.reshape((-1, 4 * 3)))
+    })
+    actual = model_loaded.predict(test_input_df)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+
+def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, model_path, data):
+    x, _ = data
+    model, signature = multi_multidim_tensor_input_model
+    input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)
+    input_b = np.repeat(x.values[:, -2:, np.newaxis], 5, axis=2)
+    test_input = [input_a, input_b]
+
+    model_path = os.path.join(model_path, "plain")
+    expected = model.predict(test_input)
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+
+    # Loading Keras model via PyFunc
+    model_loaded = mlflow.pyfunc.load_model(model_path)
+
+    # Calling predict with a list should return a np.ndarray output
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    # Calling predict with a dict should return a np.ndarray output
+    test_input = {
+        "a": input_a,
+        "b": input_b,
+    }
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    test_input = pd.DataFrame({
+        "a": list(input_a.reshape((-1, 2 * 3))),
+        "b": list(input_b.reshape((-1, 2 * 5))),
+    })
     actual = model_loaded.predict(test_input)
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
