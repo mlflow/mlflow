@@ -407,7 +407,15 @@ class PyFuncModel:
 
         :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
                      scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
-                     Dict[str, numpy.ndarray]
+                     Dict[str, numpy.ndarray].
+                     For model signature with tensor spec inputs
+                    (e.g. the Tensorflow core / Keras model), the data must be one of
+                    numpy.ndarray, List[numpy.ndarray], Dict[str, numpy.ndarray], pandas.DataFrame,
+                    if data is pandas.DataFrame type, if a input field requires multidimensional
+                    array input, the corresponding column values in the pandas Dataframe will be
+                    reshaped to the required shape, and dataframe column values will be casted as
+                    the required tensor spec type.
+
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
@@ -450,7 +458,7 @@ class PyFuncModel:
                             tensor_spec.shape,
                             tensor_spec.type,
                         )
-            elif isinstance(data, (list, tuple)):
+            elif isinstance(data, list):
                 input_names = input_schema.input_names()
                 if len(data) != len(input_names):
                     raise MlflowException(
