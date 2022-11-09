@@ -49,14 +49,14 @@ def serve(
 
         Models built using MLflow 1.x will require adjustments to the endpoint request payload
         if executed in an environment that has MLflow 2.x installed. In 1.x, a request payload
-        was of the form {'columns': [str], 'data': [[...]]}. 2.x models require
+        was of the form `{'columns': [str], 'data': [[...]]}`. 2.x models require
         payloads that are defined by the structural defining keys of either `dataframe_split`,
         `instances`, `inputs` or `dataframe_records`. See the examples below for demonstrations
         of the changes in 2.x.
 
     .. note::
 
-        Requests made in pandas DataFrame structures can be made in either 'split' or `records'
+        Requests made in pandas DataFrame structures can be made in either `split` or `records`
         oriented formats.
         See https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_json.html for
         detailed information on orientation formats for converting a pandas DataFrame to json.
