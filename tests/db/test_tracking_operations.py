@@ -54,7 +54,7 @@ def test_database_operational_error(warning, monkeypatch):
     # This test is specifically designed to force errors with SQLite. Skip it if
     # using a non-SQLite backend.
     if not os.environ[_TRACKING_URI_ENV_VAR].startswith("sqlite"):
-        pytest.skip("unsupported configuration")
+        pytest.skip("Only works on SQLite")
 
     # This test patches parts of SQLAlchemy and sqlite3.dbapi to simulate a
     # SQLAlchemy OperationalError. PEP 249 describes OperationalError as:
