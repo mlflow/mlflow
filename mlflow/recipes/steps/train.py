@@ -999,7 +999,6 @@ class TrainStep(BaseStep):
                     evaluator_config={
                         "log_model_explainability": False,
                         "pos_label": self.positive_class,
-                        "metric_prefix": metric_prefix,
                     },
                 )
                 autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
