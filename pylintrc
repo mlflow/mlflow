@@ -147,7 +147,6 @@ disable=print-statement,
         use-maxsplit-arg,
         consider-using-enumerate,
         unused-argument,
-        superfluous-parens,
         c-extension-no-member,
         disallowed-name,
         wrong-import-position,
@@ -207,7 +206,8 @@ enable=c-extension-no-member,
        singleton-comparison,
        use-dict-literal,
        use-list-literal,
-       unnecessary-lambda-assignment
+       unnecessary-lambda-assignment,
+       superfluous-parens
        
 
 [REPORTS]
