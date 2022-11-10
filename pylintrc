@@ -206,8 +206,7 @@ enable=c-extension-no-member,
        singleton-comparison,
        use-dict-literal,
        use-list-literal,
-       unnecessary-lambda-assignment,
-       superfluous-parens
+       unnecessary-lambda-assignment
        
 
 [REPORTS]
