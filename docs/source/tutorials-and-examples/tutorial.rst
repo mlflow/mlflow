@@ -435,10 +435,9 @@ the ``kubectl`` CLI:
         metadata:
           name: mlflow-model
         spec:
+          protocol: v2
           predictors:
             - name: default
-              annotations:
-                seldon.io/no-engine: "true"
               graph:
                 name: mlflow-model
                 type: MODEL
@@ -447,16 +446,6 @@ the ``kubectl`` CLI:
                     containers:
                       - name: mlflow-model
                         image: my-docker-image
-                        imagePullPolicy: IfNotPresent
-                        securityContext:
-                          runAsUser: 0
-                        ports:
-                          - containerPort: 8080
-                            name: http
-                            protocol: TCP
-                          - containerPort: 8081
-                            name: grpc
-                            protocol: TCP
 
     .. container:: KServe
 

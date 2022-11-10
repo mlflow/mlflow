@@ -144,8 +144,8 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
             # Required to serve models through MLServer
-            "mlserver>=0.5.3",
-            "mlserver-mlflow>=0.5.3",
+            "mlserver>=1.2.0.dev13",
+            "mlserver-mlflow>=1.2.0.dev13",
             "virtualenv",
             # Required for exporting metrics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
