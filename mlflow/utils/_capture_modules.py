@@ -15,6 +15,7 @@ from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
+from mlflow.utils._spark_utils import _prepare_environ_for_creating_local_spark_session
 
 
 def _get_top_level_module(full_module_name):
@@ -111,20 +112,10 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
-    if flavor == mlflow.spark.FLAVOR_NAME:
-        # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
-        # gateway before calling `mlflow.spark._load_pyfunc` that creates a new spark session
-        # if it doesn't exist.
-        os.environ.pop("PYSPARK_GATEWAY_PORT", None)
-        os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
-
-    if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
-        os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
-
     if flavor == mlflow.spark.FLAVOR_NAME and not is_in_databricks_runtime():
         # Create a local spark environment within the subprocess if using OSS Spark
         from pyspark.sql import SparkSession
-
+        _prepare_environ_for_creating_local_spark_session()
         (
             SparkSession.builder.config("spark.python.worker.reuse", "true")
             .config("spark.databricks.io.cache.enabled", "false")
