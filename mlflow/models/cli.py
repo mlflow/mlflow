@@ -75,8 +75,8 @@ def serve(
         # split orientation input format for serializing a pandas DataFrame
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
             "dataframe_split": {"columns": ["a", "b"],
-                                "index":[0, 1, 2],
-                                "data":[[1, 2], [3, 4], [5, 6]]}
+                                "index": [0, 1, 2],
+                                "data": [[1, 2], [3, 4], [5, 6]]}
         }'
 
         # inputs format for List submission of array, tensor, or DataFrame data
