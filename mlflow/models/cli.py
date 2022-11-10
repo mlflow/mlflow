@@ -69,17 +69,19 @@ def serve(
 
         # records orientation input format for serializing a pandas DataFrame
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-            "dataframe_records": [{"a":1,"b":2},{"a":3,"b":4},{"a":5,"b":6}]
+            "dataframe_records": [{"a":1, "b":2}, {"a":3, "b":4}, {"a":5, "b":6}]
         }'
 
         # split orientation input format for serializing a pandas DataFrame
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-            "dataframe_split": {"columns":["a","b"],"index":[0,1,2],"data":[[1,2],[3,4],[5,6]]}
+            "dataframe_split": {"columns": ["a", "b"],
+                                "index":[0, 1, 2],
+                                "data":[[1, 2], [3, 4], [5, 6]]}
         }'
 
         # inputs format for List submission of array, tensor, or DataFrame data
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-            "inputs": [[1,2],[3,4],[5,6]]
+            "inputs": [[1, 2], [3, 4], [5, 6]]
         }'
 
         # instances format for submission of Tensor data
