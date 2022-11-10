@@ -324,8 +324,8 @@ def test_spark_udf_autofills_no_arguments(spark):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
-@pytest.mark.parametrize("raises", [True, False])
 @pytest.mark.parametrize("_attempt", range(100))
+@pytest.mark.parametrize("raises", [True, False])
 def test_spark_udf_autofills_column_names_with_schema(spark, raises, _attempt):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
