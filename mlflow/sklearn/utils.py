@@ -906,7 +906,7 @@ def _backported_all_estimators(type_filter=None):
     IS_PYPY = platform.python_implementation() == "PyPy"
 
     def is_abstract(c):
-        if not (hasattr(c, "__abstractmethods__")):
+        if not hasattr(c, "__abstractmethods__"):
             return False
         if not len(c.__abstractmethods__):
             return False
