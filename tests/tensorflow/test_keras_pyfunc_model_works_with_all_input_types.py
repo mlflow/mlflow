@@ -4,16 +4,19 @@ import pytest
 from sklearn import datasets
 import pandas as pd
 import numpy as np
+import json
 
 import mlflow
 
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda
 from tensorflow.keras.optimizers import SGD
-from tensorflow.keras import backend as K
+
 
 from mlflow.types.schema import Schema, TensorSpec
 from mlflow.models.signature import ModelSignature
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from tests.helper_functions import pyfunc_serve_and_score_model, expect_status_code
 
 
 @pytest.fixture
@@ -75,7 +78,12 @@ def single_multidim_tensor_input_model(data):
     """
     x, y = data
     model = Sequential()
-    model.add(Lambda(lambda z: K.mean(z, axis=2)))
+
+    def f1(z):
+        from tensorflow.keras import backend as K
+        return K.mean(z, axis=2)
+
+    model.add(Lambda(f1))
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
     model.compile(loss="mean_squared_error", optimizer=SGD())
@@ -99,8 +107,12 @@ def multi_multidim_tensor_input_model(data):
     input_a = Input(shape=(2, 3), name="a")
     input_b = Input(shape=(2, 5), name="b")
 
-    input_a_sum = Lambda(lambda z: K.mean(z, axis=2))(input_a)
-    input_b_sum = Lambda(lambda z: K.mean(z, axis=2))(input_b)
+    def f1(z):
+        from tensorflow.keras import backend as K
+        return K.mean(z, axis=2)
+
+    input_a_sum = Lambda(f1)(input_a)
+    input_b_sum = Lambda(f1)(input_b)
 
     output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a_sum, input_b_sum])))
     model = Model(inputs=[input_a, input_b], outputs=output)
@@ -232,3 +244,49 @@ def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, mo
     actual = model_loaded.predict(test_input)
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+
+def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidim_input_model(
+    single_multidim_tensor_input_model, model_path, data
+):
+    model, signature = single_multidim_tensor_input_model
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+
+    x, _ = data
+
+    test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
+
+    inp_dict = {"instances": test_input.tolist()}
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response_records_content_type, 200)
+
+
+def test_scoring_server_successfully_evaluates_correct_tf_serving_multi_multidim_input_model(
+    multi_multidim_tensor_input_model, model_path, data
+):
+    model, signature = multi_multidim_tensor_input_model
+    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+
+    x, _ = data
+
+    input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)
+    input_b = np.repeat(x.values[:, -2:, np.newaxis], 5, axis=2)
+
+    instances = []
+    for index in range(len(input_a)):
+        instances.append({
+            "a": input_a[index].tolist(),
+            "b": input_b[index].tolist(),
+        })
+
+    inp_dict = {"instances": instances}
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response_records_content_type, 200)
