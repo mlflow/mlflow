@@ -266,7 +266,7 @@ jobs:
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc
+          pytest 'tests/pyfunc/test_spark.py::test_spark_udf_autofills_column_names_with_schema'
 
   sagemaker:
     runs-on: ubuntu-latest

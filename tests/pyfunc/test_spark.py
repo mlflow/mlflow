@@ -324,7 +324,9 @@ def test_spark_udf_autofills_no_arguments(spark):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
-def test_spark_udf_autofills_column_names_with_schema(spark):
+@pytest.mark.parametrize("raises", [True, False])
+@pytest.mark.parametrize("_attempt", range(100))
+def test_spark_udf_autofills_column_names_with_schema(spark, raises, _attempt):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
@@ -346,8 +348,9 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
-            res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
+        if raises:
+            with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
+                res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
         assert res["res2"][0] == ["a", "b", "c"]
