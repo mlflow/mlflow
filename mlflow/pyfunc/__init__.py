@@ -364,7 +364,6 @@ def _reshape_column_values(name, pd_series, shape, dtype):
     flattened_numpy_arr = np.concatenate(pd_series.tolist())
     reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(dtype)
     if len(reshaped_numpy_arr) != len(pd_series):
-        breakpoint()
         raise MlflowException(
             f"Field '{name}' data shape does not match model signature.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -422,15 +421,13 @@ class PyFuncModel:
 
         if input_schema is not None and input_schema.is_tensor_spec():
             if isinstance(data, pandas.DataFrame):
-                """
-                For tensor spec input schema, the model only accepts numpy array input or
-                dict type input (dict only contains numpy type values and keys must match
-                the input schema field names).
-                This portion of the code is to convert the pandas dataframe into either a numpy
-                array or a dict. Note that array reshaping is required due to pandas
-                dataframe supporting only a 1-dimension array values, so a reshaping of the
-                input values is required to conform the field to the tensor spec.
-                """
+                # For tensor spec input schema, the model only accepts numpy array input or
+                # dict type input (dict only contains numpy type values and keys must match
+                # the input schema field names).
+                # This portion of the code is to convert the pandas dataframe into either a numpy
+                # array or a dict. Note that array reshaping is required due to pandas
+                # dataframe supporting only a 1-dimension array values, so a reshaping of the
+                # input values is required to conform the field to the tensor spec.
                 pdf = data
                 input_specs = input_schema.inputs
                 if len(input_specs) == 1:

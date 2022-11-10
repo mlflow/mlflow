@@ -140,20 +140,22 @@ def log_model(
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
 
-    Note: MLflow 2.0 requires that TensorFlow and `tf.Keras` models are logged with a signature.
-    A signature can be created for logging as shown below:
+    .. note::
 
-    .. code-block:: python
-        :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
-            from mlflow.types.schema import Schema, TensorSpec
-            from mlflow.models.signature import ModelSignature
-            input_schema = Schema(
-                [
-                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                ]
-            )
-            m.signature = ModelSignature(inputs=input_schema)
+       MLflow 2.0 requires that ``TensorFlow`` and ``tf.Keras`` models are logged with a signature.
+        A signature can be created for logging as shown below:
+
+        .. code-block:: python
+            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+                from mlflow.types.schema import Schema, TensorSpec
+                from mlflow.models.signature import ModelSignature
+                input_schema = Schema(
+                    [
+                        TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                        TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                    ]
+                )
+                signature = ModelSignature(inputs=input_schema)
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
@@ -257,20 +259,22 @@ def save_model(
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
     the local file system.
 
-    Note: MLflow 2.0 requires that TensorFlow and `tf.Keras` models are saved with a signature.
-    A signature can be created for saving as shown below:
+    .. note::
 
-    .. code-block:: python
-        :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
-            from mlflow.types.schema import Schema, TensorSpec
-            from mlflow.models.signature import ModelSignature
-            input_schema = Schema(
-                [
-                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                ]
-            )
-            m.signature = ModelSignature(inputs=input_schema)
+       MLflow 2.0 requires that ``TensorFlow`` and ``tf.Keras`` models are saved with a signature.
+        A signature can be created for saving as shown below:
+
+        .. code-block:: python
+            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+                from mlflow.types.schema import Schema, TensorSpec
+                from mlflow.models.signature import ModelSignature
+                input_schema = Schema(
+                    [
+                        TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                        TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                    ]
+                )
+                signature = ModelSignature(inputs=input_schema)
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
