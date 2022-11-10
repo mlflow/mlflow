@@ -475,6 +475,12 @@ class PyFuncModel:
                         data_dict[field_name] = data[index]
                     data = data_dict
 
+        if input_schema is None and \
+                self._model_meta.flavors[FLAVOR_NAME]["loader_module"] == "mlflow.keras" and \
+                isinstance(data, pandas.DataFrame):
+            # This is for backwards-compatibility.
+            data = data.values
+
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
         return self._predict_fn(data)
