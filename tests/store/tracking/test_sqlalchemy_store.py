@@ -600,8 +600,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
         # filesystem directories for file URI and POSIX path test cases
         with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-            for i in range(len(cases)):
-                artifact_root_uri, expected_artifact_uri_format = cases[i]
+            for _, case in enumerate(cases):
+                artifact_root_uri, expected_artifact_uri_format = case
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(
@@ -662,8 +662,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
         # filesystem directories for file URI and POSIX path test cases
         with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-            for i in range(len(cases)):
-                artifact_root_uri, expected_artifact_uri_format = cases[i]
+            for _, case in enumerate(cases):
+                artifact_root_uri, expected_artifact_uri_format = case
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(

@@ -89,8 +89,8 @@ def test_search_runs():
     with mock.patch.object(AbstractStoreTestImpl, "_search_runs", return_value=(runs, token)):
         store = AbstractStoreTestImpl()
         result = store.search_runs([experiment_id], None, view_type)
-        for i in range(len(result)):
-            assert result[i] == runs[i]
+        for i, res in enumerate(result):
+            assert res == runs[i]
         assert result.token == token
         store._search_runs.assert_called_once_with(
             [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
