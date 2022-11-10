@@ -1126,7 +1126,7 @@ def test_model_save_load_with_metadata(tmpdir):
     )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
-    assert reloaded_model.metadata.metadata_key == "metadata_value"
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
 def test_model_log_with_metadata():
@@ -1142,4 +1142,4 @@ def test_model_log_with_metadata():
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
-    assert reloaded_model.metadata.metadata_key == "metadata_value"
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

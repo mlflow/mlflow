@@ -225,7 +225,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
 
     # The epoch argument of the export method does not play any role in selecting
     # a specific epoch's parameters, and is there only for display purposes.

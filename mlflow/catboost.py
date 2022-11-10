@@ -139,7 +139,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
 
     model_data_path = os.path.join(path, _MODEL_BINARY_FILE_NAME)
     cb_model.save_model(model_data_path, **kwargs)

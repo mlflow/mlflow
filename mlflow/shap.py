@@ -434,7 +434,7 @@ def save_explainer(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
 
     underlying_model_flavor = None
     underlying_model_path = None

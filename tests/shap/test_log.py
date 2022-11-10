@@ -340,7 +340,7 @@ def test_model_save_load_with_metadata(shap_model, tmpdir):
     )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
-    assert reloaded_model.metadata.metadata_key == "metadata_value"
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
 def test_model_log_with_metadata(shap_model):
@@ -353,4 +353,4 @@ def test_model_log_with_metadata(shap_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
-    assert reloaded_model.metadata.metadata_key == "metadata_value"
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

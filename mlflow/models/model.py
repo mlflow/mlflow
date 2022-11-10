@@ -48,6 +48,7 @@ class ModelInfo:
         utc_time_created: str,
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -59,6 +60,7 @@ class ModelInfo:
         self._signature = signature
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
+        self._metadata = metadata
 
     @property
     def artifact_path(self):
@@ -157,6 +159,13 @@ class ModelInfo:
         """
         return self._mlflow_version
 
+    @property
+    def metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        User defined metadata added to the model
+        """
+        return self._metadata
+
 
 class Model:
     """
@@ -174,6 +183,7 @@ class Model:
         saved_input_example_info: Dict[str, Any] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -187,6 +197,7 @@ class Model:
         self.saved_input_example_info = saved_input_example_info
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
+        self.metadata = metadata
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -223,9 +234,14 @@ class Model:
         self.flavors[name] = params
         return self
 
-    def add_metadata(self, metadata):
-        """Add metadata to the model"""
-        self.__dict__.update(metadata)
+    @property
+    def metadata(self) -> Optional[Dict[str, Any]]:
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value: Optional[Dict[str, Any]]):
+        # pylint: disable=attribute-defined-outside-init
+        self._metadata = value
 
     @property
     def signature(self):  # -> Optional[ModelSignature]
@@ -265,6 +281,7 @@ class Model:
             signature=self.signature,
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
+            metadata=self.metadata,
         )
 
     def to_dict(self):
@@ -279,6 +296,8 @@ class Model:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
             res.pop(_MLFLOW_VERSION_KEY)
+        if self.metadata is not None:
+            res["metadata"] = self.metadata
         return res
 
     def to_yaml(self, stream=None):
@@ -374,13 +393,10 @@ class Model:
         :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
                  metadata of the logged model.
         """
-        if metadata is None:
-            metadata = {}
-
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, **metadata)
+            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
@@ -458,4 +474,5 @@ def get_model_info(model_uri: str) -> ModelInfo:
         signature=model_meta.signature,
         utc_time_created=model_meta.utc_time_created,
         mlflow_version=model_meta.mlflow_version,
+        metadata=model_meta.metadata,
     )

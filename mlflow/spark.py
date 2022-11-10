@@ -660,7 +660,7 @@ def save_model(
     if mlflow_model is None:
         mlflow_model = Model()
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:

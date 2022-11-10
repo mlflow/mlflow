@@ -201,7 +201,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 

@@ -166,7 +166,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
 
     # ParamScheduler currently is not pickable
     # hence it is been removed before export and added again after export

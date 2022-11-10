@@ -144,7 +144,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
-        mlflow_model.add_metadata(metadata)
+        mlflow_model.metadata = metadata
 
     diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
 
