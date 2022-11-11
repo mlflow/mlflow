@@ -820,6 +820,7 @@ def _load_pyfunc(path):
     # To avoid this problem, we explicitly check for an active session. This is not ideal but there
     # is no good workaround at the moment.
     import pyspark
+    from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
 
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
@@ -827,18 +828,7 @@ def _load_pyfunc(path):
         # NB: We're disabling caching on the new context since we do not need it and we want to
         # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
         # (e.g. as part of spark_udf).
-        spark = (
-            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)
-            .config("spark.databricks.io.cache.enabled", False)
-            # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
-            # a SparkSession on the workers
-            .config("spark.executor.allowSparkContext", "true")
-            # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
-            # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
-            .config("spark.driver.bindAddress", "127.0.0.1")
-            .master("local[1]")
-            .getOrCreate()
-        )
+        spark = _create_local_spark_session_for_loading_spark_model()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 

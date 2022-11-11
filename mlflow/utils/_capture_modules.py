@@ -15,7 +15,7 @@ from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
-from mlflow.utils._spark_utils import _prepare_environ_for_creating_local_spark_session
+from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 
 
 def _get_top_level_module(full_module_name):
@@ -115,19 +115,9 @@ def main():
     if flavor == mlflow.spark.FLAVOR_NAME:
         # Create a local spark environment within the subprocess
         from pyspark.sql import SparkSession
-        _prepare_environ_for_creating_local_spark_session()
-        (
-            SparkSession.builder.config("spark.python.worker.reuse", "true")
-            .config("spark.databricks.io.cache.enabled", "false")
-            .config("spark.executor.allowSparkContext", "true")
-            .config("spark.driver.bindAddress", "127.0.0.1")
-            .config(
-                "spark.driver.extraJavaOptions",
-                "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
-            )
-            .master("local[1]")
-            .getOrCreate()
-        )
+        from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
+        _prepare_subprocess_environ_for_creating_local_spark_session()
+        _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules()
 

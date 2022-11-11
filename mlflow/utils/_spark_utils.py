@@ -17,7 +17,7 @@ def _get_active_spark_session():
         return SparkSession._instantiatedSession
 
 
-def _prepare_environ_for_creating_local_spark_session():
+def _prepare_subprocess_environ_for_creating_local_spark_session():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
     if is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
@@ -41,7 +41,7 @@ def _create_local_spark_session_for_recipes():
     except ImportError:
         # Return None if user doesn't have PySpark installed
         return None
-    _prepare_environ_for_creating_local_spark_session()
+    _prepare_subprocess_environ_for_creating_local_spark_session()
     return (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
@@ -50,6 +50,30 @@ def _create_local_spark_session_for_recipes():
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .getOrCreate()
+    )
+
+
+def _create_local_spark_session_for_loading_spark_model():
+    from pyspark.sql import SparkSession
+    return (
+        SparkSession.builder
+        .config("spark.python.worker.reuse", "true")
+        # The config is a workaround for avoid databricks delta cache issue when loading
+        # some specific model such as ALSModel.
+        .config("spark.databricks.io.cache.enabled", "false")
+        # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
+        # a SparkSession on the workers
+        .config("spark.executor.allowSparkContext", "true")
+        # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
+        # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
+        .config("spark.driver.bindAddress", "127.0.0.1")
+        .config("spark.executor.allowSparkContext", "true")
+        .config(
+            "spark.driver.extraJavaOptions",
+            "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
+        )
+        .master("local[1]")
         .getOrCreate()
     )
 
