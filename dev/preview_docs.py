@@ -93,7 +93,7 @@ def main():
     comment_body = f"""
 {marker}
 
-### Documentation preview for {args.commit_sha} will be available [here]({artifact_url}).
+### Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
 
 <details>
 <summary>More info</summary>
@@ -101,7 +101,6 @@ def main():
 - Ignore this comment if this PR does not change the documentation.
 - It takes a few minutes for the preview to be available.
 - The preview is updated when a new commit is pushed to this PR.
-- The preview was created by {job_url}.
 - This comment was created by {workflow_run_link}.
 
 </details>
