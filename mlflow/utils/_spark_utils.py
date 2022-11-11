@@ -41,8 +41,6 @@ def _create_local_spark_session_for_recipes():
     except ImportError:
         # Return None if user doesn't have PySpark installed
         return None
-    # Callinig `_prepare_environ_for_creating_local_spark_session` is important,
-    # otherwise it might connect to parent process connected spark cluster.
     _prepare_environ_for_creating_local_spark_session()
     return (
         SparkSession.builder.master("local[*]")

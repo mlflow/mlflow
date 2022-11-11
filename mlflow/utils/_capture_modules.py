@@ -112,8 +112,8 @@ def main():
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
 
-    if flavor == mlflow.spark.FLAVOR_NAME and not is_in_databricks_runtime():
-        # Create a local spark environment within the subprocess if using OSS Spark
+    if flavor == mlflow.spark.FLAVOR_NAME:
+        # Create a local spark environment within the subprocess
         from pyspark.sql import SparkSession
         _prepare_environ_for_creating_local_spark_session()
         (
