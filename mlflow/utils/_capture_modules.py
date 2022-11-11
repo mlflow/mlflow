@@ -116,6 +116,7 @@ def main():
         # Create a local spark environment within the subprocess
         from pyspark.sql import SparkSession
         from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
+
         _prepare_subprocess_environ_for_creating_local_spark_session()
         _create_local_spark_session_for_loading_spark_model()
 

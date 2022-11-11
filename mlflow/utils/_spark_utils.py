@@ -19,6 +19,7 @@ def _get_active_spark_session():
 
 def _prepare_subprocess_environ_for_creating_local_spark_session():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
+
     if is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
@@ -56,9 +57,9 @@ def _create_local_spark_session_for_recipes():
 
 def _create_local_spark_session_for_loading_spark_model():
     from pyspark.sql import SparkSession
+
     return (
-        SparkSession.builder
-        .config("spark.python.worker.reuse", "true")
+        SparkSession.builder.config("spark.python.worker.reuse", "true")
         # The config is a workaround for avoid databricks delta cache issue when loading
         # some specific model such as ALSModel.
         .config("spark.databricks.io.cache.enabled", "false")
