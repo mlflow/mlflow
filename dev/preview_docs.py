@@ -55,7 +55,7 @@ def main():
     else:
         print(f"Could not find {build_doc_job_name} job status")
         comment = f"""
-### Failed to find a documentation preview for {args.commit_sha}.
+Failed to find a documentation preview for {args.commit_sha}.
 
 <details>
 <summary>More info</summary>
@@ -93,7 +93,7 @@ def main():
     comment_body = f"""
 {marker}
 
-### Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
+Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
 
 <details>
 <summary>More info</summary>
