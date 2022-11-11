@@ -142,20 +142,23 @@ def log_model(
 
     .. note::
 
-       MLflow 2.0 requires that ``TensorFlow`` and ``tf.Keras`` models are logged with a signature.
-        A signature can be created for logging as shown below:
+        If logging model without signature, spark udf inference won't work if the model accepts
+        multidimensional tensors as inputs, and its pyfunc model cannot accept
+        pandas dataframe as inference inputs.
+        We can create signature by following code:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
-                from mlflow.types.schema import Schema, TensorSpec
-                from mlflow.models.signature import ModelSignature
-                input_schema = Schema(
-                    [
-                        TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                        TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                    ]
-                )
-                signature = ModelSignature(inputs=input_schema)
+
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            signature = ModelSignature(inputs=input_schema)
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
@@ -241,6 +244,13 @@ def _save_keras_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
+_NO_MODEL_SIGNATURE_WARNING = (
+    "You are saving a Tensorflow core model or Keras model without signature, "
+    "without signature, spark udf inference won't work if the model accepts "
+    "multidimensional tensors as inputs, and its pyfunc model cannot accept "
+    "pandas dataframe as inference inputs."
+)
+
 def save_model(
     model,
     path,
@@ -260,21 +270,23 @@ def save_model(
     the local file system.
 
     .. note::
-
-       MLflow 2.0 requires that ``TensorFlow`` and ``tf.Keras`` models are saved with a signature.
-        A signature can be created for saving as shown below:
+        If saving model without signature, spark udf inference won't work if the model accepts
+        multidimensional tensors as inputs, and its pyfunc model cannot accept
+        pandas dataframe as inference inputs.
+        We can create signature by following code:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
-                from mlflow.types.schema import Schema, TensorSpec
-                from mlflow.models.signature import ModelSignature
-                input_schema = Schema(
-                    [
-                        TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                        TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                    ]
-                )
-                signature = ModelSignature(inputs=input_schema)
+
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            signature = ModelSignature(inputs=input_schema)
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -318,10 +330,8 @@ def save_model(
     from tensorflow.keras.models import Model as KerasModel
 
     if signature is None:
-        raise MlflowException(
-            "Saving TF2 core model or Keras Model requires ``signature`` param specified.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        _logger.warning(_NO_MODEL_SIGNATURE_WARNING)
+
     num_inputs = len(signature.inputs.inputs)
     if num_inputs == 0:
         raise MlflowException(
