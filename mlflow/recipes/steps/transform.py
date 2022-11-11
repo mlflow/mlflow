@@ -18,6 +18,8 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
+_USER_DEFINED_TRANSFORM_STEP_MODULE = "steps.transform"
+
 
 def _generate_feature_names(num_features):
     max_length = len(str(num_features))
@@ -110,12 +112,8 @@ class TransformStep(BaseStep):
 
         method_config = self.step_config.get("transformer_method")
         if method_config:
-            (
-                transformer_module_name,
-                transformer_method_name,
-            ) = method_config.rsplit(".", 1)
             transformer_fn = getattr(
-                importlib.import_module(transformer_module_name), transformer_method_name
+                importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
             )
             transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()

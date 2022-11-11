@@ -19,16 +19,16 @@ recipe: "regression/v1"
 data:
   location: {{INGEST_DATA_LOCATION}}
   format: {{INGEST_DATA_FORMAT|default('parquet')}}
-  loader_method: steps.ingest.load_file_as_dataframe
+  loader_method: load_file_as_dataframe
 target_col: "fare_amount"
 steps:
   split:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
-    post_split_method: steps.split.process_splits
+    post_split_method: process_splits
   transform:
-    transformer_method: steps.transform.transformer_fn
+    transformer_method: transformer_fn
   train:
-    estimator_method: steps.train.estimator_fn
+    estimator_method: estimator_fn
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
@@ -50,7 +50,7 @@ INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}'
 {1}:
   location: https://nyc-tlc.s3.amazonaws.com/trip+data/yellow_tripdata_2022-01.parquet
   format: {{{{INGEST_DATA_FORMAT|default('parquet')}}}}
-  loader_method: steps.ingest.load_file_as_dataframe
+  loader_method: load_file_as_dataframe
 """
 
 INGEST_STEP = format_help_string(
@@ -89,7 +89,7 @@ SPLIT_STEP = format_help_string(
 steps:
   split:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
-    post_split_method: steps.split.process_splits
+    post_split_method: process_splits
 """
 )
 
@@ -128,7 +128,7 @@ TRANSFORM_STEP = format_help_string(
 
 steps:
   transform:
-    transformer_method: steps.transform.transformer_fn
+    transformer_method: transformer_fn
 """
 )
 
@@ -154,7 +154,7 @@ TRAIN_STEP = format_help_string(
 
 steps:
   train:
-    estimator_method: steps.train.estimator_fn
+    estimator_method: estimator_fn
 
 metrics:
   custom:
