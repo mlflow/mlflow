@@ -94,10 +94,19 @@ def get_spark_session(conf):
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
     # which make debug easier.
+    # If running in local mode on certain OS configurations (M1 Mac ARM CPUs)
+    # adding `.config("spark.driver.bindAddress", "127.0.0.1")` to the SparkSession
+    # builder configuration will enable a SparkSession to start.
+
+    # For local testing, uncomment the following line:
+    # spark_master = os.environ.get("SPARK_MASTER", "local[1]")
+    # If doing local testing, comment-out the following line.
     spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
+    # Don't forget to revert these changes prior to pushing a branch!
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
         .master(spark_master)
+        # .config("spark.driver.bindAddress", "127.0.0.1") # Uncomment for testing on M1 locally
         .config("spark.task.maxFailures", "1")  # avoid retry failed spark tasks
         .getOrCreate()
     )
@@ -346,13 +355,19 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
-            res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
         assert res["res2"][0] == ["a", "b", "c"]
         res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
         assert res["res4"][0] == ["a", "b", "c"]
+
+        # Exception being thrown in udf process intermittently causes the SparkSession to crash
+        # which results in a `java.net.SocketException: Socket is closed` failure in subsequent
+        # tests if tests are conducted after this exception capture validation.
+        # Keep this at the end of this suite so that executor sockets don't get closed while
+        # processing is still being conducted.
+        with pytest.raises(pyspark.sql.utils.PythonException, match=r".+"):
+            data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
 
 def test_spark_udf_with_datetime_columns(spark):

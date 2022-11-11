@@ -1801,7 +1801,7 @@ built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+<https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html>`_.
 
 .. note::
    To use MLServer with MLflow, please install ``mlflow`` as:

@@ -45,7 +45,21 @@ def serve(
     For information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
-    You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
+    .. warning::
+
+        Models built using MLflow 1.x will require adjustments to the endpoint request payload
+        if executed in an environment that has MLflow 2.x installed. In 1.x, a request payload
+        was in the format: ``{'columns': [str], 'data': [[...]]}``. 2.x models require
+        payloads that are defined by the structural-defining keys of either ``dataframe_split``,
+        ``instances``, ``inputs`` or ``dataframe_records``. See the examples below for
+        demonstrations of the changes to the invocation API endpoint in 2.0.
+
+    .. note::
+
+        Requests made in pandas DataFrame structures can be made in either `split` or `records`
+        oriented formats.
+        See https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_json.html for
+        detailed information on orientation formats for converting a pandas DataFrame to json.
 
     Example:
 
@@ -53,10 +67,32 @@ def serve(
 
         $ mlflow models serve -m runs:/my-run-id/model-path &
 
+        # records orientation input format for serializing a pandas DataFrame
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-            "columns": ["a", "b", "c"],
-            "data": [[1, 2, 3], [4, 5, 6]]
+            "dataframe_records": [{"a":1, "b":2}, {"a":3, "b":4}, {"a":5, "b":6}]
         }'
+
+        # split orientation input format for serializing a pandas DataFrame
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "dataframe_split": {"columns": ["a", "b"],
+                                "index": [0, 1, 2],
+                                "data": [[1, 2], [3, 4], [5, 6]]}
+        }'
+
+        # inputs format for List submission of array, tensor, or DataFrame data
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "inputs": [[1, 2], [3, 4], [5, 6]]
+        }'
+
+        # instances format for submission of Tensor data
+        curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "instances": [
+                {"a": "t1", "b": [1, 2, 3]},
+                {"a": "t2", "b": [4, 5, 6]},
+                {"a": "t3", "b": [7, 8, 9]}
+            ]
+        }'
+
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
     return get_flavor_backend(

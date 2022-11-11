@@ -51,7 +51,7 @@ def reset_global_states():
     for value in AUTOLOGGING_INTEGRATIONS.values():
         value.clear()
 
-    for integration_name in library_to_mlflow_module.keys():
+    for integration_name in library_to_mlflow_module:
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
@@ -65,7 +65,7 @@ def reset_global_states():
     for value in AUTOLOGGING_INTEGRATIONS.values():
         value.clear()
 
-    for integration_name in library_to_mlflow_module.keys():
+    for integration_name in library_to_mlflow_module:
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:

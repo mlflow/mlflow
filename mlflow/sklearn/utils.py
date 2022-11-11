@@ -816,7 +816,7 @@ def _create_child_runs_for_parameter_search(
         excluded_metric_prefixes = ["param", "split"]
         metrics_to_log = {
             key: value
-            for key, value in result_row.iteritems()
+            for key, value in result_row.items()
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
@@ -906,7 +906,7 @@ def _backported_all_estimators(type_filter=None):
     IS_PYPY = platform.python_implementation() == "PyPy"
 
     def is_abstract(c):
-        if not (hasattr(c, "__abstractmethods__")):
+        if not hasattr(c, "__abstractmethods__"):
             return False
         if not len(c.__abstractmethods__):
             return False

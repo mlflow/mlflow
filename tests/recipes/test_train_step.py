@@ -105,7 +105,7 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: custom
-                    estimator_method: tests.recipes.test_train_step.estimator_fn
+                    estimator_method: estimator_fn
                     {estimator_params}
                     tuning:
                         enabled: true
@@ -141,7 +141,7 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: custom
-                    estimator_method: tests.recipes.test_train_step.estimator_fn
+                    estimator_method: estimator_fn
                     tuning:
                         enabled: false
             """.format(
@@ -172,7 +172,7 @@ def test_train_step(tmp_recipe_root_path):
             steps:
                 train:
                     using: custom
-                    estimator_method: tests.recipes.test_train_step.estimator_fn
+                    estimator_method: estimator_fn
                     tuning:
                         enabled: false
             """.format(
@@ -180,8 +180,12 @@ def test_train_step(tmp_recipe_root_path):
             )
         )
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+            train_step.run(str(train_step_output_dir))
 
     run_id = train_step_output_dir.joinpath("run_id").read_text()
     metrics = MlflowClient().get_run(run_id).data.metrics
@@ -211,16 +215,20 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
             steps:
                 train:
                     using: custom
-                    estimator_method: tests.recipes.test_train_step.classifier_estimator_fn
+                    estimator_method: estimator_fn
                     tuning:
                         enabled: false
             """.format(
                 tracking_uri=mlflow.get_tracking_uri()
             )
         )
-        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            classifier_estimator_fn,
+        ):
+            recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+            train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+            train_step.run(str(train_step_output_dir))
 
     captured = capsys.readouterr()
     assert "Detected class imbalance" in captured.err
@@ -295,7 +303,11 @@ def test_train_steps_writes_model_pkl_and_card(tmp_recipe_root_path, use_tuning)
     ):
         train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/model.pkl").exists()
     assert (train_step_output_dir / "card.html").exists()
@@ -316,7 +328,11 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
     train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-    train_step.run(str(train_step_output_dir))
+    with mock.patch(
+        "steps.train.estimator_fn",
+        estimator_fn,
+    ):
+        train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
         run_id = f.read()
@@ -339,7 +355,11 @@ def test_train_steps_autologs(tmp_recipe_root_path, use_tuning):
     ):
         train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
 
@@ -364,7 +384,11 @@ def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
     ):
         train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
 
@@ -385,7 +409,11 @@ def test_train_step_with_tuning_best_parameters(tmp_recipe_root_path):
     ):
         train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
     best_params_yaml = read_yaml(train_step_output_dir, "best_parameters.yaml")
@@ -418,7 +446,11 @@ def test_train_step_with_tuning_output_yaml_correct(
         train_step = setup_train_step_with_tuning(
             tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
         )
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
     with open(os.path.join(train_step_output_dir, "best_parameters.yaml")) as f:
@@ -440,7 +472,11 @@ def test_train_step_with_tuning_child_runs_and_early_stop(tmp_recipe_root_path):
     ):
         train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-        train_step.run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
         run_id = f.read()
@@ -521,8 +557,12 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
                 use_tuning=True,
                 with_hardcoded_params=False,
             )
-        train_step._validate_and_apply_step_config()
-        train_step._run(str(train_step_output_dir))
+        with mock.patch(
+            "steps.train.estimator_fn",
+            estimator_fn,
+        ):
+            train_step._validate_and_apply_step_config()
+            train_step._run(str(train_step_output_dir))
 
         with open(train_step_output_dir / "run_id") as f:
             run_id = f.read()

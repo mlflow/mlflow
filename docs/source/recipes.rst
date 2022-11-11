@@ -383,10 +383,10 @@ The main components of the Recipe Template layout, which are common across all r
       split:
         split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
       transform:
-        transformer_method: steps.transform.transformer_fn
+        transformer_method: transformer_fn
       train:
         using: custom
-        estimator_method: steps.train.estimator_fn
+        estimator_method: estimator_fn
       evaluate:
         validation_criteria:
           - metric: root_mean_squared_error

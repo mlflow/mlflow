@@ -80,7 +80,7 @@ def test_infer_artifact_type_and_ext(is_file, artifact, artifact_type, ext, tmp_
     inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
         f"{ext}_{artifact_type.__name__}_artifact", artifact_representation, cm_fn_tuple
     )
-    assert not (is_file ^ inferred_from_path)
+    assert not is_file ^ inferred_from_path
     assert inferred_type is artifact_type
     assert inferred_ext == f".{ext}"
 

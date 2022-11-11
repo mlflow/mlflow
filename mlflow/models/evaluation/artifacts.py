@@ -152,7 +152,7 @@ def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tupl
             raise MlflowException(f"{exception_header} with path '{raw_artifact}' does not exist.")
         if not raw_artifact.is_file():
             raise MlflowException(f"{exception_header} with path '{raw_artifact}' is not a file.")
-        if raw_artifact.suffix not in _EXT_TO_ARTIFACT_MAP.keys():
+        if raw_artifact.suffix not in _EXT_TO_ARTIFACT_MAP:
             raise MlflowException(
                 f"{exception_header} with path '{raw_artifact}' does not match any of the supported"
                 f" file extensions: {', '.join(_EXT_TO_ARTIFACT_MAP.keys())}."
@@ -162,7 +162,7 @@ def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tupl
         )
 
     # Type inference based on object type
-    if type(raw_artifact) in _TYPE_TO_ARTIFACT_MAP.keys():
+    if type(raw_artifact) in _TYPE_TO_ARTIFACT_MAP:
         return _InferredArtifactProperties(
             from_path=False,
             type=_TYPE_TO_ARTIFACT_MAP[type(raw_artifact)],
