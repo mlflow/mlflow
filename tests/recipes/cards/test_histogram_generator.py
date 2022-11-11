@@ -22,14 +22,11 @@ class HistogramGeneratorTestCase(unittest.TestCase):
         """
         assert expected.type == actual.type
         assert len(expected.buckets) == len(actual.buckets)
-        for i in range(len(expected.buckets)):
-            actual_bucket = actual.buckets[i]
-            expected_bucket = expected.buckets[i]
-            assert actual_bucket.low_value == pytest.approx(expected_bucket.low_value, rel=1e-2)
-            assert actual_bucket.high_value == pytest.approx(expected_bucket.high_value, rel=1e-2)
-            assert actual_bucket.sample_count == pytest.approx(
-                expected_bucket.sample_count, rel=1e-2
-            )
+        for i, exp_bucket in enumerate(expected.buckets):
+            act_bucket = actual.buckets[i]
+            assert act_bucket.low_value == pytest.approx(exp_bucket.low_value, rel=1e-2)
+            assert act_bucket.high_value == pytest.approx(exp_bucket.high_value, rel=1e-2)
+            assert act_bucket.sample_count == pytest.approx(exp_bucket.sample_count, rel=1e-2)
 
 
 class EqualHeightHistogramGeneratorTestCase(HistogramGeneratorTestCase):
