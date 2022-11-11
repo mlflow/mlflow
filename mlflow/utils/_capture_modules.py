@@ -13,7 +13,6 @@ import mlflow
 from mlflow.utils.file_utils import write_to
 from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 
@@ -114,7 +113,6 @@ def main():
 
     if flavor == mlflow.spark.FLAVOR_NAME:
         # Create a local spark environment within the subprocess
-        from pyspark.sql import SparkSession
         from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
 
         _prepare_subprocess_environ_for_creating_local_spark_session()
