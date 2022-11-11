@@ -203,8 +203,6 @@ SERVE_ARTIFACTS = click.option(
 
 NO_CONDA = click.option(
     "--no-conda",
-    default=False,
     is_flag=True,
-    show_default=True,
-    help="If True, use local environment.",
+    help="If specified, use local environment.",
 )
