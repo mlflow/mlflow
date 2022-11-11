@@ -1,7 +1,7 @@
 name: Preview docs
 
 on:
-  pull_request:
+  pull_request_target:
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
