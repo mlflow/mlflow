@@ -9,7 +9,7 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.1.2"
+    maximum: "1.1.3"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     run: |
@@ -17,7 +17,7 @@ sklearn:
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.1.2"
+    maximum: "1.1.3"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]
@@ -36,7 +36,7 @@ pytorch:
 
   models:
     minimum: "1.6.0"
-    maximum: "1.12.1"
+    maximum: "1.13.0"
     requirements::
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
@@ -51,7 +51,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.7.7"
+    maximum: "1.8.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -103,7 +103,7 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.6.2"
+    maximum: "1.7.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -111,7 +111,7 @@ xgboost:
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.6.2"
+    maximum: "1.7.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -152,7 +152,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.1"
+    maximum: "1.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -187,7 +187,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.9"
+    maximum: "2.7.10"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -196,7 +196,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.9"
+    maximum: "2.7.10"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -241,7 +241,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.4.1"
+    maximum: "3.4.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.8": ["flask<2.1.0"]
@@ -256,7 +256,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.13.2"
+    maximum: "0.13.5"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -264,7 +264,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.13.2"
+    maximum: "0.13.5"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -289,7 +289,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -309,7 +309,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -335,7 +335,7 @@ mleap:
 
   models:
     minimum: "0.18.0"
-    maximum: "0.20.0"
+    maximum: "0.21.0"
     requirements:
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark"]
