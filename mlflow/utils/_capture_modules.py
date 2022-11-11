@@ -148,8 +148,9 @@ def main():
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
         from pyspark.sql import SparkSession
+        from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = SparkSession._instantiatedSession
+        spark = _get_active_spark_session()
         if spark:
             try:
                 spark.stop()
