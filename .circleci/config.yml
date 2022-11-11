@@ -61,6 +61,7 @@ jobs:
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
+            USE_ALGOLIA: "1"
           command: |
             make rsthtml
             make javadocs
