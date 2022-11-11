@@ -27,6 +27,7 @@ def commands():
 @cli_args.TIMEOUT
 @cli_args.WORKERS
 @cli_args.ENV_MANAGER
+@cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def serve(
@@ -36,6 +37,7 @@ def serve(
     timeout,
     workers,
     env_manager=None,
+    no_conda=False,
     install_mlflow=False,
     enable_mlserver=False,
 ):
@@ -94,7 +96,11 @@ def serve(
         }'
 
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
+    if no_conda:
+        env_manager = _EnvManager.LOCAL
+    else:
+        env_manager = env_manager or _EnvManager.VIRTUALENV
+
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(
