@@ -440,7 +440,9 @@ def test_tensor_multi_named_schema_enforcement():
     pdf["c"] = pdf["c"].astype(np.float32)
     with pytest.raises(
         MlflowException,
-        match=re.escape("Shape of input (1,) does not match expected shape (-1, 5)"),
+        match=re.escape(
+            "Input dataframe column 'a' values cannot be converted to expected shape (-1, 5)"
+        ),
     ):
         pyfunc_model.predict(pdf)
 

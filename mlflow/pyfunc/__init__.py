@@ -361,13 +361,16 @@ def _load_model_env(path):
 
 
 def _reshape_column_values(name, pd_series, shape, dtype):
-    flattened_numpy_arr = np.concatenate(pd_series.tolist())
-    reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(dtype)
+    err_msg = (
+        f"Input dataframe column '{name}' values cannot be converted to expected shape {shape}"
+    )
+    try:
+        flattened_numpy_arr = np.vstack(pd_series.tolist())
+        reshaped_numpy_arr = flattened_numpy_arr.reshape(shape).astype(dtype)
+    except ValueError:
+        raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
     if len(reshaped_numpy_arr) != len(pd_series):
-        raise MlflowException(
-            f"Field '{name}' data shape does not match model signature.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
     return reshaped_numpy_arr
 
 
@@ -419,62 +422,51 @@ class PyFuncModel:
         """
         input_schema = self.metadata.get_input_schema()
 
-        if input_schema is not None and input_schema.is_tensor_spec():
-            if isinstance(data, pandas.DataFrame):
-                # For tensor spec input schema, the model only accepts numpy array input or
-                # dict type input (dict only contains numpy type values and keys must match
-                # the input schema field names).
-                # This portion of the code is to convert the pandas dataframe into either a numpy
-                # array or a dict. Note that array reshaping is required due to pandas
-                # dataframe supporting only a 1-dimension array values, so a reshaping of the
-                # input values is required to conform the field to the tensor spec.
-                pdf = data
-                input_specs = input_schema.inputs
-                if len(input_specs) == 1:
-                    if len(pdf.columns) == 1:
-                        data = _reshape_column_values(
-                            pdf.columns[0],
-                            pdf[pdf.columns[0]],
-                            input_specs[0].shape,
-                            input_specs[0].type,
-                        )
-                    else:
-                        expected_dim = len(pdf.columns)
-                        if input_specs[0].shape != (-1, expected_dim):
-                            raise MlflowException(
-                                "Input data dimension does not match model signature.",
-                                error_code=INVALID_PARAMETER_VALUE,
-                            )
-                        data = pdf.to_numpy()
-                else:
-                    data = {}
-                    for tensor_spec in input_specs:
-                        data[tensor_spec.name] = _reshape_column_values(
-                            tensor_spec.name,
-                            pdf[tensor_spec.name],
-                            tensor_spec.shape,
-                            tensor_spec.type,
-                        )
-            elif isinstance(data, list):
-                input_names = input_schema.input_names()
-                if len(data) != len(input_names):
-                    raise MlflowException(
-                        "The number of input data fields does not match model signature.",
-                        error_code=INVALID_PARAMETER_VALUE,
+        if (
+            input_schema is not None
+            and input_schema.is_tensor_spec()
+            and isinstance(data, pandas.DataFrame)
+        ):
+            # For tensor spec input schema, the model only accepts numpy array input or
+            # dict type input (dict only contains numpy type values and keys must match
+            # the input schema field names).
+            # This portion of the code is to convert the pandas dataframe into either a numpy
+            # array or a dict. Note that array reshaping is required due to pandas
+            # dataframe supporting only a 1-dimension array values, so a reshaping of the
+            # input values is required to conform the field to the tensor spec.
+            pdf = data
+            input_specs = input_schema.inputs
+            if len(input_specs) == 1:
+                if len(pdf.columns) == 1:
+                    data = _reshape_column_values(
+                        pdf.columns[0],
+                        pdf[pdf.columns[0]],
+                        input_specs[0].shape,
+                        input_specs[0].type,
                     )
-                if len(data) == 1:
-                    data = data[0]
                 else:
-                    # Convert list / tuple input as dict style input and append field name,
-                    # because following `_enforce_schema` need to check the field name.
-                    data_dict = {}
-                    for index, field_name in enumerate(input_names):
-                        data_dict[field_name] = data[index]
-                    data = data_dict
+                    expected_dim = len(pdf.columns)
+                    if input_specs[0].shape != (-1, expected_dim):
+                        raise MlflowException(
+                            "Input data dimension does not match model signature.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    data = pdf.to_numpy()
+            else:
+                data = {}
+                for tensor_spec in input_specs:
+                    data[tensor_spec.name] = _reshape_column_values(
+                        tensor_spec.name,
+                        pdf[tensor_spec.name],
+                        tensor_spec.shape,
+                        tensor_spec.type,
+                    )
 
-        if input_schema is None and \
-                self._model_meta.flavors[FLAVOR_NAME]["loader_module"] == "mlflow.keras" and \
-                isinstance(data, pandas.DataFrame):
+        if (
+            input_schema is None
+            and self._model_meta.flavors[FLAVOR_NAME]["loader_module"] == "mlflow.keras"
+            and isinstance(data, pandas.DataFrame)
+        ):
             # This is for backwards-compatibility.
             data = data.values
 

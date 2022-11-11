@@ -125,10 +125,10 @@ def get_default_conda_env():
 def log_model(
     model,
     artifact_path,
-    signature: ModelSignature,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
+    signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     registered_model_name=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -145,7 +145,9 @@ def log_model(
         If logging model without signature, spark udf inference won't work if the model accepts
         multidimensional tensors as inputs, and its pyfunc model cannot accept
         pandas dataframe as inference inputs.
-        We can create signature by following code:
+
+        We can infer signature by :py:func:`mlflow.models.infer_signature` API from model
+        input dataset. We can also manually create signature by following code:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
@@ -251,6 +253,7 @@ _NO_MODEL_SIGNATURE_WARNING = (
     "pandas dataframe as inference inputs."
 )
 
+
 def save_model(
     model,
     path,
@@ -273,7 +276,8 @@ def save_model(
         If saving model without signature, spark udf inference won't work if the model accepts
         multidimensional tensors as inputs, and its pyfunc model cannot accept
         pandas dataframe as inference inputs.
-        We can create signature by following code:
+        We can infer signature by :py:func:`mlflow.models.infer_signature` API from model
+        input dataset. We can also manually create signature by following code:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
@@ -348,7 +352,7 @@ def save_model(
                 raise MlflowException(
                     "If the signiture inputs have multiple fields, all fields in signature "
                     "inputs must have a name.",
-                    error_code = INVALID_PARAMETER_VALUE,
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             if input.shape[0] != -1:
                 raise MlflowException(
