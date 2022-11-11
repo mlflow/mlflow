@@ -6,6 +6,7 @@ import {
   SelectionChangedEvent,
 } from '@ag-grid-community/core';
 import { Theme } from '@emotion/react';
+import cx from 'classnames';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
@@ -80,6 +81,8 @@ export const ExperimentViewRunsTable = React.memo(
     const [columnApi, setColumnApi] = useState<ColumnApi>();
     const prevSelectRunUuids = useRef<string[]>([]);
     const [runsCount, setRunsCount] = useState(runInfos.length);
+    // Flag indicating if there are any rows that can be expanded
+    const [expandersVisible, setExpandersVisible] = useState(false);
 
     const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
@@ -211,7 +214,9 @@ export const ExperimentViewRunsTable = React.memo(
         runsPinned,
       });
       gridApi.setRowData(data);
+
       setRunsCount(data.length);
+      setExpandersVisible(data.some((row) => row.runDateAndNestInfo?.hasExpander));
     }, [
       gridApi,
       isLoading,
@@ -312,7 +317,9 @@ export const ExperimentViewRunsTable = React.memo(
         </div>
         <div
           ref={containerElement}
-          className='ag-theme-balham ag-grid-sticky'
+          className={cx('ag-theme-balham ag-grid-sticky', {
+            'ag-grid-expanders-visible': expandersVisible,
+          })}
           css={styles.agGridOverrides}
         >
           <MLFlowAgGridLoader

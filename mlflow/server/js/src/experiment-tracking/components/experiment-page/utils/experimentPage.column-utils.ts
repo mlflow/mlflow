@@ -214,34 +214,17 @@ export const useRunsColumnDefinitions = ({
       resizable: false,
     });
 
-    // Date and expander selection column
-    columns.push({
-      headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
-      headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-      pinned: 'left',
-      field: 'runDateAndNestInfo',
-      initialWidth: 150,
-      cellRenderer: 'DateCellRenderer',
-      cellRendererParams: { onExpand },
-      equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
-      sortable: true,
-      headerComponentParams: {
-        ...commonSortOrderProps,
-        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-        getClassName: getHeaderClassName,
-      },
-      cellClass: getCellClassName,
-    });
-
-    // Run name column
+    // Run name and expander selection column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
       colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME],
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
       pinned: 'left',
-      field: 'runName',
       sortable: true,
+      field: 'runDateAndNestInfo',
       cellRenderer: 'RunNameCellRenderer',
+      cellRendererParams: { onExpand },
+      equals: isEqual,
       headerComponentParams: {
         ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
@@ -249,6 +232,25 @@ export const useRunsColumnDefinitions = ({
       },
       cellClass: getCellClassName,
       initialWidth: 260,
+    });
+
+    // Date column
+    columns.push({
+      headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
+      headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+      pinned: 'left',
+      sortable: true,
+      field: 'runDateAndNestInfo',
+      cellRenderer: 'DateCellRenderer',
+      cellRendererParams: { onExpand },
+      equals: isEqual,
+      headerComponentParams: {
+        ...commonSortOrderProps,
+        canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+        getClassName: getHeaderClassName,
+      },
+      cellClass: getCellClassName,
+      initialWidth: 150,
     });
 
     // Duration column
