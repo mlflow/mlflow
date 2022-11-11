@@ -331,30 +331,30 @@ def save_model(
 
     if signature is None:
         _logger.warning(_NO_MODEL_SIGNATURE_WARNING)
-
-    num_inputs = len(signature.inputs.inputs)
-    if num_inputs == 0:
-        raise MlflowException(
-            "The signature inputs must contain at least one field.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    for input in signature.inputs.inputs:
-        if not isinstance(input, TensorSpec):
+    else:
+        num_inputs = len(signature.inputs.inputs)
+        if num_inputs == 0:
             raise MlflowException(
-                "All fileds in signature inputs must be of tensor type.",
+                "The signature inputs must contain at least one field.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if num_inputs > 1 and input.name is None:
-            raise MlflowException(
-                "If the signiture inputs have multiple fields, all fields in signature "
-                "inputs must have a name.",
-                error_code = INVALID_PARAMETER_VALUE,
-            )
-        if input.shape[0] != -1:
-            raise MlflowException(
-                "All fields in signature inputs must have a shape in which the first dimension "
-                "is a variable dimension."
-            )
+        for input in signature.inputs.inputs:
+            if not isinstance(input, TensorSpec):
+                raise MlflowException(
+                    "All fileds in signature inputs must be of tensor type.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if num_inputs > 1 and input.name is None:
+                raise MlflowException(
+                    "If the signiture inputs have multiple fields, all fields in signature "
+                    "inputs must have a name.",
+                    error_code = INVALID_PARAMETER_VALUE,
+                )
+            if input.shape[0] != -1:
+                raise MlflowException(
+                    "All fields in signature inputs must have a shape in which the first dimension "
+                    "is a variable dimension."
+                )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
