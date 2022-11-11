@@ -17,14 +17,14 @@ class TestRegisteredModel(unittest.TestCase):
         latest_versions,
         tags,
     ):
-        self.assertIsInstance(registered_model, RegisteredModel)
-        self.assertEqual(registered_model.name, name)
-        self.assertEqual(registered_model.creation_timestamp, creation_timestamp)
-        self.assertEqual(registered_model.last_updated_timestamp, last_updated_timestamp)
-        self.assertEqual(registered_model.description, description)
-        self.assertEqual(registered_model.last_updated_timestamp, last_updated_timestamp)
-        self.assertEqual(registered_model.latest_versions, latest_versions)
-        self.assertEqual(registered_model.tags, tags)
+        assert isinstance(registered_model, RegisteredModel)
+        assert registered_model.name == name
+        assert registered_model.creation_timestamp == creation_timestamp
+        assert registered_model.last_updated_timestamp == last_updated_timestamp
+        assert registered_model.description == description
+        assert registered_model.last_updated_timestamp == last_updated_timestamp
+        assert registered_model.latest_versions == latest_versions
+        assert registered_model.tags == tags
 
     def test_creation_and_hydration(self):
         name = random_str()
@@ -40,13 +40,13 @@ class TestRegisteredModel(unittest.TestCase):
             "latest_versions": [],
             "tags": {},
         }
-        self.assertEqual(dict(rmd_1), as_dict)
+        assert dict(rmd_1) == as_dict
 
         proto = rmd_1.to_proto()
-        self.assertEqual(proto.name, name)
-        self.assertEqual(proto.creation_timestamp, 1)
-        self.assertEqual(proto.last_updated_timestamp, 2)
-        self.assertEqual(proto.description, description)
+        assert proto.name == name
+        assert proto.creation_timestamp == 1
+        assert proto.last_updated_timestamp == 2
+        assert proto.description == description
         rmd_2 = RegisteredModel.from_proto(proto)
         self._check(rmd_2, name, 1, 2, description, [], {})
         as_dict["tags"] = []
@@ -91,26 +91,17 @@ class TestRegisteredModel(unittest.TestCase):
         }
         rmd_1 = RegisteredModel.from_dictionary(as_dict)
         as_dict["tags"] = {}
-        self.assertEqual(dict(rmd_1), as_dict)
+        assert dict(rmd_1) == as_dict
 
         proto = rmd_1.to_proto()
-        self.assertEqual(proto.creation_timestamp, 1)
-        self.assertEqual(proto.last_updated_timestamp, 4000)
-        self.assertEqual({mvd.version for mvd in proto.latest_versions}, {"1", "4"})
-        self.assertEqual({mvd.name for mvd in proto.latest_versions}, {name})
-        self.assertEqual(
-            {mvd.current_stage for mvd in proto.latest_versions},
-            {"Production", "Staging"},
-        )
-        self.assertEqual(
-            {mvd.last_updated_timestamp for mvd in proto.latest_versions},
-            {2000, 2002},
-        )
+        assert proto.creation_timestamp == 1
+        assert proto.last_updated_timestamp == 4000
+        assert {mvd.version for mvd in proto.latest_versions} == {"1", "4"}
+        assert {mvd.name for mvd in proto.latest_versions} == {name}
+        assert {mvd.current_stage for mvd in proto.latest_versions} == {"Production", "Staging"}
+        assert {mvd.last_updated_timestamp for mvd in proto.latest_versions} == {2000, 2002}
 
-        self.assertEqual(
-            {mvd.creation_timestamp for mvd in proto.latest_versions},
-            {1300, 1000},
-        )
+        assert {mvd.creation_timestamp for mvd in proto.latest_versions} == {1300, 1000}
 
     def test_with_tags(self):
         name = random_str()
@@ -127,18 +118,12 @@ class TestRegisteredModel(unittest.TestCase):
         }
         rmd_1 = RegisteredModel.from_dictionary(as_dict)
         as_dict["tags"] = {tag.key: tag.value for tag in (tags or [])}
-        self.assertEqual(dict(rmd_1), as_dict)
+        assert dict(rmd_1) == as_dict
         proto = rmd_1.to_proto()
-        self.assertEqual(proto.creation_timestamp, 1)
-        self.assertEqual(proto.last_updated_timestamp, 4000)
-        self.assertEqual(
-            {tag.key for tag in proto.tags},
-            {"key", "randomKey"},
-        )
-        self.assertEqual(
-            {tag.value for tag in proto.tags},
-            {"value", "not a random value"},
-        )
+        assert proto.creation_timestamp == 1
+        assert proto.last_updated_timestamp == 4000
+        assert {tag.key for tag in proto.tags} == {"key", "randomKey"}
+        assert {tag.value for tag in proto.tags} == {"value", "not a random value"}
 
     def test_string_repr(self):
         rmd = RegisteredModel(

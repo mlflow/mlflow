@@ -46,6 +46,7 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
+      export PACKAGE_NAME=pytorch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
@@ -336,7 +337,8 @@ mleap:
     minimum: "0.18.0"
     maximum: "0.20.0"
     requirements:
-      "> 0.17.0": ["pyspark==3.0.2"]
+      "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
+      ">= 0.21.0": ["pyspark"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then

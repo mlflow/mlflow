@@ -106,7 +106,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
-        extra_args = dict()
+        extra_args = {}
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
             extra_args["ContentType"] = guessed_type

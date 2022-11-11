@@ -912,6 +912,129 @@ interpreted as generic Python functions for inference via :py:func:`mlflow.pyfun
 only be scored with DataFrame input. You can also use the :py:func:`mlflow.fastai.load_model()` method to
 load MLflow Models with the ``fastai`` model flavor in native fastai format.
 
+The interface for utilizing a ``fastai`` model loaded as a pyfunc type for generating predictions uses a 
+Pandas DataFrame argument. 
+
+This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.tabular.html>`_, 
+logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
+using a ``fastai`` data loader:
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    def print_auto_logged_info(r):
+        tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+        artifacts = [f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")]
+        print("run_id: {}".format(r.info.run_id))
+        print("artifacts: {}".format(artifacts))
+        print("params: {}".format(r.data.params))
+        print("metrics: {}".format(r.data.metrics))
+        print("tags: {}".format(tags))
+
+    def main(epochs=5, learning_rate=0.01):
+
+        path = untar_data(URLs.ADULT_SAMPLE)
+        path.ls()
+
+        df = pd.read_csv(path/'adult.csv')
+
+        dls = TabularDataLoaders.from_csv(path/'adult.csv', path=path, y_names="salary",
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            procs = [Categorify, FillMissing, Normalize])
+
+        splits = RandomSplitter(valid_pct=0.2)(range_of(df))
+
+        to = TabularPandas(df, procs=[Categorify, FillMissing,Normalize],
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            y_names='salary',
+            splits=splits)
+
+        dls = to.dataloaders(bs=64)
+
+        model = tabular_learner(dls, metrics=accuracy)
+
+        mlflow.fastai.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(5, 0.01)
+            mlflow.fastai.log_model(model, "model")
+
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.fastai.load_model(model_uri)
+
+        test_df = df.copy()
+        test_df.drop(['salary'], axis=1, inplace=True)
+        dl = learn.dls.test_dl(test_df)
+
+        predictions, _ = loaded_model.get_preds(dl=dl)
+        px = pd.DataFrame(predictions).astype("float")
+        px.head(5)
+
+    main()
+
+Output (``Pandas DataFrame``):
+
+====== ========================== ==========================
+Index  Probability of first class Probability of second class
+====== ========================== ==========================
+0	   0.545088	                  0.454912
+1	   0.503172	                  0.496828
+2	   0.962663	                  0.037337
+3	   0.206107	                  0.793893
+4	   0.807599	                  0.192401
+====== ========================== ==========================
+
+Alternatively, when using the ``python_function`` flavor, get predictions from a DataFrame.
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+    
+    model_uri = ...
+
+    path = untar_data(URLs.ADULT_SAMPLE)
+    df = pd.read_csv(path/'adult.csv')
+    test_df = df.copy()
+    test_df.drop(['salary'], axis=1, inplace=True)
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri)
+    loaded_model.predict(test_df)
+
+Output (``Pandas DataFrame``):
+
+====== =======================================================
+Index  Probability of first class, Probability of second class
+====== =======================================================
+0	   [0.5450878, 0.45491222]
+1	   [0.50317234, 0.49682766]
+2	   [0.9626626, 0.037337445]
+3	   [0.20610662, 0.7938934]
+4	   [0.8075987, 0.19240129]
+====== =======================================================
+
 For more information, see :py:mod:`mlflow.fastai`.
 
 Statsmodels (``statsmodels``)
@@ -1243,21 +1366,27 @@ and behavior:
     import mlflow
     from sklearn.model_selection import train_test_split
 
-    # load UCI Adult Data Set; segment it into training and test sets
+    # Load the UCI Adult Dataset
     X, y = shap.datasets.adult()
+
+    # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-    # train XGBoost model
+    # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
-    # construct an evaluation dataset from the test set
+    # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
-        model_info = mlflow.sklearn.log_model(model, "model")
+        # Log the baseline model to MLflow
+        mlflow.sklearn.log_model(model, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # Evaluate the logged model
         result = mlflow.evaluate(
-            model_info.model_uri,
+            model_uri,
             eval_data,
             targets="label",
             model_type="classifier",
@@ -1267,10 +1396,10 @@ and behavior:
 |eval_metrics_img| |eval_importance_img|
 
 .. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
-   :width: 30%
+   :width: 15%
 
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
-   :width: 69%
+   :width: 84%
 
 
 Evaluating with Custom Metrics
@@ -1352,6 +1481,14 @@ Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thr
 and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
 `the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
+The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
+been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+
+|eval_importance_compare_img|
+
+.. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
+   :width: 99%
 
 .. note:: Limitations (when the default evaluator is used):
 
@@ -1664,7 +1801,7 @@ built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+<https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html>`_.
 
 .. note::
    To use MLServer with MLflow, please install ``mlflow`` as:

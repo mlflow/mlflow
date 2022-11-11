@@ -495,7 +495,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         preexec_fn=os.setsid,
     )
     _, stderr = process.communicate()
-    assert 0 == process.wait(), "stderr = \n\n{}\n\n".format(stderr)
+    assert process.wait() == 0, "stderr = \n\n{}\n\n".format(stderr)
     with open(output_json_path, "r") as f:
         result_df = pd.DataFrame(data=json.load(f)["predictions"])
     np.testing.assert_array_equal(
@@ -544,7 +544,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         preexec_fn=os.setsid,
     )
     stdout, stderr = process.communicate()
-    assert 0 == process.wait(), f"stdout = \n\n{stdout}\n\n stderr = \n\n{stderr}\n\n"
+    assert process.wait() == 0, f"stdout = \n\n{stdout}\n\n stderr = \n\n{stderr}\n\n"
     with open(output_json_path, "r") as f:
         result_df = pandas.DataFrame(json.load(f)["predictions"])
     np.testing.assert_array_equal(

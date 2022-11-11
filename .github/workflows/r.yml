@@ -19,8 +19,7 @@ env:
 
 jobs:
   r:
-    # TODO: Change this to 'ubuntu-latest' once https://github.com/mlflow/mlflow/issues/7222 is fixed
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     defaults:
       run:

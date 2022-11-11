@@ -116,7 +116,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
             ]
             + no_conda
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
@@ -273,7 +273,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -297,7 +297,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -321,7 +321,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -338,7 +338,7 @@ def test_predict(iris_data, sk_model):
         )
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(StringIO(stdout), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -365,7 +365,7 @@ def test_predict(iris_data, sk_model):
             + extra_options,
             env=env_with_tracking_uri,
         )
-        assert 0 == p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -410,9 +410,7 @@ def test_prepare_env_fails(sk_model):
         assert p.wait() != 0
 
 
-# NB: mlserver is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -435,9 +433,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
-# NB: mlserver is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -475,9 +471,7 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-# NB: ml_serve is not compatible with mlflow 2.0, we should re-enable if it does support mlflow in
-# the future.
-@pytest.mark.parametrize("enable_mlserver", [False])
+@pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:

@@ -117,18 +117,18 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
     assert registered_model_detailed.latest_versions == []
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
     assert_is_between(start_time, end_time, registered_model_detailed.last_updated_timestamp)
-    assert [name] == [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name]
-    assert [name] == [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name]
-    assert [name] == [
+    assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == [name]
+    assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == [name]
+    assert [
         rm.name
         for rm in mlflow_client.search_registered_models(filter_string="")
         if rm.name == name
-    ]
-    assert [name] == [
+    ] == [name]
+    assert [
         rm.name
         for rm in mlflow_client.search_registered_models("name = 'CreateRMTest'")
         if rm.name == name
-    ]
+    ] == [name]
     # clean up test
     mlflow_client.delete_registered_model(name)
 
@@ -272,7 +272,7 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
-    assert [name] == [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name]
+    assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == [name]
 
     # cannot create a model with same name
     with pytest.raises(MlflowException, match=r"Registered Model .+ already exists"):
@@ -289,7 +289,7 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
         mlflow_client.rename_registered_model(name=name, new_name="something else")
 
     # list does not include deleted model
-    assert [] == [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name]
+    assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == []
 
     # recreate model with same name
     start_time_2 = get_current_time_millis()
@@ -300,7 +300,7 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
 
-    assert [name] == [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name]
+    assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == [name]
 
 
 def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
@@ -339,26 +339,26 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
         "another key": "some other value",
         "numeric value": "12345",
     }
-    assert [[mvd1]] == [
+    assert [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
-    ]
+    ] == [[mvd1]]
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = mlflow_client.get_model_version(name, "2")
-    assert [[mvd2]] == [
+    assert [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
-    ]
+    ] == [[mvd2]]
     model_versions_by_name = mlflow_client.search_model_versions("name = '%s'" % name)
-    assert {"1", "2"} == {mv.version for mv in model_versions_by_name}
-    assert {name} == {mv.name for mv in model_versions_by_name}
+    assert {mv.version for mv in model_versions_by_name} == {"1", "2"}
+    assert {mv.name for mv in model_versions_by_name} == {name}
 
     mv3 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_2")
     assert mv3.version == "3"
-    assert [mvd1] == mlflow_client.search_model_versions("source_path = 'path/to/model'")
-    assert [mvd2, mvd1] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
+    assert mlflow_client.search_model_versions("source_path = 'path/to/model'") == [mvd1]
+    assert mlflow_client.search_model_versions("run_id = 'run_id_1'") == [mvd2, mvd1]
 
-    assert "path/to/model" == mlflow_client.get_model_version_download_uri(name, "1")
+    assert mlflow_client.get_model_version_download_uri(name, "1") == "path/to/model"
 
 
 def test_get_model_version(mlflow_client, backend_store_uri):
@@ -399,16 +399,16 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_0, end_time_0, rmd2.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, rmd2.last_updated_timestamp)
 
-    assert [[mvd1]] == [
+    assert [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
-    ]
+    ] == [[mvd1]]
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = mlflow_client.get_model_version(name, "2")
-    assert [[mvd2]] == [
+    assert [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
-    ]
+    ] == [[mvd2]]
 
     start_time_2 = get_current_time_millis()
     mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
@@ -425,9 +425,9 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
     model_versions_detailed = [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
     ]
-    assert 1 == len(model_versions_detailed)
-    assert {"1", "2"} == {mvd.version for mvd in model_versions_detailed[0]}
-    assert {name} == {mvd.name for mvd in model_versions_detailed[0]}
+    assert len(model_versions_detailed) == 1
+    assert {mvd.version for mvd in model_versions_detailed[0]} == {"1", "2"}
+    assert {mvd.name for mvd in model_versions_detailed[0]} == {name}
 
     # update description
     start_time_3 = get_current_time_millis()
@@ -470,11 +470,11 @@ def test_latest_models(mlflow_client, backend_store_uri):
         latest = mlflow_client.get_latest_versions(name, stages)
         return {mvd.current_stage: mvd.version for mvd in latest}
 
-    assert {"None": "7"} == get_latest(["None"])
-    assert {"Staging": "6"} == get_latest(["Staging"])
-    assert {"None": "7", "Staging": "6"} == get_latest(["None", "Staging"])
-    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest(None)
-    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest([])
+    assert get_latest(["None"]) == {"None": "7"}
+    assert get_latest(["Staging"]) == {"Staging": "6"}
+    assert get_latest(["None", "Staging"]) == {"None": "7", "Staging": "6"}
+    assert get_latest(None) == {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"}
+    assert get_latest([]) == {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"}
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):
@@ -509,17 +509,20 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     model_versions_detailed = [
         rm.latest_versions for rm in mlflow_client.search_registered_models() if rm.name == name
     ]
-    assert 1 == len(model_versions_detailed)
-    assert "3" == model_versions_detailed[0][0].version
-    assert {"1", "2", "3"} == {
-        mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
+    assert len(model_versions_detailed) == 1
+    assert model_versions_detailed[0][0].version == "3"
+    assert {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)} == {
+        "1",
+        "2",
+        "3",
     }
 
     start_time_2 = get_current_time_millis()
     mlflow_client.delete_model_version(name, "1")
     end_time_2 = get_current_time_millis()
-    assert {"2", "3"} == {
-        mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
+    assert {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)} == {
+        "2",
+        "3",
     }
     rmd3 = mlflow_client.get_registered_model(name)
     # deleting model versions changes last_updated_timestamp for registered model
@@ -537,14 +540,15 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
         mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
 
     mlflow_client.delete_model_version(name, 3)
-    assert {"2"} == {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)}
+    assert {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)} == {"2"}
 
     # new model versions will not reuse existing version numbers
     mv4 = mlflow_client.create_model_version(name, "a/b/c", "run_id_2")
     assert mv4.version == "4"
     assert mv4.name == name
-    assert {"2", "4"} == {
-        mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
+    assert {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)} == {
+        "2",
+        "4",
     }
 
 
