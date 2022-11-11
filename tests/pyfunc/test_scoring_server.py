@@ -398,7 +398,7 @@ def test_parse_json_input_records_oriented():
     records_content = json.dumps({"dataframe_records": p1.to_dict(orient="records")})
     p2 = pyfunc_scoring_server.infer_and_parse_json_input(records_content)
     # "records" orient may shuffle column ordering. Hence comparing each column Series
-    for col in data.keys():
+    for col in data:
         assert all(p1[col] == p2[col])
 
 
