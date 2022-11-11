@@ -321,7 +321,7 @@ Ragged arrays can be created in numpy and are produced with a shape of (-1,) and
 object. This will be handled by default when using ``infer_signature``, resulting in a
 signature containing ``Tensor('object', (-1,))``. A similar signature can be manually created
 containing a more detailed representation of a ragged array, for a more expressive signature,
-such as ``Tensor('object', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
+such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
 as possible given the signature provided, and will support ragged input arrays as well.
 
 
