@@ -22,8 +22,13 @@ def _prepare_environ_for_creating_local_spark_session():
     if is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
-    # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
-    # gateway
+    # Suppose we have a parent process already initiate a spark session that connected to a spark
+    # cluster, then the parent process spawns a child process, if child process directly creates
+    # a local spark session, it does not work correctly, because of PYSPARK_GATEWAY_PORT and
+    # PYSPARK_GATEWAY_SECRET is inherited from parent process and child process pyspark session
+    # will try to connect to the port and cause error.
+    # So the 2 lines here is to clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to
+    # enforce launching a new pyspark JVM gateway.
     os.environ.pop("PYSPARK_GATEWAY_PORT", None)
     os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
 
