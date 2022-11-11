@@ -411,12 +411,12 @@ class PyFuncModel:
                      scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
                      Dict[str, numpy.ndarray].
                      For model signature with tensor spec inputs
-                    (e.g. the Tensorflow core / Keras model), the data must be one of
-                    numpy.ndarray, List[numpy.ndarray], Dict[str, numpy.ndarray], pandas.DataFrame,
-                    if data is pandas.DataFrame type, if a input field requires multidimensional
-                    array input, the corresponding column values in the pandas Dataframe will be
-                    reshaped to the required shape, and dataframe column values will be casted as
-                    the required tensor spec type.
+                     (e.g. the Tensorflow core / Keras model), the input data type must be one of
+                     `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` and
+                     `pandas.DataFrame`, if data is `pandas.DataFrame` type and a input field
+                     requires multidimensional array input, the corresponding column values in
+                     the pandas Dataframe will be reshaped to the required shape, and dataframe
+                     column values will be cast as the required tensor spec type.
 
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
