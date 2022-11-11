@@ -22,8 +22,7 @@ class HistogramGeneratorTestCase(unittest.TestCase):
         """
         assert expected.type == actual.type
         assert len(expected.buckets) == len(actual.buckets)
-        for i, exp_bucket in enumerate(expected.buckets):
-            act_bucket = actual.buckets[i]
+        for act_bucket, exp_bucket in zip(actual.buckets, expected.buckets):
             assert act_bucket.low_value == pytest.approx(exp_bucket.low_value, rel=1e-2)
             assert act_bucket.high_value == pytest.approx(exp_bucket.high_value, rel=1e-2)
             assert act_bucket.sample_count == pytest.approx(exp_bucket.sample_count, rel=1e-2)
