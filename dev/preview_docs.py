@@ -55,7 +55,7 @@ def main():
     else:
         print(f"Could not find {build_doc_job_name} job status")
         comment = f"""
-### Failed to find a documentation preview link for {args.commit_sha}.
+### Failed to find a documentation preview for {args.commit_sha}.
 
 <details>
 <summary>More info</summary>
