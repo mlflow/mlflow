@@ -25,7 +25,7 @@ import re
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.types.schema import Schema, TensorSpec
+from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -207,8 +207,6 @@ def log_model(
              metadata of the logged model.
     """
 
-    from tensorflow.keras.models import Model as KerasModel
-
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.tensorflow,
@@ -342,19 +340,19 @@ def save_model(
                 "The signature inputs must contain at least one field.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        for input in signature.inputs.inputs:
-            if not isinstance(input, TensorSpec):
+        for field in signature.inputs.inputs:
+            if not isinstance(field, TensorSpec):
                 raise MlflowException(
                     "All fileds in signature inputs must be of tensor type.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if num_inputs > 1 and input.name is None:
+            if num_inputs > 1 and field.name is None:
                 raise MlflowException(
                     "If the signiture inputs have multiple fields, all fields in signature "
                     "inputs must have a name.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if input.shape[0] != -1:
+            if field.shape[0] != -1:
                 raise MlflowException(
                     "All fields in signature inputs must have a shape in which the first dimension "
                     "is a variable dimension."
@@ -1090,8 +1088,6 @@ def autolog(
         from mlflow.tensorflow._autolog import extract_tf_keras_input_example
 
         def _get_tf_keras_input_example_slice():
-            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
             input_training_data = args[0]
             keras_input_example_slice = extract_tf_keras_input_example(input_training_data)
             if keras_input_example_slice is None:
