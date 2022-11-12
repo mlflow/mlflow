@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2.0.0 (2022-11-12)
+
+MLflow 2.0.0 includes several major features and improvements
+
+Features:
+
+- [Docs / Scoring] Bump MLServer version to 1.2.0.dev13 (#7254, @adriangonz)
+- [] Implement `EvaluationMetric` and `custom_artifacts` for `mlflow.evaluate` (#7142, @harupy)
+- [] Update MLflow UI (#7177, @harupy)
+- [Tracking] Add 'save_format' param to Keras autolog() (#7123, @balvisio)
+- [Java / Model Registry] Implements getModelVersion in the java client (#6955, @wgottschalk)
+- [Recipes] implement classification pipeline (#7082, @bbarnes52)
+- [Models] Set positive label default to None for mlflow.evaluate() and infer pos label (#7149, @dbczumar)
+
+Bug fixes:
+
+- [Docs / Scoring] Changes to support ragged arrays in signature handling (#7135, @trangevi)
+- [] enable `consider-using-enumerate` rule and fix pylint errors (#7306, @ayushthe1)
+- [] enable `superfluous-parens / C0325` rule and fixed the pylint errors (#7298, @ayushthe1)
+- [] Set `DataCaptureConfig` when creating a new endpoint config (#7281, @harupy)
+- [Build] Add unnecessary-lambda-assignment (#7286, @shogohida)
+- [Build] fix unneccessary collection (<dict/list/tuple>) call and rewrite them as literal (#7272, @ayushthe1)
+- [] Replace `assert expected == actual` to `assert actual == expected` (#7258, @ayushthe1)
+- [Tracking] Add run_name when specified in start_run tags (#7228, @Cokral)
+- [] Replace unittest assertmethods with plain assert (#7236, @ayushthe1)
+- [Scoring] Fix SageMaker deployment client predict API and add tests (#7193, @dbczumar)
+- [Recipes / UI] fix: fixed profile cards rendering with URL polyfill (#7154, @hubertzub-db)
+- [Models] Added parameter for model_format in models/xgboost (#7068, @AvikantSrivastava)
+- [] Do not append `mlflow.runName` tag if it's already in tags (#7138, @harupy)
+
+Small bug fixes and documentation updates:
+
+#7309, #7314, #7288, #7276, #7244, #7207, #7175, #7107, @sunishsheth2009; #7261, #7313, #7311, #7249, #7278, #7260, #7284, #7283, #7263, #7266, #7264, #7267, #7265, #7250, #7259, #7247, #7242, #7143, #7214, #7226, #7230, #7227, #7229, #7225, #7224, #7223, #7210, #7192, #7197, #7196, #7204, #7198, #7191, #7189, #7184, #7182, #7170, #7183, #7131, #7165, #7151, #7164, #7168, #7150, #7128, #7028, #7118, #7117, #7102, #7072, #7103, #7041, #7099, #7101, @harupy; #7310, #7308, #7300, #7290, #7239, #7220, #7127, @BenWilson2; #7299, #7271, #7209, #7180, #7179, #7158, #7147, #7114, @prithvikannan; #7275, #7245, #7134, #7059, @jinzhang21; #7287, @ayushthe1; #7279, @tk1012; #7219, @rddefauw; #7218, #7208, #7188, #7190, #7176, #7137, #7130, @dbczumar; #7200, @hubertzub-db; #7121, @Gonmeso; #6988, @alonisser; #7141, @pdifranc; #7086, @jerrylian-db
+
 ## 1.30.0 (2022-10-19)
 
 MLflow 1.30.0 includes several major features and improvements
