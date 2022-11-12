@@ -19,6 +19,7 @@ _MLFLOW_TO_FLAML_METRICS = {
     "root_mean_squared_error": "rmse",
     "r2_score": "r2",
     "mean_absolute_percentage_error": "mape",
+    "f1_score": "f1",
 }
 
 
