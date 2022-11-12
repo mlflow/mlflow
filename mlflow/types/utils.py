@@ -1,9 +1,8 @@
-from typing import Any
+from typing import Any, Optional
 import warnings
 
 import numpy as np
 import pandas as pd
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
