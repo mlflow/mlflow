@@ -194,7 +194,7 @@ def test_model_metadata():
         metadata = {"metadata_key": "metadata_value"}
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, metadata)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert loaded_model.metadata_key == "metadata_value"
+        assert loaded_model.metadata["metadata_key"] == "metadata_value"
 
 
 def test_load_model_without_mlflow_version():

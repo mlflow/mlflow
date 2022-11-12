@@ -209,7 +209,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
 
 def test_model_save_load_with_metadata(spark_model_iris, model_path):
     mlflow.mleap.save_model(
-        spark_model_iris.model,
+        spark_model=spark_model_iris.model,
         path=model_path,
         sample_input=spark_model_iris.spark_df,
         metadata={"metadata_key": "metadata_value"},
@@ -224,7 +224,7 @@ def test_model_log_with_metadata(spark_model_iris):
 
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model_iris.model,
+            spark_model=spark_model_iris.model,
             artifact_path=artifact_path,
             sample_input=spark_model_iris.spark_df,
             metadata={"metadata_key": "metadata_value"},
