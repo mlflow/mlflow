@@ -178,10 +178,8 @@ def log_model(
         predictions = ... # compute model predictions
         signature = infer_signature(train, predictions)
 
-        # show how signature defines output schema in `predict` transformation
+        # define the output signature for returned predictions from a `predict()` transformation
         mlflow.spark.log_model(model, "model", signature=signature, registered_model_name="mymodel")
-        # predict will now return data corresponding to the output schema from the signature
-        print(mlflow.pyfunc.load_model("models:/mymodel/1").predict(predictions.toPandas()))
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
