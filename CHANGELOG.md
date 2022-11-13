@@ -1,38 +1,63 @@
 # CHANGELOG
 
-## 2.0.0 (2022-11-12)
+## 2.0.0 (2022-11-14)
 
-MLflow 2.0.0 includes several major features and improvements
+MLflow 2.0.0 includes several breaking changes from the 1.x API, additional major features and improvements
+
+Breaking Changes:
+
+- [Recipes] Renamed `mlflow.pipelines` to `mlflow.recipes`
+- [Tracking] Remove deprecated `list` APIs for experiments, models, and runs from Python, Java, JS, and R APIs (#6785, #6786, #6787, #6788, #6800, #6868, @dbczumar)
+- [Tracking] Remove deprecated `runs` data from `get_experiment` REST API response (#6541, #6524 @dbczumar)
+- [Tracking] Remove deprecated `MLflowClient.download_artifacts` API (#6537, @WeichenXu123)
+- [Tracking] Add support for experiment creation resolution and validation for `MLFLOW_EXPERIMENT_NAME` and `MLFLOW_EXPERIMENT_ID` environment variables (#6674, @BenWilson2)
+- [Tracking] Modify tracking server configuration to use `--serve-artifacts` by default (#6502, @harupy)
+- [Tracking] Introduce random `experiment_id` generation for `filestore` tracking server backend to enable threadsafe concurrency (#7070, @BenWilson2)
+- [Tracking] Remove `dataset_name` and `on_data_{name | hash}` suffixes from `mlflow.evaluate` metric keys (#7042, @harupy)
+- [Models] Remove deprecated `mlflow.keras` module and enable `keras` support within `tensorflow` flavor (#6530, @WeichenXu123)
+- [Models] Remove deprecated `mlflow.sklearn.eval_and_log_metrics` API in favor of `mlflow.evaluate` API (#6520, @dbczumar)
+- [Models] Change the default environment configuration for `spark_udf` loaded models to use `local` (#6640, @WeichenXu123)
+- [Models] Change default to `virtualenv` instead of `conda` for Models environment creation (#6459, @harupy)
+- [Models] Remove support for `pyfunc` submission to `mlflow.evaluate` (#6670, @harupy)
+- [Models] Modify `PyfuncModel` spec to support `conda` and `virtualenv` subfields (#6684, @harupy)
+- [Scoring] Introduce strict format indicators for input datatypes for the scoring API and modify the output structure of returned values (#6575, @tomasatdatabricks)
+- [Scoring] Remove public APIs for `mlflow.sagemaker.deploy()` and `mlflow.sagemaker.delete()` (#6650, @dbczumar)
+- [Scoring] Rename input argument `df` to `inputs` in `mlflow.deployments.predict()` method (#6681, @BenWilson2)
+- [Scoring] Replace the `--no-conda` cli option argument for native serving with `--env-manager='local'` (#6501, @harupy)
+- [Registry / Tracking] Remove `/preview` routes for Tracking and Model Registry REST APIs (#6667, @harupy)
+- [Projects] Remove the `use_conda` argument from `run` cli command for MLflow Projects (#6654, @harupy)
+- [Projects] Introduce support for `virtualenv` within ML Projects and set as default environment (#6489, @harupy)
+- [Projects] Introduce support for docker image creation with the `--build-image` flag for MLflow Projects (#7011, @harupy)
+- [Integrations/Azure] Remove deprecated `mlflow.azureml` modules from MLflow (#6691, @BenWilson2)
+- [R] Remove conda integration with the R client (#6638, @harupy)
 
 Features:
 
-- [Docs / Scoring] Bump MLServer version to 1.2.0.dev13 (#7254, @adriangonz)
-- [] Implement `EvaluationMetric` and `custom_artifacts` for `mlflow.evaluate` (#7142, @harupy)
-- [] Update MLflow UI (#7177, @harupy)
-- [Tracking] Add 'save_format' param to Keras autolog() (#7123, @balvisio)
-- [Java / Model Registry] Implements getModelVersion in the java client (#6955, @wgottschalk)
-- [Recipes] implement classification pipeline (#7082, @bbarnes52)
-- [Models] Set positive label default to None for mlflow.evaluate() and infer pos label (#7149, @dbczumar)
+- [Recipes] Add support for classification models to Mlflow Recipes (#7082, @bbarnes52)
+- [Tracking] Add support to `get_model_dependencies` that enables downloading of all model artifacts (#6733, @harupy)
+- [Tracking] Add support for defining `save_format` for Keras `autolog()` (#7123, @balvisio)
+- [Models] Add metric return structure and support for `custom_artifacts` to `mlflow.evaluate` (#7142, @harupy)
+- [Models] Modify behavior of defining and inferring a positive label for binary classification within `mlflow.evaluate` (#7149, @dbczumar)
+- [Models] Enable automated signature logging for `tensorflow` and `keras` models with `autolog` enabled (#6678, @BenWilson2)
+- [Models] Add support for defining `model_format` for `mlflow.xgboost` (#7068, @AvikantSrivastava)
+- [Scoring] Enable support for MLServer version 1.2.0.dev13 for MLflow 2.x (#7254, @adriangonz)
+- [Scoring] Add support for ragged arrays in model signatures (#7135, @trangevi)
+- [UI] Add visual, navigational and cosmetic upgrades to MLflow UI (#7177, @harupy)
+- [R] Introduce support for `mlflow_search_experiments` to the R client (#6578, @dbczumar)
+- [Java] Introduce support for `search_experiments` to the Java API (#6579, @dbczumar)
+- [Java] Add `getModelVersion` API to the java client (#6955, @wgottschalk)
 
 Bug fixes:
 
-- [Docs / Scoring] Changes to support ragged arrays in signature handling (#7135, @trangevi)
-- [] enable `consider-using-enumerate` rule and fix pylint errors (#7306, @ayushthe1)
-- [] enable `superfluous-parens / C0325` rule and fixed the pylint errors (#7298, @ayushthe1)
-- [] Set `DataCaptureConfig` when creating a new endpoint config (#7281, @harupy)
-- [Build] Add unnecessary-lambda-assignment (#7286, @shogohida)
-- [Build] fix unneccessary collection (<dict/list/tuple>) call and rewrite them as literal (#7272, @ayushthe1)
-- [] Replace `assert expected == actual` to `assert actual == expected` (#7258, @ayushthe1)
+- [Recipes] Fix rendering issue with profile cards polyfill (#7154, @hubertzub-db)
 - [Tracking] Add run_name when specified in start_run tags (#7228, @Cokral)
-- [] Replace unittest assertmethods with plain assert (#7236, @ayushthe1)
+- [Tracking] Fix an issue with conflicting `run_name` assignment if tag `mlflow.runName` is set (#7138, @harupy)
 - [Scoring] Fix SageMaker deployment client predict API and add tests (#7193, @dbczumar)
-- [Recipes / UI] fix: fixed profile cards rendering with URL polyfill (#7154, @hubertzub-db)
-- [Models] Added parameter for model_format in models/xgboost (#7068, @AvikantSrivastava)
-- [] Do not append `mlflow.runName` tag if it's already in tags (#7138, @harupy)
+- [Scoring] Fix an issue with preserving `DataCaptureConfig` when updating a Sagemaker endpoint (#7281, @harupy)
 
 Small bug fixes and documentation updates:
 
-#7309, #7314, #7288, #7276, #7244, #7207, #7175, #7107, @sunishsheth2009; #7261, #7313, #7311, #7249, #7278, #7260, #7284, #7283, #7263, #7266, #7264, #7267, #7265, #7250, #7259, #7247, #7242, #7143, #7214, #7226, #7230, #7227, #7229, #7225, #7224, #7223, #7210, #7192, #7197, #7196, #7204, #7198, #7191, #7189, #7184, #7182, #7170, #7183, #7131, #7165, #7151, #7164, #7168, #7150, #7128, #7028, #7118, #7117, #7102, #7072, #7103, #7041, #7099, #7101, @harupy; #7310, #7308, #7300, #7290, #7239, #7220, #7127, @BenWilson2; #7299, #7271, #7209, #7180, #7179, #7158, #7147, #7114, @prithvikannan; #7275, #7245, #7134, #7059, @jinzhang21; #7287, @ayushthe1; #7279, @tk1012; #7219, @rddefauw; #7218, #7208, #7188, #7190, #7176, #7137, #7130, @dbczumar; #7200, @hubertzub-db; #7121, @Gonmeso; #6988, @alonisser; #7141, @pdifranc; #7086, @jerrylian-db
+#7309, #7314, #7288, #7276, #7244, #7207, #7175, #7107, @sunishsheth2009; #7261, #7313, #7311, #7249, #7278, #7260, #7284, #7283, #7263, #7266, #7264, #7267, #7265, #7250, #7259, #7247, #7242, #7143, #7214, #7226, #7230, #7227, #7229, #7225, #7224, #7223, #7210, #7192, #7197, #7196, #7204, #7198, #7191, #7189, #7184, #7182, #7170, #7183, #7131, #7165, #7151, #7164, #7168, #7150, #7128, #7028, #7118, #7117, #7102, #7072, #7103, #7101, #7100, #7099, #7098, #7041, #7040, #6978, #6768, #6719, #6669, #6658, #6656, #6655, #6538, #6507, #6504 @harupy; #7310, #7308, #7300, #7290, #7239, #7220, #7127, #7091, #6713 @BenWilson2; #7299, #7271, #7209, #7180, #7179, #7158, #7147, #7114, @prithvikannan; #7275, #7245, #7134, #7059, @jinzhang21; #7306, #7298, #7287, #7272, #7258, #7236, @ayushthe1; #7279, @tk1012; #7219, @rddefauw; #7218, #7208, #7188, #7190, #7176, #7137, #7136, #7130, #7124, #7079, #7052, #6541 @dbczumar; #7200, @hubertzub-db; #7121, @Gonmeso; #6988, @alonisser; #7141, @pdifranc; #7086, @jerrylian-db; #7286, @shogohida
 
 ## 1.30.0 (2022-10-19)
 
