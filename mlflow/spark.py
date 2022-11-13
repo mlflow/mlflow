@@ -167,11 +167,11 @@ def log_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset). If the signature describes model output then the
-                      corresponding columns will be included in the output schema from a
-                      `predict()` transformation. For example:
+                      the training dataset). The output schema defined in a signature will filter
+                      the model prediction return fields to return only those defined in the
+                      signature. For example:
 
-      .. code-block:: python
+    .. code-block:: python
 
         from mlflow.models.signature import infer_signature
         train = df.drop("target_label")
@@ -180,6 +180,19 @@ def log_model(
 
         # define the output signature for returned predictions from a `predict()` transformation
         mlflow.spark.log_model(model, "model", signature=signature, registered_model_name="mymodel")
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m models:/mymodel/1 -p 5000
+
+        # model predictions columns will correspond to the signature output
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
+        {"predictions": [[0.15919603407382965, 1304.4000244140625],
+                         [0.13691310584545135, 466.3999938964844]]
+        }
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -624,21 +637,33 @@ def save_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset). If the signature describes model output then the
-                      corresponding columns will be included in the output schema from a
-                      `predict()` transformation. For example:
+                      the training dataset). The output schema defined in a signature will filter
+                      the model prediction return fields to return only those defined in the
+                      signature. For example:
 
-      .. code-block:: python
+    .. code-block:: python
 
         from mlflow.models.signature import infer_signature
         train = df.drop("target_label")
         predictions = ... # compute model predictions
         signature = infer_signature(train, predictions)
 
-        # show how signature defines output schema in `predict` transformation
+        # define the output signature for returned predictions from a `predict()` transformation
         mlflow.spark.save_model(model, path, signature=signature)
-        # predict will now return data corresponding to the output schema from the signature
-        print(mlflow.pyfunc.load_model(path).predict(predictions.toPandas()))
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m $path -p 5000
+
+        # model predictions columns will correspond to the signature output
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
+        {"predictions": [[0.15919603407382965, 1304.4000244140625],
+                         [0.13691310584545135, 466.3999938964844]]
+        }
+
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
