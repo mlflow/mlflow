@@ -245,7 +245,7 @@ def _save_keras_custom_objects(path, custom_objects):
 
 
 _NO_MODEL_SIGNATURE_WARNING = (
-    "You are saving a Tensorflow core model or Keras model without signature, "
+    "You are saving a Tensorflow core model or Keras model, "
     "without signature, spark udf inference won't work if the model accepts "
     "multidimensional tensors as inputs, and its pyfunc model cannot accept "
     "pandas dataframe as inference inputs."
@@ -804,6 +804,10 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(self, data):
+        if self.signature is not None and isinstance(data, pandas.DataFrame):
+            # This line is for backwards compatibility.
+            data = data.to_numpy()
+
         if not isinstance(data, (np.ndarray, list, tuple, dict)):
             raise MlflowException(
                 f"Unsupported input data type: {type(data)}",

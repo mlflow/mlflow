@@ -441,7 +441,8 @@ def test_tensor_multi_named_schema_enforcement():
     with pytest.raises(
         MlflowException,
         match=re.escape(
-            "Input dataframe column 'a' values cannot be converted to expected shape (-1, 5)"
+            "The input pandas dataframe column 'a' contains scalar values, which requires the "
+            "shape to be (-1,), but got tensor spec shape of (-1, 5)"
         ),
     ):
         pyfunc_model.predict(pdf)
