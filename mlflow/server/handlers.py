@@ -524,7 +524,7 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = list(sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/")
+_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
 def validate_path_is_safe(path):

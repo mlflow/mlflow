@@ -87,7 +87,7 @@ class EvaluateStep(BaseStep):
         """
         Validates validation criteria don't contain undefined metrics
         """
-        val_metrics = set(vc["metric"] for vc in self.step_config.get("validation_criteria", []))
+        val_metrics = {vc["metric"] for vc in self.step_config.get("validation_criteria", [])}
         if not val_metrics:
             return
         undefined_metrics = val_metrics.difference(self.evaluation_metrics.keys())
