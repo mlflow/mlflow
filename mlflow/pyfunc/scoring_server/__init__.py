@@ -104,7 +104,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         if len(format_keys) != 1:
             message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
             raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}.\n\n{SCORING_PROTOCOL_CHANGE_INFO}",
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
                 error_code=BAD_REQUEST,
             )
         input_format = format_keys.pop()
@@ -120,7 +120,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     elif isinstance(decoded_input, list):
         message = "Received a list"
         raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.\n\n{SCORING_PROTOCOL_CHANGE_INFO}",
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
             error_code=BAD_REQUEST,
         )
     else:
@@ -241,8 +241,8 @@ def init(model: PyFuncModel):
             return flask.Response(
                 response=(
                     f"Unrecognized content type parameters: "
-                    f"{', '.join(unexpected_content_parameters)}."
-                    f"\n\n{SCORING_PROTOCOL_CHANGE_INFO}"
+                    f"{', '.join(unexpected_content_parameters)}. "
+                    f"{SCORING_PROTOCOL_CHANGE_INFO}"
                 ),
                 status=415,
                 mimetype="text/plain",
