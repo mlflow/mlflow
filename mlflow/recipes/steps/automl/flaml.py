@@ -56,7 +56,7 @@ def _create_custom_metric_flaml(
         )
         res_df = pd.DataFrame()
         res_df["prediction"] = y_pred
-        res_df["target"] = y
+        res_df["target"] = y if task == "classification" else y.values
         return eval_metric.eval_fn(res_df, builtin_metrics)
 
     # pylint: disable=keyword-arg-before-vararg
