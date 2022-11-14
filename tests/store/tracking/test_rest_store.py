@@ -66,7 +66,7 @@ class TestRestStore:
         def mock_request(*args, **kwargs):
             # Filter out None arguments
             assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
-            kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
             assert kwargs == {
                 "json": {"view_type": "ACTIVE_ONLY"},
                 "headers": DefaultRequestHeaderProvider().request_headers(),

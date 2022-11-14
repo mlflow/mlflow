@@ -442,7 +442,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # test that fake experiments dont exist.
         # look for random experiment ids between 8000, 15000 since created ones are (100, 2000)
-        for exp_id in set(random_int(8000, 15000) for x in range(20)):
+        for exp_id in {random_int(8000, 15000) for x in range(20)}:
             with pytest.raises(Exception, match=f"Could not find experiment with ID {exp_id}"):
                 fs.get_experiment(str(exp_id))
 
@@ -487,7 +487,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # test that fake experiments dont exist.
         # look up experiments with names of length 15 since created ones are of length 10
-        for exp_names in set(random_str(15) for x in range(20)):
+        for exp_names in {random_str(15) for x in range(20)}:
             exp = fs.get_experiment_by_name(exp_names)
             assert exp is None
 

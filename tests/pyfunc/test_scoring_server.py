@@ -428,7 +428,7 @@ def test_records_oriented_json_to_df():
     """
     df = pyfunc_scoring_server.infer_and_parse_json_input(jstr)
     assert set(df.columns) == {"zip", "cost", "score"}
-    assert set(str(dt) for dt in df.dtypes) == {"object", "float64", "int64"}
+    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
 
 
 def _shuffle_pdf(pdf):
@@ -451,7 +451,7 @@ def test_split_oriented_json_to_df():
     df = pyfunc_scoring_server.infer_and_parse_json_input(jstr)
 
     assert set(df.columns) == {"zip", "cost", "count"}
-    assert set(str(dt) for dt in df.dtypes) == {"object", "float64", "int64"}
+    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
 
 
 def test_parse_with_schema_csv(pandas_df_with_csv_types):
