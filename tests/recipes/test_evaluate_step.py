@@ -75,7 +75,7 @@ steps:
         threshold: 1_000_000
 custom_metrics:
   - name: weighted_mean_squared_error
-    function: weighted_mean_squared_error
+    function: weighted_mean_squared_error_func
     greater_is_better: False
 """.format(
             tracking_uri=mlflow.get_tracking_uri(),
@@ -86,7 +86,7 @@ custom_metrics:
     recipe_steps_dir.mkdir(parents=True)
     recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
-def weighted_mean_squared_error(eval_df, builtin_metrics):
+def weighted_mean_squared_error_func(eval_df, builtin_metrics):
     from sklearn.metrics import mean_squared_error
 
     return mean_squared_error(
