@@ -7,8 +7,11 @@ from sklearn.base import BaseEstimator
 import mlflow
 from mlflow import MlflowException
 from mlflow.models import EvaluationMetric
-from mlflow.models.evaluation.default_evaluator import _get_regressor_metrics
-from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
+from mlflow.models.evaluation.default_evaluator import (
+    _get_regressor_metrics,
+    _get_binary_classifier_metrics,
+)
+from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics, _load_sklearn_metrics
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +24,15 @@ _MLFLOW_TO_FLAML_METRICS = {
     "mean_absolute_percentage_error": "mape",
     "f1_score": "f1",
     "accuracy_score": "accuracy",
+}
+
+_MLFLOW_TO_SKLEARN_METRICS = ["recall_score", "precision_score"]
+
+_MLFLOW_TO_CONFUSION_METRICS = {
+    "true_negatives": 0,
+    "false_positives": 1,
+    "false_negatives": 2,
+    "true_positives": 3,
 }
 
 
@@ -39,14 +51,18 @@ def get_estimator_and_best_params(
 
 
 def _create_custom_metric_flaml(
-    metric_name: str, coeff: int, eval_metric: EvaluationMetric
+    task: str, metric_name: str, coeff: int, eval_metric: EvaluationMetric
 ) -> callable:
     def calc_metric(X, y, estimator) -> Dict[str, float]:
         y_pred = estimator.predict(X)
-        builtin_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
+        builtin_metrics = (
+            _get_regressor_metrics(y, y_pred, sample_weights=None)
+            if task == "regression"
+            else _get_binary_classifier_metrics(y_true=y, y_pred=y_pred)
+        )
         res_df = pd.DataFrame()
         res_df["prediction"] = y_pred
-        res_df["target"] = y.values
+        res_df["target"] = y
         return eval_metric.eval_fn(res_df, builtin_metrics)
 
     # pylint: disable=keyword-arg-before-vararg
@@ -73,6 +89,32 @@ def _create_custom_metric_flaml(
     return custom_metric
 
 
+def _create_sklearn_metric_flaml(metric_name: str, coeff: int) -> callable:
+    def sklearn_metric(
+        X_val,
+        y_val,
+        estimator,
+        labels,
+        X_train,
+        y_train,
+        weight_val=None,
+        weight_train=None,
+        *args,
+    ):
+        import importlib
+
+        custom_metrics_mod = importlib.import_module("sklearn.metrics")
+        eval_fn = getattr(custom_metrics_mod, metric_name)
+        val_metric = coeff * eval_fn(y_val, estimator.predict(X_val))
+        train_metric = coeff * eval_fn(y_train, estimator.predict(X_train))
+        return val_metric, {
+            f"{metric_name}_train": train_metric,
+            f"{metric_name}_val": val_metric,
+        }
+
+    return sklearn_metric
+
+
 def _create_model_automl(
     X,
     y,
@@ -90,8 +132,13 @@ def _create_model_automl(
     try:
         if primary_metric in _MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
             metric = _MLFLOW_TO_FLAML_METRICS[primary_metric]
+        elif primary_metric in _MLFLOW_TO_SKLEARN_METRICS and primary_metric in evaluation_metrics:
+            metric = _create_sklearn_metric_flaml(
+                primary_metric, -1 if evaluation_metrics[primary_metric].greater_is_better else 1
+            )
         elif primary_metric in evaluation_metrics:
             metric = _create_custom_metric_flaml(
+                task,
                 primary_metric,
                 -1 if evaluation_metrics[primary_metric].greater_is_better else 1,
                 _load_custom_metrics(recipe_root, [evaluation_metrics[primary_metric]])[0],
