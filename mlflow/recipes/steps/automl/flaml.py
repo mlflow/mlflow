@@ -11,7 +11,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_regressor_metrics,
     _get_binary_classifier_metrics,
 )
-from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics, _load_sklearn_metrics
+from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
