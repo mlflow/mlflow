@@ -69,6 +69,15 @@ SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
+SCORING_PROTOCOL_CHANGE_INFO = (
+    f"IMPORTANT: If you're seeing this error, you may be querying an MLflow Model Server running"
+    f" version 2.0 or later from an MLflow client running an earlier version (for example, 1.30.0)."
+    f" To resolve the error, either upgrade your MLflow client to a version >= 2.0 or adjust your"
+    f" MLflow Model's requirements file to set the version of MLflow to the same version as the"
+    f" client (for example, change the 'mlflow' requirement string to 'mlflow==1.30.0'). For more"
+    f" information about the updated model scoring server protocol in MLflow 2.0, see "
+    f" https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
+)
 
 
 def infer_and_parse_json_input(json_input, schema: Schema = None):
@@ -95,7 +104,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         if len(format_keys) != 1:
             message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
             raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}.\n\n{SCORING_PROTOCOL_CHANGE_INFO}",
+                error_code=BAD_REQUEST,
             )
         input_format = format_keys.pop()
         if input_format in (INSTANCES, INPUTS):
@@ -110,7 +120,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     elif isinstance(decoded_input, list):
         message = "Received a list"
         raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}.\n\n{SCORING_PROTOCOL_CHANGE_INFO}",
+            error_code=BAD_REQUEST,
         )
     else:
         message = f"Received unexpected input type '{type(decoded_input)}'"
@@ -231,6 +242,7 @@ def init(model: PyFuncModel):
                 response=(
                     f"Unrecognized content type parameters: "
                     f"{', '.join(unexpected_content_parameters)}."
+                    f"\n\n{SCORING_PROTOCOL_CHANGE_INFO}"
                 ),
                 status=415,
                 mimetype="text/plain",
