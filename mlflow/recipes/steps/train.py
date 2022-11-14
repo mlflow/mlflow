@@ -1150,7 +1150,7 @@ class TrainStep(BaseStep):
             elif isinstance(value, dict):
                 processed_data[key] = str(value)
             else:
-                processed_data[key] = value
+                processed_data[key] = str(value)
 
         if len(processed_data) > 0:
             yaml.safe_dump(processed_data, file, **kwargs)
