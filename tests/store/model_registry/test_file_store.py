@@ -21,7 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
 )
-from mlflow.utils.file_utils import write_yaml
+from mlflow.utils.file_utils import write_yaml, path_to_local_file_uri
 
 from tests.helper_functions import random_int, random_str
 
@@ -1355,7 +1355,7 @@ class TestFileStore(unittest.TestCase):
                 return 7
 
         fs = self.get_store()
-        mlflow.set_registry_uri(f"file://{fs.root_directory}")
+        mlflow.set_registry_uri(path_to_local_file_uri(fs.root_directory))
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
                 python_model=MyModel(), artifact_path="foo", registered_model_name="model1"
