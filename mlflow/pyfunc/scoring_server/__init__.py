@@ -77,7 +77,7 @@ SCORING_PROTOCOL_CHANGE_INFO = (
     " to 'mlflow==1.30.0'). If you are making a request using the MLflow client"
     " (e.g. via `mlflow.pyfunc.spark_udf()`), upgrade your MLflow client to a version >= 2.0 in"
     " order to use the new request format. For more information about the updated MLflow"
-    " Model scoring protocol in MLflow 2.0, see "
+    " Model scoring protocol in MLflow 2.0, see"
     " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
 )
 
