@@ -798,8 +798,15 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(self, data):
-        if self.signature is not None and isinstance(data, pandas.DataFrame):
-            # This line is for backwards compatibility.
+        if self.signature is None and isinstance(data, pandas.DataFrame):
+            # This line is for backwards compatibility:
+            # If model signature is not None, when calling
+            # `keras_pyfunc_model.predict(pandas_dataframe)`, `_enforce_schema` will convert
+            # dataframe input into dict input, so in the case `_KerasModelWrapper.predict`
+            # will receive a dict type input.
+            # If model signature is None, `_enforce_schema` can do nothing, and if the input
+            # is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,
+            # we need handle this case, to keep backwards compatibility.
             data = data.to_numpy()
 
         if not isinstance(data, (np.ndarray, list, tuple, dict)):
