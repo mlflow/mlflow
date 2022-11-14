@@ -346,12 +346,6 @@ def save_model(
                     "All fileds in signature inputs must be of tensor type.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if num_inputs > 1 and field.name is None:
-                raise MlflowException(
-                    "If the signiture inputs have multiple fields, all fields in signature "
-                    "inputs must have a name.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             if field.shape[0] != -1:
                 raise MlflowException(
                     "All fields in signature inputs must have a shape in which the first dimension "
