@@ -30,6 +30,7 @@ The following list of breaking changes are arranged by their order of significan
 
 - [Core] Support for Python 3.7 has been dropped. MLflow now requires Python >=3.8
 - [Recipes] `mlflow.pipelines` APIs have been replaced with `mlflow.recipes`
+- [Tracking / Registry] Remove `/preview` routes for Tracking and Model Registry REST APIs (#6667, @harupy)
 - [Tracking] Remove deprecated `list` APIs for experiments, models, and runs from Python, Java, R, and REST APIs (#6785, #6786, #6787, #6788, #6800, #6868, @dbczumar)
 - [Tracking] Remove deprecated `runs` response field from `Get Experiment` REST API response (#6541, #6524 @dbczumar)
 - [Tracking] Remove deprecated `MlflowClient.download_artifacts` API (#6537, @WeichenXu123)
@@ -47,7 +48,6 @@ The following list of breaking changes are arranged by their order of significan
 - [Scoring] Replace the `--no-conda` CLI option argument for native serving with `--env-manager='local'` (#6501, @harupy)
 - [Scoring] Remove public APIs for `mlflow.sagemaker.deploy()` and `mlflow.sagemaker.delete()` in favor of MLflow deployments APIs, such as `mlflow deployments -t sagemaker` (#6650, @dbczumar)
 - [Scoring] Rename input argument `df` to `inputs` in `mlflow.deployments.predict()` method (#6681, @BenWilson2)
-- [Registry / Tracking] Remove `/preview` routes for Tracking and Model Registry REST APIs (#6667, @harupy)
 - [Projects] Replace the `use_conda` argument with the `env_manager` argument within the `run` CLI command for MLflow Projects (#6654, @harupy)
 - [Projects] Modify the MLflow Projects docker image build options by renaming `--skip-image-build` to `--build-image` with a default of `False` (#7011, @harupy)
 - [Integrations/Azure] Remove deprecated `mlflow.azureml` modules from MLflow in favor of the `azure-mlflow` deployment plugin (#6691, @BenWilson2)
