@@ -51,7 +51,7 @@ def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names:
         ordered_metric_names = [
             name for name in ordered_metric_names if name not in missing_metrics
         ]
-    ordered_metric_names.extend(sorted(list(metric_names - set(ordered_metric_names))))
+    ordered_metric_names.extend(sorted(metric_names - set(ordered_metric_names)))
     return DataFrame.from_dict(merged_metrics).reindex(ordered_metric_names)
 
 
