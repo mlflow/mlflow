@@ -1260,6 +1260,7 @@ For example:
 
     import requests
     import mlflow
+
     response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
     assert response.text == mlflow.__version__ # Checking for a strict version match
 
