@@ -150,7 +150,7 @@ def _load_custom_metrics(recipe_root: str, metrics: List[RecipeMetric]) -> List[
         custom_metrics_mod = importlib.import_module("steps.custom_metrics")
         return [
             make_metric(
-                eval_fn=getattr(custom_metrics_mod, custom_metric.name),
+                eval_fn=getattr(custom_metrics_mod, custom_metric.custom_function),
                 name=custom_metric.name,
                 greater_is_better=custom_metric.greater_is_better,
             )
