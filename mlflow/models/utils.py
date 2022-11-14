@@ -478,9 +478,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
                 f"shape of {tensor_spec.shape}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return _enforce_tensor_spec(
-            np.array(pd_series, dtype=tensor_spec.type), tensor_spec
-        )
+        return _enforce_tensor_spec(np.array(pd_series, dtype=tensor_spec.type), tensor_spec)
     elif isinstance(pd_series[0], list):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
@@ -489,21 +487,20 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         # required type.
         err_msg = (
             f"The values in Input dataframe column '{name}' cannot be converted to expected shape "
-            f"{shape} and type {dtype}"
+            f"{tensor_spec.shape} and type {tensor_spec.type}"
         )
         try:
             flattened_numpy_arr = np.vstack(pd_series.tolist())
-            reshaped_numpy_arr = \
-                flattened_numpy_arr.reshape(tensor_spec.shape).astype(tensor_spec.type)
+            reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
+                tensor_spec.type
+            )
         except ValueError:
             raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
     elif isinstance(pd_series[0], np.ndarray):
-        return _enforce_tensor_spec(
-            np.array(pd_series.tolist()), tensor_spec
-        )
+        return _enforce_tensor_spec(np.array(pd_series.tolist()), tensor_spec)
     else:
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "

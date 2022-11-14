@@ -263,7 +263,6 @@ def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, mo
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
-
 def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidim_input_model(
     single_multidim_tensor_input_model, model_path, data
 ):

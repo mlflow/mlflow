@@ -232,8 +232,11 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pdf[col_name] = pdf[col_name].map(
                         lambda x: base64.decodebytes(bytes(x, "utf8"))
                     )
-                elif schema.is_tensor_spec() and not is_single_tensor_input \
-                        and len(schema.inputs[index].shape) > 1:
+                elif (
+                    schema.is_tensor_spec()
+                    and not is_single_tensor_input
+                    and len(schema.inputs[index].shape) > 1
+                ):
                     # For dataframe with multidimensional column, we cannot convert
                     # its type by `astype`, skip conversion.
                     # The conversion will be done in `_enforce_schema` while
