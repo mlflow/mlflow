@@ -22,8 +22,9 @@ _NFS_CACHE_ROOT_DIR = None
 
 def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
-        nfs_enabled = (
-            _get_active_spark_session()
+        spark_sess = _get_active_spark_session()
+        nfs_enabled = spark_sess and (
+            spark_sess
             .conf.get("spark.databricks.mlflow.nfs.enabled", "true")
             .lower()
             == "true"
