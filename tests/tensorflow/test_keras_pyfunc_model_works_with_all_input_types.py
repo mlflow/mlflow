@@ -210,7 +210,12 @@ def test_model_single_multidim_tensor_input(single_multidim_tensor_input_model, 
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
-    test_input_df = pd.DataFrame({"x": list(test_input.reshape((-1, 4 * 3)))})
+    test_input_df = pd.DataFrame({"x": list(test_input.reshape((-1, 4, 3)))})
+    actual = model_loaded.predict(test_input_df)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
     actual = model_loaded.predict(test_input_df)
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
@@ -239,13 +244,24 @@ def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, mo
 
     test_input = pd.DataFrame(
         {
-            "a": list(input_a.reshape((-1, 2 * 3))),
-            "b": list(input_b.reshape((-1, 2 * 5))),
+            "a": list(input_a.reshape((-1, 2, 3))),
+            "b": list(input_b.reshape((-1, 2, 5))),
         }
     )
     actual = model_loaded.predict(test_input)
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+    test_input = pd.DataFrame(
+        {
+            "a": input_a.reshape((-1, 2 * 3)).tolist(),
+            "b": input_b.reshape((-1, 2 * 5)).tolist(),
+        }
+    )
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
 
 
 def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidim_input_model(
