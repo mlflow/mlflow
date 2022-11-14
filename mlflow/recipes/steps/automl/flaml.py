@@ -28,13 +28,6 @@ _MLFLOW_TO_FLAML_METRICS = {
 
 _MLFLOW_TO_SKLEARN_METRICS = ["recall_score", "precision_score"]
 
-_MLFLOW_TO_CONFUSION_METRICS = {
-    "true_negatives": 0,
-    "false_positives": 1,
-    "false_negatives": 2,
-    "true_positives": 3,
-}
-
 
 def get_estimator_and_best_params(
     X,
