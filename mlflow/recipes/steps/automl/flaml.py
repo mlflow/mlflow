@@ -83,6 +83,8 @@ def _create_custom_metric_flaml(
 
 
 def _create_sklearn_metric_flaml(metric_name: str, coeff: int) -> callable:
+    # pylint: disable=keyword-arg-before-vararg
+    # pylint: disable=unused-argument
     def sklearn_metric(
         X_val,
         y_val,
