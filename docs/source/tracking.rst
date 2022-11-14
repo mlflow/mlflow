@@ -1251,7 +1251,8 @@ allow passing HTTP authentication to the tracking server:
     see :ref:`Artifact Stores <artifact-stores>`.
 
 Tracking Server versioning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The version of MLflow running on the server can be found by querying the ``/version`` endpoint.
 This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
 For example:
