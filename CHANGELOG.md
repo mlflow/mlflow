@@ -40,7 +40,7 @@ The following list of breaking changes are arranged by their order of significan
 - [Models / Projects] Change default to `virtualenv` instead of `conda` for MLFlow Models and MLflow Projects environment creation (#6459, #6489 @harupy)
 - [Models] Remove support for the deprecated `mlflow.keras` and `tf.estimator` flavors (#6530, @WeichenXu123)
 - [Models] Remove deprecated `mlflow.sklearn.eval_and_log_metrics` API in favor of `mlflow.evaluate()` API (#6520, @dbczumar)
-- [Models] Remove support for `pyfunc` submission to `mlflow.evaluate` (#6670, @harupy)
+- [Models] Require `mlflow.evaluate()` model inputs to be specified as URIs (#6670, @harupy)
 - [Models] Remove the ability to specify custom metrics and artifacts within a single function call within `mlflow.evaluate()` by separating these functionalities to separate calls (#7142, @harupy)
 - [Models] Extend `PyFuncModel` spec to support `conda` and `virtualenv` subfields (#6684, @harupy)
 - [Scoring] Removed support for defining input formats using the `Content-Type` header (#6575, @tomasatdatabricks; #7254, @adriangonz)
