@@ -2,62 +2,68 @@
 
 ## 2.0.0 (2022-11-14)
 
-MLflow 2.0.0 includes several breaking changes from the 1.x API, additional major features and improvements
-
-Breaking Changes:
-
-- [Recipes] Renamed `mlflow.pipelines` to `mlflow.recipes`
-- [Tracking] Remove deprecated `list` APIs for experiments, models, and runs from Python, Java, JS, and R APIs (#6785, #6786, #6787, #6788, #6800, #6868, @dbczumar)
-- [Tracking] Remove deprecated `runs` data from `get_experiment` REST API response (#6541, #6524 @dbczumar)
-- [Tracking] Remove deprecated `MLflowClient.download_artifacts` API (#6537, @WeichenXu123)
-- [Tracking] Add support for experiment creation resolution and validation for `MLFLOW_EXPERIMENT_NAME` and `MLFLOW_EXPERIMENT_ID` environment variables (#6674, @BenWilson2)
-- [Tracking] Modify tracking server configuration to use `--serve-artifacts` by default (#6502, @harupy)
-- [Tracking] Introduce random `experiment_id` generation for `filestore` tracking server backend to enable threadsafe concurrency (#7070, @BenWilson2)
-- [Tracking] Remove `dataset_name` and `on_data_{name | hash}` suffixes from `mlflow.evaluate` metric keys (#7042, @harupy)
-- [Models] Remove deprecated `mlflow.keras` module and enable `keras` support within `tensorflow` flavor (#6530, @WeichenXu123)
-- [Models] Remove deprecated `mlflow.sklearn.eval_and_log_metrics` API in favor of `mlflow.evaluate` API (#6520, @dbczumar)
-- [Models] Change the default environment configuration for `spark_udf` loaded models to use `local` (#6640, @WeichenXu123)
-- [Models] Change default to `virtualenv` instead of `conda` for Models environment creation (#6459, @harupy)
-- [Models] Remove support for `pyfunc` submission to `mlflow.evaluate` (#6670, @harupy)
-- [Models] Modify `PyfuncModel` spec to support `conda` and `virtualenv` subfields (#6684, @harupy)
-- [Scoring] Introduce strict format indicators for input datatypes for the scoring API and modify the output structure of returned values (#6575, @tomasatdatabricks)
-- [Scoring] Remove public APIs for `mlflow.sagemaker.deploy()` and `mlflow.sagemaker.delete()` (#6650, @dbczumar)
-- [Scoring] Rename input argument `df` to `inputs` in `mlflow.deployments.predict()` method (#6681, @BenWilson2)
-- [Scoring] Replace the `--no-conda` cli option argument for native serving with `--env-manager='local'` (#6501, @harupy)
-- [Registry / Tracking] Remove `/preview` routes for Tracking and Model Registry REST APIs (#6667, @harupy)
-- [Projects] Remove the `use_conda` argument from `run` cli command for MLflow Projects (#6654, @harupy)
-- [Projects] Introduce support for `virtualenv` within ML Projects and set as default environment (#6489, @harupy)
-- [Projects] Introduce support for docker image creation with the `--build-image` flag for MLflow Projects (#7011, @harupy)
-- [Integrations/Azure] Remove deprecated `mlflow.azureml` modules from MLflow (#6691, @BenWilson2)
-- [R] Remove conda integration with the R client (#6638, @harupy)
+The 2.0.0 version of MLflow is a major milestone release that focuses on simplifying the management of end-to-end MLOps workflows, providing new feature-rich functionality, and expanding upon the production-ready MLOps infrastructure that MLflow is focused on.
+This release contains several important breaking changes from the 1.x API, additional major features and improvements.
 
 Features:
 
-- [Recipes] Add support for classification models to Mlflow Recipes (#7082, @bbarnes52)
-- [Tracking] Add support to `get_model_dependencies` that enables downloading of all model artifacts (#6733, @harupy)
-- [Tracking] Add support for defining `save_format` for Keras `autolog()` (#7123, @balvisio)
-- [Models] Add metric return structure and support for `custom_artifacts` to `mlflow.evaluate` (#7142, @harupy)
-- [Models] Modify behavior of defining and inferring a positive label for binary classification within `mlflow.evaluate` (#7149, @dbczumar)
-- [Models] Enable automated signature logging for `tensorflow` and `keras` models with `autolog` enabled (#6678, @BenWilson2)
-- [Models] Add support for defining `model_format` for `mlflow.xgboost` (#7068, @AvikantSrivastava)
-- [Scoring] Enable support for MLServer version 1.2.0.dev13 for MLflow 2.x (#7254, @adriangonz)
+- [Recipes] Add support for classification models to MLflow Recipes (#7082, @bbarnes52)
+- [Tracking] Update `get_model_dependencies` to download all referenced requirements files for specified models (#6733, @harupy)
+- [Tracking] Add support for selecting the Keras model `save_format` used by `mlflow.tensorflow.autolog()` (#7123, @balvisio)
+- [Models] Set `mlflow.evaluate()` status to stable as it is now a production-ready API
+- [Models] Simplify APIs for specifying custom metrics and custom artifacts during model evaluation with `mlflow.evaluate()` (#7142, @harupy)
+- [Models] Correctly infer the positive label for binary classification within `mlflow.evaluate()` (#7149, @dbczumar)
+- [Models] Enable automated signature logging for `tensorflow` and `keras` models when `mlflow.tensorflow.autolog()` is enabled (#6678, @BenWilson2)
+- [Models] Add support for native Keras and Tensorflow Core support within `mlflow.tensorflow` (#6530, @WeichenXu123)
+- [Models] Add support for defining the `model_format` used by `mlflow.xgboost.save/log_model()` (#7068, @AvikantSrivastava)
+- [Scoring] Overhaul the model scoring REST API to introduce format indicators for inputs and support multiple output fields (#6575, @tomasatdatabricks; #7254, @adriangonz)
 - [Scoring] Add support for ragged arrays in model signatures (#7135, @trangevi)
-- [UI] Add visual, navigational and cosmetic upgrades to MLflow UI (#7177, @harupy)
-- [R] Introduce support for `mlflow_search_experiments` to the R client (#6578, @dbczumar)
-- [Java] Introduce support for `search_experiments` to the Java API (#6579, @dbczumar)
+- [UI] Introduce support for pinning runs within the experiments UI (#7177, @harupy)
+- [UI] Simplify the layout and provide customized displays of metrics, parameters, and tags within the experiments UI (#7177, @harupy)
+- [UI] Simplify run filtering and ordering of runs within the experiments UI (#7177, @harupy)
 - [Java] Add `getModelVersion` API to the java client (#6955, @wgottschalk)
+
+Breaking Changes:
+
+The following list of breaking changes are arranged by their order of significance within each category.
+
+- [Core] Support for Python 3.7 has been dropped. MLflow now requires Python >=3.8
+- [Recipes] MLflow Pipelines is now MLflow Recipes - a framework that enables data scientists to quickly develop high-quality models and deploy them to production
+- [Recipes] `mlflow.pipelines` APIs have been replaced with `mlflow.recipes`
+- [Tracking] Remove deprecated `list` APIs for experiments, models, and runs from Python, Java, R, and REST APIs (#6785, #6786, #6787, #6788, #6800, #6868, @dbczumar)
+- [Tracking] Remove deprecated `runs` response field from `Get Experiment` REST API response (#6541, #6524 @dbczumar)
+- [Tracking] Remove deprecated `MlflowClient.download_artifacts` API (#6537, @WeichenXu123)
+- [Tracking] Changed the behavior of environment variable handling for `MLFLOW_EXPERIMENT_NAME` such that the value is always used when creating an experiment. (#6674, @BenWilson2)
+- [Tracking] Modify tracking server configuration to use `--serve-artifacts` by default (#6502, @harupy)
+- [Tracking] Update Experiment ID generation for the Filestore backend to enable threadsafe concurrency (#7070, @BenWilson2)
+- [Tracking] Remove `dataset_name` and `on_data_{name | hash}` suffixes from `mlflow.evaluate()` metric keys (#7042, @harupy)
+- [Models / Projects] Change default to `virtualenv` instead of `conda` for MLFlow Models and MLflow Projects environment creation (#6459, #6489 @harupy)
+- [Models] Remove support for the deprecated `mlflow.keras` and `tf.estimator` flavors (#6530, @WeichenXu123)
+- [Models] Remove deprecated `mlflow.sklearn.eval_and_log_metrics` API in favor of `mlflow.evaluate()` API (#6520, @dbczumar)
+- [Models] Remove support for `pyfunc` submission to `mlflow.evaluate` (#6670, @harupy)
+- [Models] Remove the ability to specify custom metrics and artifacts within a single function call within `mlflow.evaluate()` by separating these functionalities to separate calls (#7142, @harupy)
+- [Models] Extend `PyFuncModel` spec to support `conda` and `virtualenv` subfields (#6684, @harupy)
+- [Scoring] Removed support for defining input formats using the `Content-Type` header (#6575, @tomasatdatabricks; #7254, @adriangonz)
+- [Scoring] Replace the `--no-conda` CLI option argument for native serving with `--env-manager='local'` (#6501, @harupy)
+- [Scoring] Remove public APIs for `mlflow.sagemaker.deploy()` and `mlflow.sagemaker.delete()` in favor of `MLflow deployments` CLI command `mlflow deployments -t sagemaker` (#6650, @dbczumar)
+- [Scoring] Rename input argument `df` to `inputs` in `mlflow.deployments.predict()` method (#6681, @BenWilson2)
+- [Registry / Tracking] Remove `/preview` routes for Tracking and Model Registry REST APIs (#6667, @harupy)
+- [Projects] Replace the `use_conda` argument with the `env_manager` argument within the `run` CLI command for MLflow Projects (#6654, @harupy)
+- [Projects] Modify the MLflow Projects docker image build options by renaming `--skip-image-build` to `--build-image` with a default of `False` (#7011, @harupy)
+- [Integrations/Azure] Remove deprecated `mlflow.azureml` modules from MLflow in favor of the `azure-mlflow` deployment plugin (#6691, @BenWilson2)
+- [R] Remove conda integration with the R client (#6638, @harupy)
 
 Bug fixes:
 
 - [Recipes] Fix rendering issue with profile cards polyfill (#7154, @hubertzub-db)
-- [Tracking] Add run_name when specified in start_run tags (#7228, @Cokral)
+- [Tracking] Add `run_name` when specified in start_run tags (#7228, @Cokral)
 - [Tracking] Fix an issue with conflicting `run_name` assignment if tag `mlflow.runName` is set (#7138, @harupy)
-- [Scoring] Fix SageMaker deployment client predict API and add tests (#7193, @dbczumar)
-- [Scoring] Fix an issue with preserving `DataCaptureConfig` when updating a Sagemaker endpoint (#7281, @harupy)
+- [Scoring] Fix incorrect payload constructor error in SageMaker deployment client `predict()` API (#7193, @dbczumar)
+- [Scoring] Fix an issue where `DataCaptureConfig` information was not preserved when updating a Sagemaker deployment (#7281, @harupy)
 
 Small bug fixes and documentation updates:
 
-#7309, #7314, #7288, #7276, #7244, #7207, #7175, #7107, @sunishsheth2009; #7261, #7313, #7311, #7249, #7278, #7260, #7284, #7283, #7263, #7266, #7264, #7267, #7265, #7250, #7259, #7247, #7242, #7143, #7214, #7226, #7230, #7227, #7229, #7225, #7224, #7223, #7210, #7192, #7197, #7196, #7204, #7198, #7191, #7189, #7184, #7182, #7170, #7183, #7131, #7165, #7151, #7164, #7168, #7150, #7128, #7028, #7118, #7117, #7102, #7072, #7103, #7101, #7100, #7099, #7098, #7041, #7040, #6978, #6768, #6719, #6669, #6658, #6656, #6655, #6538, #6507, #6504 @harupy; #7310, #7308, #7300, #7290, #7239, #7220, #7127, #7091, #6713 @BenWilson2; #7299, #7271, #7209, #7180, #7179, #7158, #7147, #7114, @prithvikannan; #7275, #7245, #7134, #7059, @jinzhang21; #7306, #7298, #7287, #7272, #7258, #7236, @ayushthe1; #7279, @tk1012; #7219, @rddefauw; #7218, #7208, #7188, #7190, #7176, #7137, #7136, #7130, #7124, #7079, #7052, #6541 @dbczumar; #7200, @hubertzub-db; #7121, @Gonmeso; #6988, @alonisser; #7141, @pdifranc; #7086, @jerrylian-db; #7286, @shogohida
+#7309, #7314, #7288, #7276, #7244, #7207, #7175, #7107, @sunishsheth2009; #7261, #7313, #7311, #7249, #7278, #7260, #7284, #7283, #7263, #7266, #7264, #7267, #7265, #7250, #7259, #7247, #7242, #7143, #7214, #7226, #7230, #7227, #7229, #7225, #7224, #7223, #7210, #7192, #7197, #7196, #7204, #7198, #7191, #7189, #7184, #7182, #7170, #7183, #7131, #7165, #7151, #7164, #7168, #7150, #7128, #7028, #7118, #7117, #7102, #7072, #7103, #7101, #7100, #7099, #7098, #7041, #7040, #6978, #6768, #6719, #6669, #6658, #6656, #6655, #6538, #6507, #6504 @harupy; #7310, #7308, #7300, #7290, #7239, #7220, #7127, #7091, #6713 @BenWilson2; #7299, #7271, #7209, #7180, #7179, #7158, #7147, #7114, @prithvikannan; #7275, #7245, #7134, #7059, @jinzhang21; #7306, #7298, #7287, #7272, #7258, #7236, @ayushthe1; #7279, @tk1012; #7219, @rddefauw; #7218, #7208, #7188, #7190, #7176, #7137, #7136, #7130, #7124, #7079, #7052, #6541 @dbczumar; #6640, @WeichenXu123; #7200, @hubertzub-db; #7121, @Gonmeso; #6988, @alonisser; #7141, @pdifranc; #7086, @jerrylian-db; #7286, @shogohida
 
 ## 1.30.0 (2022-10-19)
 
