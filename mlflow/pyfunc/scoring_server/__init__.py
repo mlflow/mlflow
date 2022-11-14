@@ -70,12 +70,14 @@ REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
 SCORING_PROTOCOL_CHANGE_INFO = (
-    "IMPORTANT: If you're seeing this error, you may be querying an MLflow Model Server running"
-    " version 2.0 or later from an MLflow client running an earlier version (for example, 1.30.0)."
-    " To resolve the error, either upgrade your MLflow client to a version >= 2.0 or adjust your"
-    " MLflow Model's requirements file to set the version of MLflow to the same version as the"
-    " client (for example, change the 'mlflow' requirement string to 'mlflow==1.30.0'). For more"
-    " information about the updated model scoring server protocol in MLflow 2.0, see "
+    "IMPORTANT: The MLflow Model scoring protocol has changed in MLflow version 2.0. If you are"
+    " seeing this error, you are likely using an outdated scoring request format. To resolve the"
+    " error, either update your request format or adjust your MLflow Model's requirements file to"
+    " specify an older version of MLflow (for example, change the 'mlflow' requirement specifier"
+    " to 'mlflow==1.30.0'). If you are making a request using the MLflow client"
+    " (e.g. via `mlflow.pyfunc.spark_udf()`), upgrade your MLflow client to a version >= 2.0 in"
+    " order to use the new request format. For more information about the updated MLflow"
+    " Model Server scoring protocol in MLflow 2.0, see "
     " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
 )
 
