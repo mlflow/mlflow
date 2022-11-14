@@ -12,7 +12,7 @@ Features:
 - [UI] Introduce support for pinning runs within the experiments UI (#7177, @harupy)
 - [UI] Simplify the layout and provide customized displays of metrics, parameters, and tags within the experiments UI (#7177, @harupy)
 - [UI] Simplify run filtering and ordering of runs within the experiments UI (#7177, @harupy)
-- [Tracking] Update `get_model_dependencies` to download all referenced requirements files for specified models (#6733, @harupy)
+- [Tracking] Update `mlflow.pyfunc.get_model_dependencies()` to download all referenced requirements files for specified models (#6733, @harupy)
 - [Tracking] Add support for selecting the Keras model `save_format` used by `mlflow.tensorflow.autolog()` (#7123, @balvisio)
 - [Models] Set `mlflow.evaluate()` status to stable as it is now a production-ready API
 - [Models] Simplify APIs for specifying custom metrics and custom artifacts during model evaluation with `mlflow.evaluate()` (#7142, @harupy)
