@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
 )
+from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -235,7 +236,12 @@ class FileStore(AbstractStore):
 
     def _get_active_experiments(self, full_path=False):
         exp_list = list_subdirs(self.root_directory, full_path)
-        return [exp for exp in exp_list if not exp.endswith(FileStore.TRASH_FOLDER_NAME)]
+        return [
+            exp
+            for exp in exp_list
+            if not exp.endswith(FileStore.TRASH_FOLDER_NAME)
+            and exp != ModelRegistryFileStore.MODELS_FOLDER_NAME
+        ]
 
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
