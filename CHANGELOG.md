@@ -18,7 +18,7 @@ Features:
 - [Models] Simplify APIs for specifying custom metrics and custom artifacts during model evaluation with `mlflow.evaluate()` (#7142, @harupy)
 - [Models] Correctly infer the positive label for binary classification within `mlflow.evaluate()` (#7149, @dbczumar)
 - [Models] Enable automated signature logging for `tensorflow` and `keras` models when `mlflow.tensorflow.autolog()` is enabled (#6678, @BenWilson2)
-- [Models] Add support for native Keras and Tensorflow Core support within `mlflow.tensorflow` (#6530, @WeichenXu123)
+- [Models] Add support for native Keras and Tensorflow Core models within `mlflow.tensorflow` (#6530, @WeichenXu123)
 - [Models] Add support for defining the `model_format` used by `mlflow.xgboost.save/log_model()` (#7068, @AvikantSrivastava)
 - [Scoring] Overhaul the model scoring REST API to introduce format indicators for inputs and support multiple output fields (#6575, @tomasatdatabricks; #7254, @adriangonz)
 - [Scoring] Add support for ragged arrays in model signatures (#7135, @trangevi)
