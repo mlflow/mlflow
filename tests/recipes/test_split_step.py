@@ -55,7 +55,7 @@ def test_split_step_run(tmp_path):
     merged_output_df = pd.concat([output_train_df, output_validation_df, output_test_df])
     assert merged_output_df.columns.tolist() == ["a", "b", "y"]
     assert set(merged_output_df.a.tolist()) == set(range(num_good_rows))
-    assert set(merged_output_df.b.tolist()) == set(str(i) for i in range(num_good_rows))
+    assert set(merged_output_df.b.tolist()) == {str(i) for i in range(num_good_rows)}
     assert set(merged_output_df.y.tolist()) == {0.0, 1.0}
 
 

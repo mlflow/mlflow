@@ -96,7 +96,7 @@ def test_flavors(flavors, expected):
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         flavors_args = [] if flavors is None else ["--flavors", flavors]
         matrix = generate_matrix([*path_args, *flavors_args])
-        flavors = set(x.flavor for x in matrix)
+        flavors = {x.flavor for x in matrix}
         assert flavors == expected
 
 
@@ -115,7 +115,7 @@ def test_versions(versions, expected):
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         versions_args = [] if versions is None else ["--versions", versions]
         matrix = generate_matrix([*path_args, *versions_args])
-        versions = set(str(x.version) for x in matrix)
+        versions = {str(x.version) for x in matrix}
         assert versions == expected
 
 
@@ -123,8 +123,8 @@ def test_versions(versions, expected):
 def test_flavors_and_versions():
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         matrix = generate_matrix([*path_args, "--flavors", "foo,bar", "--versions", "dev"])
-        flavors = set(x.flavor for x in matrix)
-        versions = set(str(x.version) for x in matrix)
+        flavors = {x.flavor for x in matrix}
+        versions = {str(x.version) for x in matrix}
         assert set(flavors) == {"foo", "bar"}
         assert set(versions) == {"dev"}
 
@@ -133,8 +133,8 @@ def test_flavors_and_versions():
 def test_no_dev():
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         matrix = generate_matrix([*path_args, "--no-dev"])
-        flavors = set(x.flavor for x in matrix)
-        versions = set(str(x.version) for x in matrix)
+        flavors = {x.flavor for x in matrix}
+        versions = {str(x.version) for x in matrix}
         assert set(flavors) == {"foo", "bar"}
         assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
 
@@ -143,7 +143,7 @@ def test_no_dev():
 def test_changed_files():
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, MOCK_YAML_SOURCE) as path_args:
         matrix = generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
-        flavors = set(x.flavor for x in matrix)
-        versions = set(str(x.version) for x in matrix)
+        flavors = {x.flavor for x in matrix}
+        versions = {str(x.version) for x in matrix}
         assert set(flavors) == {"foo"}
         assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "dev"}
