@@ -54,7 +54,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 9
+  max_major_version: 10
 
 shap:
   pip_release: shap

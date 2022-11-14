@@ -43,12 +43,12 @@ export const PinRowCellRenderer = React.memo(
 
 const styles = {
   pinWrapper: (theme: Theme) => ({
-    input: { width: 0 },
+    input: { width: 0, appearance: 'none' as const },
     cursor: 'pointer',
     display: 'inline-block',
     svg: {
-      width: 16,
-      height: 16,
+      width: 14,
+      height: 14,
       cursor: 'pointer',
       color: 'transparent',
     },
