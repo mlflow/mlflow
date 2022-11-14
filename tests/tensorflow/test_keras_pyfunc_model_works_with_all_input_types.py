@@ -278,14 +278,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_multi_multidim
     input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)
     input_b = np.repeat(x.values[:, -2:, np.newaxis], 5, axis=2)
 
-    instances = []
-    for index in range(len(input_a)):
-        instances.append(
-            {
-                "a": input_a[index].tolist(),
-                "b": input_b[index].tolist(),
-            }
-        )
+    instances = [{"a": a.tolist(), "b": b.tolist()} for a, b in zip(input_a, input_b)]
 
     inp_dict = {"instances": instances}
     response_records_content_type = pyfunc_serve_and_score_model(

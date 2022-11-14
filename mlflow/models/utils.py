@@ -446,6 +446,11 @@ def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
 
 
 def _reshape_and_cast_pandas_column_values(name, pd_series, shape, dtype):
+    if shape[0] != -1:
+        raise MlflowException(
+            "For pandas dataframe input, the first dimension of shape must be a variable "
+            "dimension."
+        )
     err_msg = (
         f"The values in Input dataframe column '{name}' cannot be converted to expected shape "
         f"{shape} and type {dtype}"
@@ -497,7 +502,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
                     new_pfInput[col_name] = _enforce_tensor_spec(
                         np.array(pd_series, dtype=tensor_spec.type), tensor_spec
                     )
-                else:
+                elif isinstance(pd_series[0], list):
                     # If the pandas column contains list type values,
                     # in this case, the shape and type information is lost,
                     # so do not enforce the shape and type, instead,
@@ -505,6 +510,12 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
                     # required type.
                     new_pfInput[col_name] = _reshape_and_cast_pandas_column_values(
                         col_name, pd_series, tensor_spec.shape, tensor_spec.type
+                    )
+                else:
+                    raise MlflowException(
+                        "Because the model signature requires tensor spec input, the input "
+                        "pandas dataframe values should be either scalar type or list type, "
+                        "other types are not supported."
                     )
         else:
             raise MlflowException(
@@ -526,8 +537,8 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
             else:
                 if tensor_spec.shape != (-1, num_input_columns):
                     raise MlflowException(
-                        "This model contains a model signature with a unnamed input, in this case "
-                        f"if the input data is a pandas dataframe containing multiple columns, "
+                        "This model contains a model signature with an unnamed input, in the case "
+                        "if the input data is a pandas dataframe containing multiple columns, "
                         "the input shape must equals to (-1, number_of_dataframe_columns), "
                         f"but got an input dataframe of {num_input_columns} columns and the "
                         f"input shape is {tensor_spec.shape}."
