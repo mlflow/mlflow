@@ -26,7 +26,8 @@ _MLFLOW_TO_FLAML_METRICS = {
     "accuracy_score": "accuracy",
 }
 
-_MLFLOW_TO_SKLEARN_METRICS = ["recall_score", "precision_score"]
+# metrics that are not supported natively in FLAML
+_SKLEARN_METRICS = ["recall_score", "precision_score"]
 
 
 def get_estimator_and_best_params(
@@ -127,7 +128,7 @@ def _create_model_automl(
     try:
         if primary_metric in _MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
             metric = _MLFLOW_TO_FLAML_METRICS[primary_metric]
-        elif primary_metric in _MLFLOW_TO_SKLEARN_METRICS and primary_metric in evaluation_metrics:
+        elif primary_metric in _SKLEARN_METRICS and primary_metric in evaluation_metrics:
             metric = _create_sklearn_metric_flaml(
                 primary_metric, -1 if evaluation_metrics[primary_metric].greater_is_better else 1
             )
