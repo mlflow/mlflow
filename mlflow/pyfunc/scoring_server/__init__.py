@@ -70,13 +70,13 @@ REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
 SCORING_PROTOCOL_CHANGE_INFO = (
-    f"IMPORTANT: If you're seeing this error, you may be querying an MLflow Model Server running"
-    f" version 2.0 or later from an MLflow client running an earlier version (for example, 1.30.0)."
-    f" To resolve the error, either upgrade your MLflow client to a version >= 2.0 or adjust your"
-    f" MLflow Model's requirements file to set the version of MLflow to the same version as the"
-    f" client (for example, change the 'mlflow' requirement string to 'mlflow==1.30.0'). For more"
-    f" information about the updated model scoring server protocol in MLflow 2.0, see "
-    f" https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
+    "IMPORTANT: If you're seeing this error, you may be querying an MLflow Model Server running"
+    " version 2.0 or later from an MLflow client running an earlier version (for example, 1.30.0)."
+    " To resolve the error, either upgrade your MLflow client to a version >= 2.0 or adjust your"
+    " MLflow Model's requirements file to set the version of MLflow to the same version as the"
+    " client (for example, change the 'mlflow' requirement string to 'mlflow==1.30.0'). For more"
+    " information about the updated model scoring server protocol in MLflow 2.0, see "
+    " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
 )
 
 
