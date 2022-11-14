@@ -159,8 +159,8 @@ def test_recipes_log_to_expected_mlflow_backend_with_expected_run_tags_once_on_r
         "train/model",
     }
     run_tags = MlflowClient(tracking_uri).get_run(run_id=logged_run.info.run_id).data.tags
-    recipeSourceTag = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE)}
-    assert resolve_tags(recipeSourceTag).items() <= run_tags.items()
+    recipe_source_tag = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE)}
+    assert resolve_tags(recipe_source_tag).items() <= run_tags.items()
 
     recipe.run()
     logged_runs = mlflow.search_runs(experiment_names=[experiment_name], output_format="list")
