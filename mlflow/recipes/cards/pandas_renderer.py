@@ -144,15 +144,15 @@ def convert_to_dataset_feature_statistics(
                 if equal_height_hist:
                     feat_stats.histograms.append(equal_height_hist)
         elif feat.type == fs_proto.STRING:
-            isCurrentColumnBooleanType = False
+            is_current_column_boolean_type = False
             if current_column_value.dtype == bool:
                 current_column_value = current_column_value.replace({True: "True", False: "False"})
-                isCurrentColumnBooleanType = True
+                is_current_column_boolean_type = True
             feat_stats = feat.string_stats
             strs = current_column_value.dropna()
 
             feat_stats.avg_length = (
-                np.mean(np.vectorize(len)(strs)) if not isCurrentColumnBooleanType else 0
+                np.mean(np.vectorize(len)(strs)) if not is_current_column_boolean_type else 0
             )
             vals, counts = np.unique(strs, return_counts=True)
             feat_stats.unique = pandas_describe_key.get("unique", len(vals))

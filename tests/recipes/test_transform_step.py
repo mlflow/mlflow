@@ -145,10 +145,10 @@ def test_validate_method_validates_the_transformer():
         def transform(self):
             return "transform"
 
-    inCorrectFitTransformer = InCorrectFitTransformer()
+    in_correct_fit_transformer = InCorrectFitTransformer()
 
     def incorrect__fit_transformer():
-        return inCorrectFitTransformer
+        return in_correct_fit_transformer
 
     with pytest.raises(
         MlflowException,

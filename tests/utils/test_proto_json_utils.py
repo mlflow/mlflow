@@ -283,7 +283,7 @@ def test_parse_tf_serving_dictionary():
             TensorSpec(np.dtype("int32"), [-1], "c"),
         ]
     )
-    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
+    df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
     result = parse_tf_serving_input(tfserving_input, schema)
     expected_result_schema = {
         "a": np.array(["s1", "s2", "s3"], dtype=np.dtype("str")),
@@ -292,7 +292,7 @@ def test_parse_tf_serving_dictionary():
     }
     assert_result(result, expected_result_schema)
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input, dfSchema)
+    result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
 
     # input provided as a dict
@@ -312,7 +312,7 @@ def test_parse_tf_serving_dictionary():
     assert_result(result, expected_result_schema)
 
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input, dfSchema)
+    result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
 
 
@@ -334,7 +334,7 @@ def test_parse_tf_serving_arbitrary_input_dictionary():
             TensorSpec(np.dtype("int32"), [-1, 4], "c"),
         ]
     )
-    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
+    df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
 
     expected_result_no_schema_arbitrary = {
         "a": np.array([["s1", "s2", "s3"], ["s4", "s5", "s6"]]),
@@ -356,7 +356,7 @@ def test_parse_tf_serving_arbitrary_input_dictionary():
     assert_result(result, expected_result_schema_arbitrary)
 
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input_arbitrary, dfSchema)
+    result = parse_tf_serving_input(tfserving_input_arbitrary, df_schema)
     assert_result(result, expected_result_schema_arbitrary)
 
 
