@@ -56,3 +56,24 @@ The following tools/packages are NOT pre-installed to avoid increasing the image
 - R
 - Docker
 - conda
+
+## How to update `requirements.txt`
+
+```bash
+CMD='
+pip install pip-tools
+pip-compile --verbose \
+   --output-file /tmp/output.txt \
+   core-requirements.txt \
+   doc-requirements.txt \
+   test-requirements.txt \
+   lint-requirements.txt
+
+# Add a timestamp at the beginning of the file
+echo "# Created at: $(date -u +"%F %T %Z")" | cat - /tmp/output.txt > /tmp/requirements.txt
+'
+CONTAINER_NAME="mlflow-$(uuidgen)"
+docker run --name $CONTAINER_NAME -w /app -v $(pwd)/requirements:/app:ro python:3.8.15 bash -exc "$CMD"
+docker cp $CONTAINER_NAME:/tmp/requirements.txt .devcontainer/requirements.txt
+docker rm -f -v $CONTAINER_NAME
+```
