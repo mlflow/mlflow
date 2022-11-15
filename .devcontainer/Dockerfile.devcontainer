@@ -30,7 +30,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
     && sudo apt install -y nodejs \
     && npm -g install yarn
 
-# Install Oh My Zsh to improve shell experience
+# Install Oh My Zsh
 # fb66b67d683935cd0e4a5282064947a28087a91b is the latest commit as of 2022-11-14
 RUN bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/fb66b67d683935cd0e4a5282064947a28087a91b/tools/install.sh)"
 COPY .devcontainer/codespaces.zsh-theme /root/.oh-my-zsh/custom/themes/codespaces.zsh-theme
