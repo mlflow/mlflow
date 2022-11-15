@@ -17,19 +17,19 @@ def _get_active_spark_session():
         return SparkSession._instantiatedSession
 
 
+# Suppose we have a parent process already initiate a spark session that connected to a spark
+# cluster, then the parent process spawns a child process, if child process directly creates
+# a local spark session, it does not work correctly, because of PYSPARK_GATEWAY_PORT and
+# PYSPARK_GATEWAY_SECRET are inherited from parent process and child process pyspark session
+# will try to connect to the port and cause error.
+# So the 2 lines here are to clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to
+# enforce launching a new pyspark JVM gateway.
 def _prepare_subprocess_environ_for_creating_local_spark_session():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if is_in_databricks_runtime():
         os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
 
-    # Suppose we have a parent process already initiate a spark session that connected to a spark
-    # cluster, then the parent process spawns a child process, if child process directly creates
-    # a local spark session, it does not work correctly, because of PYSPARK_GATEWAY_PORT and
-    # PYSPARK_GATEWAY_SECRET is inherited from parent process and child process pyspark session
-    # will try to connect to the port and cause error.
-    # So the 2 lines here is to clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to
-    # enforce launching a new pyspark JVM gateway.
     os.environ.pop("PYSPARK_GATEWAY_PORT", None)
     os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
 
@@ -60,7 +60,7 @@ def _create_local_spark_session_for_loading_spark_model():
 
     return (
         SparkSession.builder.config("spark.python.worker.reuse", "true")
-        # The config is a workaround for avoid databricks delta cache issue when loading
+        # The config is a workaround for avoiding databricks delta cache issue when loading
         # some specific model such as ALSModel.
         .config("spark.databricks.io.cache.enabled", "false")
         # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
