@@ -542,7 +542,7 @@ def autolog(
         xb = learner.dls.train.one_batch()[: learner.dls.train.n_inp]
         infos = layer_info(learner, *xb)
         bs = find_bs(xb)
-        inp_sz = _print_shapes(map(lambda x: x.shape, xb), bs)
+        inp_sz = _print_shapes((x.shape for x in xb), bs)
         mlflow.log_param("input_size", inp_sz)
         mlflow.log_param("num_layers", len(infos))
 

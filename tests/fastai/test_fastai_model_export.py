@@ -71,13 +71,12 @@ def test_model_save_load(fastai_model, model_path):
     dl_model = model.dls.test_dl(fastai_model.inference_dataframe)
     dl_reloaded_model = reloaded_model.dls.test_dl(fastai_model.inference_dataframe)
 
-    real_preds, _ = map(
-        lambda output: output.numpy() if output is not None else output,
-        model.get_preds(dl=dl_model),
+    real_preds, _ = (
+        output.numpy() if output is not None else output for output in model.get_preds(dl=dl_model)
     )
-    reloaded_preds, _ = map(
-        lambda output: output.numpy() if output is not None else output,
-        reloaded_model.get_preds(dl=dl_reloaded_model),
+    reloaded_preds, _ = (
+        output.numpy() if output is not None else output
+        for output in reloaded_model.get_preds(dl=dl_reloaded_model)
     )
 
     np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
