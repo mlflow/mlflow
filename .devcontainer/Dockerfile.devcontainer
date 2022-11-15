@@ -9,8 +9,8 @@ FROM python:3.8.15
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# GitHub Codespaces uses /workspaces/mlflow as a working directory
 WORKDIR /workspaces/mlflow
+COPY --from=ui-builder /mlflow/build ./mlflow/server/js/build
 
 RUN apt update -y \
     && apt install -y sudo \
@@ -25,12 +25,19 @@ RUN apt update -y \
     && sudo apt clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Oh My Zsh for a better shell experience. fb66b67d683935cd0e4a5282064947a28087a91b is the latest commit as of 2022-11-14.
+# Install node and yarn for UI development
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
+    && sudo apt install -y nodejs \
+    && npm -g install yarn
+
+# Install Oh My Zsh to improve shell experience
+# fb66b67d683935cd0e4a5282064947a28087a91b is the latest commit as of 2022-11-14
 RUN bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/fb66b67d683935cd0e4a5282064947a28087a91b/tools/install.sh)"
 COPY .devcontainer/codespaces.zsh-theme /root/.oh-my-zsh/custom/themes/codespaces.zsh-theme
 ENV ZSH_THEME=codespaces
 
-# Install pyenv. v2.3.6 is the latest release as of 2022-11-14.
+# Install pyenv
+# v2.3.6 is the latest release as of 2022-11-14
 RUN git clone --depth 1 --single-branch --branch v2.3.6 https://github.com/pyenv/pyenv.git /root/.pyenv \
     && echo 'eval "$(pyenv init --path)"' >> /root/.zshrc
 ENV PYENV_ROOT="/root/.pyenv"
@@ -39,11 +46,3 @@ ENV PATH="$PYENV_ROOT/bin:$PATH"
 # Install mlflow dependencies
 COPY .devcontainer/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
-
-# Install node and yarn for UI development
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
-    && sudo apt install -y nodejs \
-    && npm -g install yarn
-
-# Copy UI dependencies
-COPY --from=ui-builder /mlflow/build ./mlflow/server/js/build
