@@ -1,11 +1,5 @@
 **
 
 !.devcontainer/codespaces.zsh-theme
-!requirements
-!setup.py
-!README.rst
-!mlflow/__init__.py
-!mlflow/version.py
 !mlflow/server/js
-
 mlflow/server/js/node_modules
