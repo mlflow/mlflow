@@ -6,23 +6,24 @@ import json
 import os
 import sys
 import posixpath
-import pytest
 import logging
 import tempfile
 import time
 import urllib.parse
 import requests
 
+import pytest
+
+from mlflow import MlflowClient
+from mlflow.artifacts import download_artifacts
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.models import Model
+import mlflow.pyfunc
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import validate_path_is_safe
-from mlflow.models import Model
-
-import mlflow.pyfunc
-from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
@@ -41,7 +42,6 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
-from mlflow.artifacts import download_artifacts
 
 
 _logger = logging.getLogger(__name__)
