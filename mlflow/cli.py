@@ -581,6 +581,19 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
             click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
+@cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
+@click.option(
+    "--mask-envs",
+    is_flag=True,
+    help=(
+        'If True, mask the environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`) '
+        "in the output to prevent leaking sensitive information"
+    ),
+)
+def doctor(mask_envs):
+    mlflow.doctor(mask_envs)
+
+
 cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
