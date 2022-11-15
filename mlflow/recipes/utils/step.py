@@ -124,7 +124,7 @@ def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
     and they are all visualized in comparison mode.
     :return: a data profiling string such as Pandas profiling ProfileReport.
     """
-    truncated_input = list(map(lambda input: truncate_pandas_data_profile(*input), inputs))
+    truncated_input = [truncate_pandas_data_profile(*input) for input in inputs]
     return pandas_renderer.get_html(truncated_input)
 
 
