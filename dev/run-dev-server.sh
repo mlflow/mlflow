@@ -23,6 +23,13 @@ else
   backend_store_uri="--backend-store-uri $MLFLOW_TRACKING_URI"
   default_artifact_root="--default-artifact-root mlruns"
 fi
+
+if [ ! -d "mlflow/server/js/node_modules" ]; then
+  pushd mlflow/server/js
+  yarn install
+  popd
+fi
+
 mlflow server $backend_store_uri $default_artifact_root --gunicorn-opts="--log-level debug --reload" &
 wait_server_ready localhost:5000/health
 yarn --cwd mlflow/server/js start
