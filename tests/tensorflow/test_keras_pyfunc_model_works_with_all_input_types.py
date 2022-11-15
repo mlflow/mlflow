@@ -15,8 +15,11 @@ from tensorflow.keras.optimizers import SGD
 
 from mlflow.types.schema import Schema, TensorSpec
 from mlflow.models.signature import ModelSignature
+from mlflow.pyfunc import spark_udf
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from tests.helper_functions import pyfunc_serve_and_score_model, expect_status_code
+
+from pyspark.sql.functions import struct
 
 
 @pytest.fixture
@@ -33,6 +36,15 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    from pyspark.sql import SparkSession
+
+    session = SparkSession.builder.master("local[2]").getOrCreate()
+    yield session
+    session.stop()
 
 
 @pytest.fixture(scope="module")
@@ -146,21 +158,23 @@ def multi_multidim_tensor_input_model(data):
 def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
     x, _ = data
     model, signature = single_tensor_input_model
-    model_path = os.path.join(model_path, "plain")
-    expected = model.predict(x.values)
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+    expected = model.predict(x)
 
-    # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+    for signature in [None, signature]:
+        model_path = os.path.join(model_path, str(signature is None))
+        mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    actual = model_loaded.predict(x)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        # Loading Keras model via PyFunc
+        model_loaded = mlflow.pyfunc.load_model(model_path)
 
-    # Calling predict with a np array should return a np array
-    actual = model_loaded.predict(x.values)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        actual = model_loaded.predict(x)
+        assert type(actual) == np.ndarray
+        np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+        # Calling predict with a np array should return a np array
+        actual = model_loaded.predict(x.values)
+        assert type(actual) == np.ndarray
+        np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
 def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
@@ -171,54 +185,54 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
         "a": x.values[:, :2],
         "b": x.values[:, -2:],
     }
-
-    model_path = os.path.join(model_path, "plain")
     expected = model.predict(test_input)
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+    for signature in [None, signature]:
+        model_path = os.path.join(model_path, str(signature is None))
+        mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    # Calling predict with a list should return a np.ndarray output
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        # Loading Keras model via PyFunc
+        model_loaded = mlflow.pyfunc.load_model(model_path)
 
-    test_input = pd.DataFrame(
-        {
-            "a": list(x.values[:, :2]),
-            "b": list(x.values[:, -2:]),
-        }
-    )
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        # Calling predict with a list should return a np.ndarray output
+        actual = model_loaded.predict(test_input)
+        assert type(actual) == np.ndarray
+        np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+        if signature is not None:
+            test_input = pd.DataFrame(
+                {
+                    "a": x.values[:, :2].tolist(),
+                    "b": x.values[:, -2:].tolist(),
+                }
+            )
+            actual = model_loaded.predict(test_input)
+            assert type(actual) == np.ndarray
+            np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
 def test_model_single_multidim_tensor_input(single_multidim_tensor_input_model, model_path, data):
     x, _ = data
     model, signature = single_multidim_tensor_input_model
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
-    model_path = os.path.join(model_path, "plain")
     expected = model.predict(test_input)
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+    for signature in [None, signature]:
+        model_path = os.path.join(model_path, str(signature is None))
+        mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        # Loading Keras model via PyFunc
+        model_loaded = mlflow.pyfunc.load_model(model_path)
 
-    test_input_df = pd.DataFrame({"x": list(test_input.reshape((-1, 4, 3)))})
-    actual = model_loaded.predict(test_input_df)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        actual = model_loaded.predict(test_input)
+        assert type(actual) == np.ndarray
+        np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
-    test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
-    actual = model_loaded.predict(test_input_df)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        if signature is not None:
+            test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
+            actual = model_loaded.predict(test_input_df)
+            assert type(actual) == np.ndarray
+            np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
 def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, model_path, data):
@@ -231,36 +245,93 @@ def test_model_multi_multidim_tensor_input(multi_multidim_tensor_input_model, mo
         "b": input_b,
     }
 
-    model_path = os.path.join(model_path, "plain")
     expected = model.predict(test_input)
-    mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
+    for signature in [None, signature]:
+        model_path = os.path.join(model_path, str(signature is None))
 
-    # Loading Keras model via PyFunc
-    model_loaded = mlflow.pyfunc.load_model(model_path)
+        mlflow.tensorflow.save_model(model, path=model_path, signature=signature)
 
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        # Loading Keras model via PyFunc
+        model_loaded = mlflow.pyfunc.load_model(model_path)
 
-    test_input = pd.DataFrame(
-        {
-            "a": list(input_a.reshape((-1, 2, 3))),
-            "b": list(input_b.reshape((-1, 2, 5))),
-        }
+        actual = model_loaded.predict(test_input)
+        assert type(actual) == np.ndarray
+        np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+        if signature is not None:
+            test_input = pd.DataFrame(
+                {
+                    "a": input_a.reshape((-1, 2 * 3)).tolist(),
+                    "b": input_b.reshape((-1, 2 * 5)).tolist(),
+                }
+            )
+            actual = model_loaded.predict(test_input)
+            assert type(actual) == np.ndarray
+            np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
+
+def test_single_multidim_input_model_spark_udf(
+    single_multidim_tensor_input_model, spark_session, data
+):
+    model, signature = single_multidim_tensor_input_model
+    x, _ = data
+    test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
+    expected = model.predict(test_input)
+    test_input_spark_df = spark_session.createDataFrame(
+        pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
     )
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+    with mlflow.start_run():
+        model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    test_input = pd.DataFrame(
-        {
-            "a": input_a.reshape((-1, 2 * 3)).tolist(),
-            "b": input_b.reshape((-1, 2 * 5)).tolist(),
-        }
+    for env_manager in ["local", "conda"]:
+        infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
+        actual = (
+            test_input_spark_df.select(infer_udf("x").alias("prediction"))
+            .toPandas()
+            .prediction.to_numpy()
+        )
+        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
+
+
+def test_multi_multidim_input_model_spark_udf(
+    multi_multidim_tensor_input_model, spark_session, data
+):
+    model, signature = multi_multidim_tensor_input_model
+    x, _ = data
+    input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)
+    input_b = np.repeat(x.values[:, -2:, np.newaxis], 5, axis=2)
+    test_input = {
+        "a": input_a,
+        "b": input_b,
+    }
+    expected = model.predict(test_input)
+
+    test_input_spark_df = spark_session.createDataFrame(
+        pd.DataFrame(
+            {
+                "a": input_a.reshape((-1, 2 * 3)).tolist(),
+                "b": input_b.reshape((-1, 2 * 5)).tolist(),
+            }
+        )
     )
-    actual = model_loaded.predict(test_input)
-    assert type(actual) == np.ndarray
-    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+    with mlflow.start_run():
+        model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
+
+    for env_manager in ["local", "conda"]:
+        infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
+        actual = (
+            test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
+            .toPandas()
+            .prediction.to_numpy()
+        )
+        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
+
+        actual = (
+            test_input_spark_df.select(infer_udf(struct("a", "b")).alias("prediction"))
+            .toPandas()
+            .prediction.to_numpy()
+        )
+        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
 def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidim_input_model(

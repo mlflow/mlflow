@@ -343,7 +343,7 @@ def save_model(
         for field in signature.inputs.inputs:
             if not isinstance(field, TensorSpec):
                 raise MlflowException(
-                    "All fileds in signature inputs must be of tensor type.",
+                    "All fileds in signature input schema must be created with tensor spec.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if field.shape[0] != -1:

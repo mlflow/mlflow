@@ -479,7 +479,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return _enforce_tensor_spec(np.array(pd_series, dtype=tensor_spec.type), tensor_spec)
-    elif isinstance(pd_series[0], list):
+    elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
         # so do not enforce the shape and type, instead,
@@ -499,13 +499,11 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
-    elif isinstance(pd_series[0], np.ndarray):
-        return _enforce_tensor_spec(np.array(pd_series.tolist()), tensor_spec)
     else:
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "
-            "pandas dataframe values should be scalar type, list type or numpy"
-            "array type, other types are not supported."
+            "pandas dataframe values should be either scalar value or python list "
+            "containing scalar values, other types are not supported."
         )
 
 

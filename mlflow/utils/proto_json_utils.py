@@ -210,17 +210,15 @@ def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
     actual_cols = set(pdf.columns)
-    is_single_tensor_input = False
     if schema.has_input_names():
         dtype_list = zip(schema.input_names(), schema.input_types())
     elif schema.is_tensor_spec() and len(schema.input_types()) == 1:
-        is_single_tensor_input = True
         dtype_list = zip(actual_cols, [schema.input_types()[0] for _ in actual_cols])
     else:
         n = min(len(schema.input_types(), pdf.columns))
         dtype_list = zip(pdf.columns[:n], schema.input_types[:n])
 
-    for index, (col_name, col_type_spec) in enumerate(dtype_list):
+    for col_name, col_type_spec in enumerate(dtype_list):
         if isinstance(col_type_spec, DataType):
             col_type = col_type_spec.to_pandas()
         else:
@@ -232,12 +230,9 @@ def cast_df_types_according_to_schema(pdf, schema):
                     pdf[col_name] = pdf[col_name].map(
                         lambda x: base64.decodebytes(bytes(x, "utf8"))
                     )
-                elif (
-                    schema.is_tensor_spec()
-                    and not is_single_tensor_input
-                    and len(schema.inputs[index].shape) > 1
-                ):
-                    # For dataframe with multidimensional column, we cannot convert
+                elif schema.is_tensor_spec() and isinstance(pdf[col_name][0], list):
+                    # For dataframe with multidimensional column, it contains
+                    # list type values, we cannot convert
                     # its type by `astype`, skip conversion.
                     # The conversion will be done in `_enforce_schema` while
                     # `PyFuncModel.predict` being called.

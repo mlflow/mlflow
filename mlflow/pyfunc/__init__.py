@@ -992,6 +992,18 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
+        # If the spark dataframe input column is array type,
+        # then in spark pandas_udf, the passed in arguments
+        # (`pd.dataframe` instance or `pd.Series`) contains numpy array values.
+        # Converting the numpy array values into list
+        # Because `PyFuncModel.predict` only accepts pandas dataframe
+        # containing column values of scalar type or list type.
+        pdf = pandas.DataFrame(
+            {
+                col: pdf[col].map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+                for col in pdf.columns
+            }
+        )
         result = predict_fn(pdf)
 
         if not isinstance(result, pandas.DataFrame):
