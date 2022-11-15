@@ -1,6 +1,5 @@
 # Mlflow
 mlruns/
-mlruns.sqlite
 mlartifacts/
 outputs/
 mlruns.db
