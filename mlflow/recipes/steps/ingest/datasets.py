@@ -248,7 +248,7 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                 # NB: Sort the file names alphanumerically to ensure a consistent
                 # ordering across invocations
                 dataset_file_paths = sorted(
-                    list(pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}"))
+                    pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}")
                 )
                 if len(dataset_file_paths) == 0:
                     raise MlflowException(

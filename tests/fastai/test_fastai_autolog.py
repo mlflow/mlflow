@@ -173,7 +173,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
     # Testing model_summary.txt is saved
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "module_summary.txt" in artifacts
 
 
@@ -211,7 +211,7 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     client = MlflowClient()
     run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     assert ("model" in artifacts) == log_models
 
 
@@ -221,7 +221,7 @@ def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_
     client = MlflowClient()
     run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     if fit_variant == "fit_one_cycle":
         for param in ["lr", "mom"]:
             assert any(a.startswith(param + ".") for a in artifacts)
@@ -237,7 +237,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     run_id = fastai_random_tabular_data_run[1].info.run_id
     client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "model" in artifacts
     model = mlflow.fastai.load_model("runs:/" + run_id + "/model")
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)

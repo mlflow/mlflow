@@ -311,7 +311,7 @@ def _assert_less_than_or_equal(x, max_value):
 
 
 def _assert_item_type_string(x):
-    assert all(map(lambda item: isinstance(item, str), x))
+    assert all(isinstance(item, str) for item in x)
 
 
 _TYPE_VALIDATORS = {
@@ -524,7 +524,7 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = list(sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/")
+_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
 def validate_path_is_safe(path):

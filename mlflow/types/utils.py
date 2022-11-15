@@ -217,7 +217,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         def __call__(self, x):
             if x is None:
                 return True
-            elif any(map(lambda c: isinstance(x, c), self.classes)):
+            elif any(isinstance(x, c) for c in self.classes):
                 self.seen_instances += 1
                 return True
             else:

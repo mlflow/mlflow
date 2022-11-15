@@ -101,7 +101,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             return
 
         # Cast metric value as  float before passing into logger.
-        metrics = dict(map(lambda x: (x[0], float(x[1])), metric_items))
+        metrics = {x[0]: float(x[1]) for x in metric_items}
         self.metrics_logger.record_metrics(metrics, step)
 
     def _log_epoch_metrics(self, trainer, pl_module):
