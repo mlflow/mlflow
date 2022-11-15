@@ -13,6 +13,7 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
 )
 from mlflow.utils.process import _exec_cmd
+from mlflow.version import VERSION
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -46,6 +47,12 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
 @app.route("/health")
 def health():
     return "OK", 200
+
+
+# Provide an endpoint to query the version of mlflow running on the server
+@app.route("/version")
+def version():
+    return VERSION, 200
 
 
 # Serve the "get-artifact" route.
