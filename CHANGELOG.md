@@ -1,8 +1,8 @@
 # CHANGELOG
 
-## 2.0.0 (2022-11-14)
+## 2.0.1 (2022-11-14)
 
-The 2.0.0 version of MLflow is a major milestone release that focuses on simplifying the management of end-to-end MLOps workflows, providing new feature-rich functionality, and expanding upon the production-ready MLOps capabilities offered by MLflow.
+The 2.0.1 version of MLflow is a major milestone release that focuses on simplifying the management of end-to-end MLOps workflows, providing new feature-rich functionality, and expanding upon the production-ready MLOps capabilities offered by MLflow.
 This release contains several important breaking changes from the 1.x API, additional major features and improvements.
 
 Features:
