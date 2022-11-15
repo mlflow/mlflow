@@ -28,7 +28,7 @@ def get_cmd(
     cmd_env["MLSERVER_MODEL_NAME"] = MLServerDefaultModelName
 
     if nworkers:
-        cmd_env["MLSERVER_MODEL_PARALLEL_WORKERS"] = str(nworkers)
+        cmd_env["MLSERVER_PARALLEL_WORKERS"] = str(nworkers)
 
     cmd_env["MLSERVER_MODEL_IMPLEMENTATION"] = MLServerMLflowRuntime
     cmd_env["MLSERVER_MODEL_URI"] = model_uri

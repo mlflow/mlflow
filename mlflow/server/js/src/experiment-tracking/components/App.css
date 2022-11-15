@@ -22,9 +22,9 @@ button:hover, .btn:hover {
 }
 
 .App-header {
-  background-color: #082142;
+  background-color: #0b3574;
   height: 60px;
-  color: white;
+  color: #e7f1fb;
   display: block;
 }
 
@@ -45,7 +45,7 @@ div.mlflow-logo {
 
 img.mlflow-logo {
   height: 40px;
-  margin-left: 64px;
+  margin-left: 24px;
   margin-top: 10px;
   margin-bottom: 10px;
 }
@@ -57,12 +57,11 @@ span.mlflow-version {
 }
 
 div.github {
-  padding-right: 24px;
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 div.docs {
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 .header-nav-link {
@@ -73,19 +72,14 @@ div.docs {
   text-decoration: none;
 }
 
-.header-nav-link-models {
-  margin-left: 24px;
-}
-
 div.experiments, div.models {
-  color: #ffffff;
+  color: #e7f1fb;
 }
 
 div.header-links {
   display: flex;
   float: right;
   padding-top: 20px;
-  margin-right: 64px;
   font-size: 16px;
 }
 
@@ -93,7 +87,7 @@ div.header-route-links {
   display: flex;
   float: left;
   padding-top: 20px;
-  margin-left: 40px;
+  margin-left: 24px;
   font-size: 16px;
 }
 

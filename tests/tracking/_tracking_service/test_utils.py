@@ -254,8 +254,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
 
     reload(mlflow.tracking._tracking_service.utils)
     assert (
-        "file-plugin"
-        in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
+        "file-plugin" in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry
     )
 
     from mlflow_test_plugin.file_store import PluginFileStore

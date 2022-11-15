@@ -54,7 +54,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 9
+  max_major_version: 10
 
 shap:
   pip_release: shap
@@ -79,3 +79,7 @@ Jinja2-windows:
   minimum: "3.0"
   max_major_version: 3
   markers: "platform_system == 'Windows'"
+
+matplotlib:
+  pip_release: matplotlib
+  max_major_version: 3

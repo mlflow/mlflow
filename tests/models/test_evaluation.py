@@ -590,7 +590,7 @@ def test_gen_md5_for_arraylike_obj():
     list2 = list0[:-1] + [100]
     list3 = list0[:10] + [100] + list0[10:]
 
-    assert 4 == len({get_md5(list0), get_md5(list1), get_md5(list2), get_md5(list3)})
+    assert len({get_md5(list0), get_md5(list1), get_md5(list2), get_md5(list3)}) == 4
 
     list4 = list0[:10] + [99] + list0[10:]
     assert get_md5(list3) == get_md5(list4)
@@ -870,16 +870,18 @@ def test_evaluate_with_multi_evaluators(
             mlflow.pyfunc.load_model(baseline_model_uri) if baseline_model_uri else None
         )
 
-        get_evaluate_call_arg = lambda model, evaluator_config: {
-            "model": model,
-            "model_type": "classifier",
-            "dataset": iris_dataset,
-            "run_id": run.info.run_id,
-            "evaluator_config": evaluator_config,
-            "custom_metrics": None,
-            "custom_artifacts": None,
-            "baseline_model": baseline_model,
-        }
+        def get_evaluate_call_arg(model, evaluator_config):
+            return {
+                "model": model,
+                "model_type": "classifier",
+                "dataset": iris_dataset,
+                "run_id": run.info.run_id,
+                "evaluator_config": evaluator_config,
+                "custom_metrics": None,
+                "custom_artifacts": None,
+                "baseline_model": baseline_model,
+            }
+
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
         # evaluators, and the evaluation results should equal to the case of
         # evaluators=["test_evaluator1", "test_evaluator2"]

@@ -1,5 +1,5 @@
 How To Train and Deploy Image Classifier with MLflow and Keras
----------------------------------------------------------------
+--------------------------------------------------------------
 
 In this example we demonstrate how to train and deploy image classification models with MLflow.
 We train a VGG16 deep learning model to classify flower species from photos using a `dataset
@@ -87,29 +87,21 @@ run_id ``101``.
 
   1. Deploy the model as a local REST endpoint by running ``mlflow models serve``:
 
-  .. code-block:: bash
+    .. code-block:: bash
 
-      # deploy the model to local REST api endpoint
-      mlflow models serve --model-uri runs:/101/model --port 54321
+        # deploy the model to local REST api endpoint
+        mlflow models serve --model-uri runs:/101/model --port 54321
 
+  1. Apply the model to new data using the provided score_images_rest.py script:
 
-  2. Apply the model to new data using the provided score_images_rest.py script:
+    .. code-block:: bash
 
-  .. code-block:: bash
-
-      # score the deployed model
-      python score_images_rest.py --host http://127.0.0.1 --port 54321 /path/to/images/for/scoring
+        # score the deployed model
+        python score_images_rest.py --host http://127.0.0.1 --port 54321 /path/to/images/for/scoring
 
 
 - To test batch scoring in Spark, run score_images_spark.py to score the model in Spark like this:
 
-.. code-block:: bash
+  .. code-block:: bash
 
-   python score_images_spark.py --model-uri runs:/101/model /path/to/images/for/scoring
-
-
-
-
-
-
-
+    python score_images_spark.py --model-uri runs:/101/model /path/to/images/for/scoring

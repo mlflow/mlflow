@@ -349,7 +349,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
         "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
         "MLFLOW_S3_IGNORE_TLS": os.environ.get("MLFLOW_S3_IGNORE_TLS"),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
     return volumes, envs
 
 
@@ -359,7 +359,7 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
     return [], envs
 
 
@@ -383,7 +383,7 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
         "MLFLOW_KERBEROS_USER": MLFLOW_KERBEROS_USER.get(),
         "MLFLOW_PYARROW_EXTRA_CONF": MLFLOW_PYARROW_EXTRA_CONF.get(),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
 
     if "MLFLOW_KERBEROS_TICKET_CACHE" in envs:
         ticket_cache = envs["MLFLOW_KERBEROS_TICKET_CACHE"]

@@ -197,42 +197,45 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
         _SklearnMetric(
             name=prefix + "precision_score",
             function=sklearn.metrics.precision_score,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                pos_label=pos_label,
-                average=average,
-                sample_weight=sample_weight,
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "pos_label": pos_label,
+                "average": average,
+                "sample_weight": sample_weight,
+            },
         ),
         _SklearnMetric(
             name=prefix + "recall_score",
             function=sklearn.metrics.recall_score,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                pos_label=pos_label,
-                average=average,
-                sample_weight=sample_weight,
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "pos_label": pos_label,
+                "average": average,
+                "sample_weight": sample_weight,
+            },
         ),
         _SklearnMetric(
             name=prefix + "f1_score",
             function=sklearn.metrics.f1_score,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                pos_label=pos_label,
-                average=average,
-                sample_weight=sample_weight,
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "pos_label": pos_label,
+                "average": average,
+                "sample_weight": sample_weight,
+            },
         ),
         _SklearnMetric(
             name=prefix + "accuracy_score",
             function=sklearn.metrics.accuracy_score,
-            arguments=dict(
-                y_true=y_true, y_pred=y_pred, normalize=True, sample_weight=sample_weight
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "normalize": True,
+                "sample_weight": sample_weight,
+            },
         ),
     ]
 
@@ -243,7 +246,11 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                 _SklearnMetric(
                     name=prefix + "log_loss",
                     function=sklearn.metrics.log_loss,
-                    arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
+                    arguments={
+                        "y_true": y_true,
+                        "y_pred": y_pred_proba,
+                        "sample_weight": sample_weight,
+                    },
                 ),
             ]
         )
@@ -259,13 +266,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                     _SklearnMetric(
                         name=prefix + "roc_auc_score",
                         function=sklearn.metrics.roc_auc_score,
-                        arguments=dict(
-                            y_true=y_true,
-                            y_score=y_pred_proba,
-                            average="weighted",
-                            sample_weight=sample_weight,
-                            multi_class="ovo",
-                        ),
+                        arguments={
+                            "y_true": y_true,
+                            "y_score": y_pred_proba,
+                            "average": "weighted",
+                            "sample_weight": sample_weight,
+                            "multi_class": "ovo",
+                        },
                     ),
                 ]
             )
@@ -362,12 +369,12 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     function=sklearn.metrics.RocCurveDisplay.from_estimator
                     if is_plot_function_deprecated
                     else sklearn.metrics.plot_roc_curve,
-                    arguments=dict(
-                        estimator=fitted_estimator,
-                        X=X,
-                        y=y_true,
-                        sample_weight=sample_weight,
-                    ),
+                    arguments={
+                        "estimator": fitted_estimator,
+                        "X": X,
+                        "y": y_true,
+                        "sample_weight": sample_weight,
+                    },
                     title="ROC curve",
                 ),
                 _SklearnArtifact(
@@ -375,12 +382,12 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
                     if is_plot_function_deprecated
                     else sklearn.metrics.plot_precision_recall_curve,
-                    arguments=dict(
-                        estimator=fitted_estimator,
-                        X=X,
-                        y=y_true,
-                        sample_weight=sample_weight,
-                    ),
+                    arguments={
+                        "estimator": fitted_estimator,
+                        "X": X,
+                        "y": y_true,
+                        "sample_weight": sample_weight,
+                    },
                     title="Precision recall curve",
                 ),
             ]
@@ -422,32 +429,32 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
         _SklearnMetric(
             name=prefix + "mse",
             function=sklearn.metrics.mean_squared_error,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                sample_weight=sample_weight,
-                multioutput="uniform_average",
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "sample_weight": sample_weight,
+                "multioutput": "uniform_average",
+            },
         ),
         _SklearnMetric(
             name=prefix + "mae",
             function=sklearn.metrics.mean_absolute_error,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                sample_weight=sample_weight,
-                multioutput="uniform_average",
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "sample_weight": sample_weight,
+                "multioutput": "uniform_average",
+            },
         ),
         _SklearnMetric(
             name=prefix + "r2_score",
             function=sklearn.metrics.r2_score,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                sample_weight=sample_weight,
-                multioutput="uniform_average",
-            ),
+            arguments={
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "sample_weight": sample_weight,
+                "multioutput": "uniform_average",
+            },
         ),
     ]
 
@@ -489,7 +496,7 @@ def _log_specialized_estimator_content(
 ):
     import sklearn
 
-    metrics = dict()
+    metrics = {}
 
     if y_true is not None:
         try:
@@ -809,7 +816,7 @@ def _create_child_runs_for_parameter_search(
         excluded_metric_prefixes = ["param", "split"]
         metrics_to_log = {
             key: value
-            for key, value in result_row.iteritems()
+            for key, value in result_row.items()
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
@@ -899,7 +906,7 @@ def _backported_all_estimators(type_filter=None):
     IS_PYPY = platform.python_implementation() == "PyPy"
 
     def is_abstract(c):
-        if not (hasattr(c, "__abstractmethods__")):
+        if not hasattr(c, "__abstractmethods__"):
             return False
         if not len(c.__abstractmethods__):
             return False

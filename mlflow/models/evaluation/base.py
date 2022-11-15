@@ -214,7 +214,7 @@ class EvaluationResult:
     def __init__(self, metrics, artifacts, baseline_model_metrics=None):
         self._metrics = metrics
         self._artifacts = artifacts
-        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else dict()
+        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else {}
 
     @classmethod
     def load(cls, path):
@@ -792,7 +792,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     If the validation does not pass, raise an MlflowException with detail failure message.
     """
     if not baseline_metrics:
-        baseline_metrics = dict()
+        baseline_metrics = {}
 
     validation_results = {
         metric_name: _MetricValidationResult(
@@ -950,7 +950,7 @@ def _evaluate(
             erorr_code=INVALID_PARAMETER_VALUE,
         )
 
-    merged_eval_result = EvaluationResult(dict(), dict(), dict())
+    merged_eval_result = EvaluationResult({}, {}, {})
 
     for eval_result in eval_results:
         if not eval_result:

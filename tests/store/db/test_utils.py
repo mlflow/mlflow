@@ -75,7 +75,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
                         mock_create_sqlalchemy_engine.assert_called_once_with("mydb://host:port/")
                         mock_sqlalchemy_inspect.assert_called_once()
                         mock_sleep.assert_not_called()
-                        self.assertEqual(engine, "Engine")
+                        assert engine == "Engine"
 
     def test_create_sqlalchemy_engine_with_retry_success_after_third_call(self):
         with mock.patch.dict(os.environ, {}):
@@ -91,7 +91,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
                             mock_create_sqlalchemy_engine.mock_calls
                             == [mock.call("mydb://host:port/")] * 3
                         )
-                        self.assertEqual(engine, "Engine")
+                        assert engine == "Engine"
 
     def test_create_sqlalchemy_engine_with_retry_fail(self):
         with mock.patch.dict(os.environ, {}), mock.patch(

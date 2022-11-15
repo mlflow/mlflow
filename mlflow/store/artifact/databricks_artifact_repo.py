@@ -201,7 +201,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            uploading_block_list = list()
+            uploading_block_list = []
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
                 # the bytestring for compliance with Azure Blob Storage API requests

@@ -1,4 +1,5 @@
 import { CheckCircleBorderIcon, ClockIcon, XCircleBorderIcon } from '@databricks/design-system';
+import { Theme } from '@emotion/react';
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
 import { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
@@ -21,65 +22,33 @@ const getRunStatusIcon = (status: string) => {
     case 'SCHEDULED':
       return <ClockIcon />; // This one is the same color as the link
     default:
-      return <i />;
+      return null;
   }
 };
 
 export interface DateCellRendererProps {
   value: RunRowDateAndNestInfo;
-  onExpand: (runUuid: string, childrenIds?: string[]) => void;
 }
 
-const INDENT_PER_LEVEL = 18; // Pixels
-const BASIC_INDENT = 12; // Pixels
-
 export const DateCellRenderer = React.memo(
-  ({
-    value: {
-      startTime,
-      referenceTime,
-      runUuid,
-      runStatus,
-      isParent,
-      hasExpander,
-      expanderOpen,
-      childrenIds,
-      level,
-    },
-    onExpand,
-  }: DateCellRendererProps) => {
-    const isRenderingAsParent = !isNaN(level) && hasExpander;
-    const isRenderingAsChild = !isRenderingAsParent && !isNaN(level);
-
+  ({ value: { startTime, referenceTime, runStatus } }: DateCellRendererProps) => {
     return (
-      <div>
-        {isRenderingAsParent && (
-          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-          <div
-            onClick={() => {
-              onExpand(runUuid, childrenIds);
-            }}
-            key={'Expander-' + runUuid}
-            css={(theme) => ({ paddingRight: theme.spacing.sm, display: 'inline' })}
-          >
-            <span style={{ paddingLeft: INDENT_PER_LEVEL * level }} />
-            <i
-              className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
-              css={{ width: BASIC_INDENT }}
-            />
-          </div>
-        )}
-        {isRenderingAsChild && (
-          <span
-            style={{
-              paddingLeft: INDENT_PER_LEVEL * level + BASIC_INDENT,
-            }}
-          />
-        )}
-        <span css={{ paddingLeft: isParent ? 0 : 8 }} title={Utils.formatTimestamp(startTime)}>
-          {getRunStatusIcon(runStatus)} {Utils.timeSinceStr(startTime, referenceTime)}
-        </span>
-      </div>
+      <span css={styles.cellWrapper} title={Utils.formatTimestamp(startTime)}>
+        {getRunStatusIcon(runStatus)}
+        {Utils.timeSinceStr(startTime, referenceTime)}
+      </span>
     );
   },
 );
+
+const styles = {
+  cellWrapper: (theme: Theme) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    svg: {
+      width: 14,
+      height: 14,
+    },
+  }),
+};

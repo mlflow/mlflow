@@ -383,7 +383,7 @@ class SqlAlchemyStore(AbstractStore):
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
         if tag_filters:
-            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
+            sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
                 select(SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
@@ -453,7 +453,7 @@ class SqlAlchemyStore(AbstractStore):
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
         if tag_filters:
-            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
+            sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .filter(sqlalchemy.or_(*sql_tag_filters))

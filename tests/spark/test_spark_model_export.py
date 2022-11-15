@@ -646,7 +646,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
         "mlflowdbfs_disabled",
         "mlflowdbfs_available",
         "dbutils_available",
-        "expectedURI",
+        "expected_uri",
     ),
     [
         (
@@ -709,7 +709,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mlflowdbfs_disabled,
     mlflowdbfs_available,
     dbutils_available,
-    expectedURI,
+    expected_uri,
 ):
     def mock_spark_session_load(path):
         raise Exception("MlflowDbfsClient operation failed!")
@@ -753,7 +753,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
             sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
-            mock_save.assert_called_once_with(expectedURI.format(mlflow.active_run().info.run_id))
+            mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
 
 
 @pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])

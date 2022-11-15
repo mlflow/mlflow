@@ -59,9 +59,12 @@ jobs:
     - name: Test custom pylint-plugins
       run : |
         pytest pylint_plugins/tests
-    - name: Run lint checks
+    - name: Install pre-commit hooks
       run: |
-        ./dev/lint.sh
+        pre-commit install -t pre-commit -t prepare-commit-msg
+    - name: Run pre-commit
+      run: |
+        pre-commit run --all-files --color=always
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -140,6 +143,21 @@ jobs:
         done
 
         test $err = 0
+
+    - name: Run migration check
+      run: |
+        set +e
+        err=0
+        trap 'err=1' ERR
+
+        ./tests/db/compose.sh down --volumes --remove-orphans
+        for service in $(./tests/db/compose.sh config --services | grep '^migration-')
+        do
+          ./tests/db/compose.sh run --rm --no-TTY $service
+        done
+
+        test $err = 0
+
     - name: Rebuild images with SQLAlchemy 2.x
       run: |
         sed -i 's/sqlalchemy.*/sqlalchemy>=2.0.0b2/g' requirements/core-requirements.txt
@@ -293,4 +311,4 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/pipelines
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes

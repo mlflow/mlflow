@@ -125,7 +125,7 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
     client = MlflowClient()
     artifacts = client.list_artifacts(gluon_random_data_run.info.run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     assert "model" in artifacts
     ctx = mx.cpu()
     model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model", ctx)
@@ -137,7 +137,7 @@ def test_gluon_autolog_log_models_configuration(log_models):
     random_data_run = get_gluon_random_data_run(log_models)
     client = MlflowClient()
     artifacts = client.list_artifacts(random_data_run.info.run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     assert ("model" in artifacts) == log_models
 
 

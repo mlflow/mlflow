@@ -69,24 +69,24 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image
     Build a docker image containing the project in `work_dir`, using the base image.
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
-    dockerfile = (
-        "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
-    ).format(
-        imagename=base_image,
-        build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
-        workdir=MLFLOW_DOCKER_WORKDIR_PATH,
-    )
-    build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     client = docker.from_env()
     if not build_image:
         if not client.images.list(name=base_image):
             _logger.info(f"Pulling {base_image}")
-            image = client.images.pull(image_uri)
+            image = client.images.pull(base_image)
         else:
             _logger.info(f"{base_image} already exists")
             image = client.images.get(base_image)
         image_uri = base_image
     else:
+        dockerfile = (
+            "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
+        ).format(
+            imagename=base_image,
+            build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
+            workdir=MLFLOW_DOCKER_WORKDIR_PATH,
+        )
+        build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
         with open(build_ctx_path, "rb") as docker_build_ctx:
             _logger.info("=== Building docker image %s ===", image_uri)
             image, _ = client.images.build(
@@ -143,7 +143,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
 
 def get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
-    env_vars = dict()
+    env_vars = {}
 
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
     if local_path is not None:

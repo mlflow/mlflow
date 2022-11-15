@@ -1,4 +1,5 @@
-FROM rocker/r-ver:latest
+# Our internal Jenkins job can't build an image from rocker/r-ver:>=4.2.2 (which is based on Ubuntu 22.04).
+FROM rocker/r-ver:4.2.1
 
 WORKDIR /mlflow/mlflow/R/mlflow
 RUN apt-get update -y

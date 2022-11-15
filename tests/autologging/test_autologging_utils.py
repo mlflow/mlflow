@@ -905,10 +905,10 @@ def test_get_instance_method_first_arg_value():
         def f4(self, *args, **kwargs):
             pass
 
-    assert 3 == get_instance_method_first_arg_value(Test.f1, [3, 4], {})
-    assert 3 == get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4})
-    assert 3 == get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4})
-    assert 3 == get_instance_method_first_arg_value(Test.f2, [3, 4], {})
+    assert get_instance_method_first_arg_value(Test.f1, [3, 4], {}) == 3
+    assert get_instance_method_first_arg_value(Test.f1, [3], {"cd2": 4}) == 3
+    assert get_instance_method_first_arg_value(Test.f1, [], {"ab1": 3, "cd2": 4}) == 3
+    assert get_instance_method_first_arg_value(Test.f2, [3, 4], {}) == 3
     with pytest.raises(AssertionError, match=""):
         get_instance_method_first_arg_value(Test.f3, [], {"ab1": 3, "cd2": 4})
     with pytest.raises(AssertionError, match=""):
@@ -917,6 +917,6 @@ def test_get_instance_method_first_arg_value():
 
 def test_get_method_call_arg_value():
     # suppose we call on a method defined like: `def f1(a, b=3, *, c=4, e=5)`
-    assert 2 == get_method_call_arg_value(1, "b", 3, [1, 2], {})
-    assert 3 == get_method_call_arg_value(1, "b", 3, [1], {})
-    assert 2 == get_method_call_arg_value(1, "b", 3, [1], {"b": 2})
+    assert get_method_call_arg_value(1, "b", 3, [1, 2], {}) == 2
+    assert get_method_call_arg_value(1, "b", 3, [1], {}) == 3
+    assert get_method_call_arg_value(1, "b", 3, [1], {"b": 2}) == 2

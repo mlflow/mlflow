@@ -20,7 +20,7 @@ def test_run_command_creation():  # pylint: disable=unused-argument
         '--comment-bis "bar foo"',
     ]
     command = kb._get_run_command(command)
-    assert [
+    assert command == [
         "python",
         "train.py",
         "--alpha",
@@ -31,7 +31,7 @@ def test_run_command_creation():  # pylint: disable=unused-argument
         "'foo bar'",
         "--comment-bis",
         "'bar foo'",
-    ] == command
+    ]
 
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
@@ -73,7 +73,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     assert container_spec["name"] == project_name
     assert container_spec["image"] == image_tag + "@" + image_digest
     assert container_spec["command"] == command
-    assert 2 == len(container_spec["env"])
+    assert len(container_spec["env"]) == 2
     assert container_spec["env"][0]["name"] == "DUMMY"
     assert container_spec["env"][0]["value"] == "test_var"
     assert container_spec["env"][1]["name"] == "RUN_ID"

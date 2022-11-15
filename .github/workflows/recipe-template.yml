@@ -1,0 +1,95 @@
+name: Recipe template tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/recipes-examples.
+        required: true
+        default: "mlflow/recipes-examples"
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+      with:
+        path: ${{ github.event.inputs.repository }}
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: ./.github/actions/setup-python
+    - uses: ./.github/actions/cache-pip
+    - name: Add problem matchers
+      run: |
+        echo "::add-matcher::.github/workflows/matchers/pylint.json"
+        echo "::add-matcher::.github/workflows/matchers/black.json"
+    - name: Install dependencies
+      run: |
+        pip install -r ${{ github.event.inputs.repository }}/requirements/lint-requirements.txt
+    - name: Run lint checks
+      run: |
+        cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
+  recipe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          path: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
+          # This dependency is needed pytest.ini uses pytest-cov
+          pip install pytest-cov
+      - name: Run tests
+        run: |
+          cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
+  recipe-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          path: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
+          # This dependency is needed pytest.ini uses pytest-cov
+          pip install pytest-cov
+      - name: Run tests
+        run: |
+          cd ${{ github.event.inputs.repository }} &&  pytest tests --rootdir .

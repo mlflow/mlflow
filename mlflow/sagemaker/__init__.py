@@ -403,6 +403,7 @@ def _deploy(
             sage_client=sage_client,
             s3_client=s3_client,
             variant_name=variant_name,
+            data_capture_config=data_capture_config,
         )
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -1191,7 +1192,7 @@ def _assume_role_and_get_credentials(assume_role_arn=None):
     import boto3
 
     if not assume_role_arn:
-        return dict()
+        return {}
 
     sts_client = boto3.client("sts")
     sts_response = sts_client.assume_role(
@@ -1200,11 +1201,11 @@ def _assume_role_and_get_credentials(assume_role_arn=None):
 
     _logger.info("Assuming role %s for deployment!", assume_role_arn)
 
-    return dict(
-        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
-        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
-        aws_session_token=sts_response["Credentials"]["SessionToken"],
-    )
+    return {
+        "aws_access_key_id": sts_response["Credentials"]["AccessKeyId"],
+        "aws_secret_access_key": sts_response["Credentials"]["SecretAccessKey"],
+        "aws_session_token": sts_response["Credentials"]["SessionToken"],
+    }
 
 
 def _get_default_s3_bucket(region_name, **assume_role_credentials):
@@ -1578,6 +1579,7 @@ def _update_sagemaker_endpoint(
     sage_client,
     s3_client,
     variant_name=None,
+    data_capture_config=None,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.
@@ -1597,6 +1599,9 @@ def _update_sagemaker_endpoint(
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
     :variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param: data_capture_config: A dictionary specifying the data capture configuration to use.
+                                 For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                                 Defaults to ``None``.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
@@ -1647,11 +1652,14 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
-    endpoint_config_response = sage_client.create_endpoint_config(
-        EndpointConfigName=new_config_name,
-        ProductionVariants=production_variants,
-        Tags=[{"Key": "app_name", "Value": endpoint_name}],
-    )
+    endpoint_config_kwargs = {
+        "EndpointConfigName": new_config_name,
+        "ProductionVariants": production_variants,
+        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+    }
+    if data_capture_config is not None:
+        endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+    endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created new endpoint configuration with arn: %s",
         endpoint_config_response["EndpointConfigArn"],
@@ -1915,21 +1923,21 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
 
     def _default_deployment_config(self, create_mode=True):
-        config = dict(
-            assume_role_arn=self.assumed_role_arn,
-            execution_role_arn=None,
-            bucket=None,
-            image_url=None,
-            region_name=self.region_name,
-            archive=False,
-            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
-            vpc_config=None,
-            data_capture_config=None,
-            synchronous=True,
-            timeout_seconds=1200,
-            variant_name=None,
-        )
+        config = {
+            "assume_role_arn": self.assumed_role_arn,
+            "execution_role_arn": None,
+            "bucket": None,
+            "image_url": None,
+            "region_name": self.region_name,
+            "archive": False,
+            "instance_type": DEFAULT_SAGEMAKER_INSTANCE_TYPE,
+            "instance_count": DEFAULT_SAGEMAKER_INSTANCE_COUNT,
+            "vpc_config": None,
+            "data_capture_config": None,
+            "synchronous": True,
+            "timeout_seconds": 1200,
+            "variant_name": None,
+        }
 
         if create_mode:
             config["mode"] = DEPLOYMENT_MODE_CREATE
@@ -2152,7 +2160,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             variant_name=final_config["variant_name"],
         )
 
-        return dict(name=app_name, flavor=flavor)
+        return {"name": app_name, "flavor": flavor}
 
     def update_deployment(
         self, name, model_uri, flavor=None, config=None, endpoint=None
@@ -2398,7 +2406,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             variant_name=final_config["variant_name"],
         )
 
-        return dict(name=app_name, flavor=flavor)
+        return {"name": app_name, "flavor": flavor}
 
     def delete_deployment(self, name, config=None, endpoint=None):
         """
@@ -2462,13 +2470,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C synchronous=True \\
                     -C timeout_seconds=300
         """
-        final_config = dict(
-            region_name=self.region_name,
-            archive=False,
-            synchronous=True,
-            timeout_seconds=300,
-            assume_role_arn=self.assumed_role_arn,
-        )
+        final_config = {
+            "region_name": self.region_name,
+            "archive": False,
+            "synchronous": True,
+            "timeout_seconds": 300,
+            "assume_role_arn": self.assumed_role_arn,
+        }
         if config:
             self._apply_custom_config(final_config, config)
 
