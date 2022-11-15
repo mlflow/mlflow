@@ -55,13 +55,19 @@ def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
             }
         )
     else:
+        import math
         import random
+
+        minority_class_cnt = math.ceil(0.1 * num_rows)
+        majority_class_cnt = num_rows - minority_class_cnt
+        y = ["a"] * minority_class_cnt + ["b"] * majority_class_cnt
+        random.shuffle(y)
 
         transformed_dataset = pd.DataFrame(
             {
                 "a": list(range(num_rows)),
                 "b": list(range(num_rows)),
-                "y": ["a" if random.random() < 0.1 else "b" for _ in range(num_rows)],
+                "y": y,
             }
         )
     transformed_dataset.to_parquet(
@@ -260,6 +266,11 @@ def test_train_step_classifier_automl(tmp_recipe_root_path):
             steps:
                 train:
                     using: automl/flaml
+                    time_budget_secs: 20
+                    flaml_params:
+                        estimator_list:
+                        - rf
+                        - lgbm
             """.format(
                 tracking_uri=mlflow.get_tracking_uri()
             )
