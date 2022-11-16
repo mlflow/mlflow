@@ -115,5 +115,5 @@ def doctor(mask_envs=False):
         )
     )
     for key, val in items:
-        click.secho(key, bold=True, fg="blue", nl=False)
+        click.secho(key, fg="blue", nl=False)
         click.echo(f": {val}")
