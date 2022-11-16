@@ -5,6 +5,8 @@ on:
     branches:
       - "master"
   pull_request:
+    paths:
+      - .devcontainer/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -40,8 +42,7 @@ jobs:
         run: |
           docker run --rm -v $(pwd):/workspaces/mlflow $IMAGE_NAME bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
       - name: Push image
-        # Uncomment before merge
-        # if: github.event_name == 'push'
+        if: github.event_name == 'push'
         run: |
           echo "${{ secrets.MLFLOW_AUTOMATION_TOKEN }}" | docker login ghcr.io -u mlflow-automation --password-stdin
           docker push $IMAGE_NAME
