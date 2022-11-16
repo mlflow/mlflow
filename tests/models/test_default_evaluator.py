@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from contextlib import nullcontext as does_not_raise
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.artifacts import (
@@ -33,7 +34,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _CustomArtifact,
 )
-import mlflow
+from mlflow.models.utils import plot_lines  # pylint: disable=unused-import
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
@@ -63,7 +64,6 @@ from tests.models.test_evaluation import (
     pipeline_model_uri,
     get_pipeline_model_dataset,
 )
-from mlflow.models.utils import plot_lines
 
 
 def assert_dict_equal(d1, d2, rtol):

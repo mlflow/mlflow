@@ -5,12 +5,12 @@ import sklearn
 from sklearn.linear_model import LinearRegression
 from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
-import mlflow.utils.requirements_utils
 from mlflow.utils import PYTHON_VERSION
+import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
-from mlflow.exceptions import MlflowException
 
 
 def test_warn_dependency_requirement_mismatches(tmpdir):
