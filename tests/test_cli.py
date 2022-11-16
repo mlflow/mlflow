@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
-from mlflow.cli import server, gc
+from mlflow.cli import server, gc, doctor
 from mlflow import pyfunc
 from mlflow.server import handlers
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -527,3 +527,8 @@ def test_cli_with_python_mod():
         text=True,
     )
     assert "mlflow server" in stdout
+
+
+def test_doctor():
+    res = CliRunner().invoke(doctor, catch_exceptions=False)
+    assert res.exit_code == 0
