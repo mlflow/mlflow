@@ -585,11 +585,10 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
 @click.option(
     "--mask-envs",
     is_flag=True,
-    show_default=True,
     help=(
-        "If set (default without setting this flag will not obfuscate information), "
-        'mask the environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`) '
-        "in the output to prevent leaking sensitive information. By default"
+        "If set (the default behavior without setting this flag is not to obfuscate information), "
+        'mask the MLflow environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`) '
+        "in the output to prevent leaking sensitive information."
     ),
 )
 def doctor(mask_envs):
