@@ -1,13 +1,21 @@
 import { RunTag, Experiment, RunInfo, Metric } from '../../sdk/MlflowMessages';
+import { makeStore } from '../../../store';
+import Fixtures from './Fixtures';
 
 export const emptyState = {
   apis: {},
   entities: {
     runInfosByUuid: {},
     experimentsById: {},
+    experimentListSearchInput: {
+      currentSearchInput: '',
+      prevSearchInput: '',
+    },
     experimentTagsByExperimentId: {},
     tagsByRunUuid: {},
     modelVersionsByRunUuid: {},
+    searchExperimentsNextPageToken: null,
+    loadingMoreExperiments: false,
   },
 };
 
@@ -80,3 +88,17 @@ export const mockRunInfo = (
 export const mockMetric = (params) => {
   return Metric.fromJs(params);
 };
+
+export const makeStateWithExperiments = (experiments = Fixtures.experiments) => {
+  let state = emptyState;
+  experiments.forEach((e) => {
+    state = addExperimentToState(state, e);
+  });
+  return state;
+};
+
+// State with experiments in it
+export const stateWithExperiments = makeStateWithExperiments();
+
+// Initialized store with experiments
+export const storeWithExperiments = makeStore(stateWithExperiments);

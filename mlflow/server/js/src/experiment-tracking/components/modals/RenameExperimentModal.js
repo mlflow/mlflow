@@ -51,6 +51,7 @@ export class RenameExperimentModalImpl extends Component {
           name={experimentName}
           visible={isOpen}
           validator={this.debouncedExperimentNameValidator}
+          innerRef={experimentName}
         />
       </GenericInputModal>
     );

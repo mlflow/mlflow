@@ -5,7 +5,9 @@ import {
   GET_RUN_API,
   LIST_ARTIFACTS_API,
   SEARCH_EXPERIMENTS_API,
+  DELETE_EXPERIMENT_API,
   OPEN_ERROR_MODAL,
+  EXPERIMENT_LIST_SEARCH_INPUT,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
   SET_EXPERIMENT_TAG_API,
@@ -22,9 +24,10 @@ import {
   maxMetricsByRunUuid,
 } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
-import _, { isArray } from 'lodash';
+import _, { isArray, orderBy } from 'lodash';
 import {
   fulfilled,
+  pending,
   isFulfilledApi,
   isPendingApi,
   isRejectedApi,
@@ -34,24 +37,76 @@ import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
 
+export const getExperimentListSearchInput = (state) => {
+  return state.entities.experimentListSearchInput.currentSearchInput;
+};
+
+export const getExperimentListPreviousSearchInput = (state) => {
+  return state.entities.experimentListSearchInput.prevSearchInput;
+};
+
 export const getExperiments = (state) => {
-  return Object.values(state.entities.experimentsById);
+  // Order matters since we are appending
+  // the int keys will not allow mapping in the same order items were added.
+  const unOrdered = Object.values(state.entities.experimentsById);
+  const ordered = orderBy(unOrdered, ['creation_time', 'experiment_id'], ['desc', 'asc']);
+  return ordered;
 };
 
 export const getExperiment = (id, state) => {
   return state.entities.experimentsById[id];
 };
 
+export const getSearchExperimentsNextPageToken = (state) => {
+  return state.entities.searchExperimentsNextPageToken;
+};
+
+export const getLoadingMoreExperiments = (state) => {
+  return state.entities.loadingMoreExperiments;
+};
+
+export const searchExperimentsNextPageToken = (state = null, action) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_EXPERIMENTS_API): {
+      return action.payload.next_page_token || null;
+    }
+    default:
+      return state;
+  }
+};
+
+export const loadingMoreExperiments = (state, action) => {
+  switch (action.type) {
+    case pending(SEARCH_EXPERIMENTS_API): {
+      return true;
+    }
+    default:
+      return false;
+  }
+};
+
+export const experimentListSearchInput = (
+  state = { prevSearchInput: '', currentSearchInput: '' },
+  action,
+) => {
+  const newState = { ...state };
+  switch (action.type) {
+    case EXPERIMENT_LIST_SEARCH_INPUT: {
+      return {
+        ...newState,
+        ...{ currentSearchInput: action.payload, prevSearchInput: state.currentSearchInput },
+      };
+    }
+    default:
+      return state;
+  }
+};
+
 export const experimentsById = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(SEARCH_EXPERIMENTS_API): {
-      let newState = Object.assign({}, state);
+      let newState = { ...state };
       if (action.payload && action.payload.experiments) {
-        // reset experimentsById state
-        // doing this enables us to capture if an experiment was deleted
-        // if we kept the old state and updated the experiments based on their id,
-        // deleted experiments (via CLI or UI) would remain until the page is refreshed
-        newState = {};
         action.payload.experiments.forEach((eJson) => {
           const experiment = Experiment.fromJs(eJson);
           newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
@@ -61,7 +116,6 @@ export const experimentsById = (state = {}, action) => {
     }
     case fulfilled(GET_EXPERIMENT_API): {
       const { experiment } = action.payload;
-
       // getExperiment API response might not contain all relevant fields,
       // thus instead of overwriting it, we rather want to merge the new data
       // into the existing record. We're replacing it only if no experiment
@@ -74,6 +128,12 @@ export const experimentsById = (state = {}, action) => {
         ...state,
         [experiment.experiment_id]: mergedExperiment,
       };
+    }
+    // Remove items if deleted via the ui
+    case fulfilled(DELETE_EXPERIMENT_API): {
+      const newState = { ...state };
+      delete newState[action.meta.experimentId];
+      return newState;
     }
     default:
       return state;
@@ -393,7 +453,10 @@ export const artifactRootUriByRunUuid = (state = {}, action) => {
 };
 
 export const entities = combineReducers({
+  experimentListSearchInput,
   experimentsById,
+  searchExperimentsNextPageToken,
+  loadingMoreExperiments,
   runInfosByUuid,
   runUuidsMatchingFilter,
   metricsByRunUuid,

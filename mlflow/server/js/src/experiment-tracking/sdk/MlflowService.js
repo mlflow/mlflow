@@ -31,7 +31,7 @@ export class MlflowService {
    * Search mlflow experiments
    */
   static searchExperiments = (data) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data });
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data });
 
   /**
    * Get mlflow experiment

@@ -30,6 +30,7 @@ import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/Mlflow
 import {
   SEARCH_EXPERIMENTS_API,
   GET_EXPERIMENT_API,
+  DELETE_EXPERIMENT_API,
   GET_RUN_API,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
@@ -78,6 +79,8 @@ describe('test experimentsById', () => {
       [removed.getExperimentId()]: removed,
       [replacedOld.getExperimentId()]: replacedOld,
     });
+    // TODO everything is kept from every search, is this desired?
+    // Allows users to keep pulling more.
     const action = {
       type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
@@ -88,10 +91,34 @@ describe('test experimentsById', () => {
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
       [preserved.getExperimentId()]: preserved,
+      [removed.getExperimentId()]: removed,
       [newA.getExperimentId()]: newA,
       [newB.getExperimentId()]: newB,
       [replacedNew.getExperimentId()]: replacedNew,
     });
+  });
+
+  test('deleteExperiment correctly updates state', () => {
+    const ids = [...Array(5).keys()].map((k) => k.toString()).map((k) => mockExperiment(k, k));
+    const removed = mockExperiment('removed', 'removed');
+    ids.push(removed);
+    let localExperiments = {};
+    ids.forEach((e) => {
+      localExperiments = Object.assign(localExperiments, { [e.getExperimentId()]: e });
+    });
+    const state = deepFreeze(localExperiments);
+    const action = {
+      type: fulfilled(DELETE_EXPERIMENT_API),
+      payload: {},
+      // Needed to use meta for this since the api only
+      // returns 200, no data.
+      meta: { experimentId: removed.getExperimentId() },
+    };
+    const new_state = experimentsById(state, action);
+    const expectedState = { ...state };
+    delete expectedState[removed.getExperimentId()];
+    expect(new_state).not.toEqual(state);
+    expect(new_state).toEqual(expectedState);
   });
 
   test('getExperiment correctly updates empty state', () => {

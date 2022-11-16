@@ -22,6 +22,7 @@ class HomeView extends Component {
   static propTypes = {
     experiments: PropTypes.arrayOf(PropTypes.object),
     experimentIds: PropTypes.arrayOf(PropTypes.string),
+    nextPageToken: PropTypes.string,
     compareExperiments: PropTypes.bool,
   };
 
@@ -60,7 +61,7 @@ class HomeView extends Component {
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
           <Spacer />
-          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
+          <ExperimentListView activeExperimentIds={experimentIds || []} />
         </div>
         <PageContainer>
           {hasExperiments ? (

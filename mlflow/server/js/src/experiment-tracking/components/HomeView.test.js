@@ -29,6 +29,10 @@ describe('HomeView', () => {
     minimalStore = mockStore({
       entities: {
         experimentsById: {},
+        experimentListSearchInput: {
+          currentSearchInput: '',
+          previousSearchInput: '',
+        },
       },
       apis: jest.fn(() => ({})),
     });

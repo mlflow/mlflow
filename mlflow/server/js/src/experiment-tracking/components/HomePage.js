@@ -27,7 +27,7 @@ export class HomePageImpl extends Component {
 
   componentDidMount() {
     if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
-      this.props.dispatchSearchExperimentsApi(this.state.searchExperimentsRequestId);
+      this.props.dispatchSearchExperimentsApi({ id: this.state.searchExperimentsRequestId });
     }
   }
 
@@ -74,8 +74,8 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = (dispatch) => {
   return {
-    dispatchSearchExperimentsApi: (requestId) => {
-      return dispatch(searchExperimentsApi(requestId));
+    dispatchSearchExperimentsApi: (params) => {
+      return dispatch(searchExperimentsApi(params));
     },
   };
 };

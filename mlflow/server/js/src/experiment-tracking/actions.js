@@ -5,15 +5,38 @@ import { isArray } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
+export const EXPERIMENTS_SEARCH_MAX_RESULTS = 100;
+
+export const EXPERIMENT_LIST_SEARCH_INPUT = 'EXPERIMENT_LIST_SEARCH_INPUT';
+export const experimentListSearchInput = (input, id = getUUID()) => {
+  return (dispatch) => {
+    const resp = dispatch({
+      type: EXPERIMENT_LIST_SEARCH_INPUT,
+      payload: input,
+      meta: { id: id },
+    });
+    return resp;
+  };
+};
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
-export const searchExperimentsApi = (id = getUUID()) => {
-  return {
-    type: SEARCH_EXPERIMENTS_API,
-    payload: MlflowService.searchExperiments({
-      max_results: 20000,
-    }),
-    meta: { id: id },
+export const searchExperimentsApi = (params) => {
+  const { viewType, maxResults, orderBy, filter, pageToken } = params;
+  return (dispatch) => {
+    const createResponse = dispatch({
+      type: SEARCH_EXPERIMENTS_API,
+      payload: MlflowService.searchExperiments({
+        view_type: viewType,
+        max_results: maxResults || EXPERIMENTS_SEARCH_MAX_RESULTS,
+        order_by: orderBy,
+        filter: filter,
+        page_token: pageToken,
+      }),
+      meta: {
+        id: params.id || getUUID(),
+      },
+    });
+    return createResponse;
   };
 };
 
@@ -47,7 +70,8 @@ export const deleteExperimentApi = (experimentId, id = getUUID()) => {
     const deleteResponse = dispatch({
       type: DELETE_EXPERIMENT_API,
       payload: MlflowService.deleteExperiment({ experiment_id: experimentId }),
-      meta: { id: getUUID() },
+      // Response doesn't give back the id
+      meta: { id: getUUID(), experimentId: experimentId },
     });
     return deleteResponse;
   };

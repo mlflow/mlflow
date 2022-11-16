@@ -30,7 +30,7 @@ export class CreateExperimentModalImpl extends Component {
     // Both createExperimentApi and searchExperimentsApi calls need to be fulfilled sequentially
     // before redirecting the user to the newly created experiment page (history.push())
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
-    await this.props.searchExperimentsApi();
+    await this.props.searchExperimentsApi({ filter: `name LIKE '%${experimentName}%'` });
 
     const {
       value: { experiment_id: newExperimentId },

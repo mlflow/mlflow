@@ -61,6 +61,7 @@
     "plotly.js": "2.5.1",
     "prop-types": "^15.7.2",
     "qs": "6.10.5",
+    "rc-virtual-list": "^3.4.10",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-iframe": "1.8.0",

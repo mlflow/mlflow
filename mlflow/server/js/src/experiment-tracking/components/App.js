@@ -24,6 +24,7 @@ import { HomePage } from './HomePage';
 import { MetricPage } from './MetricPage';
 import { PageNotFoundView } from './PageNotFoundView';
 import { RunPage } from './RunPage';
+import { getExperiments } from '../reducers/Reducers';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const
@@ -134,7 +135,7 @@ class App extends Component {
 
 const mapStateToProps = (state) => {
   return {
-    experiments: Object.values(state.entities.experimentsById),
+    experiments: getExperiments(state),
   };
 };
 
