@@ -79,6 +79,15 @@ class TransformStep(BaseStep):
                 "Missing target_col config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "using" in self.step_config:
+            if self.step_config["using"] not in ["custom"]:
+                raise MlflowException(
+                    f"Invalid transform step configuration value {self.step_config['using']} for "
+                    f"key 'using'. Supported values are: ['custom']",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self.step_config["using"] = "custom"
         self.run_end_time = None
         self.execution_duration = None
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
@@ -110,8 +119,15 @@ class TransformStep(BaseStep):
 
             return Pipeline(steps=[("identity", FunctionTransformer())])
 
+        if "transformer_method" not in self.step_config and self.step_config["using"] == "custom":
+            raise MlflowException(
+                "Missing 'transformer_method' configuration in the transform step, "
+                "which is using 'custom'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         method_config = self.step_config.get("transformer_method")
-        if method_config:
+        transformer = None
+        if method_config and self.step_config["using"] == "custom":
             transformer_fn = getattr(
                 importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
             )
