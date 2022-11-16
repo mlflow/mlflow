@@ -80,7 +80,6 @@ venv.bak/
 *.swo
 *.idea
 *.vscode
-*.devcontainer
 *.iml
 *~
 
