@@ -50,7 +50,7 @@ You can create the same development environment as your local devcontainer **in 
 
 ## Limitations
 
-The following tools/packages are NOT pre-installed to avoid increasing the image size. They can be manually installed them after launching the devcontainer if necessary.
+The following tools/packages are NOT pre-installed to avoid increasing the image size. They can be manually installed after launching the devcontainer if necessary.
 
 - Python ML packages such as `tensorflow`
 - R
