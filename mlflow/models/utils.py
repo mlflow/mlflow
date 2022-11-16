@@ -503,7 +503,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "
             "pandas dataframe values should be either scalar value or python list "
-            "containing scalar values, other types are not supported."
+            "containing scalar values, other types are not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 
@@ -526,7 +527,8 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                         " which suggests a dictionary input mapping input name to a numpy"
                         " array, but a dict with value type {0} was found.".format(
                             type(pf_input[col_name])
-                        )
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 new_pf_input[col_name] = _enforce_tensor_spec(pf_input[col_name], tensor_spec)
         elif isinstance(pf_input, pd.DataFrame):
@@ -541,14 +543,15 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                 "This model contains a tensor-based model signature with input names, which"
                 " suggests a dictionary input mapping input name to tensor, or a pandas"
                 " dataframe input containing columns mapping input name to list value flattened"
-                " from tensor, but an input of type {0} was found.".format(type(pf_input))
+                " from tensor, but an input of type {0} was found.".format(type(pf_input)),
+                error_code=INVALID_PARAMETER_VALUE,
             )
     else:
         tensor_spec = input_schema.inputs[0]
         if isinstance(pf_input, pd.DataFrame):
             num_input_columns = len(pf_input.columns)
             if num_input_columns == 0:
-                raise MlflowException("Input dataframe contains zero column.")
+                raise MlflowException("Input DataFrame is empty.")
             elif num_input_columns == 1:
                 new_pf_input = _reshape_and_cast_pandas_column_values(
                     "0", pf_input[pf_input.columns[0]], tensor_spec
@@ -560,7 +563,9 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                         "if the input data is a pandas dataframe containing multiple columns, "
                         "the input shape must equals to (-1, number_of_dataframe_columns), "
                         f"but got an input dataframe of {num_input_columns} columns and the "
-                        f"input shape is {tensor_spec.shape}."
+                        f"input shape is {tensor_spec.shape}, and all values in the dataframe "
+                        "must be scalar.",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 new_pf_input = _enforce_tensor_spec(pf_input.to_numpy(), tensor_spec)
         elif isinstance(pf_input, np.ndarray) or _is_sparse_matrix(pf_input):
@@ -570,7 +575,8 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                 "This model contains a tensor-based model signature with no input names,"
                 " which suggests a numpy array input or a pandas dataframe input with"
                 " proper column values, but an input of type {0} was"
-                " found.".format(type(pf_input))
+                " found.".format(type(pf_input)),
+                error_code=INVALID_PARAMETER_VALUE,
             )
     return new_pf_input
 

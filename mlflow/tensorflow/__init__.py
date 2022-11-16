@@ -142,12 +142,13 @@ def log_model(
 
     .. note::
 
-        If logging model without signature, spark udf inference won't work if the model accepts
-        multidimensional tensors as inputs, and its pyfunc model cannot accept
-        pandas dataframe as inference inputs.
+        If you log a Keras or TensorFlow model without a signature, inference with
+        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model's pyfunc
+        representation accepts pandas DataFrames as inference inputs.
 
-        We can infer signature by :py:func:`mlflow.models.infer_signature` API from model
-        input dataset. We can also manually create signature by following code:
+        You can infer a model's signature by calling the :py:func:`mlflow.models.infer_signature()`
+        API on features from the model's test dataset. You can also manually create a model
+        signature, for example:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
@@ -245,10 +246,10 @@ def _save_keras_custom_objects(path, custom_objects):
 
 
 _NO_MODEL_SIGNATURE_WARNING = (
-    "You are saving a Tensorflow core model or Keras model, "
-    "without signature, spark udf inference won't work if the model accepts "
-    "multidimensional tensors as inputs, and its pyfunc model cannot accept "
-    "pandas dataframe as inference inputs."
+    "You are saving a TensorFlow Core model or Keras model, "
+    "without a signature. Inference with mlflow.pyfunc.spark_udf() will not work "
+    "unless the model's pyfunc representation accepts pandas DataFrames as "
+    "inference inputs."
 )
 
 
@@ -271,11 +272,12 @@ def save_model(
     the local file system.
 
     .. note::
-        If saving model without signature, spark udf inference won't work if the model accepts
-        multidimensional tensors as inputs, and its pyfunc model cannot accept
-        pandas dataframe as inference inputs.
-        We can infer signature by :py:func:`mlflow.models.infer_signature` API from model
-        input dataset. We can also manually create signature by following code:
+        If you save a Keras or TensorFlow model without a signature, inference with
+        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model's pyfunc
+        representation accepts pandas DataFrames as inference inputs.
+        You can infer a model's signature by calling the :py:func:`mlflow.models.infer_signature()`
+        API on features from the model's test dataset. You can also manually create a model
+        signature, for example:
 
         .. code-block:: python
             :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
@@ -337,7 +339,7 @@ def save_model(
         num_inputs = len(signature.inputs.inputs)
         if num_inputs == 0:
             raise MlflowException(
-                "The signature inputs must contain at least one field.",
+                "The model signature's input schema must contain at least one field.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         for field in signature.inputs.inputs:
@@ -348,8 +350,8 @@ def save_model(
                 )
             if field.shape[0] != -1:
                 raise MlflowException(
-                    "All fields in signature inputs must have a shape in which the first dimension "
-                    "is a variable dimension."
+                    "All fields in the model signature's input schema must have a shape "
+                    "in which the first dimension is a variable dimension."
                 )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)

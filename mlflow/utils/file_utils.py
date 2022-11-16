@@ -582,6 +582,8 @@ def get_or_create_tmp_dir():
     """
     Get or create a temporary directory which will be removed once python process exit.
     """
+    #DBGDBG
+    return "/tmp"
     from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
 
     if is_in_databricks_runtime() and get_repl_id() is not None:

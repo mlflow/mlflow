@@ -218,7 +218,7 @@ def cast_df_types_according_to_schema(pdf, schema):
         n = min(len(schema.input_types(), pdf.columns))
         dtype_list = zip(pdf.columns[:n], schema.input_types[:n])
 
-    for col_name, col_type_spec in enumerate(dtype_list):
+    for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):
             col_type = col_type_spec.to_pandas()
         else:
