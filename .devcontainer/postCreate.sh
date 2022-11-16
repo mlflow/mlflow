@@ -3,4 +3,5 @@
 # Turn off git status check to improve zsh response speed: https://stackoverflow.com/a/25864063
 git config --add oh-my-zsh.hide-status 1
 git config --add oh-my-zsh.hide-dirty 1
+pre-commit install -t pre-commit -t prepare-commit-msg
 pip install --no-deps -e .
