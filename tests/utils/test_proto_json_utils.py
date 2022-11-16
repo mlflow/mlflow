@@ -1,20 +1,20 @@
 import base64
 import json
 import datetime
+
+import pytest
+
 import numpy as np
 import pandas as pd
-import pytest
+from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.entities import Experiment, Metric
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
-from tests.protos.test_message_pb2 import TestMessage
-from google.protobuf.text_format import Parse as ParseTextIntoProto
-
+from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.utils.proto_json_utils import (
     message_to_json,
     parse_dict,
@@ -23,6 +23,7 @@ from mlflow.utils.proto_json_utils import (
     dataframe_from_raw_json,
     _DateTimeEncoder,
 )
+from tests.protos.test_message_pb2 import TestMessage
 
 # Prevent pytest from trying to collect TestMessage as a test class:
 TestMessage.__test__ = False

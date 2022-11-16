@@ -1,24 +1,16 @@
 import importlib
 import json
 import math
-import numpy as np
-import pandas as pd
-import pytest
 from collections import namedtuple
 from packaging.version import Version
-from unittest import mock
 import yaml
 import pathlib
 
-import mlflow
-from mlflow import MlflowClient
-from mlflow.entities import RunStatus
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
-from mlflow.utils import _truncate_dict
-from mlflow.utils.validation import (
-    MAX_PARAM_VAL_LENGTH,
-    MAX_ENTITY_KEY_LENGTH,
-)
+import pytest
+from unittest import mock
+
+import numpy as np
+import pandas as pd
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -37,6 +29,13 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler, StringIndexer, IndexToString
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
+from pyspark.sql import SparkSession
+
+import mlflow
+from mlflow import MlflowClient
+from mlflow.entities import RunStatus
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
@@ -46,10 +45,14 @@ from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
     _get_tuning_param_maps,
 )
-from pyspark.sql import SparkSession
-from mlflow.models import Model
-from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflow.utils import _truncate_dict
+from mlflow.utils.validation import (
+    MAX_PARAM_VAL_LENGTH,
+    MAX_ENTITY_KEY_LENGTH,
+)
+
 from tests.helper_functions import AnyStringWith
 
 

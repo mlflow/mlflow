@@ -9,8 +9,9 @@ from databricks_cli.configure.provider import DatabricksConfig
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.docker import _get_docker_image_uri
-from mlflow.projects import ExecutionException
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
@@ -21,8 +22,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from mlflow.projects import _project_spec
-from mlflow.exceptions import MlflowException
 
 
 def _build_uri(base_uri, subdirectory):

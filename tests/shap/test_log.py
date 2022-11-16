@@ -1,18 +1,20 @@
-import mlflow
-import shap
 import json
+import pytest
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.datasets import load_diabetes
-import pytest
-from unittest import mock
+import shap
 
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.utils import PYTHON_VERSION
+import mlflow
 from mlflow import MlflowClient
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _assert_pip_requirements,

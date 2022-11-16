@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Union
 import importlib
 import logging
 import os
@@ -7,7 +6,7 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, TypeVar, Optional
+from typing import Dict, Any, List, TypeVar, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
