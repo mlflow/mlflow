@@ -1112,23 +1112,25 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_best_parameters_outputs(  # pylint: disable=dangerous-default-value
+    def _write_best_parameters_outputs(
         self,
         output_directory,
-        best_hp_params={},
-        best_hardcoded_params={},
-        automl_params={},
-        default_params={},
+        best_hp_params=None,
+        best_hardcoded_params=None,
+        automl_params=None,
+        default_params=None,
     ):
         if best_hp_params or best_hardcoded_params or automl_params or default_params:
             best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_path):
                 os.remove(best_parameters_path)
             with open(best_parameters_path, "a") as file:
-                self._write_one_param_output(automl_params, file, "automl parameters")
-                self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
-                self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
-                self._write_one_param_output(default_params, file, "default parameters")
+                self._write_one_param_output(automl_params or {}, file, "automl parameters")
+                self._write_one_param_output(best_hp_params or {}, file, "tuned hyperparameters")
+                self._write_one_param_output(
+                    best_hardcoded_params or {}, file, "hardcoded parameters"
+                )
+                self._write_one_param_output(default_params or {}, file, "default parameters")
             mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _write_one_param_output(self, params, file, caption):
