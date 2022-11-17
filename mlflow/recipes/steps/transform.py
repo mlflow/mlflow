@@ -50,15 +50,13 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 def _validate_user_code_output(transformer_fn):
     transformer = transformer_fn()
-    if transformer is not None and not (
-        hasattr(transformer, "fit") and callable(getattr(transformer, "fit"))
-    ):
+    if transformer is not None and not (hasattr(transformer, "fit") and callable(transformer.fit)):
         raise MlflowException(
             message="The transformer provided doesn't have a fit method."
         ) from None
 
     if transformer is not None and not (
-        hasattr(transformer, "transform") and callable(getattr(transformer, "transform"))
+        hasattr(transformer, "transform") and callable(transformer.transform)
     ):
         raise MlflowException(
             message="The transformer provided doesn't have a transform method."
