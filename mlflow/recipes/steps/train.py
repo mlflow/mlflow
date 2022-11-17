@@ -530,10 +530,9 @@ class TrainStep(BaseStep):
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
         plugin_str = plugin_str.replace("/", ".")
-        estimator_fn = getattr(
-            importlib.import_module(f"mlflow.recipes.steps.{plugin_str}"),
-            "get_estimator_and_best_params",
-        )
+        estimator_fn = importlib.import_module(
+            f"mlflow.recipes.steps.{plugin_str}"
+        ).get_estimator_and_best_params
         estimator, best_parameters = estimator_fn(
             X_train,
             y_train,
