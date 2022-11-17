@@ -1,5 +1,6 @@
 package org.mlflow.models;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import org.junit.Assert;
 import org.junit.Test;
@@ -55,6 +56,23 @@ public class ModelTest {
     try {
       Model model = Model.fromConfigPath(configPath);
       Assert.assertTrue(model.getDatabricksRuntime().isPresent());
+    } catch (IOException e) {
+      e.printStackTrace();
+      Assert.fail("Encountered an exception while reading the model from a configuration path!");
+    }
+  }
+
+  @Test
+  public void testModelIsLoadedCorrectlyWhenMetadataExists() {
+    String configPath = getClass().getResource("sample_model_root/MLmodel.with.metadata").getFile();
+    try {
+      Model model = Model.fromConfigPath(configPath);
+      Assert.assertTrue(model.getMetadata().isPresent());
+      JsonNode metadata = model.getMetadata().get();
+      Assert.assertEquals("metadata_value", metadata.get("metadata_key").asText());
+      Assert.assertTrue(metadata.get("stateful").asBoolean());
+      Assert.assertEquals(0.978, metadata.get("accuracy").asDouble(), 1e-3);
+      Assert.assertTrue(metadata.get("other").isNull());
     } catch (IOException e) {
       e.printStackTrace();
       Assert.fail("Encountered an exception while reading the model from a configuration path!");
