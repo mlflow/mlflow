@@ -1766,10 +1766,10 @@ Example requests:
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-      "dataframe_records": {
+      "dataframe_records": [
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
-      }
+      ]
     }'
 
     # numpy/tensor input using TF serving's "instances" format
