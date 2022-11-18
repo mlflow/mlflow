@@ -452,10 +452,7 @@ def _is_mlflow_requirement(requirement_string):
             repository_matches = ["/mlflow", "mlflow@git"]
 
             return any(
-                [
-                    match in requirement_string.replace(" ", "").lower()
-                    for match in repository_matches
-                ]
+                match in requirement_string.replace(" ", "").lower() for match in repository_matches
             )
 
 
