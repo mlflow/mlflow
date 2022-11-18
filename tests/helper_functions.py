@@ -3,6 +3,7 @@ import random
 import functools
 from unittest import mock
 from contextlib import ExitStack, contextmanager
+from packaging.version import Version
 
 import logging
 import requests
@@ -538,3 +539,8 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
         np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
     else:
         np.testing.assert_array_equal(actual_array, desired_array)
+
+
+def _mlflow_major_version_string():
+    ver = Version(mlflow.version.VERSION).major
+    return f"mlflow>={ver},<{ver + 1}"
