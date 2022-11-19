@@ -35,6 +35,10 @@ class RegisteredModel(_ModelRegistryEntity):
         """String. Registered model name."""
         return self._name
 
+    @name.setter
+    def name(self, new_name):
+        self._name = new_name
+
     @property
     def creation_timestamp(self):
         """Integer. Model version creation timestamp (milliseconds since the Unix epoch)."""
@@ -46,16 +50,28 @@ class RegisteredModel(_ModelRegistryEntity):
         epoch)."""
         return self._last_updated_timestamp
 
+    @last_updated_timestamp.setter
+    def last_updated_timestamp(self, updated_timestamp):
+        self._last_updated_timestamp = updated_timestamp
+
     @property
     def description(self):
         """String. Description"""
         return self._description
+
+    @description.setter
+    def description(self, description):
+        self._description = description
 
     @property
     def latest_versions(self):
         """List of the latest :py:class:`mlflow.entities.model_registry.ModelVersion` instances
         for each stage"""
         return self._latest_version
+
+    @latest_versions.setter
+    def latest_versions(self, latest_versions):
+        self._latest_version = latest_versions
 
     @property
     def tags(self):

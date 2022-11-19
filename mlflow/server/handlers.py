@@ -115,10 +115,17 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
         super().__init__()
-        # NB: Model Registry does not support file based stores
+        self.register("", self._get_file_store)
+        self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
         self.register_entrypoints()
+
+    @classmethod
+    def _get_file_store(cls, store_uri):
+        from mlflow.store.model_registry.file_store import FileStore
+
+        return FileStore(store_uri)
 
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri):
