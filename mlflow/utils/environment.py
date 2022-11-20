@@ -255,7 +255,7 @@ def _get_pip_version():
     try:
         import pip
 
-        return getattr(pip, "__version__")
+        return pip.__version__
     except ImportError:
         return None
 

@@ -305,7 +305,7 @@ def test_ingest_throws_for_custom_dataset_when_loader_function_throws_unexpected
         "steps.ingest.load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
     ) as mock_loader:
-        setattr(mock_loader, "__name__", "load_file_as_dataframe")
+        mock_loader.__name__ = "load_file_as_dataframe"
         with pytest.raises(
             MlflowException, match="Unable to load data file at path.*using custom loader method"
         ):

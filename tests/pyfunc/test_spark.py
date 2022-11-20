@@ -1,17 +1,18 @@
+import datetime
 import os
+import random
 import sys
 import time
-import random
-import datetime
 from typing import Iterator
 import threading
+from collections import namedtuple
 from unittest import mock
+import pytest
 
 import numpy as np
 import pandas as pd
-import pytest
-
 import pyspark
+from pyspark.sql.functions import pandas_udf, col, struct
 from pyspark.sql.types import (
     ArrayType,
     DoubleType,
@@ -22,6 +23,13 @@ from pyspark.sql.types import (
     BooleanType,
 )
 from pyspark.sql.utils import AnalysisException
+from sklearn import datasets
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.pipeline import Pipeline
+
+import tests
 
 import mlflow
 import mlflow.pyfunc
@@ -30,19 +38,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-
-import tests
 from mlflow.types import Schema, ColSpec
-
-from sklearn import datasets
-from collections import namedtuple
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
-
-from pyspark.sql.functions import pandas_udf
-from pyspark.sql.functions import col, struct
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]

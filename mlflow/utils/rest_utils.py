@@ -2,13 +2,14 @@ import base64
 import json
 
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
 import urllib3
 from contextlib import contextmanager
 from functools import lru_cache
 from packaging.version import Version
-from requests.adapters import HTTPAdapter
+
 from urllib3.util import Retry
-from requests.exceptions import HTTPError
 
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode

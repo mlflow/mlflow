@@ -22,11 +22,9 @@ _NFS_CACHE_ROOT_DIR = None
 
 def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
-        nfs_enabled = (
-            _get_active_spark_session()
-            .conf.get("spark.databricks.mlflow.nfs.enabled", "true")
-            .lower()
-            == "true"
+        spark_sess = _get_active_spark_session()
+        nfs_enabled = spark_sess and (
+            spark_sess.conf.get("spark.databricks.mlflow.nfs.enabled", "true").lower() == "true"
         )
         if nfs_enabled:
             nfs_root_dir = "/local_disk0/.ephemeral_nfs"

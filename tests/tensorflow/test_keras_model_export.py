@@ -1,32 +1,40 @@
 from pathlib import Path
 from packaging.version import Version
 import os
-import pytest
 import shutil
 import random
 import json
+import yaml
 import pickle
 
+import pytest
+from unittest import mock
+
 import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Layer, Dense
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import SGD
 
 # pylint: disable=no-name-in-module
 from sklearn import datasets
 import pandas as pd
 import numpy as np
-import yaml
-from unittest import mock
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
     _compare_conda_env_requirements,
@@ -39,14 +47,6 @@ from tests.helper_functions import (
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.tensorflow.test_load_saved_tensorflow_estimator import ModelDataInfo
-
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.conda import get_or_create_conda_env
-
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Layer, Dense
-from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers import SGD
 
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Union
 import importlib
 import logging
 import os
@@ -7,7 +6,7 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, TypeVar, Optional
+from typing import Dict, Any, List, TypeVar, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -249,7 +248,7 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                 # NB: Sort the file names alphanumerically to ensure a consistent
                 # ordering across invocations
                 dataset_file_paths = sorted(
-                    list(pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}"))
+                    pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}")
                 )
                 if len(dataset_file_paths) == 0:
                     raise MlflowException(

@@ -51,7 +51,7 @@ def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names:
         ordered_metric_names = [
             name for name in ordered_metric_names if name not in missing_metrics
         ]
-    ordered_metric_names.extend(sorted(list(metric_names - set(ordered_metric_names))))
+    ordered_metric_names.extend(sorted(metric_names - set(ordered_metric_names)))
     return DataFrame.from_dict(merged_metrics).reindex(ordered_metric_names)
 
 
@@ -124,7 +124,7 @@ def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
     and they are all visualized in comparison mode.
     :return: a data profiling string such as Pandas profiling ProfileReport.
     """
-    truncated_input = list(map(lambda input: truncate_pandas_data_profile(*input), inputs))
+    truncated_input = [truncate_pandas_data_profile(*input) for input in inputs]
     return pandas_renderer.get_html(truncated_input)
 
 

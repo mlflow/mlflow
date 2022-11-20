@@ -56,6 +56,13 @@ def test_metrics(app, test_client):
         metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels) == 1
     )
 
+    # calling the version endpoint should not increment the counter
+    resp = test_client.get("/version")
+    assert resp.status_code == 200
+    assert (
+        metrics.registry.get_sample_value("mlflow_http_request_total", labels=success_labels) == 1
+    )
+
     # test metrics for failed responses
     failure_labels = {"method": "GET", "status": "404"}
     assert (

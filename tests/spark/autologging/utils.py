@@ -57,13 +57,13 @@ def spark_session():
 
 @pytest.fixture(scope="module")
 def data_format(format_to_file_path):
-    res, _ = sorted(list(format_to_file_path.items()))[0]
+    res, _ = sorted(format_to_file_path.items())[0]
     return res
 
 
 @pytest.fixture(scope="module")
 def file_path(format_to_file_path):
-    _, file_path = sorted(list(format_to_file_path.items()))[0]
+    _, file_path = sorted(format_to_file_path.items())[0]
     return file_path
 
 

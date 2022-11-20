@@ -32,8 +32,10 @@ logging.basicConfig(level=logging.ERROR)
 
 _pl_version = Version(pl.__version__)
 if _pl_version < Version("1.5.0"):
+    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.core.memory import ModelSummary
 else:
+    # pylint: disable-next=ungrouped-imports
     from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
@@ -50,6 +52,7 @@ def _get_optimizer_name(optimizer):
     if Version(pl.__version__) < Version("1.1.0"):
         return optimizer.__class__.__name__
     else:
+        # pylint: disable-next=ungrouped-imports
         from pytorch_lightning.core.optimizer import LightningOptimizer
 
         return (
@@ -98,7 +101,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             return
 
         # Cast metric value as  float before passing into logger.
-        metrics = dict(map(lambda x: (x[0], float(x[1])), metric_items))
+        metrics = {x[0]: float(x[1]) for x in metric_items}
         self.metrics_logger.record_metrics(metrics, step)
 
     def _log_epoch_metrics(self, trainer, pl_module):

@@ -50,6 +50,7 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
           tracking_uri: {tracking_uri}
         steps:
           transform:
+            using: custom
             transformer_method: {transform_user_module}
         """.format(
             tracking_uri=mlflow.get_tracking_uri(),

@@ -2,21 +2,6 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-Please help us test the upcoming release of MLflow 2.0 by installing and testing the MLflow 2.0 RC!
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Installation**
-
-.. code-block:: bash
-
-    pip install mlflow==2.0.0rc0
-
-**Documentation**
-
-`MLflow 2.0.0rc0 <https://output.circle-artifacts.com/output/job/bb07270e-1101-421c-901c-01e72bc7b6df/artifacts/0/docs/build/html/index.html>`_
-
-------------
-
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
@@ -158,7 +143,7 @@ MLflow artifacts and then load them again for serving. There is an example train
 
     $ mlflow models serve --model-uri runs:/<run-id>/model
 
-    $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
+    $ curl -d '{"dataframe_split": {"columns":[0],"index":[0,1],"data":[[1],[-1]]}}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 **Note:** If using MLflow skinny (``pip install mlflow-skinny``) for model serving, additional
 required dependencies (namely, ``flask``) will need to be installed for the MLflow server to function.

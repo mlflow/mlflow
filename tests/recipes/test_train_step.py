@@ -55,13 +55,19 @@ def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
             }
         )
     else:
+        import math
         import random
+
+        minority_class_cnt = math.ceil(0.1 * num_rows)
+        majority_class_cnt = num_rows - minority_class_cnt
+        y = ["a"] * minority_class_cnt + ["b"] * majority_class_cnt
+        random.shuffle(y)
 
         transformed_dataset = pd.DataFrame(
             {
                 "a": list(range(num_rows)),
                 "b": list(range(num_rows)),
-                "y": ["a" if random.random() < 0.1 else "b" for _ in range(num_rows)],
+                "y": y,
             }
         )
     transformed_dataset.to_parquet(
@@ -233,6 +239,45 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
     captured = capsys.readouterr()
     assert "Detected class imbalance" in captured.err
     assert "After downsampling: minority class percentage is 0.30" in captured.err
+
+    run_id = train_step_output_dir.joinpath("run_id").read_text()
+    metrics = MlflowClient().get_run(run_id).data.metrics
+    assert "val_f1_score" in metrics
+
+
+def test_train_step_classifier_automl(tmp_recipe_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
+    ):
+        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path, recipe="classification")
+        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+        recipe_yaml.write_text(
+            """
+            recipe: "classification/v1"
+            target_col: "y"
+            primary_metric: "f1_score"
+            profile: "test_profile"
+            positive_class: "a"
+            run_args:
+                step: "train"
+            experiment:
+                name: "demo"
+                tracking_uri: {tracking_uri}
+            steps:
+                train:
+                    using: automl/flaml
+                    time_budget_secs: 20
+                    flaml_params:
+                        estimator_list:
+                        - rf
+                        - lgbm
+            """.format(
+                tracking_uri=mlflow.get_tracking_uri()
+            )
+        )
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
 
     run_id = train_step_output_dir.joinpath("run_id").read_text()
     metrics = MlflowClient().get_run(run_id).data.metrics

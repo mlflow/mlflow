@@ -1012,14 +1012,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by run_id
         with pytest.raises(
-            MlflowException, match=r"Invalid attribute name: run_id"
+            MlflowException, match=r"Invalid attribute key 'run_id' specified."
         ) as exception_context:
             self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with pytest.raises(
-            MlflowException, match=r"Invalid attribute name: source_path"
+            MlflowException, match=r"Invalid attribute key 'source_path' specified."
         ) as exception_context:
             self._search_registered_models("source_path = 'A/D'")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

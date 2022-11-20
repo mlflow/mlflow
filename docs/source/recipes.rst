@@ -406,6 +406,7 @@ The main components of the Recipe Template layout, which are common across all r
       split:
         split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
       transform:
+        using: custom
         transformer_method: transformer_fn
       train:
         using: custom
