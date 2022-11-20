@@ -168,8 +168,12 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
         model_loaded = mlflow.pyfunc.load_model(model_path)
 
         actual = model_loaded.predict(x)
-        assert type(actual) == np.ndarray
-        np.testing.assert_allclose(actual, expected, rtol=1e-5)
+        if signature is None:
+            assert type(actual) == pd.DataFrame
+            np.testing.assert_allclose(actual.values, expected, rtol=1e-5)
+        else:
+            assert type(actual) == np.ndarray
+            np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
         # Calling predict with a np array should return a np array
         actual = model_loaded.predict(x.values)
@@ -283,14 +287,13 @@ def test_single_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    for env_manager in ["local", "conda"]:
-        infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
-        actual = (
-            test_input_spark_df.select(infer_udf("x").alias("prediction"))
-            .toPandas()
-            .prediction.to_numpy()
-        )
-        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
+    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    actual = (
+        test_input_spark_df.select(infer_udf("x").alias("prediction"))
+        .toPandas()
+        .prediction.to_numpy()
+    )
+    np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
 def test_multi_multidim_input_model_spark_udf(
@@ -317,24 +320,23 @@ def test_multi_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    for env_manager in ["local", "conda"]:
-        infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
-        actual = (
-            test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
-            .toPandas()
-            .prediction.to_numpy()
-        )
-        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
+    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    actual = (
+        test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
+        .toPandas()
+        .prediction.to_numpy()
+    )
+    np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
-        actual = (
-            test_input_spark_df.select(infer_udf(struct("a", "b")).alias("prediction"))
-            .toPandas()
-            .prediction.to_numpy()
-        )
-        np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
+    actual = (
+        test_input_spark_df.select(infer_udf(struct("a", "b")).alias("prediction"))
+        .toPandas()
+        .prediction.to_numpy()
+    )
+    np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
-def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidim_input_model(
+def test_scoring_server_successfully_on_single_multidim_input_model(
     single_multidim_tensor_input_model, model_path, data
 ):
     model, signature = single_multidim_tensor_input_model
@@ -344,16 +346,19 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_single_multidi
 
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
 
-    inp_dict = {"instances": test_input.tolist()}
-    response_records_content_type = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
-        data=json.dumps(inp_dict),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    )
-    expect_status_code(response_records_content_type, 200)
+    inp_dict = json.dumps({"instances": test_input.tolist()})
+    test_input_df = pd.DataFrame({"x": test_input.reshape((-1, 4 * 3)).tolist()})
+
+    for input_data in (inp_dict, test_input_df):
+        response_records_content_type = pyfunc_serve_and_score_model(
+            model_uri=os.path.abspath(model_path),
+            data=input_data,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        expect_status_code(response_records_content_type, 200)
 
 
-def test_scoring_server_successfully_evaluates_correct_tf_serving_multi_multidim_input_model(
+def test_scoring_server_successfully_on_multi_multidim_input_model(
     multi_multidim_tensor_input_model, model_path, data
 ):
     model, signature = multi_multidim_tensor_input_model
@@ -366,10 +371,17 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_multi_multidim
 
     instances = [{"a": a.tolist(), "b": b.tolist()} for a, b in zip(input_a, input_b)]
 
-    inp_dict = {"instances": instances}
-    response_records_content_type = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
-        data=json.dumps(inp_dict),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    inp_dict = json.dumps({"instances": instances})
+    test_input_df = pd.DataFrame(
+        {
+            "a": input_a.reshape((-1, 2 * 3)).tolist(),
+            "b": input_b.reshape((-1, 2 * 5)).tolist(),
+        }
     )
-    expect_status_code(response_records_content_type, 200)
+    for input_data in (inp_dict, test_input_df):
+        response_records_content_type = pyfunc_serve_and_score_model(
+            model_uri=os.path.abspath(model_path),
+            data=input_data,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        expect_status_code(response_records_content_type, 200)

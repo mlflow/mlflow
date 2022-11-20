@@ -345,7 +345,7 @@ def save_model(
         for field in signature.inputs.inputs:
             if not isinstance(field, TensorSpec):
                 raise MlflowException(
-                    "All fileds in signature input schema must be created with tensor spec.",
+                    "All fields in the model signature's input schema must be of type TensorSpec.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if field.shape[0] != -1:
@@ -809,7 +809,9 @@ class _KerasModelWrapper:
             # If model signature is None, `_enforce_schema` can do nothing, and if the input
             # is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,
             # we need handle this case, to keep backwards compatibility.
-            data = data.to_numpy()
+            predicted = pandas.DataFrame(self.keras_model.predict(data.values))
+            predicted.index = data.index
+            return predicted
 
         if not isinstance(data, (np.ndarray, list, tuple, dict)):
             raise MlflowException(

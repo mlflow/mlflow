@@ -223,8 +223,6 @@ def pyfunc_serve_and_score_model(
         "-p",
         str(port),
         "--install-mlflow",
-        "--env-manager",  #DBGDBG
-        "local"
     ]
     validate_version = True
     if extra_args is not None:
