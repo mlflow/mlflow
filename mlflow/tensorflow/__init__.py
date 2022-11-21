@@ -161,6 +161,9 @@ def log_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
+            // Create the signature for a Keras model that requires 2 inputs:
+            //  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            //  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
@@ -290,6 +293,9 @@ def save_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
+            // Create the signature for a Keras model that requires 2 inputs:
+            //  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            //  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
     :param model: The Keras model or Tensorflow module to be saved.
@@ -351,7 +357,8 @@ def save_model(
             if field.shape[0] != -1:
                 raise MlflowException(
                     "All fields in the model signature's input schema must have a shape "
-                    "in which the first dimension is a variable dimension."
+                    "in which the first dimension is a variable dimension.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)

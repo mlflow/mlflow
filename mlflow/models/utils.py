@@ -467,7 +467,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         raise MlflowException(
             "For pandas dataframe input, the first dimension of shape must be a variable "
             "dimension and other dimensions must be fixed, but in model signature the shape "
-            f"of input '{name}' is {tensor_spec.shape}."
+            f"of {'input ' + name if name else 'the unamed input'} is {tensor_spec.shape}."
         )
 
     if np.isscalar(pd_series[0]):
@@ -550,11 +550,11 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
         tensor_spec = input_schema.inputs[0]
         if isinstance(pf_input, pd.DataFrame):
             num_input_columns = len(pf_input.columns)
-            if num_input_columns == 0:
+            if pf_input.empty:
                 raise MlflowException("Input DataFrame is empty.")
             elif num_input_columns == 1:
                 new_pf_input = _reshape_and_cast_pandas_column_values(
-                    "0", pf_input[pf_input.columns[0]], tensor_spec
+                    None, pf_input[pf_input.columns[0]], tensor_spec
                 )
             else:
                 if tensor_spec.shape != (-1, num_input_columns):
