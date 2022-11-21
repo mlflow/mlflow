@@ -11,8 +11,7 @@ fastai>=2.4.1
 # Required by mlflow.spacy
 spacy>=3.3.0
 # Required by mlflow.tensorflow
-# TODO: Unpin upper bound once transformers releases 2.11 compatibility fix
-tensorflow>=2.8.0,<2.11.0
+tensorflow>=2.8.0
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
