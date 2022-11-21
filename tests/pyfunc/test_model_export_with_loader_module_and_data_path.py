@@ -496,6 +496,21 @@ def test_schema_enforcement_single_unamed_tensor_schema():
     np.testing.assert_array_equal(res, input_array)
     assert expected_types == res.dtype
 
+    input_df = input_df.drop("c3", axis=1)
+    with pytest.raises(
+        expected_exception=MlflowException,
+        match=re.escape(
+            "This model contains a model signature with an unnamed input, "
+            "in the case if the input data is a pandas dataframe containing "
+            "multiple columns, the input shape must equals to "
+            "(-1, number_of_dataframe_columns), "
+            "but got an input dataframe of 2 columns and the "
+            "input shape is (-1, 3), and all values in the dataframe "
+            "must be scalar."
+        ),
+    ):
+        pyfunc_model.predict(input_df)
+
 
 def test_schema_enforcement_named_tensor_schema_1d():
     m = Model()
@@ -518,6 +533,42 @@ def test_schema_enforcement_named_tensor_schema_1d():
     expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
     actual_types = {k: v.dtype for k, v in res.items()}
     assert expected_types == actual_types
+
+    wrong_m = Model()
+    wrong_m.signature = ModelSignature(
+        inputs=Schema(
+            [
+                TensorSpec(np.dtype(np.uint64), (-1, 2), "a"),
+                TensorSpec(np.dtype(np.float32), (-1,), "b"),
+            ]
+        )
+    )
+    wrong_pyfunc_model = PyFuncModel(model_meta=wrong_m, model_impl=TestModel())
+    with pytest.raises(
+        expected_exception=MlflowException,
+        match=re.escape(
+            "The input pandas dataframe column 'a' contains scalar "
+            "values, which requires the shape to be (-1,), but got tensor spec "
+            "shape of (-1, 2)."
+        ),
+    ):
+        wrong_pyfunc_model.predict(pdf)
+
+    wrong_m.signature.inputs = Schema(
+        [
+            TensorSpec(np.dtype(np.uint64), (2, -1), "a"),
+            TensorSpec(np.dtype(np.float32), (-1,), "b"),
+        ]
+    )
+    with pytest.raises(
+        expected_exception=MlflowException,
+        match=re.escape(
+            "For pandas dataframe input, the first dimension of shape must be a variable "
+            "dimension and other dimensions must be fixed, but in model signature the shape "
+            "of input a is (2, -1)."
+        ),
+    ):
+        wrong_pyfunc_model.predict(pdf)
 
     # test that dictionary works too
     res = pyfunc_model.predict(d_inp)
@@ -553,6 +604,28 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
     actual_types = {k: v.dtype for k, v in res.items()}
     assert expected_types == actual_types
+
+    wrong_pdf = pdf
+    wrong_pdf.a = np.array(range(16), dtype=np.uint64).reshape(-1, 8).tolist()
+    with pytest.raises(
+        expected_exception=MlflowException,
+        match=re.escape(
+            "The values in Input dataframe column 'a' cannot be converted to expected shape "
+            "(-1, 2, 3) and type uint64"
+        ),
+    ):
+        pyfunc_model.predict(wrong_pdf)
+
+    wrong_pdf.a = [np.array([1]), np.array([2])]
+    with pytest.raises(
+        expected_exception=MlflowException,
+        match=re.escape(
+            "Because the model signature requires tensor spec input, the input "
+            "pandas dataframe values should be either scalar value or python list "
+            "containing scalar values, other types are not supported.",
+        ),
+    ):
+        pyfunc_model.predict(wrong_pdf)
 
     # test that dictionary works too
     res = pyfunc_model.predict(d_inp)

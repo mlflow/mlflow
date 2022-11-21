@@ -815,7 +815,7 @@ class _KerasModelWrapper:
             # will receive a dict type input.
             # If model signature is None, `_enforce_schema` can do nothing, and if the input
             # is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,
-            # we need handle this case, to keep backwards compatibility.
+            # we need to handle this case, to keep backwards compatibility.
             predicted = pandas.DataFrame(self.keras_model.predict(data.values))
             predicted.index = data.index
             return predicted
