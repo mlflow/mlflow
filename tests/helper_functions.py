@@ -542,5 +542,7 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
-    ver = Version(mlflow.version.VERSION).major
-    return f"mlflow>={ver},<{ver + 1}"
+    ver = Version(mlflow.version.VERSION)
+    major = ver.major
+    minor = ver.minor
+    return f"mlflow<{major + 1},>={major}.{minor}"

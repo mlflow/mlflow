@@ -3,7 +3,6 @@ import os
 import logging
 import re
 import hashlib
-import warnings
 from packaging.requirements import Requirement, InvalidRequirement
 from packaging.version import Version
 
@@ -456,29 +455,20 @@ def _is_mlflow_requirement(requirement_string):
             )
 
 
-def _generate_mlflow_version_pinning(strict=False):
+def _generate_mlflow_version_pinning():
     """
-    Determines the current MLflow version that is installed and adds either a strict explicit
-    base version (i.e., 'mlflow==2.0.1') or a range version defining major release boundaries
-    in the install requirement for MLflow (i.e., 'mlflow>=2,<3')
-    :param strict: Boolean flag (default False) for whether to emit an exact version (if True)
-                   or a major version range (default) for MLflow version requirements in
-                   models requirements.txt files that have been saved.
+    Determines the current MLflow version that is installed and adds a pinned boundary version range
+    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
+    the current installed minor version(i.e., 'mlflow<3,>=2.1')
     :return: string for MLflow dependency version
     """
     mlflow_environment_version = Version(VERSION)
     current_major_version = mlflow_environment_version.major
-    range_version = f"mlflow>={current_major_version},<{current_major_version + 1}"
-    if strict:
-        if mlflow_environment_version.is_devrelease:
-            warnings.warn(
-                "This model has been built with a development version of MLflow. "
-                "Requirements pinning will be relaxed to major version ranges."
-            )
-            return range_version
-        return f"mlflow=={mlflow_environment_version.base_version}"
-    else:
-        return range_version
+    current_minor_version = mlflow_environment_version.minor
+    range_version = (
+        f"mlflow<{current_major_version + 1},>={current_major_version}.{current_minor_version}"
+    )
+    return range_version
 
 
 def _contains_mlflow_requirement(requirements):
@@ -505,7 +495,7 @@ def _process_pip_requirements(
         pip_reqs = default_pip_requirements
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, _generate_mlflow_version_pinning(strict=False))
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
@@ -534,7 +524,7 @@ def _process_conda_env(conda_env):
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, _generate_mlflow_version_pinning(strict=False))
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
