@@ -450,11 +450,12 @@ def test_tensor_multi_named_schema_enforcement():
 
 def test_schema_enforcement_single_named_tensor_schema():
     m = Model()
-    input_schema = Schema([TensorSpec(np.dtype(np.uint64), (-1, 2), "a")])
+    input_schema = Schema([TensorSpec(np.dtype(np.uint64), (-1, 2, 3), "a")])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    input_array = np.array(range(12), dtype=np.uint64).reshape((2, 2, 3))
     inp = {
-        "a": np.array([[0, 0], [1, 1]], dtype=np.uint64),
+        "a": input_array,
     }
 
     # sanity test that dictionary with correct input works
@@ -473,7 +474,27 @@ def test_schema_enforcement_single_named_tensor_schema():
 
     # test list does not work
     with pytest.raises(MlflowException, match="Model is missing inputs"):
-        pyfunc_model.predict([[0, 0], [1, 1]])
+        pyfunc_model.predict(input_array.tolist())
+
+
+def test_schema_enforcement_single_unamed_tensor_schema():
+    m = Model()
+    input_schema = Schema([TensorSpec(np.dtype(np.uint64), (-1, 3))])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+
+    input_array = np.array(range(6), dtype=np.uint64).reshape((2, 3))
+
+    # test single np.ndarray input works and is converted to dictionary
+    res = pyfunc_model.predict(input_array)
+    np.testing.assert_array_equal(res, input_array)
+    expected_types = input_schema.input_types()[0]
+    assert expected_types == res.dtype
+
+    input_df = pd.DataFrame(input_array, columns=["c1", "c2", "c3"])
+    res = pyfunc_model.predict(input_df)
+    np.testing.assert_array_equal(res, input_array)
+    assert expected_types == res.dtype
 
 
 def test_schema_enforcement_named_tensor_schema_1d():
@@ -489,6 +510,41 @@ def test_schema_enforcement_named_tensor_schema_1d():
     d_inp = {
         "a": np.array(pdf["a"], dtype=np.uint64),
         "b": np.array(pdf["b"], dtype=np.float32),
+    }
+
+    # test dataframe input works for 1d tensor specs and input is converted to dict
+    res = pyfunc_model.predict(pdf)
+    assert _compare_exact_tensor_dict_input(res, d_inp)
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+    # test that dictionary works too
+    res = pyfunc_model.predict(d_inp)
+    assert res == d_inp
+    expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
+    actual_types = {k: v.dtype for k, v in res.items()}
+    assert expected_types == actual_types
+
+
+def test_schema_enforcement_named_tensor_schema_multidimensional():
+    m = Model()
+    input_schema = Schema(
+        [
+            TensorSpec(np.dtype(np.uint64), (-1, 2, 3), "a"),
+            TensorSpec(np.dtype(np.float32), (-1, 3, 4), "b"),
+        ]
+    )
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    data_a = np.array(range(12), dtype=np.uint64)
+    data_b = np.array(range(24), dtype=np.float32) + 10.0
+    pdf = pd.DataFrame(
+        {"a": data_a.reshape(-1, 2 * 3).tolist(), "b": data_b.reshape(-1, 3 * 4).tolist()}
+    )
+    d_inp = {
+        "a": data_a.reshape((-1, 2, 3)),
+        "b": data_b.reshape((-1, 3, 4)),
     }
 
     # test dataframe input works for 1d tensor specs and input is converted to dict
