@@ -6,7 +6,7 @@ if [ -z "${GITHUB_ACTIONS}" ]; then
   black --check . "$@"
 else
   black --check "$@" > .black-output 2>&1
-  sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR to format./' .black-output
+  sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you are an MLflow maintainer./' .black-output
 fi
 
 test $err = 0

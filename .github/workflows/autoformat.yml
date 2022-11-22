@@ -34,11 +34,16 @@ jobs:
         id: create-status
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
-            const shouldAutoformat = autoformat.shouldAutoformat(context.payload.comment);
+            const { comment } = context.payload;
+            const isMaintainer = autoformat.isMaintainer(comment.author_association);
+            if (!isMaintainer) {
+              core.setFailed("Only MLflow maintainers can trigger this workflow.");
+            }
+            const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
