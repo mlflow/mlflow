@@ -155,6 +155,7 @@ def log_model(
 
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
+            import numpy as np
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -287,6 +288,7 @@ def save_model(
 
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
+            import numpy as np
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
