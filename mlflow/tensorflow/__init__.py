@@ -161,9 +161,9 @@ def log_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
-            // Create the signature for a Keras model that requires 2 inputs:
-            //  - Input with name "field1", shape (-1, 5), type "np.uint64"
-            //  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
+            # Create the signature for a Keras model that requires 2 inputs:
+            #  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
@@ -249,7 +249,7 @@ def _save_keras_custom_objects(path, custom_objects):
 
 
 _NO_MODEL_SIGNATURE_WARNING = (
-    "You are saving a TensorFlow Core model or Keras model, "
+    "You are saving a TensorFlow Core model or Keras model "
     "without a signature. Inference with mlflow.pyfunc.spark_udf() will not work "
     "unless the model's pyfunc representation accepts pandas DataFrames as "
     "inference inputs."
@@ -293,9 +293,9 @@ def save_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
-            // Create the signature for a Keras model that requires 2 inputs:
-            //  - Input with name "field1", shape (-1, 5), type "np.uint64"
-            //  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
+            # Create the signature for a Keras model that requires 2 inputs:
+            #  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
     :param model: The Keras model or Tensorflow module to be saved.
@@ -816,9 +816,7 @@ class _KerasModelWrapper:
             # If model signature is None, `_enforce_schema` can do nothing, and if the input
             # is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,
             # we need to handle this case, to keep backwards compatibility.
-            predicted = pandas.DataFrame(self.keras_model.predict(data.values))
-            predicted.index = data.index
-            return predicted
+            return pandas.DataFrame(self.keras_model.predict(data.values), index=data.index)
 
         supported_input_types = (np.ndarray, list, tuple, dict)
         if not isinstance(data, supported_input_types):

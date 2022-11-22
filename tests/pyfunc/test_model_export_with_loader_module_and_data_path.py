@@ -606,27 +606,27 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     actual_types = {k: v.dtype for k, v in res.items()}
     assert expected_types == actual_types
 
-    wrong_pdf = pdf
-    wrong_pdf.a = np.array(range(16), dtype=np.uint64).reshape(-1, 8).tolist()
     with pytest.raises(
         expected_exception=MlflowException,
         match=re.escape(
-            "The values in Input dataframe column 'a' cannot be converted to expected shape "
-            "(-1, 2, 3) and type uint64"
+            "The value in the Input DataFrame column 'a' could not be converted to the expected "
+            "shape of: '(-1, 2, 3)'. Ensure that each of the input list elements are of uniform "
+            "length and that the data can be coerced to the tensor type 'uint64'"
         ),
     ):
-        pyfunc_model.predict(wrong_pdf)
+        pyfunc_model.predict(
+            pdf.assign(a=np.array(range(16), dtype=np.uint64).reshape(-1, 8).tolist())
+        )
 
-    wrong_pdf.a = [np.array([1]), np.array([2])]
     with pytest.raises(
         expected_exception=MlflowException,
         match=re.escape(
-            "Because the model signature requires a tensor spec input, the input "
-            "pandas DataFrame values should be either scalar values or python lists "
-            "containing scalar values. Other types are not supported.",
+            "Because the model signature requires tensor spec input, the input pandas dataframe "
+            "values should be either scalar value or python list containing scalar values, "
+            "other types are not supported."
         ),
     ):
-        pyfunc_model.predict(wrong_pdf)
+        pyfunc_model.predict(pdf.assign(a=[np.array([1]), np.array([2])]))
 
     # test that dictionary works too
     res = pyfunc_model.predict(d_inp)
