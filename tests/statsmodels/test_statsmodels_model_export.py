@@ -26,6 +26,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 from tests.statsmodels.model_fixtures import (
     ols_model,
@@ -255,13 +256,16 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     ols = ols_model()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.statsmodels.log_model(ols.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -269,7 +273,7 @@ def test_log_model_with_pip_requirements(tmpdir):
             ols.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -279,13 +283,14 @@ def test_log_model_with_pip_requirements(tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     ols = ols_model()
     default_reqs = mlflow.statsmodels.get_default_pip_requirements()
 
@@ -294,7 +299,9 @@ def test_log_model_with_extra_pip_requirements(tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.statsmodels.log_model(ols.model, "model", extra_pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -302,7 +309,7 @@ def test_log_model_with_extra_pip_requirements(tmpdir):
             ols.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -312,7 +319,7 @@ def test_log_model_with_extra_pip_requirements(tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
