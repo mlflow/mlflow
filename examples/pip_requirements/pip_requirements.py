@@ -44,7 +44,7 @@ def main():
         run_id = run.info.run_id
 
         # Get the expected mlflow version
-        mlflow_version = Version(mlflow.version.VERSION)
+        mlflow_version = Version(mlflow.__version__)
         mlflow_version_range = (
             f"mlflow<{mlflow_version.major + 1},>={mlflow_version.major}.{mlflow_version.minor}"
         )
