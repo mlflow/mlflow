@@ -8,7 +8,7 @@ class SourceType:
         "JOB": JOB,
         "PROJECT": PROJECT,
         "LOCAL": LOCAL,
-        "PIPELINE": RECIPE,
+        "RECIPE": RECIPE,
         "UNKNOWN": UNKNOWN,
     }
     SOURCETYPE_TO_STRING = {value: key for key, value in _STRING_TO_SOURCETYPE.items()}
