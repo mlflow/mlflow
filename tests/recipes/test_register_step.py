@@ -203,7 +203,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     register_step.run(str(register_step_output_dir))
     registered_models = mlflow.tracking.MlflowClient().search_registered_models()
     latest_tag = registered_models[0].latest_versions[0].tags
-    assert latest_tag[MLFLOW_SOURCE_TYPE] == "PIPELINE"
+    assert latest_tag[MLFLOW_SOURCE_TYPE] == "RECIPE"
     assert latest_tag[MLFLOW_RECIPE_TEMPLATE_NAME] == "regression/v1"
 
 
