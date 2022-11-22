@@ -10,10 +10,9 @@ repos:
 
       - id: pylint
         name: pylint
-        entry: pylint
+        entry: ruff
         language: system
         types: [python]
-        args: ["--rcfile=pylintrc"]
         stages: [commit]
 
       - id: rstcheck

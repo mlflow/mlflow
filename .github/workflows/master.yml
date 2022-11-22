@@ -54,11 +54,7 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
       run: |
-        source ./dev/install-common-deps.sh --ml
         pip install -r requirements/lint-requirements.txt
-    - name: Test custom pylint-plugins
-      run : |
-        pytest pylint_plugins/tests
     - name: Install pre-commit hooks
       run: |
         pre-commit install -t pre-commit -t prepare-commit-msg
