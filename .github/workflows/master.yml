@@ -47,7 +47,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-    - uses: ./.github/actions/cache-pip
     - name: Add problem matchers
       run: |
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
