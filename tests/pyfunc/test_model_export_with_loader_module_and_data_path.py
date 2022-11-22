@@ -477,7 +477,7 @@ def test_schema_enforcement_single_named_tensor_schema():
         pyfunc_model.predict(input_array.tolist())
 
 
-def test_schema_enforcement_single_unamed_tensor_schema():
+def test_schema_enforcement_single_unnamed_tensor_schema():
     m = Model()
     input_schema = Schema([TensorSpec(np.dtype(np.uint64), (-1, 3))])
     m.signature = ModelSignature(inputs=input_schema)
@@ -500,13 +500,14 @@ def test_schema_enforcement_single_unamed_tensor_schema():
     with pytest.raises(
         expected_exception=MlflowException,
         match=re.escape(
-            "This model contains a model signature with an unnamed input, "
-            "in the case if the input data is a pandas dataframe containing "
-            "multiple columns, the input shape must equals to "
-            "(-1, number_of_dataframe_columns), "
-            "but got an input dataframe of 2 columns and the "
-            "input shape is (-1, 3), and all values in the dataframe "
-            "must be scalar."
+            "This model contains a model signature with an unnamed input. Since the "
+            "input data is a pandas DataFrame containing multiple columns, "
+            "the input shape must be of the structure "
+            "(-1, number_of_dataframe_columns). "
+            f"Instead, the input DataFrame passed had 2 columns and "
+            f"an input shape of (-1, 3) with all values within the "
+            "DataFrame of scalar type. Please adjust the passed in DataFrame to "
+            "match the expected structure",
         ),
     ):
         pyfunc_model.predict(input_df)
@@ -620,9 +621,9 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     with pytest.raises(
         expected_exception=MlflowException,
         match=re.escape(
-            "Because the model signature requires tensor spec input, the input "
-            "pandas dataframe values should be either scalar value or python list "
-            "containing scalar values, other types are not supported.",
+            "Because the model signature requires a tensor spec input, the input "
+            "pandas DataFrame values should be either scalar values or python lists "
+            "containing scalar values. Other types are not supported.",
         ),
     ):
         pyfunc_model.predict(wrong_pdf)

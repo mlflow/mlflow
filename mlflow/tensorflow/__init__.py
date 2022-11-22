@@ -822,7 +822,8 @@ class _KerasModelWrapper:
 
         if not isinstance(data, (np.ndarray, list, tuple, dict)):
             raise MlflowException(
-                f"Unsupported input data type: {type(data)}",
+                f"Unsupported input data type: {type(data)}. "
+                f"Must be one of: {[x.__name__ for x in supported_tf_types]}",
                 INVALID_PARAMETER_VALUE,
             )
         return self.keras_model.predict(data)
