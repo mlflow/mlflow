@@ -807,7 +807,7 @@ class _KerasModelWrapper:
         self.signature = signature
 
     def predict(self, data):
-        if self.signature is None and isinstance(data, pandas.DataFrame):
+        if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling
             # `keras_pyfunc_model.predict(pandas_dataframe)`, `_enforce_schema` will convert
@@ -820,10 +820,11 @@ class _KerasModelWrapper:
             predicted.index = data.index
             return predicted
 
-        if not isinstance(data, (np.ndarray, list, tuple, dict)):
+        supported_input_types = (np.ndarray, list, tuple, dict)
+        if not isinstance(data, supported_input_types):
             raise MlflowException(
                 f"Unsupported input data type: {type(data)}. "
-                f"Must be one of: {[x.__name__ for x in supported_tf_types]}",
+                f"Must be one of: {[x.__name__ for x in supported_input_types]}",
                 INVALID_PARAMETER_VALUE,
             )
         return self.keras_model.predict(data)

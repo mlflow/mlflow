@@ -504,8 +504,8 @@ def test_schema_enforcement_single_unnamed_tensor_schema():
             "input data is a pandas DataFrame containing multiple columns, "
             "the input shape must be of the structure "
             "(-1, number_of_dataframe_columns). "
-            f"Instead, the input DataFrame passed had 2 columns and "
-            f"an input shape of (-1, 3) with all values within the "
+            "Instead, the input DataFrame passed had 2 columns and "
+            "an input shape of (-1, 3) with all values within the "
             "DataFrame of scalar type. Please adjust the passed in DataFrame to "
             "match the expected structure",
         ),

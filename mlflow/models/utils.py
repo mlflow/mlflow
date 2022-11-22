@@ -390,10 +390,10 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
             return values.astype(np.datetime64, errors="raise")
-        except ValueError:
+        except ValueError as e:
             raise MlflowException(
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+            ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
         # DataFrame. In order to support decimal data training from spark data frame, we add this
@@ -489,7 +489,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"The value in the Input DataFrame column '{name}' could not be converted to the "
             f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
             "elements are of uniform length and that the data can be coerced to the tensor "
-            f"type '{tensor_spec.type}'")
+            f"type '{tensor_spec.type}'"
+        )
         try:
             flattened_numpy_arr = np.vstack(pd_series.tolist())
             reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
@@ -577,8 +578,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
             raise MlflowException(
                 "This model contains a tensor-based model signature with no input names,"
                 " which suggests a numpy array input or a pandas dataframe input with"
-                " proper column values, but an input of type {0} was"
-                " found.".format(type(pf_input)),
+                f" proper column values, but an input of type {type(pf_input)} was found.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
     return new_pf_input
