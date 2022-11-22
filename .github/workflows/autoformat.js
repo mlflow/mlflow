@@ -64,7 +64,7 @@ const isMlflowMaintainer = (commentAuthorAssociation) => {
 };
 
 module.exports = {
-  isMlflowOrgMemberOrCollaborator,
+  isMlflowMaintainer,
   shouldAutoformat,
   getPullInformation,
   createReaction,
