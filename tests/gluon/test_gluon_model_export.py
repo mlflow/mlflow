@@ -31,6 +31,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
@@ -178,19 +179,20 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_save_model_with_pip_requirements(gluon_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.gluon.save_model(
         gluon_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -198,11 +200,12 @@ def test_save_model_with_pip_requirements(gluon_model, tmpdir):
         gluon_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
 def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.gluon.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -210,14 +213,14 @@ def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.gluon.save_model(
         gluon_model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -225,7 +228,7 @@ def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
         gluon_model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
