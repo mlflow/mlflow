@@ -34,7 +34,7 @@ jobs:
         id: create-status
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
