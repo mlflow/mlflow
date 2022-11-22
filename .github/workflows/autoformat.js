@@ -59,7 +59,7 @@ const updateStatus = async (context, github, sha, needs) => {
   await createCommitStatus(context, github, sha, state);
 };
 
-const isMlflowMaintainer = async (commentAuthorAssociation) => {
+const isMlflowMaintainer = (commentAuthorAssociation) => {
   return ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(commentAuthorAssociation);
 };
 
