@@ -7,7 +7,7 @@ from moto.core import DEFAULT_ACCOUNT_ID
 from moto.core import BaseBackend, BaseModel
 from moto.core.responses import BaseResponse
 from moto.core.models import base_decorator
-from moto.core.utils import BackendDict
+from moto.core import BackendDict
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
