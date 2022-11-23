@@ -27,7 +27,6 @@ RUN apt update -y \
 
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip \
     && unzip /tmp/protoc.zip -d /root/protoc \
-    && chmod +x /root/protoc \
     && rm /tmp/protoc.zip
 ENV PATH="/root/protoc/bin:$PATH"
 
