@@ -33,7 +33,9 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    csv_url = "https://github.com/mlflow/mlflow/blob/master/tests/data/winequality-red.csv"
+    csv_url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv"
+    )
     try:
         data = pd.read_csv(csv_url, sep=";")
     except Exception as e:
