@@ -1032,6 +1032,7 @@ class TestFileStore(unittest.TestCase):
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
         for name in names:
             fs.create_registered_model(name)
+            time.sleep(0.001)  # sleep for windows fs timestamp precision issues
 
         # by default order by name ASC
         rms, _ = self._search_registered_models(fs)
