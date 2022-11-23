@@ -33,7 +33,6 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    # TODO: set url to "https://github.com/mlflow/mlflow/blob/master/tests/data/winequality-red.csv"
     csv_url = (
         "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
     )
