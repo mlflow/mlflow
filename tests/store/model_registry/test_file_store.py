@@ -81,19 +81,19 @@ class TestFileStore(unittest.TestCase):
 
         name = random_str()
         model = fs.create_registered_model(name)
-        self.assertEqual(model.name, name)
-        self.assertEqual(model.latest_versions, [])
-        self.assertEqual(model.creation_timestamp, model.last_updated_timestamp)
-        self.assertEqual(model.tags, {})
+        assert model.name == name
+        assert model.latest_versions == []
+        assert model.creation_timestamp == model.last_updated_timestamp
+        assert model.tags == {}
 
     def _verify_registered_model(self, fs, name):
         rm = fs.get_registered_model(name)
-        self.assertEqual(rm.name, name)
-        self.assertEqual(rm.creation_timestamp, self.rm_data[name]["creation_timestamp"])
-        self.assertEqual(rm.last_updated_timestamp, self.rm_data[name]["last_updated_timestamp"])
-        self.assertEqual(rm.description, self.rm_data[name]["description"])
-        self.assertEqual(rm.latest_versions, self.rm_data[name]["latest_versions"])
-        self.assertEqual(rm.tags, self.rm_data[name]["tags"])
+        assert rm.name == name
+        assert rm.creation_timestamp == self.rm_data[name]["creation_timestamp"]
+        assert rm.last_updated_timestamp == self.rm_data[name]["last_updated_timestamp"]
+        assert rm.description == self.rm_data[name]["description"]
+        assert rm.latest_versions == self.rm_data[name]["latest_versions"]
+        assert rm.tags == self.rm_data[name]["tags"]
 
     def test_get_registered_model(self):
         fs = self.get_store()
@@ -128,9 +128,9 @@ class TestFileStore(unittest.TestCase):
             fs.rename_registered_model(model_name, other_model_name)
 
         new_name = model_name + "!!!"
-        self.assertNotEqual(model_name, new_name)
+        assert model_name != new_name
         fs.rename_registered_model(model_name, new_name)
-        self.assertEqual(fs.get_registered_model(new_name).name, new_name)
+        assert fs.get_registered_model(new_name).name == new_name
 
     def _extract_names(self, registered_models):
         return [rm.name for rm in registered_models]
@@ -163,23 +163,23 @@ class TestFileStore(unittest.TestCase):
         for rm in fs.list_registered_models(max_results=10, page_token=None):
             name = rm.name
             assert name in self.registered_models
-            self.assertEqual(name, self.rm_data[name]["name"])
+            assert name == self.rm_data[name]["name"]
 
     def test_list_registered_model_paginated(self):
         fs = self.get_store()
         for _ in range(10):
             fs.create_registered_model(random_str())
         rms1 = fs.list_registered_models(max_results=4, page_token=None)
-        self.assertEqual(len(rms1), 4)
-        self.assertIsNotNone(rms1.token)
+        assert len(rms1) == 4
+        assert rms1.token is not None
         rms2 = fs.list_registered_models(max_results=4, page_token=None)
-        self.assertEqual(len(rms2), 4)
-        self.assertIsNotNone(rms2.token)
-        self.assertEqual(rms1, rms2)
+        assert len(rms2) == 4
+        assert rms2.token is not None
+        assert rms1 == rms2
         rms3 = fs.list_registered_models(max_results=500, page_token=rms2.token)
-        self.assertLessEqual(len(rms3), 500)
+        assert len(rms3) <= 500
         if len(rms3) < 500:
-            self.assertIsNone(rms3.token)
+            assert rms3.token is None
 
     def test_list_registered_model_paginated_returns_in_correct_order(self):
         fs = self.get_store()
@@ -189,20 +189,20 @@ class TestFileStore(unittest.TestCase):
         # test that pagination will return all valid results in sorted order
         # by name ascending
         result = fs.list_registered_models(max_results=5, page_token=None)
-        self.assertIsNotNone(result.token)
-        self.assertEqual(self._extract_names(result), rms[0:5])
+        assert result.token is not None
+        assert self._extract_names(result) == rms[0:5]
 
         result = fs.list_registered_models(page_token=result.token, max_results=10)
-        self.assertIsNotNone(result.token)
-        self.assertEqual(self._extract_names(result), rms[5:15])
+        assert result.token is not None
+        assert self._extract_names(result) == rms[5:15]
 
         result = fs.list_registered_models(page_token=result.token, max_results=20)
-        self.assertIsNotNone(result.token)
-        self.assertEqual(self._extract_names(result), rms[15:35])
+        assert result.token is not None
+        assert self._extract_names(result) == rms[15:35]
 
         result = fs.list_registered_models(page_token=result.token, max_results=100)
-        self.assertIsNone(result.token)
-        self.assertEqual(self._extract_names(result), rms[35:])
+        assert result.token is None
+        assert self._extract_names(result) == rms[35:]
 
     def test_list_registered_model_paginated_errors(self):
         fs = self.get_store()
@@ -222,10 +222,9 @@ class TestFileStore(unittest.TestCase):
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # list should not return deleted models
         fs.delete_registered_model(name="RM{0:03}".format(0))
-        self.assertEqual(
-            set(self._extract_names(fs.list_registered_models(max_results=100, page_token=None))),
-            set(rms[1:]),
-        )
+        assert set(
+            self._extract_names(fs.list_registered_models(max_results=100, page_token=None))
+        ) == set(rms[1:])
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -248,79 +247,81 @@ class TestFileStore(unittest.TestCase):
         fs = self.get_store()
         name = "test_for_latest_versions"
         rmd1 = fs.create_registered_model(name)
-        self.assertEqual(rmd1.latest_versions, [])
+        assert rmd1.latest_versions == []
 
         mv1 = self._create_model_version(fs, name)
-        self.assertEqual(mv1.version, 1)
+        assert mv1.version == 1
         rmd2 = fs.get_registered_model(name)
-        self.assertEqual(self._extract_latest_by_stage(rmd2.latest_versions), {"None": 1})
+        assert self._extract_latest_by_stage(rmd2.latest_versions) == {"None": 1}
 
         # add a bunch more
         mv2 = self._create_model_version(fs, name)
-        self.assertEqual(mv2.version, 2)
+        assert mv2.version == 2
         fs.transition_model_version_stage(
             name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False
         )
 
         mv3 = self._create_model_version(fs, name)
-        self.assertEqual(mv3.version, 3)
+        assert mv3.version == 3
         fs.transition_model_version_stage(
             name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False
         )
         mv4 = self._create_model_version(fs, name)
-        self.assertEqual(mv4.version, 4)
+        assert mv4.version == 4
         fs.transition_model_version_stage(
             name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False
         )
 
         # test that correct latest versions are returned for each stage
         rmd4 = fs.get_registered_model(name)
-        self.assertEqual(
-            self._extract_latest_by_stage(rmd4.latest_versions),
-            {"None": 1, "Production": 3, "Staging": 4},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=None)),
-            {"None": 1, "Production": 3, "Staging": 4},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=[])),
-            {"None": 1, "Production": 3, "Staging": 4},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=["Production"])),
-            {"Production": 3},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=["production"])),
-            {"Production": 3},
-        )  # The stages are case insensitive.
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=["pROduction"])),
-            {"Production": 3},
-        )  # The stages are case insensitive.
-        self.assertEqual(
-            self._extract_latest_by_stage(
-                fs.get_latest_versions(name=name, stages=["None", "Production"])
-            ),
-            {"None": 1, "Production": 3},
-        )
+        assert self._extract_latest_by_stage(rmd4.latest_versions) == {
+            "None": 1,
+            "Production": 3,
+            "Staging": 4,
+        }
+        assert self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=None)) == {
+            "None": 1,
+            "Production": 3,
+            "Staging": 4,
+        }
+        assert self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=[])) == {
+            "None": 1,
+            "Production": 3,
+            "Staging": 4,
+        }
+        assert self._extract_latest_by_stage(
+            fs.get_latest_versions(name=name, stages=["Production"])
+        ) == {"Production": 3}
+        assert self._extract_latest_by_stage(
+            fs.get_latest_versions(name=name, stages=["production"])
+        ) == {
+            "Production": 3
+        }  # The stages are case insensitive.
+        assert self._extract_latest_by_stage(
+            fs.get_latest_versions(name=name, stages=["pROduction"])
+        ) == {
+            "Production": 3
+        }  # The stages are case insensitive.
+        assert self._extract_latest_by_stage(
+            fs.get_latest_versions(name=name, stages=["None", "Production"])
+        ) == {"None": 1, "Production": 3}
 
         # delete latest Production, and should point to previous one
         fs.delete_model_version(name=mv3.name, version=mv3.version)
         rmd5 = fs.get_registered_model(name=name)
-        self.assertEqual(
-            self._extract_latest_by_stage(rmd5.latest_versions),
-            {"None": 1, "Production": 2, "Staging": 4},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=None)),
-            {"None": 1, "Production": 2, "Staging": 4},
-        )
-        self.assertEqual(
-            self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=["Production"])),
-            {"Production": 2},
-        )
+        assert self._extract_latest_by_stage(rmd5.latest_versions) == {
+            "None": 1,
+            "Production": 2,
+            "Staging": 4,
+        }
+        assert self._extract_latest_by_stage(fs.get_latest_versions(name=name, stages=None)) == {
+            "None": 1,
+            "Production": 2,
+            "Staging": 4,
+        }
+        assert self._extract_latest_by_stage(
+            fs.get_latest_versions(name=name, stages=["Production"])
+        ) == {"Production": 2}
 
     def test_set_registered_model_tag(self):
         fs = self.get_store()
@@ -336,17 +337,17 @@ class TestFileStore(unittest.TestCase):
         fs.set_registered_model_tag(name1, new_tag)
         rm1 = fs.get_registered_model(name=name1)
         all_tags = initial_tags + [new_tag]
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in all_tags})
+        assert rm1.tags == {tag.key: tag.value for tag in all_tags}
 
         # test overriding a tag with the same key
         overriding_tag = RegisteredModelTag("key", "overriding")
         fs.set_registered_model_tag(name1, overriding_tag)
         all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1 = fs.get_registered_model(name=name1)
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in all_tags})
+        assert rm1.tags == {tag.key: tag.value for tag in all_tags}
         # does not affect other models with the same key
         rm2 = fs.get_registered_model(name=name2)
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm2.tags == {tag.key: tag.value for tag in initial_tags}
 
         # can not set tag on deleted (non-existed) registered model
         fs.delete_registered_model(name1)
@@ -393,19 +394,19 @@ class TestFileStore(unittest.TestCase):
         fs.set_registered_model_tag(name1, new_tag)
         fs.delete_registered_model_tag(name1, "randomTag")
         rm1 = fs.get_registered_model(name=name1)
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm1.tags == {tag.key: tag.value for tag in initial_tags}
 
         # testing deleting a key does not affect other models with the same key
         fs.delete_registered_model_tag(name1, "key")
         rm1 = fs.get_registered_model(name=name1)
         rm2 = fs.get_registered_model(name=name2)
-        self.assertEqual(rm1.tags, {"anotherKey": "some other value"})
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm1.tags == {"anotherKey": "some other value"}
+        assert rm2.tags == {tag.key: tag.value for tag in initial_tags}
 
         # delete tag that is already deleted does nothing
         fs.delete_registered_model_tag(name1, "key")
         rm1 = fs.get_registered_model(name=name1)
-        self.assertEqual(rm1.tags, {"anotherKey": "some other value"})
+        assert rm1.tags == {"anotherKey": "some other value"}
 
         # can not delete tag on deleted (non-existed) registered model
         fs.delete_registered_model(name1)
@@ -433,62 +434,62 @@ class TestFileStore(unittest.TestCase):
         with mock.patch("time.time") as mock_time:
             mock_time.return_value = 456778
             mv1 = fs.create_model_version(name, "a/b/CD", run_id)
-            self.assertEqual(mv1.name, name)
-            self.assertEqual(mv1.version, 1)
+            assert mv1.name == name
+            assert mv1.version == 1
 
         mvd1 = fs.get_model_version(mv1.name, mv1.version)
-        self.assertEqual(mvd1.name, name)
-        self.assertEqual(mvd1.version, 1)
-        self.assertEqual(mvd1.current_stage, "None")
-        self.assertEqual(mvd1.creation_timestamp, 456778000)
-        self.assertEqual(mvd1.last_updated_timestamp, 456778000)
-        self.assertEqual(mvd1.description, None)
-        self.assertEqual(mvd1.source, "a/b/CD")
-        self.assertEqual(mvd1.run_id, run_id)
-        self.assertEqual(mvd1.status, "READY")
-        self.assertEqual(mvd1.status_message, None)
-        self.assertEqual(mvd1.tags, {})
+        assert mvd1.name == name
+        assert mvd1.version == 1
+        assert mvd1.current_stage == "None"
+        assert mvd1.creation_timestamp == 456778000
+        assert mvd1.last_updated_timestamp == 456778000
+        assert mvd1.description is None
+        assert mvd1.source == "a/b/CD"
+        assert mvd1.run_id == run_id
+        assert mvd1.status == "READY"
+        assert mvd1.status_message is None
+        assert mvd1.tags == {}
 
         # new model versions for same name autoincrement versions
         mv2 = self._create_model_version(fs, name)
         mvd2 = fs.get_model_version(name=mv2.name, version=mv2.version)
-        self.assertEqual(mv2.version, 2)
-        self.assertEqual(mvd2.version, 2)
+        assert mv2.version == 2
+        assert mvd2.version == 2
 
         # create model version with tags return model version entity with tags
         tags = [ModelVersionTag("key", "value"), ModelVersionTag("anotherKey", "some other value")]
         mv3 = self._create_model_version(fs, name, tags=tags)
         mvd3 = fs.get_model_version(name=mv3.name, version=mv3.version)
-        self.assertEqual(mv3.version, 3)
-        self.assertEqual(mv3.tags, {tag.key: tag.value for tag in tags})
-        self.assertEqual(mvd3.version, 3)
-        self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in tags})
+        assert mv3.version == 3
+        assert mv3.tags == {tag.key: tag.value for tag in tags}
+        assert mvd3.version == 3
+        assert mvd3.tags == {tag.key: tag.value for tag in tags}
 
         # create model versions with runLink
         run_link = "http://localhost:3000/path/to/run/"
         mv4 = self._create_model_version(fs, name, run_link=run_link)
         mvd4 = fs.get_model_version(name, mv4.version)
-        self.assertEqual(mv4.version, 4)
-        self.assertEqual(mv4.run_link, run_link)
-        self.assertEqual(mvd4.version, 4)
-        self.assertEqual(mvd4.run_link, run_link)
+        assert mv4.version == 4
+        assert mv4.run_link == run_link
+        assert mvd4.version == 4
+        assert mvd4.run_link == run_link
 
         # create model version with description
         description = "the best model ever"
         mv5 = self._create_model_version(fs, name, description=description)
         mvd5 = fs.get_model_version(name, mv5.version)
-        self.assertEqual(mv5.version, 5)
-        self.assertEqual(mv5.description, description)
-        self.assertEqual(mvd5.version, 5)
-        self.assertEqual(mvd5.description, description)
+        assert mv5.version == 5
+        assert mv5.description == description
+        assert mvd5.version == 5
+        assert mvd5.description == description
 
         # create model version without runId
         mv6 = self._create_model_version(fs, name, run_id=None)
         mvd6 = fs.get_model_version(name, mv6.version)
-        self.assertEqual(mv6.version, 6)
-        self.assertEqual(mv6.run_id, None)
-        self.assertEqual(mvd6.version, 6)
-        self.assertEqual(mvd6.run_id, None)
+        assert mv6.version == 6
+        assert mv6.run_id is None
+        assert mvd6.version == 6
+        assert mvd6.run_id is None
 
     def test_update_model_version(self):
         fs = self.get_store()
@@ -496,29 +497,29 @@ class TestFileStore(unittest.TestCase):
         fs.create_registered_model(name)
         mv1 = self._create_model_version(fs, name)
         mvd1 = fs.get_model_version(name=mv1.name, version=mv1.version)
-        self.assertEqual(mvd1.name, name)
-        self.assertEqual(mvd1.version, 1)
-        self.assertEqual(mvd1.current_stage, "None")
+        assert mvd1.name == name
+        assert mvd1.version == 1
+        assert mvd1.current_stage == "None"
 
         # update stage
         fs.transition_model_version_stage(
             name=mv1.name, version=mv1.version, stage="Production", archive_existing_versions=False
         )
         mvd2 = fs.get_model_version(name=mv1.name, version=mv1.version)
-        self.assertEqual(mvd2.name, name)
-        self.assertEqual(mvd2.version, 1)
-        self.assertEqual(mvd2.current_stage, "Production")
-        self.assertEqual(mvd2.description, None)
+        assert mvd2.name == name
+        assert mvd2.version == 1
+        assert mvd2.current_stage == "Production"
+        assert mvd2.description is None
 
         # update description
         fs.update_model_version(
             name=mv1.name, version=mv1.version, description="test model version"
         )
         mvd3 = fs.get_model_version(name=mv1.name, version=mv1.version)
-        self.assertEqual(mvd3.name, name)
-        self.assertEqual(mvd3.version, 1)
-        self.assertEqual(mvd3.current_stage, "Production")
-        self.assertEqual(mvd3.description, "test model version")
+        assert mvd3.name == name
+        assert mvd3.version == 1
+        assert mvd3.current_stage == "Production"
+        assert mvd3.description == "test model version"
 
         # only valid stages can be set
         with pytest.raises(
@@ -542,7 +543,7 @@ class TestFileStore(unittest.TestCase):
                 archive_existing_versions=False,
             )
             mvd5 = fs.get_model_version(name=mv1.name, version=mv1.version)
-            self.assertEqual(mvd5.current_stage, "Staging")
+            assert mvd5.current_stage == "Staging"
 
     def test_transition_model_version_stage_when_archive_existing_versions_is_false(self):
         fs = self.get_store()
@@ -565,9 +566,9 @@ class TestFileStore(unittest.TestCase):
         mvd2 = fs.get_model_version(name=name, version=mv2.version)
         mvd3 = fs.get_model_version(name=name, version=mv3.version)
 
-        self.assertEqual(mvd1.current_stage, "Staging")
-        self.assertEqual(mvd2.current_stage, "Production")
-        self.assertEqual(mvd3.current_stage, "Staging")
+        assert mvd1.current_stage == "Staging"
+        assert mvd2.current_stage == "Production"
+        assert mvd3.current_stage == "Staging"
 
         fs.transition_model_version_stage(name, mv3.version, "Production", False)
 
@@ -575,9 +576,9 @@ class TestFileStore(unittest.TestCase):
         mvd2 = fs.get_model_version(name=name, version=mv2.version)
         mvd3 = fs.get_model_version(name=name, version=mv3.version)
 
-        self.assertEqual(mvd1.current_stage, "Staging")
-        self.assertEqual(mvd2.current_stage, "Production")
-        self.assertEqual(mvd3.current_stage, "Production")
+        assert mvd1.current_stage == "Staging"
+        assert mvd2.current_stage == "Production"
+        assert mvd3.current_stage == "Production"
 
     def test_transition_model_version_stage_when_archive_existing_versions_is_true(self):
         fs = self.get_store()
@@ -606,10 +607,10 @@ class TestFileStore(unittest.TestCase):
         mvd2 = fs.get_model_version(name=name, version=mv2.version)
         mvd3 = fs.get_model_version(name=name, version=mv3.version)
 
-        self.assertEqual(mvd1.current_stage, "Archived")
-        self.assertEqual(mvd2.current_stage, "Production")
-        self.assertEqual(mvd3.current_stage, "Staging")
-        self.assertEqual(mvd1.last_updated_timestamp, mvd3.last_updated_timestamp)
+        assert mvd1.current_stage == "Archived"
+        assert mvd2.current_stage == "Production"
+        assert mvd3.current_stage == "Staging"
+        assert mvd1.last_updated_timestamp == mvd3.last_updated_timestamp
 
         fs.transition_model_version_stage(name, mv3.version, "Production", True)
 
@@ -617,10 +618,10 @@ class TestFileStore(unittest.TestCase):
         mvd2 = fs.get_model_version(name=name, version=mv2.version)
         mvd3 = fs.get_model_version(name=name, version=mv3.version)
 
-        self.assertEqual(mvd1.current_stage, "Archived")
-        self.assertEqual(mvd2.current_stage, "Archived")
-        self.assertEqual(mvd3.current_stage, "Production")
-        self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
+        assert mvd1.current_stage == "Archived"
+        assert mvd2.current_stage == "Archived"
+        assert mvd3.current_stage == "Production"
+        assert mvd2.last_updated_timestamp == mvd3.last_updated_timestamp
 
         for uncanonical_stage_name in ["STAGING", "staging", "StAgInG"]:
             fs.transition_model_version_stage(mv1.name, mv1.version, "Staging", False)
@@ -631,8 +632,8 @@ class TestFileStore(unittest.TestCase):
 
             mvd1 = fs.get_model_version(name=mv1.name, version=mv1.version)
             mvd2 = fs.get_model_version(name=mv2.name, version=mv2.version)
-            self.assertEqual(mvd1.current_stage, "Archived")
-            self.assertEqual(mvd2.current_stage, "Staging")
+            assert mvd1.current_stage == "Archived"
+            assert mvd2.current_stage == "Staging"
 
     def test_delete_model_version(self):
         fs = self.get_store()
@@ -644,7 +645,7 @@ class TestFileStore(unittest.TestCase):
         fs.create_registered_model(name)
         mv = self._create_model_version(fs, name, tags=initial_tags)
         mvd = fs.get_model_version(name=mv.name, version=mv.version)
-        self.assertEqual(mvd.name, name)
+        assert mvd.name == name
 
         fs.delete_model_version(name=mv.name, version=mv.version)
 
@@ -681,43 +682,34 @@ class TestFileStore(unittest.TestCase):
         run_id_2 = uuid.uuid4().hex
         run_id_3 = uuid.uuid4().hex
         mv1 = self._create_model_version(fs, name=name, source="A/B", run_id=run_id_1)
-        self.assertEqual(mv1.version, 1)
+        assert mv1.version == 1
         mv2 = self._create_model_version(fs, name=name, source="A/C", run_id=run_id_2)
-        self.assertEqual(mv2.version, 2)
+        assert mv2.version == 2
         mv3 = self._create_model_version(fs, name=name, source="A/D", run_id=run_id_2)
-        self.assertEqual(mv3.version, 3)
+        assert mv3.version == 3
         mv4 = self._create_model_version(fs, name=name, source="A/D", run_id=run_id_3)
-        self.assertEqual(mv4.version, 4)
+        assert mv4.version == 4
 
         def search_versions(filter_string):
             return [mvd.version for mvd in fs.search_model_versions(filter_string)]
 
         # search using name should return all 4 versions
-        self.assertEqual(set(search_versions("name='%s'" % name)), {1, 2, 3, 4})
+        assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
 
         # search using run_id_1 should return version 1
-        self.assertEqual(set(search_versions("run_id='%s'" % run_id_1)), {1})
+        assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
 
         # search using run_id_2 should return versions 2 and 3
-        self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), {2, 3})
+        assert set(search_versions("run_id='%s'" % run_id_2)) == {2, 3}
 
         # search using the IN operator should return all versions
-        self.assertEqual(
-            set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")),
-            {1, 2, 3},
-        )
+        assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
 
         # search IN operator is case sensitive
-        self.assertEqual(
-            set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")),
-            {2, 3},
-        )
+        assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
 
         # search IN operator with right-hand side value containing whitespaces
-        self.assertEqual(
-            set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")),
-            {1, 2, 3},
-        )
+        assert set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")) == {1, 2, 3}
 
         # search using the IN operator with bad lists should return exceptions
         with pytest.raises(
@@ -731,15 +723,9 @@ class TestFileStore(unittest.TestCase):
             search_versions("run_id IN (1,2,3)")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        self.assertEqual(
-            set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")),
-            {2, 3},
-        )
+        assert set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")) == {2, 3}
 
-        self.assertEqual(
-            set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")),
-            {2, 3},
-        )
+        assert set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")) == {2, 3}
 
         # search using the IN operator with empty lists should return exceptions
         with pytest.raises(
@@ -796,11 +782,11 @@ class TestFileStore(unittest.TestCase):
 
         # delete mv4. search should not return version 4
         fs.delete_model_version(name=mv4.name, version=mv4.version)
-        self.assertEqual(set(search_versions("")), {1, 2, 3})
+        assert set(search_versions("")) == {1, 2, 3}
 
-        self.assertEqual(set(search_versions(None)), {1, 2, 3})
+        assert set(search_versions(None)) == {1, 2, 3}
 
-        self.assertEqual(set(search_versions("name='%s'" % name)), {1, 2, 3})
+        assert set(search_versions("name='%s'" % name)) == {1, 2, 3}
 
         fs.transition_model_version_stage(
             name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
@@ -883,66 +869,66 @@ class TestFileStore(unittest.TestCase):
 
         # search with no filter should return all registered models
         rms, _ = self._search_registered_models(fs, None)
-        self.assertEqual(rms, names)
+        assert rms == names
 
         # equality search using name should return exactly the 1 name
         rms, _ = self._search_registered_models(fs, "name='{}'".format(names[0]))
-        self.assertEqual(rms, [names[0]])
+        assert rms == [names[0]]
 
         # equality search using name that is not valid should return nothing
         rms, _ = self._search_registered_models(fs, "name='{}'".format(names[0] + "cats"))
-        self.assertEqual(rms, [])
+        assert rms == []
 
         # case-sensitive prefix search using LIKE should return all the RMs
         rms, _ = self._search_registered_models(fs, "name LIKE '{}%'".format(prefix))
-        self.assertEqual(rms, names)
+        assert rms == names
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         rms, _ = self._search_registered_models(fs, "name LIKE '%RM%'")
-        self.assertEqual(rms, names)
+        assert rms == names
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
         rms, _ = self._search_registered_models(fs, "name LIKE '_e%'")
-        self.assertEqual(rms, names)
+        assert rms == names
 
         # case-sensitive prefix search using LIKE should return just rm4
         rms, _ = self._search_registered_models(fs, "name LIKE '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, [names[4]])
+        assert rms == [names[4]]
 
         # case-sensitive prefix search using LIKE should return no models if no match
         rms, _ = self._search_registered_models(fs, "name LIKE '{}%'".format(prefix + "cats"))
-        self.assertEqual(rms, [])
+        assert rms == []
 
         # confirm that LIKE is not case-sensitive
         rms, _ = self._search_registered_models(fs, "name lIkE '%blah%'")
-        self.assertEqual(rms, [])
+        assert rms == []
 
         rms, _ = self._search_registered_models(fs, "name like '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, [names[4]])
+        assert rms == [names[4]]
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
         rms, _ = self._search_registered_models(fs, "name ILIKE '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, names[4:])
+        assert rms == names[4:]
 
         # case-insensitive postfix search with ILIKE
         rms, _ = self._search_registered_models(fs, "name ILIKE '%RM4a%'")
-        self.assertEqual(rms, names[4:])
+        assert rms == names[4:]
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
         rms, _ = self._search_registered_models(fs, "name ILIKE '{}%'".format(prefix + "cats"))
-        self.assertEqual(rms, [])
+        assert rms == []
 
         # confirm that ILIKE is not case-sensitive
         rms, _ = self._search_registered_models(fs, "name iLike '%blah%'")
-        self.assertEqual(rms, [])
+        assert rms == []
 
         # confirm that ILIKE works for empty query
         rms, _ = self._search_registered_models(fs, "name iLike '%%'")
-        self.assertEqual(rms, names)
+        assert rms == names
 
         rms, _ = self._search_registered_models(fs, "name ilike '%RM4a%'")
-        self.assertEqual(rms, names[4:])
+        assert rms == names[4:]
 
         # cannot search by invalid comparator types
         with pytest.raises(
@@ -978,24 +964,21 @@ class TestFileStore(unittest.TestCase):
 
         # delete last registered model. search should not return the first 5
         fs.delete_registered_model(name=names[-1])
-        self.assertEqual(
-            self._search_registered_models(fs, None, max_results=1000), (names[:-1], None)
-        )
+        assert self._search_registered_models(fs, None, max_results=1000) == (names[:-1], None)
 
         # equality search using name should return no names
-        self.assertEqual(
-            self._search_registered_models(fs, "name='{}'".format(names[-1])), ([], None)
-        )
+        assert self._search_registered_models(fs, "name='{}'".format(names[-1])) == ([], None)
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(
-            self._search_registered_models(fs, "name LIKE '{}%'".format(prefix)), (names[0:5], None)
+        assert self._search_registered_models(fs, "name LIKE '{}%'".format(prefix)) == (
+            names[0:5],
+            None,
         )
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(
-            self._search_registered_models(fs, "name ILIKE '{}%'".format(prefix + "RM4A")),
-            ([names[4]], None),
+        assert self._search_registered_models(fs, "name ILIKE '{}%'".format(prefix + "RM4A")) == (
+            [names[4]],
+            None,
         )
 
     def test_search_registered_models_by_tag(self):
@@ -1052,16 +1035,16 @@ class TestFileStore(unittest.TestCase):
 
         # by default order by name ASC
         rms, _ = self._search_registered_models(fs)
-        self.assertEqual(rms, names)
+        assert rms == names
 
         # order by name DESC
         rms, _ = self._search_registered_models(fs, order_by=["name DESC"])
-        self.assertEqual(rms, names[::-1])
+        assert rms == names[::-1]
 
         # order by last_updated_timestamp ASC
         fs.update_registered_model(names[0], "latest updated")
         rms, _ = self._search_registered_models(fs, order_by=["last_updated_timestamp ASC"])
-        self.assertEqual(rms[-1], names[0])
+        assert rms[-1] == names[0]
 
     def test_search_registered_model_pagination(self):
         fs = self.get_store()
@@ -1077,32 +1060,32 @@ class TestFileStore(unittest.TestCase):
                 fs, query, page_token=token, max_results=5
             )
             returned_rms.extend(result)
-        self.assertEqual(rms, returned_rms)
+        assert rms == returned_rms
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
         result, token1 = self._search_registered_models(fs, query, max_results=5)
-        self.assertNotEqual(token1, None)
-        self.assertEqual(result, rms[0:5])
+        assert token1 is not None
+        assert result == rms[0:5]
 
         result, token2 = self._search_registered_models(
             fs, query, page_token=token1, max_results=10
         )
-        self.assertNotEqual(token2, None)
-        self.assertEqual(result, rms[5:15])
+        assert token2 is not None
+        assert result == rms[5:15]
 
         result, token3 = self._search_registered_models(
             fs, query, page_token=token2, max_results=20
         )
-        self.assertNotEqual(token3, None)
-        self.assertEqual(result, rms[15:35])
+        assert token3 is not None
+        assert result == rms[15:35]
 
         result, token4 = self._search_registered_models(
             fs, query, page_token=token3, max_results=100
         )
         # assert that page token is None
-        self.assertEqual(token4, None)
-        self.assertEqual(result, rms[35:])
+        assert token4 is None
+        assert result == rms[35:]
 
         # test that providing a completely invalid page token throws
         with pytest.raises(
@@ -1139,27 +1122,27 @@ class TestFileStore(unittest.TestCase):
             )
             returned_rms.extend(result)
         # name descending should be the opposite order of the current order
-        self.assertEqual(rms[::-1], returned_rms)
+        assert rms[::-1] == returned_rms
         # last_updated_timestamp descending should have the newest RMs first
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
         )
-        self.assertEqual(rms[::-1], result)
+        assert rms[::-1] == result
         # last_updated_timestamp ascending should have the oldest RMs first
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
         )
-        self.assertEqual(rms, result)
+        assert rms == result
         # name ascending should have the original order
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=["name ASC"], max_results=100
         )
-        self.assertEqual(rms, result)
+        assert rms == result
         # test that no ASC/DESC defaults to ASC
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
         )
-        self.assertEqual(rms, result)
+        assert rms == result
         with mock.patch("mlflow.store.model_registry.file_store.now", return_value=1):
             rm1 = fs.create_registered_model("MR1").name
             rm2 = fs.create_registered_model("MR2").name
@@ -1175,17 +1158,17 @@ class TestFileStore(unittest.TestCase):
             order_by=["last_updated_timestamp ASC", "name DESC"],
             max_results=100,
         )
-        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        assert [rm2, rm1, rm4, rm3] == result
         # confirm that name ascending is the default, even if ties exist on other fields
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=[], max_results=100
         )
-        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        assert [rm1, rm2, rm3, rm4] == result
         # test default tiebreak with descending timestamps
         result, _ = self._search_registered_models(
             fs, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
         )
-        self.assertEqual([rm3, rm4, rm1, rm2], result)
+        assert [rm3, rm4, rm1, rm2] == result
 
     def test_search_registered_model_order_by_errors(self):
         fs = self.get_store()
@@ -1236,19 +1219,19 @@ class TestFileStore(unittest.TestCase):
         fs.set_model_version_tag(name1, 1, new_tag)
         all_tags = initial_tags + [new_tag]
         rm1mv1 = fs.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in all_tags})
+        assert rm1mv1.tags == {tag.key: tag.value for tag in all_tags}
 
         # test overriding a tag with the same key
         overriding_tag = ModelVersionTag("key", "overriding")
         fs.set_model_version_tag(name1, 1, overriding_tag)
         all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1mv1 = fs.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in all_tags})
+        assert rm1mv1.tags == {tag.key: tag.value for tag in all_tags}
         # does not affect other model versions with the same key
         rm1mv2 = fs.get_model_version(name1, 2)
         rm2mv1 = fs.get_model_version(name2, 1)
-        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in initial_tags})
-        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm1mv2.tags == {tag.key: tag.value for tag in initial_tags}
+        assert rm2mv1.tags == {tag.key: tag.value for tag in initial_tags}
 
         # can not set tag on deleted (non-existed) model version
         fs.delete_model_version(name1, 2)
@@ -1307,21 +1290,21 @@ class TestFileStore(unittest.TestCase):
         fs.set_model_version_tag(name1, 1, new_tag)
         fs.delete_model_version_tag(name1, 1, "randomTag")
         rm1mv1 = fs.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm1mv1.tags == {tag.key: tag.value for tag in initial_tags}
 
         # testing deleting a key does not affect other model versions with the same key
         fs.delete_model_version_tag(name1, 1, "key")
         rm1mv1 = fs.get_model_version(name1, 1)
         rm1mv2 = fs.get_model_version(name1, 2)
         rm2mv1 = fs.get_model_version(name2, 1)
-        self.assertEqual(rm1mv1.tags, {"anotherKey": "some other value"})
-        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in initial_tags})
-        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in initial_tags})
+        assert rm1mv1.tags == {"anotherKey": "some other value"}
+        assert rm1mv2.tags == {tag.key: tag.value for tag in initial_tags}
+        assert rm2mv1.tags == {tag.key: tag.value for tag in initial_tags}
 
         # delete tag that is already deleted does nothing
         fs.delete_model_version_tag(name1, 1, "key")
         rm1mv1 = fs.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {"anotherKey": "some other value"})
+        assert rm1mv1.tags == {"anotherKey": "some other value"}
 
         # can not delete tag on deleted (non-existed) model version
         fs.delete_model_version(name2, 1)
