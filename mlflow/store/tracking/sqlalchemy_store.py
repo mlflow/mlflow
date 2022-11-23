@@ -837,7 +837,7 @@ class SqlAlchemyStore(AbstractStore):
         if new_latest_metric_dict:
             self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return [metric.to_mlflow_entity() for metric in metrics]

@@ -243,13 +243,38 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
-    @abstractmethod
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
-        Return a list of metric objects corresponding to all values logged for a given metric.
+        Return a list of metric objects corresponding to all values logged for a given metric
+        within a run.
+
+        See ``_get_metric_history`` for parameter descriptions.
+
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        """
+        if max_results is None:
+            metric_history, _ = self._get_metric_history(run_id, metric_key, None, None)
+            return metric_history
+        else:
+            return self._get_metric_history(run_id, metric_key, max_results, page_token)
+
+    @abstractmethod
+    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+        """
+        Return a list of metric objects corresponding to all values logged for a given metric
+        within a run.
 
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
+        :param max_results: Maximum number of metric history events (steps) to return per paged
+            query.
+        :param page_token: A Token specifying the next paginated set of results of metric history.
+            This value is obtained as a return value from a paginated call to GetMetricHistory.
+
+        note: The pagination feature within this API is managed on the client side and is only
+            utilized if the client submits a request that includes a 'max_results' value. Clients
+            that do not provide this value will not perform a paginated query and will instead
+            fall back to the former non-paginated behavior.
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """

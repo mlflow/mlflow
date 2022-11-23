@@ -240,7 +240,7 @@ class RestStore(AbstractStore):
         req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)
 
-    def get_metric_history(self, run_id, metric_key):
+    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
         """
         Return all logged values for a given metric.
 
@@ -250,10 +250,15 @@ class RestStore(AbstractStore):
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         req_body = message_to_json(
-            GetMetricHistory(run_uuid=run_id, run_id=run_id, metric_key=metric_key)
+            GetMetricHistory(run_uuid=run_id, run_id=run_id, metric_key=metric_key, max_results=max_results, page_token=page_token)
         )
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
-        return [Metric.from_proto(metric) for metric in response_proto.metrics]
+
+        metric_history = [Metric.from_proto(metric) for metric in response_proto.metrics]
+        next_page_token = None
+        if response_proto.next_page_token:
+            next_page_token = response_proto.next_page_token
+        return metric_history, next_page_token
 
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token

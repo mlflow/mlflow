@@ -71,7 +71,7 @@ class TrackingServiceClient:
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
-    def get_metric_history(self, run_id, key):
+    def get_metric_history(self, run_id, key, max_results=None):
         """
         Return a list of metric objects corresponding to all values logged for a given metric.
 
@@ -80,7 +80,31 @@ class TrackingServiceClient:
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        return self.store.get_metric_history(run_id=run_id, metric_key=key)
+
+        if max_results is None:
+            return self.store.get_metric_history(run_id=run_id, metric_key=key)
+        else:
+            metric_collection = []
+            metric_history, page_token = self.store.get_metric_history(
+                run_id=run_id, metric_key=key, max_results=max_results, page_token=None
+            )
+            if page_token is None:
+                # If the request is small enough to be fulfilled with a single query, return it.
+                return metric_history
+            else:
+                metric_collection.append(metric_history)
+                # Continue issuing queries to the backend store to retrieve all pages of
+                # metric history.
+                while page_token is not None:
+                    metric_history, page_token = self.store.get_metric_history(
+                        run_id=run_id,
+                        metric_key=key,
+                        max_results=max_results,
+                        page_token=page_token,
+                    )
+                    metric_collection.append(metric_history)
+                # Return the flattened list of paginated metric history entries
+                return [metrics for page in metric_collection for metrics in page]
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
