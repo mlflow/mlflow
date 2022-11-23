@@ -25,6 +25,11 @@ RUN apt update -y \
     && sudo apt clean \
     && rm -rf /var/lib/apt/lists/*
 
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip \
+    && unzip /tmp/protoc.zip -d /root/protoc \
+    && rm /tmp/protoc.zip
+ENV PATH="/root/protoc/bin:$PATH"
+
 # Install node and yarn for UI development
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
     && sudo apt install -y nodejs \
