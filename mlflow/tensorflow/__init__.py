@@ -162,7 +162,7 @@ def log_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
-            # Create the signature for a Keras model that requires 2 inputs:
+            # Create the signature for a model that requires 2 inputs:
             #  - Input with name "field1", shape (-1, 5), type "np.uint64"
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
@@ -295,7 +295,7 @@ def save_model(
                     TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
                 ]
             )
-            # Create the signature for a Keras model that requires 2 inputs:
+            # Create the signature for a model that requires 2 inputs:
             #  - Input with name "field1", shape (-1, 5), type "np.uint64"
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
