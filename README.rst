@@ -153,7 +153,7 @@ Official MLflow Docker Image
 
 The official MLflow Docker image is available on GitHub Container Registry at `ghcr.io/mlflow/mlflow <https://github.com/mlflow/mlflow/pkgs/container/mlflow>`_.
 
-.. code-block::shell
+.. code-block:: shell
 
     export CR_PAT=YOUR_TOKEN
     echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
