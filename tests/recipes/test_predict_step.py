@@ -295,7 +295,7 @@ def test_predict_correctly_handles_save_modes(
         ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6", "prediction"],
     )
     if using == "table":
-        output_path = get_random_id()
+        output_path = "table_" + get_random_id()
         sdf.write.format("delta").saveAsTable(output_path)
     else:
         output_file = "output_{}.{}".format(get_random_id(), using)
