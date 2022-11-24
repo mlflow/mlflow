@@ -225,13 +225,20 @@ def cast_df_types_according_to_schema(pdf, schema):
             col_type = col_type_spec
         if col_name in actual_cols:
             try:
-                if col_type_spec == DataType.binary:
+                if isinstance(col_type_spec, DataType) and col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
                     pdf[col_name] = pdf[col_name].map(
                         lambda x: base64.decodebytes(bytes(x, "utf8"))
                     )
                 elif col_type == np.dtype(bytes):
                     pdf[col_name] = pdf[col_name].map(lambda x: bytes(x, "utf8"))
+                elif schema.is_tensor_spec() and isinstance(pdf[col_name][0], list):
+                    # For dataframe with multidimensional column, it contains
+                    # list type values, we cannot convert
+                    # its type by `astype`, skip conversion.
+                    # The conversion will be done in `_enforce_schema` while
+                    # `PyFuncModel.predict` being called.
+                    pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
