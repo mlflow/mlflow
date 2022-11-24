@@ -878,7 +878,7 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
     onnx_model = onnx.load_model("model.onnx")
 
     # log the model into a mlflow run
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model_info = mlflow.onnx.log_model(onnx_model, "model")
 
     # load the logged model and make a prediction
