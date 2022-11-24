@@ -151,7 +151,7 @@ required dependencies (namely, ``flask``) will need to be installed for the MLfl
 Official MLflow Docker Image
 ----------------------------
 
-The official MLflow Docker image is available on GitHub Container Registry at `ghcr.io/mlflow/mlflow <https://github.com/mlflow/mlflow/pkgs/container/mlflow>`_.
+The official MLflow Docker image is available on GitHub Container Registry at https://ghcr.io/mlflow/mlflow.
 
 .. code-block:: shell
 
