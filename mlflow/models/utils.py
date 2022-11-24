@@ -6,7 +6,7 @@ from typing import Union, Any, Dict, List
 import numpy as np
 import pandas as pd
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, Schema, TensorSpec
@@ -390,10 +390,10 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
             return values.astype(np.datetime64, errors="raise")
-        except ValueError:
+        except ValueError as e:
             raise MlflowException(
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
-            )
+            ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
         # DataFrame. In order to support decimal data training from spark data frame, we add this
@@ -462,6 +462,54 @@ def _enforce_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
+def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
+    if tensor_spec.shape[0] != -1 or -1 in tensor_spec.shape[1:]:
+        raise MlflowException(
+            "For pandas dataframe input, the first dimension of shape must be a variable "
+            "dimension and other dimensions must be fixed, but in model signature the shape "
+            f"of {'input ' + name if name else 'the unnamed input'} is {tensor_spec.shape}."
+        )
+
+    if np.isscalar(pd_series[0]):
+        if tensor_spec.shape != (-1,):
+            raise MlflowException(
+                f"The input pandas dataframe column '{name}' contains scalar "
+                "values, which requires the shape to be (-1,), but got tensor spec "
+                f"shape of {tensor_spec.shape}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return _enforce_tensor_spec(np.array(pd_series, dtype=tensor_spec.type), tensor_spec)
+    elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
+        # If the pandas column contains list type values,
+        # in this case, the shape and type information is lost,
+        # so do not enforce the shape and type, instead,
+        # reshape the array value list to the required shape, and cast value type to
+        # required type.
+        err_msg = (
+            f"The value in the Input DataFrame column '{name}' could not be converted to the "
+            f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
+            "elements are of uniform length and that the data can be coerced to the tensor "
+            f"type '{tensor_spec.type}'"
+        )
+        try:
+            flattened_numpy_arr = np.vstack(pd_series.tolist())
+            reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
+                tensor_spec.type
+            )
+        except ValueError:
+            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+        if len(reshaped_numpy_arr) != len(pd_series):
+            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+        return reshaped_numpy_arr
+    else:
+        raise MlflowException(
+            "Because the model signature requires tensor spec input, the input "
+            "pandas dataframe values should be either scalar value or python list "
+            "containing scalar values, other types are not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
 
@@ -481,31 +529,57 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                         " which suggests a dictionary input mapping input name to a numpy"
                         " array, but a dict with value type {0} was found.".format(
                             type(pf_input[col_name])
-                        )
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 new_pf_input[col_name] = _enforce_tensor_spec(pf_input[col_name], tensor_spec)
         elif isinstance(pf_input, pd.DataFrame):
             new_pf_input = {}
             for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
-                new_pf_input[col_name] = _enforce_tensor_spec(
-                    np.array(pf_input[col_name], dtype=tensor_spec.type), tensor_spec
+                pd_series = pf_input[col_name]
+                new_pf_input[col_name] = _reshape_and_cast_pandas_column_values(
+                    col_name, pd_series, tensor_spec
                 )
         else:
             raise MlflowException(
                 "This model contains a tensor-based model signature with input names, which"
-                " suggests a dictionary input mapping input name to tensor, but an input of"
-                " type {0} was found.".format(type(pf_input))
+                " suggests a dictionary input mapping input name to tensor, or a pandas"
+                " DataFrame input containing columns mapping input name to flattened list value"
+                f" from tensor, but an input of type {type(pf_input)} was found.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     else:
+        tensor_spec = input_schema.inputs[0]
         if isinstance(pf_input, pd.DataFrame):
-            new_pf_input = _enforce_tensor_spec(pf_input.to_numpy(), input_schema.inputs[0])
+            num_input_columns = len(pf_input.columns)
+            if pf_input.empty:
+                raise MlflowException("Input DataFrame is empty.")
+            elif num_input_columns == 1:
+                new_pf_input = _reshape_and_cast_pandas_column_values(
+                    None, pf_input[pf_input.columns[0]], tensor_spec
+                )
+            else:
+                if tensor_spec.shape != (-1, num_input_columns):
+                    raise MlflowException(
+                        "This model contains a model signature with an unnamed input. Since the "
+                        "input data is a pandas DataFrame containing multiple columns, "
+                        "the input shape must be of the structure "
+                        "(-1, number_of_dataframe_columns). "
+                        f"Instead, the input DataFrame passed had {num_input_columns} columns and "
+                        f"an input shape of {tensor_spec.shape} with all values within the "
+                        "DataFrame of scalar type. Please adjust the passed in DataFrame to "
+                        "match the expected structure",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                new_pf_input = _enforce_tensor_spec(pf_input.to_numpy(), tensor_spec)
         elif isinstance(pf_input, np.ndarray) or _is_sparse_matrix(pf_input):
-            new_pf_input = _enforce_tensor_spec(pf_input, input_schema.inputs[0])
+            new_pf_input = _enforce_tensor_spec(pf_input, tensor_spec)
         else:
             raise MlflowException(
                 "This model contains a tensor-based model signature with no input names,"
-                " which suggests a numpy array input, but an input of type {0} was"
-                " found.".format(type(pf_input))
+                " which suggests a numpy array input or a pandas dataframe input with"
+                f" proper column values, but an input of type {type(pf_input)} was found.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     return new_pf_input
 

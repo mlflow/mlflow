@@ -181,4 +181,5 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
         run: |
+          export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
