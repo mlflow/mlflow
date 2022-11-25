@@ -100,6 +100,15 @@ def _find_latest_installable_python_version(version_prefix):
     lines = _exec_cmd(
         [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
     ).stdout.splitlines()
+    # pseudo code
+    if is_in_multi_user_shared_cluster:
+        for file in Path.rglob("/databricks/.pyenv/versions/*"):
+            try:
+                chmod(file, ["rwx", "rwx", "---"])
+                chown(file, "<current_user>:spark-users")
+            except:
+                pass
+
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
