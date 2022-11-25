@@ -35,11 +35,12 @@ def main(new_version: str, remote: str, dry_run=False):
             != ""
         )
         if exists_on_local:
+            click.echo(f"Deleting existing {release_branch}")
             subprocess.check_call(["git", "branch", "-D", release_branch])
 
-        click.echo("Creating a release branch")
+        click.echo(f"Creating {release_branch}")
         subprocess.check_call(["git", "checkout", "-b", release_branch, "master"])
-        click.echo("Pushing the release branch")
+        click.echo(f"Pushing {release_branch} to {remote}")
         subprocess.check_call(
             ["git", "push", remote, release_branch, *(["--dry-run"] if dry_run else [])]
         )
