@@ -22,15 +22,21 @@ const getPullInformation = async (context, github) => {
   const pull_number = context.issue.number;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
   const {
-    sha,
-    ref,
+    sha: head_sha,
+    ref: head_ref,
     repo: { full_name },
   } = pr.data.head;
+  const {
+    sha: base_sha,
+    ref: base_ref,
+  } = pr.data.base;
   return {
     repository: full_name,
     pull_number,
-    sha,
-    ref,
+    head_sha,
+    head_ref,
+    base_sha,
+    base_ref,
   };
 };
 
@@ -46,11 +52,11 @@ const createReaction = async (context, github) => {
 };
 
 const createStatus = async (context, github, core) => {
-  const { sha, ref, repository } = await getPullInformation(context, github);
-  if (repository === 'mlflow/mlflow' && ref === 'master') {
+  const { head_sha, head_ref, repository } = await getPullInformation(context, github);
+  if (repository === 'mlflow/mlflow' && head_ref === 'master') {
     core.setFailed('Running autoformat bot against master branch of mlflow/mlflow is not allowed.');
   }
-  await createCommitStatus(context, github, sha, 'pending');
+  await createCommitStatus(context, github, head_sha, 'pending');
 };
 
 const updateStatus = async (context, github, sha, needs) => {
