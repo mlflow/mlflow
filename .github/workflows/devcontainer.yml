@@ -23,6 +23,7 @@ env:
 jobs:
   devcontainer:
     runs-on: ubuntu-latest
+    if: github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
       - name: Get image name
