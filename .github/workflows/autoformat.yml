@@ -68,7 +68,7 @@ jobs:
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
-      # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
+      # Merge the base branch (which is usually master) to for the PR code using the latest configurations.
       - name: Merge base branch
         run: |
           git config user.name 'mlflow-automation'
