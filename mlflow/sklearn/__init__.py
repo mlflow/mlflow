@@ -1544,7 +1544,7 @@ def _autolog(
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
 
-        with _SklearnTrainingSession(estimator=self, allow_children=False) as t:
+        with _SklearnTrainingSession.init(estimator=self, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
