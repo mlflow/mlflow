@@ -4,6 +4,7 @@ import shutil
 import uuid
 import re
 import itertools
+import getpass
 from pathlib import Path
 from packaging.version import Version
 
@@ -142,7 +143,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     # pseudo code
     is_in_multi_user_shared_cluster = True  # TODO: Investigate how to detect this
     if is_in_multi_user_shared_cluster:
-        user = os.getlogin()
+        user = getpass.getuser()
         _logger.info("Current user: %s", os.getlogin())
         for path in itertools.chain(
             Path(f"{_DATABRICKS_PYENV_ROOT}/versions").rglob("*"),
