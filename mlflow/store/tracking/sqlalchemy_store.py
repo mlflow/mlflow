@@ -837,7 +837,19 @@ class SqlAlchemyStore(AbstractStore):
         if new_latest_metric_dict:
             self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
-    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+
+        # NB: The SQLAlchemyStore does not currently support pagination for this API.
+        # Raise if either `max_results` or `page_token` are specified, as the functionality
+        # to support paged queries is not implemented.
+        if max_results or page_token is not None:
+            raise MlflowException(
+                "The SQLAlchemyStore backend does not support pagination for the "
+                "`get_metric_history` API. Supplied arguments `max_results` "
+                f"'{max_results}' and `page_token` '{page_token}' must both be "
+                "`None`."
+            )
+
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return [metric.to_mlflow_entity() for metric in metrics]

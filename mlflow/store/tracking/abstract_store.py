@@ -252,6 +252,11 @@ class AbstractStore:
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
+
+        # NB: Pagination for this API is not supported in FileStore or SQLAlchemyStore. The
+        # argument `max_results` is used as a pagination activation flag. If the `max_results`
+        # argument is not provided, this API will return a full metric history event collection
+        # without the paged queries to the backend store.
         if max_results is None:
             metric_history, _ = self._get_metric_history(run_id, metric_key, None, None)
             return metric_history

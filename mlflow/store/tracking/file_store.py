@@ -742,13 +742,23 @@ class FileStore(AbstractStore):
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
         return Metric(key=metric_name, value=val, timestamp=ts, step=step)
 
-    def get_metric_history(self, run_id, metric_key):
+    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+
+        # NB: The FileStore does not currently support pagination for this API.
+        # Raise if either `max_results` or `page_token` are specified, as the functionality
+        # to support paged queries is not implemented.
+        if max_results or page_token is not None:
+            raise MlflowException(
+                "The FileStore backend does not support pagination for the "
+                "`get_metric_history` API. Supplied arguments `max_results` "
+                f"'{max_results}' and `page_token` '{page_token}' must both be "
+                "`None`."
+            )
+
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
-        return self._get_metric_history(run_info, metric_key)
 
-    def _get_metric_history(self, run_info, metric_key):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
             run_id = run_info.run_id

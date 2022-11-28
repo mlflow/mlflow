@@ -77,9 +77,19 @@ class TrackingServiceClient:
 
         :param run_id: Unique identifier for run
         :param key: Metric name within the run
+        :param max_results: Optional page quantity for backend stores that support paginated
+                            requests to retrieve metric history for a given run_id and metric name.
+                            If not provided, a paginated query will not occur and a single
+                            monolithic query will return all results from the backend store's
+                            implementation of this method.
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
+
+        # NB: Paginated query support is currently only available for the RestStore backend.
+        # FileStore and SQLAlchemy store do not provide support for paginated queries and will
+        # raise an MlflowException if the `max_results` argument is not None when calling this
+        # API.
 
         if max_results is None:
             return self.store.get_metric_history(run_id=run_id, metric_key=key)

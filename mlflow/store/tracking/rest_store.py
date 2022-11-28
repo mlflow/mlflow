@@ -250,7 +250,13 @@ class RestStore(AbstractStore):
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         req_body = message_to_json(
-            GetMetricHistory(run_uuid=run_id, run_id=run_id, metric_key=metric_key, max_results=max_results, page_token=page_token)
+            GetMetricHistory(
+                run_uuid=run_id,
+                run_id=run_id,
+                metric_key=metric_key,
+                max_results=max_results,
+                page_token=page_token,
+            )
         )
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
 
