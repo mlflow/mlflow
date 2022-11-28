@@ -44902,7 +44902,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -44913,7 +44913,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -44924,7 +44924,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -45098,7 +45098,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -45112,7 +45112,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -45137,7 +45137,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that non additional metrics are available to fetch OR that
+       * A missing token indicates that no additional metrics are available to fetch OR that
        * the original request was not executed via a paginated request.
        * </pre>
        *
@@ -45845,7 +45845,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
@@ -45858,7 +45858,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
@@ -45882,7 +45882,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
@@ -45905,7 +45905,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
@@ -45926,7 +45926,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
@@ -45942,7 +45942,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that non additional metrics are available to fetch OR that
+         * A missing token indicates that no additional metrics are available to fetch OR that
          * the original request was not executed via a paginated request.
          * </pre>
          *
