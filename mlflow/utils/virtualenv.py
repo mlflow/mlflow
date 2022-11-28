@@ -149,7 +149,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
             databricks_root = Path(_DATABRICKS_PYENV_ROOT)
             for path in itertools.chain(
                 databricks_root.joinpath("shims").rglob("*"),
-                databricks_root.joinpath("versions").rglob("*"),
+                databricks_root.joinpath("versions", version).rglob("*"),
             ):
                 try:
                     if path.owner() == user:
