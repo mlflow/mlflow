@@ -12,31 +12,9 @@ jobs:
           working_directory: docs
           command: |
             ./build-rdoc.sh
-
-      - run:
-          name: Check diff
-          command: |
-            set +e
-            git add .
-            PATCH_FILE="<< pipeline.git.revision >>.patch"
-            git --no-pager diff --cached --exit-code > $PATCH_FILE
-            failed=$?
-
-            if [[ "$failed" == "1" ]]; then
-              cat $PATCH_FILE
-              MLFLOW_REPO_ID=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/mlflow/mlflow | jq '.id')
-              PATCH_FILE_URL="https://output.circle-artifacts.com/output/job/${CIRCLE_WORKFLOW_JOB_ID}/artifacts/${CIRCLE_NODE_INDEX}/${PATCH_FILE}"
-              echo "========== Run the following commands to apply the diff above =========="
-              echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
-              echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
-              echo 'curl -s $REDIRECTED_URL | git apply --verbose'
-              echo "========================================================================"
+            if [ -n "$(git status --porcelain)" ]; then
+              exit 1
             fi
-
-            exit $failed
-
-      - store_artifacts:
-          path: << pipeline.git.revision >>.patch
 
   build_doc:
     docker:

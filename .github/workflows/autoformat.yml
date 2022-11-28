@@ -65,9 +65,11 @@ jobs:
           protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
           python=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
+          r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
+          echo "r=$r" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to for the PR code using the latest configurations.
       - name: Merge base branch
         run: |
@@ -116,6 +118,13 @@ jobs:
         working-directory: mlflow/server/js
         run: |
           yarn run extract-i18n
+      # ************************************************************************
+      # R
+      # ************************************************************************
+      - if: steps.diff.outputs.r == 'true'
+        working-directory: docs
+        run: |
+          ./build-rdoc.sh
       # ************************************************************************
       # Push changes
       # ************************************************************************
