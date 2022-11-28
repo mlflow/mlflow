@@ -742,8 +742,22 @@ class FileStore(AbstractStore):
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
         return Metric(key=metric_name, value=val, timestamp=ts, step=step)
 
-    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
 
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for FileStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for FileStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
         # NB: The FileStore does not currently support pagination for this API.
         # Raise if either `max_results` or `page_token` are specified, as the functionality
         # to support paged queries is not implemented.

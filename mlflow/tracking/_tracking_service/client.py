@@ -89,25 +89,24 @@ class TrackingServiceClient:
         if self.store == "databricks":
             max_results = GET_METRIC_HISTORY_MAX_RESULTS
 
-            metric_collection = []
-            metric_history, page_token = self.store.get_metric_history(
+            history = self.store.get_metric_history(
                 run_id=run_id, metric_key=key, max_results=max_results, page_token=None
             )
-            if page_token is None:
+            if history.page_token is None:
                 # If the request is small enough to be fulfilled with a single query, return it.
-                return metric_history
+                return history.metric_history
             else:
-                metric_collection.append(metric_history)
+                metric_collection = history.metric_history
                 # Continue issuing queries to the backend store to retrieve all pages of
                 # metric history.
-                while page_token is not None:
-                    metric_history, page_token = self.store.get_metric_history(
+                while history.page_token is not None:
+                    history = self.store.get_metric_history(
                         run_id=run_id,
                         metric_key=key,
                         max_results=max_results,
-                        page_token=page_token,
+                        page_token=history.page_token,
                     )
-                    metric_collection.append(metric_history)
+                    metric_collection.append(history.metric_history)
                 # Return the flattened list of paginated metric history entries
                 return [metrics for page in metric_collection for metrics in page]
         else:

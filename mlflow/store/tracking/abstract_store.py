@@ -243,27 +243,8 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
-    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
-        """
-        Return a list of metric objects corresponding to all values logged for a given metric
-        within a run.
-
-        See ``_get_metric_history`` for parameter descriptions.
-
-        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
-        """
-
-        # NB: Pagination for this API is not supported in FileStore or SQLAlchemyStore. The
-        # argument `max_results` is used as a pagination activation flag. If the `max_results`
-        # argument is not provided, this API will return a full metric history event collection
-        # without the paged queries to the backend store.
-        if max_results is None:
-            return self._get_metric_history(run_id, metric_key, None, None)
-        else:
-            return self._get_metric_history(run_id, metric_key, max_results, page_token)
-
     @abstractmethod
-    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
         Return a list of metric objects corresponding to all values logged for a given metric
         within a run.
@@ -282,6 +263,11 @@ class AbstractStore:
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
+
+        # NB: Pagination for this API is not supported in FileStore or SQLAlchemyStore. The
+        # argument `max_results` is used as a pagination activation flag. If the `max_results`
+        # argument is not provided, this API will return a full metric history event collection
+        # without the paged queries to the backend store.
         pass
 
     def search_runs(

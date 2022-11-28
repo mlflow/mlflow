@@ -240,14 +240,20 @@ class RestStore(AbstractStore):
         req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)
 
-    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
         Return all logged values for a given metric.
 
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
+        :param max_results: Maximum number of metric history events (steps) to return per paged
+            query. Only supported in 'databricks' backend.
+        :param page_token: A Token specifying the next paginated set of results of metric history.
 
-        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        :return: A PagedList of :py:class:`mlflow.entities.Metric` entities if a paginated request
+            is made by setting ``max_results`` to a value other than ``None``, a List of
+            :py:class:`mlflow.entities.Metric` entities if ``max_results`` is None, else, if no
+            metrics of the ``metric_key`` have been logged to the ``run_id``, an empty list.
         """
         req_body = message_to_json(
             GetMetricHistory(
@@ -264,9 +270,9 @@ class RestStore(AbstractStore):
         if max_results is not None:
             if response_proto.next_page_token:
                 next_page_token = response_proto.next_page_token
-                return metric_history, next_page_token
+                return PagedList(metric_history, next_page_token)
             else:
-                return metric_history, None
+                return PagedList(metric_history, None)
         else:
             # Non-paginated requests for backend stores that don't support pagination and for
             # backwards compatibility for older clients that don't implement client pagination.
