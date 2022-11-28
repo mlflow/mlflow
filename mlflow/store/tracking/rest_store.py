@@ -27,6 +27,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.entities.paginated_collection import PagedReturn
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -270,9 +271,9 @@ class RestStore(AbstractStore):
         if max_results is not None:
             if response_proto.next_page_token:
                 next_page_token = response_proto.next_page_token
-                return PagedList(metric_history, next_page_token)
+                return PagedReturn(metric_history, next_page_token)
             else:
-                return PagedList(metric_history, None)
+                return PagedReturn(metric_history, None)
         else:
             # Non-paginated requests for backend stores that don't support pagination and for
             # backwards compatibility for older clients that don't implement client pagination.

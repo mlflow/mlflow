@@ -19,6 +19,7 @@ from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, Experime
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.entities.paginated_collection import PagedReturn
 from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -83,15 +84,18 @@ class TrackingServiceClient:
 
         # NB: Paginated query support is currently only available for the RestStore backend.
         # FileStore and SQLAlchemy store do not provide support for paginated queries and will
-        # raise an MlflowException if the `max_results` argument is not None when calling this
-        # API.
+        # raise an MlflowException if the `page_token` argument is not None when calling this
+        # API for a continuation query.
 
-        if self.store == "databricks":
-            max_results = GET_METRIC_HISTORY_MAX_RESULTS
+        max_results = GET_METRIC_HISTORY_MAX_RESULTS
 
-            history = self.store.get_metric_history(
-                run_id=run_id, metric_key=key, max_results=max_results, page_token=None
-            )
+        history = self.store.get_metric_history(
+            run_id=run_id, metric_key=key, max_results=max_results, page_token=None
+        )
+        if not isinstance(history, PagedReturn):
+            # Backwards compatible return if the server doesn't support paginated queries
+            return history
+        else:
             if history.page_token is None:
                 # If the request is small enough to be fulfilled with a single query, return it.
                 return history.metric_history
@@ -109,8 +113,6 @@ class TrackingServiceClient:
                     metric_collection.append(history.metric_history)
                 # Return the flattened list of paginated metric history entries
                 return [metrics for page in metric_collection for metrics in page]
-        else:
-            return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """

@@ -749,8 +749,7 @@ class FileStore(AbstractStore):
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
         :param max_results: An indicator for paginated results. This functionality is not
-            implemented for FileStore and if the value is overridden with a value other than
-            ``None``, an MlflowException will be thrown.
+            implemented for FileStore.
         :param page_token: An indicator for paginated results. This functionality is not
             implemented for FileStore and if the value is overridden with a value other than
             ``None``, an MlflowException will be thrown.
@@ -759,14 +758,13 @@ class FileStore(AbstractStore):
             have been logged to the ``run_id``, else an empty list.
         """
         # NB: The FileStore does not currently support pagination for this API.
-        # Raise if either `max_results` or `page_token` are specified, as the functionality
-        # to support paged queries is not implemented.
-        if max_results or page_token is not None:
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
             raise MlflowException(
                 "The FileStore backend does not support pagination for the "
-                "`get_metric_history` API. Supplied arguments `max_results` "
-                f"'{max_results}' and `page_token` '{page_token}' must both be "
-                "`None`."
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
+                "be `None`."
             )
 
         _validate_run_id(run_id)

@@ -1089,7 +1089,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             match="The SQLAlchemyStore backend does not support pagination for the "
             "`get_metric_history` API.",
         ):
-            self.store.get_metric_history("fake_run", "fake_metric", max_results=50)
+            self.store.get_metric_history(
+                "fake_run", "fake_metric", max_results=50, page_token="42"
+            )
 
     def test_log_null_metric(self):
         run = self._run_factory()

@@ -844,8 +844,7 @@ class SqlAlchemyStore(AbstractStore):
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
         :param max_results: An indicator for paginated results. This functionality is not
-            implemented for SQLAlchemyStore and if the value is overridden with a value other than
-            ``None``, an MlflowException will be thrown.
+            implemented for SQLAlchemyStore.
         :param page_token: An indicator for paginated results. This functionality is not
             implemented for SQLAlchemyStore and if the value is overridden with a value other than
             ``None``, an MlflowException will be thrown.
@@ -856,11 +855,10 @@ class SqlAlchemyStore(AbstractStore):
         # NB: The SQLAlchemyStore does not currently support pagination for this API.
         # Raise if either `max_results` or `page_token` are specified, as the functionality
         # to support paged queries is not implemented.
-        if max_results or page_token is not None:
+        if page_token is not None:
             raise MlflowException(
                 "The SQLAlchemyStore backend does not support pagination for the "
-                "`get_metric_history` API. Supplied arguments `max_results` "
-                f"'{max_results}' and `page_token` '{page_token}' must both be "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be "
                 "`None`."
             )
 
