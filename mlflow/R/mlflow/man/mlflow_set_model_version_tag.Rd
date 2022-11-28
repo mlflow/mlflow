@@ -22,12 +22,12 @@ mlflow_set_model_version_tag(
 
 \item{value}{Tag value to log. value is required.}
 
+\item{stage}{Registered model stage.}
+
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
-
-\item{stage:}{Registered model stage.}
 }
 \description{
 Set a tag for the model version.

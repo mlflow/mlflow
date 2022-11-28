@@ -340,7 +340,7 @@ mlflow_transition_model_version_stage <- function(name, version, stage,
 #' @param version Registered model version.
 #' @param key Tag key to log. key is required.
 #' @param value Tag value to log. value is required.
-#' @param stage: Registered model stage.
+#' @param stage Registered model stage.
 #' @template roxlate-client
 #' @export
 mlflow_set_model_version_tag <- function(name, version = NULL, key = NULL, value = NULL, stage = NULL, client = NULL) {

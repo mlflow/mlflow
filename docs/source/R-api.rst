@@ -1896,6 +1896,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``value``                     | Tag value to log. value is required. |
 +-------------------------------+--------------------------------------+
+| ``stage``                     | Registered model stage.              |
++-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
 |                               | `mlflow_client <#mlflow-client>`__ . |
@@ -1905,8 +1907,6 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
-+-------------------------------+--------------------------------------+
-| ``stage:``                    | Registered model stage.              |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_set_tag``
