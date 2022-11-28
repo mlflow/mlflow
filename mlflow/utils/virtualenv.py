@@ -4,7 +4,7 @@ import shutil
 import uuid
 import re
 import itertools
-import getpass
+import grp
 from pathlib import Path
 from packaging.version import Version
 
@@ -142,19 +142,18 @@ def _install_python(version, pyenv_root=None, capture_output=False):
 
     # pseudo code
     if is_in_databricks_runtime():
-        user = getpass.getuser()
-        _logger.info("Current user: %s", user)
-        is_in_multi_user_shared_cluster = user == "root"  # TODO: Investigate how to detect this
-        if is_in_multi_user_shared_cluster:
+        uid = os.getuid()
+        _logger.info("Current user: %s", uid)
+        if uid != 1000:  # TODO: Investigate how to detect this:
             databricks_root = Path(_DATABRICKS_PYENV_ROOT)
             for path in itertools.chain(
                 databricks_root.joinpath("shims").rglob("*"),
                 databricks_root.joinpath("versions", version).rglob("*"),
             ):
                 try:
-                    if path.owner() == user:
-                        path.chmod(0o770)
-                        shutil.chown(path, user=user, group="spark-users")
+                    if os.stat(path).st_uid == uid:
+                        os.chmod(path, 0o770)
+                        os.chown(path, uid=uid, gid=grp.getgrnam("spark-users").gr_gid)
                 except Exception as e:
                     _logger.warning("Unexpected error: %s", repr(e))
 
