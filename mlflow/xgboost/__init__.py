@@ -707,11 +707,11 @@ def autolog(
         return model
 
     def train(_log_models, original, *args, **kwargs):
-        with _SklearnTrainingSession(clazz="xgboost.train", allow_children=False) as t:
-            if t.should_log():
-                return train_impl(_log_models, original, *args, **kwargs)
-            else:
-                return original(*args, **kwargs)
+        topmost_sklearn_session = _SklearnTrainingSession.get_topmost_session()
+        if topmost_sklearn_session is not None and topmost_sklearn_session.should_log():
+            return train_impl(_log_models, original, *args, **kwargs)
+        else:
+            return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost

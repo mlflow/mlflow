@@ -554,6 +554,13 @@ def _get_new_training_session_class():
         def is_active():
             return len(_TrainingSession._session_stack) != 0
 
+        @staticmethod
+        def get_topmost_session():
+            if _TrainingSession.is_active():
+                return _TrainingSession._session_stack[-1]
+            else:
+                return None
+
     return _TrainingSession
 
 

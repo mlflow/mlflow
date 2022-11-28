@@ -671,11 +671,11 @@ def autolog(
         return model
 
     def train(_log_models, original, *args, **kwargs):
-        with _SklearnTrainingSession(clazz="lightgbm.train", allow_children=False) as t:
-            if t.should_log():
-                return train_impl(_log_models, original, *args, **kwargs)
-            else:
-                return original(*args, **kwargs)
+        topmost_sklearn_session = _SklearnTrainingSession.get_topmost_session()
+        if topmost_sklearn_session is not None and topmost_sklearn_session.should_log():
+            return train_impl(_log_models, original, *args, **kwargs)
+        else:
+            return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
     safe_patch(
