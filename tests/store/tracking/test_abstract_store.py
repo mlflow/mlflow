@@ -1,10 +1,21 @@
 from unittest import mock
 
+from mlflow.entities import ViewType
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore
 
 
 class AbstractStoreTestImpl(AbstractStore):
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        raise NotImplementedError
+
     def create_experiment(self, name, artifact_location, tags):
         raise NotImplementedError()
 
@@ -35,7 +46,7 @@ class AbstractStoreTestImpl(AbstractStore):
     def restore_run(self, run_id):
         raise NotImplementedError()
 
-    def _get_metric_history(self, run_id, metric_key, max_results, page_token):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         raise NotImplementedError()
 
     def _search_runs(
