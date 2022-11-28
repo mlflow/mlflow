@@ -3,6 +3,7 @@ import logging
 import shutil
 import uuid
 import re
+import itertools
 from pathlib import Path
 from packaging.version import Version
 
@@ -36,7 +37,8 @@ def _get_mlflow_virtualenv_root():
     return os.getenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(Path.home().joinpath(".mlflow", "envs")))
 
 
-_DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
+_DATABRICKS_PYENV_ROOT = "/databricks/.pyenv"
+_DATABRICKS_PYENV_BIN_PATH = f"{_DATABRICKS_PYENV_ROOT}/bin/pyenv"
 
 
 def _is_pyenv_available():
@@ -100,15 +102,6 @@ def _find_latest_installable_python_version(version_prefix):
     lines = _exec_cmd(
         [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
     ).stdout.splitlines()
-    # pseudo code
-    if is_in_multi_user_shared_cluster:
-        for file in Path.rglob("/databricks/.pyenv/versions/*"):
-            try:
-                chmod(file, ["rwx", "rwx", "---"])
-                chown(file, "<current_user>:spark-users")
-            except:
-                pass
-
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
@@ -145,6 +138,23 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         shell=not _IS_UNIX,
         extra_env=extra_env,
     )
+
+    # pseudo code
+    is_in_multi_user_shared_cluster = True  # TODO: Investigate how to detect this
+    if is_in_multi_user_shared_cluster:
+        user = os.getlogin()
+        _logger.info("Current user: %s", os.getlogin())
+        for path in itertools.chain(
+            Path(f"{_DATABRICKS_PYENV_ROOT}/versions").rglob("*"),
+            Path(f"{_DATABRICKS_PYENV_ROOT}/shims").rglob("*"),
+        ):
+            try:
+                if path.owner() == user:
+                    group = path.group()
+                    path.chmod(0o770)
+                    shutil.chown(path, user=user, group=group)
+            except Exception as e:
+                _logger.warning("Unexpected error: %s", repr(e))
 
     if _IS_UNIX:
         if pyenv_root is None:
