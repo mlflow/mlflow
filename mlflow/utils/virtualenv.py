@@ -144,16 +144,15 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     is_in_multi_user_shared_cluster = True  # TODO: Investigate how to detect this
     if is_in_multi_user_shared_cluster:
         user = getpass.getuser()
-        _logger.info("Current user: %s", os.getlogin())
+        _logger.info("Current user: %s", user)
         for path in itertools.chain(
             Path(f"{_DATABRICKS_PYENV_ROOT}/versions").rglob("*"),
             Path(f"{_DATABRICKS_PYENV_ROOT}/shims").rglob("*"),
         ):
             try:
                 if path.owner() == user:
-                    group = path.group()
                     path.chmod(0o770)
-                    shutil.chown(path, user=user, group=group)
+                    shutil.chown(path, user=user, group="spark-users")
             except Exception as e:
                 _logger.warning("Unexpected error: %s", repr(e))
 
