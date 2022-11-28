@@ -44713,12 +44713,11 @@ public final class Service {
 
     /**
      * <pre>
-     * Maximum number of logged instances of a metric for a run to return per paged call.
+     * Maximum number of logged instances of a metric for a run to return per call.
      * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries. This pagination feature is not user-controlled and
-     * reassembly of the final metric history collection is handled directly by the client.
-     * Queries that do not specify this value will revert to non-paginated queries wherein all
-     * metric history values for a given metric within a run will be returned from a single query.
+     * for extremely large queries.
+     * Queries that do not specify this value will behave as a non-paginated query wherein all
+     * metric history values for a given metric within a run will be returned in a single request.
      * </pre>
      *
      * <code>optional int64 max_results = 5;</code>
@@ -44727,12 +44726,11 @@ public final class Service {
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of logged instances of a metric for a run to return per paged call.
+     * Maximum number of logged instances of a metric for a run to return per call.
      * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries. This pagination feature is not user-controlled and
-     * reassembly of the final metric history collection is handled directly by the client.
-     * Queries that do not specify this value will revert to non-paginated queries wherein all
-     * metric history values for a given metric within a run will be returned from a single query.
+     * for extremely large queries.
+     * Queries that do not specify this value will behave as a non-paginated query wherein all
+     * metric history values for a given metric within a run will be returned in a single request.
      * </pre>
      *
      * <code>optional int64 max_results = 5;</code>
@@ -44902,8 +44900,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -44913,8 +44910,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -44924,8 +44920,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -45098,8 +45093,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -45112,8 +45106,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -45137,8 +45130,7 @@ public final class Service {
       /**
        * <pre>
        * Token that can be used to issue a query for the next page of metric history values.
-       * A missing token indicates that no additional metrics are available to fetch OR that
-       * the original request was not executed via a paginated request.
+       * A missing token indicates that no additional metrics are available to fetch.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -45845,8 +45837,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -45858,8 +45849,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -45882,8 +45872,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -45905,8 +45894,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -45926,8 +45914,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -45942,8 +45929,7 @@ public final class Service {
         /**
          * <pre>
          * Token that can be used to issue a query for the next page of metric history values.
-         * A missing token indicates that no additional metrics are available to fetch OR that
-         * the original request was not executed via a paginated request.
+         * A missing token indicates that no additional metrics are available to fetch.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -46261,12 +46247,11 @@ public final class Service {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of logged instances of a metric for a run to return per paged call.
+     * Maximum number of logged instances of a metric for a run to return per call.
      * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries. This pagination feature is not user-controlled and
-     * reassembly of the final metric history collection is handled directly by the client.
-     * Queries that do not specify this value will revert to non-paginated queries wherein all
-     * metric history values for a given metric within a run will be returned from a single query.
+     * for extremely large queries.
+     * Queries that do not specify this value will behave as a non-paginated query wherein all
+     * metric history values for a given metric within a run will be returned in a single request.
      * </pre>
      *
      * <code>optional int64 max_results = 5;</code>
@@ -46278,12 +46263,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * Maximum number of logged instances of a metric for a run to return per paged call.
+     * Maximum number of logged instances of a metric for a run to return per call.
      * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries. This pagination feature is not user-controlled and
-     * reassembly of the final metric history collection is handled directly by the client.
-     * Queries that do not specify this value will revert to non-paginated queries wherein all
-     * metric history values for a given metric within a run will be returned from a single query.
+     * for extremely large queries.
+     * Queries that do not specify this value will behave as a non-paginated query wherein all
+     * metric history values for a given metric within a run will be returned in a single request.
      * </pre>
      *
      * <code>optional int64 max_results = 5;</code>
@@ -47154,12 +47138,11 @@ public final class Service {
       private long maxResults_ ;
       /**
        * <pre>
-       * Maximum number of logged instances of a metric for a run to return per paged call.
+       * Maximum number of logged instances of a metric for a run to return per call.
        * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries. This pagination feature is not user-controlled and
-       * reassembly of the final metric history collection is handled directly by the client.
-       * Queries that do not specify this value will revert to non-paginated queries wherein all
-       * metric history values for a given metric within a run will be returned from a single query.
+       * for extremely large queries.
+       * Queries that do not specify this value will behave as a non-paginated query wherein all
+       * metric history values for a given metric within a run will be returned in a single request.
        * </pre>
        *
        * <code>optional int64 max_results = 5;</code>
@@ -47171,12 +47154,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of logged instances of a metric for a run to return per paged call.
+       * Maximum number of logged instances of a metric for a run to return per call.
        * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries. This pagination feature is not user-controlled and
-       * reassembly of the final metric history collection is handled directly by the client.
-       * Queries that do not specify this value will revert to non-paginated queries wherein all
-       * metric history values for a given metric within a run will be returned from a single query.
+       * for extremely large queries.
+       * Queries that do not specify this value will behave as a non-paginated query wherein all
+       * metric history values for a given metric within a run will be returned in a single request.
        * </pre>
        *
        * <code>optional int64 max_results = 5;</code>
@@ -47188,12 +47170,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of logged instances of a metric for a run to return per paged call.
+       * Maximum number of logged instances of a metric for a run to return per call.
        * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries. This pagination feature is not user-controlled and
-       * reassembly of the final metric history collection is handled directly by the client.
-       * Queries that do not specify this value will revert to non-paginated queries wherein all
-       * metric history values for a given metric within a run will be returned from a single query.
+       * for extremely large queries.
+       * Queries that do not specify this value will behave as a non-paginated query wherein all
+       * metric history values for a given metric within a run will be returned in a single request.
        * </pre>
        *
        * <code>optional int64 max_results = 5;</code>
@@ -47208,12 +47189,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of logged instances of a metric for a run to return per paged call.
+       * Maximum number of logged instances of a metric for a run to return per call.
        * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries. This pagination feature is not user-controlled and
-       * reassembly of the final metric history collection is handled directly by the client.
-       * Queries that do not specify this value will revert to non-paginated queries wherein all
-       * metric history values for a given metric within a run will be returned from a single query.
+       * for extremely large queries.
+       * Queries that do not specify this value will behave as a non-paginated query wherein all
+       * metric history values for a given metric within a run will be returned in a single request.
        * </pre>
        *
        * <code>optional int64 max_results = 5;</code>

@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from itertools import zip_longest
 
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_RESULTS_THRESHOLD
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_MAX_RESULTS
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils.validation import (
@@ -16,7 +16,6 @@ from mlflow.utils.validation import (
     PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
-from mlflow.environment_variables import MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -88,12 +87,8 @@ class TrackingServiceClient:
         # API.
 
         if self.store == "databricks":
-            max_results = MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE.get()
+            max_results = GET_METRIC_HISTORY_MAX_RESULTS
 
-            # For service protection, override the environment variable value to the max safe
-            # page size  if it is in excess of this threshold value.
-            if max_results > GET_METRIC_HISTORY_RESULTS_THRESHOLD:
-                max_results = GET_METRIC_HISTORY_RESULTS_THRESHOLD
             metric_collection = []
             metric_history, page_token = self.store.get_metric_history(
                 run_id=run_id, metric_key=key, max_results=max_results, page_token=None

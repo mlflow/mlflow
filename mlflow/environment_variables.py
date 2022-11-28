@@ -186,10 +186,3 @@ MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
 MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
 )
-
-#: Specifies the backend store pagination size for the GetMetricHistory API
-#: Note: Pagination is only supported with `databricks` as a backend for this API
-#: (default: ``25000``)
-MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE = _EnvironmentVariable(
-    "MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE", int, 25000
-)
