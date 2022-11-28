@@ -59,7 +59,9 @@ jobs:
       - name: Check diff
         id: diff
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
         run: |
           changed_files="$(gh pr view ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
