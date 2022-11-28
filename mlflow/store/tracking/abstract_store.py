@@ -258,8 +258,7 @@ class AbstractStore:
         # argument is not provided, this API will return a full metric history event collection
         # without the paged queries to the backend store.
         if max_results is None:
-            metric_history, _ = self._get_metric_history(run_id, metric_key, None, None)
-            return metric_history
+            return self._get_metric_history(run_id, metric_key, None, None)
         else:
             return self._get_metric_history(run_id, metric_key, max_results, page_token)
 

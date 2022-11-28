@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from itertools import zip_longest
 
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_RESULTS_THRESHOLD
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils.validation import (
@@ -16,6 +16,7 @@ from mlflow.utils.validation import (
     PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
+from mlflow.environment_variables import MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -71,17 +72,12 @@ class TrackingServiceClient:
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
-    def get_metric_history(self, run_id, key, max_results=None):
+    def get_metric_history(self, run_id, key):
         """
         Return a list of metric objects corresponding to all values logged for a given metric.
 
         :param run_id: Unique identifier for run
         :param key: Metric name within the run
-        :param max_results: Optional page quantity for backend stores that support paginated
-                            requests to retrieve metric history for a given run_id and metric name.
-                            If not provided, a paginated query will not occur and a single
-                            monolithic query will return all results from the backend store's
-                            implementation of this method.
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
@@ -91,9 +87,13 @@ class TrackingServiceClient:
         # raise an MlflowException if the `max_results` argument is not None when calling this
         # API.
 
-        if max_results is None:
-            return self.store.get_metric_history(run_id=run_id, metric_key=key)
-        else:
+        if self.store == "databricks":
+            max_results = MLFLOW_GET_METRIC_HISTORY_MAX_RESULTS_PER_PAGE.get()
+
+            # For service protection, override the environment variable value to the max safe
+            # page size  if it is in excess of this threshold value.
+            if max_results > GET_METRIC_HISTORY_RESULTS_THRESHOLD:
+                max_results = GET_METRIC_HISTORY_RESULTS_THRESHOLD
             metric_collection = []
             metric_history, page_token = self.store.get_metric_history(
                 run_id=run_id, metric_key=key, max_results=max_results, page_token=None
@@ -115,6 +115,8 @@ class TrackingServiceClient:
                     metric_collection.append(metric_history)
                 # Return the flattened list of paginated metric history entries
                 return [metrics for page in metric_collection for metrics in page]
+        else:
+            return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
@@ -128,7 +130,7 @@ class TrackingServiceClient:
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
-        :param name: The name of this run.
+        :param run_name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 

@@ -261,10 +261,11 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
 
         metric_history = [Metric.from_proto(metric) for metric in response_proto.metrics]
-        next_page_token = None
         if response_proto.next_page_token:
             next_page_token = response_proto.next_page_token
-        return metric_history, next_page_token
+            return metric_history, next_page_token
+        else:
+            return metric_history
 
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token

@@ -1023,6 +1023,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                         assert metric.key == metric_name
                         assert metric.value == metric_value
 
+    def test_get_metric_history_paginated_request_raises(self):
+        fs = FileStore(self.test_root)
+        with pytest.raises(
+            MlflowException,
+            match="The FileStore backend does not support pagination for the `get_metric_history` "
+            "API.",
+        ):
+            fs.get_metric_history("fake_run", "fake_metric", max_results=50)
+
     def _search(
         self,
         fs,
