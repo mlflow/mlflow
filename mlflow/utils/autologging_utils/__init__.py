@@ -534,14 +534,16 @@ def _get_new_training_session_class():
                                    If current estimator is parent estimator (reenterring case),
                                    this param is ignored.
             """
-            topmost_session = _TrainingSession.get_topmost_session()
-            if topmost_session is not None and topmost_session.estimator is estimator:
-                topmost_session.reentrant_count += 1
-                return topmost_session
+            current_session = _TrainingSession.get_current_session()
+            if current_session is not None and current_session.estimator is estimator:
+                current_session.reentrant_count += 1
+                return current_session
             else:
-                if topmost_session is not None:
-                    allow_children = allow_children and topmost_session.allow_children
-                    new_session = _TrainingSession(estimator, allow_children, parent=topmost_session)
+                if current_session is not None:
+                    allow_children = allow_children and current_session.allow_children
+                    new_session = _TrainingSession(
+                        estimator, allow_children, parent=current_session
+                    )
                 else:
                     new_session = _TrainingSession(estimator, allow_children)
                 _TrainingSession._session_stack.append(new_session)
@@ -558,7 +560,8 @@ def _get_new_training_session_class():
 
         def should_log(self):
             """
-            Returns True when reentrant_count == 0 and at least one of the following conditions satisfies:
+            Returns True when reentrant_count == 0 and at least one of the following conditions
+            satisfies:
 
             1. This session is the root session.
             2. The parent session allows autologging and its estimator differs from this session's
@@ -574,7 +577,7 @@ def _get_new_training_session_class():
             return len(_TrainingSession._session_stack) != 0
 
         @staticmethod
-        def get_topmost_session():
+        def get_current_session():
             if _TrainingSession.is_active():
                 return _TrainingSession._session_stack[-1]
             else:
