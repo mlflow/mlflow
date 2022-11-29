@@ -673,7 +673,7 @@ def autolog(
     def train(_log_models, original, *args, **kwargs):
         topmost_sklearn_session = _SklearnTrainingSession.get_topmost_session()
         if topmost_sklearn_session is None or (
-                topmost_sklearn_session is not None and topmost_sklearn_session.should_log()
+                topmost_sklearn_session is not None and topmost_sklearn_session.should_log_without_reentrance()
         ):
             return train_impl(_log_models, original, *args, **kwargs)
         else:

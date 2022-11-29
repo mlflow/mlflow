@@ -514,41 +514,60 @@ def _get_new_training_session_class():
     class _TrainingSession:
         _session_stack = []
 
-        def __init__(self, clazz, allow_children=True):
+        def __init__(self, estimator, allow_children=True, parent=None):
+            """
+            Note: Do not call constructor directory, use `_TrainingSession.init` instead.
+            """
+            self.allow_children = allow_children
+            self.estimator = estimator
+            self._parent = parent
+            self.reentrant_count = 0
+
+        @staticmethod
+        def init(estimator, allow_children=True):
             """
             A session manager for nested autologging runs.
 
-            :param clazz: A class object that this session originates from.
+            :param estimator: An estimator that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
+                                   If current estimator is parent estimator (reenterring case),
+                                   this param is ignored.
             """
-            self.allow_children = allow_children
-            self.clazz = clazz
-            self._parent = None
+            topmost_session = _TrainingSession.get_topmost_session()
+            if topmost_session is not None and topmost_session.estimator is estimator:
+                topmost_session.reentrant_count += 1
+                return topmost_session
+            else:
+                if topmost_session is not None:
+                    allow_children = allow_children and topmost_session.allow_children
+                    new_session = _TrainingSession(estimator, allow_children, parent=topmost_session)
+                else:
+                    new_session = _TrainingSession(estimator, allow_children)
+                _TrainingSession._session_stack.append(new_session)
+                return new_session
 
         def __enter__(self):
-            if len(_TrainingSession._session_stack) > 0:
-                self._parent = _TrainingSession._session_stack[-1]
-                self.allow_children = (
-                    _TrainingSession._session_stack[-1].allow_children and self.allow_children
-                )
-            _TrainingSession._session_stack.append(self)
             return self
 
         def __exit__(self, tp, val, traceback):
-            _TrainingSession._session_stack.pop()
+            if self.reentrant_count > 0:
+                self.reentrant_count -= 1
+            else:
+                _TrainingSession._session_stack.pop()
 
         def should_log(self):
             """
-            Returns True when at least one of the following conditions satisfies:
+            Returns True when reentrant_count == 0 and at least one of the following conditions satisfies:
 
             1. This session is the root session.
-            2. The parent session allows autologging and its class differs from this session's
-               class.
+            2. The parent session allows autologging and its estimator differs from this session's
+               differs.
             """
-            return (self._parent is None) or (
-                self._parent.allow_children and self._parent.clazz != self.clazz
-            )
+            return self.reentrant_count == 0 and self.should_log_without_reentrance()
+
+        def should_log_without_reentrance(self):
+            return self._parent is None or self._parent.allow_children
 
         @staticmethod
         def is_active():
