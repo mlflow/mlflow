@@ -486,9 +486,9 @@ def autolog(
         from mlflow.sklearn import _SklearnTrainingSession
 
         # If this function is called within a session initiated by a scikit-learn estimator,
-        # the parameters passed in this function may conflict with the parameters of the
-        # the scikit-learn estimator. See https://github.com/mlflow/mlflow/issues/7402 for more
-        # details.
+        # logging the parameters passed in this function fails when the the scikit-learn
+        # estimator has overlapped parameters.
+        # See https://github.com/mlflow/mlflow/issues/7402 for more details.
         if any(
             x.estimator.__class__.__module__.startswith("sklearn")
             for x in _SklearnTrainingSession._session_stack
