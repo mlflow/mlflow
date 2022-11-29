@@ -268,11 +268,10 @@ class RestStore(AbstractStore):
 
         metric_history = [Metric.from_proto(metric) for metric in response_proto.metrics]
         if max_results is not None:
+            next_page_token = None
             if response_proto.next_page_token:
                 next_page_token = response_proto.next_page_token
-                return PagedList(metric_history, next_page_token)
-            else:
-                return PagedList(metric_history, None)
+            return PagedList(metric_history, next_page_token)
         else:
             # Non-paginated requests for backend stores that don't support pagination and for
             # backwards compatibility for older clients that don't implement client pagination.

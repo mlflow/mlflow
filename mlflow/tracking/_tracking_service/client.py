@@ -87,10 +87,11 @@ class TrackingServiceClient:
         # raise an MlflowException if the `page_token` argument is not None when calling this
         # API for a continuation query.
 
-        max_results = GET_METRIC_HISTORY_MAX_RESULTS
-
         history = self.store.get_metric_history(
-            run_id=run_id, metric_key=key, max_results=max_results, page_token=None
+            run_id=run_id,
+            metric_key=key,
+            max_results=GET_METRIC_HISTORY_MAX_RESULTS,
+            page_token=None,
         )
         if not isinstance(history, PagedList):
             # Backwards compatible return if the server doesn't support paginated queries
@@ -107,12 +108,11 @@ class TrackingServiceClient:
                     history = self.store.get_metric_history(
                         run_id=run_id,
                         metric_key=key,
-                        max_results=max_results,
+                        max_results=GET_METRIC_HISTORY_MAX_RESULTS,
                         page_token=history.page_token,
                     )
                     metric_collection.extend(history.to_list())
-                # Return the flattened list of paginated metric history entries
-                return [metrics for page in metric_collection for metrics in page]
+                return metric_collection
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """

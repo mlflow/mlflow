@@ -749,7 +749,7 @@ class FileStore(AbstractStore):
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
         :param max_results: An indicator for paginated results. This functionality is not
-            implemented for FileStore.
+            implemented for FileStore and is unused in this store's implementation.
         :param page_token: An indicator for paginated results. This functionality is not
             implemented for FileStore and if the value is overridden with a value other than
             ``None``, an MlflowException will be thrown.
