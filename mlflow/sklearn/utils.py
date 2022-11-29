@@ -463,7 +463,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
     metrics_value_dict[prefix + "root_mean_squared_error"] = np.sqrt(
-        metrics_value_dict[prefix + "mse"]
+        metrics_value_dict[prefix + "mean_squared_error"]
     )
 
     return metrics_value_dict
