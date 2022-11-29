@@ -550,8 +550,8 @@ def _get_new_training_session_class():
                 # For lightgbm autologging, we patch both `LGBMClassifier.fit` and `LGBMModel.fit`.
                 # Since `LGBMClassifier` is a subclass of `LGBMModel`,
                 # `LGBMClassifier.fit` creates two sessions, one for `LGBMClassifier.fit` and one
-                # for `LGBMModel.fit`. To prevent `LGBMModel.fit` from using the patch
-                # implementation, check the identity of the estimator object.
+                # for `LGBMModel.fit`. To use the original implementation in LGBMModel.fit's session
+                # check the identity of the estimator object.
                 and self._parent.estimator is not self.estimator
             )
 
