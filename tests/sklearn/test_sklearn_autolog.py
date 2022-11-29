@@ -235,7 +235,7 @@ def test_classifier_binary():
         "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+        expected_metrics["training_roc_auc"] = sklearn.metrics.roc_auc_score(
             y_true,
             y_score=y_pred_prob_roc,
             average="weighted",
@@ -298,7 +298,7 @@ def test_classifier_multi_class():
         "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+        expected_metrics["training_roc_auc"] = sklearn.metrics.roc_auc_score(
             y_true,
             y_score=y_pred_prob,
             average="weighted",
@@ -339,9 +339,11 @@ def test_regressor():
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "training_mean_squared_error": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "training_root_mean_squared_error": np.sqrt(
+            sklearn.metrics.mean_squared_error(y_true, y_pred)
+        ),
+        "training_mean_absolute_error": sklearn.metrics.mean_absolute_error(y_true, y_pred),
         "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
@@ -977,7 +979,7 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
 
     metrics = get_run_data(mlflow.last_active_run().info.run_id)[1]
     assert "training_r2_score" in metrics
-    assert "training_rmse" in metrics
+    assert "training_root_mean_squared_error" in metrics
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
