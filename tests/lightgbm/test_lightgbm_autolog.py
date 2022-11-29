@@ -737,3 +737,14 @@ def test_lgb_api_autolog_registering_model(bst_params, train_set):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def test_foo():
+    from sklearn.pipeline import make_pipeline
+    from lightgbm import LGBMClassifier
+
+    mlflow.autolog()
+    clf = LGBMClassifier()
+    clf = make_pipeline(clf)
+    with mlflow.start_run():
+        clf.fit(*datasets.load_iris(return_X_y=True))

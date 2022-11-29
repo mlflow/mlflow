@@ -483,6 +483,18 @@ def autolog(
         original(self, *args, **kwargs)
 
     def train(_log_models, original, *args, **kwargs):
+        from mlflow.sklearn import _SklearnTrainingSession
+
+        # If this function is called within a session initiated by a scikit-learn estimator,
+        # the parameters passed in this function may conflict with the parameters of the
+        # the scikit-learn estimator. See https://github.com/mlflow/mlflow/issues/7402 for more
+        # details.
+        if any(
+            x.estimator.__class__.__module__.startswith("sklearn")
+            for x in _SklearnTrainingSession._session_stack
+        ):
+            return original(*args, **kwargs)
+
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.

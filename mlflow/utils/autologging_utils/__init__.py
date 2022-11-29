@@ -514,16 +514,16 @@ def _get_new_training_session_class():
     class _TrainingSession:
         _session_stack = []
 
-        def __init__(self, clazz, allow_children=True):
+        def __init__(self, estimator, allow_children=True):
             """
             A session manager for nested autologging runs.
 
-            :param clazz: A class object that this session originates from.
+            :param estimator: An estimator object that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
             """
             self.allow_children = allow_children
-            self.clazz = clazz
+            self.estimator = estimator
             self._parent = None
 
         def __enter__(self):
@@ -538,16 +538,21 @@ def _get_new_training_session_class():
         def __exit__(self, tp, val, traceback):
             _TrainingSession._session_stack.pop()
 
-        def should_log(self):
-            """
-            Returns True when at least one of the following conditions satisfies:
+        def is_root(self):
+            return self._parent is None
 
-            1. This session is the root session.
-            2. The parent session allows autologging and its class differs from this session's
-               class.
+        def should_use_patch(self):
             """
-            return (self._parent is None) or (
-                self._parent.allow_children and self._parent.clazz != self.clazz
+            Indicates whether we should use a patch implementation in this sessions.
+            """
+            return self.is_root() or (
+                self._parent.allow_children
+                # For lightgbm autologging, we patch both `LGBMClassifier.fit` and `LGBMModel.fit`.
+                # Since `LGBMClassifier` is a subclass of `LGBMModel`,
+                # `LGBMClassifier.fit` creates two sessions, one for `LGBMClassifier.fit` and one
+                # for `LGBMModel.fit`. To prevent `LGBMModel.fit` from using the patch
+                # implementation, check the identity of the estimator object.
+                and self._parent.estimator is not self.estimator
             )
 
         @staticmethod
