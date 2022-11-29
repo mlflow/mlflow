@@ -340,7 +340,9 @@ def test_regressor():
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
         "training_mean_squared_error": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        "training_root_mean_squared_error": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        "training_root_mean_squared_error": np.sqrt(
+            sklearn.metrics.mean_squared_error(y_true, y_pred)
+        ),
         "training_mean_absolute_error": sklearn.metrics.mean_absolute_error(y_true, y_pred),
         "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
