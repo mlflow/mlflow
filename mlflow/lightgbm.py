@@ -490,7 +490,7 @@ def autolog(
         # estimator has overlapped parameters.
         # See https://github.com/mlflow/mlflow/issues/7402 for more details.
         if any(
-            x.estimator.__class__.__module__.startswith("sklearn")
+            x.estimator.__class__.__module__.startswith("sklearn.")
             for x in _SklearnTrainingSession._session_stack
         ):
             return original(*args, **kwargs)
