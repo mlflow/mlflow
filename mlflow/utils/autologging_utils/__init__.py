@@ -543,7 +543,7 @@ def _get_new_training_session_class():
 
         def should_use_patch(self):
             """
-            Indicates whether we should use a patch implementation in this sessions.
+            Indicates whether we should use a patch implementation in this session.
             """
             return self.is_root() or (
                 self._parent.allow_children
