@@ -156,6 +156,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
+        self.positive_class = self.step_config.get("positive_class")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
@@ -201,7 +202,31 @@ class SplitStep(BaseStep):
                 "PROFILE", data_profile
             )
 
-        # Tab #4: run summary.
+            if self.positive_class:
+                positive_df, negative_df = (
+                    train_df[(mask := train_df[self.target_col] == self.positive_class)],
+                    train_df[~mask],
+                )
+
+                positive_negative_profile = get_pandas_data_profiles(
+                    [
+                        [
+                            "Positive",
+                            positive_df.drop(columns=[self.target_col]).reset_index(drop=True),
+                        ],
+                        [
+                            "Negative",
+                            negative_df.drop(columns=[self.target_col]).reset_index(drop=True),
+                        ],
+                    ]
+                )
+
+                # Tab #4: data profiles positive negative training split.
+                card.add_tab(
+                    "Compare Training Data (Positive vs Negative)", "{{PROFILE}}"
+                ).add_pandas_profile("PROFILE", positive_negative_profile)
+
+        # Tab #5: run summary.
         (
             card.add_tab(
                 "Run Summary",
@@ -308,6 +333,7 @@ class SplitStep(BaseStep):
         if recipe_config.get("steps", {}).get("split", {}) is not None:
             step_config.update(recipe_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = recipe_config.get("target_col")
+        step_config["positive_class"] = recipe_config.get("positive_class")
         return cls(step_config, recipe_root)
 
     @property
