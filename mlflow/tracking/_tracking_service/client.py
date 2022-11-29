@@ -19,7 +19,7 @@ from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, Experime
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.entities.paginated_collection import PagedReturn
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -92,15 +92,15 @@ class TrackingServiceClient:
         history = self.store.get_metric_history(
             run_id=run_id, metric_key=key, max_results=max_results, page_token=None
         )
-        if not isinstance(history, PagedReturn):
+        if not isinstance(history, PagedList):
             # Backwards compatible return if the server doesn't support paginated queries
             return history
         else:
-            if history.page_token is None:
+            if history.token is None:
                 # If the request is small enough to be fulfilled with a single query, return it.
-                return history.metric_history
+                return history.to_list()
             else:
-                metric_collection = history.metric_history
+                metric_collection = history.to_list()
                 # Continue issuing queries to the backend store to retrieve all pages of
                 # metric history.
                 while history.page_token is not None:
@@ -110,7 +110,7 @@ class TrackingServiceClient:
                         max_results=max_results,
                         page_token=history.page_token,
                     )
-                    metric_collection.append(history.metric_history)
+                    metric_collection.extend(history.to_list())
                 # Return the flattened list of paginated metric history entries
                 return [metrics for page in metric_collection for metrics in page]
 

@@ -13,3 +13,6 @@ class PagedList(List[T]):
     def __init__(self, items: List[T], token):
         super().__init__(items)
         self.token = token
+
+    def to_list(self):
+        return list(self)
