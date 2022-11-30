@@ -49,8 +49,8 @@ def test_set_run_status_to_killed():
     client.set_terminated(run_id=run.info.run_id, status="KILLED")
 
 
-@mock.patch("mlflow.store.db.utils._logger.warning")
-def test_database_operational_error(warning, monkeypatch):
+@mock.patch("mlflow.store.db.utils._logger.exception")
+def test_database_operational_error(exception, monkeypatch):
     # This test is specifically designed to force errors with SQLite. Skip it if
     # using a non-SQLite backend.
     if not os.environ[_TRACKING_URI_ENV_VAR].startswith("sqlite"):
@@ -137,5 +137,5 @@ def test_database_operational_error(warning, monkeypatch):
     # Verify that the error handling was executed.
     assert any(
         "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
-        for call in warning.mock_calls
+        for call in exception.mock_calls
     )
