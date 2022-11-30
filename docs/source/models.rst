@@ -1398,14 +1398,13 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
-Comunity Model Flavors
-----------------------
+Community Model Flavors
+-----------------------
 
-Other useful MLflow flavors can be found as
-external libraries developed and maintained by Model providers.
-If you are using one of these models, just install their own flavor
-to benefit from the MLFlow capacities. Here's the list of available
-libraries:
+Other useful MLflow flavors are developed and maintained by the
+MLflow community, enabling you to use MLflow Models with an
+even broader ecosystem of machine learning libraries. For more information,
+check out the description of each community-developed flavor below.
 
 .. contents::
   :local:
@@ -1418,13 +1417,12 @@ BigML (``bigmlflow``)
 The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
 the ``bigml`` model flavor. It enables using
 `BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods
-defined in every MLFlow flavor.
+and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
 
 Installing bigmlflow
 ~~~~~~~~~~~~~~~~~~~~
 
-BigMLFlow can be found in PyPI and is installed by issuing the command:
+BigMLFlow can be installed from PyPI as follows:
 
 
 .. code-block:: bash
@@ -1455,7 +1453,7 @@ to save BigML models and their related information in MLflow Model format.
 These methods also add the ``python_function`` flavor to the MLflow Models
 that they produce, allowing the models to be interpreted as generic Python
 functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame input.
+This loaded PyFunc model can only be scored with DataFrame inputs.
 
 .. code-block:: py
 
