@@ -1,4 +1,10 @@
 repos:
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: "v2.7.1"
+    hooks:
+      - id: prettier
+        files: '^(?!mlflow/pypi_package_index.json|docs/|mlflow/protos/).+\.(md|json|ya?ml)$'
+        args: ["--no-config", "--print-width", "100"]
   - repo: local
     hooks:
       - id: black
