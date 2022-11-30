@@ -66,11 +66,10 @@ jobs:
       id: run-pre-commit
       run: |
         pre-commit run --all-files --color=always
-    - name: Print message
+    - name: Tweak error messages
       if: always() && steps.run-pre-commit.outcome == 'failure'
       run: |
-        # This message will be surfaced on GitHub UI with problem matchers
-        sed 's/^reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./' .black.log
+        sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./' .black.log
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
