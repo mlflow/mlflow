@@ -3,10 +3,11 @@ repos:
     hooks:
       - id: black
         name: black
-        entry: "dev/black.sh"
+        entry: black
         language: system
         types: [python]
         stages: [commit]
+        log_file: .black.log
 
       - id: pylint
         name: pylint

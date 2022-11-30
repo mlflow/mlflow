@@ -63,8 +63,14 @@ jobs:
       run: |
         pre-commit install -t pre-commit -t prepare-commit-msg
     - name: Run pre-commit
+      id: run-pre-commit
       run: |
         pre-commit run --all-files --color=always
+    - name: Print message
+      if: always() && steps.run-pre-commit.outcome == 'failure'
+      run: |
+        # Surface black error messages on GitHub UI using problem matchers
+        sed 's/^reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./' .black.log
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.

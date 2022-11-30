@@ -103,3 +103,6 @@ travis_wait*.log
 lightning_logs
 
 a.py
+
+# Log file created by pre-commit when running black
+.black.log
