@@ -390,47 +390,63 @@ class TestRestStore:
 
     @mock.patch("requests.Session.request")
     def test_get_metric_history_paginated(self, request):
-
         creds = MlflowHostCreds("https://hello")
         store = RestStore(lambda: creds)
 
-        def mock_request(*args, **kwargs):
-            assert args == ("GET", "https://hello/api/2.0/mlflow/metrics/get-history")
-            kwargs = {k: v for k, v in kwargs.items() if v is not None}
-            assert kwargs == {
-                "params": {
-                    "max_results": 1,
-                    "metric_key": "a_metric",
-                    "run_id": "2",
-                    "run_uuid": "2",
-                },
-                "headers": DefaultRequestHeaderProvider().request_headers(),
-                "verify": True,
-                "timeout": 120,
+        response_1 = mock.MagicMock()
+        response_1.status_code = 200
+        response_payload = {
+            "metrics": [
+                {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
+                {"key": "a_metric", "value": 46, "timestamp": 123456797, "step": 1},
+            ],
+            "next_page_token": "token",
+        }
+        response_1.text = json.dumps(response_payload)
+        response_2 = mock.MagicMock()
+        response_2.status_code = 200
+        response_payload = {
+            "metrics": [
+                {"key": "a_metric", "value": 40, "timestamp": 123456877, "step": 2},
+                {"key": "a_metric", "value": 56, "timestamp": 123456897, "step": 3},
+            ],
+            "next_page_token": "",
+        }
+        response_2.text = json.dumps(response_payload)
+        with mock.patch(
+            "requests.Session.request", side_effect=[response_1, response_2]
+        ) as mock_request:
+            # Fetch the first page
+            metrics = store.get_metric_history(
+                run_id="2", metric_key="a_metric", max_results=2, page_token=None
+            )
+            mock_request.assert_called_once()
+            assert mock_request.call_args.kwargs["params"] == {
+                "max_results": 2,
+                "metric_key": "a_metric",
+                "run_id": "2",
+                "run_uuid": "2",
             }
-            response = mock.MagicMock()
-            response.status_code = 200
-
-            response_payload = {
-                "metrics": [
-                    {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
-                    {"key": "a_metric", "value": 46, "timestamp": 123456797, "step": 1},
-                ],
-                "page_token": 123456797,
+            assert len(metrics) == 2
+            assert metrics[0] == Metric(key="a_metric", value=42, timestamp=123456777, step=0)
+            assert metrics[1] == Metric(key="a_metric", value=46, timestamp=123456797, step=1)
+            # Fetch the second page
+            mock_request.reset_mock()
+            metrics = store.get_metric_history(
+                run_id="2", metric_key="a_metric", max_results=2, page_token=metrics.token
+            )
+            mock_request.assert_called_once()
+            assert mock_request.call_args.kwargs["params"] == {
+                "max_results": 2,
+                "page_token": "token",
+                "metric_key": "a_metric",
+                "run_id": "2",
+                "run_uuid": "2",
             }
-
-            response.text = json.dumps(response_payload)
-            return response
-
-        request.side_effect = mock_request
-
-        metrics = store.get_metric_history(
-            run_id="2", metric_key="a_metric", max_results=1, page_token=None
-        )
-
-        assert len(metrics) == 2
-        assert metrics[0] == Metric(key="a_metric", value=42, timestamp=123456777, step=0)
-        assert metrics[1] == Metric(key="a_metric", value=46, timestamp=123456797, step=1)
+            assert len(metrics) == 2
+            assert metrics[0] == Metric(key="a_metric", value=40, timestamp=123456877, step=2)
+            assert metrics[1] == Metric(key="a_metric", value=56, timestamp=123456897, step=3)
+            assert metrics.token is None
 
 
 if __name__ == "__main__":
