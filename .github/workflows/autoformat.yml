@@ -80,6 +80,11 @@ jobs:
           git fetch origin ${{ needs.check-comment.outputs.base_ref }}
           git merge origin/${{ needs.check-comment.outputs.base_ref }}
       # ************************************************************************
+      # Prettier
+      # ************************************************************************
+      - run: |
+          pre-commit run prettier --all-files --color=always
+      # ************************************************************************
       # protos
       # ************************************************************************
       - if: steps.diff.outputs.protos == 'true'

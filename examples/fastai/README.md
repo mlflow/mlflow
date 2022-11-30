@@ -2,7 +2,7 @@
 
 This simple example illustrates how you can use the `mlflow.fastai.autolog()` API
 to track parameters, metrics, and artifacts while training a simple MLP model.
-The default arguments are learning rate(`lr=0.01`)  and number of epochs (`epochs=5`).
+The default arguments are learning rate(`lr=0.01`) and number of epochs (`epochs=5`).
 
 You can use this example as a template and attempt advanced examples in
 [Fastai tutorials](https://docs.fast.ai/tutorial.html), using the `mlflow.fastai` model flavor and MLflow tracking API to
@@ -14,25 +14,26 @@ You can run the `fastai` example with default or supplied arguments in three way
 
 1. Run from the current git directory with Python.
 
-**Note**:  This example assumes that you have all the dependencies for `fastai` library installed in your development environment.
+**Note**: This example assumes that you have all the dependencies for `fastai` library installed in your development environment.
 
- `python train.py`
+`python train.py`
 
- `python train.py --lr=0.02 --epochs=3`
+`python train.py --lr=0.02 --epochs=3`
 
 2. Run from the current git directory as an MLflow Project
 
- `mlflow run . -e main`
+`mlflow run . -e main`
 
- `mlflow run . -e main -P lr=0.02 -P epochs=3`
+`mlflow run . -e main -P lr=0.02 -P epochs=3`
 
 3. Run from outside git repository as an MLflow Project
 
- `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai`
+`mlflow run https://github.com/mlflow/mlflow/\#examples/fastai`
 
- `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai -P lr=0.02 -P epochs=3`
+`mlflow run https://github.com/mlflow/mlflow/\#examples/fastai -P lr=0.02 -P epochs=3`
 
 #### How to inspect your runs
+
 All these runs will create a `mlruns` directory at the same directory level where you execute
 these commands. To inspect the parameters, metrics, and artifacts automatically
 logged by the `mlflow.fastai.autolog()` API, launch the MLflow UI using: `mlflow ui`.

@@ -1,18 +1,18 @@
-name: 'setup-java'
-description: 'Set up Java'
+name: "setup-java"
+description: "Set up Java"
 inputs:
   java-version:
-    description: 'java-version'
+    description: "java-version"
     default: 11
     required: false
 
   distribution:
-    description: 'distribution'
+    description: "distribution"
     default: adopt
     required: false
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: actions/setup-java@v3
       with:
