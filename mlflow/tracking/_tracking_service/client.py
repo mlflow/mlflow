@@ -97,21 +97,17 @@ class TrackingServiceClient:
             # Backwards compatible return if the server doesn't support paginated queries
             return history
         else:
-            if history.token is None:
-                # If the request is small enough to be fulfilled with a single query, return it.
-                return history.to_list()
-            else:
-                metric_collection = history.to_list()
-                # Continue issuing queries to the backend store to retrieve all pages of
-                # metric history.
-                while history.page_token is not None:
-                    history = self.store.get_metric_history(
-                        run_id=run_id,
-                        metric_key=key,
-                        max_results=GET_METRIC_HISTORY_MAX_RESULTS,
-                        page_token=history.page_token,
-                    )
-                    metric_collection.extend(history.to_list())
+        metric_collection = history.to_list()
+        # Continue issuing queries to the backend store to retrieve all pages of
+        # metric history.
+        while history.token is not None:
+            history = self.store.get_metric_history(
+                run_id=run_id,
+                metric_key=key,
+                max_results=GET_METRIC_HISTORY_MAX_RESULTS,
+                page_token=history.page_token,
+            )
+            metric_collection.extend(history.to_list())
                 return metric_collection
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
