@@ -1,5 +1,6 @@
 from collections import defaultdict
 from importlib import reload
+from itertools import zip_longest
 
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -370,11 +371,8 @@ def test_search_experiments(tmp_path):
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
-    for (idx, active_experiment_name) in enumerate(active_experiment_names):
-        tags = None
-        if idx < len(tag_values):
-            tags = {"tag": tag_values[idx]}
-        mlflow.create_experiment(active_experiment_name, tags=tags)
+    for (tag, active_experiment_name) in zip_longest(tag_values, active_experiment_names):
+        mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
@@ -429,20 +427,16 @@ def test_search_registered_models(tmp_path):
     mlflow.set_tracking_uri(sqlite_uri)
 
     num_all_models = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT + 1
-    num_azure_models = num_all_models // 4
-    num_boston_models = num_all_models - num_azure_models
+    num_a_models = num_all_models // 4
+    num_b_models = num_all_models - num_a_models
 
-    azure_model_names = [f"AzureWeatherForecastModel_{i}" for i in range(num_azure_models)]
-    boston_model_names = [f"BostonWeatherForecastModel_{i}" for i in range(num_boston_models)]
-    model_names = boston_model_names + azure_model_names
+    a_model_names = [f"AModel_{i}" for i in range(num_a_models)]
+    b_model_names = [f"BModel_{i}" for i in range(num_b_models)]
+    model_names = b_model_names + a_model_names
 
     tag_values = ["x", "x", "y"]
-    for (idx, model_name) in enumerate(model_names):
-        tags = None
-        if idx < len(tag_values):
-            tags = {"tag": tag_values[idx]}
-
-        MlflowClient().create_registered_model(model_name, tags=tags)
+    for (tag, model_name) in zip_longest(tag_values, model_names):
+        MlflowClient().create_registered_model(model_name, tags={"tag": tag} if tag else None)
 
     # max_results is unspecified
     models = mlflow.search_registered_models()
@@ -460,12 +454,10 @@ def test_search_registered_models(tmp_path):
     assert len(models) == num_all_models - 1
 
     # Filter by name
-    models = mlflow.search_registered_models(filter_string="name = 'AzureWeatherForecastModel_1'")
-    assert [m.name for m in models] == ["AzureWeatherForecastModel_1"]
-    models = mlflow.search_registered_models(
-        filter_string="name ILIKE 'AzureWeatherForecastModel_%'"
-    )
-    assert len(models) == num_azure_models
+    models = mlflow.search_registered_models(filter_string="name = 'AModel_1'")
+    assert [m.name for m in models] == ["AModel_1"]
+    models = mlflow.search_registered_models(filter_string="name ILIKE 'BModel_%'")
+    assert len(models) == num_a_models
 
     # Filter by tags
     models = mlflow.search_registered_models(filter_string="tags.tag = 'x'")
@@ -473,7 +465,7 @@ def test_search_registered_models(tmp_path):
     models = mlflow.search_registered_models(filter_string="tags.tag = 'y'")
     assert [m.name for m in models] == [model_names[2]]
 
-    # # Order by name
+    # Order by name
     models = mlflow.search_registered_models(order_by=["name DESC"], max_results=3)
     assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
 
