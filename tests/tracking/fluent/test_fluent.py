@@ -1,5 +1,7 @@
 from collections import defaultdict
 from importlib import reload
+
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
@@ -369,10 +371,9 @@ def test_search_experiments(tmp_path):
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
     for (idx, active_experiment_name) in enumerate(active_experiment_names):
-        if idx < 3:
+        tags = None
+        if idx < len(tag_values):
             tags = {"tag": tag_values[idx]}
-        else:
-            tags = None
         mlflow.create_experiment(active_experiment_name, tags=tags)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
@@ -421,6 +422,60 @@ def test_search_experiments(tmp_path):
     # Order by name
     experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)
     assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
+
+
+def test_search_registered_models(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    num_all_models = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT + 1
+    num_azure_models = num_all_models // 4
+    num_boston_models = num_all_models - num_azure_models
+
+    azure_model_names = [f"AzureWeatherForecastModel_{i}" for i in range(num_azure_models)]
+    boston_model_names = [f"BostonWeatherForecastModel_{i}" for i in range(num_boston_models)]
+    model_names = boston_model_names + azure_model_names
+
+    tag_values = ["x", "x", "y"]
+    for (idx, model_name) in enumerate(model_names):
+        tags = None
+        if idx < len(tag_values):
+            tags = {"tag": tag_values[idx]}
+
+        MlflowClient().create_registered_model(model_name, tags=tags)
+
+    # max_results is unspecified
+    models = mlflow.search_registered_models()
+    assert len(models) == num_all_models
+
+    # max_results is larger than the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models + 1)
+    assert len(models) == num_all_models
+
+    # max_results is equal to the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models)
+    assert len(models) == num_all_models
+    # max_results is smaller than the number of experiments in the database
+    models = mlflow.search_registered_models(max_results=num_all_models - 1)
+    assert len(models) == num_all_models - 1
+
+    # Filter by name
+    models = mlflow.search_registered_models(filter_string="name = 'AzureWeatherForecastModel_1'")
+    assert [m.name for m in models] == ["AzureWeatherForecastModel_1"]
+    models = mlflow.search_registered_models(
+        filter_string="name ILIKE 'AzureWeatherForecastModel_%'"
+    )
+    assert len(models) == num_azure_models
+
+    # Filter by tags
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'x'")
+    assert [m.name for m in models] == model_names[:2]
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'y'")
+    assert [m.name for m in models] == [model_names[2]]
+
+    # # Order by name
+    models = mlflow.search_registered_models(order_by=["name DESC"], max_results=3)
+    assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
 
 
 @pytest.fixture

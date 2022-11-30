@@ -12,11 +12,13 @@ from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
@@ -1163,6 +1165,104 @@ def search_experiments(
     return get_results_from_paginated_fn(
         pagination_wrapper_func,
         SEARCH_MAX_RESULTS_DEFAULT,
+        max_results,
+    )
+
+
+def search_registered_models(
+    max_results: Optional[int] = None,
+    filter_string: Optional[str] = None,
+    order_by: Optional[List[str]] = None,
+) -> List[RegisteredModel]:
+    """
+    Search for registered models in backend that satisfy the filter criteria.
+
+    :param filter_string: Filter query string
+        (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+        defaults to searching for all registered models. The following identifiers, comparators,
+        and logical operators are supported.
+
+        Identifiers
+          - ``name``: registered model name.
+          - ``tags.<tag_key>``: registered model tag. If ``tag_key`` contains spaces, it must be
+            wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+        Comparators
+          - ``=``: Equal to.
+          - ``!=``: Not equal to.
+          - ``LIKE``: Case-sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
+
+        Logical operators
+          - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+    :param max_results: If passed, specifies the maximum number of models desired. If not
+                        passed, all models will be returned.
+    :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                     matching search results.
+    :return: A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+            that satisfy the search expressions.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Get search results filtered by the registered model name
+        model_name="CordobaWeatherForecastModel"
+        filter_string = "name='{}'".format(model_name)
+        results = mlflow.search_registered_models(filter_string=filter_string)
+        print("-" * 80)
+        for res in results:
+            for mv in res.latest_versions:
+                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+        # Get search results filtered by the registered model name that matches
+        # prefix pattern
+        filter_string = "name LIKE 'Boston%'"
+        results = mlflow.search_registered_models(filter_string=filter_string)
+        print("-" * 80)
+        for res in results:
+            for mv in res.latest_versions:
+            print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+        # Get all registered models and order them by ascending order of the names
+        results = mlflow.search_registered_models(order_by=["name ASC"])
+        print("-" * 80)
+        for res in results:
+            for mv in res.latest_versions:
+                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+    .. code-block:: text
+        :caption: Output
+
+        ------------------------------------------------------------------------------------
+        name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
+        name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+        ------------------------------------------------------------------------------------
+        name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
+        name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
+        -----------------------------------------------------------------------------------
+        name=AzureWeatherForecastModel; run_id=5fcec6c4f1c947fc9295fef3fa21e52d; version=1
+        name=AzureWeatherForecastModel; run_id=8198cb997692417abcdeb62e99052260; version=3
+        name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
+        name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
+        name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
+        name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+
+    """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_registered_models(
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         max_results,
     )
 
