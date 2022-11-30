@@ -102,7 +102,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
             raise
         except sqlalchemy.exc.OperationalError as e:
             session.rollback()
-            _logger.warning(
+            _logger.exception(
                 "SQLAlchemy database error. The following exception is caught.\n%s",
                 e,
             )
