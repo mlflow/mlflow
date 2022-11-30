@@ -69,7 +69,7 @@ jobs:
     - name: Print message
       if: always() && steps.run-pre-commit.outcome == 'failure'
       run: |
-        # Surface black error messages on GitHub UI using problem matchers
+        # This message will be surfaced on GitHub UI with problem matchers
         sed 's/^reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./' .black.log
 
   # python-skinny tests cover a subset of mlflow functionality
