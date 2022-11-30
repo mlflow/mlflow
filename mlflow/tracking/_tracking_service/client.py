@@ -97,7 +97,7 @@ class TrackingServiceClient:
             # Backwards compatible return if the server doesn't support paginated queries
             return history
         else:
-        metric_collection = history.to_list()
+            metric_collection = history.to_list()
         # Continue issuing queries to the backend store to retrieve all pages of
         # metric history.
         while history.token is not None:
@@ -108,7 +108,7 @@ class TrackingServiceClient:
                 page_token=history.page_token,
             )
             metric_collection.extend(history.to_list())
-                return metric_collection
+        return metric_collection
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
