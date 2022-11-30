@@ -339,3 +339,25 @@ test_that("mlflow can transition a model", {
                                             client = mock_client)
   })
 })
+
+test_that("mlflow can set model version tag", {
+  with_mock(.env = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      expect_true(paste(args[1:2],
+                  collapse = "/") == "model-versions/set-tag")
+      expect_equal(args$verb, "POST")
+      return(list(model_version = list(
+                  name = "mymodel",
+                  version = 1,
+                  source = "test_uri"
+      )))
+    }, {
+      mock_client <- get_mock_client()
+      mlflow_set_model_version_tag(name = "mymodel",
+                                   version = 1,
+                                   key = "test_key",
+                                   value = "test_value",
+                                   client = mock_client)
+  })
+})
