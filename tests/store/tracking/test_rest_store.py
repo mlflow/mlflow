@@ -388,6 +388,50 @@ class TestRestStore:
                 ),
             )
 
+    @mock.patch("requests.Session.request")
+    def test_get_metric_history_paginated(self, request):
+
+        creds = MlflowHostCreds("https://hello")
+        store = RestStore(lambda: creds)
+
+        def mock_request(*args, **kwargs):
+            assert args == ("GET", "https://hello/api/2.0/mlflow/metrics/get-history")
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
+            assert kwargs == {
+                "params": {
+                    "max_results": 1,
+                    "metric_key": "a_metric",
+                    "run_id": "2",
+                    "run_uuid": "2",
+                },
+                "headers": DefaultRequestHeaderProvider().request_headers(),
+                "verify": True,
+                "timeout": 120,
+            }
+            response = mock.MagicMock()
+            response.status_code = 200
+
+            response_payload = {
+                "metrics": [
+                    {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
+                    {"key": "a_metric", "value": 46, "timestamp": 123456797, "step": 1},
+                ],
+                "page_token": 123456797,
+            }
+
+            response.text = json.dumps(response_payload)
+            return response
+
+        request.side_effect = mock_request
+
+        metrics = store.get_metric_history(
+            run_id="2", metric_key="a_metric", max_results=1, page_token=None
+        )
+
+        assert len(metrics) == 2
+        assert metrics[0] == Metric(key="a_metric", value=42, timestamp=123456777, step=0)
+        assert metrics[1] == Metric(key="a_metric", value=46, timestamp=123456797, step=1)
+
 
 if __name__ == "__main__":
     unittest.main()
