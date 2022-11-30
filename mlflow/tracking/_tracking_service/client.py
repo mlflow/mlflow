@@ -96,8 +96,7 @@ class TrackingServiceClient:
         if not isinstance(history, PagedList):
             # Backwards compatible return if the server doesn't support paginated queries
             return history
-        else:
-            metric_collection = history.to_list()
+        metric_collection = history.to_list()
         # Continue issuing queries to the backend store to retrieve all pages of
         # metric history.
         while history.token is not None:
