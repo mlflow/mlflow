@@ -29,8 +29,7 @@ def get_nfs_cache_root_dir():
         )
         if nfs_enabled:
             try:
-                # If databricks runtime has dbutils entrypoint function `getReplNFSTempDir`,
-                # the directory it returns is ensured to have read / write permission granted.
+                # The directory `getReplNFSTempDir` returns has read/write permissions.
                 return _get_dbutils().entry_point.getReplNFSTempDir()
             except Exception:
                 nfs_root_dir = "/local_disk0/.ephemeral_nfs"
@@ -41,7 +40,7 @@ def get_nfs_cache_root_dir():
                     return nfs_root_dir
                 except Exception:
                     # For databricks cluster enabled Table ACL, we have no permission to access NFS
-                    # directory, in this case, return None representing NFS is not available.
+                    # directory, in this case, return None, meaning NFS is not available.
                     return None
                 finally:
                     shutil.rmtree(test_path, ignore_errors=True)
