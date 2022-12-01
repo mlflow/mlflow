@@ -552,9 +552,8 @@ def _get_new_training_session_class():
 
         def should_log(self):
             """
-            Look through the session stack above for all sessions that have the same estiamtor wiht
-            current session, return the `should_enable_patch` result on root session that has the
-            same estiamtor.
+            Finds the first session created by the current estimator and returns
+            `first_session.should_enable_patch()`.
             """
             if self._parent is None:
                 return True
