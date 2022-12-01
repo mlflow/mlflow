@@ -6,8 +6,7 @@ which creates a spark UDF for model inference that executes in an environment co
 versions used during training.
 
 - Example `spark_udf.py` runs a sklearn model inference via spark UDF
-using a python environment containing the precise versions of dependencies used during model training.
-
+  using a python environment containing the precise versions of dependencies used during model training.
 
 #### Prerequisites
 
