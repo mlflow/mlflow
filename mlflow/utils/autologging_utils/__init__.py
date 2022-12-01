@@ -559,11 +559,10 @@ def _get_new_training_session_class():
             if self._parent is None:
                 return True
 
-            session = self
-            while session._parent is not None and session._parent.estimator is session.estimator:
-                session = session._parent
-
-            return session.should_enable_patch()
+            if self._parent.estimator is self.estimator:
+                return self._parent.should_log()
+            else:
+                return self.should_enable_patch()
 
         @staticmethod
         def is_active():
