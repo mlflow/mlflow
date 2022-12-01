@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import uuid
 from unittest import mock
 
 import pytest
@@ -127,6 +128,13 @@ def test_database_operational_error(exception, monkeypatch):
 
     monkeypatch.setattr(sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite, "dbapi", dbapi)
 
+    # Create and use a unique tracking URI for this test. This avoids an issue
+    # where an earlier test has already created and cached a SQLAlchemy engine
+    # (i.e. database connections), preventing our error-throwing monkeypatches
+    # from being called.
+    monkeypatch.setitem(
+        os.environ, _TRACKING_URI_ENV_VAR, f"{os.environ[_TRACKING_URI_ENV_VAR]}-{uuid.uuid4().hex}"
+    )
     with pytest.raises(mlflow.MlflowException, match=r"sqlite3\.OperationalError"):
         with mlflow.start_run():
             # This statement will fail with an OperationalError.
