@@ -673,8 +673,7 @@ def autolog(
     def train(_log_models, original, *args, **kwargs):
         current_sklearn_session = _SklearnTrainingSession.get_current_session()
         if current_sklearn_session is None or (
-            current_sklearn_session is not None
-            and current_sklearn_session.should_log_without_reentrance()
+            current_sklearn_session is not None and current_sklearn_session.should_log()
         ):
             return train_impl(_log_models, original, *args, **kwargs)
         else:

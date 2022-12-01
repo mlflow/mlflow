@@ -492,18 +492,18 @@ def _get_new_training_session_class():
     >>> with _TrainingSession(Parent, False) as p:
     ...     with _SklearnTrainingSession(Child, True) as c:
     ...         with _SklearnTrainingSession(Grandchild, True) as g:
-    ...             print(p.should_log(), c.should_log(), g.should_log())
+    ...             print(p.should_enable_patch(), c.should_enable_patch(), g.should_enable_patch())
     True False False
     >>>
     >>> with _TrainingSession(Parent, True) as p:
     ...     with _TrainingSession(Child, False) as c:
     ...         with _TrainingSession(Grandchild, True) as g:
-    ...             print(p.should_log(), c.should_log(), g.should_log())
+    ...             print(p.should_enable_patch(), c.should_enable_patch(), g.should_enable_patch())
     True True False
     >>>
     >>> with _TrainingSession(Child, True) as c1:
     ...     with _TrainingSession(Child, True) as c2:
-    ...             print(c1.should_log(), c2.should_log())
+    ...             print(c1.should_enable_patch(), c2.should_enable_patch())
     True False
     """
     # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now
@@ -514,63 +514,56 @@ def _get_new_training_session_class():
     class _TrainingSession:
         _session_stack = []
 
-        def __init__(self, estimator, allow_children=True, parent=None):
-            """
-            Note: Do not call constructor directory, use `_TrainingSession.init` instead.
-            """
-            self.allow_children = allow_children
-            self.estimator = estimator
-            self._parent = parent
-            self.reentrant_count = 0
-
-        @staticmethod
-        def init(estimator, allow_children=True):
+        def __init__(self, estimator, allow_children=True):
             """
             A session manager for nested autologging runs.
 
             :param estimator: An estimator that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
-                                   If current estimator is parent estimator (reenterring case),
-                                   this param is ignored.
             """
-            current_session = _TrainingSession.get_current_session()
-            if current_session is not None and current_session.estimator is estimator:
-                current_session.reentrant_count += 1
-                return current_session
-            else:
-                if current_session is not None:
-                    allow_children = allow_children and current_session.allow_children
-                    new_session = _TrainingSession(
-                        estimator, allow_children, parent=current_session
-                    )
-                else:
-                    new_session = _TrainingSession(estimator, allow_children)
-                _TrainingSession._session_stack.append(new_session)
-                return new_session
+            self.allow_children = allow_children
+            self.estimator = estimator
+            self._parent = None
 
         def __enter__(self):
+            if len(_TrainingSession._session_stack) > 0:
+                self._parent = _TrainingSession._session_stack[-1]
+                self.allow_children = (
+                    _TrainingSession._session_stack[-1].allow_children and self.allow_children
+                )
+            _TrainingSession._session_stack.append(self)
             return self
 
         def __exit__(self, tp, val, traceback):
-            if self.reentrant_count > 0:
-                self.reentrant_count -= 1
-            else:
-                _TrainingSession._session_stack.pop()
+            _TrainingSession._session_stack.pop()
+
+        def should_enable_patch(self):
+            """
+            Returns True when at least one of the following conditions satisfies:
+
+            1. This session is the root session.
+            2. The parent session allows autologging and its class differs from this session's
+               class.
+            """
+            return (self._parent is None) or (
+                self._parent.allow_children and self._parent.estimator is not self.estimator
+            )
 
         def should_log(self):
             """
-            Returns True when reentrant_count == 0 and at least one of the following conditions
-            satisfies:
-
-            1. This session is the root session.
-            2. The parent session allows autologging and its estimator differs from this session's
-               differs.
+            Look through the session stack above for all sessions that have the same estiamtor wiht
+            current session, return the `should_enable_patch` result on root session that has the
+            same estiamtor.
             """
-            return self.reentrant_count == 0 and self.should_log_without_reentrance()
+            if self._parent is None:
+                return True
 
-        def should_log_without_reentrance(self):
-            return self._parent is None or self._parent.allow_children
+            session = self
+            while session._parent is not None and session._parent.estimator is session.estimator:
+                session = session._parent
+
+            return session.should_enable_patch()
 
         @staticmethod
         def is_active():
@@ -580,8 +573,7 @@ def _get_new_training_session_class():
         def get_current_session():
             if _TrainingSession.is_active():
                 return _TrainingSession._session_stack[-1]
-            else:
-                return None
+            return None
 
     return _TrainingSession
 
