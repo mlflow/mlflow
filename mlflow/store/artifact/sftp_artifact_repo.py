@@ -128,8 +128,9 @@ class SFTPArtifactRepository(ArtifactRepository):
             sftp.get(remote_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
+        artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
         with self.pool.get_sfp_connection() as sftp:
-            self._delete_inner(artifact_path, sftp)
+            self._delete_inner(artifact_dir, sftp)
 
     def _delete_inner(self, artifact_path, sftp):
         if sftp.isdir(artifact_path):
