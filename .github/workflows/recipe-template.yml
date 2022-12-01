@@ -35,24 +35,24 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/checkout@v3
-      with:
-        path: ${{ github.event.inputs.repository }}
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - uses: ./.github/actions/setup-python
-    - uses: ./.github/actions/cache-pip
-    - name: Add problem matchers
-      run: |
-        echo "::add-matcher::.github/workflows/matchers/pylint.json"
-        echo "::add-matcher::.github/workflows/matchers/black.json"
-    - name: Install dependencies
-      run: |
-        pip install -r ${{ github.event.inputs.repository }}/requirements/lint-requirements.txt
-    - name: Run lint checks
-      run: |
-        cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          path: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/cache-pip
+      - name: Add problem matchers
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/pylint.json"
+          echo "::add-matcher::.github/workflows/matchers/black.json"
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ github.event.inputs.repository }}/requirements/lint-requirements.txt
+      - name: Run lint checks
+        run: |
+          cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
   recipe:
     runs-on: ubuntu-latest
     steps:

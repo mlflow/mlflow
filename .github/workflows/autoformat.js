@@ -26,10 +26,7 @@ const getPullInformation = async (context, github) => {
     ref: head_ref,
     repo: { full_name },
   } = pr.data.head;
-  const {
-    sha: base_sha,
-    ref: base_ref,
-  } = pr.data.base;
+  const { sha: base_sha, ref: base_ref } = pr.data.base;
   return {
     repository: full_name,
     pull_number,
@@ -47,26 +44,26 @@ const createReaction = async (context, github) => {
     owner,
     repo,
     comment_id,
-    content: 'rocket',
+    content: "rocket",
   });
 };
 
 const createStatus = async (context, github, core) => {
   const { head_sha, head_ref, repository } = await getPullInformation(context, github);
-  if (repository === 'mlflow/mlflow' && head_ref === 'master') {
-    core.setFailed('Running autoformat bot against master branch of mlflow/mlflow is not allowed.');
+  if (repository === "mlflow/mlflow" && head_ref === "master") {
+    core.setFailed("Running autoformat bot against master branch of mlflow/mlflow is not allowed.");
   }
-  await createCommitStatus(context, github, head_sha, 'pending');
+  await createCommitStatus(context, github, head_sha, "pending");
 };
 
 const updateStatus = async (context, github, sha, needs) => {
-  const failed = Object.values(needs).some(({ result }) => result === 'failure');
-  const state = failed ? 'failure' : 'success';
+  const failed = Object.values(needs).some(({ result }) => result === "failure");
+  const state = failed ? "failure" : "success";
   await createCommitStatus(context, github, sha, state);
 };
 
 const isMlflowMaintainer = (commentAuthorAssociation) => {
-  return ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(commentAuthorAssociation);
+  return ["OWNER", "MEMBER", "COLLABORATOR"].includes(commentAuthorAssociation);
 };
 
 module.exports = {

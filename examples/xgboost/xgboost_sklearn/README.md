@@ -9,5 +9,3 @@ You can run this example using the following command:
 ```
 python train.py
 ```
-
-

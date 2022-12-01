@@ -1,5 +1,5 @@
-python: '3.8'
+python: "3.8"
 build_dependencies:
-- pip
+  - pip
 dependencies:
-- prophet>=1.0.1
+  - prophet>=1.0.1
