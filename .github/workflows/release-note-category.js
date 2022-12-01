@@ -5,9 +5,7 @@ module.exports = async ({ core, context, github }) => {
 
   // Skip validation on pull requests created by the automation bot
   if (user.login === "mlflow-automation") {
-    console.log(
-      "Skipping validation since this pull request was created by the automation bot"
-    );
+    console.log("Skipping validation since this pull request was created by the automation bot");
     return;
   }
 
@@ -19,7 +17,7 @@ module.exports = async ({ core, context, github }) => {
   });
   const releaseNoteLabels = labelsForRepoResp.data
     .map(({ name }) => name)
-    .filter(name => name.startsWith("rn/"));
+    .filter((name) => name.startsWith("rn/"));
   console.log("Available release note category labels:");
   console.log(releaseNoteLabels);
 
@@ -28,7 +26,7 @@ module.exports = async ({ core, context, github }) => {
     const backoffs = [0, 1, 2, 4, 8, 16];
     for (const [index, backoff] of backoffs.entries()) {
       console.log(`Attempt ${index + 1}/${backoffs.length}`);
-      await new Promise(r => setTimeout(r, backoff * 1000));
+      await new Promise((r) => setTimeout(r, backoff * 1000));
       const listLabelsOnIssueResp = await github.rest.issues.listLabelsOnIssue({
         owner,
         repo,

@@ -5,7 +5,7 @@ module.exports = async ({ context, github }) => {
   const { user } = context.payload.pull_request;
 
   function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async function getDcoCheck() {
@@ -24,10 +24,7 @@ module.exports = async ({ context, github }) => {
       if (check_runs.length > 0 && check_runs[0].status === "completed") {
         return check_runs[0];
       }
-      console.log(
-        `[Attempt ${index + 1}/${numAttempts}]`,
-        "The DCO check hasn't completed yet."
-      );
+      console.log(`[Attempt ${index + 1}/${numAttempts}]`, "The DCO check hasn't completed yet.");
     }
   }
 

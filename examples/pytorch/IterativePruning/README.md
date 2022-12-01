@@ -1,4 +1,5 @@
 ## Iterative Pruning
+
 Pruning is the process of compressing a neural network that involves removing weights from a trained model.
 Pruning techniques include removing the neurons within a specific layer, or setting the weights of connections that are already near zero to zero. This script applies the latter technique.
 Pruning a model reduces its size, at the cost of worsened model accuracy.
@@ -15,13 +16,11 @@ The objective function of the experiment trials is "test_accuracy" based on whic
 AXClient is used to provide the initial pruning percentage as well as decides the number
 of trails to be run. The summary of the pruned model is captured in a separate file and stored as an artifact in MLflow.
 
-
 ### Running the code to Iteratively Prune the Trained Model
 
 Run the command
 
- `python iterative_prune_mnist.py --max_epochs 10 --total_trials 3`
-
+`python iterative_prune_mnist.py --max_epochs 10 --total_trials 3`
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
