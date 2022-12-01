@@ -31,6 +31,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
+    TEMPORARILY_UNAVAILABLE,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
@@ -1145,15 +1146,27 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tval = None
         param = entities.Param(tkey, tval)
 
+        dialect = self.store._get_dialect()
         regex = {
             SQLITE: r"NOT NULL constraint failed",
             POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
             MYSQL: r"Column .+ cannot be null",
             MSSQL: r"Cannot insert the value NULL into column .+, table .+",
-        }[self.store._get_dialect()]
+        }[dialect]
         with pytest.raises(MlflowException, match=regex) as exception_context:
             self.store.log_param(run.info.run_id, param)
-        assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
+        if dialect != MYSQL:
+            assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
+        else:
+            # Some MySQL client packages (and there are several available, e.g.
+            # PyMySQL, mysqlclient, mysql-connector-python... reports some
+            # errors, including NULL constraint violations, as a SQLAlchemy
+            # OperationalError, even though they should be reported as a more
+            # generic SQLAlchemyError. If that is fixed, we can remove this
+            # special case.
+            assert exception_context.value.error_code == ErrorCode.Name(
+                BAD_REQUEST
+            ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
 
     def test_log_param_max_length_value(self):
         run = self._run_factory()
