@@ -1095,7 +1095,7 @@ def autolog(
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
         with _SparkTrainingSession(estimator=self, allow_children=False) as t:
-            if t.should_enable_patch():
+            if t.should_log():
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                     fit_result = fit_mlflow(original, self, *args, **kwargs)
                 # In some cases the `fit_result` may be an iterator of spark models.

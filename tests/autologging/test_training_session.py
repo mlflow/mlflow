@@ -49,7 +49,7 @@ def allow_children(request):
 def test_should_log_always_returns_true_in_root_session(allow_children):
     with _TrainingSession(PARENT, allow_children=allow_children) as p:
         assert_session_stack([(None, PARENT)])
-        assert p.should_enable_patch()
+        assert p.should_log()
 
     assert_session_stack([])
 
@@ -60,8 +60,8 @@ def test_nested_sessions(allow_children):
 
         with _TrainingSession(CHILD, allow_children=True) as c:
             assert_session_stack([(None, PARENT), (PARENT, CHILD)])
-            assert p.should_enable_patch()
-            assert c.should_enable_patch() == allow_children
+            assert p.should_log()
+            assert c.should_log() == allow_children
 
         assert_session_stack([(None, PARENT)])
     assert_session_stack([])
@@ -91,9 +91,9 @@ def test_parent_session_overrides_child_session():
             with _TrainingSession(GRAND_CHILD, allow_children=True) as g:
                 assert_session_stack([(None, PARENT), (PARENT, CHILD), (CHILD, GRAND_CHILD)])
 
-                assert p.should_enable_patch()
-                assert not c.should_enable_patch()
-                assert not g.should_enable_patch()
+                assert p.should_log()
+                assert not c.should_log()
+                assert not g.should_log()
 
             assert_session_stack([(None, PARENT), (PARENT, CHILD)])
         assert_session_stack([(None, PARENT)])
@@ -112,12 +112,11 @@ def test_should_log_returns_false_when_parrent_session_has_the_same_estimator():
             with _TrainingSession(CHILD, allow_children=True) as c2:
                 assert_session_stack([(None, PARENT), (PARENT, CHILD), (CHILD, CHILD)])
 
-                assert p.should_enable_patch()
                 assert p.should_log()
-                assert c1.should_enable_patch()
                 assert c1.should_log()
-                assert not c2.should_enable_patch()
+                assert not c1.is_current_estimator_nested_call()
                 assert c2.should_log()
+                assert c2.is_current_estimator_nested_call()
 
             assert_session_stack([(None, PARENT), (PARENT, CHILD)])
         assert_session_stack([(None, PARENT)])

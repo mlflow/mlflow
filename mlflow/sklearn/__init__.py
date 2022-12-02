@@ -1545,7 +1545,7 @@ def _autolog(
         )
 
         with _SklearnTrainingSession(estimator=self, allow_children=False) as t:
-            if t.should_enable_patch():
+            if t.should_log() and not t.is_current_estimator_nested_call():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
