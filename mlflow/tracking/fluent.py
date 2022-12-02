@@ -1210,7 +1210,6 @@ def search_registered_models(
         from sklearn.linear_model import LogisticRegression
 
         # Get search results filtered by the registered model name
-        model_name= "CordobaWeatherForecastModel"
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 LogisticRegression(),
@@ -1222,7 +1221,7 @@ def search_registered_models(
                 "Boston",
                 registered_model_name="BostonWeatherForecastModel",
             )
-        filter_string = "name='{}'".format(model_name)
+        filter_string = "name='CordobaWeatherForecastModel'"
         results = mlflow.search_registered_models(filter_string=filter_string)
         print("-" * 80)
         for res in results:
