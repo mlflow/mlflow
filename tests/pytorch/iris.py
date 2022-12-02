@@ -16,12 +16,14 @@ def create_multiclass_accuracy():
     try:
         from torchmetrics import Accuracy
         import torchmetrics
+
         if Version(torchmetrics.__version__) >= Version("0.11"):
             return Accuracy(task="multiclass")
         else:
             return Accuracy()
     except ImportError:
         from pytorch_lightning.metrics import Accuracy
+
         return Accuracy()
 
 
