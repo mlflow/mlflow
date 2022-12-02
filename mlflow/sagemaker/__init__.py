@@ -175,6 +175,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
+    async_endpoint_config=None
 ):
     """
     Deploy an MLflow model on AWS SageMaker.
@@ -310,6 +311,27 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
+    :param async_endpoint_config: A dictionary specifying the AsyncInferenceConfig to use when
+                                  creating the new SageMaker model associated with this application.
+                                  For more information, see
+                                  https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html
+
+                                  .. code-block:: python
+                                    :caption: Example
+
+                                    import mlflow.sagemaker as mfs
+                                    async_endpoint_config = {
+                                        "OutputConfig": {
+                                            "S3OutputPath": f"s3://{s3_bucket}/{bucket_prefix}/output",
+                                            # Optionally specify Amazon SNS topics
+                                            # "NotificationConfig": {
+                                            # "SuccessTopic": "arn:aws:sns:::",
+                                            # "ErrorTopic": "arn:aws:sns:::",
+                                            # }
+                                        },
+                                        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+                                    },
+                                    mfs.deploy(..., async_endpoint_config=async_endpoint_config)
     """
     import boto3
 
@@ -404,6 +426,7 @@ def _deploy(
             s3_client=s3_client,
             variant_name=variant_name,
             data_capture_config=data_capture_config,
+            async_endpoint_config=async_endpoint_config,
         )
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -420,6 +443,7 @@ def _deploy(
             role=execution_role_arn,
             sage_client=sage_client,
             variant_name=variant_name,
+            async_endpoint_config=async_endpoint_config,
         )
 
     if synchronous:
@@ -1468,6 +1492,7 @@ def _create_sagemaker_endpoint(
     role,
     sage_client,
     variant_name=None,
+    async_endpoint_config=None
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to create.
@@ -1486,6 +1511,8 @@ def _create_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param variant_name: The name to assign to the new production variant.
+    :param async_endpoint_config: A dictionary specifying the AsynchronousEndpointConfiguration
+           to use when creating the new SageMaker endpoint associated with this model.
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
@@ -1519,6 +1546,8 @@ def _create_sagemaker_endpoint(
     }
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+    if async_endpoint_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_endpoint_config
 
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
@@ -1580,6 +1609,7 @@ def _update_sagemaker_endpoint(
     s3_client,
     variant_name=None,
     data_capture_config=None,
+    async_endpoint_config=None
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.
@@ -1602,6 +1632,8 @@ def _update_sagemaker_endpoint(
     :param: data_capture_config: A dictionary specifying the data capture configuration to use.
                                  For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                                  Defaults to ``None``.
+    :param async_endpoint_config: A dictionary specifying the AsynchronousEndpointConfiguration
+           to use when creating the new SageMaker endpoint associated with this model.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
@@ -1659,6 +1691,8 @@ def _update_sagemaker_endpoint(
     }
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+    if async_endpoint_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_endpoint_config
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created new endpoint configuration with arn: %s",
@@ -1951,7 +1985,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config", "data_capture_config"}
+        dict_fields = {
+            "vpc_config", "data_capture_config", "async_endpoint_config"
+        }
         for key, value in custom_config.items():
             if key not in config:
                 continue
