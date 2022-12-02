@@ -1,7 +1,7 @@
 name: Installation Issues
 description: Use this template for reporting bugs encountered while installing MLflow.
-labels: 'bug'
-title: '[SETUP-BUG]'
+labels: "bug"
+title: "[SETUP-BUG]"
 
 body:
   - type: markdown

@@ -1,8 +1,8 @@
-python: '3.8'
+python: "3.8"
 build_dependencies:
-- pip
+  - pip
 dependencies:
-- h2o
-- mlflow>=1.0
-- numpy
-- pandas
+  - h2o
+  - mlflow>=1.0
+  - numpy
+  - pandas

@@ -1,7 +1,7 @@
 name: UI Bug Report
 description: Create a report to help us reproduce and correct the UI bug
-labels: ['bug', 'area/uiux']
-title: '[BUG]'
+labels: ["bug", "area/uiux"]
+title: "[BUG]"
 
 body:
   - type: markdown
