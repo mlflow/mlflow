@@ -449,7 +449,7 @@ def test_search_registered_models(tmp_path):
     # max_results is equal to the number of models in the database
     models = mlflow.search_registered_models(max_results=num_all_models)
     assert len(models) == num_all_models
-    # max_results is smaller than the number of experiments in the database
+    # max_results is smaller than the number of models in the database
     models = mlflow.search_registered_models(max_results=num_all_models - 1)
     assert len(models) == num_all_models - 1
 
