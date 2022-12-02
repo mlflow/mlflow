@@ -8,6 +8,7 @@ import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 import mlflow.models.docker_utils
+from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.utils import env_manager as em
 
 
@@ -344,7 +345,8 @@ def push_model_to_sagemaker(
 @click.option("--container", "-c", default=IMAGE, help="image name")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, env_manager, mlflow_home):
+@cli_args.ENABLE_MLSERVER
+def build_and_push_container(build, push, container, env_manager, mlflow_home, enable_mlserver):
     """
     Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
@@ -366,9 +368,10 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
         def setup_container(_):
             return "\n".join(
                 [
-                    'ENV {disable_env}="false"',
+                    f'ENV {DISABLE_ENV_CREATION}="false"',
+                    f'ENV {ENABLE_MLSERVER}={enable_mlserver}',
                     'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
-                    '_install_pyfunc_deps(None, False)"',
+                    f'_install_pyfunc_deps(None, False, enable_mlserver={enable_mlserver})"',
                 ]
             )
 
