@@ -18,9 +18,9 @@ def create_multiclass_accuracy():
         import torchmetrics
 
         if Version(torchmetrics.__version__) >= Version("0.11"):
-            return Accuracy(task="multiclass")
+            return Accuracy(task="multiclass", num_classes=3)
         else:
-            return Accuracy()
+            return Accuracy()  # pylint: disable=no-value-for-parameter
     except ImportError:
         from pytorch_lightning.metrics import Accuracy
 
