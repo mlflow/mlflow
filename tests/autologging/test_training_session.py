@@ -17,9 +17,9 @@ class Grandchild:
     pass
 
 
-parent = Parent()
-child = Child()
-grand_child = Grandchild()
+PARENT = Parent()
+CHILD = Child()
+GRAND_CHILD = Grandchild()
 
 
 @pytest.fixture(autouse=True)
@@ -47,32 +47,32 @@ def allow_children(request):
 
 
 def test_should_log_always_returns_true_in_root_session(allow_children):
-    with _TrainingSession(parent, allow_children=allow_children) as p:
-        assert_session_stack([(None, parent)])
+    with _TrainingSession(PARENT, allow_children=allow_children) as p:
+        assert_session_stack([(None, PARENT)])
         assert p.should_enable_patch()
 
     assert_session_stack([])
 
 
 def test_nested_sessions(allow_children):
-    with _TrainingSession(parent, allow_children=allow_children) as p:
-        assert_session_stack([(None, parent)])
+    with _TrainingSession(PARENT, allow_children=allow_children) as p:
+        assert_session_stack([(None, PARENT)])
 
-        with _TrainingSession(child, allow_children=True) as c:
-            assert_session_stack([(None, parent), (parent, child)])
+        with _TrainingSession(CHILD, allow_children=True) as c:
+            assert_session_stack([(None, PARENT), (PARENT, CHILD)])
             assert p.should_enable_patch()
             assert c.should_enable_patch() == allow_children
 
-        assert_session_stack([(None, parent)])
+        assert_session_stack([(None, PARENT)])
     assert_session_stack([])
 
 
 def test_session_is_active():
     assert not _TrainingSession.is_active()
-    with _TrainingSession(parent, allow_children=True):
+    with _TrainingSession(PARENT, allow_children=True):
         assert _TrainingSession.is_active()
 
-        with _TrainingSession(child, allow_children=False):
+        with _TrainingSession(CHILD, allow_children=False):
             assert _TrainingSession.is_active()
 
         assert _TrainingSession.is_active()
@@ -82,35 +82,35 @@ def test_session_is_active():
 
 
 def test_parent_session_overrides_child_session():
-    with _TrainingSession(parent, allow_children=False) as p:
-        assert_session_stack([(None, parent)])
+    with _TrainingSession(PARENT, allow_children=False) as p:
+        assert_session_stack([(None, PARENT)])
 
-        with _TrainingSession(child, allow_children=True) as c:
-            assert_session_stack([(None, parent), (parent, child)])
+        with _TrainingSession(CHILD, allow_children=True) as c:
+            assert_session_stack([(None, PARENT), (PARENT, CHILD)])
 
-            with _TrainingSession(grand_child, allow_children=True) as g:
-                assert_session_stack([(None, parent), (parent, child), (child, grand_child)])
+            with _TrainingSession(GRAND_CHILD, allow_children=True) as g:
+                assert_session_stack([(None, PARENT), (PARENT, CHILD), (CHILD, GRAND_CHILD)])
 
                 assert p.should_enable_patch()
                 assert not c.should_enable_patch()
                 assert not g.should_enable_patch()
 
-            assert_session_stack([(None, parent), (parent, child)])
-        assert_session_stack([(None, parent)])
+            assert_session_stack([(None, PARENT), (PARENT, CHILD)])
+        assert_session_stack([(None, PARENT)])
     assert_session_stack([])
 
 
 def test_should_log_returns_false_when_parrent_session_has_the_same_estimator():
     # This test case corresponds to when Pipeline.fit() calls Transformer.fit_transform()
     # which calls Transformer.fit()
-    with _TrainingSession(parent, allow_children=True) as p:
-        assert_session_stack([(None, parent)])
+    with _TrainingSession(PARENT, allow_children=True) as p:
+        assert_session_stack([(None, PARENT)])
 
-        with _TrainingSession(child, allow_children=True) as c1:
-            assert_session_stack([(None, parent), (parent, child)])
+        with _TrainingSession(CHILD, allow_children=True) as c1:
+            assert_session_stack([(None, PARENT), (PARENT, CHILD)])
 
-            with _TrainingSession(child, allow_children=True) as c2:
-                assert_session_stack([(None, parent), (parent, child), (child, child)])
+            with _TrainingSession(CHILD, allow_children=True) as c2:
+                assert_session_stack([(None, PARENT), (PARENT, CHILD), (CHILD, CHILD)])
 
                 assert p.should_enable_patch()
                 assert p.should_log()
@@ -119,6 +119,6 @@ def test_should_log_returns_false_when_parrent_session_has_the_same_estimator():
                 assert not c2.should_enable_patch()
                 assert c2.should_log()
 
-            assert_session_stack([(None, parent), (parent, child)])
-        assert_session_stack([(None, parent)])
+            assert_session_stack([(None, PARENT), (PARENT, CHILD)])
+        assert_session_stack([(None, PARENT)])
     assert_session_stack([])
