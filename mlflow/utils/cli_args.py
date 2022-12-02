@@ -200,3 +200,9 @@ SERVE_ARTIFACTS = click.option(
     "overridden via the '--artifacts-destination' argument. To disable artifact serving, "
     "specify `--no-serve-artifacts`. Default: True",
 )
+
+NO_CONDA = click.option(
+    "--no-conda",
+    is_flag=True,
+    help="If specified, use local environment.",
+)

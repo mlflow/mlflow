@@ -1,0 +1,53 @@
+FROM node:16.18 AS ui-builder
+
+WORKDIR /mlflow
+COPY mlflow/server/js .
+RUN yarn install --silent && yarn build
+
+FROM python:3.8.15
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+WORKDIR /workspaces/mlflow
+COPY --from=ui-builder /mlflow/build ./mlflow/server/js/build
+
+RUN apt update -y \
+    && apt install -y sudo \
+    && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
+    sudo -E apt-get install --no-install-recommends -y \
+    git curl wget less jq vim tree zsh openjdk-11-jdk \
+    # pyenv dependencies
+    make build-essential libssl-dev zlib1g-dev \
+    libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
+    # Clean up
+    && sudo apt clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip \
+    && unzip /tmp/protoc.zip -d /root/protoc \
+    && rm /tmp/protoc.zip
+ENV PATH="/root/protoc/bin:$PATH"
+
+# Install node and yarn for UI development
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash - \
+    && sudo apt install -y nodejs \
+    && npm -g install yarn
+
+# Install Oh My Zsh
+# fb66b67d683935cd0e4a5282064947a28087a91b is the latest commit as of 2022-11-14
+RUN bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/fb66b67d683935cd0e4a5282064947a28087a91b/tools/install.sh)"
+COPY .devcontainer/codespaces.zsh-theme /root/.oh-my-zsh/custom/themes/codespaces.zsh-theme
+ENV ZSH_THEME=codespaces
+
+# Install pyenv
+# v2.3.6 is the latest release as of 2022-11-14
+RUN git clone --depth 1 --single-branch --branch v2.3.6 https://github.com/pyenv/pyenv.git /root/.pyenv \
+    && echo 'eval "$(pyenv init --path)"' >> /root/.zshrc
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+
+# Install mlflow dependencies
+COPY .devcontainer/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt

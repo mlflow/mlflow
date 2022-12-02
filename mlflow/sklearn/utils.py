@@ -264,7 +264,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
             classifier_metrics.extend(
                 [
                     _SklearnMetric(
-                        name=prefix + "roc_auc_score",
+                        name=prefix + "roc_auc",
                         function=sklearn.metrics.roc_auc_score,
                         arguments={
                             "y_true": y_true,
@@ -427,7 +427,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
 
     regressor_metrics = [
         _SklearnMetric(
-            name=prefix + "mse",
+            name=prefix + "mean_squared_error",
             function=sklearn.metrics.mean_squared_error,
             arguments={
                 "y_true": y_true,
@@ -437,7 +437,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
             },
         ),
         _SklearnMetric(
-            name=prefix + "mae",
+            name=prefix + "mean_absolute_error",
             function=sklearn.metrics.mean_absolute_error,
             arguments={
                 "y_true": y_true,
@@ -462,7 +462,9 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict[prefix + "rmse"] = np.sqrt(metrics_value_dict[prefix + "mse"])
+    metrics_value_dict[prefix + "root_mean_squared_error"] = np.sqrt(
+        metrics_value_dict[prefix + "mean_squared_error"]
+    )
 
     return metrics_value_dict
 
@@ -816,7 +818,7 @@ def _create_child_runs_for_parameter_search(
         excluded_metric_prefixes = ["param", "split"]
         metrics_to_log = {
             key: value
-            for key, value in result_row.iteritems()
+            for key, value in result_row.items()
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
@@ -906,7 +908,7 @@ def _backported_all_estimators(type_filter=None):
     IS_PYPY = platform.python_implementation() == "PyPy"
 
     def is_abstract(c):
-        if not (hasattr(c, "__abstractmethods__")):
+        if not hasattr(c, "__abstractmethods__"):
             return False
         if not len(c.__abstractmethods__):
             return False

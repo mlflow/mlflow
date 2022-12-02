@@ -258,26 +258,23 @@ class Schema:
     """
 
     def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
-        if not (
-            all(map(lambda x: x.name is None, inputs))
-            or all(map(lambda x: x.name is not None, inputs))
-        ):
+        if not (all(x.name is None for x in inputs) or all(x.name is not None for x in inputs)):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed inputs "
                 "is not allowed. Got input names {}".format([x.name for x in inputs])
             )
         if not (
-            all(map(lambda x: isinstance(x, TensorSpec), inputs))
-            or all(map(lambda x: isinstance(x, ColSpec), inputs))
+            all(isinstance(x, TensorSpec) for x in inputs)
+            or all(isinstance(x, ColSpec) for x in inputs)
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
                 "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
             )
         if (
-            all(map(lambda x: isinstance(x, TensorSpec), inputs))
+            all(isinstance(x, TensorSpec) for x in inputs)
             and len(inputs) > 1
-            and any(map(lambda x: x.name is None, inputs))
+            and any(x.name is None for x in inputs)
         ):
             raise MlflowException(
                 "Creating Schema with multiple unnamed TensorSpecs is not supported. "

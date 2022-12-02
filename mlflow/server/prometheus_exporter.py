@@ -12,7 +12,7 @@ def activate_prometheus_exporter(app):
         app,
         export_defaults=True,
         defaults_prefix="mlflow",
-        excluded_paths=["/health"],
+        excluded_paths=["/health", "/version"],
         group_by=mlflow_version,
     )
 

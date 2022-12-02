@@ -1,0 +1,49 @@
+name: Devcontainer
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    paths:
+      - .devcontainer/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+
+jobs:
+  devcontainer:
+    runs-on: ubuntu-latest
+    if: github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get image name
+        run: |
+          IMAGE_NAME=$(yq '.services.mlflow.image' .devcontainer/docker-compose.yml)
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+      - name: Build image
+        run: |
+          docker build -f .devcontainer/Dockerfile.devcontainer -t $IMAGE_NAME .
+      - name: Show layer sizes
+        run: |
+          docker history $IMAGE_NAME
+      - name: Inspect image
+        run: |
+          docker image inspect $IMAGE_NAME
+      - name: Test Image
+        run: |
+          docker run --rm -v $(pwd):/workspaces/mlflow $IMAGE_NAME bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
+      - name: Push image
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.MLFLOW_AUTOMATION_TOKEN }}" | docker login ghcr.io -u mlflow-automation --password-stdin
+          docker push $IMAGE_NAME

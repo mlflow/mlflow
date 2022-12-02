@@ -33,7 +33,7 @@ def _get_latest_model_version(client, name, stage):
                 name=name, stage_str=stage_str
             )
         )
-    return max(map(lambda x: int(x.version), latest))
+    return max(int(x.version) for x in latest)
 
 
 def _parse_model_uri(uri):

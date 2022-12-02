@@ -93,7 +93,8 @@ def test_recipe(
             "target_col": "C",
             "steps": {
                 "transform": {
-                    "transformer_method": "steps.transform.transform_fn",
+                    "using": "custom",
+                    "transformer_method": "transform_fn",
                 },
             },
         },

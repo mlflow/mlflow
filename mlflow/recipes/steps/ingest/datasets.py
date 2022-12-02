@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Union
 import importlib
 import logging
 import os
@@ -7,7 +6,7 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, TypeVar, Optional
+from typing import Dict, Any, List, TypeVar, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -34,6 +33,8 @@ from mlflow.utils._spark_utils import (
 _logger = logging.getLogger(__name__)
 
 _DatasetType = TypeVar("_Dataset")
+
+_USER_DEFINED_INGEST_STEP_MODULE = "steps.ingest"
 
 
 class _Dataset:
@@ -247,7 +248,7 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                 # NB: Sort the file names alphanumerically to ensure a consistent
                 # ordering across invocations
                 dataset_file_paths = sorted(
-                    list(pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}"))
+                    pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}")
                 )
                 if len(dataset_file_paths) == 0:
                     raise MlflowException(
@@ -419,9 +420,8 @@ class CustomDataset(_PandasConvertibleDataset):
         :param location: The location of the dataset
                          (e.g. '/tmp/myfile.parquet', './mypath', 's3://mybucket/mypath', ...).
         :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
-        :param loader_method: The fully qualified name of the custom loader method used to
-                                     load and convert the dataset to parquet format, e.g.
-                                     `steps.ingest.load_file_as_dataframe`.
+        :param loader_method: The custom loader method used to load and convert the dataset
+                              to parquet format, e.g.`load_file_as_dataframe`.
         :param recipe_root: The absolute path of the associated recipe root directory on the
                               local filesystem.
         """
@@ -431,10 +431,7 @@ class CustomDataset(_PandasConvertibleDataset):
             recipe_root=recipe_root,
         )
         self.recipe_root = recipe_root
-        (
-            self.loader_module_name,
-            self.loader_method_name,
-        ) = loader_method.rsplit(".", 1)
+        self.loader_method = loader_method
 
     def _validate_user_code_output(self, func, *args):
         import pandas as pd
@@ -444,7 +441,8 @@ class CustomDataset(_PandasConvertibleDataset):
             raise MlflowException(
                 message=(
                     "The `ingested_data` is not a DataFrame, please make sure "
-                    f"'{self.loader_method_name}' returns a Pandas DataFrame object."
+                    f"'{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}'"
+                    "returns a Pandas DataFrame object."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
@@ -454,14 +452,14 @@ class CustomDataset(_PandasConvertibleDataset):
         try:
             sys.path.append(self.recipe_root)
             loader_method = getattr(
-                importlib.import_module(self.loader_module_name),
-                self.loader_method_name,
+                importlib.import_module(_USER_DEFINED_INGEST_STEP_MODULE),
+                self.loader_method,
             )
         except Exception as e:
             raise MlflowException(
                 message=(
                     "Failed to import custom dataset loader function"
-                    f" '{self.loader_module_name}.{self.loader_method_name}' for"
+                    f" '{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}' for"
                     f" ingesting dataset with format '{self.dataset_format}'.",
                 ),
                 error_code=BAD_REQUEST,

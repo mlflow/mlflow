@@ -15,4 +15,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
         run: |
-          python dev/preview_docs.py --commit-sha ${{ github.event.pull_request.head.sha }} --pull-number ${{ github.event.pull_request.number }}
+          python dev/preview_docs.py \
+            --commit-sha ${{ github.event.pull_request.head.sha }} \
+            --pull-number ${{ github.event.pull_request.number }} \
+            --workflow-run-id ${{ github.run_id }}

@@ -13,35 +13,39 @@ def format_help_string(help_string):
 
 
 RECIPE_YAML = format_help_string(
-    """# recipe.yaml is the main configuration file for the recipe. It defines attributes for each step of the regression recipe, such as the dataset to use (defined in the 'data' section of the 'ingest' step definition) and the metrics to compute during model training & evaluation (defined in the 'metrics' section, which is used by the 'train' and 'evaluate' steps). recipe.yaml files also support value overrides from profiles (located in the 'profiles' subdirectory of the recipe) using Jinja2 templating syntax. An example recipe.yaml file is displayed below.\n
+    """# recipe.yaml is the main configuration file for the recipe. It defines attributes for each step of the recipe, such as the dataset to use (defined in the the 'ingest' step definition) and the metrics to compute during model training & evaluation (defined in the 'custom_metrics' section, which is used by the 'train' and 'evaluate' steps). recipe.yaml files also support value overrides from profiles (located in the 'profiles' subdirectory of the recipe) using Jinja2 templating syntax. An example recipe.yaml file is displayed below.\n
 recipe: "regression/v1"
-# Specifies the dataset to use for model development
-data:
-  location: {{INGEST_DATA_LOCATION}}
-  format: {{INGEST_DATA_FORMAT|default('parquet')}}
-  loader_method: steps.ingest.load_file_as_dataframe
 target_col: "fare_amount"
+primary_metric: "root_mean_squared_error"
 steps:
+  ingest: {{INGEST_CONFIG}}
   split:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
-    post_split_method: steps.split.process_splits
+    post_split_filter_method: create_dataset_filter
   transform:
-    transformer_method: steps.transform.transformer_fn
+    using: custom
+    transformer_method: transformer_fn
   train:
-    estimator_method: steps.train.estimator_fn
+    using: custom
+    estimator_method: estimator_fn
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
         threshold: 10
+      - metric: mean_absolute_error
+        threshold: 50
+      - metric: weighted_mean_squared_error
+        threshold: 50
   register:
-    model_name: "taxi_fare_regressor"
-    allow_non_validated_model: true
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
-  primary: "root_mean_squared_error"
+    allow_non_validated_model: false
+  ingest_scoring: {{INGEST_SCORING_CONFIG}}
+  predict:
+    output: {{PREDICT_OUTPUT_CONFIG}}
+
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """
 )
 
@@ -49,14 +53,14 @@ INGEST_STEP_BASE = """The '{0}' step resolves the dataset specified by the '{1}'
 
 {1}:
   location: https://nyc-tlc.s3.amazonaws.com/trip+data/yellow_tripdata_2022-01.parquet
-  format: {{{{INGEST_DATA_FORMAT|default('parquet')}}}}
-  loader_method: steps.ingest.load_file_as_dataframe
+  using: {{{{INGEST_DATA_FORMAT|default('parquet')}}}}
+  loader_method: load_file_as_dataframe
 """
 
 INGEST_STEP = format_help_string(
     INGEST_STEP_BASE.format(
         "ingest",
-        "data",
+        "steps.ingest",
         "Subsequent steps convert this dataset into training, validation, & test sets and use them to develop a model.",
     )
 )
@@ -80,7 +84,7 @@ def load_file_as_dataframe(
 )
 
 INGESTED_DATA = format_help_string(
-    "The ingested parquet representation of the dataset defined in the 'data' section of recipe.yaml. Subsequent steps convert this dataset into training, validation, & test sets and use them to develop a model."
+    "The ingested parquet representation of the dataset defined in the 'steps.ingest' section of recipe.yaml. Subsequent steps convert this dataset into training, validation, & test sets and use them to develop a model."
 )
 
 SPLIT_STEP = format_help_string(
@@ -89,25 +93,22 @@ SPLIT_STEP = format_help_string(
 steps:
   split:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
-    post_split_method: steps.split.process_splits
+    post_split_filter_method: create_dataset_filter
 """
 )
 
 SPLIT_USER_CODE = format_help_string(
-    """\"\"\"\nsteps/split.py defines customizable logic for preprocessing the training, validation, and test datasets prior to model creation via the `process_splits` function, an example of which is displayed below (note that a different function name or module can be specified via the 'post_split_method' attribute of the 'split' step definition in recipe.yaml).\n\"\"\"\n
-def process_splits(
-    train_df: pandas.DataFrame,
-    validation_df: pandas.DataFrame,
-    test_df: pandas.DataFrame,
-) -> (pandas.DataFrame, pandas.DataFrame, pandas.DataFrame):
-    \"\"\"
-    Perform additional processing on the split datasets.
+    """\"\"\"\nsteps/split.py defines customizable logic for postprocessing the training, validation, and test datasets prior to model creation via the `create_dataset_filter` function, an example of which is displayed below (note that a different function name or module can be specified via the 'post_split_filter_method' attribute of the 'split' step definition in recipe.yaml).\n\"\"\"\n
+This module defines the following routines used by the 'split' step of the recipe:
+- ``create_dataset_filter``: Defines customizable logic for filtering the training, validation,
+  and test datasets produced by the data splitting procedure. Note that arbitrary transformations
+  should go into the transform step.
 
-    :param train_df: The training dataset.
-    :param validation_df: The validation dataset.
-    :param test_df: The test dataset.
-    :return: A tuple of containing, in order, the processed training dataset, the processed validation dataset, and the processed test dataset.
-    \"\"\"
+def create_dataset_filter(dataset: DataFrame) -> Series(bool):
+    Mark rows of the split datasets to be additionally filtered. This function will be called on
+    the training, validation, and test datasets.
+    :param dataset: The {train,validation,test} dataset produced by the data splitting procedure.
+    :return: A Series indicating whether each row should be filtered
 """
 )
 
@@ -128,7 +129,8 @@ TRANSFORM_STEP = format_help_string(
 
 steps:
   transform:
-    transformer_method: steps.transform.transformer_fn
+    using: custom
+    transformer_method: transformer_fn
 """
 )
 
@@ -154,13 +156,13 @@ TRAIN_STEP = format_help_string(
 
 steps:
   train:
-    estimator_method: steps.train.estimator_fn
+    using: custom
+    estimator_method: estimator_fn
 
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """
 )
 
@@ -188,11 +190,10 @@ PREDICTED_TRAINING_DATA = format_help_string(
 CUSTOM_METRICS_USER_CODE = format_help_string(
     """\"\"\"\nsteps/custom_metrics.py defines customizable logic for specifying custom metrics to compute during model training and evaluation. Custom metric functions defined in `steps/custom_metrics.py` are referenced by the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in recipe.yaml. For example:
 
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 
 An example custom_metrics.py file is displayed below.
 \"\"\"\
@@ -224,11 +225,10 @@ evaluate:
     - metric: weighted_mean_squared_error
       threshold: 20
 
-metrics:
-  custom:
-    - name: weighted_mean_squared_error
-      function: weighted_mean_squared_error
-      greater_is_better: False
+custom_metrics:
+  - name: weighted_mean_squared_error
+    function: weighted_mean_squared_error
+    greater_is_better: False
 """
 )
 
@@ -250,7 +250,6 @@ REGISTER_STEP = format_help_string(
     """The 'register' step checks the 'model_validation_status' output of the preceding 'evaluate' step and, if model validation was successful (as indicated by the 'VALIDATED' status), registers the model pipeline produced by the 'train' step to the MLflow Model Registry. If the 'model_validation_status' does not indicate that the model passed validation checks (i.e. its value is 'REJECTED'), the model pipeline is not registered to the MLflow Model Registry. This validation status check can be disabled by specifying 'allow_non_validated_model: true' in the 'register' step definition of recipe.yaml, in which case the model pipeline is always registered with the MLflow Model Registry when the 'register' step is executed. If the model pipeline is registered to the MLflow Model Registry, a 'registered_model_version' is produced containing the model name (as configured by the 'model_name' attribute of the 'register' step definition in recipe.yaml) and the model version. An example recipe.yaml 'register' step definition is shown below.
 
 register:
-  model_name: "taxi_fare_regressor"
   allow_non_validated_model: true
 """
 )
@@ -270,8 +269,8 @@ PREDICT_STEP = format_help_string(
 steps:
   predict:
     model_uri: "models:/taxi_fare_regressor/Production" # optional
-    output_format: {{OUTPUT_DATA_FORMAT|default('parquet')}}
-    output_location: "{{OUTPUT_DATA_LOCATION}}"
+    using: {{OUTPUT_DATA_FORMAT|default('parquet')}}
+    location: "{{OUTPUT_DATA_LOCATION}}"
 """
 )
 

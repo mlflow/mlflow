@@ -1,8 +1,38 @@
+import hashlib
+import os
+import io
+import json
+import uuid
+import signal
+from collections import namedtuple
+from unittest import mock
+import pytest
+
+import numpy as np
+import pandas as pd
+from PIL import ImageChops, Image
+
+import sklearn
+import sklearn.compose
+import sklearn.datasets
+import sklearn.impute
+import sklearn.linear_model
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    mean_absolute_error,
+    mean_squared_error,
+)
+import sklearn.pipeline
+import sklearn.preprocessing
+
+from pyspark.sql import SparkSession
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+
 import mlflow
 from mlflow import MlflowClient
-from collections import namedtuple
 from mlflow.exceptions import MlflowException
-
 from mlflow.models.evaluation import (
     evaluate,
     EvaluationResult,
@@ -11,47 +41,19 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+    _gen_md5_for_arraylike_obj,
+    _start_run_or_reuse_active_run,
     EvaluationDataset,
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
-import hashlib
-from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
-import sklearn
-import os
-import signal
-import sklearn.compose
-import sklearn.datasets
-import sklearn.impute
-import sklearn.linear_model
-import sklearn.pipeline
-import sklearn.preprocessing
-import pytest
-import numpy as np
-import pandas as pd
-from unittest import mock
-from PIL import ImageChops, Image
-import io
-from mlflow.utils.file_utils import TempDir
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-from mlflow.models.evaluation.base import _logger as _base_logger, _gen_md5_for_arraylike_obj
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    mean_absolute_error,
-    mean_squared_error,
-)
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
-
 from mlflow.tracking.artifact_utils import get_artifact_uri
-import json
-import uuid
+from mlflow.utils.file_utils import TempDir
+
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():

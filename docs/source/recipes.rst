@@ -53,20 +53,38 @@ as follows:
 
 NYC taxi fare prediction example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The `NYC taxi fare prediction example <https://github.com/mlflow/recipes-examples>`_
+The `NYC taxi fare prediction example <https://github.com/mlflow/recipes-examples/tree/main/regression>`_
 uses the |MLflow Recipes Regression Template| to develop and score models on the
 `NYC Taxi (TLC) Trip Record Dataset
 <https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_. You can run the example locally
 by :ref:`installing MLflow Recipes <recipes-installation>` and running the `Jupyter example
-notebook <https://github.com/mlflow/recipes-examples/blob/main/regression/notebooks/jupyter.ipynb>`_.
+regression notebook <https://github.com/mlflow/recipes-examples/blob/main/regression/notebooks/jupyter.ipynb>`_.
 You can run the example on Databricks by `cloning the example repository with Databricks Repos
 <https://docs.databricks.com/repos/work-with-notebooks-other-files.html#clone-a-remote-git-repository>`_
-and running the `Databricks example notebook
+and running the `Databricks example regression notebook
 <https://github.com/mlflow/recipes-examples/blob/main/regression/notebooks/databricks.py>`_.
 
 To build and score models for your own use cases, we recommend using the
 |MLflow Recipes Regression Template|. For more information, see the
 |Regression Template reference guide|.
+
+
+Classification problem example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The `Classification problem example <https://github.com/mlflow/recipes-examples/tree/main/classification>`_
+uses the |MLflow Recipes Classification Template| to develop and score models on the
+`Wine Quality Dataset <https://github.com/mlflow/recipes-examples/tree/main/classification/data>`_.
+You can run the example locally
+by :ref:`installing MLflow Recipes <recipes-installation>` and running the `Jupyter example
+classification notebook <https://github.com/mlflow/recipes-examples/blob/main/classification/notebooks/jupyter.ipynb>`_.
+You can run the example on Databricks by `cloning the example repository with Databricks Repos
+<https://docs.databricks.com/repos/work-with-notebooks-other-files.html#clone-a-remote-git-repository>`_
+and running the `Databricks example classification notebook
+<https://github.com/mlflow/recipes-examples/blob/main/classification/notebooks/databricks.py>`_.
+
+To build and score models for your own use cases, we recommend using the
+|MLflow Recipes Classification Template|. For more information, see the
+|Classification Template reference guide|.
 
 Key concepts
 ------------
@@ -305,6 +323,11 @@ to develop and deploy high-quality, production-ready models for your use cases:
   regression models. For more information, see the |Regression Template reference guide| and
   the :ref:`Regression Recipe API documentation <mlflow-regression-recipe>`.
 
+- **MLflow Recipes Classification Template**: The `MLflow Recipes Classification Template
+  <https://github.com/mlflow/recipes-classification-template>`_ is designed for developing and scoring
+  classification models. For more information, see the |Classification Template reference guide| and
+  the :ref:`Classification Recipe API documentation <mlflow-classification-recipe>`.
+
 Additional recipes for a variety of ML problems and MLOps tasks are under active development.
 
 
@@ -383,10 +406,11 @@ The main components of the Recipe Template layout, which are common across all r
       split:
         split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
       transform:
-        transformer_method: steps.transform.transformer_fn
+        using: custom
+        transformer_method: transformer_fn
       train:
         using: custom
-        estimator_method: steps.train.estimator_fn
+        estimator_method: estimator_fn
       evaluate:
         validation_criteria:
           - metric: root_mean_squared_error
@@ -515,7 +539,9 @@ The following profile customizations are supported:
 
 
 .. |MLflow Recipes Regression Template| replace:: :ref:`MLflow Recipes Regression Template <regression-template>`
+.. |MLflow Recipes Classification Template| replace:: :ref:`MLflow Recipes Classification Template <regression-template>`
 .. |Regression Template reference guide| replace:: `Regression Template reference guide <https://github.com/mlflow/recipes-regression-template/blob/main/README.md>`__
+.. |Classification Template reference guide| replace:: `Classification Template reference guide <https://github.com/mlflow/recipes-classification-template/blob/main/README.md>`__
 .. |recipe.yaml| replace:: `recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml>`__
 .. |train step| replace:: :ref:`train step <mlflow-regression-recipe-train-step>`
 .. |split step| replace:: :ref:`split step <mlflow-regression-recipe-split-step>`

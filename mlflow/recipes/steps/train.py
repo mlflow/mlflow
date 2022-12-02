@@ -57,6 +57,7 @@ from mlflow.utils.string_utils import strip_prefix
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
+_USER_DEFINED_TRAIN_STEP_MODULE = "steps.train"
 
 _logger = logging.getLogger(__name__)
 
@@ -480,11 +481,11 @@ class TrainStep(BaseStep):
             warnings.warn = original_warn
 
     def _get_user_defined_estimator(self, X_train, y_train, validation_df, run, output_directory):
-        train_module_name, estimator_method_name = self.step_config["estimator_method"].rsplit(
-            ".", 1
-        )
         sys.path.append(self.recipe_root)
-        estimator_fn = getattr(importlib.import_module(train_module_name), estimator_method_name)
+        estimator_fn = getattr(
+            importlib.import_module(_USER_DEFINED_TRAIN_STEP_MODULE),
+            self.step_config["estimator_method"],
+        )
         estimator_hardcoded_params = self.step_config["estimator_params"]
 
         # if using rebalancing pass in original class weights to preserve original distribution
@@ -529,10 +530,9 @@ class TrainStep(BaseStep):
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
         plugin_str = plugin_str.replace("/", ".")
-        estimator_fn = getattr(
-            importlib.import_module(f"mlflow.recipes.steps.{plugin_str}"),
-            "get_estimator_and_best_params",
-        )
+        estimator_fn = importlib.import_module(
+            f"mlflow.recipes.steps.{plugin_str}"
+        ).get_estimator_and_best_params
         estimator, best_parameters = estimator_fn(
             X_train,
             y_train,
@@ -990,7 +990,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=validation_df,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
                     custom_metrics=_load_custom_metrics(
                         self.recipe_root,
@@ -998,6 +998,7 @@ class TrainStep(BaseStep):
                     ),
                     evaluator_config={
                         "log_model_explainability": False,
+                        "pos_label": self.positive_class,
                     },
                 )
                 autologged_params = mlflow.get_run(run_id=tuning_run.info.run_id).data.params
@@ -1111,23 +1112,25 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_best_parameters_outputs(  # pylint: disable=dangerous-default-value
+    def _write_best_parameters_outputs(
         self,
         output_directory,
-        best_hp_params={},
-        best_hardcoded_params={},
-        automl_params={},
-        default_params={},
+        best_hp_params=None,
+        best_hardcoded_params=None,
+        automl_params=None,
+        default_params=None,
     ):
         if best_hp_params or best_hardcoded_params or automl_params or default_params:
             best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_path):
                 os.remove(best_parameters_path)
             with open(best_parameters_path, "a") as file:
-                self._write_one_param_output(automl_params, file, "automl parameters")
-                self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
-                self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
-                self._write_one_param_output(default_params, file, "default parameters")
+                self._write_one_param_output(automl_params or {}, file, "automl parameters")
+                self._write_one_param_output(best_hp_params or {}, file, "tuned hyperparameters")
+                self._write_one_param_output(
+                    best_hardcoded_params or {}, file, "hardcoded parameters"
+                )
+                self._write_one_param_output(default_params or {}, file, "default parameters")
             mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _write_one_param_output(self, params, file, caption):
@@ -1148,7 +1151,7 @@ class TrainStep(BaseStep):
             elif isinstance(value, dict):
                 processed_data[key] = str(value)
             else:
-                processed_data[key] = value
+                processed_data[key] = str(value)
 
         if len(processed_data) > 0:
             yaml.safe_dump(processed_data, file, **kwargs)

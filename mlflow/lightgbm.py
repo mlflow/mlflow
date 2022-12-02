@@ -478,7 +478,7 @@ def autolog(
             except Exception as e:
                 input_example_info = InputExampleInfo(error_msg=str(e))
 
-            setattr(self, "input_example_info", input_example_info)
+            self.input_example_info = input_example_info
 
         original(self, *args, **kwargs)
 

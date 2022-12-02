@@ -13,8 +13,8 @@ import mlflow
 from mlflow.utils.file_utils import write_to
 from mlflow.pyfunc import MAIN
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
+from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 
 
 def _get_top_level_module(full_module_name):
@@ -112,31 +112,11 @@ def main():
     sys.path = json.loads(args.sys_path)
 
     if flavor == mlflow.spark.FLAVOR_NAME:
-        # Clear 'PYSPARK_GATEWAY_PORT' and 'PYSPARK_GATEWAY_SECRET' to enforce launching a new JVM
-        # gateway before calling `mlflow.spark._load_pyfunc` that creates a new spark session
-        # if it doesn't exist.
-        os.environ.pop("PYSPARK_GATEWAY_PORT", None)
-        os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
+        # Create a local spark environment within the subprocess
+        from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
 
-    if flavor == mlflow.spark.FLAVOR_NAME and is_in_databricks_runtime():
-        os.environ["SPARK_DIST_CLASSPATH"] = "/databricks/jars/*"
-
-    if flavor == mlflow.spark.FLAVOR_NAME and not is_in_databricks_runtime():
-        # Create a local spark environment within the subprocess if using OSS Spark
-        from pyspark.sql import SparkSession
-
-        (
-            SparkSession.builder.config("spark.python.worker.reuse", "true")
-            .config("spark.databricks.io.cache.enabled", "false")
-            .config("spark.executor.allowSparkContext", "true")
-            .config("spark.driver.bindAddress", "127.0.0.1")
-            .config(
-                "spark.driver.extraJavaOptions",
-                "-Dlog4j.configuration=file:/usr/local/spark/conf/log4j.properties",
-            )
-            .master("local[1]")
-            .getOrCreate()
-        )
+        _prepare_subprocess_environ_for_creating_local_spark_session()
+        _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules()
 
@@ -166,9 +146,9 @@ def main():
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
-        from pyspark.sql import SparkSession
+        from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = SparkSession._instantiatedSession
+        spark = _get_active_spark_session()
         if spark:
             try:
                 spark.stop()

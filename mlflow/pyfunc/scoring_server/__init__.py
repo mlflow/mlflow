@@ -69,6 +69,17 @@ SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
+SCORING_PROTOCOL_CHANGE_INFO = (
+    "IMPORTANT: The MLflow Model scoring protocol has changed in MLflow version 2.0. If you are"
+    " seeing this error, you are likely using an outdated scoring request format. To resolve the"
+    " error, either update your request format or adjust your MLflow Model's requirements file to"
+    " specify an older version of MLflow (for example, change the 'mlflow' requirement specifier"
+    " to 'mlflow==1.30.0'). If you are making a request using the MLflow client"
+    " (e.g. via `mlflow.pyfunc.spark_udf()`), upgrade your MLflow client to a version >= 2.0 in"
+    " order to use the new request format. For more information about the updated MLflow"
+    " Model scoring protocol in MLflow 2.0, see"
+    " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
+)
 
 
 def infer_and_parse_json_input(json_input, schema: Schema = None):
@@ -95,7 +106,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         if len(format_keys) != 1:
             message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
             raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+                error_code=BAD_REQUEST,
             )
         input_format = format_keys.pop()
         if input_format in (INSTANCES, INPUTS):
@@ -110,7 +122,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     elif isinstance(decoded_input, list):
         message = "Received a list"
         raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+            error_code=BAD_REQUEST,
         )
     else:
         message = f"Received unexpected input type '{type(decoded_input)}'"
@@ -230,7 +243,8 @@ def init(model: PyFuncModel):
             return flask.Response(
                 response=(
                     f"Unrecognized content type parameters: "
-                    f"{', '.join(unexpected_content_parameters)}."
+                    f"{', '.join(unexpected_content_parameters)}. "
+                    f"{SCORING_PROTOCOL_CHANGE_INFO}"
                 ),
                 status=415,
                 mimetype="text/plain",

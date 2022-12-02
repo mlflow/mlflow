@@ -132,7 +132,7 @@ def test_ingests_csv_successfully(
                 "ingest": {
                     "using": "csv",
                     "location": dataset_path,
-                    "loader_method": "steps.ingest.load_file_as_dataframe",
+                    "loader_method": "load_file_as_dataframe",
                 }
             },
         },
@@ -149,25 +149,29 @@ def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argu
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path):
-    IngestStep.from_recipe_config(
-        recipe_config={
-            "target_col": "density",
-            "steps": {
-                "ingest": {
-                    "skip_data_profiling": True,
-                    "using": "csv",
-                    "location": [
-                        "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
-                        "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
-                    ],
-                    "loader_method": "tests.recipes.test_ingest_step.custom_load_wine_csv",
-                }
+    with mock.patch(
+        "steps.ingest.load_file_as_dataframe",
+        custom_load_wine_csv,
+    ):
+        IngestStep.from_recipe_config(
+            recipe_config={
+                "target_col": "density",
+                "steps": {
+                    "ingest": {
+                        "skip_data_profiling": True,
+                        "using": "csv",
+                        "location": [
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-white.csv",
+                        ],
+                        "loader_method": "load_file_as_dataframe",
+                    }
+                },
             },
-        },
-        recipe_root=os.getcwd(),
-    ).run(output_directory=tmp_path)
-    reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
-    assert reloaded_df.count()[0] == 6497
+            recipe_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+        reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        assert reloaded_df.count()[0] == 6497
 
 
 def custom_load_file_as_dataframe(file_path, file_format):  # pylint: disable=unused-argument
@@ -192,24 +196,26 @@ def test_ingests_custom_format_successfully(use_relative_path, multiple_files, p
     if use_relative_path:
         dataset_path = os.path.relpath(dataset_path)
 
-    IngestStep.from_recipe_config(
-        recipe_config={
-            "target_col": "C",
-            "steps": {
-                "ingest": {
-                    "using": "fooformat",
-                    "location": str(dataset_path),
-                    "loader_method": (
-                        "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
-                    ),
-                }
+    with mock.patch(
+        "steps.ingest.load_file_as_dataframe",
+        custom_load_file_as_dataframe,
+    ):
+        IngestStep.from_recipe_config(
+            recipe_config={
+                "target_col": "C",
+                "steps": {
+                    "ingest": {
+                        "using": "fooformat",
+                        "location": str(dataset_path),
+                        "loader_method": "load_file_as_dataframe",
+                    }
+                },
             },
-        },
-        recipe_root=os.getcwd(),
-    ).run(output_directory=tmp_path)
+            recipe_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
 
-    reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
-    pd.testing.assert_frame_equal(reloaded_df, pandas_df)
+        reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
@@ -252,7 +258,7 @@ def test_ingest_throws_for_custom_dataset_when_loader_function_not_implemented_f
                     "ingest": {
                         "using": "fooformat",
                         "location": str(dataset_path),
-                        "loader_method": "steps.ingest.load_file_as_dataframe",
+                        "loader_method": "load_file_as_dataframe",
                     }
                 },
             },
@@ -268,23 +274,24 @@ def custom_load_file_as_array(local_data_file_path, dataset_format):
 def test_ingest_throws_for_custom_dataset_when_custom_method_returns_array(pandas_df, tmp_path):
     dataset_path = tmp_path / "df.fooformat"
     pandas_df.to_csv(dataset_path, sep="#")
-
-    with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
-        IngestStep.from_recipe_config(
-            recipe_config={
-                "target_col": "C",
-                "steps": {
-                    "ingest": {
-                        "using": "fooformat",
-                        "location": str(dataset_path),
-                        "loader_method": (
-                            "tests.recipes.test_ingest_step.custom_load_file_as_array"
-                        ),
-                    }
+    with mock.patch(
+        "steps.ingest.load_file_as_dataframe",
+        custom_load_file_as_array,
+    ):
+        with pytest.raises(MlflowException, match="The `ingested_data` is not a DataFrame"):
+            IngestStep.from_recipe_config(
+                recipe_config={
+                    "target_col": "C",
+                    "steps": {
+                        "ingest": {
+                            "using": "fooformat",
+                            "location": str(dataset_path),
+                            "loader_method": "load_file_as_dataframe",
+                        }
+                    },
                 },
-            },
-            recipe_root=os.getcwd(),
-        ).run(output_directory=tmp_path)
+                recipe_root=os.getcwd(),
+            ).run(output_directory=tmp_path)
 
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
@@ -295,10 +302,10 @@ def test_ingest_throws_for_custom_dataset_when_loader_function_throws_unexpected
     pandas_df.to_csv(dataset_path, sep="#")
 
     with mock.patch(
-        "tests.recipes.test_ingest_step.custom_load_file_as_dataframe",
+        "steps.ingest.load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
     ) as mock_loader:
-        setattr(mock_loader, "__name__", "custom_load_file_as_dataframe")
+        mock_loader.__name__ = "load_file_as_dataframe"
         with pytest.raises(
             MlflowException, match="Unable to load data file at path.*using custom loader method"
         ):
@@ -309,9 +316,7 @@ def test_ingest_throws_for_custom_dataset_when_loader_function_throws_unexpected
                         "ingest": {
                             "using": "fooformat",
                             "location": str(dataset_path),
-                            "loader_method": (
-                                "tests.recipes.test_ingest_step.custom_load_file_as_dataframe"
-                            ),
+                            "loader_method": "load_file_as_dataframe",
                         }
                     },
                 },
@@ -352,7 +357,7 @@ def test_ingests_remote_http_datasets_successfully(tmp_path):
                 "ingest": {
                     "using": "csv",
                     "location": dataset_url,
-                    "loader_method": "steps.ingest.load_file_as_dataframe",
+                    "loader_method": "load_file_as_dataframe",
                 }
             },
         },

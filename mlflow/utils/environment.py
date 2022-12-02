@@ -3,6 +3,8 @@ import os
 import logging
 import re
 import hashlib
+from packaging.requirements import Requirement, InvalidRequirement
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -13,7 +15,7 @@ from mlflow.utils.requirements_utils import (
     _infer_requirements,
 )
 from mlflow.version import VERSION
-from packaging.requirements import Requirement, InvalidRequirement
+
 
 _logger = logging.getLogger(__name__)
 
@@ -255,7 +257,7 @@ def _get_pip_version():
     try:
         import pip
 
-        return getattr(pip, "__version__")
+        return pip.__version__
     except ImportError:
         return None
 
@@ -442,11 +444,31 @@ def _is_mlflow_requirement(requirement_string):
             # Try again with the per-requirement options removed
             return Requirement(requirement_specifier).name.lower() == "mlflow"
         except InvalidRequirement:
-            return False
 
-        # TODO: Return True if `requirement_string` represents a project directory for MLflow
-        # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
-        return False
+            # Support defining branch dependencies for local builds or direct GitHub builds
+            # from source.
+            # Example: mlflow @ git+https://github.com/mlflow/mlflow@branch_2.0
+            repository_matches = ["/mlflow", "mlflow@git"]
+
+            return any(
+                match in requirement_string.replace(" ", "").lower() for match in repository_matches
+            )
+
+
+def _generate_mlflow_version_pinning():
+    """
+    Determines the current MLflow version that is installed and adds a pinned boundary version range
+    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
+    the current installed minor version(i.e., 'mlflow<3,>=2.1')
+    :return: string for MLflow dependency version
+    """
+    mlflow_version = Version(VERSION)
+    current_major_version = mlflow_version.major
+    current_minor_version = mlflow_version.minor
+    range_version = (
+        f"mlflow<{current_major_version + 1},>={current_major_version}.{current_minor_version}"
+    )
+    return range_version
 
 
 def _contains_mlflow_requirement(requirements):
@@ -473,7 +495,7 @@ def _process_pip_requirements(
         pip_reqs = default_pip_requirements
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, "mlflow")
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
@@ -502,7 +524,7 @@ def _process_conda_env(conda_env):
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, "mlflow")
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")

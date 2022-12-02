@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
-from mlflow.cli import server, gc
+from mlflow.cli import server, gc, doctor
 from mlflow import pyfunc
 from mlflow.server import handlers
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -380,15 +380,14 @@ def test_mlflow_gc_experiments(get_store_details, request):
 @pytest.mark.parametrize(
     "enable_mlserver",
     [
-        # NB: MLServer does not support mlflow-2.0 yet.
         # MLServer is not supported in Windows yet, so let's skip this test in that case.
         # https://github.com/SeldonIO/MLServer/issues/361
-        # pytest.param(
-        #     True,
-        #     marks=pytest.mark.skipif(
-        #         os.name == "nt", reason="MLServer is not supported in Windows"
-        #     ),
-        # ),
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(
+                os.name == "nt", reason="MLServer is not supported in Windows"
+            ),
+        ),
         False,
     ],
 )
@@ -401,12 +400,16 @@ def test_mlflow_models_serve(enable_mlserver):
 
     with mlflow.start_run():
         if enable_mlserver:
-            # We need that MLServer is present on the Conda environment, so we'll add that
-            # as an extra requirement.
+            # We need MLServer to be present on the Conda environment, so we'll
+            # add that as an extra requirement.
             mlflow.pyfunc.log_model(
                 artifact_path="model",
                 python_model=model,
-                extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
+                extra_pip_requirements=[
+                    "mlserver>=1.2.0.dev13",
+                    "mlserver-mlflow>=1.2.0.dev13",
+                    PROTOBUF_REQUIREMENT,
+                ],
             )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
@@ -416,7 +419,7 @@ def test_mlflow_models_serve(enable_mlserver):
 
     extra_args = ["--env-manager", "local"]
     if enable_mlserver:
-        extra_args = ["--enable-mlserver"]
+        extra_args.append("--enable-mlserver")
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
@@ -524,3 +527,8 @@ def test_cli_with_python_mod():
         text=True,
     )
     assert "mlflow server" in stdout
+
+
+def test_doctor():
+    res = CliRunner().invoke(doctor, catch_exceptions=False)
+    assert res.exit_code == 0

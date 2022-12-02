@@ -50,6 +50,7 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
           tracking_uri: {tracking_uri}
         steps:
           transform:
+            using: custom
             transformer_method: {transform_user_module}
         """.format(
             tracking_uri=mlflow.get_tracking_uri(),
@@ -63,11 +64,13 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
 
 
 def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_recipe_root_path):
+    from sklearn.preprocessing import StandardScaler
+
     with mock.patch.dict(
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
+    ), mock.patch("steps.transform.transformer_fn", return_value=StandardScaler()):
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
-            tmp_recipe_root_path, "sklearn.preprocessing.StandardScaler"
+            tmp_recipe_root_path, "transformer_fn"
         )
         transform_step.run(str(transform_step_output_dir))
 
@@ -106,7 +109,7 @@ def test_transform_empty_step(tmp_recipe_root_path):
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ), mock.patch("steps.transform.transformer_fn", return_value=None):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
-            tmp_recipe_root_path, "steps.transform.transformer_fn"
+            tmp_recipe_root_path, "transformer_fn"
         )
         transform_step.run(str(transform_step_output_dir))
 
@@ -143,10 +146,10 @@ def test_validate_method_validates_the_transformer():
         def transform(self):
             return "transform"
 
-    inCorrectFitTransformer = InCorrectFitTransformer()
+    in_correct_fit_transformer = InCorrectFitTransformer()
 
     def incorrect__fit_transformer():
-        return inCorrectFitTransformer
+        return in_correct_fit_transformer
 
     with pytest.raises(
         MlflowException,

@@ -186,7 +186,7 @@ def test_tf_keras_autolog_log_models_configuration(
     client = MlflowClient()
     run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert ("model" in artifacts) == log_models
 
 
@@ -241,7 +241,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    decay_opt = "opt_weight_decay" if Version(tf.__version__) > Version("2.10") else "opt_decay"
+    decay_opt = "opt_weight_decay" if Version(tf.__version__) >= Version("2.11") else "opt_decay"
     assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
@@ -253,7 +253,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     num_of_epochs = len(history.history["loss"])
     assert len(all_epoch_acc) == num_of_epochs == 10
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "model_summary.txt" in artifacts
 
 
@@ -459,7 +459,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "model" in artifacts
     assert "tensorboard_logs" in artifacts
     model = mlflow.tensorflow.load_model("runs:/" + run.info.run_id + "/model")
@@ -886,7 +886,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     assert "epochs" in run_data.params
 
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "model" in artifacts
 
 

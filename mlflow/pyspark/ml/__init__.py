@@ -392,8 +392,8 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
     tuned_estimator = parent_estimator.getEstimator()
 
     metrics_dict, _ = _get_param_search_metrics_and_best_index(parent_estimator, parent_model)
-    for i in range(len(estimator_param_maps)):
-        child_estimator = tuned_estimator.copy(estimator_param_maps[i])
+    for i, est_param in enumerate(estimator_param_maps):
+        child_estimator = tuned_estimator.copy(est_param)
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(child_estimator))

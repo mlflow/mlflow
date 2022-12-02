@@ -1,7 +1,7 @@
 name: Feature Request
 description: Use this template for feature and enhancement proposals.
-labels: 'enhancement'
-title: '[FR]'
+labels: "enhancement"
+title: "[FR]"
 
 body:
   - type: markdown

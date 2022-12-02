@@ -80,7 +80,6 @@ venv.bak/
 *.swo
 *.idea
 *.vscode
-*.devcontainer
 *.iml
 *~
 
@@ -104,3 +103,6 @@ travis_wait*.log
 lightning_logs
 
 a.py
+
+# Log file created by pre-commit hook for black
+.black.log

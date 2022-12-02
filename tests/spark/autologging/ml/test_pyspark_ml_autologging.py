@@ -1,24 +1,16 @@
 import importlib
 import json
 import math
-import numpy as np
-import pandas as pd
-import pytest
 from collections import namedtuple
 from packaging.version import Version
-from unittest import mock
 import yaml
 import pathlib
 
-import mlflow
-from mlflow import MlflowClient
-from mlflow.entities import RunStatus
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
-from mlflow.utils import _truncate_dict
-from mlflow.utils.validation import (
-    MAX_PARAM_VAL_LENGTH,
-    MAX_ENTITY_KEY_LENGTH,
-)
+import pytest
+from unittest import mock
+
+import numpy as np
+import pandas as pd
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -37,6 +29,13 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler, StringIndexer, IndexToString
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
+from pyspark.sql import SparkSession
+
+import mlflow
+from mlflow import MlflowClient
+from mlflow.entities import RunStatus
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
@@ -46,10 +45,14 @@ from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
     _get_tuning_param_maps,
 )
-from pyspark.sql import SparkSession
-from mlflow.models import Model
-from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflow.utils import _truncate_dict
+from mlflow.utils.validation import (
+    MAX_PARAM_VAL_LENGTH,
+    MAX_ENTITY_KEY_LENGTH,
+)
+
 from tests.helper_functions import AnyStringWith
 
 
@@ -468,10 +471,10 @@ def test_pipeline(dataset_text):
     mlflow.pyspark.ml.autolog()
 
     tokenizer = Tokenizer(inputCol="text", outputCol="words")
-    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    hashing_tf = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
     lr = LogisticRegression(maxIter=2, regParam=0.001)
-    pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
-    inner_pipeline = Pipeline(stages=[hashingTF, lr])
+    pipeline = Pipeline(stages=[tokenizer, hashing_tf, lr])
+    inner_pipeline = Pipeline(stages=[hashing_tf, lr])
     nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
 
     for estimator in [pipeline, nested_pipeline]:
@@ -631,9 +634,9 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
     )
 
     tokenizer = Tokenizer(inputCol="text", outputCol="words")
-    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
-    pipeline = Pipeline(stages=[tokenizer, hashingTF, ova])
-    inner_pipeline = Pipeline(stages=[hashingTF, ova])
+    hashing_tf = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    pipeline = Pipeline(stages=[tokenizer, hashing_tf, ova])
+    inner_pipeline = Pipeline(stages=[hashing_tf, ova])
     nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
 
     pipeline_params = get_params_to_log(pipeline)
@@ -656,25 +659,25 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
 
 def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argument
     tokenizer1 = Tokenizer(inputCol="text1", outputCol="words1")
-    hashingTF1 = HashingTF(inputCol=tokenizer1.getOutputCol(), outputCol="features1")
+    hashing_tf1 = HashingTF(inputCol=tokenizer1.getOutputCol(), outputCol="features1")
 
     tokenizer2 = Tokenizer(inputCol="text2", outputCol="words2")
-    hashingTF2 = HashingTF(inputCol=tokenizer2.getOutputCol(), outputCol="features2")
+    hashing_tf2 = HashingTF(inputCol=tokenizer2.getOutputCol(), outputCol="features2")
 
-    vecAssembler = VectorAssembler(inputCols=["features1", "features2"], outputCol="features")
+    vec_assembler = VectorAssembler(inputCols=["features1", "features2"], outputCol="features")
 
     lor = LogisticRegression(maxIter=10)
     ova = OneVsRest(classifier=lor)
-    sub_pipeline1 = Pipeline(stages=[tokenizer1, hashingTF1])
-    sub_pipeline2 = Pipeline(stages=[tokenizer2, hashingTF2])
-    sub_pipeline3 = Pipeline(stages=[vecAssembler, ova])
+    sub_pipeline1 = Pipeline(stages=[tokenizer1, hashing_tf1])
+    sub_pipeline2 = Pipeline(stages=[tokenizer2, hashing_tf2])
+    sub_pipeline3 = Pipeline(stages=[vec_assembler, ova])
 
-    paramGrid = (
+    param_grid = (
         ParamGridBuilder().addGrid(lor.maxIter, [10, 20]).addGrid(lor.regParam, [0.1, 0.01]).build()
     )
     eva = MulticlassClassificationEvaluator()
     crossval = CrossValidator(
-        estimator=sub_pipeline3, estimatorParamMaps=paramGrid, evaluator=eva, numFolds=2
+        estimator=sub_pipeline3, estimatorParamMaps=param_grid, evaluator=eva, numFolds=2
     )
 
     top_pipeline = Pipeline(stages=[sub_pipeline1, sub_pipeline2, crossval])
@@ -704,13 +707,13 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
         top_pipeline.uid: "Pipeline_1",
         sub_pipeline1.uid: "Pipeline_2",
         tokenizer1.uid: "Tokenizer_1",
-        hashingTF1.uid: "HashingTF_1",
+        hashing_tf1.uid: "HashingTF_1",
         sub_pipeline2.uid: "Pipeline_3",
         tokenizer2.uid: "Tokenizer_2",
-        hashingTF2.uid: "HashingTF_2",
+        hashing_tf2.uid: "HashingTF_2",
         crossval.uid: "CrossValidator",
         sub_pipeline3.uid: "Pipeline_4",
-        vecAssembler.uid: "VectorAssembler",
+        vec_assembler.uid: "VectorAssembler",
         ova.uid: "OneVsRest",
         lor.uid: "LogisticRegression",
         eva.uid: "MulticlassClassificationEvaluator",
@@ -741,7 +744,7 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
         eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
         bce = BinaryClassificationEvaluator(metricName="areaUnderROC")
         pred_result = model.transform(eval_dataset)
-        areaUnderROC = bce.evaluate(pred_result)
+        area_under_roc = bce.evaluate(pred_result)
 
         # test computing the same metric twice
         bce.evaluate(pred_result)
@@ -752,8 +755,8 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
 
     assert np.isclose(logloss, run_data.metrics["logLoss_eval_dataset"])
     assert np.isclose(accuracy, run_data.metrics["accuracy_eval_dataset"])
-    assert np.isclose(areaUnderROC, run_data.metrics["areaUnderROC_eval_dataset-2"])
-    assert np.isclose(areaUnderROC, run_data.metrics["areaUnderROC-2_eval_dataset-2"])
+    assert np.isclose(area_under_roc, run_data.metrics["areaUnderROC_eval_dataset-2"])
+    assert np.isclose(area_under_roc, run_data.metrics["areaUnderROC-2_eval_dataset-2"])
 
     assert metric_info == {
         "accuracy_eval_dataset": {
@@ -805,8 +808,8 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     assert np.isclose(logloss, recall_original)
     accuracy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
     assert np.isclose(accuracy, accuracy_original)
-    areaUnderROC_original = bce.evaluate(pred_result)
-    assert np.isclose(areaUnderROC, areaUnderROC_original)
+    area_under_roc_original = bce.evaluate(pred_result)
+    assert np.isclose(area_under_roc, area_under_roc_original)
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
@@ -841,13 +844,13 @@ def test_meta_estimator_disable_post_training_autologging(dataset_regression):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression(solver="l-bfgs", regParam=0.01)
     eval_dataset = dataset_regression.sample(fraction=0.3, seed=1)
-    lrParamMaps = [
+    lr_param_maps = [
         {lr.maxIter: 1, lr.standardization: False},
         {lr.maxIter: 200, lr.standardization: True},
         {lr.maxIter: 2, lr.standardization: False},
     ]
     eva = RegressionEvaluator(metricName="rmse")
-    estimator = TrainValidationSplit(estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva)
+    estimator = TrainValidationSplit(estimator=lr, estimatorParamMaps=lr_param_maps, evaluator=eva)
 
     with mock.patch(
         "mlflow.pyspark.ml._AutologgingMetricsManager.register_model"

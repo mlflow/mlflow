@@ -22,6 +22,7 @@ _OUTPUT_TRAIN_FILE_NAME = "train.parquet"
 _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
 _MULTI_PROCESS_POOL_SIZE = 8
+_USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
 
 
 def _make_elem_hashable(elem):
@@ -155,6 +156,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
+        self.positive_class = self.step_config.get("positive_class")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
@@ -200,7 +202,31 @@ class SplitStep(BaseStep):
                 "PROFILE", data_profile
             )
 
-        # Tab #4: run summary.
+            if self.positive_class:
+                positive_df, negative_df = (
+                    train_df[(mask := train_df[self.target_col] == self.positive_class)],
+                    train_df[~mask],
+                )
+
+                positive_negative_profile = get_pandas_data_profiles(
+                    [
+                        [
+                            "Positive",
+                            positive_df.drop(columns=[self.target_col]).reset_index(drop=True),
+                        ],
+                        [
+                            "Negative",
+                            negative_df.drop(columns=[self.target_col]).reset_index(drop=True),
+                        ],
+                    ]
+                )
+
+                # Tab #4: data profiles positive negative training split.
+                card.add_tab(
+                    "Compare Training Data (Positive vs Negative)", "{{PROFILE}}"
+                ).add_pandas_profile("PROFILE", positive_negative_profile)
+
+        # Tab #5: run summary.
         (
             card.add_tab(
                 "Run Summary",
@@ -262,12 +288,11 @@ class SplitStep(BaseStep):
         post_split_config = self.step_config.get("post_split_method", None)
         post_split_filter_config = self.step_config.get("post_split_filter_method", None)
         if post_split_config is not None:
-            (post_split_module_name, post_split_fn_name) = post_split_config.rsplit(".", 1)
             sys.path.append(self.recipe_root)
             post_split = getattr(
-                importlib.import_module(post_split_module_name), post_split_fn_name
+                importlib.import_module(_USER_DEFINED_SPLIT_STEP_MODULE), post_split_config
             )
-            _logger.debug(f"Running {post_split_fn_name} on train, validation and test datasets.")
+            _logger.debug(f"Running {post_split_config} on train, validation and test datasets.")
             (
                 train_df,
                 validation_df,
@@ -275,16 +300,12 @@ class SplitStep(BaseStep):
             ) = _validate_user_code_output(post_split, train_df, validation_df, test_df)
 
         elif post_split_filter_config is not None:
-            (
-                post_split_filter_module_name,
-                post_split_filter_fn_name,
-            ) = post_split_filter_config.rsplit(".", 1)
             sys.path.append(self.recipe_root)
             post_split_filter = getattr(
-                importlib.import_module(post_split_filter_module_name), post_split_filter_fn_name
+                importlib.import_module(_USER_DEFINED_SPLIT_STEP_MODULE), post_split_filter_config
             )
             _logger.debug(
-                f"Running {post_split_filter_fn_name} on train, validation and test datasets."
+                f"Running {post_split_filter_config} on train, validation and test datasets."
             )
             train_df = train_df[post_split_filter(train_df)]
             validation_df = validation_df[post_split_filter(validation_df)]
@@ -312,6 +333,7 @@ class SplitStep(BaseStep):
         if recipe_config.get("steps", {}).get("split", {}) is not None:
             step_config.update(recipe_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = recipe_config.get("target_col")
+        step_config["positive_class"] = recipe_config.get("positive_class")
         return cls(step_config, recipe_root)
 
     @property

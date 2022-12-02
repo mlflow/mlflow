@@ -18,6 +18,8 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
+_USER_DEFINED_TRANSFORM_STEP_MODULE = "steps.transform"
+
 
 def _generate_feature_names(num_features):
     max_length = len(str(num_features))
@@ -48,15 +50,13 @@ def _get_output_feature_names(transformer, num_features, input_features):
 
 def _validate_user_code_output(transformer_fn):
     transformer = transformer_fn()
-    if transformer is not None and not (
-        hasattr(transformer, "fit") and callable(getattr(transformer, "fit"))
-    ):
+    if transformer is not None and not (hasattr(transformer, "fit") and callable(transformer.fit)):
         raise MlflowException(
             message="The transformer provided doesn't have a fit method."
         ) from None
 
     if transformer is not None and not (
-        hasattr(transformer, "transform") and callable(getattr(transformer, "transform"))
+        hasattr(transformer, "transform") and callable(transformer.transform)
     ):
         raise MlflowException(
             message="The transformer provided doesn't have a transform method."
@@ -77,6 +77,15 @@ class TransformStep(BaseStep):
                 "Missing target_col config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "using" in self.step_config:
+            if self.step_config["using"] not in ["custom"]:
+                raise MlflowException(
+                    f"Invalid transform step configuration value {self.step_config['using']} for "
+                    f"key 'using'. Supported values are: ['custom']",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self.step_config["using"] = "custom"
         self.run_end_time = None
         self.execution_duration = None
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
@@ -108,14 +117,17 @@ class TransformStep(BaseStep):
 
             return Pipeline(steps=[("identity", FunctionTransformer())])
 
+        if "transformer_method" not in self.step_config and self.step_config["using"] == "custom":
+            raise MlflowException(
+                "Missing 'transformer_method' configuration in the transform step, "
+                "which is using 'custom'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         method_config = self.step_config.get("transformer_method")
-        if method_config:
-            (
-                transformer_module_name,
-                transformer_method_name,
-            ) = method_config.rsplit(".", 1)
+        transformer = None
+        if method_config and self.step_config["using"] == "custom":
             transformer_fn = getattr(
-                importlib.import_module(transformer_module_name), transformer_method_name
+                importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
             )
             transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()

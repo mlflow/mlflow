@@ -2,7 +2,6 @@ import os
 import requests
 import argparse
 import time
-from datetime import datetime
 from urllib.parse import urlparse
 
 
@@ -27,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--pull-number", required=True)
+    parser.add_argument("--workflow-run-id", required=True)
     args = parser.parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")
@@ -38,6 +38,7 @@ def main():
     repo = "mlflow/mlflow"
     build_doc_job_name = "build_doc"
     job_id = None
+    workflow_run_link = f"https://github.com/{repo}/actions/runs/{args.workflow_run_id}"
     for _ in range(5):
         status = session.get(
             f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status"
@@ -53,6 +54,24 @@ def main():
         time.sleep(3)
     else:
         print(f"Could not find {build_doc_job_name} job status")
+        comment = f"""
+Failed to find a documentation preview for {args.commit_sha}.
+
+<details>
+<summary>More info</summary>
+
+- If the `ci/circleci: {build_doc_job_name}` job status is successful, you can see the preview with the following steps:
+  1. Click `Details`.
+  2. Click `Artifacts`.
+  3. Click `docs/build/html/index.html`.
+- This comment was created by {workflow_run_link}.
+
+</details>
+"""
+        session.post(
+            f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments",
+            json={"body": comment},
+        )
         return
 
     # Get the artifact URL of the top level index.html
@@ -74,16 +93,15 @@ def main():
     comment_body = f"""
 {marker}
 
-### Documentation preview will be available [here]({artifact_url}).
+Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
 
 <details>
-<summary>Notes</summary>
+<summary>More info</summary>
 
 - Ignore this comment if this PR does not change the documentation.
 - It takes a few minutes for the preview to be available.
-- The preview is updated on every commit to this PR.
-- Job URL: {job_url}
-- Updated at: {datetime.now()}
+- The preview is updated when a new commit is pushed to this PR.
+- This comment was created by {workflow_run_link}.
 
 </details>
 """

@@ -6,5 +6,5 @@ channels:
 dependencies:
   - python=3.8
   - pip:
-    - -e ../../../
-    - psutil
+      - -e ../../../
+      - psutil
