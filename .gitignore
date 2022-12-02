@@ -104,5 +104,5 @@ lightning_logs
 
 a.py
 
-# Log file created by pre-commit when running black
+# Log file created by pre-commit hook for black
 .black.log
