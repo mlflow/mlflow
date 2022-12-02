@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from packaging.version import Version
 
 
-def create_multitask_accuracy():
+def create_multiclass_accuracy():
     # NB: Older versions of PyTorch Lightning define native APIs for metric computation,
     # (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
     # package (e.g. `torchmetrics.Accuracy)
@@ -29,9 +29,9 @@ class IrisClassificationBase(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
 
-        self.train_acc = create_multitask_accuracy()
-        self.val_acc = create_multitask_accuracy()
-        self.test_acc = create_multitask_accuracy()
+        self.train_acc = create_multiclass_accuracy()
+        self.val_acc = create_multiclass_accuracy()
+        self.test_acc = create_multiclass_accuracy()
         self.args = kwargs
 
         self.fc1 = nn.Linear(4, 10)
