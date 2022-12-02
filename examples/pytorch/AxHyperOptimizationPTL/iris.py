@@ -17,9 +17,9 @@ class IrisClassification(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
 
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
-        self.test_acc = Accuracy()
+        self.train_acc = Accuracy(task="multiclass")
+        self.val_acc = Accuracy(task="multiclass")
+        self.test_acc = Accuracy(task="multiclass")
         self.args = kwargs
 
         self.fc1 = nn.Linear(4, 10)
