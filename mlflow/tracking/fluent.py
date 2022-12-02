@@ -1175,7 +1175,7 @@ def search_registered_models(
     order_by: Optional[List[str]] = None,
 ) -> List[RegisteredModel]:
     """
-    Search for registered models in backend that satisfy the filter criteria.
+    Search for registered models that satisfy the filter criteria.
 
     :param filter_string: Filter query string
         (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
@@ -1201,7 +1201,7 @@ def search_registered_models(
     :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                      matching search results.
     :return: A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-            that satisfy the search expressions.
+             that satisfy the search expressions.
 
     .. code-block:: python
         :caption: Example
