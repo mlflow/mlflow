@@ -456,8 +456,8 @@ def test_search_registered_models(tmp_path):
     # Filter by name
     models = mlflow.search_registered_models(filter_string="name = 'AModel_1'")
     assert [m.name for m in models] == ["AModel_1"]
-    models = mlflow.search_registered_models(filter_string="name ILIKE 'BModel_%'")
-    assert len(models) == num_a_models
+    models = mlflow.search_registered_models(filter_string="name ILIKE 'bmodel_%'")
+    assert len(models) == num_b_models
 
     # Filter by tags
     models = mlflow.search_registered_models(filter_string="tags.tag = 'x'")

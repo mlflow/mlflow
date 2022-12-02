@@ -1207,9 +1207,21 @@ def search_registered_models(
         :caption: Example
 
         import mlflow
+        from sklearn.linear_model import LogisticRegression
 
         # Get search results filtered by the registered model name
-        model_name="CordobaWeatherForecastModel"
+        model_name= "CordobaWeatherForecastModel"
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(
+                LogisticRegression(),
+                "Cordoba",
+                registered_model_name="CordobaWeatherForecastModel",
+            )
+            mlflow.sklearn.log_model(
+                LogisticRegression(),
+                "Boston",
+                registered_model_name="BostonWeatherForecastModel",
+            )
         filter_string = "name='{}'".format(model_name)
         results = mlflow.search_registered_models(filter_string=filter_string)
         print("-" * 80)
@@ -1224,7 +1236,7 @@ def search_registered_models(
         print("-" * 80)
         for res in results:
             for mv in res.latest_versions:
-            print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
 
         # Get all registered models and order them by ascending order of the names
         results = mlflow.search_registered_models(order_by=["name ASC"])
@@ -1236,19 +1248,13 @@ def search_registered_models(
     .. code-block:: text
         :caption: Output
 
-        ------------------------------------------------------------------------------------
-        name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
-        name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
-        ------------------------------------------------------------------------------------
-        name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
-        name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
-        -----------------------------------------------------------------------------------
-        name=AzureWeatherForecastModel; run_id=5fcec6c4f1c947fc9295fef3fa21e52d; version=1
-        name=AzureWeatherForecastModel; run_id=8198cb997692417abcdeb62e99052260; version=3
-        name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
-        name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
-        name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
-        name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+        --------------------------------------------------------------------------------
+        name=CordobaWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1
+        --------------------------------------------------------------------------------
+        name=BostonWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1
+        --------------------------------------------------------------------------------
+        name=BostonWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1
+        name=CordobaWeatherForecastModel; run_id=248c66a666744b4887bdeb2f9cf7f1c6; version=1
 
     """
 
