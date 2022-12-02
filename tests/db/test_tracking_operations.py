@@ -75,7 +75,17 @@ def test_database_operational_error(exception, monkeypatch):
     # whereas BAD_REQUEST does not.
     api_module = None
     old_connect = None
-    old_dbapi = sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite.dbapi
+
+    # Depending on the version of SQLAlchemy, the function we need to patch is
+    # either called "dbapi" (sqlalchemy<2.0) or "import_dbapi"
+    # (sqlalchemy>=2.0).
+    for dialect_attr in ["dbapi", "import_dbapi"]:
+        if hasattr(sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite, dialect_attr):
+            break
+    else:
+        raise AssertionError("Could not find dbapi attribute on SQLiteDialect_pysqlite")
+
+    old_dbapi = getattr(sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite, dialect_attr)
 
     class ConnectionWrapper:
         """Wraps a sqlite3.Connection object."""
@@ -126,7 +136,9 @@ def test_database_operational_error(exception, monkeypatch):
             monkeypatch.setattr(api_module, "connect", connect)
         return api_module
 
-    monkeypatch.setattr(sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite, "dbapi", dbapi)
+    monkeypatch.setattr(
+        sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite, dialect_attr, dbapi
+    )
 
     # Create and use a unique tracking URI for this test. This avoids an issue
     # where an earlier test has already created and cached a SQLAlchemy engine
