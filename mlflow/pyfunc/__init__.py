@@ -414,7 +414,44 @@ class PyFuncModel:
     @experimental
     def unwrap_python_model(self):
         """
-        Unwrap the underlying Python model object.
+        Unwrap the underlying Python model object. 
+        
+        This method is useful for accessing custom model functions, while still being able to 
+        leverage the MLflow designed workflow through the `predict()` method.
+        
+        .. code-block:: python
+            :caption: Example
+
+            # define a custom model
+            class MyModel(pyfunc.PythonModel):
+                def predict(self, context, model_input):
+                    self.my_custom_function(model_input)
+                
+                def my_custom_function(self, model_input):
+                    # do something with the model input
+                
+                def my_other_custom_function(self, *args, **kwargs):
+                    # do something else
+                    
+            # save the model
+            my_model = MyModel()
+            pyfunc.log_model(artifact_path="model", python_model=my_model)
+            
+            # Register the model, transition to desired stage, do whatever else you want to do
+            
+            # load the model
+            loaded_model = pyfunc.load_model("models:/MyModel/Production")
+            print(type(loaded_model)) # <class 'mlflow.pyfunc.model.PyFuncModel'>
+            
+            unwrapped_model = loaded_model.unwrap_python_model()
+            print(type(unwrapped_model)) # <class 'MyModel'>
+            
+            # loaded_model.my_custom_function(some_input) # does not work, only predict() is exposed
+            unwrapped_model.my_custom_function(some_input) # works
+            
+            loaded_model.predict(some_input) # works
+            unwrapped_model.predict(None, some_input) # works, but None is needed for context arg
+            
         """
         try:
             python_model = self._model_impl.python_model
