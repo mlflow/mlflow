@@ -1,7 +1,7 @@
 name: Feature Request
 description: Use this template for feature and enhancement proposals.
-labels: 'enhancement'
-title: '[FR]'
+labels: "enhancement"
+title: "[FR]"
 
 body:
   - type: markdown
@@ -70,7 +70,7 @@ body:
           required: false
         - label: "`area/models`: MLmodel format, model serialization/deserialization, flavors"
           required: false
-        - label: "`area/pipelines`: Pipelines, Pipeline APIs, Pipeline configs, Pipeline Templates"
+        - label: "`area/recipes`: Recipes, Recipe APIs, Recipe configs, Recipe Templates"
           required: false
         - label: "`area/projects`: MLproject format, project running backends"
           required: false

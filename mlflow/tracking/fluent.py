@@ -33,6 +33,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
+    MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
@@ -342,6 +343,8 @@ def start_run(
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
+        if run_name:
+            user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
@@ -1677,10 +1680,10 @@ def autolog(
                  'fit_intercept': 'True',
                  'n_jobs': 'None'}
         metrics: {'training_score': 1.0,
-                  'training_rmse': 4.440892098500626e-16,
+                  'training_root_mean_squared_error': 4.440892098500626e-16,
                   'training_r2_score': 1.0,
-                  'training_mae': 2.220446049250313e-16,
-                  'training_mse': 1.9721522630525295e-31}
+                  'training_mean_absolute_error': 2.220446049250313e-16,
+                  'training_mean_squared_error': 1.9721522630525295e-31}
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """

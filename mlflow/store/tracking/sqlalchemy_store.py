@@ -470,10 +470,10 @@ class SqlAlchemyStore(AbstractStore):
             )
             tags = tags or []
             run_name_tag = _get_run_name_from_tags(tags)
-            if run_name and run_name_tag:
+            if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(
-                    "Both 'run_name' argument and 'mlflow.runName' tag are specified. "
-                    "Remove 'mlflow.runName' tag.",
+                    "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+                    f"different values (run_name='{run_name}', mlflow.runName='{run_name_tag}').",
                     INVALID_PARAMETER_VALUE,
                 )
             run_name = run_name or run_name_tag or _generate_random_name()
@@ -1366,7 +1366,7 @@ def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
     for (type_, key, ascending) in map(
         SearchExperimentsUtils.parse_order_by_for_search_experiments,
-        order_by or ["last_update_time DESC"],
+        order_by or ["creation_time DESC", "experiment_id ASC"],
     ):
         if type_ == "attribute":
             order_by_clauses.append((getattr(SqlExperiment, key), ascending))

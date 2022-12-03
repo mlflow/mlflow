@@ -115,20 +115,6 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - name: Get Java version
-        id: get-java-version
-        run: |
-          if [ "${{ matrix.package }}" = "mleap" ]
-          then
-            java_version=8
-          else
-            java_version=11
-          fi
-          echo "version=$java_version" >> $GITHUB_OUTPUT
-      - uses: ./.github/actions/setup-java
-        with:
-          java-version: ${{ steps.get-java-version.outputs.version }}
-          distribution: "adopt"
       - name: Get python version
         id: get-python-version
         run: |
@@ -138,6 +124,27 @@ jobs:
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
       - uses: ./.github/actions/setup-pyenv
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          if [ "${{ matrix.package }}" = "mleap" ]
+          then
+            pip install packaging
+            supports_java11=$(python -c "from packaging.version import parse; print(parse('${{ matrix.version }}') >= parse('0.21.0'))")
+            if [ "$supports_java11" = "True" ]
+            then
+              java_version=11
+            else
+              java_version=8
+            fi
+          else
+            java_version=11
+          fi
+          echo "version=$java_version" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
       - name: Get cache key
         env:
           INSTALL_COMMAND: ${{ matrix.install }}
@@ -174,4 +181,5 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
         run: |
+          export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}

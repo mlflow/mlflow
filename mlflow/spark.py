@@ -281,6 +281,8 @@ def log_model(
             code_paths,
             signature=signature,
             input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -853,12 +855,18 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
-    # NOTE: The getOrCreate() call below may change settings of the active session which we do not
-    # intend to do here. In particular, setting master to local[1] can break distributed clusters.
+    import pyspark
+    from mlflow.utils._spark_utils import (
+        _create_local_spark_session_for_loading_spark_model,
+        _get_active_spark_session,
+    )
+
+    # NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change
+    # settings of the active session which we do not intend to do here.
+    # In particular, setting master to local[1] can break distributed clusters.
     # To avoid this problem, we explicitly check for an active session. This is not ideal but there
     # is no good workaround at the moment.
-    import pyspark
-
+    spark = _get_active_spark_session()
     signature = _get_sig_configuration(model_path=os.path.join(path, os.pardir))
 
     spark = pyspark.sql.SparkSession._instantiatedSession
@@ -867,18 +875,7 @@ def _load_pyfunc(path):
         # NB: We're disabling caching on the new context since we do not need it and we want to
         # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
         # (e.g. as part of spark_udf).
-        spark = (
-            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)
-            .config("spark.databricks.io.cache.enabled", False)
-            # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
-            # a SparkSession on the workers
-            .config("spark.executor.allowSparkContext", "true")
-            # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
-            # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
-            .config("spark.driver.bindAddress", "127.0.0.1")
-            .master("local[1]")
-            .getOrCreate()
-        )
+        spark = _create_local_spark_session_for_loading_spark_model()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path), signature=signature)
 
 

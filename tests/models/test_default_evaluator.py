@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from contextlib import nullcontext as does_not_raise
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import evaluate, make_metric
 from mlflow.models.evaluation.artifacts import (
@@ -33,7 +34,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _CustomArtifact,
 )
-import mlflow
+from mlflow.models.utils import plot_lines  # pylint: disable=unused-import
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
@@ -63,7 +64,6 @@ from tests.models.test_evaluation import (
     pipeline_model_uri,
     get_pipeline_model_dataset,
 )
-from mlflow.models.utils import plot_lines
 
 
 def assert_dict_equal(d1, d2, rtol):
@@ -1580,7 +1580,7 @@ def test_custom_metric_logs_artifacts_from_paths(
                 img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
                 assert img.format.lower() == img_ext_qualified
                 assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
-                assert (fig_dpi, fig_dpi) == pytest.approx(img.info.get("dpi"), 0.001)
+                assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
 
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact.json" in artifacts
@@ -1857,7 +1857,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
     y = y.head(len(X))
     if pos_label == 2:
         y = [2 if trg == 1 else trg for trg in y]
-    elif pos_label == None:
+    elif pos_label is None:
         # Use a different positive class other than the 1 to verify
         # that an unspecified `pos_label` doesn't cause problems
         # for binary classification tasks with nonstandard labels

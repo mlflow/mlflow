@@ -12,14 +12,16 @@ Usage: python generate_onnx_models.py
 
 
 import numpy as np
+import pandas as pd
+
+from sklearn import datasets
+from sklearn.linear_model import LogisticRegression
+
 import onnx
 import onnxmltools
-import pandas as pd
-from sklearn import datasets
 import tensorflow.compat.v1 as tf
 import tf2onnx
 from skl2onnx.common.data_types import FloatTensorType
-from sklearn.linear_model import LogisticRegression
 
 tf.disable_v2_behavior()
 

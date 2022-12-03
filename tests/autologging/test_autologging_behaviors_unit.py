@@ -101,13 +101,13 @@ def test_autologging_warnings_are_redirected_as_expected(
         'MLflow autologging encountered a warning: "%s:5: Warning: preamble MLflow warning"',
         'MLflow autologging encountered a warning: "%s:10: Warning: postamble MLflow warning"',
     ]:
-        assert (item % mlflow.__file__) in stream.getvalue()
+        assert item % mlflow.__file__ in stream.getvalue()
     for item in [
         'MLflow autologging encountered a warning: "%s:7: UserWarning: preamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:14: Warning: postamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:30: Warning: enablement warning numpy"',
     ]:
-        assert (item % np.__file__) in stream.getvalue()
+        assert item % np.__file__ in stream.getvalue()
 
 
 def test_autologging_event_logging_and_warnings_respect_silent_mode(

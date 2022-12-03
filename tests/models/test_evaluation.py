@@ -1,8 +1,38 @@
+import hashlib
+import os
+import io
+import json
+import uuid
+import signal
+from collections import namedtuple
+from unittest import mock
+import pytest
+
+import numpy as np
+import pandas as pd
+from PIL import ImageChops, Image
+
+import sklearn
+import sklearn.compose
+import sklearn.datasets
+import sklearn.impute
+import sklearn.linear_model
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    mean_absolute_error,
+    mean_squared_error,
+)
+import sklearn.pipeline
+import sklearn.preprocessing
+
+from pyspark.sql import SparkSession
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+
 import mlflow
 from mlflow import MlflowClient
-from collections import namedtuple
 from mlflow.exceptions import MlflowException
-
 from mlflow.models.evaluation import (
     evaluate,
     EvaluationResult,
@@ -11,47 +41,19 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+    _gen_md5_for_arraylike_obj,
+    _start_run_or_reuse_active_run,
     EvaluationDataset,
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
-import hashlib
-from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
-import sklearn
-import os
-import signal
-import sklearn.compose
-import sklearn.datasets
-import sklearn.impute
-import sklearn.linear_model
-import sklearn.pipeline
-import sklearn.preprocessing
-import pytest
-import numpy as np
-import pandas as pd
-from unittest import mock
-from PIL import ImageChops, Image
-import io
-from mlflow.utils.file_utils import TempDir
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
-from mlflow.models.evaluation.base import _logger as _base_logger, _gen_md5_for_arraylike_obj
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    mean_absolute_error,
-    mean_squared_error,
-)
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
-
 from mlflow.tracking.artifact_utils import get_artifact_uri
-import json
-import uuid
+from mlflow.utils.file_utils import TempDir
+
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():
@@ -590,7 +592,7 @@ def test_gen_md5_for_arraylike_obj():
     list2 = list0[:-1] + [100]
     list3 = list0[:10] + [100] + list0[10:]
 
-    assert 4 == len({get_md5(list0), get_md5(list1), get_md5(list2), get_md5(list3)})
+    assert len({get_md5(list0), get_md5(list1), get_md5(list2), get_md5(list3)}) == 4
 
     list4 = list0[:10] + [99] + list0[10:]
     assert get_md5(list3) == get_md5(list4)
@@ -870,16 +872,18 @@ def test_evaluate_with_multi_evaluators(
             mlflow.pyfunc.load_model(baseline_model_uri) if baseline_model_uri else None
         )
 
-        get_evaluate_call_arg = lambda model, evaluator_config: {
-            "model": model,
-            "model_type": "classifier",
-            "dataset": iris_dataset,
-            "run_id": run.info.run_id,
-            "evaluator_config": evaluator_config,
-            "custom_metrics": None,
-            "custom_artifacts": None,
-            "baseline_model": baseline_model,
-        }
+        def get_evaluate_call_arg(model, evaluator_config):
+            return {
+                "model": model,
+                "model_type": "classifier",
+                "dataset": iris_dataset,
+                "run_id": run.info.run_id,
+                "evaluator_config": evaluator_config,
+                "custom_metrics": None,
+                "custom_artifacts": None,
+                "baseline_model": baseline_model,
+            }
+
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
         # evaluators, and the evaluation results should equal to the case of
         # evaluators=["test_evaluator1", "test_evaluator2"]

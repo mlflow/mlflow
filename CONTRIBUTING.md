@@ -201,13 +201,22 @@ correctly configured local environment will also allow you to run tests
 locally in an environment that mimics that of the CI execution
 environment.
 
-There are two means of setting up a base Python development environment
-for MLflow: automated (through the
+There are three means of setting up a base Python development environment
+for MLflow: GitHub Codespaces, automated (through the
 [dev-env-setup.sh](https://github.com/mlflow/mlflow/tree/master/dev/dev-env-setup.sh)
 script) or manual. Even in a manual-based approach (i.e., testing
 functionality of a specific version of a model flavor's package
 version), the automated script can save a great deal of time and reduce
 errors in creating the environment.
+
+#### GitHub Codespaces
+
+<img src="./assets/create-codespace.png" width="60%"/>
+
+1. Navigate to https://github.com/mlflow/mlflow.git.
+2. Above the file list, click `Code`, then select `Create codespace` and wait for your codespace to be created.
+
+See [Quickstart for GitHub Codespaces](https://docs.github.com/en/codespaces/getting-started/quickstart) for more information.
 
 #### Automated Python development environment configuration
 
@@ -287,7 +296,7 @@ commits are signed-off and runs `black --check` and `pylint` to ensure the
 code will pass the lint check for python. You can enable it by running:
 
 ```bash
-git config core.hooksPath hooks
+pre-commit install -t pre-commit -t prepare-commit-msg
 ```
 
 Then, install the Python MLflow package from source - this is required

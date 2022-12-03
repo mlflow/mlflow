@@ -581,6 +581,20 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
             click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
+@cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
+@click.option(
+    "--mask-envs",
+    is_flag=True,
+    help=(
+        "If set (the default behavior without setting this flag is not to obfuscate information), "
+        'mask the MLflow environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`) '
+        "in the output to prevent leaking sensitive information."
+    ),
+)
+def doctor(mask_envs):
+    mlflow.doctor(mask_envs)
+
+
 cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
@@ -597,20 +611,11 @@ except ImportError as e:
     pass
 
 try:
-    import mlflow.pipelines.cli  # pylint: disable=unused-import
+    import mlflow.recipes.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.pipelines.cli.commands)
+    cli.add_command(mlflow.recipes.cli.commands)
 except ImportError as e:
     pass
-
-
-try:
-    import mlflow.pipelines.cli  # pylint: disable=unused-import
-
-    cli.add_command(mlflow.pipelines.cli.commands)
-except ImportError as e:
-    pass
-
 
 try:
     import mlflow.sagemaker.cli  # pylint: disable=unused-import

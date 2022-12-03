@@ -24,6 +24,16 @@ services:
       service: base
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
+      INSTALL_MLFLOW_FROM_REPO: true
+
+  migration-postgresql:
+    depends_on:
+      - postgresql
+    extends:
+      service: base
+    environment:
+      MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgresql:5432/mlflowdb
+    command: tests/db/check_migration.sh
 
   mysql:
     image: mysql
@@ -42,6 +52,16 @@ services:
       - mysql
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb?charset=utf8mb4
+      INSTALL_MLFLOW_FROM_REPO: true
+
+  migration-mysql:
+    extends:
+      service: base
+    depends_on:
+      - mysql
+    environment:
+      MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb?charset=utf8mb4
+    command: tests/db/check_migration.sh
 
   mssql:
     image: mcr.microsoft.com/mssql/server
@@ -61,9 +81,31 @@ services:
       dockerfile: Dockerfile.mssql
     environment:
       MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
+      INSTALL_MLFLOW_FROM_REPO: true
+
+  migration-mssql:
+    depends_on:
+      - mssql
+    extends:
+      service: base
+    image: mlflow-mssql
+    build:
+      context: .
+      dockerfile: Dockerfile.mssql
+    environment:
+      MLFLOW_TRACKING_URI: mssql+pyodbc://mlflowuser:Mlfl*wpassword1@mssql/mlflowdb?driver=ODBC+Driver+17+for+SQL+Server
+    command: tests/db/check_migration.sh
 
   mlflow-sqlite:
     extends:
       service: base
     environment:
       MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
+      INSTALL_MLFLOW_FROM_REPO: true
+
+  migration-sqlite:
+    extends:
+      service: base
+    environment:
+      MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
+    command: tests/db/check_migration.sh

@@ -1,0 +1,34 @@
+{
+  // https://code.visualstudio.com/docs/remote/devcontainerjson-reference
+  "name": "MLflow Development Container",
+  "dockerComposeFile": "docker-compose.yml",
+  "workspaceFolder": "/workspaces/mlflow",
+  "service": "mlflow",
+  "postCreateCommand": ".devcontainer/postCreate.sh",
+  "overrideCommand": true,
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "editor.rulers": [80, 100],
+    "editor.formatOnSave": true,
+    "python.defaultInterpreterPath": "~/miniconda/envs/mlflow-dev-env/bin/python",
+    // Disable automatic environment activation because `.zshrc` contains `conda activate mlflow-dev-env`.
+    "python.terminal.activateEnvironment": false,
+    "python.analysis.autoImportCompletions": false,
+    "python.linting.enabled": false,
+    "python.formatting.provider": "black",
+    "prettier.prettierPath": "/workspaces/mlflow/mlflow/server/js/node_modules/prettier",
+    "prettier.configPath": "/workspaces/mlflow/mlflow/server/js/.prettierrc.js"
+  },
+  "extensions": [
+    "dbaeumer.vscode-eslint",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
+    "GitHub.vscode-pull-request-github",
+    "ms-azuretools.vscode-docker",
+    "ms-python.python",
+    "oderwat.indent-rainbow",
+    "PKief.material-icon-theme",
+    "ritwickdey.LiveServer",
+    "shardulm94.trailing-spaces"
+  ]
+}

@@ -45,9 +45,7 @@ To run this tutorial, you'll need to:
 
     .. container:: R
 
-       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::install_mlflow()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
          working directory for running the tutorial. We avoid running directly from our clone of
@@ -437,10 +435,9 @@ the ``kubectl`` CLI:
         metadata:
           name: mlflow-model
         spec:
+          protocol: v2
           predictors:
             - name: default
-              annotations:
-                seldon.io/no-engine: "true"
               graph:
                 name: mlflow-model
                 type: MODEL
@@ -449,16 +446,6 @@ the ``kubectl`` CLI:
                     containers:
                       - name: mlflow-model
                         image: my-docker-image
-                        imagePullPolicy: IfNotPresent
-                        securityContext:
-                          runAsUser: 0
-                        ports:
-                          - containerPort: 8080
-                            name: http
-                            protocol: TCP
-                          - containerPort: 8081
-                            name: grpc
-                            protocol: TCP
 
     .. container:: KServe
 

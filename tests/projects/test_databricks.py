@@ -73,7 +73,7 @@ def databricks_cluster_mlflow_run_cmd_mock():
 @pytest.fixture()
 def cluster_spec_mock(tmpdir):
     cluster_spec_handle = tmpdir.join("cluster_spec.json")
-    cluster_spec_handle.write(json.dumps(dict()))
+    cluster_spec_handle.write(json.dumps({}))
     yield str(cluster_spec_handle)
 
 

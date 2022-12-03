@@ -10,7 +10,6 @@ azure-storage-blob>=12.0.0
 azure-identity>=1.6.1
 databricks-cli@git+https://github.com/databricks/databricks-cli.git
 pillow
-matplotlib
 shap>=0.40
 plotly
 kaleido
@@ -18,7 +17,7 @@ kaleido
 transformers
 # Required by tuning tests
 hyperopt
-# Required by pipelines tests
+# Required by recipes tests
 ipython
 # Required by automl tests
 flaml

@@ -222,7 +222,7 @@ need for an end-user to provide access credentials to interact with an underlyin
       # Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
       # giving users access to this location without having to manage credentials
       # or permissions.
-      --artifact-destination-root s3://bucket_name \
+      --artifact-destination s3://bucket_name \
       --host remote_host
 
 Enabling the Tracking Server to perform proxied artifact access in order to route client artifact requests to an object store location:
@@ -278,7 +278,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
 
-    mlflow server --artifact-destination-root s3://bucket_name --artifacts-only --host remote_host
+    mlflow server --artifact-destination s3://bucket_name --artifacts-only --host remote_host
 
 Running an MLFlow server in ``--artifacts-only`` mode:
 
@@ -1249,6 +1249,21 @@ allow passing HTTP authentication to the tracking server:
 
     For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
     see :ref:`Artifact Stores <artifact-stores>`.
+
+Tracking Server versioning
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The version of MLflow running on the server can be found by querying the ``/version`` endpoint.
+This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
+For example:
+
+.. code-block:: python
+
+    import requests
+    import mlflow
+
+    response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
+    assert response.text == mlflow.__version__ # Checking for a strict version match
 
 
 .. _system_tags:

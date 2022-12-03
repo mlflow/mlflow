@@ -311,9 +311,19 @@ missing values.
 Handling Date and Timestamp
 """""""""""""""""""""""""""
 For datetime values, Python has precision built into the type. For example, datetime values with
-day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
+day precision have numpy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+Handling Ragged Arrays
+""""""""""""""""""""""
+Ragged arrays can be created in numpy and are produced with a shape of (-1,) and a dytpe of
+object. This will be handled by default when using ``infer_signature``, resulting in a
+signature containing ``Tensor('object', (-1,))``. A similar signature can be manually created
+containing a more detailed representation of a ragged array, for a more expressive signature,
+such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
+as possible given the signature provided, and will support ragged input arrays as well.
+
 
 .. _how-to-log-models-with-signatures:
 
@@ -616,7 +626,7 @@ Keras pyfunc usage
 For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
 
 .. code-block:: py
-    
+
     import mlflow
     import numpy as np
     import pathlib
@@ -696,6 +706,44 @@ via :py:func:`mlflow.pyfunc.load_model()`.
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
     logging multiple copies of the same model.
 
+PyTorch pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+
+For a minimal PyTorch model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+
+    import numpy as np
+    import mlflow
+    import torch
+    from torch import nn
+
+
+    net = nn.Linear(6, 1)
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+
+    X = torch.randn(6)
+    y = torch.randn(1)
+
+    epochs = 5
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = net(X)
+
+        loss = loss_function(outputs, y)
+        loss.backward()
+
+        optimizer.step()
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pytorch.log_model(net, "model")
+
+    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    predictions = pytorch_pyfunc.predict(torch.randn(6).numpy())
+    print(predictions)
+
 For more information, see :py:mod:`mlflow.pytorch`.
 
 Scikit-learn (``sklearn``)
@@ -718,7 +766,7 @@ Scikit-learn pyfunc usage
 For a Scikit-learn LogisticRegression model, an example configuration for the pyfunc predict() method is:
 
 .. code-block:: py
-    
+
     import mlflow
     import numpy as np
     from sklearn.linear_model import LogisticRegression
@@ -791,6 +839,53 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+ONNX pyfunc usage example
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For an ONNX model, an example configuration that uses pytorch to train a dummy model,
+converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict() method is:
+
+.. code-block:: py
+
+    import numpy as np
+    import mlflow
+    import onnx
+    import torch
+    from torch import nn
+
+    # define a torch model
+    net = nn.Linear(6, 1)
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+
+    X = torch.randn(6)
+    y = torch.randn(1)
+
+    # run model training
+    epochs = 5
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = net(X)
+
+        loss = loss_function(outputs, y)
+        loss.backward()
+
+        optimizer.step()
+
+    # convert model to ONNX and load it
+    torch.onnx.export(net, X, "model.onnx")
+    onnx_model = onnx.load_model("model.onnx")
+
+    # log the model into a mlflow run
+    with mlflow.start_run():
+        model_info = mlflow.onnx.log_model(onnx_model, "model")
+
+    # load the logged model and make a prediction
+    onnx_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    predictions = onnx_pyfunc.predict(X.numpy())
+    print(predictions)
 
 MXNet Gluon (``gluon``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -873,6 +968,129 @@ methods add the ``python_function`` flavor to the MLflow Models that they produc
 interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can
 only be scored with DataFrame input. You can also use the :py:func:`mlflow.fastai.load_model()` method to
 load MLflow Models with the ``fastai`` model flavor in native fastai format.
+
+The interface for utilizing a ``fastai`` model loaded as a pyfunc type for generating predictions uses a
+Pandas DataFrame argument.
+
+This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.tabular.html>`_,
+logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
+using a ``fastai`` data loader:
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    def print_auto_logged_info(r):
+        tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+        artifacts = [f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")]
+        print("run_id: {}".format(r.info.run_id))
+        print("artifacts: {}".format(artifacts))
+        print("params: {}".format(r.data.params))
+        print("metrics: {}".format(r.data.metrics))
+        print("tags: {}".format(tags))
+
+    def main(epochs=5, learning_rate=0.01):
+
+        path = untar_data(URLs.ADULT_SAMPLE)
+        path.ls()
+
+        df = pd.read_csv(path/'adult.csv')
+
+        dls = TabularDataLoaders.from_csv(path/'adult.csv', path=path, y_names="salary",
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            procs = [Categorify, FillMissing, Normalize])
+
+        splits = RandomSplitter(valid_pct=0.2)(range_of(df))
+
+        to = TabularPandas(df, procs=[Categorify, FillMissing,Normalize],
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            y_names='salary',
+            splits=splits)
+
+        dls = to.dataloaders(bs=64)
+
+        model = tabular_learner(dls, metrics=accuracy)
+
+        mlflow.fastai.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(5, 0.01)
+            mlflow.fastai.log_model(model, "model")
+
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.fastai.load_model(model_uri)
+
+        test_df = df.copy()
+        test_df.drop(['salary'], axis=1, inplace=True)
+        dl = learn.dls.test_dl(test_df)
+
+        predictions, _ = loaded_model.get_preds(dl=dl)
+        px = pd.DataFrame(predictions).astype("float")
+        px.head(5)
+
+    main()
+
+Output (``Pandas DataFrame``):
+
+====== ========================== ==========================
+Index  Probability of first class Probability of second class
+====== ========================== ==========================
+0	   0.545088	                  0.454912
+1	   0.503172	                  0.496828
+2	   0.962663	                  0.037337
+3	   0.206107	                  0.793893
+4	   0.807599	                  0.192401
+====== ========================== ==========================
+
+Alternatively, when using the ``python_function`` flavor, get predictions from a DataFrame.
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    model_uri = ...
+
+    path = untar_data(URLs.ADULT_SAMPLE)
+    df = pd.read_csv(path/'adult.csv')
+    test_df = df.copy()
+    test_df.drop(['salary'], axis=1, inplace=True)
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri)
+    loaded_model.predict(test_df)
+
+Output (``Pandas DataFrame``):
+
+====== =======================================================
+Index  Probability of first class, Probability of second class
+====== =======================================================
+0	   [0.5450878, 0.45491222]
+1	   [0.50317234, 0.49682766]
+2	   [0.9626626, 0.037337445]
+3	   [0.20610662, 0.7938934]
+4	   [0.8075987, 0.19240129]
+====== =======================================================
 
 For more information, see :py:mod:`mlflow.fastai`.
 
@@ -1180,6 +1398,79 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
+Community Model Flavors
+-----------------------
+
+Other useful MLflow flavors are developed and maintained by the
+MLflow community, enabling you to use MLflow Models with an
+even broader ecosystem of machine learning libraries. For more information,
+check out the description of each community-developed flavor below.
+
+.. contents::
+  :local:
+  :depth: 1
+
+
+BigML (``bigmlflow``)
+^^^^^^^^^^^^^^^^^^^^^
+
+The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
+the ``bigml`` model flavor. It enables using
+`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
+and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
+
+Installing bigmlflow
+~~~~~~~~~~~~~~~~~~~~
+
+BigMLFlow can be installed from PyPI as follows:
+
+
+.. code-block:: bash
+
+    pip install bigmlflow
+
+BigMLFlow usage
+~~~~~~~~~~~~~~~
+
+The ``bigmlflow`` module defines the flavor that implements the
+``save_model()`` and ``log_model()`` methods. They can be used
+to save BigML models and their related information in MLflow Model format.
+
+.. code-block:: py
+
+    import json
+    import mlflow
+    import bigmlflow
+
+    MODEL_FILE = "logistic_regression.json"
+    with mlflow.start_run():
+        with open(MODEL_FILE) as handler:
+            model = json.load(handler)
+            bigmlflow.log_model(model,
+                                artifact_path="model",
+                                registered_model_name="my_model")
+
+These methods also add the ``python_function`` flavor to the MLflow Models
+that they produce, allowing the models to be interpreted as generic Python
+functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame inputs.
+
+.. code-block:: py
+
+    # saving the model
+    save_model(model, path=model_path)
+    # retrieving model
+    pyfunc_model = pyfunc.load_model(model_path)
+    pyfunc_predictions = pyfunc_model.predict(dataframe)
+
+You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
+with the ``bigmlflow`` model flavor as a BigML
+`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
+
+For more information, see the
+`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
+and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -1205,21 +1496,27 @@ and behavior:
     import mlflow
     from sklearn.model_selection import train_test_split
 
-    # load UCI Adult Data Set; segment it into training and test sets
+    # Load the UCI Adult Dataset
     X, y = shap.datasets.adult()
+
+    # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-    # train XGBoost model
+    # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
-    # construct an evaluation dataset from the test set
+    # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
-        model_info = mlflow.sklearn.log_model(model, "model")
+        # Log the baseline model to MLflow
+        mlflow.sklearn.log_model(model, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # Evaluate the logged model
         result = mlflow.evaluate(
-            model_info.model_uri,
+            model_uri,
             eval_data,
             targets="label",
             model_type="classifier",
@@ -1229,10 +1526,10 @@ and behavior:
 |eval_metrics_img| |eval_importance_img|
 
 .. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
-   :width: 30%
+   :width: 15%
 
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
-   :width: 69%
+   :width: 84%
 
 
 Evaluating with Custom Metrics
@@ -1257,11 +1554,11 @@ Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
-generated during model evaluation to validate the quality of your model. By specifying a 
-``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
-objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
+generated during model evaluation to validate the quality of your model. By specifying a
+``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold`
+objects, you can specify value thresholds that your model's evaluation metrics must exceed as well
 as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
 will throw a ``ModelValidationFailedException`` detailing the validation failure.
 
 .. code-block:: py
@@ -1311,9 +1608,17 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
         )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
+and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to
 `the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
+The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
+been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+
+|eval_importance_compare_img|
+
+.. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
+   :width: 99%
 
 .. note:: Limitations (when the default evaluator is used):
 
@@ -1581,10 +1886,10 @@ Example requests:
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-      "dataframe_records": {
+      "dataframe_records": [
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
-      }
+      ]
     }'
 
     # numpy/tensor input using TF serving's "instances" format
@@ -1626,7 +1931,7 @@ built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+<https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html>`_.
 
 .. note::
    To use MLServer with MLflow, please install ``mlflow`` as:

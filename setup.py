@@ -43,8 +43,8 @@ extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
 ]
-pipelines_template_files = package_files("mlflow/pipelines/resources")
-pipelines_files = package_files("mlflow/pipelines/cards/templates")
+recipes_template_files = package_files("mlflow/recipes/resources")
+recipes_files = package_files("mlflow/recipes/cards/templates")
 
 
 """
@@ -117,8 +117,8 @@ setup(
             + models_container_server_files
             + alembic_files
             + extra_files
-            + pipelines_template_files
-            + pipelines_files
+            + recipes_template_files
+            + recipes_files
         ),
     }
     if not _is_mlflow_skinny
@@ -144,22 +144,12 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
             # Required to serve models through MLServer
-            "mlserver>=0.5.3",
-            "mlserver-mlflow>=0.5.3",
+            "mlserver>=1.2.0.dev13",
+            "mlserver-mlflow>=1.2.0.dev13",
             "virtualenv",
             # Required for exporting metrics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
             "prometheus-flask-exporter",
-        ],
-        "pipelines": [
-            "scikit-learn>=1.0",
-            "pyarrow>=7.0",
-            "shap>=0.40",
-            "pandas-profiling>=3.1",
-            "ipython>=7.0",
-            "markdown>=3.3",
-            "Jinja2>=2.11; platform_system != 'Windows'",
-            "Jinja2>=3.0; platform_system == 'Windows'",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
@@ -167,7 +157,6 @@ setup(
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
-        mlp=mlflow.pipelines.cli:commands
     """,
     cmdclass={
         "dependencies": ListDependencies,

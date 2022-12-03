@@ -1331,11 +1331,10 @@ class MlflowClient:
                     "f": "floating",
                 }
 
-                if image.dtype.kind not in valid_data_types.keys():
+                if image.dtype.kind not in valid_data_types:
                     raise TypeError(
-                        "Invalid array data type: '{}'. Must be one of {}".format(
-                            image.dtype, list(valid_data_types.values())
-                        )
+                        f"Invalid array data type: '{image.dtype}'. "
+                        f"Must be one of {list(valid_data_types.values())}"
                     )
 
                 if image.ndim not in [2, 3]:

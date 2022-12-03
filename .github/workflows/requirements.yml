@@ -6,7 +6,7 @@ on:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml
   schedule:
-    - cron: '0 13 * * *'
+    - cron: "0 13 * * *"
   workflow_dispatch:
     inputs:
       repository:
@@ -30,7 +30,7 @@ concurrency:
 env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHON_VERSION: '3.8'
+  PYTHON_VERSION: "3.8"
 
 defaults:
   run:
