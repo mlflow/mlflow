@@ -4,7 +4,7 @@ import { RenameRunModal } from '../../../modals/RenameRunModal';
 import RestoreRunModal from '../../../modals/RestoreRunModal';
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
 import { MoveRunsModal } from '../../../modals/MoveRunsModal';
-import {ExperimentEntity} from "../../../../types";
+import { ExperimentEntity } from '../../../../types';
 
 export interface ExperimentViewModalsProps {
   showDeleteRunModal: boolean;

@@ -23,21 +23,6 @@ class MoveRunsFormComponent extends Component {
     this.setState({ selectedExperiment });
   };
 
-  autoFocusInputRef = (inputToAutoFocus) => {
-    this.inputToAutoFocus = inputToAutoFocus;
-    inputToAutoFocus && inputToAutoFocus.focus();
-    inputToAutoFocus && inputToAutoFocus.select();
-  };
-
-  autoFocus = (prevProps) => {
-    if (prevProps.visible === false && this.props.visible === true) {
-      // focus on input field
-      this.inputToAutoFocus && this.inputToAutoFocus.focus();
-      // select text
-      this.inputToAutoFocus && this.inputToAutoFocus.select();
-    }
-  };
-
   render() {
     return (
       <Form ref={this.props.innerRef} layout='vertical'>

@@ -6,7 +6,7 @@ module.exports = function(app) {
   // (eg /ajax-api) to that port.
   // Exception: If the caller has specified an MLFLOW_PROXY, we instead forward server requests
   // there.
-  const proxyTarget = process.env.MLFLOW_PROXY || 'http://127.0.0.1:5000/';
+  const proxyTarget = process.env.MLFLOW_PROXY || 'http://localhost:5000/';
   const proxyStaticTarget = process.env.MLFLOW_STATIC_PROXY || proxyTarget;
   app.use(
     createProxyMiddleware('/ajax-api', {

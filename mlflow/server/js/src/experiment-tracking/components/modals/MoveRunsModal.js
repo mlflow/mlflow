@@ -48,7 +48,6 @@ export class MoveRunsModalImpl extends Component {
         <MoveRunsForm
           visible={isOpen}
           experimentList={this.props.experimentList}
-          innerRef={this.form}
         />
       </GenericInputModal>
     );
