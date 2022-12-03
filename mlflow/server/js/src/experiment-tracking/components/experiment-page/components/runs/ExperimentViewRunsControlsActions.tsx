@@ -21,7 +21,7 @@ export type ExperimentViewRunsControlsActionsProps = {
 export const ExperimentViewRunsControlsActions = React.memo(
   ({ viewState, runsData, searchFacetsState }: ExperimentViewRunsControlsActionsProps) => {
     const { runsSelected } = viewState;
-    const { runInfos } = runsData;
+    const { runInfos, experimentList } = runsData;
     const { lifecycleFilter } = searchFacetsState;
 
     const history = useHistory();
@@ -29,6 +29,7 @@ export const ExperimentViewRunsControlsActions = React.memo(
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);
     const [showRenameRunModal, setShowRenameRunModal] = useState(false);
+    const [showMoveRunsModal, setShowMoveRunsModal] = useState(false);
     const [renamedRunName, setRenamedRunName] = useState('');
 
     const renameButtonClicked = useCallback(() => {
@@ -39,6 +40,8 @@ export const ExperimentViewRunsControlsActions = React.memo(
         setShowRenameRunModal(true);
       }
     }, [runInfos, runsSelected]);
+
+    const moveButtonClicked = useCallback(() => setShowMoveRunsModal(true), []);
 
     const compareButtonClicked = useCallback(() => {
       const runsSelectedList = Object.keys(runsSelected);
@@ -55,6 +58,7 @@ export const ExperimentViewRunsControlsActions = React.memo(
     const onCloseDeleteRunModal = useCallback(() => setShowDeleteRunModal(false), []);
     const onCloseRestoreRunModal = useCallback(() => setShowRestoreRunModal(false), []);
     const onCloseRenameRunModal = useCallback(() => setShowRenameRunModal(false), []);
+    const onCloseMoveRunsModal = useCallback(() => setShowMoveRunsModal(false), []);
 
     const selectedRunsCount = Object.values(viewState.runsSelected).filter(Boolean).length;
     const canRestoreRuns = selectedRunsCount > 0;
@@ -65,12 +69,15 @@ export const ExperimentViewRunsControlsActions = React.memo(
       <div css={styles.controlBar}>
         <ExperimentViewRunModals
           runsSelected={runsSelected}
+          experimentList={experimentList}
           onCloseRenameRunModal={onCloseRenameRunModal}
           onCloseDeleteRunModal={onCloseDeleteRunModal}
           onCloseRestoreRunModal={onCloseRestoreRunModal}
+          onCloseMoveRunsModal={onCloseMoveRunsModal}
           showDeleteRunModal={showDeleteRunModal}
           showRestoreRunModal={showRestoreRunModal}
           showRenameRunModal={showRenameRunModal}
+          showMoveRunsModal={showMoveRunsModal}
           renamedRunName={renamedRunName}
         />
         <Button
@@ -82,6 +89,13 @@ export const ExperimentViewRunsControlsActions = React.memo(
             defaultMessage='Compare'
             // eslint-disable-next-line max-len
             description='String for the compare button to compare experiment runs to find an ideal model'
+          />
+        </Button>
+        <Button data-testid='runs-move-button' onClick={moveButtonClicked}>
+          <FormattedMessage
+            defaultMessage='Move'
+            // eslint-disable-next-line max-len
+            description='String for the move button to move experiment runs into another experiment'
           />
         </Button>
         <Button

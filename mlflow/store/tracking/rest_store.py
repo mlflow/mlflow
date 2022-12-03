@@ -24,6 +24,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     SetExperimentTag,
     GetExperimentByName,
+    MoveRuns,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
@@ -78,6 +79,18 @@ class RestStore(AbstractStore):
             response_proto.next_page_token if response_proto.HasField("next_page_token") else None
         )
         return PagedList(experiments, token)
+
+    def move_runs(self, run_ids, experiment_id):
+        """
+        Move runs to another experiment.
+
+        :param run_ids: IDs of the runs to be moved.
+        :param experiment_id: IDs of the experiment the runs are moved to.
+        :return: String ID of the experiment.
+        """
+        req_body = message_to_json(MoveRuns(run_ids=run_ids, experiment_id=experiment_id))
+        response_proto = self._call_endpoint(MoveRuns, req_body)
+        return response_proto.experiment_id
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         """

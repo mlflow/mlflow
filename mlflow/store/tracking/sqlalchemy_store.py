@@ -242,6 +242,18 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
+    def move_runs(self, run_ids, experiment_id):
+
+        # @todo assert experiment exists
+
+        with self.ManagedSessionMaker() as session:
+            for run_id in run_ids:
+                run = self._get_run(run_uuid=run_id, session=session)
+                run.experiment_id = int(experiment_id)
+                self._save_to_db(objs=run, session=session)
+
+        return experiment_id
+
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
 

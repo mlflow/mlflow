@@ -3,16 +3,21 @@ import DeleteRunModal from '../../../modals/DeleteRunModal';
 import { RenameRunModal } from '../../../modals/RenameRunModal';
 import RestoreRunModal from '../../../modals/RestoreRunModal';
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
+import { MoveRunsModal } from '../../../modals/MoveRunsModal';
+import {ExperimentEntity} from "../../../../types";
 
 export interface ExperimentViewModalsProps {
   showDeleteRunModal: boolean;
   showRestoreRunModal: boolean;
   showRenameRunModal: boolean;
+  showMoveRunsModal: boolean;
   runsSelected: Record<string, boolean>;
   onCloseDeleteRunModal: () => void;
   onCloseRestoreRunModal: () => void;
   onCloseRenameRunModal: () => void;
+  onCloseMoveRunsModal: () => void;
   renamedRunName: string;
+  experimentList: Record<string, ExperimentEntity>;
 }
 
 /**
@@ -23,11 +28,14 @@ export const ExperimentViewRunModals = ({
   showDeleteRunModal,
   showRestoreRunModal,
   showRenameRunModal,
+  showMoveRunsModal,
   runsSelected,
   onCloseDeleteRunModal,
   onCloseRestoreRunModal,
   onCloseRenameRunModal,
+  onCloseMoveRunsModal,
   renamedRunName,
+  experimentList,
 }: ExperimentViewModalsProps) => {
   const { updateSearchFacets } = useFetchExperimentRuns();
 
@@ -67,6 +75,13 @@ export const ExperimentViewRunModals = ({
         onClose={onCloseRenameRunModal}
         runName={renamedRunName}
         isOpen={showRenameRunModal}
+        onSuccess={() => refreshRuns()}
+      />
+      <MoveRunsModal
+        isOpen={showMoveRunsModal}
+        onClose={onCloseMoveRunsModal}
+        selectedRunIds={selectedRunIds}
+        experimentList={experimentList}
         onSuccess={() => refreshRuns()}
       />
     </>

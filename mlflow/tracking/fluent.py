@@ -1215,6 +1215,20 @@ def create_experiment(
     return MlflowClient().create_experiment(name, artifact_location, tags)
 
 
+def move_runs(
+    run_ids: List[str],
+    experiment_id: str,
+) -> str:
+    """
+    Move runs to another experiment.
+
+    :param run_ids: IDs of the runs to be moved.
+    :param experiment_id: IDs of the experiment the runs are moved to.
+    :return: String ID of the experiment.
+    """
+    return MlflowClient().move_runs(run_ids, experiment_id)
+
+
 def delete_experiment(experiment_id: str) -> None:
     """
     Delete an experiment from the backend store.
