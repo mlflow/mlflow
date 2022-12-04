@@ -4,6 +4,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import (
+    path_not_unique,
     _is_numeric,
     _validate_metric_name,
     _validate_param_name,
@@ -16,6 +17,8 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
 )
 
+UNIQUE_PATHS = ["a", "a/b/c", "a.b/c", ".a"]
+NOT_UNIQUE_PATHS = ["./a", "a/b/../c", ".", "../a/b/", "/a/b/c"]
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a",
     "Ab-5_",
@@ -41,6 +44,13 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "./",
     "/./",
 ]
+
+
+def test_path_not_unique():
+    for unique_path in UNIQUE_PATHS:
+        assert not path_not_unique(unique_path)
+    for not_unique_path in NOT_UNIQUE_PATHS:
+        assert path_not_unique(not_unique_path)
 
 
 def test_is_numeric():
