@@ -1,5 +1,8 @@
 from collections import defaultdict
 from importlib import reload
+from itertools import zip_longest
+
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
@@ -368,12 +371,8 @@ def test_search_experiments(tmp_path):
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
-    for (idx, active_experiment_name) in enumerate(active_experiment_names):
-        if idx < 3:
-            tags = {"tag": tag_values[idx]}
-        else:
-            tags = None
-        mlflow.create_experiment(active_experiment_name, tags=tags)
+    for (tag, active_experiment_name) in zip_longest(tag_values, active_experiment_names):
+        mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
@@ -421,6 +420,54 @@ def test_search_experiments(tmp_path):
     # Order by name
     experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)
     assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
+
+
+def test_search_registered_models(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    num_all_models = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT + 1
+    num_a_models = num_all_models // 4
+    num_b_models = num_all_models - num_a_models
+
+    a_model_names = [f"AModel_{i}" for i in range(num_a_models)]
+    b_model_names = [f"BModel_{i}" for i in range(num_b_models)]
+    model_names = b_model_names + a_model_names
+
+    tag_values = ["x", "x", "y"]
+    for (tag, model_name) in zip_longest(tag_values, model_names):
+        MlflowClient().create_registered_model(model_name, tags={"tag": tag} if tag else None)
+
+    # max_results is unspecified
+    models = mlflow.search_registered_models()
+    assert len(models) == num_all_models
+
+    # max_results is larger than the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models + 1)
+    assert len(models) == num_all_models
+
+    # max_results is equal to the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models)
+    assert len(models) == num_all_models
+    # max_results is smaller than the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models - 1)
+    assert len(models) == num_all_models - 1
+
+    # Filter by name
+    models = mlflow.search_registered_models(filter_string="name = 'AModel_1'")
+    assert [m.name for m in models] == ["AModel_1"]
+    models = mlflow.search_registered_models(filter_string="name ILIKE 'bmodel_%'")
+    assert len(models) == num_b_models
+
+    # Filter by tags
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'x'")
+    assert [m.name for m in models] == model_names[:2]
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'y'")
+    assert [m.name for m in models] == [model_names[2]]
+
+    # Order by name
+    models = mlflow.search_registered_models(order_by=["name DESC"], max_results=3)
+    assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
 
 
 @pytest.fixture
