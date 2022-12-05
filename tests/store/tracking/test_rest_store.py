@@ -400,7 +400,7 @@ class TestRestStore:
                 {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
                 {"key": "a_metric", "value": 46, "timestamp": 123456797, "step": 1},
             ],
-            "next_page_token": "token",
+            "next_page_token": 123456797,
         }
         response_1.text = json.dumps(response_payload)
         response_2 = mock.MagicMock()
@@ -409,8 +409,7 @@ class TestRestStore:
             "metrics": [
                 {"key": "a_metric", "value": 40, "timestamp": 123456877, "step": 2},
                 {"key": "a_metric", "value": 56, "timestamp": 123456897, "step": 3},
-            ],
-            "next_page_token": "",
+            ]
         }
         response_2.text = json.dumps(response_payload)
         with mock.patch(
@@ -438,7 +437,7 @@ class TestRestStore:
             mock_request.assert_called_once()
             assert mock_request.call_args.kwargs["params"] == {
                 "max_results": 2,
-                "page_token": "token",
+                "page_token": 123456797,
                 "metric_key": "a_metric",
                 "run_id": "2",
                 "run_uuid": "2",
