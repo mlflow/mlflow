@@ -17,8 +17,6 @@ from mlflow.utils.validation import (
     _validate_experiment_name,
 )
 
-UNIQUE_PATHS = ["a", "a/b/c", "a.b/c", ".a"]
-NOT_UNIQUE_PATHS = ["./a", "a/b/../c", ".", "../a/b/", "/a/b/c"]
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a",
     "Ab-5_",
@@ -46,11 +44,22 @@ BAD_METRIC_OR_PARAM_NAMES = [
 ]
 
 
-def test_path_not_unique():
-    for unique_path in UNIQUE_PATHS:
-        assert not path_not_unique(unique_path)
-    for not_unique_path in NOT_UNIQUE_PATHS:
-        assert path_not_unique(not_unique_path)
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("a", False),
+        ("a/b/c", False),
+        ("a.b/c", False),
+        (".a", False),
+        ("./a", True),
+        ("a/b/../c", True),
+        (".", True),
+        ("../a/b", True),
+        ("/a/b/c", True),
+    ],
+)
+def test_path_not_unique(path, expected):
+    assert path_not_unique(path) is expected
 
 
 def test_is_numeric():
