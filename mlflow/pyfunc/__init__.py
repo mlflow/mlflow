@@ -422,36 +422,35 @@ class PyFuncModel:
         .. code-block:: python
             :caption: Example
 
+            import mlflow
+
             # define a custom model
-            class MyModel(pyfunc.PythonModel):
+            class MyModel(mlflow.pyfunc.PythonModel):
                 def predict(self, context, model_input):
-                    self.my_custom_function(model_input)
+                    return self.my_custom_function(model_input)
 
                 def my_custom_function(self, model_input):
                     # do something with the model input
+                    return 0
 
-                def my_other_custom_function(self, *args, **kwargs):
-                    # do something else
-
+            some_input = 1
             # save the model
             my_model = MyModel()
-            pyfunc.log_model(artifact_path="model", python_model=my_model)
-
-            # Register the model, transition to desired stage, do whatever else you want to do
+            with mlflow.start_run():
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=my_model)
 
             # load the model
-            loaded_model = pyfunc.load_model("models:/MyModel/Production")
+            loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
             print(type(loaded_model)) # <class 'mlflow.pyfunc.model.PyFuncModel'>
 
             unwrapped_model = loaded_model.unwrap_python_model()
-            print(type(unwrapped_model)) # <class 'MyModel'>
+            print(type(unwrapped_model)) # <class '__main__.MyModel'>
 
-            # loaded_model.my_custom_function(some_input) # does not work, only predict() is exposed
-            unwrapped_model.my_custom_function(some_input) # works
+            # print(loaded_model.my_custom_function(some_input)) # does not work, only predict() is exposed
+            print(unwrapped_model.my_custom_function(some_input)) # works
 
-            loaded_model.predict(some_input) # works
-            unwrapped_model.predict(None, some_input) # works, but None is needed for context arg
-
+            print(loaded_model.predict(some_input)) # works
+            print(unwrapped_model.predict(None, some_input)) # works, but None is needed for context arg
         """
         try:
             python_model = self._model_impl.python_model
