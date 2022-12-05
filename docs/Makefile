@@ -64,6 +64,10 @@ javadocs:
 rdocs:
 	./build-rdoc.sh
 
+.PHONY: test-examples
+test-examples:
+	@pytest --no-cov .examples
+
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
 rsthtml:

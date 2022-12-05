@@ -33,7 +33,7 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt .
+            pip install --progress-bar off -r requirements/doc-requirements.txt . pytest
       - run:
           name: Build documentation
           working_directory: docs
@@ -42,6 +42,11 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+      - run:
+          name: Test examples
+          working_directory: docs
+          command: |
+            make test-examples
       - store_artifacts:
           path: docs/build/html
 
