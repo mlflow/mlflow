@@ -543,22 +543,16 @@ def _get_new_training_session_class():
             Returns True when at least one of the following conditions satisfies:
 
             1. This session is the root session.
-            2. For the first session that has the same estimator with current session,
-               its parent session allows autologging.
+            2. The parent session allows autologging and its estimator differs from this session's
+               estimator.
             """
             for training_session in _TrainingSession._session_stack:
                 if training_session is self:
                     break
                 elif training_session.estimator is self.estimator:
-                    return training_session.should_log()
+                    return False
 
             return self._parent is None or self._parent.allow_children
-
-        def is_current_estimator_nested_call(self):
-            """
-            Check whether it is a session has the same estiamtor with parent session
-            """
-            return self._parent is not None and self.estimator is self._parent.estimator
 
         @staticmethod
         def is_active():

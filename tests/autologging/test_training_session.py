@@ -114,9 +114,7 @@ def test_should_log_returns_false_when_parrent_session_has_the_same_estimator():
 
                 assert p.should_log()
                 assert c1.should_log()
-                assert not c1.is_current_estimator_nested_call()
                 assert c2.should_log()
-                assert c2.is_current_estimator_nested_call()
 
             assert_session_stack([(None, PARENT), (PARENT, CHILD)])
         assert_session_stack([(None, PARENT)])
