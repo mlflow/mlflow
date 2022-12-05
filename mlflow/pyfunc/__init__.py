@@ -450,6 +450,7 @@ class PyFuncModel:
             # print(loaded_model.my_custom_function(some_input))
 
             print(unwrapped_model.my_custom_function(some_input)) # works
+
             print(loaded_model.predict(some_input)) # works
 
             # works, but None is needed for context arg
