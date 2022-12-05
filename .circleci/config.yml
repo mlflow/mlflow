@@ -33,7 +33,7 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt . pytest pytest-cov
+            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov .
       - run:
           name: Build documentation
           working_directory: docs
