@@ -20,7 +20,6 @@ class TestCodeBlockDirective(CodeBlock):
             [
                 f"# source: {rel_from_root}",
                 f"# lineno_in_docstring: {lineno_in_docstring}",
-                f"# command to test this code block: python {filename}",
                 "",
                 "",
                 "def test_code_block():",
