@@ -446,14 +446,11 @@ class PyFuncModel:
             unwrapped_model = loaded_model.unwrap_python_model()
             print(type(unwrapped_model)) # <class '__main__.MyModel'>
 
-            # does not work, only predict() is exposed
-            # print(loaded_model.my_custom_function(some_input))
-
+            # print(loaded_model.my_custom_function(some_input)) # does not work, only predict() is exposed
             print(unwrapped_model.my_custom_function(some_input)) # works
-            print(loaded_model.predict(some_input)) # works
 
-            # works, but None is needed for context arg
-            print(unwrapped_model.predict(None, some_input))
+            print(loaded_model.predict(some_input)) # works
+            print(unwrapped_model.predict(None, some_input)) # works, but None is needed for context arg
         """
         try:
             python_model = self._model_impl.python_model
