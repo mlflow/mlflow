@@ -5,6 +5,7 @@ import {
   GET_RUN_API,
   LIST_ARTIFACTS_API,
   SEARCH_EXPERIMENTS_API,
+  LOAD_MORE_EXPERIMENTS_API,
   DELETE_EXPERIMENT_API,
   OPEN_ERROR_MODAL,
   EXPERIMENT_LIST_SEARCH_INPUT,
@@ -53,21 +54,38 @@ export const getExperiments = (state) => {
   return ordered;
 };
 
+export const getExperimentsFiltered = (state) => {
+  // Order matters since we are appending
+  // the int keys will not allow mapping in the same order items were added.
+  const lowerCasedSearchInput =
+    state.entities.experimentListSearchInput.currentSearchInput.toLowerCase();
+  const unOrdered = Object.values(state.entities.experimentsById);
+
+  let experiments = unOrdered;
+  if (lowerCasedSearchInput !== '') {
+    experiments = unOrdered.filter(({ name }) =>
+      name.toLowerCase().includes(lowerCasedSearchInput),
+    );
+  }
+  const ordered = orderBy(experiments, ['creation_time', 'experiment_id'], ['desc', 'asc']);
+  return ordered;
+};
+
 export const getExperiment = (id, state) => {
   return state.entities.experimentsById[id];
 };
 
-export const getSearchExperimentsNextPageToken = (state) => {
-  return state.entities.searchExperimentsNextPageToken;
+export const getLoadMoreExperimentsNextPageToken = (state) => {
+  return state.entities.loadMoreExperimentsNextPageToken;
 };
 
 export const getLoadingMoreExperiments = (state) => {
   return state.entities.loadingMoreExperiments;
 };
 
-export const searchExperimentsNextPageToken = (state = null, action) => {
+export const loadMoreExperimentsNextPageToken = (state = null, action) => {
   switch (action.type) {
-    case fulfilled(SEARCH_EXPERIMENTS_API): {
+    case fulfilled(LOAD_MORE_EXPERIMENTS_API): {
       return action.payload.next_page_token || null;
     }
     default:
@@ -75,9 +93,12 @@ export const searchExperimentsNextPageToken = (state = null, action) => {
   }
 };
 
-export const loadingMoreExperiments = (state, action) => {
+export const loadingMoreExperiments = (state = false, action) => {
   switch (action.type) {
     case pending(SEARCH_EXPERIMENTS_API): {
+      return true;
+    }
+    case pending(LOAD_MORE_EXPERIMENTS_API): {
       return true;
     }
     default:
@@ -104,7 +125,19 @@ export const experimentListSearchInput = (
 
 export const experimentsById = (state = {}, action) => {
   switch (action.type) {
+    // Remove all prior experiments and start over
     case fulfilled(SEARCH_EXPERIMENTS_API): {
+      let newState = {};
+      if (action.payload && action.payload.experiments) {
+        action.payload.experiments.forEach((eJson) => {
+          const experiment = Experiment.fromJs(eJson);
+          newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
+        });
+      }
+      return newState;
+    }
+    // Only append when calling this.
+    case fulfilled(LOAD_MORE_EXPERIMENTS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.experiments) {
         action.payload.experiments.forEach((eJson) => {
@@ -455,7 +488,7 @@ export const artifactRootUriByRunUuid = (state = {}, action) => {
 export const entities = combineReducers({
   experimentListSearchInput,
   experimentsById,
-  searchExperimentsNextPageToken,
+  loadMoreExperimentsNextPageToken,
   loadingMoreExperiments,
   runInfosByUuid,
   runUuidsMatchingFilter,

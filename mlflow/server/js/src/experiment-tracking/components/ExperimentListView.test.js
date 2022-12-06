@@ -13,8 +13,38 @@ import {
 } from '../utils/test-utils/ReduxStoreFixtures';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { makeStore } from '../../store';
+import * as actions from '../actions'; // eslint-disable-line import/no-namespace
+
+// Make the autosizer render items.
+// https://github.com/bvaughn/react-virtualized/blob/source/AutoSizer/AutoSizer.jest.js#L68
+function mockOffsetSize(width, height) {
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    value: height,
+  });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    value: width,
+  });
+}
+
+// Need to mock api calls when the list loads. The store already
+// has experiments, so doesn't matter what this returns.
+beforeEach(() => {
+  jest.spyOn(actions, 'searchExperimentsApi').mockReturnValue({ type: '', payload: '', meta: '' });
+  jest
+    .spyOn(actions, 'loadMoreExperimentsApi')
+    .mockReturnValue({ type: '', payload: '', meta: '' });
+  mockOffsetSize(200, 1000);
+});
+
+afterEach(() => {
+  // restore the spy created with spyOn
+  jest.restoreAllMocks();
+});
 
 // Mount with a real store to test reducer interaction with experiments.
+// Need to mock out the dispatch api calls.
 const mountComponent = (props, store = storeWithExperiments) => {
   return mountWithIntl(
     <Provider store={store}>

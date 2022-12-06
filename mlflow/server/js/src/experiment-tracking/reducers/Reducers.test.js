@@ -24,11 +24,14 @@ import {
   getArtifactRootUri,
   modelVersionsByRunUuid,
   runUuidsMatchingFilter,
+  loadMoreExperimentsNextPageToken,
+  loadingMoreExperiments,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
 import {
   SEARCH_EXPERIMENTS_API,
+  LOAD_MORE_EXPERIMENTS_API,
   GET_EXPERIMENT_API,
   DELETE_EXPERIMENT_API,
   GET_RUN_API,
@@ -67,7 +70,7 @@ describe('test experimentsById', () => {
     });
   });
 
-  test('searchExperiments correctly updates state', () => {
+  test('searchExperiments correctly updates state with the response payload and nothing else.', () => {
     const newA = mockExperiment('experiment01', 'experimentA');
     const newB = mockExperiment('experiment02', 'experimentB');
     const preserved = mockExperiment('experiment03', 'still exists');
@@ -79,8 +82,6 @@ describe('test experimentsById', () => {
       [removed.getExperimentId()]: removed,
       [replacedOld.getExperimentId()]: replacedOld,
     });
-    // TODO everything is kept from every search, is this desired?
-    // Allows users to keep pulling more.
     const action = {
       type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
@@ -91,13 +92,40 @@ describe('test experimentsById', () => {
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
       [preserved.getExperimentId()]: preserved,
-      [removed.getExperimentId()]: removed,
       [newA.getExperimentId()]: newA,
       [newB.getExperimentId()]: newB,
       [replacedNew.getExperimentId()]: replacedNew,
     });
   });
 
+  test('loadMoreExperiments correctly appends to state', () => {
+    const newA = mockExperiment('experiment01', 'experimentA');
+    const newB = mockExperiment('experiment02', 'experimentB');
+    const preserved = mockExperiment('experiment03', 'still exists');
+    const removedFromResponse = mockExperiment('experiment04', 'removed');
+    const replacedOld = mockExperiment('experiment05', 'replacedOld');
+    const replacedNew = mockExperiment('experiment05', 'replacedNew');
+    const state = deepFreeze({
+      [preserved.getExperimentId()]: preserved,
+      [removedFromResponse.getExperimentId()]: removedFromResponse,
+      [replacedOld.getExperimentId()]: replacedOld,
+    });
+    const action = {
+      type: fulfilled(LOAD_MORE_EXPERIMENTS_API),
+      payload: {
+        experiments: [preserved.toJSON(), newA.toJSON(), newB.toJSON(), replacedNew.toJSON()],
+      },
+    };
+    const new_state = experimentsById(state, action);
+    expect(new_state).not.toEqual(state);
+    expect(new_state).toEqual({
+      [preserved.getExperimentId()]: preserved,
+      [removedFromResponse.getExperimentId()]: removedFromResponse,
+      [newA.getExperimentId()]: newA,
+      [newB.getExperimentId()]: newB,
+      [replacedNew.getExperimentId()]: replacedNew,
+    });
+  });
   test('deleteExperiment correctly updates state', () => {
     const ids = [...Array(5).keys()].map((k) => k.toString()).map((k) => mockExperiment(k, k));
     const removed = mockExperiment('removed', 'removed');
@@ -1570,5 +1598,77 @@ describe('test apis', () => {
         error: 'payload',
       },
     });
+  });
+});
+
+describe('test loadMoreExperimentsNextPageToken', () => {
+  test('should set up initial state correctly', () => {
+    expect(loadMoreExperimentsNextPageToken(undefined, {})).toEqual(null);
+  });
+
+  test('loadMoreExperiment correctly updates empty state', () => {
+    const state = null;
+    const action = {
+      type: fulfilled(LOAD_MORE_EXPERIMENTS_API),
+      payload: {
+        experiments: [],
+        next_page_token: '1',
+      },
+    };
+    const new_state = loadMoreExperimentsNextPageToken(state, action);
+    expect(new_state).toEqual('1');
+  });
+
+  test('loadMoreExperiment correctly updates non-empty state', () => {
+    const state = '0';
+    const action = {
+      type: fulfilled(LOAD_MORE_EXPERIMENTS_API),
+      payload: {
+        experiments: [],
+        next_page_token: '1',
+      },
+    };
+    const new_state = loadMoreExperimentsNextPageToken(state, action);
+    expect(new_state).toEqual('1');
+  });
+});
+
+describe('test loadingMoreExperiments', () => {
+  test('should set up initial state correctly', () => {
+    expect(loadingMoreExperiments(undefined, {})).toEqual(false);
+  });
+
+  test('loadMore correctly updates', () => {
+    const state = false;
+    const action = {
+      type: pending(LOAD_MORE_EXPERIMENTS_API),
+    };
+    const new_state = loadingMoreExperiments(state, action);
+    expect(new_state).toEqual(true);
+  });
+
+  test('search correctly updates', () => {
+    const state = false;
+    const action = {
+      type: pending(SEARCH_EXPERIMENTS_API),
+    };
+    const new_state = loadingMoreExperiments(state, action);
+    expect(new_state).toEqual(true);
+  });
+  test('search fullfilled correctly updates', () => {
+    const state = true;
+    const action = {
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
+    };
+    const new_state = loadingMoreExperiments(state, action);
+    expect(new_state).toEqual(false);
+  });
+  test('loadMore fullfilled correctly updates', () => {
+    const state = true;
+    const action = {
+      type: fulfilled(LOAD_MORE_EXPERIMENTS_API),
+    };
+    const new_state = loadingMoreExperiments(state, action);
+    expect(new_state).toEqual(false);
   });
 });

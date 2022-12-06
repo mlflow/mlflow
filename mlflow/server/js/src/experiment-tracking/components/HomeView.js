@@ -2,20 +2,20 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Redirect } from 'react-router';
-import { Skeleton, Spacer } from '@databricks/design-system';
-import ExperimentListView from './ExperimentListView';
+import { Skeleton } from '@databricks/design-system';
+
+const ExperimentListView = React.lazy(() => import('./ExperimentListView'));
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
-import Utils from '../../common/utils/Utils';
 import { PageContainer } from '../../common/components/PageContainer';
 import Routes from '../routes';
 
 // Lazy load experiment page in order to promote bundle splitting
 const ExperimentPage = React.lazy(() => import('./experiment-page/ExperimentPage'));
 
+// Experiments are returned from state sorted
 export const getFirstActiveExperiment = (experiments) => {
-  const sorted = experiments.concat().sort(Utils.compareExperiments);
-  return sorted.find((e) => e.lifecycle_stage === 'active');
+  return experiments.find((e) => e.lifecycle_stage === 'active');
 };
 
 class HomeView extends Component {
@@ -59,10 +59,9 @@ class HomeView extends Component {
     }
     return (
       <div className='outer-container' style={{ height: containerHeight }}>
-        <div>
-          <Spacer />
+        <React.Suspense fallback={<Skeleton />}>
           <ExperimentListView activeExperimentIds={experimentIds || []} />
-        </div>
+        </React.Suspense>
         <PageContainer>
           {hasExperiments ? (
             <React.Suspense fallback={<Skeleton />}>

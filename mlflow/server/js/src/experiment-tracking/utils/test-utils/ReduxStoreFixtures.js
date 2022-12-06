@@ -14,7 +14,7 @@ export const emptyState = {
     experimentTagsByExperimentId: {},
     tagsByRunUuid: {},
     modelVersionsByRunUuid: {},
-    searchExperimentsNextPageToken: null,
+    loadMoreExperimentsNextPageToken: null,
     loadingMoreExperiments: false,
   },
 };

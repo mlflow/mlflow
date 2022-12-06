@@ -19,19 +19,41 @@ export const experimentListSearchInput = (input, id = getUUID()) => {
   };
 };
 
+/**
+ * Get experiments from api
+ */
+export const searchExperimentsPayload = ({ viewType, maxResults, orderBy, filter, pageToken }) => {
+  return MlflowService.searchExperiments({
+    view_type: viewType,
+    max_results: maxResults || EXPERIMENTS_SEARCH_MAX_RESULTS,
+    order_by: orderBy,
+    filter: filter,
+    page_token: pageToken,
+  });
+};
+
+/* Use this to pull a fresh set of experiments */
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
 export const searchExperimentsApi = (params) => {
-  const { viewType, maxResults, orderBy, filter, pageToken } = params;
   return (dispatch) => {
     const createResponse = dispatch({
       type: SEARCH_EXPERIMENTS_API,
-      payload: MlflowService.searchExperiments({
-        view_type: viewType,
-        max_results: maxResults || EXPERIMENTS_SEARCH_MAX_RESULTS,
-        order_by: orderBy,
-        filter: filter,
-        page_token: pageToken,
-      }),
+      payload: searchExperimentsPayload(params),
+      meta: {
+        id: params.id || getUUID(),
+      },
+    });
+    return createResponse;
+  };
+};
+
+/* Use this when the filter is the same */
+export const LOAD_MORE_EXPERIMENTS_API = 'LOAD_MORE_EXPERIMENTS_API';
+export const loadMoreExperimentsApi = (params) => {
+  return (dispatch) => {
+    const createResponse = dispatch({
+      type: LOAD_MORE_EXPERIMENTS_API,
+      payload: searchExperimentsPayload(params),
       meta: {
         id: params.id || getUUID(),
       },

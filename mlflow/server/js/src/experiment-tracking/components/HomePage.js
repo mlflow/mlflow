@@ -2,7 +2,8 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import qs from 'qs';
-import { searchExperimentsApi } from '../actions';
+import { loadMoreExperimentsApi } from '../actions';
+import { getExperiments } from '../reducers/Reducers';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import './HomePage.css';
 import HomeView from './HomeView';
@@ -12,7 +13,7 @@ import Routes from '../routes';
 export class HomePageImpl extends Component {
   static propTypes = {
     history: PropTypes.shape({}),
-    dispatchSearchExperimentsApi: PropTypes.func.isRequired,
+    dispatchLoadMoreExperimentsApi: PropTypes.func.isRequired,
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
   };
@@ -27,7 +28,7 @@ export class HomePageImpl extends Component {
 
   componentDidMount() {
     if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
-      this.props.dispatchSearchExperimentsApi({ id: this.state.searchExperimentsRequestId });
+      this.props.dispatchLoadMoreExperimentsApi({ id: this.state.searchExperimentsRequestId });
     }
   }
 
@@ -57,8 +58,14 @@ const mapStateToProps = (state, ownProps) => {
   if (match.url === '/') {
     return {};
   }
+  const idsFromState = getExperiments(state).map((e) => e.experiment_id);
 
-  if (match.url.startsWith('/experiments')) {
+  // Can only route to experiments they exist in state
+  // A new search can clear the state.
+  if (
+    match.url.startsWith('/experiments') &&
+    idsFromState.some((e) => e === match.params.experimentId)
+  ) {
     return { experimentIds: [match.params.experimentId], compareExperiments: false };
   }
 
@@ -66,7 +73,13 @@ const mapStateToProps = (state, ownProps) => {
     const { location } = ownProps;
     const searchValues = qs.parse(location.search, { ignoreQueryPrefix: true });
     const experimentIds = JSON.parse(searchValues['experiments']);
-    return { experimentIds, compareExperiments: true };
+    // Make sure we have all of them locally in case the search input
+    // changes and removes some.
+    const allExperimentsInState = experimentIds.every((e) => idsFromState.includes(e));
+
+    if (allExperimentsInState) {
+      return { experimentIds, compareExperiments: true };
+    }
   }
 
   return {};
@@ -74,8 +87,8 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = (dispatch) => {
   return {
-    dispatchSearchExperimentsApi: (params) => {
-      return dispatch(searchExperimentsApi(params));
+    dispatchLoadMoreExperimentsApi: (params) => {
+      return dispatch(loadMoreExperimentsApi(params));
     },
   };
 };
