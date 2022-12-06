@@ -225,7 +225,7 @@ class TransformStep(BaseStep):
         if recipe_config.get("steps", {}).get("transform", {}) is not None:
             step_config.update(recipe_config.get("steps", {}).get("transform", {}))
         step_config["target_col"] = recipe_config.get("target_col")
-        step_config["recipe"] = recipe_config.get("recipe")
+        step_config["recipe"] = recipe_config.get("recipe", "regression/v1")
         step_config.update(
             get_recipe_tracking_config(
                 recipe_root_path=recipe_root,

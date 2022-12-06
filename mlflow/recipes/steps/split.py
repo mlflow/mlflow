@@ -354,7 +354,7 @@ class SplitStep(BaseStep):
             step_config.update(recipe_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = recipe_config.get("target_col")
         step_config["positive_class"] = recipe_config.get("positive_class")
-        step_config["recipe"] = recipe_config.get("recipe")
+        step_config["recipe"] = recipe_config.get("recipe", "regression/v1")
         return cls(step_config, recipe_root)
 
     @property
