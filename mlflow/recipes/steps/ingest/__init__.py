@@ -229,7 +229,7 @@ class IngestStep(BaseIngestStep):
             step_config={
                 **ingest_config,
                 **target_config,
-                **{"recipe": recipe_config.get("recipe")},
+                **{"recipe": recipe_config.get("recipe", "regression/v1")},
             },
             recipe_root=recipe_root,
         )
