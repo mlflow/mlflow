@@ -222,7 +222,7 @@ need for an end-user to provide access credentials to interact with an underlyin
       # Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
       # giving users access to this location without having to manage credentials
       # or permissions.
-      --artifact-destination s3://bucket_name \
+      --artifacts-destination s3://bucket_name \
       --host remote_host
 
 Enabling the Tracking Server to perform proxied artifact access in order to route client artifact requests to an object store location:
@@ -278,7 +278,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
 
-    mlflow server --artifact-destination s3://bucket_name --artifacts-only --host remote_host
+    mlflow server --artifacts-destination s3://bucket_name --artifacts-only --host remote_host
 
 Running an MLFlow server in ``--artifacts-only`` mode:
 
