@@ -146,7 +146,7 @@ steps:
         step_card_content = f.read()
 
     assert "Model Validation" in step_card_content
-    assert "Classifier Plots on the Validation Dataset" in step_card_content
+    assert "Model Performance Plots" in step_card_content
     assert "Warning Logs" in step_card_content
     assert "Run Summary" in step_card_content
 

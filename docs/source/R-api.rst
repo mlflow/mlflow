@@ -1860,6 +1860,55 @@ Arguments
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_model_version_tag``
+================================
+
+Set Model version tag
+
+Set a tag for the model version. When stage is set, tag will be set for
+latest model version of the stage. Setting both version and stage
+parameter will result in error.
+
+.. code:: r
+
+   mlflow_set_model_version_tag(
+     name,
+     version = NULL,
+     key = NULL,
+     value = NULL,
+     stage = NULL,
+     client = NULL
+   )
+
+.. _arguments-42:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | Registered model name.               |
++-------------------------------+--------------------------------------+
+| ``version``                   | Registered model version.            |
++-------------------------------+--------------------------------------+
+| ``key``                       | Tag key to log. key is required.     |
++-------------------------------+--------------------------------------+
+| ``value``                     | Tag value to log. value is required. |
++-------------------------------+--------------------------------------+
+| ``stage``                     | Registered model stage.              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
 ``mlflow_set_tag``
 ==================
 
@@ -1872,7 +1921,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-42:
+.. _arguments-43:
 
 Arguments
 ---------
@@ -1912,7 +1961,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-43:
+.. _arguments-44:
 
 Arguments
 ---------
@@ -1935,7 +1984,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-44:
+.. _arguments-45:
 
 Arguments
 ---------
@@ -1968,7 +2017,7 @@ can be provided.
      nested = FALSE
    )
 
-.. _arguments-45:
+.. _arguments-46:
 
 Arguments
 ---------
@@ -2041,7 +2090,7 @@ Transition a model version to a different stage.
      client = NULL
    )
 
-.. _arguments-46:
+.. _arguments-47:
 
 Arguments
 ---------
@@ -2080,7 +2129,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-47:
+.. _arguments-48:
 
 Arguments
 ---------
@@ -2130,7 +2179,7 @@ Updates a model version
 
    mlflow_update_model_version(name, version, description, client = NULL)
 
-.. _arguments-48:
+.. _arguments-49:
 
 Arguments
 ---------
@@ -2166,7 +2215,7 @@ Updates a model in the Model Registry.
 
    mlflow_update_registered_model(name, description, client = NULL)
 
-.. _arguments-49:
+.. _arguments-50:
 
 Arguments
 ---------

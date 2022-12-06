@@ -4,8 +4,6 @@
     "num_features": {
       "long": 2000
     },
-    "binary": {
-
-    }
+    "binary": {}
   }
 }

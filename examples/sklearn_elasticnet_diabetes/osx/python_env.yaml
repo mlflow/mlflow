@@ -1,10 +1,10 @@
-python: '3.8'
+python: "3.8"
 build_dependencies:
-- pip
+  - pip
 dependencies:
-- mlflow>=1.0
-- cloudpickle
-- numpy
-- matplotlib
-- pandas
-- scikit-learn
+  - mlflow>=1.0
+  - cloudpickle
+  - numpy
+  - matplotlib
+  - pandas
+  - scikit-learn

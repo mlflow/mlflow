@@ -39,8 +39,8 @@ markComment: >
 
 # Comment to post when closing a stale Issue or Pull Request.
 closeComment: >
-   This issue has not been interacted with for 365 days since it was marked as stale! As such, the
-   issue is now closed. If you have this issue or more information, please re-open the issue!
+  This issue has not been interacted with for 365 days since it was marked as stale! As such, the
+  issue is now closed. If you have this issue or more information, please re-open the issue!
 
 # Limit the number of actions per hour, from 1-30. Default is 30
 limitPerRun: 30

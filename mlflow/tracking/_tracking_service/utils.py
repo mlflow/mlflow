@@ -59,7 +59,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
                   "databricks://<profileName>".
                 - A :py:class:`pathlib.Path` instance
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow

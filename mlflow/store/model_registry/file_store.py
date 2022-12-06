@@ -82,9 +82,13 @@ class FileStore(AbstractStore):
 
         super().__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
-        # Create root directory if needed
-        if not exists(self.root_directory):
-            mkdir(self.root_directory)
+        # Create models directory if needed
+        if not exists(self.models_directory):
+            mkdir(self.models_directory)
+
+    @property
+    def models_directory(self):
+        return os.path.join(self.root_directory, FileStore.MODELS_FOLDER_NAME)
 
     def _check_root_dir(self):
         """

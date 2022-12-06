@@ -75,8 +75,12 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model,
         path=model_path,
-        code_paths=["tests/utils/test_resources/dummy_module.py"],
+        code_paths=[
+            "tests/utils/test_resources/dummy_module.py",
+            "tests/utils/test_resources/dummy_package",
+        ],
     )
+
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
@@ -85,5 +89,11 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
         # verify that source code paths and their subdirectories are resolved correctly
         with pytest.raises(ModuleNotFoundError, match="No module named 'dummy_module'"):
             import dummy_module
+
         mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
         import dummy_module
+
+    # If this raises an exception it's because dummy_package.test imported
+    # dummy_package.operator and not the built-in operator module. This only
+    # happens if MLflow is misconfiguring the system path.
+    from dummy_package import base  # pylint: disable=W0611

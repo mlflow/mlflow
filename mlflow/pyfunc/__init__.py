@@ -395,7 +395,15 @@ class PyFuncModel:
 
         :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
                      scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
-                     Dict[str, numpy.ndarray]
+                     Dict[str, numpy.ndarray].
+                     For model signatures with tensor spec inputs
+                     (e.g. the Tensorflow core / Keras model), the input data type must be one of
+                     `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
+                     `pandas.DataFrame`. If data is of `pandas.DataFrame` type and an input field
+                     requires multidimensional array input, the corresponding column values in
+                     the pandas DataFrame will be reshaped to the required shape and DataFrame
+                     column values will be cast as the required tensor spec type.
+
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
@@ -407,6 +415,46 @@ class PyFuncModel:
     def unwrap_python_model(self):
         """
         Unwrap the underlying Python model object.
+
+        This method is useful for accessing custom model functions, while still being able to
+        leverage the MLflow designed workflow through the `predict()` method.
+
+        .. test-code-block:: python
+            :caption: Example
+
+            import mlflow
+
+            # define a custom model
+            class MyModel(mlflow.pyfunc.PythonModel):
+                def predict(self, context, model_input):
+                    return self.my_custom_function(model_input)
+
+                def my_custom_function(self, model_input):
+                    # do something with the model input
+                    return 0
+
+            some_input = 1
+            # save the model
+            my_model = MyModel()
+            with mlflow.start_run():
+                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=my_model)
+
+            # load the model
+            loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+            print(type(loaded_model)) # <class 'mlflow.pyfunc.model.PyFuncModel'>
+
+            unwrapped_model = loaded_model.unwrap_python_model()
+            print(type(unwrapped_model)) # <class '__main__.MyModel'>
+
+            # does not work, only predict() is exposed
+            # print(loaded_model.my_custom_function(some_input))
+
+            print(unwrapped_model.my_custom_function(some_input)) # works
+
+            print(loaded_model.predict(some_input)) # works
+
+            # works, but None is needed for context arg
+            print(unwrapped_model.predict(None, some_input))
         """
         try:
             python_model = self._model_impl.python_model
@@ -984,6 +1032,18 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
+        # If the spark dataframe input column is array type,
+        # then in spark pandas_udf, the passed in arguments
+        # (`pd.dataframe` instance or `pd.Series`) contains numpy array values.
+        # Converting the numpy array values into list
+        # Because `PyFuncModel.predict` only accepts pandas dataframe
+        # containing column values of scalar type or list type.
+        pdf = pandas.DataFrame(
+            {
+                col: pdf[col].map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+                for col in pdf.columns
+            }
+        )
         result = predict_fn(pdf)
 
         if not isinstance(result, pandas.DataFrame):

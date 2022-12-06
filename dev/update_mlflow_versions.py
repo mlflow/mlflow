@@ -86,13 +86,13 @@ Update MLflow package versions BEFORE release.
 
 Usage:
 
-python dev/update_mlflow_versions.py before-release --new-version 1.29.0
+python dev/update_mlflow_versions.py pre-release --new-version 1.29.0
 """
 )
 @click.option(
     "--new-version", callback=validate_new_version, required=True, help="New version to release"
 )
-def before_release(new_version: str):
+def pre_release(new_version: str):
     update_versions(new_version, add_dev_suffix=False)
 
 
@@ -102,7 +102,7 @@ Update MLflow package versions AFTER release.
 
 Usage:
 
-python dev/update_mlflow_versions.py after-release --new-version 1.29.0
+python dev/update_mlflow_versions.py post-release --new-version 1.29.0
 """
 )
 @click.option(
@@ -111,7 +111,7 @@ python dev/update_mlflow_versions.py after-release --new-version 1.29.0
     required=True,
     help="New version that was released",
 )
-def after_release(new_version: str):
+def post_release(new_version: str):
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
     update_versions(next_new_version, add_dev_suffix=True)

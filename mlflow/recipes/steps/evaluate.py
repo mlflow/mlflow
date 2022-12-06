@@ -330,7 +330,7 @@ class EvaluateStep(BaseStep):
         # Tab 2: Classifier plots.
         if self.recipe == "classification/v1":
             classifiers_plot_tab = card.add_tab(
-                "Classifier Plots on the Validation Dataset",
+                "Model Performance Plots",
                 "{{ CONFUSION_MATRIX }} {{CONFUSION_MATRIX_PLOT}}"
                 + "{{ LIFT_CURVE }} {{LIFT_CURVE_PLOT}}"
                 + "{{ PR_CURVE }} {{PR_CURVE_PLOT}}"

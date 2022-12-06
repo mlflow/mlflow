@@ -249,8 +249,8 @@ def test_score_model_as_spark_udf(data):
 
 
 def test_signature_and_examples_are_saved_correctly(model, data):
-    signature_ = infer_signature(*data)
-    example_ = data[0].head(3)
+    signature_ = infer_signature(data[0].to_numpy(), data[1])
+    example_ = data[0].head(3).to_numpy()
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -263,7 +263,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    np.testing.assert_allclose(_read_example(mlflow_model, path), example)
 
 
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
