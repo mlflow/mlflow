@@ -1,8 +1,4 @@
-import pytest
-
-from mlflow.entities import Metric, RunData, Param, RunTag
-from mlflow.utils.time_utils import get_current_time_millis
-from tests.helper_functions import random_str, random_int
+from mlflow.entities import RunData
 
 
 def _check_metrics(metric_objs, metrics_dict, expected_metrics):
@@ -27,33 +23,6 @@ def _check(rd, metrics, params, tags):
     _check_metrics(rd._metric_objs, rd.metrics, metrics)
     _check_params(rd.params, params)
     _check_tags(rd.tags, tags)
-
-
-@pytest.fixture(scope="module")
-def metrics():
-    yield [
-        Metric(
-            key=random_str(10),
-            value=random_int(0, 1000),
-            timestamp=get_current_time_millis() + random_int(-1e4, 1e4),
-            step=random_int(),
-        )
-    ]
-
-
-@pytest.fixture(scope="module")
-def params():
-    yield [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
-
-
-@pytest.fixture(scope="module")
-def tags():
-    yield [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
-
-
-@pytest.fixture(scope="module")
-def rd(metrics, params, tags):
-    yield RunData(metrics=metrics, params=params, tags=tags)
 
 
 def test_creation_and_hydration(rd, metrics, params, tags):

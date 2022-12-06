@@ -2,14 +2,13 @@ import pytest
 
 from mlflow.entities import Run, Metric, RunData, RunStatus, RunInfo, LifecycleStage
 from mlflow.exceptions import MlflowException
-from tests.entities.test_run_data import TestRunData
-from tests.entities.test_run_info import TestRunInfo
+from tests.entities.test_run_data import _check as run_data_check
+from tests.entities.test_run_info import _check as run_info_check
 
 
-class TestRun(TestRunInfo, TestRunData):
+class TestRun:
     def _check_run(self, run, ri, rd_metrics, rd_params, rd_tags):
-        TestRunInfo._check(
-            self,
+        run_info_check(
             run.info,
             ri.run_id,
             ri.experiment_id,
@@ -20,10 +19,10 @@ class TestRun(TestRunInfo, TestRunData):
             ri.lifecycle_stage,
             ri.artifact_uri,
         )
-        TestRunData._check(self, run.data, rd_metrics, rd_params, rd_tags)
+        run_data_check(run.data, rd_metrics, rd_params, rd_tags)
 
-    def test_creation_and_hydration(self):
-        run_data, metrics, params, tags = TestRunData._create()
+    def test_creation_and_hydration(self, test_run_data, test_run_info):
+        run_data, metrics, params, tags = test_run_data
         (
             run_info,
             run_id,
@@ -35,7 +34,7 @@ class TestRun(TestRunInfo, TestRunData):
             end_time,
             lifecycle_stage,
             artifact_uri,
-        ) = TestRunInfo._create()
+        ) = test_run_info
 
         run1 = Run(run_info, run_data)
 
@@ -93,8 +92,8 @@ class TestRun(TestRunInfo, TestRunData):
         )
         assert str(run1) == expected
 
-    def test_creating_run_with_absent_info_throws_exception(self):
-        run_data = TestRunData._create()[0]
+    def test_creating_run_with_absent_info_throws_exception(self, test_run_data):
+        run_data = test_run_data[0]
         with pytest.raises(MlflowException, match="run_info cannot be None") as no_info_exc:
             Run(None, run_data)
         assert "run_info cannot be None" in str(no_info_exc)

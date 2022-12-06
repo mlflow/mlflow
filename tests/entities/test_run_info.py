@@ -1,9 +1,4 @@
-import random
-import pytest
-import uuid
-
-from mlflow.entities import RunInfo, LifecycleStage, RunStatus
-from tests.helper_functions import random_str, random_int
+from mlflow.entities import RunInfo
 
 
 def _check(
@@ -29,44 +24,7 @@ def _check(
     assert ri.artifact_uri == artifact_uri
 
 
-@pytest.fixture(scope="module")
-def run_info_test_params():
-    run_id = str(uuid.uuid4())
-    experiment_id = str(random_int(10, 2000))
-    user_id = random_str(random_int(10, 25))
-    run_name = random_str(random_int(10, 25))
-    status = RunStatus.to_string(random.choice(RunStatus.all_status()))
-    start_time = random_int(1, 10)
-    end_time = start_time + random_int(1, 10)
-    lifecycle_stage = LifecycleStage.ACTIVE
-    artifact_uri = random_str(random_int(10, 40))
-    ri = RunInfo(
-        run_uuid=run_id,
-        run_id=run_id,
-        run_name=run_name,
-        experiment_id=experiment_id,
-        user_id=user_id,
-        status=status,
-        start_time=start_time,
-        end_time=end_time,
-        lifecycle_stage=lifecycle_stage,
-        artifact_uri=artifact_uri,
-    )
-    yield (
-        ri,
-        run_id,
-        run_name,
-        experiment_id,
-        user_id,
-        status,
-        start_time,
-        end_time,
-        lifecycle_stage,
-        artifact_uri,
-    )
-
-
-def test_creation_and_hydration(run_info_test_params):
+def test_creation_and_hydration(test_run_info):
     (
         ri1,
         run_id,
@@ -78,7 +36,7 @@ def test_creation_and_hydration(run_info_test_params):
         end_time,
         lifecycle_stage,
         artifact_uri,
-    ) = run_info_test_params
+    ) = test_run_info
     _check(
         ri1,
         run_id,
