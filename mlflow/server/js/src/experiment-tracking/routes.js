@@ -7,6 +7,16 @@ class Routes {
     return `/experiments/${experimentId}`;
   }
 
+  static getExperimentByUser(experimentId, user_id) {
+    const searchString = `searchFilter=user_id:${user_id}`
+    return `/experiments/${experimentId}/${searchString}`;
+  }
+
+  static getExperimentByLifeCycle(experimentId, lifeCycleStage) {
+    const searchString = `searchFilter=lifeCycleStage:${lifeCycleStage}`
+    return `/experiments/${experimentId}/${searchString}`;
+  }
+
   static experimentPageRoute = '/experiments/:experimentId';
 
   static experimentPageSearchRoute = '/experiments/:experimentId/:searchString';
