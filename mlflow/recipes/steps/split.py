@@ -4,6 +4,9 @@ import time
 import importlib
 import sys
 
+import numpy as np
+from sklearn.utils import compute_class_weight
+
 from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
@@ -202,29 +205,46 @@ class SplitStep(BaseStep):
                 "PROFILE", data_profile
             )
 
-            if self.positive_class:
-                positive_df, negative_df = (
-                    train_df[(mask := train_df[self.target_col] == self.positive_class)],
-                    train_df[~mask],
-                )
-
-                positive_negative_profile = get_pandas_data_profiles(
-                    [
-                        [
-                            "Positive",
-                            positive_df.drop(columns=[self.target_col]).reset_index(drop=True),
-                        ],
-                        [
-                            "Negative",
-                            negative_df.drop(columns=[self.target_col]).reset_index(drop=True),
-                        ],
+            if self.task == "classification":
+                if self.positive_class is not None:
+                    mask = train_df[self.target_col] == self.positive_class
+                    dfs_for_profiles = [
+                        ("Positive", train_df[mask]),
+                        ("Negative", train_df[~mask]),
                     ]
-                )
+                else:
+                    classes = np.unique(train_df[self.target_col])
+                    class_weights = compute_class_weight(
+                        class_weight="balanced",
+                        classes=classes,
+                        y=train_df[self.target_col],
+                    )
+                    class_weights = list(zip(classes, class_weights))
+                    class_weights = sorted(class_weights, key=lambda x: x[1], reverse=True)
+                    if len(class_weights) > 5:
+                        class_weights = class_weights[:5]
+                    dfs_for_profiles = [
+                        (name, train_df[(train_df[self.target_col] == name)])
+                        for name, _ in class_weights
+                    ]
+                profiles = [
+                    [
+                        str(p[0]),
+                        p[1].drop(columns=[self.target_col]).reset_index(drop=True),
+                    ]
+                    for p in dfs_for_profiles
+                ]
+                generated_profile = get_pandas_data_profiles(profiles)
 
                 # Tab #4: data profiles positive negative training split.
+                sub_title = (
+                    "Positive vs Negative"
+                    if self.positive_class is not None
+                    else "Different classes"
+                )
                 card.add_tab(
-                    "Compare Training Data (Positive vs Negative)", "{{PROFILE}}"
-                ).add_pandas_profile("PROFILE", positive_negative_profile)
+                    f"Compare Training Data ({sub_title})", "{{PROFILE}}"
+                ).add_pandas_profile("PROFILE", generated_profile)
 
         # Tab #5: run summary.
         (
@@ -334,6 +354,7 @@ class SplitStep(BaseStep):
             step_config.update(recipe_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = recipe_config.get("target_col")
         step_config["positive_class"] = recipe_config.get("positive_class")
+        step_config["recipe"] = recipe_config.get("recipe")
         return cls(step_config, recipe_root)
 
     @property

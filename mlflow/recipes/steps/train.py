@@ -31,6 +31,7 @@ from mlflow.recipes.utils.metrics import (
     _get_custom_metrics,
     _get_model_type_from_template,
     _load_custom_metrics,
+    _get_extended_task,
 )
 from mlflow.recipes.utils.step import (
     get_merged_eval_metrics,
@@ -73,7 +74,6 @@ class TrainStep(BaseStep):
         self.recipe_config = recipe_config
 
     def _validate_and_apply_step_config(self):
-        self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["custom", "automl/flaml"]:
                 raise MlflowException(
@@ -147,11 +147,7 @@ class TrainStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if "positive_class" not in self.step_config and self.recipe == "classification/v1":
-            raise MlflowException(
-                "`positive_class` must be specified for classification/v1 recipes.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        self.extended_task = _get_extended_task(self.step_config)
         self.positive_class = self.step_config.get("positive_class")
         self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
@@ -164,21 +160,16 @@ class TrainStep(BaseStep):
 
         self.predict_proba = self.step_config.get("predict_proba", False)
         self.primary_metric = _get_primary_metric(self.step_config)
-        self.user_defined_custom_metrics = {
-            metric.name: metric for metric in _get_custom_metrics(self.step_config)
-        }
-        self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.recipe)
-        }
+        builtin_metrics = _get_builtin_metrics(self.extended_task)
+        custom_metrics = _get_custom_metrics(self.step_config, self.extended_task)
+        self.user_defined_custom_metrics = {metric.name: metric for metric in custom_metrics}
+        self.evaluation_metrics = {metric.name: metric for metric in builtin_metrics}
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.recipe)
+            metric.name: metric.greater_is_better for metric in builtin_metrics
         }
         self.evaluation_metrics_greater_is_better.update(
-            {
-                metric.name: metric.greater_is_better
-                for metric in _get_custom_metrics(self.step_config)
-            }
+            {metric.name: metric.greater_is_better for metric in custom_metrics}
         )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
@@ -256,7 +247,7 @@ class TrainStep(BaseStep):
             )
             train_df = pd.read_parquet(transformed_training_data_path)
             self.using_rebalancing = False
-            if self.recipe == "classification/v1":
+            if self.extended_task == "binary_classification":
                 classes = np.unique(train_df[self.target_col])
                 class_weights = compute_class_weight(
                     class_weight="balanced",
@@ -264,7 +255,7 @@ class TrainStep(BaseStep):
                     y=train_df[self.target_col],
                 )
                 self.original_class_weights = dict(zip(classes, class_weights))
-                if self.rebalance_training_data:
+                if self.rebalance_training_data and len(classes) == 2:
                     if len(train_df) > _REBALANCING_CUTOFF:
                         self.using_rebalancing = True
                         train_df = self._rebalance_classes(train_df)
@@ -375,6 +366,12 @@ class TrainStep(BaseStep):
                     "training": (train_df, "training_"),
                     "validation": (validation_df, "val_"),
                 }.items():
+                    eval_config = {
+                        "log_model_explainability": False,
+                        "metric_prefix": metric_prefix,
+                    }
+                    if self.positive_class is not None:
+                        eval_config["pos_label"] = self.positive_class
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
                         data=dataset,
@@ -385,11 +382,7 @@ class TrainStep(BaseStep):
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
-                        evaluator_config={
-                            "log_model_explainability": False,
-                            "pos_label": self.positive_class,
-                            "metric_prefix": metric_prefix,
-                        },
+                        evaluator_config=eval_config,
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
                     eval_metrics[dataset_name] = {
@@ -537,6 +530,7 @@ class TrainStep(BaseStep):
             X_train,
             y_train,
             self.task,
+            self.extended_task,
             self.step_config,
             self.recipe_root,
             self.evaluation_metrics,

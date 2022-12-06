@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TypeVar, Dict, Any, List
 from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.recipes.utils import get_recipe_name
+from mlflow.recipes.utils.metrics import _get_model_type_from_template
 from mlflow.recipes.utils.step import display_html
 from mlflow.tracking import MlflowClient
 from mlflow.utils.annotations import experimental
@@ -117,6 +118,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_config = step_config
         self.recipe_root = recipe_root
         self.recipe_name = get_recipe_name(recipe_root_path=recipe_root)
+        self.task = self.step_config.get("recipe").rsplit("/", 1)[0]
         self.step_card = None
 
     @experimental

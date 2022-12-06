@@ -23,6 +23,8 @@ _MLFLOW_TO_FLAML_METRICS = {
     "r2_score": "r2",
     "mean_absolute_percentage_error": "mape",
     "f1_score": "f1",
+    "f1_score_micro": "micro_f1",
+    "f1_score_macro": "macro_f1",
     "accuracy_score": "accuracy",
 }
 
@@ -34,13 +36,14 @@ def get_estimator_and_best_params(
     X,
     y,
     task: str,
+    extended_task: str,
     step_config: Dict[str, Any],
     recipe_root: str,
     evaluation_metrics: Dict[str, RecipeMetric],
     primary_metric: str,
 ) -> Tuple[BaseEstimator, Dict[str, Any]]:
     return _create_model_automl(
-        X, y, task, step_config, recipe_root, evaluation_metrics, primary_metric
+        X, y, task, extended_task, step_config, recipe_root, evaluation_metrics, primary_metric
     )
 
 
@@ -115,6 +118,7 @@ def _create_model_automl(
     X,
     y,
     task: str,
+    extended_task: str,
     step_config: Dict[str, Any],
     recipe_root: str,
     evaluation_metrics: Dict[str, RecipeMetric],
