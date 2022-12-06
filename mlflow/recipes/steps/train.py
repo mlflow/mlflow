@@ -57,6 +57,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 from mlflow.utils.string_utils import strip_prefix
+from mlflow.recipes.utils.wrapper_classifier_model import WrappedClassifier
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -328,10 +329,10 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
                 model = make_pipeline(transformer, estimator)
-                if self.predict_proba:
-                    model_schema = infer_signature(
-                        raw_X_train, model.predict_proba(raw_X_train.copy())
-                    )
+                # If model has multiple classes
+                if hasattr(model, "classes_"):
+                    model = WrappedClassifier(model)
+                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
                     model_info = mlflow.sklearn.log_model(
                         model,
                         f"{self.name}/model",
@@ -355,12 +356,7 @@ class TrainStep(BaseStep):
                 if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
                     shutil.rmtree(output_model_path)
 
-                if self.predict_proba:
-                    mlflow.sklearn.save_model(
-                        model, output_model_path, pyfunc_predict_fn="predict_proba"
-                    )
-                else:
-                    mlflow.sklearn.save_model(model, output_model_path)
+                mlflow.sklearn.save_model(model, output_model_path)
 
                 with open(os.path.join(output_directory, "run_id"), "w") as f:
                     f.write(run.info.run_id)
@@ -398,38 +394,42 @@ class TrainStep(BaseStep):
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            if self.predict_proba:
-                prediction_result_probs = model.predict_proba(
-                    raw_validation_df.drop(self.target_col, axis=1)
+
+            if hasattr(model, "wrapper_classifier"):
+                prediction_result_for_error = prediction_result.drop(
+                    ["predicted_label", "predicted_score"], axis=1
                 )
-                prediction_result_for_error = prediction_result_probs
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.recipe,
-                use_probability=self.predict_proba,
+                use_probability=hasattr(model, "wrapper_classifier"),
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
                 {
                     "target": target_data,
-                    "prediction": prediction_result,
-                    "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
+                    "prediction": prediction_result["predicted_label"].values,
+                    "error": error_fn(
+                        prediction_result_for_error.iloc[0:].values, target_data.to_numpy()
+                    ),
                 }
             )
-            train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            if self.predict_proba:
-                train_predicted_probs = model.predict_proba(
-                    raw_train_df.drop(self.target_col, axis=1)
-                )
+            train_raw_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
+            train_predictions = train_raw_predictions["predicted_label"]
+            if hasattr(model, "wrapper_classifier"):
+                train_predicted_probs = model.predict(raw_train_df.drop(self.target_col, axis=1))
                 predicted_training_data = raw_train_df.assign(
                     predicted_data=train_predictions,
-                    predicted_probability=train_predicted_probs[:, 0],
+                    predicted_probability=train_predicted_probs.iloc[0:, 0].values,
                 )
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
                     raw_train_df,
-                    train_predicted_probs[:, 0],
-                    error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
+                    train_predicted_probs.iloc[0:, 0].values,
+                    error_fn(
+                        train_predicted_probs.iloc[0:].values,
+                        raw_train_df[self.target_col].to_numpy(),
+                    ),
                     self.target_col,
                 )
             else:
@@ -743,7 +743,7 @@ class TrainStep(BaseStep):
             )
         # Tab 3: Model architecture.
         set_config(display="diagram")
-        model_repr = estimator_html_repr(model)
+        model_repr = estimator_html_repr(model._classifier)
         card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
 
         # Tab 4: Inferred model (transformer + estimator) schema.
