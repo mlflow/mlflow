@@ -51,6 +51,7 @@ BAD_METRIC_OR_PARAM_NAMES = [
         ("a/b/c", False),
         ("a.b/c", False),
         (".a", False),
+        # Not unique paths
         ("./a", True),
         ("a/b/../c", True),
         (".", True),
@@ -67,7 +68,7 @@ def test_path_not_unique(path, expected):
     [
         (0, True),
         (0.0, True),
-        # error cases
+        # Non-numeric cases
         (True, False),
         (False, False),
         ("0", False),
