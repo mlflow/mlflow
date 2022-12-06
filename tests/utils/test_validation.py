@@ -62,59 +62,99 @@ def test_path_not_unique(path, expected):
     assert path_not_unique(path) is expected
 
 
-def test_is_numeric():
-    assert _is_numeric(0)
-    assert _is_numeric(0.0)
-    assert not _is_numeric(True)
-    assert not _is_numeric(False)
-    assert not _is_numeric("0")
-    assert not _is_numeric(None)
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0, True),
+        (0.0, True),
+        # error cases
+        (True, False),
+        (False, False),
+        ("0", False),
+        (None, False),
+    ],
+)
+def test_is_numeric(value, expected):
+    assert _is_numeric(value) is expected
 
 
-def test_validate_metric_name():
-    for good_name in GOOD_METRIC_OR_PARAM_NAMES:
-        _validate_metric_name(good_name)
-    for bad_name in BAD_METRIC_OR_PARAM_NAMES:
+@pytest.mark.parametrize(
+    ("name", "is_good_name"),
+    [
+        *[(name, True) for name in GOOD_METRIC_OR_PARAM_NAMES],
+        # error cases
+        *[(name, False) for name in BAD_METRIC_OR_PARAM_NAMES],
+    ],
+)
+def test_validate_metric_name(name, is_good_name):
+    if is_good_name:
+        _validate_metric_name(name)
+    else:
         with pytest.raises(MlflowException, match="Invalid metric name") as e:
-            _validate_metric_name(bad_name)
+            _validate_metric_name(name)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_validate_param_name():
-    for good_name in GOOD_METRIC_OR_PARAM_NAMES:
-        _validate_param_name(good_name)
-    for bad_name in BAD_METRIC_OR_PARAM_NAMES:
+@pytest.mark.parametrize(
+    ("name", "is_good_name"),
+    [
+        *[(name, True) for name in GOOD_METRIC_OR_PARAM_NAMES],
+        # error cases
+        *[(name, False) for name in BAD_METRIC_OR_PARAM_NAMES],
+    ],
+)
+def test_validate_param_name(name, is_good_name):
+    if is_good_name:
+        _validate_param_name(name)
+    else:
         with pytest.raises(MlflowException, match="Invalid parameter name") as e:
-            _validate_param_name(bad_name)
+            _validate_param_name(name)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_validate_tag_name():
-    for good_name in GOOD_METRIC_OR_PARAM_NAMES:
-        _validate_tag_name(good_name)
-    for bad_name in BAD_METRIC_OR_PARAM_NAMES:
+@pytest.mark.parametrize(
+    ("name", "is_good_name"),
+    [
+        *[(name, True) for name in GOOD_METRIC_OR_PARAM_NAMES],
+        # error cases
+        *[(name, False) for name in BAD_METRIC_OR_PARAM_NAMES],
+    ],
+)
+def test_validate_tag_name(name, is_good_name):
+    if is_good_name:
+        _validate_tag_name(name)
+    else:
         with pytest.raises(MlflowException, match="Invalid tag name") as e:
-            _validate_tag_name(bad_name)
+            _validate_tag_name(name)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_validate_run_id():
-    for good_id in [
-        "a" * 32,
-        "f0" * 16,
-        "abcdef0123456789" * 2,
-        "a" * 33,
-        "a" * 31,
-        "a" * 256,
-        "A" * 32,
-        "g" * 32,
-        "a_" * 32,
-        "abcdefghijklmnopqrstuvqxyz",
-    ]:
-        _validate_run_id(good_id)
-    for bad_id in ["a/bc" * 8, "", "a" * 400, "*" * 5]:
+@pytest.mark.parametrize(
+    ("run_id", "is_good_id"),
+    [
+        ("a" * 32, True),
+        ("f0" * 16, True),
+        ("abcdef0123456789" * 2, True),
+        ("a" * 33, True),
+        ("a" * 31, True),
+        ("a" * 256, True),
+        ("A" * 32, True),
+        ("g" * 32, True),
+        ("a_" * 32, True),
+        ("abcdefghijklmnopqrstuvqxyz", True),
+        # error cases
+        ("a/bc" * 8, False),
+        ("", False),
+        ("a" * 400, False),
+        ("*" * 5, False),
+    ],
+)
+def test_validate_run_id(run_id, is_good_id):
+    if is_good_id:
+        _validate_run_id(run_id)
+    else:
         with pytest.raises(MlflowException, match="Invalid run ID") as e:
-            _validate_run_id(bad_id)
+            _validate_run_id(run_id)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -198,29 +238,64 @@ def test_validate_batch_log_data():
     )
 
 
-def test_validate_experiment_artifact_location():
-    _validate_experiment_artifact_location("abcde")
-    _validate_experiment_artifact_location(None)
-    with pytest.raises(MlflowException, match="Artifact location cannot be a runs:/ URI"):
-        _validate_experiment_artifact_location("runs:/blah/bleh/blergh")
+@pytest.mark.parametrize(
+    ("location", "is_good_location"),
+    [
+        ("abcde", True),
+        (None, True),
+        # error cases
+        ("runs:/blah/bleh/blergh", False),
+    ],
+)
+def test_validate_experiment_artifact_location(location, is_good_location):
+    if is_good_location:
+        _validate_experiment_artifact_location(location)
+    else:
+        with pytest.raises(MlflowException, match="Artifact location cannot be a runs:/ URI"):
+            _validate_experiment_artifact_location(location)
 
 
-def test_validate_experiment_name():
-    _validate_experiment_name("validstring")
-    bytestring = b"test byte string"
-    _validate_experiment_name(bytestring.decode("utf-8"))
-    for invalid_name in ["", 12, 12.7, None, {}, []]:
+@pytest.mark.parametrize(
+    ("experiment_name", "is_good_name"),
+    [
+        ("validstring", True),
+        (b"test byte string".decode("utf-8"), True),
+        # error cases
+        ("", False),
+        (12, False),
+        (12.7, False),
+        (None, False),
+        ({}, False),
+        ([], False),
+    ],
+)
+def test_validate_experiment_name(experiment_name, is_good_name):
+    if is_good_name:
+        _validate_experiment_name(experiment_name)
+    else:
         with pytest.raises(MlflowException, match="Invalid experiment name"):
-            _validate_experiment_name(invalid_name)
+            _validate_experiment_name(experiment_name)
 
 
-def test_db_type():
-    for db_type in ["mysql", "mssql", "postgresql", "sqlite"]:
-        # should not raise an exception
+@pytest.mark.parametrize(
+    ("db_type", "is_good_type"),
+    [
+        ("mysql", True),
+        ("mssql", True),
+        ("postgresql", True),
+        ("sqlite", True),
+        # error cases
+        ("MySQL", False),
+        ("mongo", False),
+        ("cassandra", False),
+        ("sql", False),
+        ("", False),
+    ],
+)
+def test_db_type(db_type, is_good_type):
+    if is_good_type:
         _validate_db_type_string(db_type)
-
-    # error cases
-    for db_type in ["MySQL", "mongo", "cassandra", "sql", ""]:
+    else:
         with pytest.raises(MlflowException, match="Invalid database engine") as e:
             _validate_db_type_string(db_type)
         assert "Invalid database engine" in e.value.message
