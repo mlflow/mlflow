@@ -21,6 +21,6 @@ docker run \
   -v $(pwd):/mlflow/mlflow/R/mlflow \
   -v $(pwd)/../../../docs/source:/mlflow/docs/source \
   $image_name \
-  Rscript -e 'source(".install-doc-dependencies.R", echo = TRUE); source(".build-doc.R", echo = TRUE); '
+  Rscript -e 'source(".build-doc.R", echo = TRUE)'
 
 popd

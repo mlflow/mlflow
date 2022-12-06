@@ -24,7 +24,6 @@ Reference_Manual_mlflow.md
 ^\.install-deps\.R$
 ^\.build-package\.R$
 ^\.build-doc\.R$
-^\.install-doc-dependencies\.R$
 ^build-package\.sh$
 ^Dockerfile\.dev$
 ^Dockerfile\.r-devel$
