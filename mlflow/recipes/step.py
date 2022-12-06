@@ -11,7 +11,6 @@ from enum import Enum
 from typing import TypeVar, Dict, Any, List
 from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.recipes.utils import get_recipe_name
-from mlflow.recipes.utils.metrics import _get_model_type_from_template
 from mlflow.recipes.utils.step import display_html
 from mlflow.tracking import MlflowClient
 from mlflow.utils.annotations import experimental

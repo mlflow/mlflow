@@ -103,8 +103,8 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
 def _get_extended_task(step_config: Dict[str, Any]) -> str:
     """
     :param step_config: Step config
-    :return: Extended type string. Currently supported types are: "regression", "binary_classification",
-     "multiclass_classification"
+    :return: Extended type string. Currently supported types are: "regression",
+    "binary_classification", "multiclass_classification"
     """
     tmpl = step_config.get("recipe")
     if "regression" in tmpl:

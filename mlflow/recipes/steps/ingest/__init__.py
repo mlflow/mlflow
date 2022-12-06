@@ -8,7 +8,6 @@ from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
-from mlflow.recipes.utils.metrics import _get_model_type_from_template
 from mlflow.recipes.utils.step import get_pandas_data_profiles
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df

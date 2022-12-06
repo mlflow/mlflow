@@ -69,7 +69,7 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
     from sklearn.preprocessing import StandardScaler
 
     m = Mock()
-    m.transformer_fn = lambda: StandardScaler()
+    m.transformer_fn = lambda: StandardScaler() # pylint: disable=unnecessary-lambda
     with mock.patch.dict(
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ), mock.patch.dict("sys.modules", {"steps.transform": m}):
