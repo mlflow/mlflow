@@ -340,7 +340,7 @@ export class RunViewImpl extends Component {
               description: 'Label for displaying the user who created the experiment run',
             })}
           >
-            {Utils.getUser(run, tags)}
+            {<Link data-test-id='user-id-search' to={Routes.getExperimentByUser(this.props.experimentId, Utils.getUser(run, tags))}>{Utils.getUser(run, tags)}</Link>}
           </Descriptions.Item>
           {duration ? (
             <Descriptions.Item
@@ -371,7 +371,7 @@ export class RunViewImpl extends Component {
                   'Label for displaying lifecycle stage of the experiment run to see if its active or deleted',
               })}
             >
-              {lifecycleStage}
+              {<Link data-test-id='life-cycle-search' to={Routes.getExperimentByLifeCycle(this.props.experimentId, lifecycleStage)}>{lifecycleStage}</Link>}
             </Descriptions.Item>
           ) : null}
           {tags['mlflow.parentRunId'] !== undefined ? (
