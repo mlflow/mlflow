@@ -4,6 +4,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import (
+    path_not_unique,
     _is_numeric,
     _validate_metric_name,
     _validate_param_name,
@@ -41,6 +42,24 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "./",
     "/./",
 ]
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("a", False),
+        ("a/b/c", False),
+        ("a.b/c", False),
+        (".a", False),
+        ("./a", True),
+        ("a/b/../c", True),
+        (".", True),
+        ("../a/b", True),
+        ("/a/b/c", True),
+    ],
+)
+def test_path_not_unique(path, expected):
+    assert path_not_unique(path) is expected
 
 
 def test_is_numeric():
