@@ -181,6 +181,29 @@ def test_lgb_autolog_sklearn():
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
+def test_lgb_autolog_sklearn_nested_in_pipeline():
+    from sklearn.pipeline import make_pipeline
+
+    mlflow.lightgbm.autolog()
+    mlflow.sklearn.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = lgb.LGBMClassifier(**params)
+
+    model = make_pipeline(model)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
+    # assert pipeline logged
+    assert run.data.params["lgbmclassifier__reg_lambda"] == "1"
+    # assert nested lgb classifier not logged
+    assert "reg_lambda" not in run.data.params
+
+
 def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutations():
     original_lgb_classifier_fit = lgb.LGBMClassifier.fit
     original_lgb_classifier_predict = lgb.LGBMClassifier.predict

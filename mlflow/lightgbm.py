@@ -69,6 +69,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "lightgbm"
 
@@ -482,7 +483,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -668,6 +669,13 @@ def autolog(
             early_stopping_logging_operations.await_completion()
 
         return model
+
+    def train(_log_models, original, *args, **kwargs):
+        with _SklearnTrainingSession(estimator=lightgbm.train, allow_children=False) as t:
+            if t.should_log():
+                return train_impl(_log_models, original, *args, **kwargs)
+            else:
+                return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
     safe_patch(

@@ -514,16 +514,16 @@ def _get_new_training_session_class():
     class _TrainingSession:
         _session_stack = []
 
-        def __init__(self, clazz, allow_children=True):
+        def __init__(self, estimator, allow_children=True):
             """
             A session manager for nested autologging runs.
 
-            :param clazz: A class object that this session originates from.
+            :param estimator: An estimator that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
             """
             self.allow_children = allow_children
-            self.clazz = clazz
+            self.estimator = estimator
             self._parent = None
 
         def __enter__(self):
@@ -543,16 +543,26 @@ def _get_new_training_session_class():
             Returns True when at least one of the following conditions satisfies:
 
             1. This session is the root session.
-            2. The parent session allows autologging and its class differs from this session's
-               class.
+            2. The parent session allows autologging and its estimator differs from this session's
+               estimator.
             """
-            return (self._parent is None) or (
-                self._parent.allow_children and self._parent.clazz != self.clazz
-            )
+            for training_session in _TrainingSession._session_stack:
+                if training_session is self:
+                    break
+                elif training_session.estimator is self.estimator:
+                    return False
+
+            return self._parent is None or self._parent.allow_children
 
         @staticmethod
         def is_active():
             return len(_TrainingSession._session_stack) != 0
+
+        @staticmethod
+        def get_current_session():
+            if _TrainingSession.is_active():
+                return _TrainingSession._session_stack[-1]
+            return None
 
     return _TrainingSession
 
