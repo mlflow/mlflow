@@ -93,9 +93,6 @@ class TrackingServiceClient:
             max_results=GET_METRIC_HISTORY_MAX_RESULTS,
             page_token=None,
         )
-        if not isinstance(history, PagedList):
-            # Backwards compatible return if the server doesn't support paginated queries
-            return history
         metric_collection = history.to_list()
         # Continue issuing queries to the backend store to retrieve all pages of
         # metric history.

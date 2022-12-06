@@ -267,12 +267,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
 
         metric_history = [Metric.from_proto(metric) for metric in response_proto.metrics]
-        if max_results is not None:
-            return PagedList(metric_history, response_proto.next_page_token or None)
-        else:
-            # Non-paginated requests for backend stores that don't support pagination and for
-            # backwards compatibility for older clients that don't implement client pagination.
-            return metric_history
+        return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
