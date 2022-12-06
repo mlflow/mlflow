@@ -29,7 +29,7 @@ _USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
 
 
 def _make_elem_hashable(elem):
-    import numpy as np
+    import numpy as np  # pylint: disable=reimported
 
     if isinstance(elem, list):
         return tuple(_make_elem_hashable(e) for e in elem)
@@ -68,7 +68,7 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
 
 
 def _parallelize(data, func):
-    import numpy as np
+    import numpy as np  # pylint: disable=reimported
     import pandas as pd
     from multiprocessing import Pool
 
