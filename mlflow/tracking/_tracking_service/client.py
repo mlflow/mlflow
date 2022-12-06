@@ -99,7 +99,7 @@ class TrackingServiceClient:
                 run_id=run_id,
                 metric_key=key,
                 max_results=GET_METRIC_HISTORY_MAX_RESULTS,
-                page_token=history.token,
+                page_token=token,
             )
             history.extend(paged_history)
             token = paged_history.token
