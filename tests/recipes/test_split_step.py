@@ -52,7 +52,7 @@ def test_split_step_run(tmp_path):
     with open(split_card_file_path, "r", errors="ignore") as f:
         step_card_content = f.read()
 
-    assert "Compare Training Data (Positive vs Negative)" in step_card_content
+    assert "Compare Training Data" in step_card_content
 
     output_train_df = pd.read_parquet(str(split_output_dir / "train.parquet"))
     output_validation_df = pd.read_parquet(str(split_output_dir / "validation.parquet"))
