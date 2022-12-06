@@ -864,7 +864,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
-            return [metric.to_mlflow_entity() for metric in metrics]
+            return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)

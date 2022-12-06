@@ -778,10 +778,13 @@ class FileStore(AbstractStore):
                 "Metric '%s' not found under run '%s'" % (metric_key, run_id),
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        return [
-            FileStore._get_metric_from_line(metric_key, line)
-            for line in read_file_lines(parent_path, metric_key)
-        ]
+        return PagedList(
+            [
+                FileStore._get_metric_from_line(metric_key, line)
+                for line in read_file_lines(parent_path, metric_key)
+            ],
+            None,
+        )
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):

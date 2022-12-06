@@ -430,6 +430,7 @@ class TestRestStore:
             assert len(metrics) == 2
             assert metrics[0] == Metric(key="a_metric", value=42, timestamp=123456777, step=0)
             assert metrics[1] == Metric(key="a_metric", value=46, timestamp=123456797, step=1)
+            assert metrics.token == "AcursorForTheRestofTheData"
             # Fetch the second page
             mock_request.reset_mock()
             metrics = store.get_metric_history(
