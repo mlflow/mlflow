@@ -419,7 +419,7 @@ class PyFuncModel:
         This method is useful for accessing custom model functions, while still being able to
         leverage the MLflow designed workflow through the `predict()` method.
 
-        .. code-block:: python
+        .. test-code-block:: python
             :caption: Example
 
             import mlflow
