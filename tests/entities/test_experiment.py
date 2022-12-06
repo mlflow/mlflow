@@ -15,32 +15,32 @@ def _check(exp, exp_id, name, location, lifecyle_stage, creation_time, last_upda
 
 
 @pytest.fixture
-def exp_id():
+def exp_id(scope="module"):
     yield str(random_int())
 
 
 @pytest.fixture
-def name():
+def name(scope="module"):
     yield "exp_%d_%d" % (random_int(), random_int())
 
 
 @pytest.fixture
-def lifecycle_stage():
+def lifecycle_stage(scope="module"):
     yield LifecycleStage.ACTIVE
 
 
 @pytest.fixture
-def location():
+def location(scope="module"):
     yield random_file(".json")
 
 
 @pytest.fixture
-def creation_time():
+def creation_time(scope="module"):
     yield get_current_time_millis()
 
 
 @pytest.fixture
-def last_update_time():
+def last_update_time(scope="module"):
     yield get_current_time_millis()
 
 
