@@ -1,9 +1,8 @@
 import importlib
 import re
 import yaml
-
+import sys
 from packaging.version import Version, InvalidVersion
-from pkg_resources import resource_filename
 
 import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
@@ -59,7 +58,17 @@ def _strip_dev_version_suffix(version):
 
 
 def _load_version_file_as_dict():
-    version_file_path = resource_filename(mlflow.__name__, "ml-package-versions.yml")
+    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
+    if sys.version_info.major > 2 and sys.version_info.minor > 8:
+        from importlib.resources import as_file, files
+
+        with as_file(files(mlflow).joinpath("ml-package-versions.yml")) as file:
+            version_file_path = file
+    else:
+        from importlib.resources import path
+
+        with path(mlflow, "ml-package-versions.yml") as file:
+            version_file_path = file
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
