@@ -210,13 +210,13 @@ def _build_mlflow_run_cmd(
     mlflow_run_arr = ["mlflow", "run", uri, "-e", entry_point, "--run-id", run_id]
     if docker_args is not None:
         for key, value in docker_args.items():
-            args = key if isinstance(value, bool) else "%s=%s" % (key, value)
+            args = key if isinstance(value, bool) else "{}={}".format(key, value)
             mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     mlflow_run_arr.extend(["--env-manager", env_manager])
     for key, value in parameters.items():
-        mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
+        mlflow_run_arr.extend(["-P", "{}={}".format(key, value)])
     return mlflow_run_arr
 
 
@@ -329,7 +329,7 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
         container_path = os.path.join(MLFLOW_DOCKER_WORKDIR_PATH, container_path)
         container_path = os.path.normpath(container_path)
     abs_artifact_dir = os.path.abspath(artifact_dir)
-    return ["-v", "%s:%s" % (abs_artifact_dir, container_path)], {}
+    return ["-v", "{}:{}".format(abs_artifact_dir, container_path)], {}
 
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
@@ -342,7 +342,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
     volumes = []
     if posixpath.exists(aws_path):
-        volumes = ["-v", "%s:%s" % (str(aws_path), "/.aws")]
+        volumes = ["-v", "{}:{}".format(str(aws_path), "/.aws")]
     envs = {
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),

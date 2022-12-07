@@ -57,7 +57,7 @@ def test_log_artifact(artifact_path):
         )
         assert posixpath.isfile(remote_file)
 
-        with open(remote_file, "r") as remote_content:
+        with open(remote_file) as remote_content:
             assert remote_content.read() == file_content
 
 
@@ -86,7 +86,7 @@ def test_log_artifacts(artifact_path):
         assert posixpath.isfile(posixpath.join(remote_dir, file1))
         assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-        with open(posixpath.join(remote_dir, file1), "r") as remote_content:
+        with open(posixpath.join(remote_dir, file1)) as remote_content:
             assert remote_content.read() == file_content_1
 
         with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
@@ -111,7 +111,7 @@ def test_delete_artifact(artifact_path):
         )
         assert posixpath.isfile(remote_file)
 
-        with open(remote_file, "r") as remote_content:
+        with open(remote_file) as remote_content:
             assert remote_content.read() == file_content
 
         store.delete_artifacts(remote.path())
@@ -145,7 +145,7 @@ def test_delete_artifacts(artifact_path):
         assert posixpath.isfile(posixpath.join(remote_dir, file1))
         assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-        with open(posixpath.join(remote_dir, file1), "r", encoding="utf8") as remote_content:
+        with open(posixpath.join(remote_dir, file1), encoding="utf8") as remote_content:
             assert remote_content.read() == file_content_1
 
         with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
@@ -185,7 +185,7 @@ def test_delete_selective_artifacts(artifact_path):
         assert posixpath.isfile(posixpath.join(remote_dir, file1))
         assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-        with open(posixpath.join(remote_dir, file1), "r", encoding="utf8") as remote_content:
+        with open(posixpath.join(remote_dir, file1), encoding="utf8") as remote_content:
             assert remote_content.read() == file_content_1
 
         with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:

@@ -32,7 +32,9 @@ def _await_server_up_or_die(port, timeout=60):
             _logger.info("Server not yet up, waiting...")
             time.sleep(0.5)
     if not connected:
-        raise Exception("Failed to connect on %s:%s after %s seconds" % (LOCALHOST, port, timeout))
+        raise Exception(
+            "Failed to connect on {}:{} after {} seconds".format(LOCALHOST, port, timeout)
+        )
     _logger.info(f"Server is up on {LOCALHOST}:{port}!")
 
 

@@ -152,14 +152,14 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                     stdout=output_file,
                     extra_args=["-w", "3"],
                 )
-            with open(output_file_path, "r") as output_file:
+            with open(output_file_path) as output_file:
                 stdout = output_file.read()
         actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            ("gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app")
+            "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"
         )
         assert expected_command_pattern.search(stdout) is not None
 
@@ -286,7 +286,7 @@ def test_predict(iris_data, sk_model):
             stderr=sys.stderr,
             env=env_with_tracking_uri,
         )
-        with open(input_json_path, "r") as f:
+        with open(input_json_path) as f:
             stdout, _ = p.communicate(f.read())
         assert p.wait() == 0
         actual = pd.read_json(StringIO(stdout), orient="records")

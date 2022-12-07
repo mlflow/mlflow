@@ -146,9 +146,9 @@ class Settings:
 
     def __repr__(self):
         values = ", ".join(
-            ["%s=%r" % (key, value) for key, value in sorted(_iteritems(self.__dict__))]
+            ["{}={!r}".format(key, value) for key, value in sorted(_iteritems(self.__dict__))]
         )
-        return "%s(%s)" % (type(self).__name__, values)
+        return "{}({})".format(type(self).__name__, values)
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -215,7 +215,7 @@ class Patch:
         self.is_inplace_patch = None
 
     def __repr__(self):
-        return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
+        return "{}(destination={!r}, name={!r}, obj={!r}, settings={!r})".format(
             type(self).__name__,
             self.destination,
             self.name,
@@ -632,7 +632,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             else:
                 # go on checking parent classes
                 continue
-        raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(obj), name))
     else:
         try:
             return _get_attr(obj, original_name)
@@ -782,7 +782,7 @@ def _module_iterator(root, recursive=True):
         for path in paths:
             modules = pkgutil.iter_modules([path])
             for finder, name, is_package in modules:
-                module_name = "%s.%s" % (package.__name__, name)
+                module_name = "{}.{}".format(package.__name__, name)
                 module = sys.modules.get(module_name, None)
                 if module is None:
                     # Import the module through the finder to support package

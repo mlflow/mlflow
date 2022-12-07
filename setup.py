@@ -53,7 +53,7 @@ subset of functionality such as: RESTful client functionality for Tracking and
 Model Registry, as well as support for Project execution against local backends
 and Databricks.
 """
-with open(os.path.join("requirements", "skinny-requirements.txt"), "r") as f:
+with open(os.path.join("requirements", "skinny-requirements.txt")) as f:
     SKINNY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
 
 
@@ -63,7 +63,7 @@ the skinny client functionality with support for running the MLflow Tracking
 Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
-with open(os.path.join("requirements", "core-requirements.txt"), "r") as f:
+with open(os.path.join("requirements", "core-requirements.txt")) as f:
     CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))

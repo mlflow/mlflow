@@ -187,7 +187,7 @@ def deploy_transform_job(
     timeout elapses.
     """
     if vpc_config is not None:
-        with open(vpc_config, "r") as f:
+        with open(vpc_config) as f:
             vpc_config = json.load(f)
 
     mlflow.sagemaker.deploy_transform_job(
@@ -323,7 +323,7 @@ def push_model_to_sagemaker(
     correct permissions setup.
     """
     if vpc_config is not None:
-        with open(vpc_config, "r") as f:
+        with open(vpc_config) as f:
             vpc_config = json.load(f)
 
     mlflow.sagemaker.push_model_to_sagemaker(

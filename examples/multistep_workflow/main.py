@@ -67,9 +67,11 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
     existing_run = _already_ran(entrypoint, parameters, git_commit)
     if use_cache and existing_run:
-        print("Found existing run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
+        print(
+            "Found existing run for entrypoint={} and parameters={}".format(entrypoint, parameters)
+        )
         return existing_run
-    print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
+    print("Launching new run for entrypoint={} and parameters={}".format(entrypoint, parameters))
     submitted_run = mlflow.run(".", entrypoint, parameters=parameters, env_manager="local")
     return MlflowClient().get_run(submitted_run.run_id)
 

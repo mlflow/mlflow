@@ -110,7 +110,7 @@ def test_predict(tmpdir):
             temp_output_file_path,
         ],
     )
-    with open(temp_output_file_path, "r") as f:
+    with open(temp_output_file_path) as f:
         assert json.load(f) == {"predictions": [1, 2, 3]}
 
 

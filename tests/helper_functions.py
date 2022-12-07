@@ -384,12 +384,12 @@ def create_mock_response(status_code, text):
 
 
 def _read_yaml(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f)
 
 
 def _read_lines(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return f.read().splitlines()
 
 
@@ -405,8 +405,8 @@ def _compare_logged_code_paths(code_path, model_path, flavor_name):
     saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
     assert os.path.exists(saved_code_path)
 
-    with open(os.path.join(saved_code_path, os.path.basename(code_path)), "r") as f1:
-        with open(code_path, "r") as f2:
+    with open(os.path.join(saved_code_path, os.path.basename(code_path))) as f1:
+        with open(code_path) as f2:
             assert f1.read() == f2.read()
 
 

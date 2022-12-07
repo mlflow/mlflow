@@ -219,10 +219,10 @@ class EvaluationResult:
     @classmethod
     def load(cls, path):
         """Load the evaluation results from the specified local filesystem path"""
-        with open(os.path.join(path, "metrics.json"), "r") as fp:
+        with open(os.path.join(path, "metrics.json")) as fp:
             metrics = json.load(fp)
 
-        with open(os.path.join(path, "artifacts_metadata.json"), "r") as fp:
+        with open(os.path.join(path, "artifacts_metadata.json")) as fp:
             artifacts_metadata = json.load(fp)
 
         artifacts = {}

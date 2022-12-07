@@ -382,7 +382,7 @@ class Model:
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
-                    "runs:/%s/%s" % (run_id, mlflow_model.artifact_path),
+                    "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )

@@ -34,7 +34,7 @@ def use_dev_mlflow_for_projects():
     write_yaml(TEST_VIRTUALENV_CONDA_PROJECT_DIR, "conda.yaml", conda_env, overwrite=True)
 
     virtualenv_requirements_path = os.path.join(TEST_VIRTUALENV_PROJECT_DIR, "requirements.txt")
-    with open(virtualenv_requirements_path, "r") as f:
+    with open(virtualenv_requirements_path) as f:
         virtualenv_requirements = f.readlines()
 
     with open(virtualenv_requirements_path, "w") as f:

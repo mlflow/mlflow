@@ -144,7 +144,7 @@ def _log_matplotlib_figure(fig, out_file, artifact_path=None):
 
 def _get_conda_env_for_underlying_model(underlying_model_path):
     underlying_model_conda_path = os.path.join(underlying_model_path, "conda.yaml")
-    with open(underlying_model_conda_path, "r") as underlying_model_conda_file:
+    with open(underlying_model_conda_path) as underlying_model_conda_file:
         return yaml.safe_load(underlying_model_conda_file)
 
 
