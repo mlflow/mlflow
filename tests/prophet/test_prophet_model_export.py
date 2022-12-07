@@ -1,5 +1,5 @@
 import os
-import pathlib
+from pathlib import Path
 import pytest
 import yaml
 import numpy as np
@@ -7,6 +7,7 @@ import pandas as pd
 from collections import namedtuple
 from datetime import datetime, timedelta, date
 from unittest import mock
+import json
 
 from prophet import Prophet
 
@@ -29,6 +30,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_logged_code_paths,
     _is_available_on_pypi,
+    _mlflow_major_version_string,
 )
 
 
@@ -228,11 +230,11 @@ def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
             generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
         )
 
-        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert model_path.joinpath(env_path).exists()
 
     finally:
@@ -276,7 +278,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         pr_model=prophet_model.model, path=model_path, conda_env=str(prophet_custom_env)
     )
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV]["conda"])
 
     assert saved_conda_env_path.exists()
     assert not prophet_custom_env.samefile(saved_conda_env_path)
@@ -298,11 +300,14 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(prophet_model, tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         mlflow.prophet.log_model(prophet_model.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -310,7 +315,7 @@ def test_log_model_with_pip_requirements(prophet_model, tmp_path):
             prophet_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -320,13 +325,14 @@ def test_log_model_with_pip_requirements(prophet_model, tmp_path):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.prophet.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -334,7 +340,9 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
     req_file.write_text("a")
     with mlflow.start_run():
         mlflow.prophet.log_model(prophet_model.model, "model", extra_pip_requirements=str(req_file))
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -342,7 +350,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
             prophet_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -352,7 +360,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),
-            requirements=["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            requirements=[expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             constraints=["a"],
             strict=False,
         )
@@ -396,11 +404,11 @@ def test_pyfunc_serve_and_score(prophet_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_data,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
 
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
     # stan build underlying environment. Seed value only works for reproducibility of yhat.
@@ -420,3 +428,11 @@ def test_log_model_with_code_paths(prophet_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.prophet.FLAVOR_NAME)
         mlflow.prophet.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(prophet_model, model_path):
+    mlflow.prophet.save_model(prophet_model.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

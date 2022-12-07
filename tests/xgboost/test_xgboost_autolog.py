@@ -25,7 +25,7 @@ mpl.use("Agg")
 
 def get_latest_run():
     client = MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 def get_model_conf(artifact_uri, model_subpath="model"):
@@ -192,6 +192,29 @@ def test_xgb_autolog_sklearn():
     assert artifacts >= {"feature_importance_weight.png", "feature_importance_weight.json"}
     loaded_model = mlflow.xgboost.load_model(model_uri)
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
+
+
+def test_xgb_autolog_sklearn_nested_in_pipeline():
+    from sklearn.pipeline import make_pipeline
+
+    mlflow.xgboost.autolog()
+    mlflow.sklearn.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    model = make_pipeline(model)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
+    # assert pipeline logged
+    assert run.data.params["xgbregressor__reg_lambda"] == "1"
+    # assert nested lgb classifier not logged
+    assert "reg_lambda" not in run.data.params
 
 
 def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutations():

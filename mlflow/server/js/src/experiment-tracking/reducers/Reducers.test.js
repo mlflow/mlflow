@@ -23,11 +23,12 @@ import {
   getAllParamKeysByRunUuids,
   getArtifactRootUri,
   modelVersionsByRunUuid,
+  runUuidsMatchingFilter,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
 import {
-  LIST_EXPERIMENTS_API,
+  SEARCH_EXPERIMENTS_API,
   GET_EXPERIMENT_API,
   GET_RUN_API,
   SEARCH_RUNS_API,
@@ -48,12 +49,12 @@ describe('test experimentsById', () => {
     expect(experimentsById(undefined, {})).toEqual({});
   });
 
-  test('listExperiments correctly updates empty state', () => {
+  test('searchExperiments correctly updates empty state', () => {
     const experimentA = mockExperiment('experiment01', 'experimentA');
     const experimentB = mockExperiment('experiment02', 'experimentB');
     const state = undefined;
     const action = {
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
         experiments: [experimentA.toJSON(), experimentB.toJSON()],
       },
@@ -65,7 +66,7 @@ describe('test experimentsById', () => {
     });
   });
 
-  test('listExperiments correctly updates state', () => {
+  test('searchExperiments correctly updates state', () => {
     const newA = mockExperiment('experiment01', 'experimentA');
     const newB = mockExperiment('experiment02', 'experimentB');
     const preserved = mockExperiment('experiment03', 'still exists');
@@ -78,7 +79,7 @@ describe('test experimentsById', () => {
       [replacedOld.getExperimentId()]: replacedOld,
     });
     const action = {
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: {
         experiments: [preserved.toJSON(), newA.toJSON(), newB.toJSON(), replacedNew.toJSON()],
       },
@@ -166,6 +167,53 @@ describe('test experimentsById', () => {
     const { tags } = state2.experiment1;
 
     expect(tags).toEqual(Immutable.List([ExperimentTag.fromJs(tag1), ExperimentTag.fromJs(tag2)]));
+  });
+});
+
+describe('test runUuidsMatchingFilter', () => {
+  test('should set up initial state correctly', () => {
+    expect(runUuidsMatchingFilter(undefined, {})).toEqual([]);
+  });
+  test('should do nothing without a payload', () => {
+    expect(
+      runUuidsMatchingFilter(undefined, {
+        type: fulfilled(SEARCH_RUNS_API),
+      }),
+    ).toEqual([]);
+  });
+  test('should create a new set of UUIDs', () => {
+    expect(
+      runUuidsMatchingFilter(['run01'], {
+        type: fulfilled(SEARCH_RUNS_API),
+        payload: {
+          runsMatchingFilter: [
+            {
+              info: mockRunInfo('run02', '1'),
+            },
+            {
+              info: mockRunInfo('run03', '1'),
+            },
+          ],
+        },
+      }),
+    ).toEqual(['run02', 'run03']);
+  });
+  test('should be able to append new run UUIDs', () => {
+    expect(
+      runUuidsMatchingFilter(['run01'], {
+        type: fulfilled(LOAD_MORE_RUNS_API),
+        payload: {
+          runsMatchingFilter: [
+            {
+              info: mockRunInfo('run02', '1'),
+            },
+            {
+              info: mockRunInfo('run03', '1'),
+            },
+          ],
+        },
+      }),
+    ).toEqual(['run01', 'run02', 'run03']);
   });
 });
 
@@ -1223,7 +1271,7 @@ describe('test public accessors', () => {
     });
 
     const action = new_action({
-      type: fulfilled(LIST_EXPERIMENTS_API),
+      type: fulfilled(SEARCH_EXPERIMENTS_API),
       payload: { experiments: [A.toJSON(), B.toJSON()] },
     });
     const state = rootReducer(undefined, action);

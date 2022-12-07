@@ -144,7 +144,8 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.catboost",
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
         **model_bin_kwargs,
     )

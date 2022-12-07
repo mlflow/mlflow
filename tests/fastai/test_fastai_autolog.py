@@ -118,7 +118,7 @@ def fastai_random_tabular_data_run(iris_data, fit_variant):
         model.fit(NUM_EPOCHS)
 
     client = MlflowClient()
-    return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return model, client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
@@ -173,7 +173,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
     # Testing model_summary.txt is saved
     client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "module_summary.txt" in artifacts
 
 
@@ -191,7 +191,7 @@ def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
         model.fit(NUM_EPOCHS)
 
     client = MlflowClient()
-    data = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id).data
+    data = client.get_run(client.search_runs(["0"])[0].info.run_id).data
 
     assert "opt_func" in data.params
     assert data.params["opt_func"] == "Adam"
@@ -209,9 +209,9 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     model.fit(NUM_EPOCHS)
 
     client = MlflowClient()
-    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     assert ("model" in artifacts) == log_models
 
 
@@ -219,9 +219,9 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
 def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_variant):
     # pylint: disable=unused-argument
     client = MlflowClient()
-    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    run_id = client.search_runs(["0"])[0].info.run_id
     artifacts = client.list_artifacts(run_id)
-    artifacts = list(map(lambda x: x.path, artifacts))
+    artifacts = [x.path for x in artifacts]
     if fit_variant == "fit_one_cycle":
         for param in ["lr", "mom"]:
             assert any(a.startswith(param + ".") for a in artifacts)
@@ -237,7 +237,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     run_id = fastai_random_tabular_data_run[1].info.run_id
     client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
-    artifacts = map(lambda x: x.path, artifacts)
+    artifacts = (x.path for x in artifacts)
     assert "model" in artifacts
     model = mlflow.fastai.load_model("runs:/" + run_id + "/model")
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
@@ -266,7 +266,7 @@ def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, p
         model.fit(NUM_EPOCHS)
 
     client = MlflowClient()
-    return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return model, client.get_run(client.search_runs(["0"])[0].info.run_id)
 
 
 @pytest.fixture

@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -5,6 +6,8 @@ import subprocess
 from mlflow.models import FlavorBackend
 from mlflow.utils.string_utils import quote
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+
+_logger = logging.getLogger(__name__)
 
 
 class RFuncBackend(FlavorBackend):
@@ -23,7 +26,7 @@ class RFuncBackend(FlavorBackend):
 
     version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+    def predict(self, model_uri, input_path, output_path, content_type):
         """
         Generate predictions using R model saved with MLflow.
         Return the prediction results as a JSON.
@@ -31,14 +34,13 @@ class RFuncBackend(FlavorBackend):
         model_path = _download_artifact_from_uri(model_uri)
         str_cmd = (
             "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, "
-            "output_path = {2}, content_type = {3}, json_format = {4})"
+            "output_path = {2}, content_type = {3})"
         )
         command = str_cmd.format(
             quote(model_path),
             _str_optional(input_path),
             _str_optional(output_path),
             _str_optional(content_type),
-            _str_optional(json_format),
         )
         _execute(command)
 
@@ -64,7 +66,7 @@ class RFuncBackend(FlavorBackend):
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
 
         if timeout:
-            raise Exception("Timeout is not yet supported in the R backend.")
+            _logger.warning("Timeout is not yet supported in the R backend.")
 
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")

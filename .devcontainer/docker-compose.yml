@@ -1,0 +1,14 @@
+version: "3"
+services:
+  mlflow:
+    image: "ghcr.io/mlflow/mlflow-devcontainer"
+    working_dir: /workspaces/mlflow
+    environment:
+      MLFLOW_HOME: /workspaces/mlflow
+      MLFLOW_TRACKING_URI: sqlite:////workspaces/mlflow/mlruns.db
+    volumes:
+      - $PWD:/workspaces/mlflow
+      - build:/workspaces/mlflow/mlflow/server/js/build
+
+volumes:
+  build:

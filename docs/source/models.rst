@@ -311,9 +311,19 @@ missing values.
 Handling Date and Timestamp
 """""""""""""""""""""""""""
 For datetime values, Python has precision built into the type. For example, datetime values with
-day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
+day precision have numpy type ``datetime64[D]``, while values with nanosecond precision have
 type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
 enforced for tensor-based signatures.
+
+Handling Ragged Arrays
+""""""""""""""""""""""
+Ragged arrays can be created in numpy and are produced with a shape of (-1,) and a dytpe of
+object. This will be handled by default when using ``infer_signature``, resulting in a
+signature containing ``Tensor('object', (-1,))``. A similar signature can be manually created
+containing a more detailed representation of a ragged array, for a more expressive signature,
+such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
+as possible given the signature provided, and will support ragged input arrays as well.
+
 
 .. _how-to-log-models-with-signatures:
 
@@ -376,7 +386,6 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    import mlflow.keras
     from mlflow.models.signature import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
@@ -396,7 +405,7 @@ on the ``MNIST dataset``:
     model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
 
     signature = infer_signature(testX, model.predict(testX))
-    mlflow.keras.log_model(model, "mnist_cnn", signature=signature)
+    mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
 
 The same signature can be created explicitly as follows:
 
@@ -462,7 +471,7 @@ you can log a tensor-based input example with your model:
 	[ 76,  75,   0, 255],
 	[ 33,  44,  11,  82]]
     ], dtype=np.uint8)
-    mlflow.keras.log_model(..., input_example=input_example)
+    mlflow.tensorflow.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -604,15 +613,11 @@ Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
-and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
-and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format in Python. Similarly, in R, you can save or log the model using
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__. These functions serialize Keras
-models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
-produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be
-scored with both DataFrame input and numpy array input. Finally, you can use the :py:func:`mlflow.keras.load_model()`
-function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+and R clients. In R, you can save or log the model using
+`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
+These functions serialize Keras models models as HDF5 files using the Keras library's built-in
+model persistence functions. You can use
+`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -621,7 +626,7 @@ Keras pyfunc usage
 For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
 
 .. code-block:: py
-    
+
     import mlflow
     import numpy as np
     import pathlib
@@ -641,7 +646,7 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
         )
         model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
         model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-        model_info = mlflow.keras.log_model(keras_model=model, artifact_path="model")
+        model_info = mlflow.tensorflow.log_model(model=model, artifact_path="model")
 
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
@@ -653,7 +658,6 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
     shutil.rmtree(local_artifact_dir)
 
-For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
@@ -702,6 +706,44 @@ via :py:func:`mlflow.pyfunc.load_model()`.
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
     logging multiple copies of the same model.
 
+PyTorch pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+
+For a minimal PyTorch model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: py
+
+    import numpy as np
+    import mlflow
+    import torch
+    from torch import nn
+
+
+    net = nn.Linear(6, 1)
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+
+    X = torch.randn(6)
+    y = torch.randn(1)
+
+    epochs = 5
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = net(X)
+
+        loss = loss_function(outputs, y)
+        loss.backward()
+
+        optimizer.step()
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pytorch.log_model(net, "model")
+
+    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    predictions = pytorch_pyfunc.predict(torch.randn(6).numpy())
+    print(predictions)
+
 For more information, see :py:mod:`mlflow.pytorch`.
 
 Scikit-learn (``sklearn``)
@@ -724,7 +766,7 @@ Scikit-learn pyfunc usage
 For a Scikit-learn LogisticRegression model, an example configuration for the pyfunc predict() method is:
 
 .. code-block:: py
-    
+
     import mlflow
     import numpy as np
     from sklearn.linear_model import LogisticRegression
@@ -773,15 +815,14 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows serialized TensorFlow models in
-`SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
+The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
 Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
 can be scored with both DataFrame input and numpy array input. Finally, you can use the
 :py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow graphs.
+flavor as TensorFlow Core models or Keras models.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
@@ -798,6 +839,53 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+ONNX pyfunc usage example
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For an ONNX model, an example configuration that uses pytorch to train a dummy model,
+converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict() method is:
+
+.. code-block:: py
+
+    import numpy as np
+    import mlflow
+    import onnx
+    import torch
+    from torch import nn
+
+    # define a torch model
+    net = nn.Linear(6, 1)
+    loss_function = nn.L1Loss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+
+    X = torch.randn(6)
+    y = torch.randn(1)
+
+    # run model training
+    epochs = 5
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = net(X)
+
+        loss = loss_function(outputs, y)
+        loss.backward()
+
+        optimizer.step()
+
+    # convert model to ONNX and load it
+    torch.onnx.export(net, X, "model.onnx")
+    onnx_model = onnx.load_model("model.onnx")
+
+    # log the model into a mlflow run
+    with mlflow.start_run():
+        model_info = mlflow.onnx.log_model(onnx_model, "model")
+
+    # load the logged model and make a prediction
+    onnx_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    predictions = onnx_pyfunc.predict(X.numpy())
+    print(predictions)
 
 MXNet Gluon (``gluon``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -881,6 +969,129 @@ interpreted as generic Python functions for inference via :py:func:`mlflow.pyfun
 only be scored with DataFrame input. You can also use the :py:func:`mlflow.fastai.load_model()` method to
 load MLflow Models with the ``fastai`` model flavor in native fastai format.
 
+The interface for utilizing a ``fastai`` model loaded as a pyfunc type for generating predictions uses a
+Pandas DataFrame argument.
+
+This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.tabular.html>`_,
+logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
+using a ``fastai`` data loader:
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    def print_auto_logged_info(r):
+        tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+        artifacts = [f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")]
+        print("run_id: {}".format(r.info.run_id))
+        print("artifacts: {}".format(artifacts))
+        print("params: {}".format(r.data.params))
+        print("metrics: {}".format(r.data.metrics))
+        print("tags: {}".format(tags))
+
+    def main(epochs=5, learning_rate=0.01):
+
+        path = untar_data(URLs.ADULT_SAMPLE)
+        path.ls()
+
+        df = pd.read_csv(path/'adult.csv')
+
+        dls = TabularDataLoaders.from_csv(path/'adult.csv', path=path, y_names="salary",
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            procs = [Categorify, FillMissing, Normalize])
+
+        splits = RandomSplitter(valid_pct=0.2)(range_of(df))
+
+        to = TabularPandas(df, procs=[Categorify, FillMissing,Normalize],
+            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
+            cont_names = ['age', 'fnlwgt', 'education-num'],
+            y_names='salary',
+            splits=splits)
+
+        dls = to.dataloaders(bs=64)
+
+        model = tabular_learner(dls, metrics=accuracy)
+
+        mlflow.fastai.autolog()
+
+        with mlflow.start_run() as run:
+            model.fit(5, 0.01)
+            mlflow.fastai.log_model(model, "model")
+
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.fastai.load_model(model_uri)
+
+        test_df = df.copy()
+        test_df.drop(['salary'], axis=1, inplace=True)
+        dl = learn.dls.test_dl(test_df)
+
+        predictions, _ = loaded_model.get_preds(dl=dl)
+        px = pd.DataFrame(predictions).astype("float")
+        px.head(5)
+
+    main()
+
+Output (``Pandas DataFrame``):
+
+====== ========================== ==========================
+Index  Probability of first class Probability of second class
+====== ========================== ==========================
+0	   0.545088	                  0.454912
+1	   0.503172	                  0.496828
+2	   0.962663	                  0.037337
+3	   0.206107	                  0.793893
+4	   0.807599	                  0.192401
+====== ========================== ==========================
+
+Alternatively, when using the ``python_function`` flavor, get predictions from a DataFrame.
+
+.. code-block:: py
+
+    from fastai.data.external import URLs, untar_data
+    from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
+    from fastai.tabular.data import TabularDataLoaders
+    from fastai.tabular.learner import tabular_learner
+    from fastai.data.transforms import RandomSplitter
+    from fastai.metrics import accuracy
+    from fastcore.basics import range_of
+    import pandas as pd
+    import mlflow
+    import mlflow.fastai
+
+    model_uri = ...
+
+    path = untar_data(URLs.ADULT_SAMPLE)
+    df = pd.read_csv(path/'adult.csv')
+    test_df = df.copy()
+    test_df.drop(['salary'], axis=1, inplace=True)
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri)
+    loaded_model.predict(test_df)
+
+Output (``Pandas DataFrame``):
+
+====== =======================================================
+Index  Probability of first class, Probability of second class
+====== =======================================================
+0	   [0.5450878, 0.45491222]
+1	   [0.50317234, 0.49682766]
+2	   [0.9626626, 0.037337445]
+3	   [0.20610662, 0.7938934]
+4	   [0.8075987, 0.19240129]
+====== =======================================================
+
 For more information, see :py:mod:`mlflow.fastai`.
 
 Statsmodels (``statsmodels``)
@@ -912,8 +1123,8 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
-Pmdarima (``pmdarima``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pmdarima (``pmdarima``)
+^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
 format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
@@ -995,8 +1206,8 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
-Diviner (``diviner``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Diviner (``diviner``)
+^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
 `diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
 :py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
@@ -1187,6 +1398,79 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
+Community Model Flavors
+-----------------------
+
+Other useful MLflow flavors are developed and maintained by the
+MLflow community, enabling you to use MLflow Models with an
+even broader ecosystem of machine learning libraries. For more information,
+check out the description of each community-developed flavor below.
+
+.. contents::
+  :local:
+  :depth: 1
+
+
+BigML (``bigmlflow``)
+^^^^^^^^^^^^^^^^^^^^^
+
+The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
+the ``bigml`` model flavor. It enables using
+`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
+and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
+
+Installing bigmlflow
+~~~~~~~~~~~~~~~~~~~~
+
+BigMLFlow can be installed from PyPI as follows:
+
+
+.. code-block:: bash
+
+    pip install bigmlflow
+
+BigMLFlow usage
+~~~~~~~~~~~~~~~
+
+The ``bigmlflow`` module defines the flavor that implements the
+``save_model()`` and ``log_model()`` methods. They can be used
+to save BigML models and their related information in MLflow Model format.
+
+.. code-block:: py
+
+    import json
+    import mlflow
+    import bigmlflow
+
+    MODEL_FILE = "logistic_regression.json"
+    with mlflow.start_run():
+        with open(MODEL_FILE) as handler:
+            model = json.load(handler)
+            bigmlflow.log_model(model,
+                                artifact_path="model",
+                                registered_model_name="my_model")
+
+These methods also add the ``python_function`` flavor to the MLflow Models
+that they produce, allowing the models to be interpreted as generic Python
+functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame inputs.
+
+.. code-block:: py
+
+    # saving the model
+    save_model(model, path=model_path)
+    # retrieving model
+    pyfunc_model = pyfunc.load_model(model_path)
+    pyfunc_predictions = pyfunc_model.predict(dataframe)
+
+You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
+with the ``bigmlflow`` model flavor as a BigML
+`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
+
+For more information, see the
+`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
+and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -1212,116 +1496,54 @@ and behavior:
     import mlflow
     from sklearn.model_selection import train_test_split
 
-    # load UCI Adult Data Set; segment it into training and test sets
+    # Load the UCI Adult Dataset
     X, y = shap.datasets.adult()
+
+    # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-    # train XGBoost model
+    # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
-    # construct an evaluation dataset from the test set
+    # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
-        model_info = mlflow.sklearn.log_model(model, "model")
+        # Log the baseline model to MLflow
+        mlflow.sklearn.log_model(model, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # Evaluate the logged model
         result = mlflow.evaluate(
-            model_info.model_uri,
+            model_uri,
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             evaluators=["default"],
         )
 
 |eval_metrics_img| |eval_importance_img|
 
 .. |eval_metrics_img| image:: _static/images/model_evaluation_metrics.png
-   :width: 30%
+   :width: 15%
 
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
-   :width: 69%
+   :width: 84%
 
 
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to
-:py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
-functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
-and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation
-of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
-accept an additional string argument representing the path to the temporary directory that can be used to store such
-artifacts.
-
+If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
+to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
 uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
-Note that custom metric functions can return both metrics and artifacts. They can either return a single
-dictionary of metrics, or two dictionaries representing metrics and artifacts.
 
-.. code-block:: py
-
-    from sklearn.linear_model import LinearRegression
-    from sklearn.datasets import fetch_california_housing
-    from sklearn.model_selection import train_test_split
-    import numpy as np
-    import mlflow
-    import os
-    import matplotlib.pyplot as plt
-
-    # loading the California housing dataset
-    cali_housing = fetch_california_housing(as_frame=True)
-
-    # split the dataset into train and test partitions
-    X_train, X_test, y_train, y_test = train_test_split(
-        cali_housing.data, cali_housing.target, test_size=0.2, random_state=123
-    )
-
-    # train the model
-    lin_reg = LinearRegression().fit(X_train, y_train)
-
-    # creating the evaluation dataframe
-    eval_data = X_test.copy()
-    eval_data["target"] = y_test
-
-
-    def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
-        """
-        This example custom metric function creates a metric based on the ``prediction`` and
-        ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
-        ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
-        visualizes the relationship between the predictions and targets for the given model to a
-        file as an image artifact.
-        """
-        metrics = {
-            "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
-            "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
-        }
-        plt.scatter(eval_df["prediction"], eval_df["target"])
-        plt.xlabel("Targets")
-        plt.ylabel("Predictions")
-        plt.title("Targets vs. Predictions")
-        plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
-        plt.savefig(plot_path)
-        artifacts = {"example_scatter_plot_artifact": plot_path}
-        return metrics, artifacts
-
-
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(lin_reg, "model")
-        model_uri = mlflow.get_artifact_uri("model")
-        result = mlflow.evaluate(
-            model=model_uri,
-            data=eval_data,
-            targets="target",
-            model_type="regressor",
-            dataset_name="cali_housing",
-            evaluators=["default"],
-            custom_metrics=[example_custom_metric_fn],
-        )
-
+.. literalinclude:: ../../examples/evaluation/evaluate_with_custom_metrics.py
+    :language: python
 
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
@@ -1332,11 +1554,11 @@ Performing Model Validation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
-generated during model evaluation to validate the quality of your model. By specifying a 
-``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
-objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
+generated during model evaluation to validate the quality of your model. By specifying a
+``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold`
+objects, you can specify value thresholds that your model's evaluation metrics must exceed as well
 as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
 will throw a ``ModelValidationFailedException`` detailing the validation failure.
 
 .. code-block:: py
@@ -1381,15 +1603,27 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
             eval_data,
             targets="label",
             model_type="classifier",
-            dataset_name="adult",
             validation_thresholds=thresholds,
             baseline_model=baseline_model_uri,
         )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to 
+and checked. For a more comprehensive demonstration on how to use :py:func:`mlflow.evaluate()` to perform model validation, refer to
 `the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
+The logged output within the MLflow UI for the comprehensive example is shown below. Note the two model artifacts that have
+been logged: 'baseline_model' and 'candidate_model' for comparison purposes in the example.
+
+|eval_importance_compare_img|
+
+.. |eval_importance_compare_img| image:: _static/images/model_evaluation_compare_feature_importance.png
+   :width: 99%
+
+.. note:: Limitations (when the default evaluator is used):
+
+    - Model validation results are not included in the active MLflow run.
+    - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
@@ -1597,29 +1831,40 @@ be used to safely deploy the model to various environments such as Kubernetes.
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
-The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
+The REST API defines 4 endpoints:
 
-* JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
-  ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-  request header value of ``application/json`` or ``application/json; format=pandas-split``.
+* ``/ping`` used for health check
 
-* JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
-  this format because it is not guaranteed to preserve column ordering.* This format is
-  specified using a ``Content-Type`` request header value of
-  ``application/json; format=pandas-records``.
+* ``/health`` (same as /ping)
 
-* CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
-  specified using a ``Content-Type`` request header value of ``text/csv``.
+* ``/version`` used for getting the mlflow version
 
-* Tensor input formatted as described in `TF Serving's API docs
+* ``/invocations`` used for scoring
+
+The REST API server accepts csv or json input. The input format must be specified in
+``Content-Type`` header. The value of the header must be either ``application/json`` or
+``application/csv``.
+
+The csv input must be a valid pandas.DataFrame csv representation. For example,
+``data = pandas_df.to_csv()``.
+
+The json input must be a dictionary with exactly one of the following fields that further specify
+the type and encoding of the input data
+
+* ``dataframe_split`` field with pandas DataFrames in the ``split`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='split')``.
+
+* ``dataframe_records`` field with pandas DataFrame in the ``records`` orientation. For example,
+  ``data = {"dataframe_split": pandas_df.to_dict(orient='records')``.*We do not
+  recommend using this format because it is not guaranteed to preserve column ordering.*
+
+* ``instances`` field with tensor input formatted as described in `TF Serving's API docs
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
-  will be cast to Numpy arrays. This format is specified using a ``Content-Type`` request header
-  value of ``application/json`` and the ``instances`` or ``inputs`` key in the request body dictionary.
+  will be cast to Numpy arrays.
 
-If the ``Content-Type`` request header has a value of ``application/json``, MLflow will infer whether
-the input format is a pandas DataFrame or TF serving (i.e tensor) input based on the data in the request
-body. For pandas DataFrame input, the orient can  also be provided explicitly by specifying the format
-in the request header as shown in the record-oriented example below.
+* ``inputs`` field with tensor input formatted as described in `TF Serving's API docs
+  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
+  will be cast to Numpy arrays.
 
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
@@ -1633,15 +1878,19 @@ Example requests:
 
     # split-oriented DataFrame input
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-        "columns": ["a", "b", "c"],
-        "data": [[1, 2, 3], [4, 5, 6]]
+      "dataframe_split": {
+          "columns": ["a", "b", "c"],
+          "data": [[1, 2, 3], [4, 5, 6]]
+      }
     }'
 
     # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_records": [
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
-    ]'
+      ]
+    }'
 
     # numpy/tensor input using TF serving's "instances" format
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
@@ -1666,8 +1915,8 @@ For more information about serializing tensor inputs using the TF serving format
 
 .. _serving_with_mlserver:
 
-Serving with MLServer (experimental)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Serving with MLServer
+~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
 <https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
@@ -1682,7 +1931,7 @@ built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
-<https://github.com/kubeflow/kfserving/tree/master/docs/predict-api/v2>`_.
+<https://docs.seldon.io/projects/seldon-core/en/latest/reference/apis/v2-protocol.html>`_.
 
 .. note::
    To use MLServer with MLflow, please install ``mlflow`` as:
@@ -1710,10 +1959,6 @@ the `end-to-end example in the MLServer documentation
 <https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ or
 visit the `MLServer docs <https://mlserver.readthedocs.io/en/latest/>`_.
 
-.. note::
-    - This feature is experimental and is subject to change.
-    - MLServer requires Python 3.7 or above.
-
 .. _encoding-complex-data:
 
 Encoding complex data
@@ -1734,14 +1979,14 @@ Example requests:
 .. code-block:: bash
 
     # record-oriented DataFrame input with binary column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
         {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
         {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
     ]'
 
     # record-oriented DataFrame input with datetime column "b"
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
         {"a": 0, "b": "2020-01-01T00:00:00Z"},
         {"a": 1, "b": "2020-02-01T12:34:56Z"},
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
@@ -1775,11 +2020,8 @@ MLflow currently supports the following environment management tools to restore 
 
 local
     Use the local environment. No extra tools are required.
-conda
-    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
-    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
-virtualenv
+virtualenv (preferred)
     Create environments using virtualenv and pyenv (for python version management). Virtualenv and
     pyenv (for Linux and macOS) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
 
@@ -1787,17 +2029,23 @@ virtualenv
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
 
-    .. note::
-        Virtualenv support is still experimental and may be changed in a future MLflow release.
+conda
+    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
+
+    .. warning::
+
+        By using conda, you're responsible for adhering to `Anaconda's terms of service <https://legal.anaconda.com/policies/en/?name=terms-of-service>`_.
+
+    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 
 The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
 
 .. code-block:: bash
 
-    # Use conda
-    mlflow models serve ... --env-manager=conda
     # Use virtualenv
     mlflow models predict ... --env-manager=virtualenv
+    # Use conda
+    mlflow models serve ... --env-manager=conda
 
 .. _azureml_deployment:
 
@@ -2007,9 +2255,9 @@ module accept the following data formats as input, depending on the deployment f
 Commands
 ~~~~~~~~~
 
-* :py:func:`mlflow sagemaker run-local <mlflow.sagemaker.run_local>` deploys the model locally in a
-  Docker container. The image and the environment should be identical to how the model would be run
-  remotely and it is therefore useful for testing the model prior to deployment.
+* :py:func:`mlflow deployments run-local -t sagemaker <mlflow.sagemaker.run_local>` deploys the
+  model locally in a Docker container. The image and the environment should be identical to how the
+  model would be run remotely and it is therefore useful for testing the model prior to deployment.
 
 * `mlflow sagemaker build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_
   builds an MLfLow Docker image and uploads it to ECR. The caller must have the correct permissions
@@ -2034,6 +2282,7 @@ For more info, see:
 .. code-block:: bash
 
     mlflow sagemaker --help
+    mlflow sagemaker build-and-push-container --help
     mlflow sagemaker run-local --help
     mlflow deployments help -t sagemaker
 
@@ -2074,26 +2323,29 @@ numeric column as a double. You can control what result is returned by supplying
 argument. The following values are supported:
 
 * ``'int'`` or IntegerType_: The leftmost integer that can fit in
-  ``int32`` result is returned or exception is raised if there is none.
+  ``int32`` result is returned or an exception is raised if there are none.
 * ``'long'`` or LongType_: The leftmost long integer that can fit in ``int64``
-  result is returned or exception is raised if there is none.
+  result is returned or an exception is raised if there are none.
 * ArrayType_ (IntegerType_ | LongType_): Return all integer columns that can fit
   into the requested size.
 * ``'float'`` or FloatType_: The leftmost numeric result cast to
-  ``float32`` is returned or exception is raised if there is no numeric column.
+  ``float32`` is returned or an exception is raised if there are no numeric columns.
 * ``'double'`` or DoubleType_: The leftmost numeric result cast to
-  ``double`` is returned or exception is raised if there is no numeric column.
+  ``double`` is returned or an exception is raised if there are no numeric columns.
 * ArrayType_ ( FloatType_ | DoubleType_ ): Return all numeric columns cast to the
-  requested. type. Exception is raised if there are numeric columns.
-* ``'string'`` or StringType_: Result is the leftmost column converted to string.
-* ArrayType_ ( StringType_ ): Return all columns converted to string.
+  requested type. An exception is raised if there are no numeric columns.
+* ``'string'`` or StringType_: Result is the leftmost column cast as string.
+* ArrayType_ ( StringType_ ): Return all columns cast as string.
+* ``'bool'`` or ``'boolean'`` or BooleanType_: The leftmost column cast to ``bool``
+  is returned or an exception is raised if the values cannot be coerced.
 
-.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
-.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
-.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
-.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
-.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
-.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
+.. _BooleanType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.BooleanType.html#pyspark.sql.types.BooleanType
 
 .. rubric:: Example
 
@@ -2146,10 +2398,6 @@ In addition to the built-in deployment tools, MLflow provides a pluggable
 models to custom targets and environments. To deploy to a custom target, you must first install an
 appropriate third-party Python plugin. See the list of known community-maintained plugins
 `here <plugins.html#deployment-plugins>`_.
-
-
-.. Note::
-    APIs for deployment to custom targets are experimental, and may be altered in a future release.
 
 
 Commands

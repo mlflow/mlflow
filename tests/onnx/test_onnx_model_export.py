@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import os
 import pytest
@@ -16,21 +17,24 @@ import yaml
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 TEST_DIR = "tests"
 TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
@@ -277,13 +281,13 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=x,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+
+    model_output = PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
-        .values.flatten()
-        .astype(np.float32),
+        model_output.get_predictions().values.flatten().astype(np.float32),
         predicted,
         rtol=1e-05,
         atol=1e-05,
@@ -317,11 +321,14 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=data_multiple_inputs,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
+
+    model_output = PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+
     np.testing.assert_allclose(
-        pd.read_json(scoring_response.content.decode("utf-8"), orient="records").values,
+        model_output.get_predictions().values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
         atol=1e-05,
@@ -466,7 +473,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=onnx_custom_env)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != onnx_custom_env
 
@@ -486,18 +493,21 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(onnx_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.onnx.log_model(onnx_model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
         mlflow.onnx.log_model(onnx_model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"])
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -505,13 +515,14 @@ def test_log_model_with_pip_requirements(onnx_model, tmpdir):
         mlflow.onnx.log_model(onnx_model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.onnx.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -519,7 +530,9 @@ def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.onnx.log_model(onnx_model, "model", extra_pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -527,7 +540,7 @@ def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
             onnx_model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -537,7 +550,7 @@ def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -548,7 +561,7 @@ def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -571,7 +584,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != onnx_custom_env
 
@@ -638,3 +651,11 @@ def test_log_model_with_code_paths(onnx_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.onnx.FLAVOR_NAME)
         mlflow.onnx.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(onnx_model, model_path):
+    mlflow.onnx.save_model(onnx_model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

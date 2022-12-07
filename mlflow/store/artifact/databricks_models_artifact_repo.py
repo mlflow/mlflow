@@ -98,6 +98,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             page_token = next_page_token
         return infos
 
+    # TODO: Change the implementation of this to match how databricks_artifact_repo.py handles this
     def _get_signed_download_uri(self, path=None):
         if not path:
             path = ""
@@ -110,12 +111,20 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 "API request to get presigned uri to for file under path `%s` failed with"
                 " status code %s. Response body: %s" % (path, response.status_code, response.text)
             )
-        return json_response.get("signed_uri", None)
+        return json_response.get("signed_uri", None), json_response.get("headers", None)
+
+    def _extract_headers_from_signed_url(self, headers):
+        filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
+        return {header.get("name"): header.get("value") for header in filtered_headers}
 
     def _download_file(self, remote_file_path, local_path):
         try:
-            signed_uri = self._get_signed_download_uri(remote_file_path)
-            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE)
+            signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
+            headers = {}
+            if raw_headers is not None:
+                # Don't send None to _extract_headers_from_signed_url
+                headers = self._extract_headers_from_signed_url(raw_headers)
+            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
         except Exception as err:
             raise MlflowException(err)
 

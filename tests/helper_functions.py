@@ -3,6 +3,7 @@ import random
 import functools
 from unittest import mock
 from contextlib import ExitStack, contextmanager
+from packaging.version import Version
 
 import logging
 import requests
@@ -13,6 +14,8 @@ import subprocess
 import uuid
 import sys
 import yaml
+import json
+import numbers
 
 import pytest
 
@@ -25,6 +28,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
+
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -60,6 +64,13 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
+def expect_status_code(http_response, expected_code):
+    assert http_response.status_code == expected_code, (
+        f"Unexpected status code. {http_response.status_code} != {expected_code}, "
+        f"body: {http_response.text}"
+    )
+
+
 def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
@@ -79,11 +90,18 @@ def score_model_in_sagemaker_docker_container(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    port = get_safe_port()
+    scoring_cmd = (
+        f"mlflow deployments run-local -t sagemaker --name test -m {model_uri}"
+        f" -C image=mlflow-pyfunc -C port={port} --flavor {flavor}"
+    )
     proc = _start_scoring_proc(
-        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
+        cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds, False
+    )
 
 
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
@@ -207,10 +225,14 @@ def pyfunc_serve_and_score_model(
         str(port),
         "--install-mlflow",
     ]
+    validate_version = True
     if extra_args is not None:
         scoring_cmd += extra_args
+        validate_version = "--enable-mlserver" not in extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
+    )
 
 
 def _get_mlflow_home():
@@ -248,12 +270,14 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=60 * 8, validate_version=True):
         self._proc = proc
         self._port = port
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
+        self._validate_version = validate_version
 
     def __enter__(self):
+        ping_status = None
         for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
             time.sleep(1)
@@ -265,9 +289,16 @@ class RestEndpoint:
                     break
             except Exception:
                 _logger.info(f"connection attempt {i} failed, server is not up yet")
-        if ping_status.status_code != 200:
+        if ping_status is None or ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         _logger.info(f"server up, ping status {ping_status}")
+
+        if self._validate_version:
+            resp_status = requests.get(url="http://localhost:%d/version" % self._port)
+            version = resp_status.text
+            _logger.info(f"mlflow server version {version}")
+            if version != mlflow.__version__:
+                raise Exception("version path is not returning correct mlflow version")
         return self
 
     def __exit__(self, tp, val, traceback):
@@ -283,23 +314,18 @@ class RestEndpoint:
                 self._proc.kill()
 
     def invoke(self, data, content_type):
-        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
         import pandas as pd
+        from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
-        if type(data) == pd.DataFrame:
-            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-                data = data.to_json(orient="records")
-            elif (
-                content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
-                or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED
-            ):
-                data = data.to_json(orient="split")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
+        if isinstance(data, pd.DataFrame):
+            if content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
                 data = data.to_csv(index=False)
             else:
-                raise Exception(
-                    "Unexpected content type for Pandas dataframe input %s" % content_type
-                )
+                assert content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
+                data = json.dumps({"dataframe_split": data.to_dict(orient="split")})
+        elif type(data) not in {str, dict}:
+            data = json.dumps({"instances": data})
+
         response = requests.post(
             url="http://localhost:%d/invocations" % self._port,
             data=data,
@@ -308,12 +334,16 @@ class RestEndpoint:
         return response
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(
+    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
+):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
-    with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+    ) as endpoint:
         return endpoint.invoke(data, content_type)
 
 
@@ -497,3 +527,22 @@ class StartsWithMatcher:
 class AnyStringWith(str):
     def __eq__(self, other):
         return self in other
+
+
+def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
+    import numpy as np
+
+    elem0 = actual_array[0]
+    if isinstance(elem0, numbers.Number) or (
+        isinstance(elem0, (list, np.ndarray)) and isinstance(elem0[0], numbers.Number)
+    ):
+        np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
+    else:
+        np.testing.assert_array_equal(actual_array, desired_array)
+
+
+def _mlflow_major_version_string():
+    ver = Version(mlflow.version.VERSION)
+    major = ver.major
+    minor = ver.minor
+    return f"mlflow<{major + 1},>={major}.{minor}"

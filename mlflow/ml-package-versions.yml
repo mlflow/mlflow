@@ -9,15 +9,18 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.1.2"
+    maximum: "1.1.3"
+    requirements:
+      "< 1.0": ["scipy==1.7.3"]
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.1.2"
+    maximum: "1.1.3"
     requirements:
       ">= 0.0.0": ["matplotlib"]
+      "< 1.0": ["scipy==1.7.3"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
@@ -33,7 +36,7 @@ pytorch:
 
   models:
     minimum: "1.6.0"
-    maximum: "1.12.1"
+    maximum: "1.13.0"
     requirements::
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
@@ -43,11 +46,12 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
+      export PACKAGE_NAME=pytorch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.7.6"
+    maximum: "1.8.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -69,59 +73,27 @@ tensorflow:
     minimum: "2.3.0"
     maximum: "2.10.0"
     requirements:
-      "< 2.6.0": ["protobuf<4.0.0"]
       # Requirements to run tests for keras
-      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
+      "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py
-
-      # Run tests for keras against keras-nightly that's installed with tf-nightly:
-      # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
-      if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_model_export.py
-      fi
+      pytest \
+        tests/tensorflow/test_load_saved_tensorflow_estimator.py \
+        tests/tensorflow/test_tensorflow2_core_model_export.py \
+        tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
+        tests/tensorflow/test_keras_model_export.py \
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
     minimum: "2.3.0"
     maximum: "2.10.0"
     requirements:
-      "< 2.6.0": ["protobuf<4.0.0"]
       "== dev": ["scikit-learn"]
+      "< 2.6.0": ["protobuf<4.0.0"]
+      "< 2.7.0": ["pandas==1.3.5"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
-
-      if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_autolog.py
-      fi
-
-keras:
-  package_info:
-    pip_release: "keras"
-
-  models:
-    minimum: "2.3.0"
-    maximum: "2.10.0"
-    requirements:
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
-      "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
-      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "transformers"]
-      "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow", "transformers"]
-    run: |
-      pytest tests/keras/test_keras_model_export.py
-
-  autologging:
-    minimum: "2.3.0"
-    maximum: "2.10.0"
-    requirements:
-      # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
-      # https://github.com/tensorflow/tensorflow/issues/38589
-      "<= 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
-      "< 2.6.0": ["protobuf<4.0.0"]
-      ">= 2.6.0": ["tensorflow"]
-    run: |
-      pytest tests/keras/test_keras_autolog.py
 
 xgboost:
   package_info:
@@ -131,7 +103,7 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.6.2"
+    maximum: "1.7.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -139,7 +111,7 @@ xgboost:
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.6.2"
+    maximum: "1.7.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -153,7 +125,7 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -161,7 +133,7 @@ lightgbm:
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.2"
+    maximum: "3.3.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -180,7 +152,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.6"
+    maximum: "1.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -215,17 +187,19 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.9"
+    maximum: "2.7.10"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
+      ">= 2.8.0": ["torch", "torchvision"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.9"
+    maximum: "2.7.10"
     requirements:
-      ">= 0.0.0": [torch, torchvision]
+      "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
+      ">= 2.8.0": ["torch", "torchvision"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py
 
@@ -252,7 +226,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.5.0"
+    minimum: "1.7.0"
     maximum: "1.12.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -267,7 +241,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.4.1"
+    maximum: "3.4.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.8": ["flask<2.1.0"]
@@ -282,13 +256,17 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.13.2"
+    maximum: "0.13.5"
+    requirements:
+      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.13.2"
+    maximum: "0.13.5"
+    requirements:
+      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -311,7 +289,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.3.0"
+    maximum: "3.4.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -331,7 +309,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.3.0"
+    maximum: "3.4.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -356,11 +334,11 @@ mleap:
     pip_release: "mleap"
 
   models:
-    minimum: "0.16.1"
-    maximum: "0.20.0"
+    minimum: "0.18.0"
+    maximum: "0.21.0"
     requirements:
-      "<= 0.17.0": ["pyspark==2.4.5"]
-      "> 0.17.0": ["pyspark==3.0.2"]
+      "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
+      ">= 0.21.0": ["pyspark"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -376,6 +354,7 @@ prophet:
   package_info:
     pip_release: "prophet"
     install_dev: |
+      sudo apt-get -y install libtbb2
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "prophet-*.whl") ]; then
         pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/facebook/prophet.git#subdirectory=python
       fi

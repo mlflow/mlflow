@@ -6,23 +6,34 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 import torch.nn.functional as F
+from packaging.version import Version
 
-# NB: Older versions of PyTorch Lightning define native APIs for metric computation,
-# (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
-# package (e.g. `torchmetrics.Accuracy)
-try:
-    from torchmetrics import Accuracy
-except ImportError:
-    from pytorch_lightning.metrics import Accuracy
+
+def create_multiclass_accuracy():
+    # NB: Older versions of PyTorch Lightning define native APIs for metric computation,
+    # (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
+    # package (e.g. `torchmetrics.Accuracy)
+    try:
+        from torchmetrics import Accuracy
+        import torchmetrics
+
+        if Version(torchmetrics.__version__) >= Version("0.11"):
+            return Accuracy(task="multiclass", num_classes=3)
+        else:
+            return Accuracy()  # pylint: disable=no-value-for-parameter
+    except ImportError:
+        from pytorch_lightning.metrics import Accuracy
+
+        return Accuracy()
 
 
 class IrisClassificationBase(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
 
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
-        self.test_acc = Accuracy()
+        self.train_acc = create_multiclass_accuracy()
+        self.val_acc = create_multiclass_accuracy()
+        self.test_acc = create_multiclass_accuracy()
         self.args = kwargs
 
         self.fc1 = nn.Linear(4, 10)

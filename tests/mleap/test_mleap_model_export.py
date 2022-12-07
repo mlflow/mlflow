@@ -64,12 +64,18 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
-        data=spark_model_iris.pandas_df.to_json(orient="split"),
+        data=json.dumps(
+            {
+                "dataframe_split": spark_model_iris.pandas_df.to_dict(orient="split"),
+            }
+        ),
         content_type=mlflow.pyfunc.scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.mleap.FLAVOR_NAME,
     )
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
+        spark_model_iris.predictions,
+        np.array(json.loads(scoring_response.content)["predictions"]),
+        decimal=4,
     )
 
 
@@ -115,7 +121,10 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
     spark_model_iris, model_path
 ):
-    class CustomTransformer(JavaModel):
+
+    from pyspark.ml.feature import VectorAssembler
+
+    class CustomTransformer(VectorAssembler):
         def _transform(self, dataset):
             return dataset
 

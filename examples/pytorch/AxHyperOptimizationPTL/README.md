@@ -1,9 +1,11 @@
 ## Ax Hyperparameter Optimization Example
+
 In this example, we train a Pytorch Lightning model to classify Iris flower classification dataset.
 A parent run will be created during the training process,which would dump the baseline model and relevant parameters,metrics and model along with its summary,subsequently followed by a set of nested child runs, which will dump the trial results.
 The best parameters would be dumped into the parent run once the experiments are completed.
 
 ### Running the code
+
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/AxHyperOptimizationPTL` directory and run the command
 
 ```
@@ -45,11 +47,12 @@ The parameters can be overridden via the command line:
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. total_trials - Number of experimental trials
 
-
 For example:
+
 ```
 mlflow run . -P max_epochs=3 -P total_trials=3
 ```
+
 Or to run the training script directly with custom parameters:
 
 ```
@@ -69,4 +72,5 @@ And the parent run contains the details of the optimum parameters derived by run
 ![Parent Run](screenshots/parent_run.png)
 
 ## Logging to a custom tracking server
+
 To configure MLflow to log to a custom (non-default) tracking location, set the `MLFLOW_TRACKING_URI` environment variable, e.g. via `export MLFLOW_TRACKING_URI=http://localhost:5000`. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).

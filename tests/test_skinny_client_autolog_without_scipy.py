@@ -14,4 +14,4 @@ def test_autolog_without_scipy():
     assert not mlflow.models.utils.HAS_SCIPY
 
     mlflow.autolog()
-    mlflow.models.utils._Example(dict())
+    mlflow.models.utils._Example({})

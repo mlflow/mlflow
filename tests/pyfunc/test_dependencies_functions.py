@@ -5,12 +5,12 @@ import sklearn
 from sklearn.linear_model import LinearRegression
 from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
-import mlflow.utils.requirements_utils
 from mlflow.utils import PYTHON_VERSION
+import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
-from mlflow.exceptions import MlflowException
 
 
 def test_warn_dependency_requirement_mismatches(tmpdir):
@@ -150,9 +150,9 @@ scikit-learn==1.0.2"""
         get_model_dependencies(model_path, format="abc")
 
 
-def test_get_model_dependencies_read_conda_file(tmp_path):
-    MLmodel_file = tmp_path / "MLmodel"
-    MLmodel_file.write_text(
+@pytest.mark.parametrize(
+    "ml_model_file_content",
+    [
         """
 artifact_path: model
 flavors:
@@ -160,20 +160,35 @@ flavors:
     env: conda.yaml
     loader_module: mlflow.sklearn
     model_path: model.pkl
-    python_version: {python_version}
+    python_version: {PYTHON_VERSION}
 model_uuid: 722a374a432f48f09ee85da92df13bca
 run_id: 765e66a5ba404650be51cb02cda66f35
-""".format(
-            python_version=PYTHON_VERSION
-        )
-    )
-
+""",
+        f"""
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: {PYTHON_VERSION}
+model_uuid: 722a374a432f48f09ee85da92df13bca
+run_id: 765e66a5ba404650be51cb02cda66f35
+""",
+    ],
+    ids=["old_env", "new_env"],
+)
+def test_get_model_dependencies_read_conda_file(ml_model_file_content, tmp_path):
+    MLmodel_file = tmp_path / "MLmodel"
+    MLmodel_file.write_text(ml_model_file_content)
     conda_yml_file = tmp_path / "conda.yaml"
-    conda_yml_file_content = """
+    conda_yml_file_content = f"""
 channels:
 - conda-forge
 dependencies:
-- python={python_version}
+- python={PYTHON_VERSION}
 - pip=22.0.3
 - scikit-learn=0.22.0
 - tensorflow=2.0.0
@@ -182,9 +197,7 @@ dependencies:
   - cloudpickle==2.0.0
   - scikit-learn==1.0.1
 name: mlflow-env
-""".format(
-        python_version=PYTHON_VERSION
-    )
+"""
 
     conda_yml_file.write_text(conda_yml_file_content)
 
@@ -211,17 +224,15 @@ name: mlflow-env
         )
 
     conda_yml_file.write_text(
-        """
+        f"""
 channels:
 - conda-forge
 dependencies:
-- python={python_version}
+- python={PYTHON_VERSION}
 - pip=22.0.3
 - scikit-learn=0.22.0
 - tensorflow=2.0.0
-    """.format(
-            python_version=PYTHON_VERSION
-        )
+"""
     )
 
     with pytest.raises(MlflowException, match="No pip section found in conda.yaml file"):

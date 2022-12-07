@@ -263,6 +263,6 @@ if [[ -z "$git_email" || -z "$git_user" ]]; then
 fi
 
 # setup pre-commit hooks
-git config core.hooksPath "$MLFLOW_HOME/hooks"
+pre-commit install -t pre-commit -t prepare-commit-msg
 
 echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"

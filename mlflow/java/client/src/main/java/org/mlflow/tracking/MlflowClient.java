@@ -350,28 +350,28 @@ public class MlflowClient implements Serializable, Closeable {
       searchFilter, experimentViewType, maxResults, orderBy, this);
   }
 
-  /**
-   * @deprecated
-   * Use {@link #searchExperiments()} instead.
-   *
-   * @return  A list of all experiments.
-   */
-  public List<Experiment> listExperiments() {
-    return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
-      .getExperimentsList();
-  }
-
   /** @return  An experiment with the given ID. */
-  public GetExperiment.Response getExperiment(String experimentId) {
+  public Experiment getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", experimentId);
-    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
+    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString())).getExperiment();
   }
 
   /** @return  The experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
-    return listExperiments().stream().filter(e -> e.getName()
-      .equals(experimentName)).findFirst();
+    URIBuilder builder = newURIBuilder("experiments/get-by-name")
+      .setParameter("experiment_name", experimentName);
+    try {
+      return Optional.of(
+          mapper.toGetExperimentByNameResponse(httpCaller.get(builder.toString())).getExperiment()
+      );
+    } catch (MlflowHttpException e) {
+      if (e.getStatusCode() == 404) {
+        return Optional.<Experiment>empty();
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -813,6 +813,24 @@ public class MlflowClient implements Serializable, Closeable {
     String json = sendGet(mapper.makeGetLatestVersion(modelName, stages));
     GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
     return response.getModelVersionsList();
+  }
+
+  /**
+   *
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *       ModelVersion modelVersion = getModelVersion("model", "version");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @param version Version number as a string of the model version.
+   * @return a single model version
+   *        {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public ModelVersion getModelVersion(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersion(modelName, version));
+    GetModelVersion.Response response = mapper.toGetModelVersionResponse(json);
+    return response.getModelVersion();
   }
 
   /**

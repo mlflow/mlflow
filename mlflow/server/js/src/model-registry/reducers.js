@@ -1,5 +1,4 @@
 import {
-  LIST_REGISTERED_MODELS,
   SEARCH_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
   GET_REGISTERED_MODEL,
@@ -19,9 +18,7 @@ import { RegisteredModelTag, ModelVersionTag } from './sdk/ModelRegistryMessages
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(SEARCH_REGISTERED_MODELS):
-    // eslint-disable-next-line no-fallthrough
-    case fulfilled(LIST_REGISTERED_MODELS): {
+    case fulfilled(SEARCH_REGISTERED_MODELS): {
       const models = action.payload[getProtoField('registered_models')];
       const nameToModelMap = {};
       if (models) {

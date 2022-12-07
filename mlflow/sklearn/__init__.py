@@ -264,7 +264,8 @@ def save_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
-            env=_CONDA_ENV_FILE_NAME,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
             code=code_path_subdir,
             predict_fn=pyfunc_predict_fn,
         )
@@ -612,9 +613,8 @@ class _AutologgingMetricsManager:
        because the object maybe a numpy array which does not support additional attribute
        assignment.
     (2) _log_post_training_metrics_enabled flag, in the following method scope:
-       `model.fit`, `eval_and_log_metrics`, `model.score`,
-       in order to avoid nested/duplicated autologging metric, when run into these scopes,
-       we need temporarily disable the metric autologging.
+       `model.fit` and `model.score`, in order to avoid nested/duplicated autologging metric, when
+       run into these scopes, we need temporarily disable the metric autologging.
     (3) _eval_dataset_info_map, it is a double level map:
        `_eval_dataset_info_map[run_id][eval_dataset_var_name]` will get a list, each
        element in the list is an id of "eval_dataset" instance.
@@ -1142,10 +1142,10 @@ def autolog(
 
         pprint(metrics)
         # {'training_score': 1.0,
-           'training_mae': 2.220446049250313e-16,
-           'training_mse': 1.9721522630525295e-31,
+           'training_mean_absolute_error': 2.220446049250313e-16,
+           'training_mean_squared_error': 1.9721522630525295e-31,
            'training_r2_score': 1.0,
-           'training_rmse': 4.440892098500626e-16}
+           'training_root_mean_squared_error': 4.440892098500626e-16}
 
         pprint(tags)
         # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
@@ -1528,23 +1528,29 @@ def _autolog(
                     )
                     _logger.warning(msg)
 
-    def patched_fit(fit_impl, original, self, *args, **kwargs):
+    def patched_fit(fit_impl, allow_children_patch, original, self, *args, **kwargs):
         """
         Autologging patch function to be applied to a sklearn model class that defines a `fit`
         method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
 
-        :param clazz: The scikit-learn model class to which this patch function is being applied for
-                      autologging (e.g., `sklearn.linear_model.LogisticRegression`)
-        :param func_name: The function name on the specified `clazz` that this patch is overriding
-                          for autologging (e.g., specify "fit" in order to indicate that
-                          `sklearn.linear_model.LogisticRegression.fit()` is being patched)
+        :param fit_impl: The patched fit function implementation, the function should be defined as
+                         `fit_mlflow(original, self, *args, **kwargs)`, the `original` argument
+                          refers to the original `EstimatorClass.fit` method, the `self` argument
+                          refers to the estimator instance being patched, the `*args` and
+                          `**kwargs` are arguments passed to the original fit method.
+
+        :param allow_children_patch: Whether to allow children sklearn session logging or not.
+        :param original: the original `EstimatorClass.fit` method to be patched.
+        :param self: the estimator instance being patched.
+        :param args: positional arguments to be passed to the original fit method.
+        :param kwargs: keyword arguments to be passed to the original fit method.
         """
         should_log_post_training_metrics = (
             log_post_training_metrics
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
 
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+        with _SklearnTrainingSession(estimator=self, allow_children=allow_children_patch) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
@@ -1709,12 +1715,15 @@ def _autolog(
     if flavor_name == mlflow.xgboost.FLAVOR_NAME:
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
         patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+        allow_children_patch = True
     elif flavor_name == mlflow.lightgbm.FLAVOR_NAME:
         estimators_to_patch = _gen_lightgbm_sklearn_estimators_to_patch()
         patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+        allow_children_patch = True
     else:
         estimators_to_patch = _gen_estimators_to_patch()
         patched_fit_impl = fit_mlflow
+        allow_children_patch = False
 
     for class_def in estimators_to_patch:
         # Patch fitting methods
@@ -1723,7 +1732,7 @@ def _autolog(
                 flavor_name,
                 class_def,
                 func_name,
-                functools.partial(patched_fit, patched_fit_impl),
+                functools.partial(patched_fit, patched_fit_impl, allow_children_patch),
                 manage_run=True,
             )
 
@@ -1767,101 +1776,3 @@ def _autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
-
-
-def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None, pos_label=None):
-    """
-    Computes and logs metrics (and artifacts) for the given model and labeled dataset.
-    The metrics/artifacts mirror what is auto-logged when training a model
-    (see mlflow.sklearn.autolog).
-
-    :param model: The model to be evaluated.
-    :param X: The features for the evaluation dataset.
-    :param y_true: The labels for the evaluation dataset.
-    :param prefix: Prefix used to name metrics and artifacts.
-    :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
-    :param pos_label: The positive label used to compute binary classification metrics such as
-        precision, recall, f1, etc. This parameter is only used for binary classification model
-        - if used on multi-label model, the evaluation will fail;
-        - if used for regression model, the parameter will be ignored.
-        For multi-label classification, keep `pos_label` unset (or set to `None`), and the
-        function will calculate metrics for each label and find their average weighted by support
-        (number of true instances for each label).
-    :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
-
-    ** Example **
-
-    .. code-block:: python
-
-        from sklearn.linear_model import LinearRegression
-        import mlflow
-
-        # enable autologging
-        mlflow.sklearn.autolog()
-
-        # prepare training data
-        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
-        y = np.dot(X, np.array([1, 2])) + 3
-
-        # prepare evaluation data
-        X_eval = np.array([[3, 3], [3, 4]])
-        y_eval = np.dot(X_eval, np.array([1,2])) + 3
-
-        # train a model
-        model = LinearRegression()
-        with mlflow.start_run() as run:
-            model.fit(X, y)
-            metrics = mlflow.sklearn.eval_and_log_metrics(model, X_eval, y_eval, prefix="val_")
-
-
-    Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
-    metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
-    as 'training_XXXXX'. Metrics and artifacts are logged under the currently active run if one
-    exists, otherwise a new run is started and left active.
-
-    Raises an error if:
-      - prefix is empty
-      - model is not an sklearn estimator or does not support the 'predict' method
-    """
-    metrics_manager = _AUTOLOGGING_METRICS_MANAGER
-    with metrics_manager.disable_log_post_training_metrics():
-        return _eval_and_log_metrics_impl(
-            model, X, y_true, prefix=prefix, sample_weight=sample_weight, pos_label=pos_label
-        )
-
-
-def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight, pos_label):
-    from mlflow.sklearn.utils import _log_estimator_content
-    from sklearn.base import BaseEstimator
-
-    if prefix is None or prefix == "":
-        raise ValueError("Must specify a non-empty prefix")
-
-    if not isinstance(model, BaseEstimator):
-        raise ValueError(
-            "The provided model was not a sklearn estimator. Please ensure the passed-in model is "
-            "a sklearn estimator subclassing sklearn.base.BaseEstimator"
-        )
-
-    if not hasattr(model, "predict"):
-        raise ValueError(
-            "Model does not support predictions. Please pass a model object defining a predict() "
-            "method"
-        )
-
-    active_run = mlflow.active_run()
-    run = active_run if active_run is not None else mlflow.start_run()
-
-    with MlflowAutologgingQueueingClient() as autologging_client:
-        metrics = _log_estimator_content(
-            autologging_client=autologging_client,
-            estimator=model,
-            run_id=run.info.run_id,
-            prefix=prefix,
-            X=X,
-            y_true=y_true,
-            sample_weight=sample_weight,
-            pos_label=pos_label,
-        )
-
-    return metrics

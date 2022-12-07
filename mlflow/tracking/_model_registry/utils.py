@@ -1,7 +1,9 @@
 import os
 from functools import partial
 
+from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
@@ -14,9 +16,10 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     get_tracking_uri,
 )
-from mlflow.utils import rest_utils
+from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+_REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -80,6 +83,10 @@ def set_registry_uri(uri: str) -> None:
 def _get_registry_uri_from_context():
     global _registry_uri
     # in the future, REGISTRY_URI env var support can go here
+    if _registry_uri is not None:
+        return _registry_uri
+    elif env.get_env(_REGISTRY_URI_ENV_VAR) is not None:
+        return env.get_env(_REGISTRY_URI_ENV_VAR)
     return _registry_uri
 
 
@@ -128,6 +135,7 @@ def get_default_host_creds(store_uri):
         username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
         password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
         server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
@@ -147,6 +155,10 @@ def _get_databricks_rest_store(store_uri, **_):
 _model_registry_store_registry = None
 
 
+def _get_file_store(store_uri, **_):
+    return FileStore(store_uri)
+
+
 def _get_store_registry():
     global _model_registry_store_registry
     if _model_registry_store_registry is not None:
@@ -160,6 +172,9 @@ def _get_store_registry():
 
     for scheme in DATABASE_ENGINES:
         _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+
+    for scheme in ["", "file"]:
+        _model_registry_store_registry.register(scheme, _get_file_store)
 
     _model_registry_store_registry.register_entrypoints()
     return _model_registry_store_registry

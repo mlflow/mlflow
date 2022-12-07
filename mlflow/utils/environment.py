@@ -1,19 +1,21 @@
 import yaml
 import os
 import logging
-import sys
 import re
 import hashlib
+from packaging.requirements import Requirement, InvalidRequirement
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
 )
 from mlflow.version import VERSION
-from packaging.requirements import Requirement, InvalidRequirement
+
 
 _logger = logging.getLogger(__name__)
 
@@ -36,15 +38,25 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<version>[\d.]+)?$"
 )
 
+_IS_UNIX = os.name != "nt"
+
 
 class _PythonEnv:
-    """
-    Represents environment information for an MLflow Model.
-    """
 
     BUILD_PACKAGES = ("pip", "setuptools", "wheel")
 
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        """
+        Represents environment information for MLflow Models and Projects.
+
+        :param python: Python version for the environment. If unspecified, defaults to the current
+                       Python version.
+        :param build_dependencies: List of build dependencies for the environment that must
+                                   be installed before installing ``dependencies``. If unspecified,
+                                   defaults to an empty list.
+        :param dependencies: List of dependencies for the environment. If unspecified, defaults to
+                             an empty list.
+        """
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")
         if build_dependencies is not None and not isinstance(build_dependencies, list):
@@ -54,9 +66,9 @@ class _PythonEnv:
         if dependencies is not None and not isinstance(dependencies, list):
             raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
 
-        self.python = python
-        self.build_dependencies = build_dependencies
-        self.dependencies = dependencies
+        self.python = python or PYTHON_VERSION
+        self.build_dependencies = build_dependencies or []
+        self.dependencies = dependencies or []
 
     def __str__(self):
         return str(self.to_dict())
@@ -64,14 +76,10 @@ class _PythonEnv:
     @classmethod
     def current(cls):
         return cls(
-            python=cls._get_current_python(),
+            python=PYTHON_VERSION,
             build_dependencies=cls.get_current_build_dependencies(),
             dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
         )
-
-    @staticmethod
-    def _get_current_python():
-        return ".".join(map(str, sys.version_info[:3]))
 
     @staticmethod
     def _get_package_version(package_name):
@@ -159,10 +167,11 @@ class _PythonEnv:
                 )
 
         if python is None:
-            raise MlflowException(
-                f"Could not extract python version from {path}",
-                error_code=INVALID_PARAMETER_VALUE,
+            _logger.warning(
+                f"{path} does not include a python version specification. "
+                f"Using the current python version {PYTHON_VERSION}."
             )
+            python = PYTHON_VERSION
 
         if unmatched_dependencies:
             _logger.warning(
@@ -171,7 +180,11 @@ class _PythonEnv:
                 unmatched_dependencies,
             )
 
-        return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
+        return {
+            "python": python,
+            "build_dependencies": build_dependencies,
+            "dependencies": dependencies,
+        }
 
     @classmethod
     def from_conda_yaml(cls, path):
@@ -244,7 +257,7 @@ def _get_pip_version():
     try:
         import pip
 
-        return getattr(pip, "__version__")
+        return pip.__version__
     except ImportError:
         return None
 
@@ -418,7 +431,7 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() == "mlflow"
+        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 
@@ -431,11 +444,31 @@ def _is_mlflow_requirement(requirement_string):
             # Try again with the per-requirement options removed
             return Requirement(requirement_specifier).name.lower() == "mlflow"
         except InvalidRequirement:
-            return False
 
-        # TODO: Return True if `requirement_string` represents a project directory for MLflow
-        # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
-        return False
+            # Support defining branch dependencies for local builds or direct GitHub builds
+            # from source.
+            # Example: mlflow @ git+https://github.com/mlflow/mlflow@branch_2.0
+            repository_matches = ["/mlflow", "mlflow@git"]
+
+            return any(
+                match in requirement_string.replace(" ", "").lower() for match in repository_matches
+            )
+
+
+def _generate_mlflow_version_pinning():
+    """
+    Determines the current MLflow version that is installed and adds a pinned boundary version range
+    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
+    the current installed minor version(i.e., 'mlflow<3,>=2.1')
+    :return: string for MLflow dependency version
+    """
+    mlflow_version = Version(VERSION)
+    current_major_version = mlflow_version.major
+    current_minor_version = mlflow_version.minor
+    range_version = (
+        f"mlflow<{current_major_version + 1},>={current_major_version}.{current_minor_version}"
+    )
+    return range_version
 
 
 def _contains_mlflow_requirement(requirements):
@@ -462,7 +495,7 @@ def _process_pip_requirements(
         pip_reqs = default_pip_requirements
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, "mlflow")
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
@@ -491,7 +524,7 @@ def _process_conda_env(conda_env):
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
 
     if not _contains_mlflow_requirement(pip_reqs):
-        pip_reqs.insert(0, "mlflow")
+        pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
@@ -522,3 +555,52 @@ def _get_pip_install_mlflow():
         return "pip install -e {} 1>&2".format(mlflow_home)
     else:
         return "pip install mlflow=={} 1>&2".format(VERSION)
+
+
+class Environment:
+    def __init__(self, activate_cmd, extra_env=None):
+        if not isinstance(activate_cmd, list):
+            activate_cmd = [activate_cmd]
+        self._activate_cmd = activate_cmd
+        self._extra_env = extra_env or {}
+
+    def get_activate_command(self):
+        return self._activate_cmd
+
+    def execute(
+        self,
+        command,
+        command_env=None,
+        preexec_fn=None,
+        capture_output=False,
+        stdout=None,
+        stderr=None,
+        synchronous=True,
+    ):
+        if command_env is None:
+            command_env = os.environ.copy()
+        command_env = {**self._extra_env, **command_env}
+        if not isinstance(command, list):
+            command = [command]
+
+        if _IS_UNIX:
+            separator = " && "
+        else:
+            separator = " & "
+
+        command = separator.join(map(str, self._activate_cmd + command))
+        if _IS_UNIX:
+            command = ["bash", "-c", command]
+        else:
+            command = ["cmd", "/c", command]
+        _logger.info("=== Running command '%s'", command)
+        return _exec_cmd(
+            command,
+            env=command_env,
+            capture_output=capture_output,
+            synchronous=synchronous,
+            preexec_fn=preexec_fn,
+            close_fds=True,
+            stdout=stdout,
+            stderr=stderr,
+        )

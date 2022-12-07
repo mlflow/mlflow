@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 from unittest import mock
+import json
 import yaml
 
 import paddle
@@ -28,6 +29,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     PROTOBUF_REQUIREMENT,
+    _mlflow_major_version_string,
 )
 
 
@@ -165,7 +167,7 @@ def test_model_log(pd_model, model_path, tmpdir):
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -202,7 +204,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pd_custom_env
 
@@ -219,7 +221,7 @@ def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -239,7 +241,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_mod
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pd_custom_env
 
@@ -369,7 +371,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
@@ -463,19 +465,22 @@ def test_log_model_built_in_high_level_api(
         model_config = Model.load(os.path.join(model_path, "MLmodel"))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
         assert os.path.exists(os.path.join(model_path, env_path))
     finally:
         mlflow.end_run()
 
 
 def test_log_model_with_pip_requirements(pd_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.paddle.log_model(pd_model.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -483,7 +488,7 @@ def test_log_model_with_pip_requirements(pd_model, tmpdir):
             pd_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -493,13 +498,14 @@ def test_log_model_with_pip_requirements(pd_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.paddle.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -507,7 +513,9 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.paddle.log_model(pd_model.model, "model", extra_pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -515,7 +523,7 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
             pd_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -525,7 +533,7 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -540,9 +548,11 @@ def test_pyfunc_serve_and_score(pd_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(inference_dataframe),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
     np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
 
 

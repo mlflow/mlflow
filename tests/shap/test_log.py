@@ -1,21 +1,25 @@
-import mlflow
-import shap
+import json
+import pytest
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.datasets import load_diabetes
-import pytest
-from unittest import mock
+import shap
 
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.utils import PYTHON_VERSION
+import mlflow
 from mlflow import MlflowClient
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 
@@ -166,10 +170,10 @@ def test_load_pyfunc(tmpdir):
 
 
 def test_merge_environment():
-
+    expected_mlflow_version = _mlflow_major_version_string()
     test_shap_env = {
         "channels": ["conda-forge"],
-        "dependencies": ["python=3.8.5", "pip", {"pip": ["mlflow", "shap==0.38.0"]}],
+        "dependencies": ["python=3.8.5", "pip", {"pip": [expected_mlflow_version, "shap==0.38.0"]}],
     }
 
     test_model_env = {
@@ -177,7 +181,7 @@ def test_merge_environment():
         "dependencies": [
             "python=3.8.5",
             "pip",
-            {"pip": ["mlflow", "scikit-learn==0.24.0", "cloudpickle==1.6.0"]},
+            {"pip": [expected_mlflow_version, "scikit-learn==0.24.0", "cloudpickle==1.6.0"]},
         ],
     }
 
@@ -187,7 +191,14 @@ def test_merge_environment():
         "dependencies": [
             "python={}".format(PYTHON_VERSION),
             "pip",
-            {"pip": ["mlflow", "scikit-learn==0.24.0", "cloudpickle==1.6.0", "shap==0.38.0"]},
+            {
+                "pip": [
+                    expected_mlflow_version,
+                    "scikit-learn==0.24.0",
+                    "cloudpickle==1.6.0",
+                    "shap==0.38.0",
+                ]
+            },
         ],
     }
 
@@ -207,6 +218,7 @@ def test_merge_environment():
 
 
 def test_log_model_with_pip_requirements(shap_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -214,7 +226,9 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
     with mlflow.start_run():
         mlflow.shap.log_explainer(shap_model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs], strict=True
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a", *sklearn_default_reqs],
+            strict=False,
         )
 
     # List of requirements
@@ -224,8 +238,8 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "a", "b", *sklearn_default_reqs],
-            strict=True,
+            [expected_mlflow_version, "a", "b", *sklearn_default_reqs],
+            strict=False,
         )
 
     # Constraints file
@@ -235,13 +249,14 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt", *sklearn_default_reqs],
+            [expected_mlflow_version, "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
-            strict=True,
+            strict=False,
         )
 
 
 def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
@@ -252,7 +267,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         mlflow.shap.log_explainer(shap_model, "model", extra_pip_requirements=req_file.strpath)
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "a", *sklearn_default_reqs],
+            [expected_mlflow_version, *shap_default_reqs, "a", *sklearn_default_reqs],
         )
 
     # List of requirements
@@ -262,7 +277,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "a", "b", *sklearn_default_reqs],
+            [expected_mlflow_version, *shap_default_reqs, "a", "b", *sklearn_default_reqs],
         )
 
     # Constraints file
@@ -272,7 +287,13 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "b", "-c constraints.txt", *sklearn_default_reqs],
+            [
+                expected_mlflow_version,
+                *shap_default_reqs,
+                "b",
+                "-c constraints.txt",
+                *sklearn_default_reqs,
+            ],
             ["a"],
         )
 
@@ -313,9 +334,10 @@ def test_pyfunc_serve_and_score():
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=pd.DataFrame(X[:3]),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
+    decoded_json = json.loads(resp.content.decode("utf-8"))
+    scores = pd.DataFrame(data=decoded_json["predictions"]).values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
 
 

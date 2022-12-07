@@ -2,11 +2,10 @@ import pytest
 import pickle
 from unittest import mock
 
-from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag
+from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag, RunStatus
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import set_registry_uri
 from mlflow import MlflowClient
@@ -14,7 +13,6 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _tracking_store_registry
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
@@ -256,29 +254,6 @@ def test_client_search_runs_page_token(mock_store):
         order_by=None,
         page_token="blah",
     )
-
-
-def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
-    """
-    This test case ensures that Model Registry operations invoked on the `MlflowClient`
-    fail with an informative error message when the registry store URI refers to a
-    store that does not support Model Registry features (e.g., FileStore).
-    """
-    with TempDir() as tmp:
-        client = MlflowClient(registry_uri=tmp.path())
-        expected_failure_functions = [
-            client._get_registry_client,
-            lambda: client.create_registered_model("test"),
-            lambda: client.get_registered_model("test"),
-            lambda: client.create_model_version("test", "source", "run_id"),
-            lambda: client.get_model_version("test", 1),
-        ]
-        for func in expected_failure_functions:
-            with pytest.raises(
-                MlflowException, match="Model Registry features are not supported"
-            ) as exc:
-                func()
-            assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
 
 
 def test_update_registered_model(mock_registry_store):
@@ -731,3 +706,13 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
     # delete_model_version_tag with version and stage not set
     with pytest.raises(MlflowException, match="version or stage must be set"):
         MlflowClient().delete_model_version_tag("model_name", key="tag1")
+
+
+def test_update_run(mock_store):
+    MlflowClient().update_run(run_id="run_id", status="FINISHED", name="my name")
+    mock_store.update_run_info.assert_called_once_with(
+        run_id="run_id",
+        run_status=RunStatus.from_string("FINISHED"),
+        end_time=mock.ANY,
+        run_name="my name",
+    )

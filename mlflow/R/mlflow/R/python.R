@@ -1,22 +1,27 @@
-# Computes path to Python executable within conda environment created for the MLflow R package
-#' @importFrom reticulate conda_list
+# Computes path to Python executable from the MLFLOW_PYTHON_BIN environment variable.
 get_python_bin <- function() {
   in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
   if (in_env != "") {
     return(in_env)
   }
-  conda <- mlflow_conda_bin()
-  envs <- conda_list(conda = conda)
-  mlflow_env <- envs[envs$name == mlflow_conda_env_name(), ]
-  if (nrow(mlflow_env) == 0) {
-    stop(paste("MLflow not configured, please run install_mlflow() or ",
-               "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
+  # MLFLOW_PYTHON_EXECUTABLE is an environment variable that's defined in a Databricks notebook
+  # environment.
+  mlflow_python_executable <- Sys.getenv("MLFLOW_PYTHON_EXECUTABLE")
+  if (mlflow_python_executable != "") {
+    stdout <- system(paste(mlflow_python_executable, '-c "import sys; print(sys.executable)"'),
+                     intern = TRUE,
+                     ignore.stderr = TRUE)
+    return(paste(stdout, collapse = ""))
   }
-  mlflow_env$python <- normalizePath(mlflow_env$python, winslash = "/", mustWork = FALSE)
-  mlflow_env$python
+  python_bin <- Sys.which("python")
+  if (python_bin != "") {
+    return(python_bin)
+  }
+  stop(paste("MLflow not configured, please run `pip install mlflow` or ",
+             "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
 }
 
-# Returns path to Python executable within conda environment created for the MLflow R package
+# Returns path to Python executable
 python_bin <- function() {
   if (is.null(.globals$python_bin)) {
     python <- get_python_bin()
@@ -33,21 +38,14 @@ python_mlflow_bin <- function() {
   if (in_env != "") {
     return(in_env)
   }
+  mlflow_bin <- Sys.which("mlflow")
+  if (mlflow_bin != "") {
+    return(mlflow_bin)
+  }
   python_bin_dir <- dirname(python_bin())
   if (.Platform$OS.type == "windows") {
     file.path(python_bin_dir, "Scripts", "mlflow")
   } else {
     file.path(python_bin_dir, "mlflow")
   }
-}
-
-# Return path to conda home directory, such that the `conda` executable can be found
-# under conda_home/bin/
-#' @importFrom reticulate conda_binary
-python_conda_home <- function() {
-  path <- try(dirname(dirname(mlflow_conda_bin())), silent = TRUE)
-  if (inherits(path, "try-error")) {
-    return(NA)
-  }
-  path
 }

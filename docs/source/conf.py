@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
+    "test_code_block",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -125,7 +126,6 @@ todo_include_todos = False
 # a list of builtin themes.
 
 html_context = {
-    "use_algolia": os.environ.get("USE_ALGOLIA", "0"),
     "gtm_id": os.environ.get("GTM_ID", ""),
 }
 

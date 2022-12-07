@@ -66,20 +66,6 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_registered_models(self, max_results, page_token):
-        """
-        List of all registered models.
-
-        :param max_results: Maximum number of registered models desired.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                that satisfy the search expressions. The pagination token for the next page can be
-                obtained via the ``token`` attribute of the object.
-        """
-        pass
-
-    @abstractmethod
     def search_registered_models(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
@@ -183,7 +169,7 @@ class AbstractStore:
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param new_stage: New desired stage for this model version.
+        :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set to ``True``, all existing model
             versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.

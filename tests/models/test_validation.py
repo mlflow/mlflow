@@ -185,9 +185,39 @@ def test_validation_faulty_baseline_model(
                 data=iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 validation_thresholds=validation_thresholds,
                 baseline_model=baseline_model,
+            )
+
+
+@pytest.mark.parametrize(
+    "validation_thresholds",
+    [
+        pytest.param(1, id="param_not_dict"),
+        pytest.param(
+            {1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)}, id="key_not_str"
+        ),
+        pytest.param({"accuracy": 1}, id="value_not_metric_threshold"),
+    ],
+)
+def test_validation_faulty_validation_thresholds(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    validation_thresholds,
+):
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="The validation thresholds argument",
+        ):
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                data=iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                validation_thresholds=validation_thresholds,
             )
 
 
@@ -328,7 +358,6 @@ def test_validation_value_threshold_should_fail(
                     data=iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     validation_thresholds=validation_thresholds,
@@ -369,7 +398,6 @@ def test_validation_value_threshold_should_pass(
                 data=iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
                 validation_thresholds=validation_thresholds,
@@ -540,7 +568,6 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
                     data=iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     validation_thresholds=validation_thresholds,
@@ -586,7 +613,6 @@ def test_validation_model_comparison_absolute_threshold_should_pass(
                 data=iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
                 validation_thresholds=validation_thresholds,
@@ -778,7 +804,6 @@ def test_validation_model_comparison_relative_threshold_should_fail(
                     data=iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     validation_thresholds=validation_thresholds,
@@ -825,7 +850,6 @@ def test_validation_model_comparison_relative_threshold_should_pass(
                 data=iris_dataset._constructor_args["data"],
                 model_type="classifier",
                 targets=iris_dataset._constructor_args["targets"],
-                dataset_name=iris_dataset.name,
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
                 validation_thresholds=validation_thresholds,
@@ -907,7 +931,6 @@ def test_validation_multi_thresholds_should_fail(
                     data=iris_dataset._constructor_args["data"],
                     model_type="classifier",
                     targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
                     validation_thresholds=validation_thresholds,

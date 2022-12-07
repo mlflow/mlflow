@@ -7,6 +7,7 @@ import logging
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
 import sqlalchemy
+from sqlalchemy import sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -22,7 +23,7 @@ from sqlalchemy.pool import (
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
 from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
@@ -91,14 +92,21 @@ def _get_managed_session_maker(SessionMaker, db_type):
         session = SessionMaker()
         try:
             if db_type == SQLITE:
-                session.execute("PRAGMA foreign_keys = ON;")
-                session.execute("PRAGMA busy_timeout = 20000;")
-                session.execute("PRAGMA case_sensitive_like = true;")
+                session.execute(sql.text("PRAGMA foreign_keys = ON;"))
+                session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
+                session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
             yield session
             session.commit()
         except MlflowException:
             session.rollback()
             raise
+        except sqlalchemy.exc.OperationalError as e:
+            session.rollback()
+            _logger.exception(
+                "SQLAlchemy database error. The following exception is caught.\n%s",
+                e,
+            )
+            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
         except sqlalchemy.exc.SQLAlchemyError as e:
             session.rollback()
             raise MlflowException(message=e, error_code=BAD_REQUEST)

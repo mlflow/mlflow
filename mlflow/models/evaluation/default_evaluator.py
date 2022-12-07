@@ -36,7 +36,6 @@ import pickle
 from functools import partial
 import logging
 from packaging.version import Version
-import inspect
 import pathlib
 
 _logger = logging.getLogger(__name__)
@@ -118,7 +117,7 @@ def _extract_predict_fn(model, raw_model):
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
-    sum_on_label = (
+    sum_on_target = (
         (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
     )
     return {
@@ -132,8 +131,8 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
         "root_mean_squared_error": sk_metrics.mean_squared_error(
             y, y_pred, sample_weight=sample_weights, squared=False
         ),
-        "sum_on_label": sum_on_label,
-        "mean_on_label": sum_on_label / len(y),
+        "sum_on_target": sum_on_target,
+        "mean_on_target": sum_on_target / len(y),
         "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
@@ -224,7 +223,7 @@ def _get_multiclass_classifier_metrics(
     average="weighted",
     sample_weights=None,
 ):
-    return _get_common_classifier_metrics(
+    metrics = _get_common_classifier_metrics(
         y_true=y_true,
         y_pred=y_pred,
         y_proba=y_proba,
@@ -233,6 +232,17 @@ def _get_multiclass_classifier_metrics(
         pos_label=None,
         sample_weights=sample_weights,
     )
+    if average in ("macro", "weighted") and y_proba is not None:
+        metrics.update(
+            roc_auc=sk_metrics.roc_auc_score(
+                y_true=y_true,
+                y_score=y_proba,
+                sample_weight=sample_weights,
+                average=average,
+                multi_class="ovr",
+            )
+        )
+    return metrics
 
 
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
@@ -415,6 +425,20 @@ class _CustomMetric(NamedTuple):
     function : the custom metric function
     name : the name of the custom metric function
     index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    """
+
+    function: Callable
+    name: str
+    index: int
+
+
+class _CustomArtifact(NamedTuple):
+    """
+    A namedtuple representing a custom artifact function and its properties.
+
+    function : the custom artifact function
+    name : the name of the custom artifact function
+    index : the index of the function in the ``custom_artifacts`` argument of mlflow.evaluate
     artifacts_dir : the path to a temporary directory to store produced artifacts of the function
     """
 
@@ -422,6 +446,10 @@ class _CustomMetric(NamedTuple):
     name: str
     index: int
     artifacts_dir: str
+
+
+def _is_numeric(value):
+    return isinstance(value, (int, float, np.number))
 
 
 def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
@@ -434,69 +462,59 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
-    :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
-             a dictionary of artifacts (which can be None if the custom metric function did
-             not produce any).
+    :return: A scalar metric value.
     """
     exception_header = (
-        f"Custom metric function '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
+        f"Custom metric '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
         " in the `custom_metrics` parameter"
     )
 
-    if len(inspect.signature(custom_metric_tuple.function).parameters) == 3:
-        result = custom_metric_tuple.function(
-            eval_df, builtin_metrics, custom_metric_tuple.artifacts_dir
-        )
-    else:
-        result = custom_metric_tuple.function(eval_df, builtin_metrics)
+    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
 
-    if result is None:
+    if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
 
-    def __validate_metrics(metrics):
-        if not all(
-            isinstance(metric_name, str) and isinstance(metric_val, (int, float, np.number))
-            for metric_name, metric_val in metrics.items()
-        ):
-            raise MlflowException(
-                f"{exception_header} did not return metrics as a dictionary of string metric names "
-                "with numerical values."
-            )
+    if not _is_numeric(metric):
+        raise MlflowException(f"{exception_header} did not return a scalar numeric value.")
 
-    def __validate_artifacts(artifacts):
-        if not (
-            isinstance(artifacts, dict)
-            and all(isinstance(artifacts_name, str) for artifacts_name in artifacts.keys())
-        ):
-            raise MlflowException(
-                f"{exception_header} did not return artifacts as a dictionary of string artifact "
-                "names with their corresponding objects."
-            )
+    return metric
 
-    if isinstance(result, dict):
-        __validate_metrics(result)
-        return result, None
 
-    if (
-        isinstance(result, tuple)
-        and len(result) == 2
-        and isinstance(result[0], dict)
-        and isinstance(result[1], dict)
-    ):
-        __validate_metrics(result[0])
-        __validate_artifacts(result[1])
-        return result
+def _is_valid_artifacts(artifacts):
+    return isinstance(artifacts, dict) and all(isinstance(k, str) for k in artifacts.keys())
 
-    raise MlflowException(
-        f"{exception_header} did not return in an expected format. "
-        "The two acceptable return types are: \n"
-        "1. Dict[AnyStr, Union[int, float, np.number]: a dictionary of metrics \n"
-        "2. Tuple[Dict[AnyStr, Union[int, float, np.number]], Dict[AnyStr, Any]]: a"
-        "   dictionary of metrics and a dictionary of artifacts. \n"
-        "For more details refer to: "
-        "https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate",
-        error_code=INVALID_PARAMETER_VALUE,
+
+def _evaluate_custom_artifacts(custom_artifact_tuple, eval_df, builtin_metrics):
+    """
+    This function calls the `custom_artifact` function and performs validations on the returned
+    result to ensure that they are in the expected format. It will raise a MlflowException if
+    the result is not in the expected format.
+
+    :param custom_metric_tuple: Containing a user provided function and its index in the
+                                ``custom_artifacts`` parameter of ``mlflow.evaluate``
+    :param eval_df: A Pandas dataframe object containing a prediction and a target column.
+    :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
+    :return: A dictionary of artifacts.
+    """
+    exception_header = (
+        f"Custom artifact function '{custom_artifact_tuple.name}' "
+        " at index {custom_artifact_tuple.index}"
+        " in the `custom_artifacts` parameter"
     )
+    artifacts = custom_artifact_tuple.function(
+        eval_df, builtin_metrics, custom_artifact_tuple.artifacts_dir
+    )
+
+    if artifacts is None:
+        raise MlflowException(f"{exception_header} returned None.")
+
+    if not _is_valid_artifacts(artifacts):
+        raise MlflowException(
+            f"{exception_header} did not return artifacts as a dictionary of string artifact "
+            "names with their corresponding objects."
+        )
+
+    return artifacts
 
 
 def _compute_df_mode_or_mean(df):
@@ -528,12 +546,6 @@ class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
-    def _gen_log_key(self, key):
-        if self.evaluator_config.get("log_metrics_with_dataset_info", True):
-            return f"{key}_on_data_{self.dataset_name}"
-        else:
-            return key
-
     def _log_metrics(self):
         """
         Helper method to log metrics into specified run.
@@ -543,7 +555,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.run_id,
             metrics=[
                 Metric(
-                    key=self._gen_log_key(key),
+                    key=key,
                     value=value,
                     timestamp=timestamp,
                     step=0,
@@ -559,7 +571,7 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = self._gen_log_key(artifact_name) + ".png"
+        artifact_file_name = f"{artifact_name}.png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -575,7 +587,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = self._gen_log_key(artifact_name) + ".csv"
+        artifact_file_name = f"{artifact_name}.csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         mlflow.log_artifact(artifact_file_local_path)
@@ -746,7 +758,7 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            mlflow.shap.log_explainer(explainer, artifact_path=self._gen_log_key("explainer"))
+            mlflow.shap.log_explainer(explainer, artifact_path="explainer")
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
@@ -932,8 +944,7 @@ class DefaultEvaluator(ModelEvaluator):
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
             artifact_name, raw_artifact, custom_metric_tuple
         )
-        artifact_file_name = self._gen_log_key(artifact_name) + inferred_ext
-        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+        artifact_file_local_path = self.temp_dir.path(artifact_name + inferred_ext)
 
         if pathlib.Path(artifact_file_local_path).exists():
             raise MlflowException(
@@ -983,37 +994,51 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         mlflow.log_artifact(artifact_file_local_path)
-        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
+        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_name + inferred_ext))
         artifact._load(artifact_file_local_path)
         return artifact
 
     def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
-        if self.custom_metrics is None:
+        if not self.custom_metrics and not self.custom_artifacts:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
         eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
-        for index, custom_metric in enumerate(self.custom_metrics):
+        for index, custom_metric in enumerate(self.custom_metrics or []):
+            # deepcopying eval_df and builtin_metrics for each custom metric function call,
+            # in case the user modifies them inside their function(s).
+            custom_metric_tuple = _CustomMetric(
+                function=custom_metric.eval_fn,
+                index=index,
+                name=custom_metric.name,
+            )
+            metric_result = _evaluate_custom_metric(
+                custom_metric_tuple,
+                eval_df.copy(),
+                copy.deepcopy(builtin_metrics),
+            )
+            self.metrics.update({custom_metric.name: metric_result})
+
+        for index, custom_artifact in enumerate(self.custom_artifacts or []):
             with tempfile.TemporaryDirectory() as artifacts_dir:
-                custom_metric_tuple = _CustomMetric(
-                    function=custom_metric,
-                    index=index,
-                    name=getattr(custom_metric, "__name__", repr(custom_metric)),
-                    artifacts_dir=artifacts_dir,
-                )
                 # deepcopying eval_df and builtin_metrics for each custom metric function call,
                 # in case the user modifies them inside their function(s).
-                metric_results, artifact_results = _evaluate_custom_metric(
-                    custom_metric_tuple,
+                custom_artifact_tuple = _CustomArtifact(
+                    function=custom_artifact,
+                    index=index,
+                    name=getattr(custom_artifact, "__name__", repr(custom_artifact)),
+                    artifacts_dir=artifacts_dir,
+                )
+                artifact_results = _evaluate_custom_artifacts(
+                    custom_artifact_tuple,
                     eval_df.copy(),
                     copy.deepcopy(builtin_metrics),
                 )
-                self.metrics.update(metric_results)
                 if artifact_results is not None and log_to_mlflow_tracking:
                     for artifact_name, raw_artifact in artifact_results.items():
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
                             raw_artifact,
-                            custom_metric_tuple,
+                            custom_artifact_tuple,
                         )
 
     def _log_confusion_matrix(self):
@@ -1065,12 +1090,13 @@ class DefaultEvaluator(ModelEvaluator):
             self.is_binomial = self.num_classes <= 2
 
             if self.is_binomial:
-                if list(self.label_list) not in [[0, 1], [-1, 1]]:
-                    raise ValueError(
-                        "Binary classifier evaluation dataset positive class label must be 1 or"
-                        " True, negative class label must be 0 or -1 or False, and dataset"
-                        " must contains both positive and negative examples."
+                if self.pos_label in self.label_list:
+                    self.label_list = np.delete(
+                        self.label_list, np.where(self.label_list == self.pos_label)
                     )
+                    self.label_list = np.append(self.label_list, self.pos_label)
+                elif self.pos_label is None:
+                    self.pos_label = self.label_list[-1]
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
                     f"{self.label_list[1]}, negative label is {self.label_list[0]}."
@@ -1164,8 +1190,8 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn = predict_fn
             self.predict_proba_fn = predict_proba_fn
 
-            self.metrics = dict()
-            self.baseline_metrics = dict()
+            self.metrics = {}
+            self.baseline_metrics = {}
             self.artifacts = {}
 
             if self.model_type not in ["classifier", "regressor"]:
@@ -1198,6 +1224,7 @@ class DefaultEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        custom_artifacts=None,
         baseline_model=None,
         **kwargs,
     ):
@@ -1208,8 +1235,9 @@ class DefaultEvaluator(ModelEvaluator):
         self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
+        self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
-        self.pos_label = self.evaluator_config.get("pos_label", 1)
+        self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
         inferred_model_type = _infer_model_type_by_labels(self.y)
@@ -1222,7 +1250,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if evaluator_config.get("_disable_candidate_model", False):
-            evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
+            evaluation_result = EvaluationResult(metrics={}, artifacts={})
         else:
             if baseline_model:
                 _logger.info("Evaluating candidate model:")

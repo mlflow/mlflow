@@ -5,7 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import './MetricView.css';
 import { Experiment } from '../sdk/MlflowMessages';
-import { getExperiment, getRunTags } from '../reducers/Reducers';
+import { getExperiment, getRunInfo } from '../reducers/Reducers';
 import MetricsPlotPanel from './MetricsPlotPanel';
 import { withRouter, Link } from 'react-router-dom';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
@@ -98,7 +98,7 @@ export class MetricViewImpl extends Component {
       ) : (
         selectedMetricKeys[0]
       );
-    const breadcrumbs = [this.getExperimentPageLink(), this.getRunPageLink(), title];
+    const breadcrumbs = [this.getExperimentPageLink(), this.getRunPageLink()];
     return (
       <div>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
@@ -116,8 +116,8 @@ const mapStateToProps = (state, ownProps) => {
       ? experimentIds.map((experimentId) => getExperiment(experimentId, state))
       : null;
   const runNames = runUuids.map((runUuid) => {
-    const tags = getRunTags(runUuid, state);
-    return Utils.getRunDisplayName(tags, runUuid);
+    const runInfo = getRunInfo(runUuid, state);
+    return Utils.getRunDisplayName(runInfo, runUuid);
   });
   return { experiments, runNames, comparedExperimentIds, hasComparedExperimentsBefore };
 };

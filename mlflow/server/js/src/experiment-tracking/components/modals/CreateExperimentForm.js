@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
 import { injectIntl } from 'react-intl';
-import { Input, Form } from 'antd';
+import { Input, Form } from '@databricks/design-system';
 
 export const EXP_NAME_FIELD = 'experimentName';
 export const ARTIFACT_LOCATION = 'artifactLocation';

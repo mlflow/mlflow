@@ -102,7 +102,7 @@ describe('ArtifactPage', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(wrapper.find('.Spinner').length).toBe(1);
+    expect(wrapper.find('Spinner').length).toBe(1);
   });
 
   test('should make correct number of API requests if artifact path specified in url', (done) => {

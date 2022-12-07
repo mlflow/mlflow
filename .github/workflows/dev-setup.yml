@@ -3,9 +3,9 @@ name: Dev environment setup
 on:
   push:
     paths:
-      - 'dev/dev-env-setup.sh'
-      - 'dev/test-dev-env-setup.sh'
-      - '.github/workflows/dev-setup.yml'
+      - "dev/dev-env-setup.sh"
+      - "dev/test-dev-env-setup.sh"
+      - ".github/workflows/dev-setup.yml"
   schedule:
     - cron: "42 7 * * 0"
   workflow_dispatch:
@@ -35,6 +35,7 @@ defaults:
 jobs:
   linux-env-setup:
     runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
         with:

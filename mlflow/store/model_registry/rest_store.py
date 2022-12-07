@@ -6,7 +6,6 @@ from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
     DeleteRegisteredModel,
-    ListRegisteredModels,
     GetLatestVersions,
     CreateModelVersion,
     UpdateModelVersion,
@@ -117,29 +116,6 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(DeleteRegisteredModel(name=name))
         self._call_endpoint(DeleteRegisteredModel, req_body)
-
-    def list_registered_models(self, max_results, page_token):
-        """
-        List of all registered models.
-
-        :param max_results: Maximum number of registered models desired.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                that satisfy the search expressions. The pagination token for the next page can be
-                obtained via the ``token`` attribute of the object.
-        """
-        req_body = message_to_json(
-            ListRegisteredModels(page_token=page_token, max_results=max_results)
-        )
-        response_proto = self._call_endpoint(ListRegisteredModels, req_body)
-        return PagedList(
-            [
-                RegisteredModel.from_proto(registered_model)
-                for registered_model in response_proto.registered_models
-            ],
-            response_proto.next_page_token,
-        )
 
     def search_registered_models(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -260,7 +236,7 @@ class RestStore(AbstractStore):
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param new_stage: New desired stage for this model version.
+        :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set to ``True``, all existing model
             versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.

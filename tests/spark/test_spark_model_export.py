@@ -2,6 +2,7 @@ import logging
 import os
 
 import json
+from pathlib import Path
 from unittest import mock
 import numpy as np
 import pandas as pd
@@ -23,6 +24,7 @@ from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
+from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -36,6 +38,7 @@ from tests.helper_functions import (
     _get_pip_deps,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
 
@@ -292,11 +295,17 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
         data=spark_model_iris.pandas_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
+    from mlflow.deployments import PredictionsResponse
+
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
+        spark_model_iris.predictions,
+        PredictionsResponse.from_json(scoring_response.content).get_predictions(
+            predictions_format="ndarray"
+        ),
+        decimal=4,
     )
 
 
@@ -313,7 +322,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
-    deployed_model_preds = np.array(json.loads(scoring_response.content))
+    deployed_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
 
     np.testing.assert_array_almost_equal(
         deployed_model_preds, spark_model_iris.predictions, decimal=4
@@ -443,7 +452,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -466,12 +475,15 @@ def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -479,7 +491,7 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
             spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -489,13 +501,14 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.spark.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -505,7 +518,9 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
         mlflow.spark.log_model(
             spark_model_iris.model, "model", extra_pip_requirements=req_file.strpath
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -513,7 +528,7 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
             spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -523,7 +538,7 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -534,7 +549,7 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -559,7 +574,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -608,13 +623,16 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 
 def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
+    expected_mlflow_version = _mlflow_major_version_string()
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
         with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
             with mlflow.start_run():
                 sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
                 model_uri = mlflow.get_artifact_uri("model")
-            _assert_pip_requirements(model_uri, ["mlflow", f"pyspark=={unsuffixed_version}"])
+            _assert_pip_requirements(
+                model_uri, [expected_mlflow_version, f"pyspark=={unsuffixed_version}"]
+            )
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
         with mock.patch("importlib_metadata.version", return_value=unaffected_version):
@@ -638,7 +656,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
         "mlflowdbfs_disabled",
         "mlflowdbfs_available",
         "dbutils_available",
-        "expectedURI",
+        "expected_uri",
     ),
     [
         (
@@ -701,7 +719,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mlflowdbfs_disabled,
     mlflowdbfs_available,
     dbutils_available,
-    expectedURI,
+    expected_uri,
 ):
     def mock_spark_session_load(path):
         raise Exception("MlflowDbfsClient operation failed!")
@@ -745,7 +763,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
             sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
-            mock_save.assert_called_once_with(expectedURI.format(mlflow.active_run().info.run_id))
+            mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
 
 
 @pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])
@@ -823,7 +841,8 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
 def test_log_model_with_code_paths(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.spark._add_code_from_conf_to_system_path"
+        "mlflow.spark._add_code_from_conf_to_system_path",
+        wraps=_add_code_from_conf_to_system_path,
     ) as add_mock:
         sparkm.log_model(
             spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
@@ -832,3 +851,11 @@ def test_log_model_with_code_paths(spark_model_iris):
         _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
         sparkm.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(spark_model_iris, model_path):
+    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

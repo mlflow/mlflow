@@ -16,7 +16,8 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
     pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()
-        assert pattern.search(old_text), f"Pattern {pattern} not found in {f}"
+        if not pattern.search(old_text):
+            continue
         new_text = pattern.sub(repl, old_text)
         f.write_text(new_text)
 
@@ -25,11 +26,12 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     current_version = re.escape(get_current_version())
     # Java
     suffix = "-SNAPSHOT" if add_dev_suffix else ""
-    replace_occurrences(
-        files=Path("mlflow", "java").rglob("*.xml"),
-        pattern=rf"{current_version}(-SNAPSHOT)?",
-        repl=new_version + suffix,
-    )
+    for java_extension in ["xml", "java"]:
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
+            pattern=rf"{current_version}(-SNAPSHOT)?",
+            repl=new_version + suffix,
+        )
     # Python
     suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
@@ -56,8 +58,8 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     # R
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
-        pattern=current_version,
-        repl=new_version,
+        pattern=f"Version: {current_version}",
+        repl=f"Version: {new_version}",
     )
 
 
@@ -84,13 +86,13 @@ Update MLflow package versions BEFORE release.
 
 Usage:
 
-python dev/update_mlflow_versions.py before-release --new-version 1.29.0
+python dev/update_mlflow_versions.py pre-release --new-version 1.29.0
 """
 )
 @click.option(
     "--new-version", callback=validate_new_version, required=True, help="New version to release"
 )
-def before_release(new_version: str):
+def pre_release(new_version: str):
     update_versions(new_version, add_dev_suffix=False)
 
 
@@ -100,7 +102,7 @@ Update MLflow package versions AFTER release.
 
 Usage:
 
-python dev/update_mlflow_versions.py after-release --new-version 1.29.0
+python dev/update_mlflow_versions.py post-release --new-version 1.29.0
 """
 )
 @click.option(
@@ -109,7 +111,7 @@ python dev/update_mlflow_versions.py after-release --new-version 1.29.0
     required=True,
     help="New version that was released",
 )
-def after_release(new_version: str):
+def post_release(new_version: str):
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
     update_versions(next_new_version, add_dev_suffix=True)

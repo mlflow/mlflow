@@ -13,7 +13,7 @@ import tempfile
 import yaml
 from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -269,140 +269,6 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
-    @deprecated(alternative="search_runs()")
-    def list_run_infos(
-        self,
-        experiment_id: str,
-        run_view_type: int = ViewType.ACTIVE_ONLY,
-        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-        order_by: Optional[List[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[RunInfo]:
-        """
-        Return run information for runs which belong to the experiment_id.
-
-        :param experiment_id: The experiment id which to search
-        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
-        :param max_results: Maximum number of results desired.
-        :param order_by: List of order_by clauses. Currently supported values are
-            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
-            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
-
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for the
-            next page may be obtained via the ``token`` attribute of the returned object.
-
-        .. code-block:: python
-            :caption: Example
-
-            import mlflow
-            from mlflow import MlflowClient
-            from mlflow.entities import ViewType
-
-            def print_run_infos(run_infos):
-                for r in run_infos:
-                    print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
-
-            # Create two runs
-            with mlflow.start_run() as run1:
-                mlflow.log_metric("click_rate", 1.55)
-
-            with mlflow.start_run() as run2:
-                mlflow.log_metric("click_rate", 2.50)
-
-            # Delete the last run
-            client = MlflowClient()
-            client.delete_run(run2.info.run_id)
-
-            # Get all runs under the default experiment (whose id is 0)
-            print("Active runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
-
-            print("Deleted runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
-
-            print("All runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL,
-                            order_by=["metric.click_rate DESC"]))
-
-        .. code-block:: text
-            :caption: Output
-
-            Active runs:
-            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
-            Deleted runs:
-            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
-            All runs:
-            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
-            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
-        """
-        return self._tracking_client.list_run_infos(
-            experiment_id, run_view_type, max_results, order_by, page_token
-        )
-
-    @deprecated(alternative="search_experiments()")
-    def list_experiments(
-        self,
-        view_type: int = ViewType.ACTIVE_ONLY,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[Experiment]:
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned for the File and SQL backends.
-                            For the REST backend, the server will pick a maximum number of results
-                            to return.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-
-        .. code-block:: python
-            :caption: Example
-
-            from mlflow import MlflowClient
-            from mlflow.entities import ViewType
-
-            def print_experiment_info(experiments):
-                for e in experiments:
-                    print("- experiment_id: {}, name: {}, lifecycle_stage: {}"
-                          .format(e.experiment_id, e.name, e.lifecycle_stage))
-
-            client = MlflowClient()
-            for name in ["Experiment 1", "Experiment 2"]:
-                exp_id = client.create_experiment(name)
-
-            # Delete the last experiment
-            client.delete_experiment(exp_id)
-
-            # Fetch experiments by view type
-            print("Active experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ACTIVE_ONLY))
-            print("Deleted experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.DELETED_ONLY))
-            print("All experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ALL))
-
-        .. code-block:: text
-            :caption: Output
-
-            Active experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            Deleted experiments:
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-            All experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-        """
-        return self._tracking_client.list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token
-        )
-
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
@@ -424,26 +290,39 @@ class MlflowClient:
             supported.
 
             Identifiers
-              - ``name``: Experiment name.
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-            Comparators
-              - ``=``: Equal to.
-              - ``!=``: Not equal to.
-              - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive pattern match.
+            Comparators for string attributes and tags
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``LIKE``: Case-sensitive pattern match
+              - ``ILIKE``: Case-insensitive pattern match
+
+            Comparators for numeric attributes
+              - ``=``: Equal to
+              - ``!=``: Not equal to
+              - ``<``: Less than
+              - ``<=``: Less than or equal to
+              - ``>``: Greater than
+              - ``>=``: Greater than or equal to
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following identifiers are supported.
+            ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
+            equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
+            which lists experiments updated most recently first. The following fields are supported:
 
-            - ``name``: Experiment name.
-            - ``experiment_id``: Experiment ID.
+            - ``experiment_id``: Experiment ID
+            - ``name``: Experiment name
+            - ``creation_time``: Experiment creation time
+            - ``last_update_time``: Experiment last update time
 
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a ``search_experiments`` call.
@@ -979,6 +858,53 @@ class MlflowClient:
         """
         self._tracking_client.delete_tag(run_id, key)
 
+    def update_run(
+        self, run_id: str, status: Optional[str] = None, name: Optional[str] = None
+    ) -> None:
+        """
+        Update a run with the specified ID to a new status or name.
+
+        :param run_id: The ID of the Run to update.
+        :param status: The new status of the run to set, if specified.
+                       At least one of ``status`` or ``name`` should be specified.
+        :param name: The new name of the run to set, if specified.
+                     At least one of ``name`` or ``status`` should be specified.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            def print_run_info(run):
+                print("run_id: {}".format(run.info.run_id))
+                print("run_name: {}".format(run.info.run_name))
+                print("status: {}".format(run.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Update run and fetch info
+            client.update_run(run.info.run_id, "FINISHED", "new_name")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: judicious-hog-915
+            status: RUNNING
+            --
+            run_id: 1cf6bf8bf6484dd8a598bd43be367b20
+            run_name: new_name
+            status: FINISHED
+        """
+        self._tracking_client.update_run(run_id, status, name)
+
     def log_batch(
         self,
         run_id: str,
@@ -1167,7 +1093,7 @@ class MlflowClient:
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
@@ -1405,11 +1331,10 @@ class MlflowClient:
                     "f": "floating",
                 }
 
-                if image.dtype.kind not in valid_data_types.keys():
+                if image.dtype.kind not in valid_data_types:
                     raise TypeError(
-                        "Invalid array data type: '{}'. Must be one of {}".format(
-                            image.dtype, list(valid_data_types.values())
-                        )
+                        f"Invalid array data type: '{image.dtype}'. "
+                        f"Must be one of {list(valid_data_types.values())}"
                     )
 
                 if image.ndim not in [2, 3]:
@@ -1495,6 +1420,7 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
+    @deprecated("mlflow.artifacts.download_artifacts", "2.0")
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
@@ -1916,11 +1842,11 @@ class MlflowClient:
                 client.create_registered_model(name, tags, desc)
 
             # Fetch all registered models
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
             # Delete one registered model and fetch again
             client.delete_registered_model("name1")
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
         .. code-block:: text
             :caption: Output
@@ -1938,60 +1864,6 @@ class MlflowClient:
             description: description2
         """
         self._get_registry_client().delete_registered_model(name)
-
-    @deprecated(alternative="search_registered_models()")
-    def list_registered_models(
-        self,
-        max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        page_token: Optional[str] = None,
-    ) -> PagedList[RegisteredModel]:
-        """
-        List of all registered models
-
-        :param max_results: Maximum number of registered models desired.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``list_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                 that can satisfy the search expressions. The pagination token for the next page
-                 can be obtained via the ``token`` attribute of the object.
-
-        .. code-block:: python
-            :caption: Example
-
-            import mlflow
-            from mlflow import MlflowClient
-
-            def print_model_info(models):
-                for m in models:
-                    print("--")
-                    print("name: {}".format(m.name))
-                    print("tags: {}".format(m.tags))
-                    print("description: {}".format(m.description))
-
-            mlflow.set_tracking_uri("sqlite:///mlruns.db")
-            client = MlflowClient()
-
-            # Register a couple of models with respective names, tags, and descriptions
-            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
-                                     ("name2", {"t2": "t2"}, 'description2')]:
-                client.create_registered_model(name, tags, desc)
-
-            # Fetch all registered models
-            print_model_info(client.list_registered_models())
-
-        .. code-block:: text
-            :caption: Output
-
-            --
-            name: name1
-            tags: {'t1': 't1'}
-            description: description1
-            --
-            name: name2
-            tags: {'t2': 't2'}
-            description: description2
-        """
-        return self._get_registry_client().list_registered_models(max_results, page_token)
 
     def search_registered_models(
         self,
@@ -2052,9 +1924,10 @@ class MlflowClient:
             # prefix pattern
             filter_string = "name LIKE 'Boston%'"
             results = client.search_registered_models(filter_string=filter_string)
+            print("-" * 80)
             for res in results:
                 for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                    print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
 
             # Get all registered models and order them by ascending order of the names
             results = client.search_registered_models(order_by=["name ASC"])
@@ -2265,11 +2138,11 @@ class MlflowClient:
                 client.create_registered_model(name, tags)
 
             # Fetch all registered models
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
             # Delete a tag from model `name2`
             client.delete_registered_model_tag("name2", 't2')
-            print_registered_models_info(client.list_registered_models())
+            print_registered_models_info(client.search_registered_models())
 
         .. code-block:: text
             :caption: Output

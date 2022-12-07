@@ -1,3 +1,4 @@
+from pathlib import Path
 from packaging.version import Version
 import os
 import yaml
@@ -30,6 +31,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
@@ -156,7 +158,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, conda_env=gluon_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != gluon_custom_env
 
@@ -177,19 +179,20 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_save_model_with_pip_requirements(gluon_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.gluon.save_model(
         gluon_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -197,11 +200,12 @@ def test_save_model_with_pip_requirements(gluon_model, tmpdir):
         gluon_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
 def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.gluon.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -209,14 +213,14 @@ def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.gluon.save_model(
         gluon_model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -224,7 +228,7 @@ def test_save_model_with_extra_pip_requirements(gluon_model, tmpdir):
         gluon_model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
@@ -234,7 +238,7 @@ def test_model_save_accepts_conda_env_as_dict(gluon_model, model_path):
     mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path, "r") as f:
@@ -257,7 +261,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
         )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != gluon_custom_env
 
@@ -298,12 +302,16 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(
-        scoring_response.content.decode("utf-8"), orient="records"
-    ).values.astype(np.float32)
+    from mlflow.deployments import PredictionsResponse
+
+    response_values = (
+        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        .get_predictions()
+        .values.astype(np.float32)
+    )
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
 
 
@@ -317,3 +325,11 @@ def test_log_model_with_code_paths(gluon_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.gluon.FLAVOR_NAME)
         mlflow.gluon.load_model(model_uri, ctx.cpu())
         add_mock.assert_called()
+
+
+def test_virtualenv_subfield_points_to_correct_path(gluon_model, model_path):
+    mlflow.gluon.save_model(gluon_model, path=model_path)
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
+    assert python_env_path.exists()
+    assert python_env_path.is_file()

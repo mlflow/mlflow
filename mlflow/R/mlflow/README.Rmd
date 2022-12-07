@@ -20,30 +20,39 @@ knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
 unlink("mlruns", recursive = T)
 ```
 
+## Prerequisites
+
+To use the MLflow R API, you must install [the MLflow Python package](https://pypi.org/project/mlflow/).
+
+```{bash eval=FALSE}
+pip install mlflow
+```
+
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify
+the Python and MLflow binaries to use. By default, the R client automatically finds them using
+``Sys.which("python")`` and ``Sys.which("mlflow")``.
+
+```{bash eval=FALSE}
+export MLFLOW_PYTHON_BIN=/path/to/bin/python
+export MLFLOW_BIN=/path/to/bin/mlflow
+```
+
 ## Installation
 
-Install `mlflow` followed by installing the `mlflow` runtime as follows:
+Install `mlflow` as follows:
 
 ```{r eval=FALSE}
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-mlflow::install_mlflow()
 ```
 
 Notice also that [Anaconda](https://www.anaconda.com/products/distribution) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) need to be manually installed.
 
-### Development
+## Development
 
 Install the `mlflow` package as follows:
 
 ```{r, eval=FALSE}
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-```
-
-Then install the latest released `mlflow` runtime.
-
-```{r, eval=FALSE}
-# Install latest released version
-mlflow::install_mlflow()
 ```
 
 However, currently, the development runtime of `mlflow` is also required; which means you also need to download or clone the `mlflow` GitHub repo:
@@ -56,8 +65,9 @@ And upgrade the runtime to the development version as follows:
 
 ```{r, eval=FALSE}
 # Upgrade to the latest development version
-reticulate::conda_install("r-mlflow", "<local github repo>", pip = TRUE)
+pip install -e <local github repo>
 ```
+
 ## Tracking
 
 MLflow Tracking allows you to logging parameters, code versions, metrics, and output files when running R code and for later visualizing the results.

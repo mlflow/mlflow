@@ -143,8 +143,24 @@ MLflow artifacts and then load them again for serving. There is an example train
 
     $ mlflow models serve --model-uri runs:/<run-id>/model
 
-    $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
+    $ curl -d '{"dataframe_split": {"columns":[0],"index":[0,1],"data":[[1],[-1]]}}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
+**Note:** If using MLflow skinny (``pip install mlflow-skinny``) for model serving, additional
+required dependencies (namely, ``flask``) will need to be installed for the MLflow server to function.
+
+Official MLflow Docker Image
+----------------------------
+
+The official MLflow Docker image is available on GitHub Container Registry at https://ghcr.io/mlflow/mlflow.
+
+.. code-block:: shell
+
+    export CR_PAT=YOUR_TOKEN
+    echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+    # Pull the latest version
+    docker pull ghcr.io/mlflow/mlflow
+    # Pull 2.0.1
+    docker pull ghcr.io/mlflow/mlflow:v2.0.1
 
 Contributing
 ------------

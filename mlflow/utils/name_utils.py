@@ -1,4 +1,29 @@
 import random
+import uuid
+
+_EXPERIMENT_ID_FIXED_WIDTH = 18
+
+
+def _generate_unique_integer_id():
+    """
+    Utility function for generating a random fixed-length integer
+    :param id_length: The target length of the string representation of the integer without
+                      leading zeros
+    :return: a fixed-width integer
+    """
+
+    random_int = uuid.uuid4().int
+    # Cast to string to get a fixed length
+    random_str = str(random_int)[-_EXPERIMENT_ID_FIXED_WIDTH:]
+    # append a random int as string to the end of the generated string for as many
+    # leading zeros exist in the generated string in order to preserve the total length
+    # once cast back to int
+    for s in random_str:
+        if s == "0":
+            random_str = random_str + str(random.randint(0, 9))
+        else:
+            break
+    return int(random_str)
 
 
 def _generate_string(sep, integer_scale):
@@ -42,7 +67,6 @@ _GENERATOR_NOUNS = [
     "calf",
     "carp",
     "cat",
-    "chick",
     "chimp",
     "cod",
     "colt",

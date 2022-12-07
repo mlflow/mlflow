@@ -1,28 +1,29 @@
 import base64
 import json
 import datetime
+
+import pytest
+
 import numpy as np
 import pandas as pd
-import pytest
+from google.protobuf.text_format import Parse as ParseTextIntoProto
 
 from mlflow.entities import Experiment, Metric
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
-from tests.protos.test_message_pb2 import TestMessage
-from google.protobuf.text_format import Parse as ParseTextIntoProto
-
+from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.utils.proto_json_utils import (
     message_to_json,
     parse_dict,
     _stringify_all_experiment_ids,
     parse_tf_serving_input,
-    _dataframe_from_json,
+    dataframe_from_raw_json,
     _DateTimeEncoder,
 )
+from tests.protos.test_message_pb2 import TestMessage
 
 # Prevent pytest from trying to collect TestMessage as a test class:
 TestMessage.__test__ = False
@@ -283,7 +284,7 @@ def test_parse_tf_serving_dictionary():
             TensorSpec(np.dtype("int32"), [-1], "c"),
         ]
     )
-    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
+    df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
     result = parse_tf_serving_input(tfserving_input, schema)
     expected_result_schema = {
         "a": np.array(["s1", "s2", "s3"], dtype=np.dtype("str")),
@@ -292,7 +293,7 @@ def test_parse_tf_serving_dictionary():
     }
     assert_result(result, expected_result_schema)
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input, dfSchema)
+    result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
 
     # input provided as a dict
@@ -312,7 +313,7 @@ def test_parse_tf_serving_dictionary():
     assert_result(result, expected_result_schema)
 
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input, dfSchema)
+    result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
 
 
@@ -334,7 +335,7 @@ def test_parse_tf_serving_arbitrary_input_dictionary():
             TensorSpec(np.dtype("int32"), [-1, 4], "c"),
         ]
     )
-    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
+    df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
 
     expected_result_no_schema_arbitrary = {
         "a": np.array([["s1", "s2", "s3"], ["s4", "s5", "s6"]]),
@@ -356,7 +357,7 @@ def test_parse_tf_serving_arbitrary_input_dictionary():
     assert_result(result, expected_result_schema_arbitrary)
 
     # With df Schema
-    result = parse_tf_serving_input(tfserving_input_arbitrary, dfSchema)
+    result = parse_tf_serving_input(tfserving_input_arbitrary, df_schema)
     assert_result(result, expected_result_schema_arbitrary)
 
 
@@ -476,11 +477,11 @@ def test_dataframe_from_json():
             ColSpec("string", "date_string"),
         ]
     )
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
     pd.testing.assert_frame_equal(parsed, source)
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=schema
     )
     pd.testing.assert_frame_equal(parsed, source)
@@ -496,13 +497,13 @@ def test_dataframe_from_json():
             TensorSpec(np.dtype(bytes), [-1], "binary"),
         ]
     )
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
     pd.testing.assert_frame_equal(parsed, jsonable_df)
-    parsed = _dataframe_from_json(
+    parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
     )
 
@@ -521,20 +522,26 @@ def test_dataframe_from_json():
     )
     pd.testing.assert_frame_equal(
         source,
-        _dataframe_from_json(
+        dataframe_from_raw_json(
             source.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
         ),
     )
     pd.testing.assert_frame_equal(
         source,
-        _dataframe_from_json(
+        dataframe_from_raw_json(
             source.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
         ),
     )
 
     schema = Schema([ColSpec("datetime", "datetime")])
-    parsed = _dataframe_from_json(
-        '{"datetime": ["2022-01-01T00:00:00", "2022-01-02T03:04:05", "00:00:00"]}',
+    parsed = dataframe_from_raw_json(
+        """
+    [
+      {"datetime": "2022-01-01T00:00:00"}, 
+      {"datetime": "2022-01-02T03:04:05"}, 
+      {"datetime": "00:00:00"}
+    ]
+    """,
         pandas_orient="records",
         schema=schema,
     )

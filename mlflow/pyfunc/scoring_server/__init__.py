@@ -6,21 +6,21 @@ The passed int model is expected to have function:
 Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
-Defines three endpoints:
+Defines four endpoints:
     /ping used for health check
     /health (same as /ping)
+    /version used for getting the mlflow version
     /invocations used for scoring
 """
-from collections import OrderedDict
 from typing import Tuple, Dict
 import flask
 import json
 import logging
-import numpy as np
 import os
-import pandas as pd
 import sys
 import traceback
+
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -33,10 +33,11 @@ from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
-    _dataframe_from_json,
+    dataframe_from_parsed_json,
     _get_jsonable_obj,
     parse_tf_serving_input,
 )
+from mlflow.version import VERSION
 
 try:
     from mlflow.pyfunc import load_model, PyFuncModel
@@ -44,31 +45,41 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-
 from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
-CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
 
-CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
-CONTENT_TYPE_FORMAT_SPLIT_ORIENTED = "pandas-split"
-
-FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIENTED]
-
-PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
-
 _logger = logging.getLogger(__name__)
+
+DF_RECORDS = "dataframe_records"
+DF_SPLIT = "dataframe_split"
+INSTANCES = "instances"
+INPUTS = "inputs"
+
+SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
+
+REQUIRED_INPUT_FORMAT = (
+    f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
+)
+SCORING_PROTOCOL_CHANGE_INFO = (
+    "IMPORTANT: The MLflow Model scoring protocol has changed in MLflow version 2.0. If you are"
+    " seeing this error, you are likely using an outdated scoring request format. To resolve the"
+    " error, either update your request format or adjust your MLflow Model's requirements file to"
+    " specify an older version of MLflow (for example, change the 'mlflow' requirement specifier"
+    " to 'mlflow==1.30.0'). If you are making a request using the MLflow client"
+    " (e.g. via `mlflow.pyfunc.spark_udf()`), upgrade your MLflow client to a version >= 2.0 in"
+    " order to use the new request format. For more information about the updated MLflow"
+    " Model scoring protocol in MLflow 2.0, see"
+    " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
+)
 
 
 def infer_and_parse_json_input(json_input, schema: Schema = None):
@@ -77,60 +88,47 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                        DataFrame, or a stream containing such a string representation.
     :param schema: Optional schema specification to be used during parsing.
     """
-    try:
-        decoded_input = json.loads(json_input)
-    except json.decoder.JSONDecodeError:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                " formatted string."
-            ),
-            error_code=BAD_REQUEST,
-        )
-
-    if isinstance(decoded_input, list):
-        return parse_json_input(json_input=json_input, orient="records", schema=schema)
-    elif isinstance(decoded_input, dict):
-        if "instances" in decoded_input or "inputs" in decoded_input:
-            try:
-                return parse_tf_serving_input(decoded_input, schema=schema)
-            except MlflowException as ex:
-                _handle_serving_error(
-                    error_message=(ex.message),
-                    error_code=BAD_REQUEST,
-                )
-        else:
-            return parse_json_input(json_input=json_input, orient="split", schema=schema)
+    if isinstance(json_input, dict):
+        decoded_input = json_input
     else:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                " list or dictionary."
-            ),
+        try:
+            decoded_input = json.loads(json_input)
+        except json.decoder.JSONDecodeError as ex:
+            raise MlflowException(
+                message=(
+                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
+                ),
+                error_code=BAD_REQUEST,
+            )
+    if isinstance(decoded_input, dict):
+        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
+        if len(format_keys) != 1:
+            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
+            raise MlflowException(
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+                error_code=BAD_REQUEST,
+            )
+        input_format = format_keys.pop()
+        if input_format in (INSTANCES, INPUTS):
+            return parse_tf_serving_input(decoded_input, schema=schema)
+
+        elif input_format in (DF_SPLIT, DF_RECORDS):
+            # NB: skip the dataframe_ prefix
+            pandas_orient = input_format[10:]
+            return dataframe_from_parsed_json(
+                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
+            )
+    elif isinstance(decoded_input, list):
+        message = "Received a list"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
             error_code=BAD_REQUEST,
         )
-
-
-def parse_json_input(json_input, orient="split", schema: Schema = None):
-    """
-    :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
-                       containing such a string representation.
-    :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
-                   or 'records'.
-    :param schema: Optional schema specification to be used during parsing.
-    """
-
-    try:
-        return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
-    except Exception:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                " method.".format(orient=orient)
-            ),
-            error_code=BAD_REQUEST,
+    else:
+        message = f"Received unexpected input type '{type(decoded_input)}'"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
         )
 
 
@@ -140,6 +138,7 @@ def parse_csv_input(csv_input, schema: Schema = None):
                       containing such a string representation.
     :param schema: Optional schema specification to be used during parsing.
     """
+    import pandas as pd
 
     try:
         if schema is None:
@@ -158,37 +157,9 @@ def parse_csv_input(csv_input, schema: Schema = None):
         )
 
 
-def parse_split_oriented_json_input_to_numpy(json_input):
-    """
-    :param json_input: A JSON-formatted string representation of a Pandas DataFrame with split
-                       orient, or a stream containing such a string representation.
-    """
-
-    try:
-        json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
-        return pd.DataFrame(
-            index=json_input_list["index"],
-            data=np.array(json_input_list["data"], dtype=object),
-            columns=json_input_list["columns"],
-        ).infer_objects()
-    except Exception:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Numpy. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the split orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
-                " method."
-            ),
-            error_code=BAD_REQUEST,
-        )
-
-
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
-    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
-    if wrapper_attr_name:
-        predictions = {wrapper_attr_name: predictions}
-    json.dump(predictions, output, cls=NumpyEncoder)
+    return json.dump({"predictions": predictions}, output, cls=NumpyEncoder)
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
@@ -231,6 +202,13 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return flask.Response(response="\n", status=status, mimetype="application/json")
 
+    @app.route("/version", methods=["GET"])
+    def version():  # pylint: disable=unused-variable
+        """
+        Returns the current mlflow version.
+        """
+        return flask.Response(response=VERSION, status=200, mimetype="application/json")
+
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
     def transformation():  # pylint: disable=unused-variable
@@ -260,66 +238,50 @@ def init(model: PyFuncModel):
                 mimetype="text/plain",
             )
 
-        content_format = parameter_values.get("format")
-
+        unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
+        if unexpected_content_parameters:
+            return flask.Response(
+                response=(
+                    f"Unrecognized content type parameters: "
+                    f"{', '.join(unexpected_content_parameters)}. "
+                    f"{SCORING_PROTOCOL_CHANGE_INFO}"
+                ),
+                status=415,
+                mimetype="text/plain",
+            )
         # Convert from CSV to pandas
-        if mime_type == CONTENT_TYPE_CSV and not content_format:
+        if mime_type == CONTENT_TYPE_CSV:
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input, schema=input_schema)
-        elif mime_type == CONTENT_TYPE_JSON and not content_format:
+        elif mime_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)
-        elif (
-            mime_type == CONTENT_TYPE_JSON and content_format == CONTENT_TYPE_FORMAT_SPLIT_ORIENTED
-        ):
-            data = parse_json_input(
-                json_input=StringIO(flask.request.data.decode("utf-8")),
-                orient="split",
-                schema=input_schema,
-            )
-        elif (
-            mime_type == CONTENT_TYPE_JSON
-            and content_format == CONTENT_TYPE_FORMAT_RECORDS_ORIENTED
-        ):
-            data = parse_json_input(
-                json_input=StringIO(flask.request.data.decode("utf-8")),
-                orient="records",
-                schema=input_schema,
-            )
-        elif mime_type == CONTENT_TYPE_JSON_SPLIT_NUMPY and not content_format:
-            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
         else:
             return flask.Response(
                 response=(
-                    "This predictor only supports the following content types and formats:"
-                    " Types: {supported_content_types}; Formats: {formats}."
-                    " Got '{received_content_type}'.".format(
-                        supported_content_types=CONTENT_TYPES,
-                        formats=FORMATS,
-                        received_content_type=flask.request.content_type,
-                    )
+                    "This predictor only supports the following content types:"
+                    f" Types: {CONTENT_TYPES}."
+                    f" Got '{flask.request.content_type}'."
                 ),
                 status=415,
                 mimetype="text/plain",
             )
 
         # Do the prediction
-
         try:
             raw_predictions = model.predict(data)
         except MlflowException as e:
-            _handle_serving_error(
-                error_message=e.message, error_code=BAD_REQUEST, include_traceback=False
-            )
+            raise e
         except Exception:
-            _handle_serving_error(
-                error_message=(
+            raise MlflowException(
+                message=(
                     "Encountered an unexpected error while evaluating the model. Verify"
                     " that the serialized input Dataframe is compatible with the model for"
                     " inference."
                 ),
                 error_code=BAD_REQUEST,
+                stack_trace=traceback.format_exc(),
             )
         result = StringIO()
         predictions_to_json(raw_predictions, result)
@@ -328,15 +290,21 @@ def init(model: PyFuncModel):
     return app
 
 
-def _predict(model_uri, input_path, output_path, content_type, json_format):
+def _predict(model_uri, input_path, output_path, content_type):
     pyfunc_model = load_model(model_uri)
-    if input_path is None:
-        input_path = sys.stdin
 
     if content_type == "json":
-        df = parse_json_input(input_path, orient=json_format)
+        if input_path is None:
+            input_str = sys.stdin.read()
+        else:
+            with open(input_path, "r") as f:
+                input_str = f.read()
+        df = infer_and_parse_json_input(input_str)
     elif content_type == "csv":
-        df = parse_csv_input(input_path)
+        if input_path is not None:
+            df = parse_csv_input(input_path)
+        else:
+            df = parse_csv_input(sys.stdin)
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
 
@@ -356,7 +324,7 @@ def get_cmd(
     model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
-    timeout = timeout or 60
+    timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
     if os.name != "nt":

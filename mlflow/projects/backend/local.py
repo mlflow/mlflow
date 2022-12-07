@@ -24,9 +24,10 @@ from mlflow.projects.utils import (
     PROJECT_SYNCHRONOUS,
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
+    PROJECT_BUILD_IMAGE,
 )
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
+from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.virtualenv import (
     _install_python,
     _create_virtualenv,
@@ -64,7 +65,14 @@ def _env_type_to_env_manager(env_typ):
 
 class LocalBackend(AbstractBackend):
     def run(
-        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
+        self,
+        project_uri,
+        entry_point,
+        params,
+        version,
+        backend_config,
+        tracking_uri,
+        experiment_id,
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)
@@ -81,6 +89,7 @@ class LocalBackend(AbstractBackend):
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
+        build_image = backend_config[PROJECT_BUILD_IMAGE]
 
         # Select an appropriate env manager for the project env type
         if env_manager is None:
@@ -109,6 +118,7 @@ class LocalBackend(AbstractBackend):
                 repository_uri=project.name,
                 base_image=project.docker_env.get("image"),
                 run_id=active_run.info.run_id,
+                build_image=build_image,
             )
             command_args += _get_docker_command(
                 image=image,
@@ -127,7 +137,11 @@ class LocalBackend(AbstractBackend):
             if project.env_type == env_type.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
             else:
-                python_env = _PythonEnv.from_yaml(project.env_config_path)
+                python_env = (
+                    _PythonEnv.from_yaml(project.env_config_path)
+                    if project.env_config_path
+                    else _PythonEnv()
+                )
             python_bin_path = _install_python(python_env.python)
             env_root = _get_mlflow_virtualenv_root()
             work_dir_path = Path(work_dir)
@@ -138,8 +152,8 @@ class LocalBackend(AbstractBackend):
         elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
-            conda_env_name = get_or_create_conda_env(project.env_config_path)
-            command_args += get_conda_command(conda_env_name)
+            conda_env = get_or_create_conda_env(project.env_config_path)
+            command_args += conda_env.get_activate_command()
 
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
@@ -335,7 +349,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
         "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
         "MLFLOW_S3_IGNORE_TLS": os.environ.get("MLFLOW_S3_IGNORE_TLS"),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
     return volumes, envs
 
 
@@ -345,7 +359,7 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
     return [], envs
 
 
@@ -369,7 +383,7 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
         "MLFLOW_KERBEROS_USER": MLFLOW_KERBEROS_USER.get(),
         "MLFLOW_PYARROW_EXTRA_CONF": MLFLOW_PYARROW_EXTRA_CONF.get(),
     }
-    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    envs = {k: v for k, v in envs.items() if v is not None}
 
     if "MLFLOW_KERBEROS_TICKET_CACHE" in envs:
         ticket_cache = envs["MLFLOW_KERBEROS_TICKET_CACHE"]

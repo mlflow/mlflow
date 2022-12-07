@@ -58,6 +58,13 @@ enum ArtifactCredentialType {
   // The credential is a GCP Signed URL. For more information, see
   // https://cloud.google.com/storage/docs/access-control/signed-urls
   GCP_SIGNED_URL = 3;
+
+  // The credential is an Azure Shared Access Signature URI for ADLS.  For more
+  // information see
+  // https://docs.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2
+  // and
+  // https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+  AZURE_ADLS_GEN2_SAS_URI = 4;
 }
 
 message ArtifactCredentialInfo {

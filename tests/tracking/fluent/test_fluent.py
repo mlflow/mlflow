@@ -1,5 +1,8 @@
 from collections import defaultdict
 from importlib import reload
+from itertools import zip_longest
+
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
@@ -28,25 +31,21 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking.dbmodels.models import SqlExperiment
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
     _RUN_ID_ENV_VAR,
     _get_experiment_id,
     _get_experiment_id_from_env,
-    _paginate,
     search_runs,
     set_experiment,
     start_run,
     get_run,
 )
-from mlflow.utils import mlflow_tags
+from mlflow.utils import mlflow_tags, get_results_from_paginated_fn
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.time_utils import get_current_time_millis
 
-from tests.tracking.integration_test_utils import _init_server
 from tests.helper_functions import multi_context
 
 
@@ -203,10 +202,13 @@ def test_get_experiment_id_from_env():
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    random_id = random.randint(1, 1e6)
-    HelperEnv.set_values(experiment_id=random_id)
-    HelperEnv.assert_values(str(random_id), None)
-    assert _get_experiment_id_from_env() == str(random_id)
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        assert exp_id is not None
+        HelperEnv.set_values(experiment_id=exp_id)
+        HelperEnv.assert_values(exp_id, None)
+        assert _get_experiment_id_from_env() == exp_id
 
     # set only name
     with TempDir(chdr=True):
@@ -217,15 +219,63 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(None, name)
         assert _get_experiment_id_from_env() == exp_id
 
-    # set both: assert that name variable takes precedence
+    # create experiment from env name
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        HelperEnv.set_values(name=name)
+        HelperEnv.assert_values(None, name)
+        assert MlflowClient().get_experiment_by_name(name) is None
+        assert _get_experiment_id_from_env() is not None
+
+    # assert experiment creation from encapsulating function
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        HelperEnv.set_values(name=name)
+        HelperEnv.assert_values(None, name)
+        assert MlflowClient().get_experiment_by_name(name) is None
+        assert _get_experiment_id() is not None
+
+    # assert raises from conflicting experiment_ids
     with TempDir(chdr=True):
         name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(name)
-        assert exp_id is not None
-        random_id = random.randint(1, 1e6)
-        HelperEnv.set_values(name=name, experiment_id=random_id)
+        random_id = random.randint(100, 1e6)
+        assert exp_id != random_id
+        HelperEnv.set_values(experiment_id=random_id)
+        HelperEnv.assert_values(str(random_id), None)
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
+            "does not exist in the tracking server",
+        ):
+            _get_experiment_id_from_env()
+
+    # assert raises from name to id mismatch
+    with TempDir(chdr=True):
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        random_id = random.randint(100, 1e6)
+        assert exp_id != random_id
+        HelperEnv.set_values(experiment_id=random_id, name=name)
         HelperEnv.assert_values(str(random_id), name)
-        assert _get_experiment_id_from_env() == exp_id
+        with pytest.raises(
+            MlflowException,
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
+            "does not match the experiment id",
+        ):
+            _get_experiment_id_from_env()
+
+    # assert does not raise if active experiment is set with invalid env variables
+    with TempDir(chdr=True):
+        invalid_name = "invalid experiment"
+        name = "random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+        assert exp_id is not None
+        random_id = random.randint(100, 1e6)
+        HelperEnv.set_values(name=invalid_name, experiment_id=random_id)
+        HelperEnv.assert_values(str(random_id), invalid_name)
+        mlflow.set_experiment(experiment_id=exp_id)
+        assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
@@ -311,46 +361,6 @@ def test_get_experiment_by_name():
         assert experiment.experiment_id == exp_id
 
 
-@pytest.mark.parametrize("view_type", [ViewType.ACTIVE_ONLY, ViewType.DELETED_ONLY, ViewType.ALL])
-def test_list_experiments(view_type, tmpdir):
-    sqlite_uri = "sqlite:///" + os.path.join(tmpdir.strpath, "test.db")
-    store = SqlAlchemyStore(sqlite_uri, default_artifact_root=tmpdir.strpath)
-
-    num_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1
-
-    if view_type == ViewType.DELETED_ONLY:
-        # Delete the default experiment
-        MlflowClient(sqlite_uri).delete_experiment("0")
-
-    # This is a bit hacky but much faster than creating experiments one by one with
-    # `mlflow.create_experiment`
-    with store.ManagedSessionMaker() as session:
-        lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
-        experiments = [
-            SqlExperiment(
-                name=f"exp_{i + 1}",
-                lifecycle_stage=random.choice(lifecycle_stages),
-                artifact_location=tmpdir.strpath,
-            )
-            for i in range(num_experiments - 1)
-        ]
-        session.add_all(experiments)
-
-    url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
-    try:
-        mlflow.set_tracking_uri(url)
-        # `max_results` is unspecified
-        assert len(mlflow.list_experiments(view_type)) == num_experiments
-        # `max_results` is larger than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments + 1)) == num_experiments
-        # `max_results` is equal to the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments)) == num_experiments
-        # `max_results` is smaller than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
-    finally:
-        process.terminate()
-
-
 def test_search_experiments(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
@@ -361,12 +371,8 @@ def test_search_experiments(tmp_path):
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
-    for (idx, active_experiment_name) in enumerate(active_experiment_names):
-        if idx < 3:
-            tags = {"tag": tag_values[idx]}
-        else:
-            tags = None
-        mlflow.create_experiment(active_experiment_name, tags=tags)
+    for (tag, active_experiment_name) in zip_longest(tag_values, active_experiment_names):
+        mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
@@ -416,6 +422,54 @@ def test_search_experiments(tmp_path):
     assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
 
 
+def test_search_registered_models(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    num_all_models = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT + 1
+    num_a_models = num_all_models // 4
+    num_b_models = num_all_models - num_a_models
+
+    a_model_names = [f"AModel_{i}" for i in range(num_a_models)]
+    b_model_names = [f"BModel_{i}" for i in range(num_b_models)]
+    model_names = b_model_names + a_model_names
+
+    tag_values = ["x", "x", "y"]
+    for (tag, model_name) in zip_longest(tag_values, model_names):
+        MlflowClient().create_registered_model(model_name, tags={"tag": tag} if tag else None)
+
+    # max_results is unspecified
+    models = mlflow.search_registered_models()
+    assert len(models) == num_all_models
+
+    # max_results is larger than the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models + 1)
+    assert len(models) == num_all_models
+
+    # max_results is equal to the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models)
+    assert len(models) == num_all_models
+    # max_results is smaller than the number of models in the database
+    models = mlflow.search_registered_models(max_results=num_all_models - 1)
+    assert len(models) == num_all_models - 1
+
+    # Filter by name
+    models = mlflow.search_registered_models(filter_string="name = 'AModel_1'")
+    assert [m.name for m in models] == ["AModel_1"]
+    models = mlflow.search_registered_models(filter_string="name ILIKE 'bmodel_%'")
+    assert len(models) == num_b_models
+
+    # Filter by tags
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'x'")
+    assert [m.name for m in models] == model_names[:2]
+    models = mlflow.search_registered_models(filter_string="tags.tag = 'y'")
+    assert [m.name for m in models] == [model_names[2]]
+
+    # Order by name
+    models = mlflow.search_registered_models(order_by=["name DESC"], max_results=3)
+    assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
+
+
 @pytest.fixture
 def empty_active_run_stack():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
@@ -447,12 +501,14 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
     source_version_patch = mock.patch(
         "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
+    run_name = "my name"
 
     expected_tags = {
         mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_RUN_NAME: run_name,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -465,7 +521,7 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
         source_version_patch,
         create_run_patch,
     ):
-        active_run = start_run(run_name="my name")
+        active_run = start_run(run_name=run_name)
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id, tags=expected_tags, run_name="my name"
         )
@@ -862,8 +918,8 @@ def validate_search_runs(results, data, output_format):
 
 
 def test_search_runs_attributes(search_runs_output_format):
-    runs, data = create_test_runs_and_expected_data()
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    runs, data = create_test_runs_and_expected_data(search_runs_output_format)
+    with mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs):
         pdf = search_runs(output_format=search_runs_output_format)
         validate_search_runs(pdf, data, search_runs_output_format)
 
@@ -874,7 +930,7 @@ def test_search_runs_attributes(search_runs_output_format):
 )
 def test_search_runs_data():
     runs, data = create_test_runs_and_expected_data("pandas")
-    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
+    with mock.patch("mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs):
         pdf = search_runs()
         validate_search_runs(pdf, data, "pandas")
 
@@ -887,10 +943,12 @@ def test_search_runs_no_arguments(search_runs_output_format):
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
+    )
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format)
-        mlflow.tracking.fluent._paginate.assert_called_once()
+        mlflow.tracking.fluent.get_results_from_paginated_fn.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
 
@@ -906,12 +964,14 @@ def test_search_runs_all_experiments(search_runs_output_format):
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     experiment_list_patch = mock.patch(
-        "mlflow.tracking.fluent.list_experiments", return_value=[mock_experiment]
+        "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
+    )
     with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
-        mlflow.tracking.fluent.list_experiments.assert_called_once()
+        mlflow.tracking.fluent.search_experiments.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_not_called()
 
 
@@ -924,7 +984,9 @@ def test_search_runs_by_experiment_name():
     get_experiment_patch = mock.patch(
         "mlflow.tracking.fluent.get_experiment_by_name", return_value=experiment
     )
-    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=runs)
+    get_paginated_runs_patch = mock.patch(
+        "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=runs
+    )
 
     with get_experiment_patch, get_paginated_runs_patch:
         result = search_runs(experiment_names=[name])
@@ -957,7 +1019,7 @@ def test_paginate_lt_maxresults_onepage():
     max_per_page = 10
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 5
 
@@ -973,7 +1035,7 @@ def test_paginate_lt_maxresults_multipage():
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, tokenized_runs, no_token_runs])
     TOTAL_RUNS = 21
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     assert len(paginated_runs) == TOTAL_RUNS
 
 
@@ -988,7 +1050,7 @@ def test_paginate_lt_maxresults_onepage_nonetoken():
     max_per_page = 10
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 5
 
@@ -1008,7 +1070,7 @@ def test_paginate_eq_maxresults_blanktoken():
     max_per_page = 10
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, no_token_runs])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 10
 
@@ -1027,7 +1089,7 @@ def test_paginate_eq_maxresults_token():
     max_per_page = 10
     mocked_lambda = mock.Mock(side_effect=[tokenized_runs, blank_runs])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once()
     assert len(paginated_runs) == 10
 
@@ -1044,7 +1106,7 @@ def test_paginate_gt_maxresults_multipage():
     max_per_page = 8
     mocked_lambda = mock.Mock(side_effect=[full_page_runs, full_page_runs, partial_page])
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     calls = [mock.call(8, None), mock.call(8, "abc"), mock.call(20 % 8, "abc")]
     mocked_lambda.assert_has_calls(calls)
     assert len(paginated_runs) == 20
@@ -1061,7 +1123,7 @@ def test_paginate_gt_maxresults_onepage():
     max_per_page = 20
     mocked_lambda = mock.Mock(return_value=tokenized_runs)
 
-    paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
+    paginated_runs = get_results_from_paginated_fn(mocked_lambda, max_per_page, max_results)
     mocked_lambda.assert_called_once_with(max_results, None)
     assert len(paginated_runs) == 10
 

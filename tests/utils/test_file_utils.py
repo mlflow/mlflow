@@ -290,10 +290,10 @@ def test_dir_copy():
 
 
 def test_read_and_write_parquet():
-    fileSource = "sample-file-to-write"
+    file_source = "sample-file-to-write"
     data_frame = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
-    write_pandas_df_as_parquet(data_frame, fileSource)
-    serialized_data_frame = read_parquet_as_pandas_df(fileSource)
+    write_pandas_df_as_parquet(data_frame, file_source)
+    serialized_data_frame = read_parquet_as_pandas_df(file_source)
     pd.testing.assert_frame_equal(data_frame, serialized_data_frame)
 
 

@@ -15,6 +15,7 @@ from mlflow.utils.environment import (
     _process_conda_env,
     _get_pip_requirement_specifier,
 )
+from tests.helper_functions import _mlflow_major_version_string
 
 
 @pytest.fixture
@@ -209,6 +210,7 @@ def test_is_mlflow_requirement():
     assert _is_mlflow_requirement("mlflow; python_version < '3.8'")
     assert _is_mlflow_requirement("mlflow @ https://github.com/mlflow/mlflow.git")
     assert _is_mlflow_requirement("mlflow @ file:///path/to/mlflow")
+    assert _is_mlflow_requirement("mlflow-skinny==1.2.3")
     assert not _is_mlflow_requirement("foo")
     # Ensure packages that look like mlflow are NOT considered as mlflow.
     assert not _is_mlflow_requirement("mlflow-foo")
@@ -219,6 +221,7 @@ def test_contains_mlflow_requirement():
     assert _contains_mlflow_requirement(["mlflow"])
     assert _contains_mlflow_requirement(["mlflow==1.2.3"])
     assert _contains_mlflow_requirement(["mlflow", "foo"])
+    assert _contains_mlflow_requirement(["mlflow-skinny"])
     assert not _contains_mlflow_requirement([])
     assert not _contains_mlflow_requirement(["foo"])
 
@@ -232,17 +235,19 @@ def test_get_pip_requirement_specifier():
     assert _get_pip_requirement_specifier("  -r reqs.txt") == " "
     assert _get_pip_requirement_specifier("mlflow==1.2.3 --hash=foo") == "mlflow==1.2.3"
     assert _get_pip_requirement_specifier("mlflow==1.2.3       --hash=foo") == "mlflow==1.2.3      "
+    assert _get_pip_requirement_specifier("mlflow-skinny==1.2 --foo=bar") == "mlflow-skinny==1.2"
 
 
 def test_process_pip_requirements(tmpdir):
+    expected_mlflow_ver = _mlflow_major_version_string()
     conda_env, reqs, cons = _process_pip_requirements(["a"])
-    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
-    assert reqs == ["mlflow", "a"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a"]
+    assert reqs == [expected_mlflow_ver, "a"]
     assert cons == []
 
     conda_env, reqs, cons = _process_pip_requirements(["a"], pip_requirements=["b"])
-    assert _get_pip_deps(conda_env) == ["mlflow", "b"]
-    assert reqs == ["mlflow", "b"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "b"]
+    assert reqs == [expected_mlflow_ver, "b"]
     assert cons == []
 
     # Ensure a requirement for mlflow is preserved
@@ -263,8 +268,8 @@ def test_process_pip_requirements(tmpdir):
     assert cons == []
 
     conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["b"])
-    assert _get_pip_deps(conda_env) == ["mlflow", "a", "b"]
-    assert reqs == ["mlflow", "a", "b"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a", "b"]
+    assert reqs == [expected_mlflow_ver, "a", "b"]
     assert cons == []
 
     con_file = tmpdir.join("constraints.txt")
@@ -272,8 +277,8 @@ def test_process_pip_requirements(tmpdir):
     conda_env, reqs, cons = _process_pip_requirements(
         ["a"], pip_requirements=["b", f"-c {con_file.strpath}"]
     )
-    assert _get_pip_deps(conda_env) == ["mlflow", "b", "-c constraints.txt"]
-    assert reqs == ["mlflow", "b", "-c constraints.txt"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "b", "-c constraints.txt"]
+    assert reqs == [expected_mlflow_ver, "b", "-c constraints.txt"]
     assert cons == ["c"]
 
 
@@ -282,19 +287,21 @@ def test_process_conda_env(tmpdir):
         return {
             "name": "mlflow-env",
             "channels": ["conda-forge"],
-            "dependencies": ["python=3.7.9", "pip", {"pip": pip_deps}],
+            "dependencies": ["python=3.8.15", "pip", {"pip": pip_deps}],
         }
 
+    expected_mlflow_ver = _mlflow_major_version_string()
+
     conda_env, reqs, cons = _process_conda_env(make_conda_env(["a"]))
-    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
-    assert reqs == ["mlflow", "a"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a"]
+    assert reqs == [expected_mlflow_ver, "a"]
     assert cons == []
 
     conda_env_file = tmpdir.join("conda_env.yaml")
     conda_env_file.write(yaml.dump(make_conda_env(["a"])))
     conda_env, reqs, cons = _process_conda_env(conda_env_file.strpath)
-    assert _get_pip_deps(conda_env) == ["mlflow", "a"]
-    assert reqs == ["mlflow", "a"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a"]
+    assert reqs == [expected_mlflow_ver, "a"]
     assert cons == []
 
     # Ensure a requirement for mlflow is preserved
@@ -306,9 +313,16 @@ def test_process_conda_env(tmpdir):
     con_file = tmpdir.join("constraints.txt")
     con_file.write("c")
     conda_env, reqs, cons = _process_conda_env(make_conda_env(["a", f"-c {con_file.strpath}"]))
-    assert _get_pip_deps(conda_env) == ["mlflow", "a", "-c constraints.txt"]
-    assert reqs == ["mlflow", "a", "-c constraints.txt"]
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a", "-c constraints.txt"]
+    assert reqs == [expected_mlflow_ver, "a", "-c constraints.txt"]
     assert cons == ["c"]
+
+    # NB: mlflow-skinny is not automatically attached to any model. If specified, it is
+    # up to the user to pin a version.
+    conda_env, reqs, cons = _process_conda_env(make_conda_env(["mlflow-skinny", "a", "b"]))
+    assert _get_pip_deps(conda_env) == ["mlflow-skinny", "a", "b"]
+    assert reqs == ["mlflow-skinny", "a", "b"]
+    assert cons == []
 
     with pytest.raises(TypeError, match=r"Expected .+, but got `int`"):
         _process_conda_env(0)

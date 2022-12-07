@@ -115,11 +115,11 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     [
         ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
         ("m.acc >= 0.94", "Invalid entity type"),
-        ("acc >= 0.94", "Invalid identifier"),
+        ("acc >= 0.94", "Invalid attribute key"),
         ("p.model >= 'LR'", "Invalid entity type"),
         ("attri.x != 1", "Invalid entity type"),
         ("a.x != 1", "Invalid entity type"),
-        ("model >= 'LR'", "Invalid identifier"),
+        ("model >= 'LR'", "Invalid attribute key"),
         ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
         ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
         ("metrics.A > 0.1 AND (params.B = 'LR')", "Invalid clause(s) in filter string"),
@@ -128,8 +128,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.run_id != 1", "Invalid attribute key"),
-        ("attribute.run_uuid != 1", "Invalid attribute key"),
         ("attribute.experiment_id != 1", "Invalid attribute key"),
         ("attribute.lifecycle_stage = 'ACTIVE'", "Invalid attribute key"),
         ("attribute.name != 1", "Invalid attribute key"),
@@ -186,7 +184,7 @@ def test_bad_quotes(filter_string, error_message):
         ("params.acc LR !=", "Invalid clause(s) in filter string"),
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
-        ("acc != 1.0", "Invalid identifier"),
+        ("acc != 1.0", "Invalid attribute key"),
         ("foo is null", "Invalid clause(s) in filter string"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
@@ -478,21 +476,20 @@ def test_order_by_metric_with_nans_infs_nones():
     sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])]
     sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])]
     # asc
-    assert ["-inf", "-1000", "0", "1000", "inf", "nan", "None"] == sorted_runs_asc
+    assert sorted_runs_asc == ["-inf", "-1000", "0", "1000", "inf", "nan", "None"]
     # desc
-    assert ["inf", "1000", "0", "-1000", "-inf", "nan", "None"] == sorted_runs_desc
+    assert sorted_runs_desc == ["inf", "1000", "0", "-1000", "-inf", "nan", "None"]
 
 
 @pytest.mark.parametrize(
     ("order_by", "error_message"),
     [
         ("m.acc", "Invalid entity type"),
-        ("acc", "Invalid identifier"),
+        ("acc", "Invalid attribute key"),
         ("attri.x", "Invalid entity type"),
         ("`metrics.A", "Invalid order_by clause"),
         ("`metrics.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
-        ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
         ("params.my_param ", "Invalid order_by clause"),

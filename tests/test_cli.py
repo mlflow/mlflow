@@ -8,6 +8,7 @@ import tempfile
 import time
 import subprocess
 import requests
+import sys
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse, unquote
@@ -15,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
-from mlflow.cli import server, ui
+from mlflow.cli import server, gc, doctor
 from mlflow import pyfunc
 from mlflow.server import handlers
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -29,13 +30,13 @@ from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, 
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
-@pytest.mark.parametrize("command", ["server", "ui"])
+@pytest.mark.parametrize("command", ["server"])
 def test_mlflow_server_command(command):
     port = get_safe_port()
     cmd = ["mlflow", command, "--port", str(port)]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         resp = requests.get(f"http://localhost:{port}/health")
         augmented_raise_for_status(resp)
         assert resp.text == "OK"
@@ -68,18 +69,14 @@ def test_server_mlflow_artifacts_options():
         CliRunner().invoke(server, ["--serve-artifacts"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts"])
+        CliRunner().invoke(server, ["--no-serve-artifacts"])
+        run_server_mock.assert_called_once()
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        CliRunner().invoke(server, ["--artifacts-only"])
         run_server_mock.assert_called_once()
 
 
-def test_server_default_artifact_root_validation():
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite:///my.db"])
-        assert result.output.startswith("Option 'default-artifact-root' is required")
-        run_server_mock.assert_not_called()
-
-
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -96,7 +93,7 @@ def test_tracking_uri_validation_failure(command):
         run_server_mock.assert_not_called()
 
 
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
@@ -116,7 +113,7 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         run_server_mock.assert_called()
 
 
-@pytest.mark.parametrize("command", [server, ui])
+@pytest.mark.parametrize("command", [server])
 def test_registry_store_uri_different_from_tracking_store(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
@@ -321,6 +318,65 @@ def test_mlflow_gc_file_store_older_than(file_store):
     assert len(runs) == 0
 
 
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_experiments(get_store_details, request):
+    def invoke_gc(*args):
+        return CliRunner().invoke(gc, args, catch_exceptions=False)
+
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id_1 = store.create_experiment("1")
+    run_id_1 = store.create_run(exp_id_1, user_id="user", start_time=0, tags=[], run_name="1")
+    invoke_gc("--backend-store-uri", uri)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    exp_ids = [e.experiment_id for e in experiments]
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
+    assert sorted(exp_ids) == sorted([exp_id_1, store.DEFAULT_EXPERIMENT_ID])
+    assert [r.info.run_id for r in runs] == [run_id_1.info.run_id]
+
+    store.delete_experiment(exp_id_1)
+    invoke_gc("--backend-store-uri", uri)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    runs = store.search_runs(experiment_ids=exp_ids, filter_string="", run_view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+    assert runs == []
+
+    exp_id_2 = store.create_experiment("2")
+    exp_id_3 = store.create_experiment("3")
+    store.delete_experiment(exp_id_2)
+    store.delete_experiment(exp_id_3)
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_2)
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    )
+
+    with mock.patch("time.time", return_value=0) as mock_time:
+        exp_id_4 = store.create_experiment("4")
+        store.delete_experiment(exp_id_4)
+        mock_time.assert_called()
+
+    invoke_gc("--backend-store-uri", uri, "--older-than", "1d")
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_3, store.DEFAULT_EXPERIMENT_ID]
+    )
+
+    invoke_gc("--backend-store-uri", uri, "--experiment-ids", exp_id_3, "--older-than", "0s")
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    exp_id_5 = store.create_experiment("5")
+    store.delete_experiment(exp_id_5)
+    with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
+        invoke_gc(
+            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+        )
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert sorted([e.experiment_id for e in experiments]) == sorted(
+        [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
+    )
+
+
 @pytest.mark.parametrize(
     "enable_mlserver",
     [
@@ -344,12 +400,16 @@ def test_mlflow_models_serve(enable_mlserver):
 
     with mlflow.start_run():
         if enable_mlserver:
-            # We need that MLServer is present on the Conda environment, so we'll add that
-            # as an extra requirement.
+            # We need MLServer to be present on the Conda environment, so we'll
+            # add that as an extra requirement.
             mlflow.pyfunc.log_model(
                 artifact_path="model",
                 python_model=model,
-                extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
+                extra_pip_requirements=[
+                    "mlserver>=1.2.0.dev13",
+                    "mlserver-mlflow>=1.2.0.dev13",
+                    PROTOBUF_REQUIREMENT,
+                ],
             )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
@@ -359,18 +419,16 @@ def test_mlflow_models_serve(enable_mlserver):
 
     extra_args = ["--env-manager", "local"]
     if enable_mlserver:
-        # When MLServer is enabled, we want to use Conda to ensure Python 3.7
-        # is used
-        extra_args = ["--enable-mlserver"]
+        extra_args.append("--enable-mlserver")
 
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=data,
-        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON,
         extra_args=extra_args,
     )
     assert scoring_response.status_code == 200
-    served_model_preds = np.array(json.loads(scoring_response.content))
+    served_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
 
 
@@ -379,10 +437,10 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
-    _await_server_up_or_die(port, timeout=10)
-    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/list")
+    _await_server_up_or_die(port, timeout=20)
+    resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
-        "Endpoint: /api/2.0/mlflow/experiments/list disabled due to the mlflow server running "
+        "Endpoint: /api/2.0/mlflow/experiments/search disabled due to the mlflow server running "
         "in `--artifacts-only` mode." in resp.text
     )
     process.kill()
@@ -391,10 +449,10 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
 def test_mlflow_artifact_list_in_artifacts_only_mode():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts"]
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
         augmented_raise_for_status(resp)
         assert resp.status_code == 200
@@ -403,18 +461,18 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
         process.kill()
 
 
-def test_mlflow_artifact_service_unavailable_without_config():
+def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port)]
+    cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
     process = subprocess.Popen(cmd)
     try:
-        _await_server_up_or_die(port, timeout=10)
+        _await_server_up_or_die(port, timeout=20)
         endpoint = "/api/2.0/mlflow-artifacts/artifacts"
         resp = requests.get(f"http://localhost:{port}{endpoint}")
         assert (
-            f"Endpoint: {endpoint} disabled due to the mlflow server running without "
-            "`--serve-artifacts`" in resp.text
+            f"Endpoint: {endpoint} disabled due to the mlflow server running with "
+            "`--no-serve-artifacts`" in resp.text
         )
     finally:
         process.kill()
@@ -427,7 +485,7 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
     ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
         result = CliRunner(mix_stderr=False).invoke(
             server,
-            ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+            ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
         assert result.stderr.startswith(
@@ -437,3 +495,40 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
         )
         assert result.exit_code != 0
         run_server_mock.assert_not_called()
+
+
+def test_mlflow_ui_is_alias_for_mlflow_server():
+    mlflow_ui_stdout = subprocess.check_output(["mlflow", "ui", "--help"], text=True)
+    mlflow_server_stdout = subprocess.check_output(["mlflow", "server", "--help"], text=True)
+    assert (
+        mlflow_ui_stdout.replace("Usage: mlflow ui", "Usage: mlflow server") == mlflow_server_stdout
+    )
+
+
+def test_cli_with_python_mod():
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "--version",
+        ],
+        text=True,
+    )
+    assert stdout.rstrip().endswith(mlflow.__version__)
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--help",
+        ],
+        text=True,
+    )
+    assert "mlflow server" in stdout
+
+
+def test_doctor():
+    res = CliRunner().invoke(doctor, catch_exceptions=False)
+    assert res.exit_code == 0

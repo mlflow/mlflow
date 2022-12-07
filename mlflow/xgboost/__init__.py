@@ -69,6 +69,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "xgboost"
 
@@ -103,6 +104,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    model_format="xgb",
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -136,6 +138,7 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param model_format: File format in which the model is to be saved.
     """
     import xgboost as xgb
 
@@ -151,7 +154,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
-    model_data_subpath = "model.xgb"
+    model_data_subpath = f"model.{model_format}"
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save an XGBoost model
@@ -161,7 +164,8 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
         data=model_data_subpath,
-        env=_CONDA_ENV_FILE_NAME,
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
@@ -169,6 +173,7 @@ def save_model(
         xgb_version=xgb.__version__,
         data=model_data_subpath,
         model_class=xgb_model_class,
+        model_format=model_format,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -219,6 +224,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    model_format=None,
     **kwargs,
 ):
     """
@@ -258,6 +264,7 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param model_format: File format in which the model is to be saved.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -267,6 +274,7 @@ def log_model(
         flavor=mlflow.xgboost,
         registered_model_name=registered_model_name,
         xgb_model=xgb_model,
+        model_format=model_format,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -434,11 +442,11 @@ def autolog(
             except Exception as e:
                 input_example_info = InputExampleInfo(error_msg=str(e))
 
-            setattr(self, "input_example_info", input_example_info)
+            self.input_example_info = input_example_info
 
         original(self, *args, **kwargs)
 
-    def train(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -697,6 +705,13 @@ def autolog(
             early_stopping_logging_operations.await_completion()
 
         return model
+
+    def train(_log_models, original, *args, **kwargs):
+        current_sklearn_session = _SklearnTrainingSession.get_current_session()
+        if current_sklearn_session is None or current_sklearn_session.should_log():
+            return train_impl(_log_models, original, *args, **kwargs)
+        else:
+            return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost

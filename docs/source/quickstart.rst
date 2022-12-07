@@ -15,10 +15,6 @@ You install MLflow by running:
         # Install MLflow
         pip install mlflow
 
-        # Install MLflow with the experimental MLflow Pipelines component
-        pip install mlflow[pipelines]  # for pip
-        conda install -c conda-forge mlflow-pipelines  # for conda
-
         # Install MLflow with extra ML libraries and 3rd-party tools
         pip install mlflow[extras]
 
@@ -28,7 +24,6 @@ You install MLflow by running:
     .. code-block:: R
 
         install.packages("mlflow")
-        mlflow::install_mlflow()
 
 .. note::
 
@@ -48,7 +43,8 @@ You install MLflow by running:
     When using MLflow skinny, you may need to install additional dependencies if you wish to use
     certain MLflow modules and functionalities. For example, usage of SQL-based storage for
     MLflow Tracking (e.g. ``mlflow.set_tracking_uri("sqlite:///my.db")``) requires
-    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
+    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``. If using MLflow skinny for serving,
+    a minimally functional installation would require ``pip install mlflow-skinny flask``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
@@ -156,8 +152,8 @@ projects log their Tracking API data in the local ``mlruns`` directory so you ca
 runs using ``mlflow ui``.
 
 .. note::
-    By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
-    To run a project without using ``conda``, you can provide the ``--no-conda`` option to
+    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
+    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
     ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
     in your Python environment.
 
@@ -204,7 +200,7 @@ the pyfunc model server, see the :ref:`MLflow deployment tools documentation <lo
 
 .. code-block:: bash
 
-    curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; format=pandas-split' -X POST localhost:5000/invocations
+    curl -d '{"dataframe_split": {"columns": ["x"], "data": [[1], [-1]]}}' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
 
 which returns::
 

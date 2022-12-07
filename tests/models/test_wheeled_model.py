@@ -1,3 +1,4 @@
+import json
 from collections import namedtuple
 
 import pytest
@@ -21,7 +22,11 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
-from tests.helper_functions import pyfunc_serve_and_score_model, _is_available_on_pypi
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _is_available_on_pypi,
+    _mlflow_major_version_string,
+)
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
@@ -255,6 +260,7 @@ def test_log_model_with_non_model_uri():
 
 
 def test_create_pip_requirement(tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     model_name = f"wheels-test-{random_int()}"
     model_uri = f"models:/{model_name}/1"
     conda_env_path = os.path.join(tmp_path, "conda.yaml")
@@ -262,7 +268,7 @@ def test_create_pip_requirement(tmp_path):
 
     wm = WheeledModel(model_uri)
 
-    expected_pip_deps = ["mlflow", "cloudpickle==2.1.0", "psutil==5.8.0"]
+    expected_pip_deps = [expected_mlflow_version, "cloudpickle==2.1.0", "psutil==5.8.0"]
     _mlflow_conda_env(
         path=conda_env_path, additional_pip_deps=expected_pip_deps, install_mlflow=False
     )
@@ -273,10 +279,11 @@ def test_create_pip_requirement(tmp_path):
 
 
 def test_update_conda_env_only_updates_pip_deps(tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     model_name = f"wheels-test-{random_int()}"
     model_uri = f"models:/{model_name}/1"
     conda_env_path = os.path.join(tmp_path, "conda.yaml")
-    pip_deps = ["mlflow", "cloudpickle==2.1.0", "psutil==5.8.0"]
+    pip_deps = [expected_mlflow_version, "cloudpickle==2.1.0", "psutil==5.8.0"]
     new_pip_deps = ["wheels/mlflow", "wheels/cloudpickle", "wheels/psutil"]
 
     wm = WheeledModel(model_uri)
@@ -327,10 +334,11 @@ def test_serving_wheeled_model(sklearn_knn_model):
     with mlflow.start_run():
         WheeledModel.log_model(model_uri=model_uri)
 
+    data = json.dumps({"dataframe_split": pd.DataFrame(inference_data).to_dict(orient="split")})
     resp = pyfunc_serve_and_score_model(
         wheeled_model_uri,
-        data=pd.DataFrame(inference_data),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        data=data,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()

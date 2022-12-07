@@ -5,7 +5,7 @@ module.exports = async ({ context, github }) => {
   const { user } = context.payload.pull_request;
 
   function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async function getDcoCheck() {
@@ -13,7 +13,7 @@ module.exports = async ({ context, github }) => {
     const numAttempts = backoffs.length;
     for (const [index, backoff] of backoffs.entries()) {
       await sleep(backoff * 1000);
-      const resp = await github.checks.listForRef({
+      const resp = await github.rest.checks.listForRef({
         owner,
         repo,
         ref,
@@ -24,10 +24,7 @@ module.exports = async ({ context, github }) => {
       if (check_runs.length > 0 && check_runs[0].status === "completed") {
         return check_runs[0];
       }
-      console.log(
-        `[Attempt ${index + 1}/${numAttempts}]`,
-        "The DCO check hasn't completed yet."
-      );
+      console.log(`[Attempt ${index + 1}/${numAttempts}]`, "The DCO check hasn't completed yet.");
     }
   }
 
@@ -39,7 +36,7 @@ module.exports = async ({ context, github }) => {
       "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more ",
       "details.",
     ].join("");
-    await github.issues.createComment({
+    await github.rest.issues.createComment({
       owner,
       repo,
       issue_number,

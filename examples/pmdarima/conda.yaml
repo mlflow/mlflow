@@ -1,9 +1,0 @@
-name: pmdarima-example
-channels:
-  - conda-forge
-dependencies:
-  - python=3.8
-  - pip
-  - pip:
-    - pmdarima
-    - mlflow>=1.23.1

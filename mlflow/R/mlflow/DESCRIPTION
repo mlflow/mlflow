@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.29.1
+Version: 2.0.2
 Authors@R: 
     c(person(given = "Matei",
              family = "Zaharia",
@@ -41,7 +41,6 @@ Imports:
     openssl,
     processx,
     purrr,
-    reticulate,
     rlang (>= 0.2.0),
     swagger,
     tibble (>= 2.0.0),
@@ -55,8 +54,9 @@ Suggests:
     keras,
     lintr,
     sparklyr,
-    stringi (< 1.4.4),
+    stringi,
     testthat (>= 2.0.0),
+    reticulate,
     xgboost
 Encoding: UTF-8
 RoxygenNote: 7.1.2
@@ -65,7 +65,6 @@ Collate:
     'databricks-utils.R'
     'globals.R'
     'imports.R'
-    'install.R'
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'

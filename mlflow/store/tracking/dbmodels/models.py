@@ -198,7 +198,9 @@ class SqlRun(Base):
         # Currently, MLflow Search attributes defined in `SearchUtils.VALID_SEARCH_ATTRIBUTE_KEYS`
         # share the same names as their corresponding `SqlRun` attributes. Therefore, this function
         # returns the same attribute name
-        return "name" if mlflow_attribute_name == "run_name" else mlflow_attribute_name
+        return {"run_name": "name", "run_id": "run_uuid"}.get(
+            mlflow_attribute_name, mlflow_attribute_name
+        )
 
     def to_mlflow_entity(self):
         """
@@ -287,7 +289,7 @@ class SqlTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(250), nullable=True)
+    value = Column(String(5000), nullable=True)
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """

@@ -1,0 +1,6 @@
+python: "3.9"
+build_dependencies:
+  - pip
+dependencies:
+  - --require-hashes
+  - -r requirements.txt

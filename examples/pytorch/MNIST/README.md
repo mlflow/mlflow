@@ -1,16 +1,18 @@
 ## MNIST example with MLFlow
+
 In this example, we train a Pytorch Lightning model to predict handwritten digits, leveraging early stopping.
-The code, adapted from this [repository](https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, and models,
+The code, adapted from this [repository](https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py), is almost entirely dedicated to model training, with the addition of a single `mlflow.pytorch.autolog()` call to enable automatic logging of params, metrics, and models,
 including the best model from early stopping.
 
 ### Running the code
+
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST` directory and run the command
 
 ```
 mlflow run .
 ```
 
-This will run `mnist_autolog_example.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example.py` with the default set of parameters such as `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -38,9 +40,6 @@ and navigating to [http://localhost:5000](http://localhost:5000).
 
 For more details on MLflow tracking, see [the docs](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking).
 
-
-
-
 ### Passing custom training parameters
 
 The parameters can be overridden via the command line:
@@ -55,14 +54,16 @@ The parameters can be overridden via the command line:
 8. patience -parameter of early stopping
 9. mode - parameter of early stopping
 10. monitor - parameter of early stopping
-11.verbose - parameter of early stopping
+    11.verbose - parameter of early stopping
 
 For example:
+
 ```
 mlflow run . -P max_epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P strategy="ddp" -P patience=5 -P mode="min" -P monitor="val_loss" -P verbose=True
 ```
 
 Or to run the training script directly with custom parameters:
+
 ```
 python mnist_autolog_example.py \
     --max_epochs 5 \
@@ -79,5 +80,5 @@ python mnist_autolog_example.py \
 ```
 
 ## Logging to a custom tracking server
-To configure MLflow to log to a custom (non-default) tracking location, set the MLFLOW_TRACKING_URI environment variable, e.g. via export MLFLOW_TRACKING_URI=http://localhost:5000/. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).
 
+To configure MLflow to log to a custom (non-default) tracking location, set the MLFLOW_TRACKING_URI environment variable, e.g. via export MLFLOW_TRACKING_URI=http://localhost:5000/. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).

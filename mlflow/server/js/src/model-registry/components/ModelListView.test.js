@@ -1,6 +1,7 @@
 import React from 'react';
 import { ModelListView, ModelListViewImpl } from './ModelListView';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
+import { Alert } from '@databricks/design-system';
 import { ModelVersionStatus, Stages } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
@@ -66,7 +67,7 @@ describe('ModelListView', () => {
 
   test('should display onBoarding helper', () => {
     wrapper = setupModelListViewWithIntl();
-    expect(wrapper.find('Alert').length).toBe(1);
+    expect(wrapper.find(Alert).length).toBe(1);
   });
 
   test('should not display onBoarding helper if disabled', () => {
@@ -74,7 +75,7 @@ describe('ModelListView', () => {
     wrapper.find(ModelListViewImpl).setState({
       showOnboardingHelper: false,
     });
-    expect(wrapper.find('Alert').length).toBe(0);
+    expect(wrapper.find(Alert).length).toBe(0);
   });
 
   test('should show correct link in onboarding helper', () => {

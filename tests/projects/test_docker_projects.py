@@ -1,5 +1,6 @@
 import os
 
+import docker
 import pytest
 from unittest import mock
 
@@ -8,8 +9,9 @@ from databricks_cli.configure.provider import DatabricksConfig
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.docker import _get_docker_image_uri
-from mlflow.projects import ExecutionException
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
@@ -20,8 +22,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from mlflow.projects import _project_spec
-from mlflow.exceptions import MlflowException
 
 
 def _build_uri(base_uri, subdirectory):
@@ -40,16 +40,17 @@ def test_docker_project_execution(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params,
         entry_point="test_tracking",
+        build_image=True,
         docker_args={"memory": "1g", "privileged": True},
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
     mlflow_service = MlflowClient()
-    run_infos = mlflow_service.list_run_infos(
-        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
+    runs = mlflow_service.search_runs(
+        [file_store.FileStore.DEFAULT_EXPERIMENT_ID], run_view_type=ViewType.ACTIVE_ONLY
     )
-    assert len(run_infos) == 1
-    store_run_id = run_infos[0].run_id
+    assert len(runs) == 1
+    store_run_id = runs[0].info.run_id
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
     assert run.data.params == expected_params
@@ -276,3 +277,44 @@ def test_docker_run_args(docker_args):
 
     for flag, value in docker_args.items():
         assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)
+
+
+def test_docker_build_image_local(tmp_path):
+    client = docker.from_env()
+    dockerfile = tmp_path.joinpath("Dockerfile")
+    dockerfile.write_text(
+        """
+FROM python:3.8
+RUN pip --version
+"""
+    )
+    client.images.build(path=str(tmp_path), dockerfile=str(dockerfile), tag="my-python:latest")
+    tmp_path.joinpath("MLproject").write_text(
+        """
+name: test
+docker_env:
+  image: my-python
+entry_points:
+  main:
+    command: python --version
+"""
+    )
+    submitted_run = mlflow.projects.run(str(tmp_path))
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "my-python"
+
+
+def test_docker_build_image_remote(tmp_path):
+    tmp_path.joinpath("MLproject").write_text(
+        """
+name: test
+docker_env:
+  image: python:3.8
+entry_points:
+  main:
+    command: python --version
+"""
+    )
+    submitted_run = mlflow.projects.run(str(tmp_path))
+    run = mlflow.get_run(submitted_run.run_id)
+    assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.8"

@@ -9,8 +9,8 @@ import {
   getSharedMetricKeysByRunUuids,
 } from '../reducers/Reducers';
 import _ from 'lodash';
-import { Empty } from 'antd';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
+import { FormattedMessage } from 'react-intl';
 
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
@@ -71,7 +71,20 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
             metricKeys={selectedMetricKeys}
           />
         ) : (
-          <Empty style={{ width: '100%', height: '100%' }} />
+          <div css={styles.noValuesSelected} data-testid='no-values-selected'>
+            <h2>
+              <FormattedMessage
+                defaultMessage='Nothing to compare!'
+                // eslint-disable-next-line max-len
+                description='Header displayed in the metrics and params compare plot when no values are selected'
+              />
+            </h2>
+            <FormattedMessage
+              defaultMessage='Please select parameters and/or metrics to display the comparison.'
+              // eslint-disable-next-line max-len
+              description='Explanation displayed in the metrics and params compare plot when no values are selected'
+            />
+          </div>
         )}
       </CompareRunPlotContainer>
     );
@@ -104,6 +117,13 @@ const mapStateToProps = (state, ownProps) => {
     sharedMetricKeys,
     diffParamKeys,
   };
+};
+
+const styles = {
+  noValuesSelected: (theme) => ({
+    padding: theme.spacing.md,
+    textAlign: 'center',
+  }),
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);
