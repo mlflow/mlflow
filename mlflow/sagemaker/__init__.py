@@ -850,7 +850,7 @@ def terminate_transform_job(
         if transform_job_info["TransformJobStatus"] == "Stopping":
             return _SageMakerOperationStatus.in_progress(
                 "Termination is still in progress. Current batch transform job status: "
-                "       {transform_job_status}".format(
+                "{transform_job_status}".format(
                     transform_job_status=transform_job_info["TransformJobStatus"]
                 )
             )
