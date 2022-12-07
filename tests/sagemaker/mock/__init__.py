@@ -182,6 +182,20 @@ class SageMakerResponse(BaseResponse):
         self.sagemaker_backend.delete_model(model_name)
         return ""
 
+    def list_tags(self):
+        """
+        Handler for the SageMaker "ListTags" API call documented here:
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        model_arn = self.request_params["ResourceArn"]
+
+        results = self.sagemaker_backend.list_tags(
+            resource_arn=model_arn,
+            region_name=self.region,
+        )
+
+        return json.dumps({"Tags": results, "NextToken": None})
+
     def create_transform_job(self):
         """
         Handler for the SageMaker "CreateTransformJob" API call documented here:
@@ -496,6 +510,14 @@ class SageMakerBackend(BaseBackend):
             summary = ModelSummary(model=model.resource, arn=model.arn)
             summaries.append(summary)
         return summaries
+
+    def list_tags(self, resource_arn, region_name):
+        """
+        Modifies backend state during calls to the SageMaker "ListTags" API
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        model = next(model for model in self.models.values() if model.arn == resource_arn)
+        return model.resource.tags
 
     def create_model(
         self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None
