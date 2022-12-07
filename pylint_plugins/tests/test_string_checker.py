@@ -14,7 +14,7 @@ def test_case():
     return test_case
 
 
-def test_unittest_assert_raises(test_case):
+def test_use_f_string(test_case):
     node = astroid.extract_node('"{} {}".format(a, b)')
     with test_case.assertAddsMessages(
         MessageTest(errors.USE_F_STRING.name, node=node, line=1, col_offset=0)
@@ -25,6 +25,14 @@ def test_unittest_assert_raises(test_case):
     with test_case.assertAddsMessages(
         MessageTest(errors.USE_F_STRING.name, node=node, line=1, col_offset=0)
     ):
+        test_case.walk(node)
+
+    node = astroid.extract_node('"{} {} {}".format(*a)')
+    with test_case.assertNoMessages():
+        test_case.walk(node)
+
+    node = astroid.extract_node('"{a} {b}".format(**a)')
+    with test_case.assertNoMessages():
         test_case.walk(node)
 
     node = astroid.extract_node('"{}".format(func())')
