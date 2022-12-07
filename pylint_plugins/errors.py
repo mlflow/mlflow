@@ -64,5 +64,5 @@ USE_F_STRING = Message(
     id="W0006",
     name="use-f-string",
     message="Use f-string instead of format",
-    reason='`f"{foo} bar"` is simpler than `"{} bar".format(foo)`',
+    reason='`f"{foo} bar"` is simpler and faster than `"{} bar".format(foo)`',
 )

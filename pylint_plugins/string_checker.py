@@ -8,7 +8,7 @@ from .errors import USE_F_STRING, to_msgs
 class StringChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
-    name = "set-checker"
+    name = "string-checker"
     msgs = to_msgs(USE_F_STRING)
     priority = -1
 
@@ -21,6 +21,7 @@ class StringChecker(BaseChecker):
         ):
             if node.kwargs or node.starargs:
                 return
+
             if all(isinstance(a, astroid.Name) for a in node.args) and all(
                 isinstance(kw.value, astroid.Name) for kw in node.keywords
             ):
