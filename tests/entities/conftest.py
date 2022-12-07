@@ -10,8 +10,8 @@ from mlflow.utils.time_utils import get_current_time_millis
 
 
 @pytest.fixture(scope="module")
-def metrics():
-    yield [
+def test_run_data():
+    metrics = [
         Metric(
             key=random_str(10),
             value=random_int(0, 1000),
@@ -19,25 +19,11 @@ def metrics():
             step=random_int(),
         )
     ]
+    params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
+    tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
 
+    rd = RunData(metrics=metrics, params=params, tags=tags)
 
-@pytest.fixture(scope="module")
-def params():
-    yield [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
-
-
-@pytest.fixture(scope="module")
-def tags():
-    yield [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
-
-
-@pytest.fixture(scope="module")
-def rd(metrics, params, tags):
-    yield RunData(metrics=metrics, params=params, tags=tags)
-
-
-@pytest.fixture(scope="module")
-def test_run_data(rd, metrics, params, tags):
     yield rd, metrics, params, tags
 
 
