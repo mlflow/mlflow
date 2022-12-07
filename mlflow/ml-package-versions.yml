@@ -275,17 +275,16 @@ spark:
     pip_release: "pyspark"
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "pyspark-*.tar.gz") ]; then
         # Build wheel from source
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark.git $temp_dir
         git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir
-        ./build/mvn -DskipTests --no-transfer-progress clean package
-        cd python
-        python setup.py bdist_wheel --dist-dir $CACHE_DIR
+        ./dev/make-distribution.sh --pip
+        cp ./python/dist/pyspark-*.tar.gz $CACHE_DIR/
       fi
-      pip install $CACHE_DIR/pyspark-*.whl
+      pip install $CACHE_DIR/pyspark-*.tar.gz
 
   models:
     minimum: "3.0.0"
