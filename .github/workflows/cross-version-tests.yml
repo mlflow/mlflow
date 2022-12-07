@@ -124,6 +124,8 @@ jobs:
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
       - uses: ./.github/actions/setup-pyenv
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Get Java version
         id: get-java-version
         run: |

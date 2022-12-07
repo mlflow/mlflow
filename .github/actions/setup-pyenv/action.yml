@@ -1,5 +1,9 @@
 name: "setup-pyenv"
 description: "Setup pyenv"
+inputs:
+  github-token:
+    description: "GitHub token"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -17,7 +21,7 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         FILE_NAME="pyenv"
         LIST_ARTIFACTS_URL="https://api.github.com/repos/${owner}/${repo}/actions/artifacts?per_page=100"

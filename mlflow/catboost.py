@@ -7,6 +7,7 @@ CatBoost (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 
+
 .. _CatBoost:
     https://catboost.ai/docs/concepts/python-reference_catboost.html
 .. _CatBoost.save_model:
