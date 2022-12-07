@@ -2439,7 +2439,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if final_config["mode"] not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
             raise MlflowException(
                 message=(
-                    f"Invalid mode `{final_config['mode']}` for deployment                        "
+                    f"Invalid mode `{final_config['mode']}` for deployment"
                     " to a pre-existing application"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
