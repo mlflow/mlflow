@@ -417,7 +417,7 @@ def test_predict_skips_profiling_when_specified(
         predict_step.run(str(predict_step_output_dir))
 
     expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
-    with open(expected_step_card_path, "r") as f:
+    with open(expected_step_card_path) as f:
         step_card_html_content = f.read()
     assert "Profile of Scored Dataset" not in step_card_html_content
     mock_profiling.assert_not_called()

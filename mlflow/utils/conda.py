@@ -37,7 +37,7 @@ def get_conda_command(conda_env_name):
         # in case os name is not 'nt', we are not running on windows. It introduces
         # bash command otherwise.
         if os.name != "nt":
-            return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
+            return ["source {} {} 1>&2".format(activate_path, conda_env_name)]
         else:
             return ["conda activate %s" % (conda_env_name)]
     return activate_conda_env
@@ -240,21 +240,21 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     try:
         # Checks if Conda executable exists
         process._exec_cmd([conda_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
+    except OSError:
         raise ExecutionException(
-            "Could not find Conda executable at {0}. "
+            "Could not find Conda executable at {}. "
             "Ensure Conda is installed as per the instructions at "
             "https://conda.io/projects/conda/en/latest/"
             "user-guide/install/index.html. "
             "You can also configure MLflow to look for a specific "
-            "Conda executable by setting the {1} environment variable "
+            "Conda executable by setting the {} environment variable "
             "to the path of the Conda executable".format(conda_path, MLFLOW_CONDA_HOME)
         )
 
     try:
         # Checks if executable for environment creation exists
         process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
+    except OSError:
         raise ExecutionException(
             "You have set the env variable {0}, but {1} does not exist or "
             "it is not working properly. Note that {1} and the conda executable need to be "

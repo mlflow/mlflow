@@ -93,12 +93,12 @@ def _validate_metric_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            "Invalid metric name: '{}'. {}".format(name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
+            "Invalid metric name: '{}'. {}".format(name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -216,12 +216,12 @@ def _validate_param_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            "Invalid parameter name: '{}'. {}".format(name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
+            "Invalid parameter name: '{}'. {}".format(name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -236,11 +236,13 @@ def _validate_tag_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
+            "Invalid tag name: '{}'. {}".format(name, _BAD_CHARACTERS_MESSAGE),
+            INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE
+            "Invalid tag name: '{}'. {}".format(name, bad_path_message(name)),
+            INVALID_PARAMETER_VALUE,
         )
 
 
@@ -365,7 +367,7 @@ def _validate_experiment_artifact_location(artifact_location):
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
     if db_type not in DATABASE_ENGINES:
-        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
+        error_msg = "Invalid database engine: '{}'. '{}'".format(db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 

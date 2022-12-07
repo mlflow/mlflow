@@ -1236,7 +1236,7 @@ def load_json_artifact(artifact_path):
     import json
 
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         return json.load(f)
 
 

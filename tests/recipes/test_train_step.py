@@ -383,7 +383,7 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
         run_id = f.read()
 
     assert (train_step_output_dir / "card.html").exists()
-    with open(train_step_output_dir / "card.html", "r") as f:
+    with open(train_step_output_dir / "card.html") as f:
         step_card_content = f.read()
 
     assert f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}>" in step_card_content

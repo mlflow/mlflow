@@ -620,7 +620,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
-        (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(b"not json"), "Invalid page token"),
         ("not base64", "Invalid page token"),
     ],
 )

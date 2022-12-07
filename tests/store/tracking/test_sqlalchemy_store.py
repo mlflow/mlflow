@@ -101,7 +101,7 @@ class TestParseDbUri(unittest.TestCase):
             assert target_db_type == parsed_db_type
             # try each of the popular drivers (per SQLAlchemy's dialect pages)
             for driver in drivers:
-                uri = "%s+%s://..." % (target_db_type, driver)
+                uri = "{}+{}://...".format(target_db_type, driver)
                 parsed_db_type = extract_db_type_from_uri(uri)
                 assert target_db_type == parsed_db_type
 
@@ -140,7 +140,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
 
     def setUp(self):
         self._setup_db_uri()
@@ -2500,7 +2500,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
             store = self._get_store(db_uri=db_url)
-            with open(expected_metric_values_path, "r") as f:
+            with open(expected_metric_values_path) as f:
                 expected_metric_values = json.load(f)
 
             for run_id, expected_metrics in expected_metric_values.items():

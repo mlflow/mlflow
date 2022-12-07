@@ -45,7 +45,7 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    click.echo("Created experiment '%s' with id %s" % (experiment_name, exp_id))
+    click.echo("Created experiment '{}' with id {}".format(experiment_name, exp_id))
 
 
 @commands.command("search")
@@ -121,7 +121,7 @@ def rename_experiment(experiment_id, new_name):
     """
     store = _get_store()
     store.rename_experiment(experiment_id, new_name)
-    click.echo("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
+    click.echo("Experiment with id {} has been renamed to '{}'.".format(experiment_id, new_name))
 
 
 @commands.command("csv")

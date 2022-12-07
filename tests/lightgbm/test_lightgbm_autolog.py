@@ -553,7 +553,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
         assert json_name in artifacts
 
         json_path = os.path.join(artifacts_dir, json_name)
-        with open(json_path, "r") as f:
+        with open(json_path) as f:
             loaded_imp = json.load(f)
 
         features = model.feature_name()
@@ -626,7 +626,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None
@@ -676,7 +676,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None

@@ -249,7 +249,7 @@ class PyFuncBackend(FlavorBackend):
                 rc = child_proc.wait()
                 if rc != 0:
                     raise Exception(
-                        "Command '{0}' returned non zero return code. Return code = {1}".format(
+                        "Command '{}' returned non zero return code. Return code = {}".format(
                             command, rc
                         )
                     )

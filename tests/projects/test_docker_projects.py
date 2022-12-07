@@ -26,7 +26,7 @@ from tests.projects.utils import docker_example_base_image  # pylint: disable=un
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
-        return "%s#%s" % (base_uri, subdirectory)
+        return "{}#{}".format(base_uri, subdirectory)
     return base_uri
 
 

@@ -384,7 +384,7 @@ def expand_config(config):
 
 
 def apply_changed_files(changed_files, matrix):
-    all_flavors = set(x.flavor for x in matrix)
+    all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors

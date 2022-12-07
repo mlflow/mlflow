@@ -54,7 +54,7 @@ def main():
     yaml = YAML()
     yaml.preserve_quotes = True
 
-    with open(args.requirements_yaml_location, "r") as f:
+    with open(args.requirements_yaml_location) as f:
         requirements_src = f.read()
         requirements = yaml.load(requirements_src)
 

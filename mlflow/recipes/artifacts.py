@@ -166,7 +166,7 @@ def log_artifact_not_found_warning(artifact_name, step_name):
 def read_run_id(recipe_root):
     run_id_file_path = get_step_output_path(recipe_root, "train", "run_id")
     if os.path.exists(run_id_file_path):
-        with open(run_id_file_path, "r") as f:
+        with open(run_id_file_path) as f:
             return f.read().strip()
     return None
 
@@ -189,7 +189,7 @@ class RegisteredModelVersionInfo:
 
     @classmethod
     def from_json(cls, path):
-        with open(path, "r") as f:
+        with open(path) as f:
             registered_model_info_dict = json.load(f)
 
         return cls(
