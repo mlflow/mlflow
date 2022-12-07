@@ -1,4 +1,3 @@
-import pytest
 from mlflow.entities import Experiment, LifecycleStage
 from mlflow.utils.time_utils import get_current_time_millis
 from tests.helper_functions import random_int, random_file
@@ -14,39 +13,13 @@ def _check(exp, exp_id, name, location, lifecyle_stage, creation_time, last_upda
     assert exp.last_update_time == last_update_time
 
 
-@pytest.fixture
-def exp_id(scope="module"):
-    yield str(random_int())
-
-
-@pytest.fixture
-def name(scope="module"):
-    yield "exp_%d_%d" % (random_int(), random_int())
-
-
-@pytest.fixture
-def lifecycle_stage(scope="module"):
-    yield LifecycleStage.ACTIVE
-
-
-@pytest.fixture
-def location(scope="module"):
-    yield random_file(".json")
-
-
-@pytest.fixture
-def creation_time(scope="module"):
-    yield get_current_time_millis()
-
-
-@pytest.fixture
-def last_update_time(scope="module"):
-    yield get_current_time_millis()
-
-
-def test_creation_and_hydration(
-    exp_id, name, lifecycle_stage, location, creation_time, last_update_time
-):
+def test_creation_and_hydration():
+    exp_id = str(random_int())
+    name = "exp_%d_%d" % (random_int(), random_int())
+    lifecycle_stage = LifecycleStage.ACTIVE
+    location = random_file(".json")
+    creation_time = get_current_time_millis()
+    last_update_time = get_current_time_millis()
     exp = Experiment(
         exp_id,
         name,
