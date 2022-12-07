@@ -203,8 +203,8 @@ describe('RunView', () => {
             'mlflow.source.name': RunTag.fromJs({ key: 'mlflow.source.name', value: 'notebook' }),
             'mlflow.source.git.commit': RunTag.fromJs({
               key: 'mlflow.source.git.commit',
-              value: 'abc',
-            })
+              value: 'abc'
+            }),
           },
         },
         paramsByRunUuid: {
@@ -222,8 +222,8 @@ describe('RunView', () => {
       </Provider>,
     ).find(RunView);
 
-    expect(wrapper.find("a[data-test-id='user-id-search']").text()).toBe("me@me.com");
-    expect(wrapper.find("a[data-test-id='life-cycle-search']").text()).toBe("active");
+    expect(wrapper.find("a[data-test-id='user-id-search']").text()).toBe('me@me.com');
+    expect(wrapper.find("a[data-test-id='life-cycle-search']").text()).toBe('active');
   });
 
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {
