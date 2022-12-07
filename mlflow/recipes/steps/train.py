@@ -57,7 +57,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 from mlflow.utils.string_utils import strip_prefix
-from mlflow.recipes.utils.wrapper_classifier_model import WrappedClassifier
+from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -161,7 +161,10 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self.predict_proba = self.step_config.get("predict_proba", False)
+        self.predict_prefix = self.step_config.get("predict_prefix", "predicted_")
+        self.predict_scores_for_all_classes = self.step_config.get(
+            "predict_scores_for_all_classes", True
+        )
         self.primary_metric = _get_primary_metric(
             self.step_config.get("primary_metric"), self.extended_task
         )
@@ -328,26 +331,18 @@ class TrainStep(BaseStep):
                 mlflow.sklearn.log_model(
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
-                model = make_pipeline(transformer, estimator)
-                # If model has multiple classes
-                if hasattr(model, "classes_"):
-                    model = WrappedClassifier(model)
-                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                    model_info = mlflow.sklearn.log_model(
-                        model,
-                        f"{self.name}/model",
-                        signature=model_schema,
-                        code_paths=self.code_paths,
-                        pyfunc_predict_fn="predict_proba",
-                    )
-                else:
-                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                    model_info = mlflow.sklearn.log_model(
-                        model,
-                        f"{self.name}/model",
-                        signature=model_schema,
-                        code_paths=self.code_paths,
-                    )
+                model = WrappedRecipeModel(
+                    make_pipeline(transformer, estimator),
+                    self.predict_scores_for_all_classes,
+                    self.predict_prefix,
+                )
+                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
+                model_info = mlflow.sklearn.log_model(
+                    model,
+                    f"{self.name}/model",
+                    signature=model_schema,
+                    code_paths=self.code_paths,
+                )
                 output_model_path = get_step_output_path(
                     recipe_root_path=self.recipe_root,
                     step_name=self.name,
@@ -395,32 +390,32 @@ class TrainStep(BaseStep):
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
 
-            if hasattr(model, "wrapper_classifier"):
-                prediction_result_for_error = prediction_result.drop(
-                    ["predicted_label", "predicted_score"], axis=1
+            if model.classification:
+                prediction_result_for_error = (
+                    prediction_result.drop(["predicted_label", "predicted_score"], axis=1)
+                    .iloc[0:]
+                    .values
                 )
+                prediction_result = prediction_result["predicted_label"].values
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.recipe,
-                use_probability=hasattr(model, "wrapper_classifier"),
+                use_probability=model.classification,
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
                 {
                     "target": target_data,
-                    "prediction": prediction_result["predicted_label"].values,
-                    "error": error_fn(
-                        prediction_result_for_error.iloc[0:].values, target_data.to_numpy()
-                    ),
+                    "prediction": prediction_result,
+                    "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
-            train_raw_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            train_predictions = train_raw_predictions["predicted_label"]
-            if hasattr(model, "wrapper_classifier"):
+            train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
+            if model.classification:
                 train_predicted_probs = model.predict(raw_train_df.drop(self.target_col, axis=1))
                 predicted_training_data = raw_train_df.assign(
-                    predicted_data=train_predictions,
+                    predicted_data=train_predictions["predicted_label"],
                     predicted_probability=train_predicted_probs.iloc[0:, 0].values,
                 )
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
