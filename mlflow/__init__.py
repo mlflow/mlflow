@@ -144,7 +144,6 @@ from mlflow.tracking.fluent import (
     get_experiment,
     get_experiment_by_name,
     search_experiments,
-    search_registered_models,
     create_experiment,
     set_experiment,
     log_params,
@@ -157,7 +156,7 @@ from mlflow.tracking.fluent import (
     autolog,
     last_active_run,
 )
-from mlflow.tracking._model_registry.fluent import register_model
+from mlflow.tracking._model_registry.fluent import register_model, search_registered_models
 from mlflow.tracking import (
     get_tracking_uri,
     set_tracking_uri,
