@@ -76,8 +76,8 @@ class ColSpec:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
             raise MlflowException(
-                "Unsupported type '{0}', expected instance of DataType or "
-                "one of {1}".format(type, [t.name for t in DataType])
+                "Unsupported type '{}', expected instance of DataType or "
+                "one of {}".format(type, [t.name for t in DataType])
             )
         if not isinstance(self.type, DataType):
             raise TypeError(
@@ -122,7 +122,7 @@ class TensorInfo:
     def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                "Expected `type` to be instance of `{0}`, received `{1}`".format(
+                "Expected `type` to be instance of `{}`, received `{}`".format(
                     np.dtype, type.__class__
                 )
             )
@@ -130,12 +130,12 @@ class TensorInfo:
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
             raise MlflowException(
                 "MLflow does not support size information in flexible numpy data types. Use"
-                ' np.dtype("{0}") instead'.format(dtype.name.rstrip(string.digits))
+                ' np.dtype("{}") instead'.format(dtype.name.rstrip(string.digits))
             )
 
         if not isinstance(shape, (tuple, list)):
             raise TypeError(
-                "Expected `shape` to be instance of `{0}` or `{1}`, received `{2}`".format(
+                "Expected `shape` to be instance of `{}` or `{}`, received `{}`".format(
                     tuple, list, shape.__class__
                 )
             )

@@ -342,7 +342,7 @@ def test_create_env_with_mamba():
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
         if os.path.basename(cmd[0]) == "mamba":
-            raise EnvironmentError()
+            raise OSError()
 
     conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
 
@@ -390,7 +390,7 @@ dependencies:
 
 
 def test_cancel_run():
-    submitted_run0, submitted_run1 = [
+    submitted_run0, submitted_run1 = (
         mlflow.projects.run(
             TEST_PROJECT_DIR,
             entry_point="sleep",
@@ -400,7 +400,7 @@ def test_cancel_run():
             synchronous=False,
         )
         for _ in range(2)
-    ]
+    )
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other
@@ -419,7 +419,7 @@ def test_parse_kubernetes_config():
         "repository-uri": "dockerhub_account/mlflow-kubernetes-example",
     }
     yaml_obj = None
-    with open(kubernetes_config["kube-job-template-path"], "r") as job_template:
+    with open(kubernetes_config["kube-job-template-path"]) as job_template:
         yaml_obj = yaml.safe_load(job_template.read())
     kube_config = _parse_kubernetes_config(kubernetes_config)
     assert kube_config["kube-context"] == kubernetes_config["kube-context"]

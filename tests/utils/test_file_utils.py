@@ -182,7 +182,7 @@ def test_yaml_write_sorting(tmpdir):
 b: 3
 c: 2
 """
-    with open(os.path.join(temp_dir, sorted_yaml_file), "r") as f:
+    with open(os.path.join(temp_dir, sorted_yaml_file)) as f:
         actual_sorted = f.read()
 
     assert actual_sorted == expected_sorted
@@ -193,7 +193,7 @@ c: 2
 c: 2
 b: 3
 """
-    with open(os.path.join(temp_dir, unsorted_yaml_file), "r") as f:
+    with open(os.path.join(temp_dir, unsorted_yaml_file)) as f:
         actual_unsorted = f.read()
 
     assert actual_unsorted == expected_unsorted

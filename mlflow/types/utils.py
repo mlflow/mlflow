@@ -38,8 +38,8 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
             variable_input_data_shape[variable_dimension] = -1
         except IndexError:
             raise MlflowException(
-                "The specified variable_dimension {0} is out of bounds with"
-                "respect to the number of dimensions {1} in the input dataset".format(
+                "The specified variable_dimension {} is out of bounds with"
+                "respect to the number of dimensions {} in the input dataset".format(
                     variable_dimension, data.ndim
                 )
             )
@@ -56,7 +56,7 @@ def clean_tensor_type(dtype: np.dtype):
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
-            "Expected `type` to be instance of `{0}`, received `{1}`".format(
+            "Expected `type` to be instance of `{}`, received `{}`".format(
                 np.dtype, dtype.__class__
             )
         )
@@ -200,7 +200,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         )
     elif dtype.kind == "M":
         return DataType.datetime
-    raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
+    raise MlflowException("Unsupported numpy data type '{}', kind '{}'".format(dtype, dtype.kind))
 
 
 def _infer_pandas_column(col: pd.Series) -> DataType:

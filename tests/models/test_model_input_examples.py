@@ -88,7 +88,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         example = _Example(pandas_df_with_all_types)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        with open(tmp.path(filename), "r") as f:
+        with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
@@ -173,7 +173,7 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         example = _Example(df_with_nan)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        with open(tmp.path(filename), "r") as f:
+        with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
 

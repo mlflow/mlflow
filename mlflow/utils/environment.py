@@ -511,7 +511,7 @@ def _process_conda_env(conda_env):
     a tuple of (conda_env, pip_requirements, pip_constraints).
     """
     if isinstance(conda_env, str):
-        with open(conda_env, "r") as f:
+        with open(conda_env) as f:
             conda_env = yaml.safe_load(f)
     elif not isinstance(conda_env, dict):
         raise TypeError(

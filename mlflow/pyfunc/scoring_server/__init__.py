@@ -297,7 +297,7 @@ def _predict(model_uri, input_path, output_path, content_type):
         if input_path is None:
             input_str = sys.stdin.read()
         else:
-            with open(input_path, "r") as f:
+            with open(input_path) as f:
                 input_str = f.read()
         df = infer_and_parse_json_input(input_str)
     elif content_type == "csv":

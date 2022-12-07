@@ -51,7 +51,7 @@ def random_int(lo=1, hi=1000000000):
 
 
 def _get_list_from_file(path):
-    with open(path, "r") as file:
+    with open(path) as file:
         return file.read().splitlines()
 
 

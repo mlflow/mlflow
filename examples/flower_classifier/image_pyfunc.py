@@ -144,7 +144,7 @@ def _load_pyfunc(path):
     """
     Load the KerasImageClassifierPyfunc model.
     """
-    with open(os.path.join(path, "conf.yaml"), "r") as f:
+    with open(os.path.join(path, "conf.yaml")) as f:
         conf = yaml.safe_load(f)
     keras_model_path = os.path.join(path, "keras_model")
     domain = conf["domain"].split("/")

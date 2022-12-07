@@ -84,7 +84,7 @@ def test_statsmodels_autolog_logs_summary_artifact():
     with mlflow.start_run():
         model = ols_model().model
         summary_path = mlflow.get_artifact_uri("model_summary.txt").replace("file://", "")
-        with open(summary_path, "r") as f:
+        with open(summary_path) as f:
             saved_summary = f.read()
 
     # don't compare the whole summary text because it includes a "Time" field which may change.

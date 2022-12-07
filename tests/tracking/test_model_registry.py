@@ -141,7 +141,7 @@ def _verify_pagination(rm_getter_with_token, expected_rms):
     while result.token:
         result = rm_getter_with_token(result.token)
         result_rms.extend(result)
-        assert len(result) == first_page_size or result.token is ""
+        assert len(result) == first_page_size or result.token == ""
     assert [rm.name for rm in expected_rms] == [rm.name for rm in result_rms]
 
 

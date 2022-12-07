@@ -606,7 +606,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")
     assert os.path.exists(expected_step_card_path)
-    with open(expected_step_card_path, "r") as f:
+    with open(expected_step_card_path) as f:
         step_card_html_content = f.read()
 
     assert "Dataset source location" in step_card_html_content
@@ -816,7 +816,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
         ).run(output_directory=tmp_path)
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")
-    with open(expected_step_card_path, "r") as f:
+    with open(expected_step_card_path) as f:
         step_card_html_content = f.read()
     assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()
