@@ -516,7 +516,7 @@ class SageMakerBackend(BaseBackend):
         Modifies backend state during calls to the SageMaker "ListTags" API
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
         """
-        model = [model for model in self.models.values() if model.arn == resource_arn][0]
+        model = next(model for model in self.models.values() if model.arn == resource_arn)
         return model.resource.tags
 
     def create_model(
