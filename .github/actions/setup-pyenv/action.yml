@@ -16,8 +16,16 @@ runs:
     - name: Install pyenv
       if: runner.os == 'Linux'
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        FILE_NAME="pyenv"
+        LIST_ARTIFACTS_URL="https://api.github.com/repos/${owner}/${repo}/actions/artifacts?per_page=100"
+        DOWNLOAD_URL=$(curl -H "Authorization: token $GITHUB_TOKEN" $LIST_ARTIFACTS_URL | jq ".artifacts | sort_by(.created_at) | reverse" | jq "map(select(.name == \"$FILE_NAME\"))" | jq -r ".[0] | .archive_download_url")
+        curl -L -H "Authorization: token $GITHUB_TOKEN" -o /tmp/$FILE_NAME.zip $DOWNLOAD_URL
+        mkdir -p $HOME/.pyenv
+        unzip /tmp/$FILE_NAME.zip -d $HOME/.pyenv
+        # git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
