@@ -312,8 +312,8 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
-    :param env: A optional dictionary of environment variables to set for the model.
-    :param tags: A optional dictionary of tags to apply to the endpoint.
+    :param env: An optional dictionary of environment variables to set for the model.
+    :param tags: An optional dictionary of tags to apply to the endpoint.
     """
     import boto3
 
