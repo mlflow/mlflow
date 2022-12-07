@@ -10,6 +10,7 @@ NOTE:
 """
 import logging
 import os
+import pathlib
 import sys
 import traceback
 
@@ -244,7 +245,11 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
-    model_path = path_to_local_file_uri(mleap_datapath_full)
+    if os.name == "nt":
+        model_path = "file:" + str(pathlib.Path(mleap_datapath_full).as_posix())
+    else:
+        model_path = path_to_local_file_uri(mleap_datapath_full)
+
     try:
         spark_model.serializeToBundle(path=model_path, dataset=dataset)
     except Py4JError:
