@@ -246,6 +246,10 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
     dataset = spark_model.transform(sample_input)
     if os.name == "nt":
+        # NB: On Windows, MLeap requires the "file://" prefix in order to correctly
+        # parse the model data path, even though the result is not a correct URI.
+        # None of "file:", "file:/", or "file:///", which would be canonically correct,
+        # work properly
         model_path = "file://" + str(pathlib.Path(mleap_datapath_full).as_posix())
     else:
         model_path = path_to_local_file_uri(mleap_datapath_full)
