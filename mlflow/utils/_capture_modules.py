@@ -134,8 +134,8 @@ def main():
 
         loader_module._load_pyfunc = _load_pyfunc_patch
         import logging
-        logger = logging.getLogger("mlflow.utils._capture_modules")
-        logger.debug(f"Loading model path with pyfunc flavor: {model_path}")
+        logger = logging.getLogger("mlflow")
+        logger.warn(f"Loading model path with pyfunc flavor: {model_path}")
         mlflow.pyfunc.load_model(model_path)
     # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
     # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),

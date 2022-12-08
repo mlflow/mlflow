@@ -725,7 +725,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
-    _logger.debug(f"is_in_cluster? {databricks_utils.is_in_cluster()}, is_dbfs_fuse_available? {databricks_utils.is_dbfs_fuse_available()}")
+    _logger.warn(f"is_in_cluster? {databricks_utils.is_in_cluster()}, is_dbfs_fuse_available? {databricks_utils.is_dbfs_fuse_available()}")
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
