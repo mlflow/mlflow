@@ -50,7 +50,7 @@ def test_run_info():
         lifecycle_stage=lifecycle_stage,
         artifact_uri=artifact_uri,
     )
-    yield (
+    return (
         ri,
         run_id,
         run_name,
