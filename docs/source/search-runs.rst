@@ -29,17 +29,41 @@ Example Expressions
 
     metrics.accuracy > 0.92
 
-- Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
-
-  .. code-block:: sql
-
-    params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
-
 - Search for all failed runs.
 
   .. code-block:: sql
 
     attributes.status = "FAILED"
+
+- Search for the subset of runs with F1 score greater than 0.5.
+
+  .. code-block:: sql
+
+    metrics.`f1 score` > 0.5
+
+- Search for runs created by user 'john@mlflow.com'.
+
+  .. code-block:: sql
+
+    tags.`mlflow.user` = 'john@mlflow.com'
+
+- Search for runs whose ``model`` tag starts with ``sklearn``.
+
+  .. code-block:: sql
+
+    tags.`model` LIKE 'sklearn%'
+
+- Search for runs whose names are one of ``alpha``, ``beta`` and ``gamma``.
+
+  .. code-block:: sql
+
+    attributes.`run_name` IN ('alpha', 'beta', 'gamma')
+
+- Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
+
+  .. code-block:: sql
+
+    params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
 
 
 Identifier
