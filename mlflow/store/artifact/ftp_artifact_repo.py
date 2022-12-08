@@ -10,7 +10,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.exceptions import MlflowException
-
+from urllib.parse import unquote
 
 class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via ftp."""
@@ -22,7 +22,7 @@ class FTPArtifactRepository(ArtifactRepository):
             "host": parsed.hostname,
             "port": 21 if parsed.port is None else parsed.port,
             "username": parsed.username,
-            "password": parsed.password,
+            "password": unquote(parsed.password),
         }
         self.path = parsed.path
 
