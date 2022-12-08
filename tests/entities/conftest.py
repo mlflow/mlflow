@@ -24,7 +24,7 @@ def test_run_data():
 
     rd = RunData(metrics=metrics, params=params, tags=tags)
 
-    yield rd, metrics, params, tags
+    return rd, metrics, params, tags
 
 
 @pytest.fixture(scope="module")
