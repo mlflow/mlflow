@@ -157,7 +157,7 @@ jobs:
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
         with:
-          path: /home/runner/.cache/wheels
+          path: /home/runner/.cache/packages
           key: ${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ steps.get-cache-key.outputs.key }}
@@ -169,8 +169,9 @@ jobs:
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
-          CACHE_DIR: /home/runner/.cache/wheels
+          CACHE_DIR: /home/runner/.cache/packages
         run: |
+          mkdir -p /home/runner/.cache/packages
           ${{ matrix.install }}
       - name: Check package versions
         run: |
