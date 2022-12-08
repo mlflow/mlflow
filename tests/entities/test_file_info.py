@@ -1,5 +1,3 @@
-import pytest
-
 from mlflow.entities import FileInfo
 from tests.helper_functions import random_str, random_int
 
@@ -11,12 +9,10 @@ def _check(fi, path, is_dir, size_in_bytes):
     assert fi.file_size == size_in_bytes
 
 
-@pytest.mark.parametrize(
-    "path, is_dir, size_in_bytes",
-    [(random_str(random_int(10, 50)), random_int(10, 2500) % 2 == 0, random_int(1, 10000))],
-)
-def test_creation_and_hydration(path, is_dir, size_in_bytes):
-
+def test_creation_and_hydration():
+    path = random_str(random_int(10, 50))
+    is_dir = random_int(10, 2500) % 2 == 0
+    size_in_bytes = random_int(1, 10000)
     fi1 = FileInfo(path, is_dir, size_in_bytes)
     _check(fi1, path, is_dir, size_in_bytes)
 
