@@ -5,7 +5,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import sklearn
-from sklearn.datasets import load_diabetes
+from sklearn.datasets import load_diabetes, fetch_california_housing
 import shap
 
 import mlflow
@@ -40,19 +40,22 @@ def test_sklearn_log_explainer():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
-        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
-        model.fit(X, y)
+        housing = fetch_california_housing(as_frame=True)
+        training_df = housing.data
+        target = housing.target
 
-        explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
-        shap_values_original = explainer_original(X[:5])
+        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
+        model.fit(training_df, target)
+
+        explainer_original = shap.Explainer(model.predict, training_df, algorithm="permutation")
+        shap_values_original = explainer_original(training_df[:5])
 
         mlflow.shap.log_explainer(explainer_original, "test_explainer")
 
         explainer_uri = "runs:/" + run_id + "/test_explainer"
 
         explainer_loaded = mlflow.shap.load_explainer(explainer_uri)
-        shap_values_new = explainer_loaded(X[:5])
+        shap_values_new = explainer_loaded(training_df[:5])
 
         explainer_path = _download_artifact_from_uri(artifact_uri=explainer_uri)
         flavor_conf = _get_flavor_configuration(
@@ -76,12 +79,15 @@ def test_sklearn_log_explainer_self_serialization():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
-        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
-        model.fit(X, y)
+        housing = fetch_california_housing(as_frame=True)
+        training_df = housing.data
+        target = housing.target
 
-        explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
-        shap_values_original = explainer_original(X[:5])
+        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
+        model.fit(training_df, target)
+
+        explainer_original = shap.Explainer(model.predict, training_df, algorithm="permutation")
+        shap_values_original = explainer_original(training_df[:5])
 
         mlflow.shap.log_explainer(
             explainer_original, "test_explainer", serialize_model_using_mlflow=False
@@ -90,7 +96,7 @@ def test_sklearn_log_explainer_self_serialization():
         explainer_uri = "runs:/" + run_id + "/test_explainer"
 
         explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
-        shap_values_new = explainer_loaded(X[:5])
+        shap_values_new = explainer_loaded(training_df[:5])
 
         explainer_path = _download_artifact_from_uri(artifact_uri=explainer_uri)
         flavor_conf = _get_flavor_configuration(
@@ -115,17 +121,20 @@ def test_sklearn_log_explainer_pyfunc():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
-        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
-        model.fit(X, y)
+        housing = fetch_california_housing(as_frame=True)
+        training_df = housing.data
+        target = housing.target
 
-        explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
-        shap_values_original = explainer_original(X[:2])
+        model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
+        model.fit(training_df, target)
+
+        explainer_original = shap.Explainer(model.predict, training_df, algorithm="permutation")
+        shap_values_original = explainer_original(training_df[:2])
 
         mlflow.shap.log_explainer(explainer_original, "test_explainer")
 
         explainer_pyfunc = mlflow.pyfunc.load_model("runs:/" + run_id + "/test_explainer")
-        shap_values_new = explainer_pyfunc.predict(X[:2])
+        shap_values_new = explainer_pyfunc.predict(training_df[:2])
 
         np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
 
@@ -154,17 +163,20 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 def test_load_pyfunc(tmpdir):
 
-    X, y = shap.datasets.boston()
-    model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
-    model.fit(X, y)
+    housing = fetch_california_housing(as_frame=True)
+    training_df = housing.data
+    target = housing.target
 
-    explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
-    shap_values_original = explainer_original(X[:2])
+    model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
+    model.fit(training_df, target)
+
+    explainer_original = shap.Explainer(model.predict, training_df, algorithm="permutation")
+    shap_values_original = explainer_original(training_df[:2])
     path = tmpdir.join("pyfunc_test").strpath
     mlflow.shap.save_explainer(explainer_original, path)
 
     explainer_pyfunc = mlflow.shap._load_pyfunc(path)
-    shap_values_new = explainer_pyfunc.predict(X[:2])
+    shap_values_new = explainer_pyfunc.predict(training_df[:2])
 
     np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
 
@@ -311,11 +323,14 @@ def create_identity_function():
 
 
 def test_pyfunc_serve_and_score():
-    X, y = shap.datasets.boston()
-    reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
+    housing = fetch_california_housing(as_frame=True)
+    training_df = housing.data
+    target = housing.target
+
+    reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(training_df, target)
     model = shap.Explainer(
         reg.predict,
-        masker=X,
+        masker=training_df,
         algorithm="permutation",
         # `link` defaults to `shap.links.identity` which is decorated by `numba.jit` and causes
         # the following error when loading the explainer for serving:
@@ -333,12 +348,12 @@ def test_pyfunc_serve_and_score():
 
     resp = pyfunc_serve_and_score_model(
         model_uri,
-        data=pd.DataFrame(X[:3]),
+        data=pd.DataFrame(training_df[:3]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     decoded_json = json.loads(resp.content.decode("utf-8"))
     scores = pd.DataFrame(data=decoded_json["predictions"]).values
-    np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
+    np.testing.assert_allclose(scores, model(training_df[:3]).values, rtol=100, atol=100)
 
 
 def test_log_model_with_code_paths(shap_model):
