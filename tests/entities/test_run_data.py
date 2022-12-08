@@ -25,8 +25,8 @@ def _check(rd, metrics, params, tags):
     _check_tags(rd.tags, tags)
 
 
-def test_creation_and_hydration(test_run_data):
-    rd, metrics, params, tags = test_run_data
+def test_creation_and_hydration(run_data):
+    rd, metrics, params, tags = run_data
     _check(rd, metrics, params, tags)
     as_dict = {
         "metrics": {m.key: m.value for m in metrics},

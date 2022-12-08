@@ -21,8 +21,8 @@ class TestRun:
         )
         run_data_check(run.data, rd_metrics, rd_params, rd_tags)
 
-    def test_creation_and_hydration(self, test_run_data, test_run_info):
-        run_data, metrics, params, tags = test_run_data
+    def test_creation_and_hydration(self, run_data, run_info):
+        run_data, metrics, params, tags = run_data
         (
             run_info,
             run_id,
@@ -34,7 +34,7 @@ class TestRun:
             end_time,
             lifecycle_stage,
             artifact_uri,
-        ) = test_run_info
+        ) = run_info
 
         run1 = Run(run_info, run_data)
 
@@ -92,8 +92,8 @@ class TestRun:
         )
         assert str(run1) == expected
 
-    def test_creating_run_with_absent_info_throws_exception(self, test_run_data):
-        run_data = test_run_data[0]
+    def test_creating_run_with_absent_info_throws_exception(self, run_data):
+        run_data = run_data[0]
         with pytest.raises(MlflowException, match="run_info cannot be None") as no_info_exc:
             Run(None, run_data)
         assert "run_info cannot be None" in str(no_info_exc)

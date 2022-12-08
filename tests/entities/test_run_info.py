@@ -24,7 +24,7 @@ def _check(
     assert ri.artifact_uri == artifact_uri
 
 
-def test_creation_and_hydration(test_run_info):
+def test_creation_and_hydration(run_info):
     (
         ri1,
         run_id,
@@ -36,7 +36,7 @@ def test_creation_and_hydration(test_run_info):
         end_time,
         lifecycle_stage,
         artifact_uri,
-    ) = test_run_info
+    ) = run_info
     _check(
         ri1,
         run_id,
