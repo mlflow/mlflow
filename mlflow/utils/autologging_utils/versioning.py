@@ -63,12 +63,12 @@ def _load_version_file_as_dict():
         from importlib.resources import as_file, files
 
         with as_file(files(mlflow).joinpath("ml-package-versions.yml")) as file:
-            version_file_path = file
+            version_file_path = file.as_posix()
     else:
         from importlib.resources import path
 
         with path(mlflow, "ml-package-versions.yml") as file:
-            version_file_path = file
+            version_file_path = file.as_posix()
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 

@@ -89,12 +89,12 @@ def _read_log_model_allowlist():
         from importlib.resources import as_file, files
 
         with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
-            builtin_allowlist_file = file
+            builtin_allowlist_file = file.as_posix()
     else:
         from importlib.resources import path
 
         with path(__name__, "log_model_allowlist.txt") as file:
-            builtin_allowlist_file = file
+            builtin_allowlist_file = file.as_posix()
     spark_session = _get_active_spark_session()
     if not spark_session:
         _logger.info(
