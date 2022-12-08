@@ -1,7 +1,7 @@
 name: Preview docs
 
 on:
-  pull_request_target:
+  pull_request:
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
@@ -13,7 +13,7 @@ jobs:
           pip install requests
       - name: Create preview link
         env:
-          GITHUB_TOKEN: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python dev/preview_docs.py \
             --commit-sha ${{ github.event.pull_request.head.sha }} \
