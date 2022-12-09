@@ -27,9 +27,9 @@ if __name__ == "__main__":
     # Get run metadata & data from the tracking server
     service = MlflowClient()
     run = service.get_run(run_id)
-    print("Metadata & data for run with UUID %s: %s" % (run_id, run))
+    print("Metadata & data for run with UUID {}: {}".format(run_id, run))
     local_dir = tempfile.mkdtemp()
-    message = "test artifact written during run %s within artifact URI %s\n" % (
+    message = "test artifact written during run {} within artifact URI {}\n".format(
         active_run().info.run_id,
         get_artifact_uri(),
     )

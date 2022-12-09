@@ -142,7 +142,7 @@ steps:
     evaluate_step = EvaluateStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
     evaluate_step.run(str(evaluate_step_output_dir))
 
-    with open(evaluate_step_output_dir / "card.html", "r", errors="ignore") as f:
+    with open(evaluate_step_output_dir / "card.html", errors="ignore") as f:
         step_card_content = f.read()
 
     assert "Model Validation" in step_card_content
@@ -400,7 +400,7 @@ steps:
         run_id = f.read()
 
     assert (evaluate_step_output_dir / "card.html").exists()
-    with open(evaluate_step_output_dir / "card.html", "r") as f:
+    with open(evaluate_step_output_dir / "card.html") as f:
         step_card_content = f.read()
 
     assert f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}>" in step_card_content

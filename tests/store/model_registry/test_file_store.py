@@ -102,7 +102,7 @@ class TestFileStore(unittest.TestCase):
             self._verify_registered_model(fs, name)
 
         # test that fake registered models dont exist.
-        for name in set(random_str(25) for _ in range(10)):
+        for name in {random_str(25) for _ in range(10)}:
             with pytest.raises(
                 MlflowException, match=f"Could not find registered model with name {name}"
             ):
@@ -221,7 +221,7 @@ class TestFileStore(unittest.TestCase):
             fs.list_registered_models(page_token="evilhax", max_results=1e15)
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # list should not return deleted models
-        fs.delete_registered_model(name="RM{0:03}".format(0))
+        fs.delete_registered_model(name="RM{:03}".format(0))
         assert set(
             self._extract_names(fs.list_registered_models(max_results=100, page_token=None))
         ) == set(rms[1:])

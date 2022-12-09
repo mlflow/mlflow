@@ -19,7 +19,7 @@ def load_raw_data(url):
     with mlflow.start_run() as mlrun:
         local_dir = tempfile.mkdtemp()
         local_filename = os.path.join(local_dir, "ml-20m.zip")
-        print("Downloading %s to %s" % (url, local_filename))
+        print("Downloading {} to {}".format(url, local_filename))
         r = requests.get(url, stream=True)
         with open(local_filename, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
@@ -27,7 +27,7 @@ def load_raw_data(url):
                     f.write(chunk)
 
         extracted_dir = os.path.join(local_dir, "ml-20m")
-        print("Extracting %s into %s" % (local_filename, extracted_dir))
+        print("Extracting {} into {}".format(local_filename, extracted_dir))
         with zipfile.ZipFile(local_filename, "r") as zip_ref:
             zip_ref.extractall(local_dir)
 

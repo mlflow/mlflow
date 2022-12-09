@@ -140,29 +140,6 @@ class PredictStep(BaseStep):
                 error_code=BAD_REQUEST,
             ) from e
 
-        # check if output location is already populated for non-delta output formats
-        output_format = self.step_config["using"]
-        output_location = self.step_config["location"]
-        output_populated = False
-        if self.save_mode in ["default", "error", "errorifexists"]:
-            if output_format == "parquet" or output_format == "delta":
-                output_populated = os.path.exists(output_location)
-            else:
-                try:
-                    output_populated = spark._jsparkSession.catalog().tableExists(output_location)
-                except Exception:
-                    # swallow spark failures
-                    pass
-        if output_populated:
-            raise MlflowException(
-                message=(
-                    f"Output location `{output_location}` using format `{output_format}` is "
-                    "already populated. To overwrite, please change the spark `save_mode` in "
-                    "the predict step configuration."
-                ),
-                error_code=BAD_REQUEST,
-            )
-
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
             recipe_root_path=self.recipe_root,
@@ -197,6 +174,65 @@ class PredictStep(BaseStep):
         scored_sdf = input_sdf.withColumn(
             _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
         )
+
+        # check if output location is already populated for non-delta output formats
+        output_format = self.step_config["using"]
+        output_location = self.step_config["location"]
+        output_populated = False
+        if self.save_mode in ["default", "error", "errorifexists"]:
+            if output_format == "parquet" or output_format == "delta":
+                output_populated = os.path.exists(output_location)
+            else:
+                try:
+                    output_populated = spark._jsparkSession.catalog().tableExists(output_location)
+                except Exception:
+                    # swallow spark failures
+                    pass
+        if output_populated:
+            raise MlflowException(
+                message=(
+                    f"Output location `{output_location}` using format `{output_format}` is "
+                    "already populated. To overwrite, please change the spark `save_mode` in "
+                    "the predict step configuration."
+                ),
+                error_code=BAD_REQUEST,
+            )
+
+        if output_format == "table":
+            try:
+                from delta.tables import DeltaTable
+
+                output_populated = DeltaTable.forName(spark, output_location)
+            except Exception:
+                # swallow spark failures
+                pass
+
+            if output_populated:
+                _logger.info(f"Table already exists at {output_location}")
+                # If the table already exists, we are just setting up the table properties to
+                # ensure that the table can be written with column names with spaces.
+                spark.sql(
+                    f"ALTER TABLE {output_location} SET TBLPROPERTIES "
+                    "('delta.columnMapping.mode'='name','delta.minReaderVersion'='2',"
+                    "'delta.minWriterVersion'='5')"
+                )
+            else:
+                _logger.info(f"Creating a new table at {output_location}")
+                from delta.tables import DeltaTable
+
+                # If the table location specified doesn't exist, we are creating a new table
+                # with properties required to ensure that column names can have spaces.
+                DeltaTable.create().addColumns(scored_sdf.schema).property(
+                    "delta.minReaderVersion", "2"
+                ).property("delta.minWriterVersion", "5").property(
+                    "delta.columnMapping.mode", "name"
+                ).tableName(
+                    output_location
+                ).execute()
+                # We are overriding the save_mode to append for the create case, since the table
+                # is already created above, so adding any record to the empty table can be
+                # appended to the table
+                self.save_mode = "append"
 
         # save predictions
         if output_format in ["parquet", "delta"]:

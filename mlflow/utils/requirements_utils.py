@@ -352,7 +352,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 def _load_pypi_package_index():
     pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path, "r") as f:
+    with open(pypi_index_path) as f:
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(

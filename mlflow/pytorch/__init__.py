@@ -613,7 +613,7 @@ def _load_model(path, **kwargs):
         # information about the pickle module that should be used by PyTorch to load it
         model_path = os.path.join(path, "model.pth")
         pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
-        with open(pickle_module_path, "r") as f:
+        with open(pickle_module_path) as f:
             pickle_module_name = f.read()
         if "pickle_module" in kwargs and kwargs["pickle_module"].__name__ != pickle_module_name:
             _logger.warning(

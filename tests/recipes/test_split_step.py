@@ -49,7 +49,7 @@ def test_split_step_run(tmp_path):
     split_card_file_path = split_output_dir / "card.html"
     split_card_file_path.exists()
 
-    with open(split_card_file_path, "r", errors="ignore") as f:
+    with open(split_card_file_path, errors="ignore") as f:
         step_card_content = f.read()
 
     assert "Compare Training Data" in step_card_content

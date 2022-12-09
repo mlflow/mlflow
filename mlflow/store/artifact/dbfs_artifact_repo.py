@@ -93,7 +93,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             raise MlflowException("DBFS path %s does not exist" % dbfs_path)
 
     def _get_dbfs_path(self, artifact_path):
-        return "/%s/%s" % (
+        return "/{}/{}".format(
             strip_prefix(self.artifact_uri, "dbfs:/"),
             strip_prefix(artifact_path, "/"),
         )
