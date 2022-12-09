@@ -35,12 +35,19 @@ Example Expressions
 
     attributes.status = "FINISHED"
 
-
 - Search for all failed runs.
 
   .. code-block:: sql
 
     attributes.status = "FAILED"
+
+- Search for runs created after UNIX timestamp ``1640502832``.
+
+  .. code-block:: sql
+
+    attributes.created > 1640502832
+    attributes.Created > 1640502832
+    attributes.start_time > 1640502832
 
 - Search for the subset of runs with F1 score greater than 0.5.
 
@@ -71,6 +78,9 @@ Example Expressions
   .. code-block:: sql
 
     attributes.`run_name` IN ('alpha', 'beta', 'gamma')
+    attributes.`run name` IN ('alpha', 'beta', 'gamma')
+    attributes.`Run name` IN ('alpha', 'beta', 'gamma')
+    attributes.`Run Name` IN ('alpha', 'beta', 'gamma')
 
 - Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
 
