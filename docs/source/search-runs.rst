@@ -41,13 +41,13 @@ Example Expressions
 
     attributes.status = "FAILED"
 
-- Search for runs created after UNIX timestamp ``1640502832``.
+- Search for runs created after UNIX timestamp ``1670628787527``.
 
   .. code-block:: sql
 
-    attributes.created > 1640502832
-    attributes.Created > 1640502832
-    attributes.start_time > 1640502832
+    attributes.created > 1670628787527
+    attributes.Created > 1670628787527
+    attributes.start_time > 1670628787527
 
 - Search for the subset of runs with F1 score greater than 0.5.
 
