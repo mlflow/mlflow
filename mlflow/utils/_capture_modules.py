@@ -16,6 +16,9 @@ from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 
+import logging
+logger = logging.getLogger("mlflow")
+
 
 def _get_top_level_module(full_module_name):
     return full_module_name.split(".")[0]
@@ -107,6 +110,7 @@ def parse_args():
 def main():
     args = parse_args()
     model_path = args.model_path
+    logger.warning(f"Get model_path from args: {model_path}")
     flavor = args.flavor
     # Mirror `sys.path` of the parent process
     sys.path = json.loads(args.sys_path)
@@ -133,9 +137,7 @@ def main():
                 return original(*args, **kwargs)
 
         loader_module._load_pyfunc = _load_pyfunc_patch
-        import logging
-        logger = logging.getLogger("mlflow")
-        logger.warn(f"Loading model path with pyfunc flavor: {model_path}")
+        logger.warning(f"Loading model path with pyfunc flavor: {model_path}")
         mlflow.pyfunc.load_model(model_path)
     # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
     # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),
