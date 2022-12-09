@@ -5,19 +5,19 @@ import {
   RowSelectedEvent,
   SelectionChangedEvent,
 } from '@ag-grid-community/core';
-import { Theme } from '@emotion/react';
+import { Interpolation, Theme } from '@emotion/react';
 import cx from 'classnames';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
 import { ExperimentRunsTableEmptyOverlay } from '../../../../../common/components/ExperimentRunsTableEmptyOverlay';
 import Utils from '../../../../../common/utils/Utils';
-import { ATTRIBUTE_COLUMN_SORT_KEY, COLUMN_TYPES } from '../../../../constants';
+import { COLUMN_TYPES } from '../../../../constants';
 import {
   ExperimentEntity,
   UpdateExperimentSearchFacetsFn,
   UpdateExperimentViewStateFn,
 } from '../../../../types';
+
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import {
@@ -30,30 +30,29 @@ import {
   useRunsColumnDefinitions,
 } from '../../utils/experimentPage.column-utils';
 import { RunRowType } from '../../utils/experimentPage.row-types';
-import { prepareRunsGridData } from '../../utils/experimentPage.row-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 
+const ROW_HEIGHT = 32;
 export interface ExperimentViewRunsTableProps {
+  /**
+   * Actual set of prepared row data to be rendered
+   */
+  rowsData: RunRowType[];
+
+  /**
+   * Helper data set with metric, param and tag keys
+   */
+  runsData: Pick<ExperimentRunsSelectorResult, 'metricKeyList' | 'paramKeyList' | 'tagsList'>;
+
   experiments: ExperimentEntity[];
   searchFacetsState: SearchExperimentRunsFacetsState;
-  runsData: ExperimentRunsSelectorResult;
   viewState: SearchExperimentRunsViewState;
   updateViewState: UpdateExperimentViewStateFn;
   isLoading: boolean;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onAddColumnClicked: () => void;
 }
-
-/**
- * Creates time with milliseconds set to zero, usable in calculating
- * relative time
- */
-const createCurrentTime = () => {
-  const mountTime = new Date();
-  mountTime.setMilliseconds(0);
-  return mountTime;
-};
 
 export const ExperimentViewRunsTable = React.memo(
   ({
@@ -64,41 +63,24 @@ export const ExperimentViewRunsTable = React.memo(
     updateSearchFacets,
     updateViewState,
     onAddColumnClicked,
+    rowsData,
   }: ExperimentViewRunsTableProps) => {
-    const { runsExpanded, orderByKey, searchFilter, runsPinned } = searchFacetsState;
-    const {
-      paramKeyList,
-      metricKeyList,
-      tagsList,
-      modelVersionsByRunUuid,
-      paramsList,
-      metricsList,
-      runInfos,
-      runUuidsMatchingFilter,
-    } = runsData;
+    const { isComparingRuns } = searchFacetsState;
+    const { paramKeyList, metricKeyList, tagsList } = runsData;
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
     const prevSelectRunUuids = useRef<string[]>([]);
-    const [runsCount, setRunsCount] = useState(runInfos.length);
-    // Flag indicating if there are any rows that can be expanded
-    const [expandersVisible, setExpandersVisible] = useState(false);
 
     const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
     const containerElement = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-      if (!gridApi) {
-        return;
-      }
-
-      if (isLoading) {
-        gridApi.showLoadingOverlay();
-      } else {
-        gridApi.hideOverlay();
-      }
-    }, [gridApi, isLoading]);
+    // Flag indicating if there are any rows that can be expanded
+    const expandersVisible = useMemo(
+      () => rowsData.some((row) => row.runDateAndNestInfo?.hasExpander),
+      [rowsData],
+    );
 
     /**
      * Updates selected rows in the view state
@@ -178,64 +160,6 @@ export const ExperimentViewRunsTable = React.memo(
       [updateSearchFacets],
     );
 
-    const shouldNestChildrenAndFetchParents = useMemo(
-      () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-      [orderByKey, searchFilter],
-    );
-
-    // Value used a reference for the "date" column
-    const [referenceTime, setReferenceTime] = useState(createCurrentTime);
-
-    // We're setting new reference date only when new runs data package has arrived
-    useEffect(() => {
-      setReferenceTime(createCurrentTime);
-    }, [runInfos]);
-
-    useEffect(() => {
-      if (!gridApi || isLoading) {
-        return;
-      }
-      const data = prepareRunsGridData({
-        experiments,
-        paramKeyList,
-        metricKeyList,
-        modelVersionsByRunUuid,
-        runsExpanded,
-        tagKeyList: filteredTagKeys,
-        nestChildren: shouldNestChildrenAndFetchParents,
-        referenceTime,
-        runData: runInfos.map((runInfo, index) => ({
-          runInfo,
-          params: paramsList[index],
-          metrics: metricsList[index],
-          tags: tagsList[index],
-        })),
-        runUuidsMatchingFilter,
-        runsPinned,
-      });
-      gridApi.setRowData(data);
-
-      setRunsCount(data.length);
-      setExpandersVisible(data.some((row) => row.runDateAndNestInfo?.hasExpander));
-    }, [
-      gridApi,
-      isLoading,
-      experiments,
-      metricKeyList,
-      metricsList,
-      modelVersionsByRunUuid,
-      paramKeyList,
-      paramsList,
-      runInfos,
-      runsExpanded,
-      tagsList,
-      filteredTagKeys,
-      shouldNestChildrenAndFetchParents,
-      referenceTime,
-      runsPinned,
-      runUuidsMatchingFilter,
-    ]);
-
     const togglePinnedRow = useCallback(
       (uuid: string) => {
         updateSearchFacets((existingFacets) => ({
@@ -259,6 +183,11 @@ export const ExperimentViewRunsTable = React.memo(
       [gridApi, updateSearchFacets],
     );
 
+    const gridReadyHandler = useCallback((params: GridReadyEvent) => {
+      setGridApi(params.api);
+      setColumnApi(params.columnApi);
+    }, []);
+
     const columnDefs = useRunsColumnDefinitions({
       searchFacetsState,
       onSortBy,
@@ -269,12 +198,21 @@ export const ExperimentViewRunsTable = React.memo(
       paramKeyList,
       tagKeyList: filteredTagKeys,
       columnApi,
+      isComparingRuns,
     });
 
-    const gridReadyHandler = useCallback((params: GridReadyEvent) => {
-      setGridApi(params.api);
-      setColumnApi(params.columnApi);
-    }, []);
+    useEffect(() => {
+      if (!gridApi) {
+        return;
+      }
+
+      if (isLoading) {
+        gridApi.showLoadingOverlay();
+      } else {
+        gridApi.hideOverlay();
+        gridApi.setRowData(rowsData);
+      }
+    }, [gridApi, rowsData, isLoading]);
 
     // Count all columns available for selection
     const allAvailableColumnsCount = useMemo(() => {
@@ -304,17 +242,21 @@ export const ExperimentViewRunsTable = React.memo(
       return Math.max(0, allMetricsAndParamsColumns - selectedMetricsAndParamsColumns);
     }, [metricKeyList.length, paramKeyList.length, searchFacetsState.selectedColumns]);
 
+    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns;
+
+    useLayoutEffect(() => {
+      if (!gridApi) {
+        return;
+      }
+      // Each time we switch to "compare runs" mode, we should
+      // maximize columns so "run name" column will take up all remaining space
+      if (isComparingRuns) {
+        gridApi.sizeColumnsToFit();
+      }
+    }, [gridApi, isComparingRuns]);
+
     return (
-      <>
-        <div css={styles.runsCount}>
-          <FormattedMessage
-            // eslint-disable-next-line max-len
-            defaultMessage='Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}'
-            // eslint-disable-next-line max-len
-            description='Message for displaying how many runs match search criteria on experiment page'
-            values={{ length: runsCount }}
-          />
-        </div>
+      <div>
         <div
           ref={containerElement}
           className={cx('ag-theme-balham ag-grid-sticky', {
@@ -329,6 +271,8 @@ export const ExperimentViewRunsTable = React.memo(
             rowSelection='multiple'
             onGridReady={gridReadyHandler}
             onSelectionChanged={onSelectionChange}
+            rowHeight={ROW_HEIGHT}
+            headerHeight={ROW_HEIGHT}
             onRowSelected={handleRowSelected}
             suppressRowClickSelection
             suppressColumnMoveAnimation
@@ -341,7 +285,7 @@ export const ExperimentViewRunsTable = React.memo(
             loadingOverlayComponentParams={{ showImmediately: true }}
             getRowId={getRowId}
           />
-          {!hasSelectedAllColumns && (
+          {displayAddColumnsCTA && (
             <ExperimentViewRunsTableAddColumnCTA
               gridContainerElement={containerElement.current}
               isInitialized={Boolean(gridApi)}
@@ -351,66 +295,165 @@ export const ExperimentViewRunsTable = React.memo(
             />
           )}
         </div>
-        {runsCount < 1 && !isLoading && (
+        {rowsData.length < 1 && !isLoading && (
           <div css={styles.noResultsWrapper}>
             <ExperimentRunsTableEmptyOverlay />
           </div>
         )}
-      </>
+      </div>
     );
   },
 );
 
+/**
+ * Concrete named definitions for colors used in this agGrid
+ */
+const getGridColors = (theme: Theme) => ({
+  rowBackground: theme.colors.backgroundPrimary, // regular row background
+  rowBackgroundHover: `${theme.colors.grey600}0A`, // hovered row (4% opacity)
+  rowBackgroundSelected: `${theme.colors.grey600}14`, // selected row (8% opacity)
+  rowBackgroundHoverSelected: `${theme.colors.grey600}1F`, // selected and hovered row (12% opacity)
+  columnSortedBy: `${theme.colors.blue100}b3`, // selected and hovered row (12% opacity)
+  headerBackground: theme.colors.grey100,
+  headerTextColor: '#2E3840', // directly from Figma design
+  headerGroupTextColor: theme.colors.textSecondary, // directly from Figma design
+  borderColor: theme.colors.grey200, // border between header and content and scrollable areas
+  headerBorderColor: 'transparent', // borders inside the header
+  checkboxBorderColor: theme.colors.actionDefaultBorderDefault,
+  checkboxBorderColorChecked: theme.colors.backgroundPrimary,
+  checkboxBackgroundColorChecked: theme.colors.actionPrimaryBackgroundDefault,
+});
+
 const styles = {
-  runsCount: (theme: Theme) => ({ margin: `${theme.spacing.md}px 0` }),
   noResultsWrapper: (theme: Theme) => ({
     marginTop: -theme.spacing.md * 4,
     textAlign: 'center' as const,
     backgroundColor: theme.colors.backgroundPrimary,
     position: 'relative' as const,
   }),
-  agGridOverrides: (theme: Theme) => ({
-    marginTop: 12,
-    position: 'relative' as const,
-    '&.ag-theme-balham': {
-      '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
-      '--ag-header-foreground-color': '#20272e',
-      '--ag-header-background-color': `${theme.colors.grey100}`,
-      '--ag-row-hover-color': `${theme.colors.grey200}`,
-      '&.ag-grid-sticky .ag-header': {
-        position: 'sticky' as const,
-        top: 0,
-        zIndex: 1,
+  agGridOverrides: (theme: Theme): Interpolation<Theme> => {
+    const gridColors = getGridColors(theme);
+    return {
+      position: 'relative',
+      '&.ag-theme-balham': {
+        // Set up internal variable values
+        '--ag-border-color': gridColors.borderColor,
+        '--ag-row-border-color': gridColors.borderColor,
+        '--ag-odd-row-background-color': gridColors.rowBackground,
+        '--ag-row-hover-color': gridColors.rowBackgroundHover,
+        '--ag-selected-row-background-color': gridColors.rowBackgroundSelected,
+        '--ag-header-foreground-color': gridColors.headerTextColor,
+        '--ag-header-background-color': gridColors.headerBackground,
+
+        // Makes row header sticky
+        '&.ag-grid-sticky .ag-header': {
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+        },
+        '&.ag-grid-sticky .ag-root': {
+          overflow: 'visible',
+        },
+        '&.ag-grid-sticky .ag-root-wrapper': {
+          border: '0',
+          borderRadius: '4px',
+          overflow: 'visible',
+        },
+
+        // Adds a static line between column group header row and column headers
+        '.ag-header::after': {
+          content: '""',
+          position: 'absolute',
+          top: ROW_HEIGHT,
+          left: 0,
+          right: 0,
+          height: 1,
+          backgroundColor: gridColors.borderColor,
+        },
+
+        // Line height for cell contents is the row height minus the border
+        '.ag-cell': {
+          lineHeight: `min(var(--ag-line-height, ${ROW_HEIGHT - 2}px), ${ROW_HEIGHT - 2}px)`,
+        },
+
+        // Padding fixes for the header (we use custom component)
+        '.ag-header-cell': {
+          padding: 0,
+        },
+        '.ag-header-cell .ag-checkbox': {
+          padding: '0 7px',
+          borderLeft: '1px solid transparent', // to match it with the cell sizing
+        },
+
+        '.ag-cell.is-ordered-by, .ag-header-cell > .is-ordered-by': {
+          backgroundColor: gridColors.columnSortedBy,
+        },
+        '.ag-header-row': {
+          '--ag-border-color': gridColors.headerBorderColor,
+        },
+        '.ag-header-row.ag-header-row-column-group': {
+          '--ag-header-foreground-color': gridColors.headerGroupTextColor,
+        },
+        '.ag-row.ag-row-selected.ag-row-hover': {
+          backgroundColor: gridColors.rowBackgroundHoverSelected,
+        },
+
+        // Hides resize guidelines when header is not hovered
+        '.ag-header:not(:hover) .ag-header-cell::after, .ag-header:not(:hover) .ag-header-group-cell::after':
+          {
+            opacity: 0,
+          },
+        '.ag-pinned-left-header': {
+          borderRight: 'none',
+        },
+
+        // Fixed for loading overlay
+        '.ag-overlay-loading-wrapper': {
+          paddingTop: theme.spacing.md * 4,
+          alignItems: 'center',
+        },
+        '.ag-overlay-loading-wrapper .ag-react-container': {
+          flex: 1,
+          zIndex: 1,
+        },
+
+        // Adds border after the last column to separate contents from "Add columns" CTA
+        '.ag-center-cols-container': {
+          borderRight: `1px solid var(--ag-border-color)`,
+          minHeight: 0,
+        },
+
+        // Centers vertically and styles the checkbox cell
+        '.is-checkbox-cell': {
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 7, // will end up in 8px due to 1px of transparent border on the left
+        },
+
+        // Header checkbox cell will get the same background as header only if it's unchecked
+        '.ag-header-cell .ag-checkbox .ag-input-wrapper:not(.ag-indeterminate):not(.ag-checked)': {
+          '--ag-checkbox-background-color': gridColors.headerBackground,
+        },
+
+        // Distance from the checkbox to other icons (pin, visibility etc.)
+        '.ag-selection-checkbox': {
+          marginRight: 16,
+        },
+
+        // Header and cell checkboxes will get same colors from the palette
+        '.is-checkbox-cell, .ag-header-cell .ag-checkbox': {
+          '.ag-checkbox-input-wrapper::after': {
+            color: gridColors.checkboxBorderColor,
+          },
+          '.ag-checkbox-input-wrapper.ag-checked': {
+            '--ag-checkbox-background-color': gridColors.checkboxBackgroundColorChecked,
+            '--ag-checkbox-checked-color': gridColors.checkboxBorderColorChecked,
+            '&::after': {
+              color: gridColors.checkboxBorderColorChecked,
+            },
+          },
+        },
       },
-      '&.ag-grid-sticky .ag-root': {
-        overflow: 'visible' as const,
-      },
-      '&.ag-grid-sticky .ag-root-wrapper': {
-        border: '0',
-        borderRadius: '4px',
-        overflow: 'visible' as const,
-      },
-      '.ag-cell.is-ordered-by, .ag-header-cell > .is-ordered-by': {
-        backgroundColor: theme.colors.blue100,
-      },
-      '.ag-header-cell': {
-        padding: 0,
-      },
-      '.ag-header-cell .ag-checkbox': {
-        padding: '0 12px',
-      },
-      '.ag-overlay-loading-wrapper': {
-        paddingTop: theme.spacing.md * 4,
-        alignItems: 'center' as const,
-      },
-      '.ag-overlay-loading-wrapper .ag-react-container': {
-        flex: 1,
-        zIndex: 1,
-      },
-      '.ag-layout-auto-height .ag-center-cols-container': {
-        borderRight: `1px solid ${theme.colors.border}`,
-        minHeight: 0,
-      },
-    },
-  }),
+    };
+  },
 };

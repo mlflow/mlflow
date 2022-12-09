@@ -64,11 +64,13 @@ export class PageHeader extends React.Component {
       <>
         <Header
           breadcrumbs={
-            <Breadcrumb includeTrailingCaret>
-              {breadcrumbs.map((b, i) => (
-                <Breadcrumb.Item key={i}>{b}</Breadcrumb.Item>
-              ))}
-            </Breadcrumb>
+            breadcrumbs.length > 0 && (
+              <Breadcrumb includeTrailingCaret>
+                {breadcrumbs.map((b, i) => (
+                  <Breadcrumb.Item key={i}>{b}</Breadcrumb.Item>
+                ))}
+              </Breadcrumb>
+            )
           }
           buttons={children}
           title={title}

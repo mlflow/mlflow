@@ -18,6 +18,11 @@ const MOCK_RUNS_DATA = experimentRunsSelector(EXPERIMENT_RUNS_MOCK_STORE, {
   experiments: [MOCK_EXPERIMENT],
 });
 
+const MOCK_ACTIONS = {
+  searchRunsPayload: () => Promise.resolve({}),
+  searchRunsApi: () => ({ type: 'foobar', payload: Promise.resolve({}), meta: {} }),
+};
+
 export default {
   title: 'ExperimentView/ExperimentViewRunsControls',
   component: ExperimentViewRunsControls,
@@ -29,13 +34,23 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
     new SearchExperimentRunsFacetsState(),
   );
   const [messages, setMessages] = useState<string[]>([]);
-  const updateSearchFacets = ((updatedFacetsState: Partial<SearchExperimentRunsFacetsState>) => {
-    setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
-    setMessages((currentMessages) => [
-      `updateSearchFacets() called while updating state ${JSON.stringify(updatedFacetsState)}`,
-      ...currentMessages,
-    ]);
-  }) as UpdateExperimentSearchFacetsFn;
+  const updateSearchFacets: UpdateExperimentSearchFacetsFn = (updatedFacetsState) => {
+    if (typeof updatedFacetsState === 'function') {
+      setSearchFacetsState(updatedFacetsState);
+
+      setMessages((currentMessages) => [
+        'updateSearchFacets() called with setter function',
+        ...currentMessages,
+      ]);
+    } else {
+      setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
+
+      setMessages((currentMessages) => [
+        `updateSearchFacets() called while updating state ${JSON.stringify(updatedFacetsState)}`,
+        ...currentMessages,
+      ]);
+    }
+  };
 
   return (
     <Provider
@@ -47,7 +62,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
     >
       <IntlProvider locale='en'>
         <StaticRouter location='/'>
-          <GetExperimentRunsContextProvider actions={{} as any}>
+          <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
             <div
               css={{
                 marginBottom: 20,
@@ -58,6 +73,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
               <h2>Component:</h2>
             </div>
             <ExperimentViewRunsControls
+              visibleRowsCount={MOCK_RUNS_DATA.runInfos.length}
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
               viewState={viewState}

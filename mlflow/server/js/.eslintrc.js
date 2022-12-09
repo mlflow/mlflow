@@ -166,7 +166,6 @@ module.exports = {
     'no-dupe-class-members': 2,
     'no-dupe-keys': 2,
     'no-duplicate-case': 2,
-    'no-duplicate-imports': 2,
     'no-else-return': 'off',
     'no-empty': 2,
     'no-empty-character-class': 2,
@@ -483,6 +482,11 @@ module.exports = {
 
         // ts-migrate introduces a lot of ts-expect-error. turning into warning until we finalize the migration
         '@typescript-eslint/ban-ts-comment': 'warn',
+
+        // Use @typescript-eslint's no-shadow, regular one fails to parse TS enums
+        // https://github.com/typescript-eslint/typescript-eslint/issues/2483
+        'no-shadow': 'off',
+        '@typescript-eslint/no-shadow': 'error',
 
         // Please leave this rule as the last item in the array, as it's quite large
         '@typescript-eslint/ban-types': [
