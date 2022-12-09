@@ -22,12 +22,16 @@ class FTPArtifactRepository(ArtifactRepository):
             "host": parsed.hostname,
             "port": 21 if parsed.port is None else parsed.port,
             "username": parsed.username,
-            "password": unquote(parsed.password),
+            "password": parsed.password,
         }
         self.path = parsed.path
 
         if self.config["host"] is None:
             self.config["host"] = "localhost"
+        if self.config["password"] is None:
+            self.config["password"] = ""
+        else :
+            self.config["password"] = unquote(parsed.password)
 
         super().__init__(artifact_uri)
 
