@@ -45,7 +45,7 @@ const styles = {
   pinWrapper: (theme: Theme) => ({
     input: { width: 0, appearance: 'none' as const },
     cursor: 'pointer',
-    display: 'inline-block',
+    display: 'flex',
     svg: {
       width: 14,
       height: 14,

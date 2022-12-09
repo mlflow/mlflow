@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactWrapper } from 'enzyme';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
 import { StaticRouter } from 'react-router-dom';
@@ -49,6 +50,7 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
     };
 
     const props: ExperimentViewRunsControlsActionsProps = {
+      visibleRowsCount: 100,
       runsData: MOCK_RUNS_DATA,
       updateSearchFacets,
       searchFacetsState,
@@ -80,19 +82,28 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
   };
 };
 
+export const getActionButtons = (wrapper: ReactWrapper) => {
+  const deleteButton = wrapper.find("button[data-testid='runs-delete-button']");
+  const compareButton = wrapper.find("button[data-testid='runs-compare-button']");
+  const renameButton = wrapper.find("button[data-testid='run-rename-button']");
+  return { deleteButton, compareButton, renameButton };
+};
+
 describe('ExperimentViewRunsControlsFilters', () => {
   test('should render with given search facets model properly', () => {
     const { wrapper } = doMock();
     expect(wrapper).toBeTruthy();
   });
 
-  test('should disable compare and delete buttons when no runs are selected', () => {
+  test('should hide compare and delete buttons when no runs are selected', () => {
     const { wrapper } = doMock();
 
-    const deleteButton = wrapper.find("button[data-testid='runs-delete-button']");
-    const compareButton = wrapper.find("button[data-testid='runs-compare-button']");
-    expect(deleteButton.getDOMNode().getAttribute('disabled')).not.toBeNull();
-    expect(compareButton.getDOMNode().getAttribute('disabled')).not.toBeNull();
+    const { deleteButton, compareButton, renameButton } = getActionButtons(wrapper);
+
+    // All buttons should be hidden
+    expect(deleteButton.length).toBe(0);
+    expect(compareButton.length).toBe(0);
+    expect(renameButton.length).toBe(0);
   });
 
   test('should enable delete buttons when there is single row selected', () => {
@@ -104,10 +115,17 @@ describe('ExperimentViewRunsControlsFilters', () => {
       },
     });
 
-    const deleteButton = wrapper.find("button[data-testid='runs-delete-button']");
-    const compareButton = wrapper.find("button[data-testid='runs-compare-button']");
+    const { deleteButton, compareButton, renameButton } = getActionButtons(wrapper);
+
+    // All buttons should be visible
+    expect(deleteButton.length).toBe(1);
+    expect(compareButton.length).toBe(1);
+    expect(renameButton.length).toBe(1);
+
+    // Only compare button should be disabled
     expect(deleteButton.getDOMNode().getAttribute('disabled')).toBeNull();
     expect(compareButton.getDOMNode().getAttribute('disabled')).not.toBeNull();
+    expect(renameButton.getDOMNode().getAttribute('disabled')).toBeNull();
   });
 
   test('should enable delete and compare buttons when there are multiple rows selected', () => {
@@ -119,10 +137,17 @@ describe('ExperimentViewRunsControlsFilters', () => {
       },
     });
 
-    const deleteButton = wrapper.find("button[data-testid='runs-delete-button']");
-    const compareButton = wrapper.find("button[data-testid='runs-compare-button']");
+    const { deleteButton, compareButton, renameButton } = getActionButtons(wrapper);
+
+    // All buttons should be visible
+    expect(deleteButton.length).toBe(1);
+    expect(compareButton.length).toBe(1);
+    expect(renameButton.length).toBe(1);
+
+    // Only rename button should be disabled
     expect(deleteButton.getDOMNode().getAttribute('disabled')).toBeNull();
     expect(compareButton.getDOMNode().getAttribute('disabled')).toBeNull();
+    expect(renameButton.getDOMNode().getAttribute('disabled')).not.toBeNull();
   });
 
   test('should enable rename button when necessary', () => {

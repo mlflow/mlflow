@@ -99,6 +99,7 @@ export interface UseRunsColumnDefinitionsParams {
   paramKeyList: string[];
   tagKeyList: string[];
   columnApi?: ColumnApi;
+  isComparingRuns?: boolean;
 }
 
 /**
@@ -178,6 +179,7 @@ export const useRunsColumnDefinitions = ({
   metricKeyList,
   tagKeyList,
   columnApi,
+  isComparingRuns,
 }: UseRunsColumnDefinitionsParams) => {
   const { orderByAsc, orderByKey, selectedColumns } = searchFacetsState;
 
@@ -205,6 +207,7 @@ export const useRunsColumnDefinitions = ({
       checkboxSelection: true,
       headerName: '',
       headerCheckboxSelection: true,
+      cellClass: 'is-checkbox-cell',
       cellRenderer: 'PinRowCellRenderer',
       cellRendererParams: { onTogglePin },
       pinned: 'left',
@@ -214,7 +217,7 @@ export const useRunsColumnDefinitions = ({
       resizable: false,
     });
 
-    // Run name and expander selection column
+    // Run name column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.RUN_NAME,
       colId: TAGS_TO_COLUMNS_MAP[ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME],
@@ -224,7 +227,7 @@ export const useRunsColumnDefinitions = ({
       field: 'runDateAndNestInfo',
       cellRenderer: 'RunNameCellRenderer',
       cellRendererParams: { onExpand },
-      equals: isEqual,
+      equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
       headerComponentParams: {
         ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
@@ -232,9 +235,16 @@ export const useRunsColumnDefinitions = ({
       },
       cellClass: getCellClassName,
       initialWidth: 260,
+      resizable: !isComparingRuns,
     });
 
-    // Date column
+    // If we are only comparing runs, that's it - we cut off the list after the run name column.
+    // This behavior might be revisited and changed later.
+    if (isComparingRuns) {
+      return columns;
+    }
+
+    // Date and expander selection column
     columns.push({
       headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
       headerTooltip: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
@@ -243,7 +253,7 @@ export const useRunsColumnDefinitions = ({
       field: 'runDateAndNestInfo',
       cellRenderer: 'DateCellRenderer',
       cellRendererParams: { onExpand },
-      equals: isEqual,
+      equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
       headerComponentParams: {
         ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
@@ -353,6 +363,7 @@ export const useRunsColumnDefinitions = ({
             colId: canonicalSortKey,
             headerTooltip: canonicalSortKey,
             field: createMetricFieldName(metricKey),
+            tooltipField: createMetricFieldName(metricKey),
             initialWidth: 100,
             initialHide: true,
             sortable: true,
@@ -379,6 +390,7 @@ export const useRunsColumnDefinitions = ({
             headerName: paramKey,
             headerTooltip: canonicalSortKey,
             field: createParamFieldName(paramKey),
+            tooltipField: createParamFieldName(paramKey),
             initialHide: true,
             initialWidth: 100,
             sortable: true,
@@ -407,6 +419,7 @@ export const useRunsColumnDefinitions = ({
             initialWidth: 100,
             headerTooltip: canonicalSortKey,
             field: createTagFieldName(tagKey),
+            tooltipField: createTagFieldName(tagKey),
           };
         }),
       });
@@ -421,6 +434,7 @@ export const useRunsColumnDefinitions = ({
     onExpand,
     compareExperiments,
     cumulativeColumns,
+    isComparingRuns,
   ]);
 
   const canonicalSortKeys = useMemo(
@@ -436,14 +450,14 @@ export const useRunsColumnDefinitions = ({
   );
 
   useEffect(() => {
-    if (!columnApi) {
+    if (!columnApi || isComparingRuns) {
       return;
     }
     for (const canonicalKey of canonicalSortKeys) {
       const visible = selectedColumns.includes(canonicalKey);
       columnApi.setColumnVisible(canonicalKey, visible);
     }
-  }, [selectedColumns, columnApi, canonicalSortKeys]);
+  }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns]);
 
   return columnSet;
 };

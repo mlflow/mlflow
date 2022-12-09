@@ -71,6 +71,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
     runInfosByUuid: {
       experiment123456789_run1: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment123456789_run1',
+        run_name: 'experiment123456789_run1',
         experiment_id: '123456789',
         status: 'FINISHED',
         start_time: 1660116336860,
@@ -81,6 +82,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       }),
       experiment123456789_run2: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment123456789_run2',
+        run_name: 'experiment123456789_run2',
         experiment_id: '123456789',
         status: 'FINISHED',
         start_time: 1660116265829,
@@ -91,6 +93,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       }),
       experiment123456789_run3: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment123456789_run3',
+        run_name: 'experiment123456789_run3',
         experiment_id: '123456789',
         status: 'FINISHED',
         start_time: 1660116197855,
@@ -101,6 +104,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       }),
       experiment123456789_run4: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment123456789_run4',
+        run_name: 'experiment123456789_run4',
         experiment_id: '123456789',
         status: 'FINISHED',
         start_time: 1660116194167,
@@ -111,6 +115,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       }),
       experiment123456789_run5: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment123456789_run5',
+        run_name: 'experiment123456789_run5',
         experiment_id: '123456789',
         status: 'FINISHED',
         start_time: 1660116194167,
@@ -121,6 +126,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
       }),
       experiment654321_run1: hydrateImmutableRecord(RunInfo)({
         run_uuid: 'experiment654321_run1',
+        run_name: 'experiment654321_run1',
         experiment_id: '654321',
         status: 'FINISHED',
         start_time: 1660116161320,

@@ -1,3 +1,4 @@
+import { shouldUseNextRunsComparisonUI } from '../../../../common/utils/FeatureUtils';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
@@ -5,6 +6,23 @@ import {
   persistExperimentSearchFacetsState,
   restoreExperimentSearchFacetsState,
 } from './persistSearchFacets';
+import {
+  deserializeFieldsFromLocalStorage,
+  deserializeFieldsFromQueryString,
+  serializeFieldsToLocalStorage,
+  serializeFieldsToQueryString,
+} from './persistSearchFacets.serializers';
+
+jest.mock('./persistSearchFacets.serializers.ts', () => ({
+  serializeFieldsToQueryString: jest.fn(),
+  serializeFieldsToLocalStorage: jest.fn(),
+  deserializeFieldsFromLocalStorage: jest.fn(),
+  deserializeFieldsFromQueryString: jest.fn(),
+}));
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldUseNextRunsComparisonUI: jest.fn(),
+}));
 
 jest.mock('../../../../common/utils/LocalStorageUtils', () => ({
   getStoreForComponent: () => ({
@@ -15,6 +33,14 @@ jest.mock('../../../../common/utils/LocalStorageUtils', () => ({
 
 const MOCK_SEARCH_QUERY_PARAMS =
   '?searchFilter=filter%20from%20the%20url&orderByAsc=true&orderByKey=some-key&selectedColumns=persistedCol1,persistedCol2';
+
+beforeEach(() => {
+  (serializeFieldsToQueryString as jest.Mock).mockImplementation((identity) => identity);
+  (serializeFieldsToLocalStorage as jest.Mock).mockImplementation((identity) => identity);
+  (deserializeFieldsFromLocalStorage as jest.Mock).mockImplementation((identity) => identity);
+  (deserializeFieldsFromQueryString as jest.Mock).mockImplementation((identity) => identity);
+  (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(false);
+});
 
 describe('persistSearchFacet', () => {
   const mockLocalStorageState = (state: any, saveComponentState: any = jest.fn()) => {
@@ -144,7 +170,7 @@ describe('persistSearchFacet', () => {
       const queryString = persistExperimentSearchFacetsState(state, 'id-key');
 
       expect(queryString).toEqual(
-        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2',
+        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2&isComparingRuns=false',
       );
     });
 
@@ -170,8 +196,63 @@ describe('persistSearchFacet', () => {
       expectedQuery += `&selectedColumns=${state.selectedColumns
         .map((c) => encodeURIComponent(c))
         .join(',')}`;
+      expectedQuery += `&isComparingRuns=false`;
 
       expect(queryString).toEqual(expectedQuery);
+    });
+
+    test('it persists state using custom field serializers', () => {
+      const saveLocalStorageState = mockLocalStorageState({});
+
+      (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(true);
+      (serializeFieldsToQueryString as jest.Mock).mockImplementation((input) => {
+        return {
+          ...input,
+          selectedColumns: `qs-serialized-${input.selectedColumns.length}-columns`,
+        };
+      });
+      (serializeFieldsToLocalStorage as jest.Mock).mockImplementation((input) => ({
+        ...input,
+        selectedColumns: `ls-serialized-${input.selectedColumns.length}-columns`,
+      }));
+
+      const persistedQueryString = persistExperimentSearchFacetsState(
+        Object.assign(new SearchExperimentRunsFacetsState(), {
+          orderByKey: 'some_column',
+          selectedColumns: ['column', 'some-column', 'another-column'],
+        }),
+        'some-id-key',
+      );
+
+      expect(persistedQueryString).toContain('orderByKey=some_column');
+      expect(persistedQueryString).toContain('selectedColumns=qs-serialized-3-columns');
+
+      expect(saveLocalStorageState).toBeCalledWith(
+        expect.objectContaining({
+          selectedColumns: 'ls-serialized-3-columns',
+        }),
+      );
+    });
+
+    test('it restores the state using custom field deserializers', () => {
+      (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(true);
+      (deserializeFieldsFromQueryString as jest.Mock).mockImplementation((input) => {
+        return {
+          ...input,
+          runsPinned: ['deserialized-run-id-qs'],
+        };
+      });
+
+      const { state } = restoreExperimentSearchFacetsState(
+        '?runsPinned=some-serialized-value&orderByKey=some-key',
+        'some-id',
+      );
+
+      expect(state).toEqual(
+        expect.objectContaining({
+          runsPinned: ['deserialized-run-id-qs'],
+        }),
+      );
     });
   });
 });

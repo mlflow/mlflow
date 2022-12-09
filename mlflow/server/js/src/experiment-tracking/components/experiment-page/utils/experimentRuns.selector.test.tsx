@@ -8,9 +8,9 @@ import {
   ExperimentRunsSelectorParams,
   ExperimentRunsSelectorResult,
 } from './experimentRuns.selector';
-import { ExperimentStoreEntities, LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
+import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
 
-type StateWithEntities = { entities: ExperimentStoreEntities };
+import type { StateWithEntities } from '../../../../redux-types';
 
 describe('useExperimentRuns', () => {
   const WrapComponent = (Component: React.ComponentType, store: any) => (
