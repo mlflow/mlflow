@@ -144,6 +144,7 @@ def main():
     # we need to directly pass a model data path to this script.
     else:
         with cap_cm:
+            logger.warning(f"Loading model path with {flavor} flavor: {model_path}")
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
     # Store the imported modules in `output_file`

@@ -264,6 +264,7 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            pyfunc_load_model_path=append_to_uri_path(run_root_artifact_uri, artifact_path)
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -472,6 +473,7 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    pyfunc_load_model_path=None,
 ):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
@@ -519,6 +521,7 @@ def _save_model_metadata(
                 dst_dir,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                pyfunc_load_model_path=pyfunc_load_model_path
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
