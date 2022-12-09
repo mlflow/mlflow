@@ -1154,6 +1154,27 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.`run name` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.`Run name` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.`Run Name` = 'new_run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+
         # TODO: Test attribute-based search after set_tag
 
         # Test run name filter works for runs logged in MLflow <= 1.29.0
@@ -1226,6 +1247,39 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert result == []
+
+    def test_search_runs_start_time_alias(self):
+        fs = FileStore(self.test_root)
+        exp_id = fs.create_experiment("test_search_runs_start_time_alias")
+        # Set start_time to ensure the search result is deterministic
+        run1 = fs.create_run(exp_id, user_id="user", start_time=1, tags=[], run_name="name")
+        run2 = fs.create_run(exp_id, user_id="user", start_time=2, tags=[], run_name="name")
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.start_time DESC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.created ASC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
+        result = fs.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.Created DESC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"

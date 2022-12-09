@@ -2196,7 +2196,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [exp_id],
             filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.start_time DESC"]
+            order_by=["attributes.start_time DESC"],
         )
         assert [r.info.run_id for r in result] == [run_id2, run_id1]
 
@@ -2204,7 +2204,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [exp_id],
             filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.created ASC"]
+            order_by=["attributes.created ASC"],
         )
         assert [r.info.run_id for r in result] == [run_id1, run_id2]
 
@@ -2212,10 +2212,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [exp_id],
             filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
-            order_by=["attributes.Created DESC"]
+            order_by=["attributes.Created DESC"],
         )
         assert [r.info.run_id for r in result] == [run_id2, run_id1]
-
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

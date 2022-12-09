@@ -1257,11 +1257,10 @@ def _get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
+            key = SearchUtils.translate_key_alias(key)
             if SearchUtils.is_string_attribute(
                 key_type, key, "="
             ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
-                if key in ["created", "Created"]:
-                    key = "start_time"
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, "="):  # any valid comparator
