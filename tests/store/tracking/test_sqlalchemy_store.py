@@ -2216,6 +2216,27 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run_id2, run_id1]
 
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.start_time > 0",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set([r.info.run_id for r in result]) == {run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.created > 1",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set([r.info.run_id for r in result]) == {run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.Created > 2",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set([r.info.run_id for r in result]) == set([])
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
