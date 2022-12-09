@@ -167,7 +167,7 @@ class SearchUtils:
     def translate_key_alias(key):
         if key in ["created", "Created"]:
             return "start_time"
-        elif key in ["run name", "Run name", "Run Name"]:
+        if key in ["run name", "Run name", "Run Name"]:
             return "run_name"
         return key
 
