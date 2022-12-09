@@ -45,7 +45,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
 
     def setUp(self):
         self._setup_db_uri()

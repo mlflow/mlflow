@@ -195,7 +195,7 @@ SERVE_ARTIFACTS = click.option(
     default=True,
     help="Enables serving of artifact uploads, downloads, and list requests "
     "by routing these requests to the storage location that is specified by "
-    "'--artifact-destination' directly through a proxy. The default location that "
+    "'--artifacts-destination' directly through a proxy. The default location that "
     "these requests are served from is a local './mlartifacts' directory which can be "
     "overridden via the '--artifacts-destination' argument. To disable artifact serving, "
     "specify `--no-serve-artifacts`. Default: True",

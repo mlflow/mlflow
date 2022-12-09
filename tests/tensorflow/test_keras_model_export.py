@@ -372,9 +372,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
-    with open(keras_custom_env, "r") as f:
+    with open(keras_custom_env) as f:
         keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
@@ -388,7 +388,7 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == conda_env
 
@@ -507,9 +507,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
-    with open(keras_custom_env, "r") as f:
+    with open(keras_custom_env) as f:
         keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == keras_custom_env_parsed
 

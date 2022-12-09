@@ -311,7 +311,7 @@ steps:
         run_id = f.read()
 
     assert (register_step_output_dir / "card.html").exists()
-    with open(register_step_output_dir / "card.html", "r") as f:
+    with open(register_step_output_dir / "card.html") as f:
         step_card_content = f.read()
 
     assert f"<a href={workspace_url}#mlflow/models/demo_model/versions/1" in step_card_content

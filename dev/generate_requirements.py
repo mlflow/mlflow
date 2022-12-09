@@ -104,7 +104,7 @@ def generate_requirements_txt_content(requirements_yaml):
 
 def main(args):
     args = parse_args(args)
-    with open(args.requirements_yaml_location, "r") as f:
+    with open(args.requirements_yaml_location) as f:
         requirements_yaml = yaml.load(f, Loader=yaml.SafeLoader)
     validate_requirements_yaml(requirements_yaml)
     requirements_txt_content = generate_requirements_txt_content(requirements_yaml)

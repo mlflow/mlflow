@@ -304,7 +304,7 @@ def run(
         and type(backend_config) != dict
         and os.path.splitext(backend_config)[-1] == ".json"
     ):
-        with open(backend_config, "r") as handle:
+        with open(backend_config) as handle:
             try:
                 backend_config_dict = json.load(handle)
             except ValueError:
@@ -401,7 +401,7 @@ def _parse_kubernetes_config(backend_config):
         )
     kube_job_template = backend_config["kube-job-template-path"]
     if os.path.exists(kube_job_template):
-        with open(kube_job_template, "r") as job_template:
+        with open(kube_job_template) as job_template:
             yaml_obj = yaml.safe_load(job_template.read())
         kube_job_template = yaml_obj
         kube_config["kube-job-template"] = kube_job_template

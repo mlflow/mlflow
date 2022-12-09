@@ -688,11 +688,9 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif not all(
-            (
-                token.ttype
-                in {*cls.STRING_VALUE_TYPES, *cls.DELIMITER_VALUE_TYPES, cls.WHITESPACE_VALUE_TYPE}
-                for token in value_token._groupable_tokens[0].tokens
-            )
+            token.ttype
+            in {*cls.STRING_VALUE_TYPES, *cls.DELIMITER_VALUE_TYPES, cls.WHITESPACE_VALUE_TYPE}
+            for token in value_token._groupable_tokens[0].tokens
         ):
             raise MlflowException(
                 "While parsing a list in the query, expected string value, punctuation, "

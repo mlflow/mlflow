@@ -103,7 +103,7 @@ def _find_latest_installable_python_version(version_prefix):
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
-        raise MlflowException((f"Could not find python version that matches {version_prefix}"))
+        raise MlflowException(f"Could not find python version that matches {version_prefix}")
     return sorted(matched, key=Version)[-1]
 
 

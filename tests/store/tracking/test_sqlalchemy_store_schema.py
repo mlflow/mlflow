@@ -35,9 +35,9 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     """
     # Extract "CREATE TABLE" statement chunks from both files, assuming tables are listed in the
     # same order across files
-    with open(generated_schema_file, "r") as generated_schema_handle:
+    with open(generated_schema_file) as generated_schema_handle:
         generated_schema_table_chunks = generated_schema_handle.read().split("\n\n")
-    with open(expected_schema_file, "r") as expected_schema_handle:
+    with open(expected_schema_file) as expected_schema_handle:
         expected_schema_table_chunks = expected_schema_handle.read().split("\n\n")
     # Compare the two files table-by-table. We assume each CREATE TABLE statement is valid and
     # so sort the lines within the statements before comparing them.

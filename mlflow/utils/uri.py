@@ -154,7 +154,7 @@ def extract_db_type_from_uri(db_uri):
     elif scheme_plus_count == 1:
         db_type, _ = scheme.split("+")
     else:
-        error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
+        error_msg = "Invalid database URI: '{}'. {}".format(db_uri, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
     _validate_db_type_string(db_type)

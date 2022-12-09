@@ -55,7 +55,7 @@ def databricks_artifact_repo():
 
 @pytest.fixture()
 def test_file(tmpdir):
-    test_file_content = "Hello 🍆🍔".encode("utf-8")
+    test_file_content = "Hello 🍆🍔".encode()
     p = tmpdir.join("test.txt")
     with open(p.strpath, "wb") as f:
         f.write(test_file_content)
@@ -64,7 +64,7 @@ def test_file(tmpdir):
 
 @pytest.fixture()
 def test_dir(tmpdir):
-    test_file_content = "World 🍆🍔🍆".encode("utf-8")
+    test_file_content = "World 🍆🍔🍆".encode()
     with open(tmpdir.mkdir("subdir").join("test.txt").strpath, "wb") as f:
         f.write(test_file_content)
     with open(tmpdir.join("test.txt").strpath, "wb") as f:
@@ -1045,7 +1045,7 @@ class TestDatabricksArtifactRepository:
             expected_file2_path = os.path.join(str(tmpdir), "file_2.txt")
             for path in [expected_file1_path, expected_file2_path]:
                 assert os.path.exists(path)
-                with open(path, "r") as f:
+                with open(path) as f:
                     assert f.read() == "content"
 
     def test_artifact_logging(self, databricks_artifact_repo, tmpdir):
@@ -1098,16 +1098,16 @@ class TestDatabricksArtifactRepository:
             expected_dst_dir_file2_path = os.path.join(dst_dir, "dir_artifact", "file_2.txt")
             assert os.path.exists(expected_dst_dir_file1_path)
             assert os.path.exists(expected_dst_dir_file2_path)
-            with open(expected_dst_dir_file1_path, "r") as f:
+            with open(expected_dst_dir_file1_path) as f:
                 assert f.read() == "file1"
-            with open(expected_dst_dir_file2_path, "r") as f:
+            with open(expected_dst_dir_file2_path) as f:
                 assert f.read() == "file2"
 
             databricks_artifact_repo.log_artifact(src_file1_path)
 
             expected_dst_file_path = os.path.join(dst_dir, "file_1.txt")
             assert os.path.exists(expected_dst_file_path)
-            with open(expected_dst_file_path, "r") as f:
+            with open(expected_dst_file_path) as f:
                 assert f.read() == "file1"
 
     def test_download_artifacts_provides_failure_info(self, databricks_artifact_repo):

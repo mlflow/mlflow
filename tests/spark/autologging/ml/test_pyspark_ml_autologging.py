@@ -170,7 +170,7 @@ def get_params_to_log(estimator):
 
 def load_json_artifact(artifact_path):
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         return json.load(f)
 
 
@@ -948,7 +948,7 @@ def _read_model_conf_as_dict(run):
     ml_model_filename = "MLmodel"
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 

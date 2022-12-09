@@ -12,7 +12,8 @@ def _user_args_to_dict(user_list):
     user_dict = {}
     for s in user_list:
         try:
-            name, value = s.split("=")
+            # Some configs may contain '=' in the value
+            name, value = s.split("=", 1)
         except ValueError as exc:
             # not enough values to unpack
             raise click.BadOptionUsage(

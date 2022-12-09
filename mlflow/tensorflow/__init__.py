@@ -680,7 +680,7 @@ def _load_pyfunc(path):
     model_type = _infer_model_type(model_meta)
     if model_type == _MODEL_TYPE_KERAS:
         if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
-            with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
+            with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH)) as f:
                 keras_module = importlib.import_module(f.read())
         else:
             import tensorflow.keras
@@ -691,7 +691,7 @@ def _load_pyfunc(path):
         save_format = "h5"
         save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
         if os.path.isfile(save_format_path):
-            with open(save_format_path, "r") as f:
+            with open(save_format_path) as f:
                 save_format = f.read()
 
         # In SavedModel format, if we don't compile the model

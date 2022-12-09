@@ -194,6 +194,29 @@ def test_xgb_autolog_sklearn():
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
+def test_xgb_autolog_sklearn_nested_in_pipeline():
+    from sklearn.pipeline import make_pipeline
+
+    mlflow.xgboost.autolog()
+    mlflow.sklearn.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    model = make_pipeline(model)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
+    # assert pipeline logged
+    assert run.data.params["xgbregressor__reg_lambda"] == "1"
+    # assert nested lgb classifier not logged
+    assert "reg_lambda" not in run.data.params
+
+
 def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutations():
     original_xgb_regressor_fit = xgb.XGBRegressor.fit
     original_xgb_regressor_predict = xgb.XGBRegressor.predict
@@ -365,7 +388,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     assert json_name in artifacts
 
     json_path = os.path.join(artifacts_dir, json_name)
-    with open(json_path, "r") as f:
+    with open(json_path) as f:
         loaded_imp = json.load(f)
 
     assert loaded_imp == model.get_score(importance_type=importance_type)
@@ -389,7 +412,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
         assert json_name in artifacts
 
         json_path = os.path.join(artifacts_dir, json_name)
-        with open(json_path, "r") as f:
+        with open(json_path) as f:
             loaded_imp = json.load(f)
 
         assert loaded_imp == model.get_score(importance_type=imp_type)
@@ -422,7 +445,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
     assert json_name in artifacts
 
     json_path = os.path.join(artifacts_dir, json_name)
-    with open(json_path, "r") as f:
+    with open(json_path) as f:
         loaded_imp = json.load(f)
 
     assert loaded_imp == model.get_score(importance_type=importance_type)
@@ -514,7 +537,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None
@@ -575,7 +598,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None
