@@ -30,7 +30,7 @@ class FTPArtifactRepository(ArtifactRepository):
             self.config["host"] = "localhost"
         if self.config["password"] is None:
             self.config["password"] = ""
-        else :
+        else:
             self.config["password"] = unquote(parsed.password)
 
         super().__init__(artifact_uri)
