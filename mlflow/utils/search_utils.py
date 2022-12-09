@@ -55,10 +55,9 @@ class SearchUtils:
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
     _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
-    NUMERIC_IDENTIFIERS = set(
+    NUMERIC_ATTRIBUTES = set(
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
-    NUMERIC_ATTRIBUTES = {"start_time", "created", "Created", "end_time"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
