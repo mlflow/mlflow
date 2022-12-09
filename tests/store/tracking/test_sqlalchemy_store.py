@@ -2194,7 +2194,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         result = self.store.search_runs(
             [exp_id],
-            filter_string=f"attributes.run_name = 'name'",
+            filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
             order_by=["attributes.start_time DESC"]
         )
@@ -2202,7 +2202,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         result = self.store.search_runs(
             [exp_id],
-            filter_string=f"attributes.run_name = 'name'",
+            filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
             order_by=["attributes.created ASC"]
         )
@@ -2210,7 +2210,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         result = self.store.search_runs(
             [exp_id],
-            filter_string=f"attributes.run_name = 'name'",
+            filter_string="attributes.run_name = 'name'",
             run_view_type=ViewType.ACTIVE_ONLY,
             order_by=["attributes.Created DESC"]
         )
