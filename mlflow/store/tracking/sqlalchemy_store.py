@@ -1195,7 +1195,7 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
         if SearchUtils.is_string_attribute(
             key_type, key_name, comparator
         ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
-            if key_name == "run_name":
+            if key_name in ["run_name", "run name", "Run name", "Run Name"]:
                 # Treat "attributes.run_name == <value>" as "tags.`mlflow.runName` == <value>".
                 # The name column in the runs table is empty for runs logged in MLflow <= 1.29.0.
                 key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
@@ -1208,6 +1208,9 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                     session.query(SqlTag).filter(key_filter, val_filter).subquery()
                 )
             else:
+                if key_name in ["start_time", "created", "Created"]:
+                    # Treat created and Created as aliases for start time
+                    key_name = "start_time"
                 attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
                 attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
                     attribute, value
