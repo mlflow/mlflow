@@ -52,9 +52,13 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
+    _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
+    _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
+    NUMERIC_IDENTIFIERS = set(list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES))
     NUMERIC_ATTRIBUTES = {"start_time", "created", "Created", "end_time"}
-    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
+    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes() + list(_ALTERNATE_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_STRING_ATTRIBUTES))
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes() + list(_ALTERNATE_NUMERIC_ATTRIBUTES))
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = {"metrics"}
     _PARAM_IDENTIFIER = "parameter"

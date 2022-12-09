@@ -2075,6 +2075,24 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [r.info.run_id for r in result] == [run1.info.run_id]
         result = self.store.search_runs(
             [exp_id],
+            filter_string="attributes.`Run name` = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.`run name` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.`Run Name` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
             filter_string="tags.`mlflow.runName` = 'run_name2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
@@ -2165,6 +2183,39 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert result == []
+
+    def test_search_runs_start_time_alias(self):
+        exp_id = self._experiment_factory("test_search_runs_start_time_alias")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.start_time DESC"]
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.created ASC"]
+        )
+        assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.Created DESC"]
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
