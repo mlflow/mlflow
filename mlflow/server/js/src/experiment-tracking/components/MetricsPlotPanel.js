@@ -242,11 +242,22 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   loadMetricHistory = async (runUuids, metricKeys) => {
-    const { latestMetricsByRunUuid } = this.props;
+    const { latestMetricsByRunUuid, metricsWithRunInfoAndHistory } = this.props;
     this.setState({ loading: true });
+    console.log(metricsWithRunInfoAndHistory);
+
+    // Fetched before?
     const promises = runUuids
       .flatMap((x) => metricKeys.map((y) => [x, y]))
       .map(async ([runUuid, metricKey]) => {
+        // Has this metric been fetched before?
+        if (
+          metricsWithRunInfoAndHistory.some(
+            ({ runUuid: r, metricKey: m }) => m === metricKey && r === runUuid,
+          )
+        ) {
+          return [];
+        }
         if (latestMetricsByRunUuid[runUuid][metricKey]) {
           const requestIds = [];
           const id = getUUID();
@@ -557,7 +568,7 @@ export class MetricsPlotPanel extends React.Component {
   handleMetricsSelectChange = async (metricKeys) => {
     const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
     const newMetricKeys = metricKeys.filter((k) => !existingMetricKeys.includes(k));
-
+    this.updateUrlState({ selectedMetricKeys: metricKeys });
     const requestIds = await this.loadMetricHistory(this.props.runUuids, newMetricKeys);
     this.setState(
       (prevState) => ({
