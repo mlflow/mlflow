@@ -29,6 +29,13 @@ Example Expressions
 
     metrics.accuracy > 0.92
 
+- Search for all completed runs.
+
+  .. code-block:: sql
+
+    attributes.status = "FINISHED"
+
+
 - Search for all failed runs.
 
   .. code-block:: sql
@@ -47,11 +54,17 @@ Example Expressions
 
     tags.`mlflow.user` = 'john@mlflow.com'
 
-- Search for runs whose ``model`` tag starts with ``sklearn``.
+- Search for runs with models trained using scikit-learn (assumes runs have a tag called ``model`` whose value starts with ``sklearn``).
 
   .. code-block:: sql
 
     tags.`model` LIKE 'sklearn%'
+
+- Search for runs with logistic regression models, ignoring case (assumes runs have a tag called ``type`` whose value contains ``logistic``).
+
+  .. code-block:: sql
+
+    tags.`type` ILIKE '%Logistic%'
 
 - Search for runs whose names are one of ``alpha``, ``beta`` and ``gamma``.
 
@@ -63,7 +76,7 @@ Example Expressions
 
   .. code-block:: sql
 
-    params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
+    params.alpha = "0.3" and params.lambda = "0.001" and metrics.error <= 0.05
 
 
 Identifier
