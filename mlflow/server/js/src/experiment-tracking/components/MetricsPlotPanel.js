@@ -262,7 +262,7 @@ export class MetricsPlotPanel extends React.Component {
           const requestIds = [];
           const id = getUUID();
           requestIds.push(id);
-          const resp = await this.props.getMetricHistoryApi(runUuid, metricKey, 30, undefined, id);
+          const resp = await this.props.getMetricHistoryApi(runUuid, metricKey, 10, undefined, id);
           let nextPageToken = resp.value.next_page_token;
           while (nextPageToken !== '') {
             const id = getUUID();
@@ -270,7 +270,7 @@ export class MetricsPlotPanel extends React.Component {
             const resp = await this.props.getMetricHistoryApi(
               runUuid,
               metricKey,
-              30,
+              10,
               nextPageToken,
               id,
             );
