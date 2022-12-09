@@ -226,7 +226,7 @@ class BaseStep(metaclass=abc.ABCMeta):
                               the local filesystem.
         :return: class instance of the step.
         """
-        with open(step_config_path, "r") as f:
+        with open(step_config_path) as f:
             step_config = yaml.safe_load(f)
         return cls(step_config, recipe_root)
 
@@ -279,7 +279,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             output_directory, BaseStep._EXECUTION_STATE_FILE_NAME
         )
         if os.path.exists(execution_state_file_path):
-            with open(execution_state_file_path, "r") as f:
+            with open(execution_state_file_path) as f:
                 return StepExecutionState.from_dict(json.load(f))
         else:
             return StepExecutionState(StepStatus.UNKNOWN, 0, None)

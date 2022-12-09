@@ -448,10 +448,10 @@ def test_classifier_evaluate(
         temp_dir_path = temp_dir.path()
         eval_result.save(temp_dir_path)
 
-        with open(temp_dir.path("metrics.json"), "r") as fp:
+        with open(temp_dir.path("metrics.json")) as fp:
             assert json.load(fp) == eval_result.metrics
 
-        with open(temp_dir.path("artifacts_metadata.json"), "r") as fp:
+        with open(temp_dir.path("artifacts_metadata.json")) as fp:
             json_dict = json.load(fp)
             assert "confusion_matrix" in json_dict
             assert json_dict["confusion_matrix"] == {

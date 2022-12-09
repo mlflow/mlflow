@@ -750,13 +750,11 @@ class TrainStep(BaseStep):
             from mlflow.types import ColSpec
 
             table = BaseCard.render_table(
-                (
-                    {
-                        "Name": "  " + (spec.name or "-"),
-                        "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
-                    }
-                    for spec in inputs
-                )
+                {
+                    "Name": "  " + (spec.name or "-"),
+                    "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
+                }
+                for spec in inputs
             )
             return '<div style="margin: 5px"><h2>{title}</h2>{table}</div>'.format(
                 title=title, table=table

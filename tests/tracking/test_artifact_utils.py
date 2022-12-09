@@ -27,7 +27,7 @@ def test_artifact_can_be_downloaded_from_absolute_uri_successfully(tmpdir):
     )
     assert downloaded_artifact_path != local_artifact_path
     assert downloaded_artifact_path != logged_artifact_path
-    with open(downloaded_artifact_path, "r") as f:
+    with open(downloaded_artifact_path) as f:
         assert f.read() == artifact_text
 
 
@@ -50,9 +50,7 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
     assert artifact_file_name in os.listdir(
         os.path.join(artifact_output_path, logged_artifact_subdir)
     )
-    with open(
-        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r"
-    ) as f:
+    with open(os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name)) as f:
         assert f.read() == artifact_text
 
 
@@ -79,9 +77,7 @@ def test_download_artifact_with_special_characters_in_file_name_and_path(tmpdir)
     assert artifact_file_name in os.listdir(
         os.path.join(artifact_output_path, logged_artifact_subdir)
     )
-    with open(
-        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r"
-    ) as f:
+    with open(os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name)) as f:
         assert f.read() == artifact_text
 
 

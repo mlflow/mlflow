@@ -775,7 +775,7 @@ class FileStore(AbstractStore):
         if metric_key not in metric_files:
             run_id = run_info.run_id
             raise MlflowException(
-                "Metric '%s' not found under run '%s'" % (metric_key, run_id),
+                "Metric '{}' not found under run '{}'".format(metric_key, run_id),
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         return PagedList(
@@ -902,7 +902,7 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "%s %s %s\n" % (metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, "{} {} {}\n".format(metric.timestamp, metric.value, metric.step))
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -940,7 +940,7 @@ class FileStore(AbstractStore):
         :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
                  does not match the existing parameter value.
         """
-        with open(param_path, "r") as param_file:
+        with open(param_path) as param_file:
             current_value = param_file.read()
         if current_value != new_value:
             raise MlflowException(
@@ -1047,7 +1047,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
         if os.path.exists(path):
-            with open(path, "r") as f:
+            with open(path) as f:
                 model_list = json.loads(f.read())
         else:
             model_list = []

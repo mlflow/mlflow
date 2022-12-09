@@ -87,7 +87,7 @@ def clean_mlruns_dir():
 
 @skip_if_skinny
 def test_run_local_conda_env():
-    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
+    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:

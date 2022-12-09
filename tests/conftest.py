@@ -121,7 +121,7 @@ def clean_up_mlruns_directory(request):
     if os.path.exists(mlruns_dir):
         try:
             shutil.rmtree(mlruns_dir)
-        except IOError:
+        except OSError:
             if os.name == "nt":
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
