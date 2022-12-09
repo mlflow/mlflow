@@ -88,6 +88,8 @@ Run Attributes
 
 You can search using the following run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``run_id``, ``run_name``, ``status``, ``artifact_uri``, ``user_id``, ``start_time`` and ``end_time``. The ``run_id``, ``run_name``, ``status``, ``user_id`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
 
+``Run name``, ``Run Name`` and ``run name`` are aliases for ``run_name``. ``created`` and ``Created`` are aliases for ``start_time``.
+
 .. note::
 
   - The experiment ID is implicitly selected by the search API.
