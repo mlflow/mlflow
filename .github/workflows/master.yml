@@ -307,6 +307,7 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           pip install pyspark
+          pip install mleap
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
@@ -317,3 +318,4 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
+          pytest tests/mleap
