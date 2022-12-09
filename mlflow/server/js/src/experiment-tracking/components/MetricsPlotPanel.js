@@ -7,6 +7,7 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { getRunInfo } from '../reducers/Reducers';
+import { Spinner, Space } from '@databricks/design-system';
 import {
   MetricsPlotControls,
   X_AXIS_WALL,
@@ -98,10 +99,10 @@ export class MetricsPlotPanel extends React.Component {
       popoverY: 0,
       popoverRunItems: [],
       focused: true,
+      loading: true,
     };
     this.displayPopover = false;
     this.intervalId = null;
-    this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
   hasMultipleExperiments() {
@@ -155,6 +156,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   componentDidMount() {
+    this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
     if (this.shouldPoll()) {
       // Set event listeners to detect when this component gains/loses focus,
       // e.g., a user switches to a different browser tab or app.
@@ -239,18 +241,36 @@ export class MetricsPlotPanel extends React.Component {
     );
   };
 
-  loadMetricHistory = (runUuids, metricKeys) => {
-    const requestIds = [];
+  loadMetricHistory = async (runUuids, metricKeys) => {
     const { latestMetricsByRunUuid } = this.props;
-    runUuids.forEach((runUuid) => {
-      metricKeys.forEach((metricKey) => {
+    this.setState({ loading: true });
+    const promises = runUuids
+      .flatMap((x) => metricKeys.map((y) => [x, y]))
+      .map(async ([runUuid, metricKey]) => {
         if (latestMetricsByRunUuid[runUuid][metricKey]) {
+          const requestIds = [];
           const id = getUUID();
-          this.props.getMetricHistoryApi(runUuid, metricKey, id);
           requestIds.push(id);
+          const resp = await this.props.getMetricHistoryApi(runUuid, metricKey, 30, undefined, id);
+          let nextPageToken = resp.value.next_page_token;
+          while (nextPageToken !== '') {
+            const id = getUUID();
+            requestIds.push(id);
+            const resp = await this.props.getMetricHistoryApi(
+              runUuid,
+              metricKey,
+              30,
+              nextPageToken,
+              id,
+            );
+            nextPageToken = resp.value.next_page_token;
+          }
+          return requestIds;
         }
+        return [];
       });
-    });
+    const requestIds = (await Promise.all(promises)).flatMap((x) => x);
+    this.setState({ loading: false });
     return requestIds;
   };
 
@@ -534,11 +554,11 @@ export class MetricsPlotPanel extends React.Component {
     return false;
   };
 
-  handleMetricsSelectChange = (metricKeys) => {
+  handleMetricsSelectChange = async (metricKeys) => {
     const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
     const newMetricKeys = metricKeys.filter((k) => !existingMetricKeys.includes(k));
 
-    const requestIds = this.loadMetricHistory(this.props.runUuids, newMetricKeys);
+    const requestIds = await this.loadMetricHistory(this.props.runUuids, newMetricKeys);
     this.setState(
       (prevState) => ({
         historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
@@ -642,6 +662,7 @@ export class MetricsPlotPanel extends React.Component {
                 handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
               />
             )}
+            <Spinner size='large' css={{ visibility: this.state.loading ? 'visible' : 'hidden' }} />
             <MetricsPlotView
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}

@@ -133,8 +133,10 @@ export const metricsByKey = (state = {}, action, metrics) => {
   const newState = { ...state };
   switch (action.type) {
     case fulfilled(GET_METRIC_HISTORY_API): {
-      const { key } = action.meta;
-      newState[key] = metrics.map((m) => Metric.fromJs(m));
+      const { key, pageToken } = action.meta;
+      const existingMetrics = newState[key] || [];
+      const newMetrics = metrics.map((m) => Metric.fromJs(m));
+      newState[key] = pageToken ? [...existingMetrics, ...newMetrics] : newMetrics;
       return newState;
     }
     default:

@@ -277,14 +277,22 @@ export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
-export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
+export const getMetricHistoryApi = (runUuid, metricKey, maxResults, pageToken, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: MlflowService.getMetricHistory({
       run_uuid: runUuid,
       metric_key: decodeURIComponent(metricKey),
+      max_results: maxResults,
+      page_token: pageToken,
     }),
-    meta: { id: id, runUuid: runUuid, key: metricKey },
+    meta: {
+      id: id,
+      runUuid: runUuid,
+      key: metricKey,
+      maxResults,
+      pageToken,
+    },
   };
 };
 

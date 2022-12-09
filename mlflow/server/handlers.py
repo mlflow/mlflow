@@ -984,6 +984,8 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_metric_history():
+    import time
+
     request_message = _get_request_message(
         GetMetricHistory(),
         schema={
@@ -993,8 +995,15 @@ def _get_metric_history():
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id,
+        request_message.metric_key,
+        request_message.max_results,
+        request_message.page_token or None,
+    )
+    time.sleep(1.0)
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
+    response_message.next_page_token = metric_entities.token or ""
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

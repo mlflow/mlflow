@@ -855,16 +855,22 @@ class SqlAlchemyStore(AbstractStore):
         # NB: The SQLAlchemyStore does not currently support pagination for this API.
         # Raise if `page_token` is specified, as the functionality to support paged queries
         # is not implemented.
-        if page_token is not None:
-            raise MlflowException(
-                "The SQLAlchemyStore backend does not support pagination for the "
-                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be "
-                "`None`."
-            )
+        # if page_token is not None:
+        #     raise MlflowException(
+        #         "The SQLAlchemyStore backend does not support pagination for the "
+        #         f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be
+        #         "`None`."
+        #     )
 
+        # Pretend SQlALchemyStore supports pagination
+        start = 0 if page_token is None else int(page_token)
+        max_results = max_results or 10
+        end = start + max_results
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
-            return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
+            all_metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
+            metrics = all_metrics[start:end]
+            next_token = None if end >= len(all_metrics) else str(end)
+            return PagedList([metric.to_mlflow_entity() for metric in metrics], next_token)
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)
