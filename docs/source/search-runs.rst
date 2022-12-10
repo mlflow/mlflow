@@ -35,12 +35,19 @@ Example Expressions
 
     attributes.status = "FINISHED"
 
-
 - Search for all failed runs.
 
   .. code-block:: sql
 
     attributes.status = "FAILED"
+
+- Search for runs created after UNIX timestamp ``1670628787527``.
+
+  .. code-block:: sql
+
+    attributes.created > 1670628787527
+    attributes.Created > 1670628787527
+    attributes.start_time > 1670628787527
 
 - Search for the subset of runs with F1 score greater than 0.5.
 
@@ -71,6 +78,9 @@ Example Expressions
   .. code-block:: sql
 
     attributes.`run_name` IN ('alpha', 'beta', 'gamma')
+    attributes.`run name` IN ('alpha', 'beta', 'gamma')
+    attributes.`Run name` IN ('alpha', 'beta', 'gamma')
+    attributes.`Run Name` IN ('alpha', 'beta', 'gamma')
 
 - Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
 
@@ -124,6 +134,8 @@ Run Attributes
 ~~~~~~~~~~~~~~
 
 You can search using the following run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``run_id``, ``run_name``, ``status``, ``artifact_uri``, ``user_id``, ``start_time`` and ``end_time``. The ``run_id``, ``run_name``, ``status``, ``user_id`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
+
+``Run name``, ``Run Name`` and ``run name`` are aliases for ``run_name``. ``created`` and ``Created`` are aliases for ``start_time``.
 
 .. note::
 
