@@ -17,9 +17,18 @@ from mlflow.types.schema import Schema, TensorSpec
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc import spark_udf
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from tests.helper_functions import pyfunc_serve_and_score_model, expect_status_code
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    expect_status_code,
+    _is_available_on_pypi,
+)
 
 from pyspark.sql.functions import struct
+
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture
@@ -358,6 +367,7 @@ def test_scoring_server_successfully_on_single_multidim_input_model(
             model_uri=os.path.abspath(model_path),
             data=input_data,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
         )
         expect_status_code(response_records_content_type, 200)
 
@@ -387,5 +397,6 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
             model_uri=os.path.abspath(model_path),
             data=input_data,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
         )
         expect_status_code(response_records_content_type, 200)

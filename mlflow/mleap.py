@@ -10,6 +10,7 @@ NOTE:
 """
 import logging
 import os
+import pathlib
 import sys
 import traceback
 
@@ -20,6 +21,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils import reraise
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.annotations import keyword_only
 
 FLAVOR_NAME = "mleap"
@@ -241,7 +243,15 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
-    model_path = f"file:{mleap_datapath_full}"
+    if os.name == "nt":
+        # NB: On Windows, MLeap requires the "file://" prefix in order to correctly
+        # parse the model data path, even though the result is not a correct URI.
+        # None of "file:", "file:/", or "file:///", which would be canonically correct,
+        # work properly
+        model_path = "file://" + str(pathlib.Path(mleap_datapath_full).as_posix())
+    else:
+        model_path = path_to_local_file_uri(mleap_datapath_full)
+
     try:
         spark_model.serializeToBundle(path=model_path, dataset=dataset)
     except Py4JError:

@@ -52,9 +52,20 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
-    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
+    _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
+    _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
+    _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
+    NUMERIC_ATTRIBUTES = set(
+        list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
+    )
+    VALID_SEARCH_ATTRIBUTE_KEYS = set(
+        RunInfo.get_searchable_attributes()
+        + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
+        + list(_ALTERNATE_STRING_ATTRIBUTES)
+    )
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(
+        RunInfo.get_orderable_attributes() + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
+    )
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = {"metrics"}
     _PARAM_IDENTIFIER = "parameter"
@@ -151,6 +162,14 @@ class SearchUtils:
             MSSQL: mssql_comparison_func,
             MYSQL: mysql_comparison_func,
         }[dialect]
+
+    @staticmethod
+    def translate_key_alias(key):
+        if key in ["created", "Created"]:
+            return "start_time"
+        if key in ["run name", "Run name", "Run Name"]:
+            return "run_name"
+        return key
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -428,6 +447,8 @@ class SearchUtils:
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
+        key = SearchUtils.translate_key_alias(key)
+
         if cls.is_metric(key_type, comparator):
             lhs = run.data.metrics.get(key, None)
             value = float(value)
@@ -546,6 +567,7 @@ class SearchUtils:
     def _get_value_for_sort(cls, run, key_type, key, ascending):
         """Returns a tuple suitable to be used as a sort key for runs."""
         sort_value = None
+        key = SearchUtils.translate_key_alias(key)
         if key_type == cls._METRIC_IDENTIFIER:
             sort_value = run.data.metrics.get(key)
         elif key_type == cls._PARAM_IDENTIFIER:

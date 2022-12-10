@@ -517,11 +517,7 @@ def path_to_local_file_uri(path):
     """
     Convert local filesystem path to local file uri.
     """
-    path = pathname2url(path)
-    if path == posixpath.abspath(path):
-        return f"file://{path}"
-    else:
-        return f"file:{path}"
+    return pathlib.Path(os.path.abspath(path)).as_uri()
 
 
 def path_to_local_sqlite_uri(path):
