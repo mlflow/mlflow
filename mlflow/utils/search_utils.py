@@ -247,8 +247,7 @@ class SearchUtils:
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_attributes)
+                f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
             )
         return {"type": identifier, "key": key}
 
@@ -489,12 +488,12 @@ class SearchUtils:
             parsed = sqlparse.parse(order_by)
         except Exception:
             raise MlflowException(
-                "Error on parsing order_by clause '{}'".format(order_by),
+                f"Error on parsing order_by clause '{order_by}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if len(parsed) != 1 or not isinstance(parsed[0], Statement):
             raise MlflowException(
-                "Invalid order_by clause '{}'. Could not be parsed.".format(order_by),
+                f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
@@ -520,7 +519,7 @@ class SearchUtils:
             token_value = cls.ORDER_BY_KEY_TIMESTAMP + " " + statement.tokens[-1].value
         else:
             raise MlflowException(
-                "Invalid order_by clause '{}'. Could not be parsed.".format(order_by),
+                f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return token_value
@@ -532,14 +531,14 @@ class SearchUtils:
         tokens = shlex.split(token_value.replace("`", '"'))
         if len(tokens) > 2:
             raise MlflowException(
-                "Invalid order_by clause '{}'. Could not be parsed.".format(order_by),
+                f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif len(tokens) == 2:
             order_token = tokens[1].lower()
             if order_token not in cls.VALID_ORDER_BY_TAGS:
                 raise MlflowException(
-                    "Invalid ordering key in order_by clause '{}'.".format(order_by),
+                    f"Invalid ordering key in order_by clause '{order_by}'.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             is_ascending = order_token == cls.ASC_OPERATOR
@@ -558,8 +557,8 @@ class SearchUtils:
         token_value = token_value.strip()
         if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
             raise MlflowException(
-                "Invalid order by key '{}' specified. Valid keys ".format(token_value)
-                + "are '{}'".format(cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
+                f"Invalid order by key '{token_value}' specified. Valid keys "
+                f"are '{cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return token_value, is_ascending
@@ -716,9 +715,7 @@ class SearchUtils:
         ):
             raise MlflowException(
                 "While parsing a list in the query, expected string value, punctuation, "
-                "or whitespace, but got different type in list: {value_token}".format(
-                    value_token=value_token
-                ),
+                f"or whitespace, but got different type in list: {value_token}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -789,8 +786,7 @@ class SearchExperimentsUtils(SearchUtils):
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_attributes)
+                f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
             )
         return {"type": identifier, "key": key}
 
@@ -1024,8 +1020,7 @@ class SearchModelUtils(SearchUtils):
 
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_attributes)
+                f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
             )
 
         key = cls._trim_backticks(cls._strip_quotes(key))
@@ -1158,8 +1153,7 @@ class SearchModelVersionUtils(SearchUtils):
 
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_attributes)
+                f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
             )
 
         key = cls._trim_backticks(cls._strip_quotes(key))

@@ -54,8 +54,8 @@ class PluginDeploymentClient(BaseDeploymentClient):
 def run_local(name, model_uri, flavor=None, config=None):
     # pylint: disable-next=print-function
     print(
-        "Deployed locally at the key {} using the model from {}. ".format(name, model_uri)
-        + "It's flavor is {} and config is {}".format(flavor, config)
+        f"Deployed locally at the key {name} using the model from {model_uri}. "
+        f"It's flavor is {flavor} and config is {config}"
     )
 
 

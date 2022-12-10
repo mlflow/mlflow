@@ -127,7 +127,7 @@ def test_model_save_load(pd_model, model_path):
 def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucket):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -329,7 +329,7 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
     mlflow.paddle.save_model(pd_model=model, path=model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -410,9 +410,7 @@ def test_model_retrain_built_in_high_level_api(
     error_model_type = type(error_model)
     with pytest.raises(
         TypeError,
-        match="Invalid object type `{}` for `model`, must be `paddle.Model`".format(
-            error_model_type
-        ),
+        match=f"Invalid object type `{error_model_type}` for `model`, must be `paddle.Model`",
     ):
         mlflow.paddle.load_model(model_uri=model_retrain_path, model=error_model)
 

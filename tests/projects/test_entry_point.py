@@ -97,7 +97,7 @@ def test_path_parameter():
             with TempDir() as tmp:
                 dst_dir = tmp.path()
                 file_to_download = "images.tgz"
-                download_path = "{}/{}".format(dst_dir, file_to_download)
+                download_path = f"{dst_dir}/{file_to_download}"
                 download_uri_mock.return_value = download_path
                 params, _ = entry_point.compute_parameters(
                     user_parameters={"path": os.path.join(prefix, file_to_download)},

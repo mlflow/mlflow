@@ -145,9 +145,7 @@ class Settings:
         self._update(**kwargs)
 
     def __repr__(self):
-        values = ", ".join(
-            ["{}={!r}".format(key, value) for key, value in sorted(_iteritems(self.__dict__))]
-        )
+        values = ", ".join([f"{key}={value!r}" for key, value in sorted(_iteritems(self.__dict__))])
         return "{}({})".format(type(self).__name__, values)
 
     def __eq__(self, other):

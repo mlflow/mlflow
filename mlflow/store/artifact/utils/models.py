@@ -27,12 +27,8 @@ def _get_latest_model_version(client, name, stage):
     """
     latest = client.get_latest_versions(name, None if stage is None else [stage])
     if len(latest) == 0:
-        stage_str = "" if stage is None else " and stage '{stage}'".format(stage=stage)
-        raise MlflowException(
-            "No versions of model with name '{name}'{stage_str} found".format(
-                name=name, stage_str=stage_str
-            )
-        )
+        stage_str = "" if stage is None else f" and stage '{stage}'"
+        raise MlflowException(f"No versions of model with name '{name}'{stage_str} found")
     return max(int(x.version) for x in latest)
 
 

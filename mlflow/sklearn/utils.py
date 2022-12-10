@@ -715,7 +715,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     elif max_tuning_runs == 1:
         logging_phrase = "the best run"
     else:
-        logging_phrase = "the {} best runs".format(max_tuning_runs)
+        logging_phrase = f"the {max_tuning_runs} best runs"
 
     # Set logging statement for runs to be omitted.
     if rest <= 0:
@@ -723,7 +723,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     elif rest == 1:
         omitting_phrase = "one run"
     else:
-        omitting_phrase = "{} runs".format(rest)
+        omitting_phrase = f"{rest} runs"
 
     _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
 
@@ -782,12 +782,9 @@ def _create_child_runs_for_parameter_search(
         if rank_column_name not in cv_results_df.columns.values:
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
-                "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs,
-                    rank_column_name,
-                )
-                + " You can choose not to limit the number of child runs created by"
-                + " setting `max_tuning_runs=None`."
+                f"Top {max_tuning_runs} child runs will be created based on ordering in "
+                f"{rank_column_name} column.  You can choose not to limit the number of "
+                "child runs created by setting `max_tuning_runs=None`."
             )
         cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
         # Log how many child runs will be created vs omitted.

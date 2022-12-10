@@ -1094,7 +1094,7 @@ def _log_model():
 
     if missing_fields:
         raise MlflowException(
-            "Model json is missing mandatory fields: {}".format(missing_fields),
+            f"Model json is missing mandatory fields: {missing_fields}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     _get_tracking_store().record_logged_model(
@@ -1557,7 +1557,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
-    return ["/api/2.0{}".format(base_path), _add_static_prefix("/ajax-api/2.0{}".format(base_path))]
+    return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
 
 
 def get_handler(request_class):

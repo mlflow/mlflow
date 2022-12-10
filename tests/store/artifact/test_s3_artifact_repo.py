@@ -20,7 +20,7 @@ from unittest import mock
 
 @pytest.fixture
 def s3_artifact_root(mock_s3_bucket):
-    return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    return f"s3://{mock_s3_bucket}"
 
 
 @pytest.fixture(autouse=True)

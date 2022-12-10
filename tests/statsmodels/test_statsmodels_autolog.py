@@ -157,7 +157,7 @@ def test_statsmodels_autolog_works_after_exception():
 
     run = get_latest_run()
     run_id = run.info.run_id
-    loaded_model = mlflow.statsmodels.load_model("runs:/{}/model".format(run_id))
+    loaded_model = mlflow.statsmodels.load_model(f"runs:/{run_id}/model")
 
     model_predictions = model_with_results.model.predict(model_with_results.inference_dataframe)
     loaded_model_predictions = loaded_model.predict(model_with_results.inference_dataframe)
@@ -193,7 +193,7 @@ def test_statsmodels_autolog_loads_model_from_artifact():
         model_with_results = algorithm()
         run = get_latest_run()
         run_id = run.info.run_id
-        loaded_model = mlflow.statsmodels.load_model("runs:/{}/model".format(run_id))
+        loaded_model = mlflow.statsmodels.load_model(f"runs:/{run_id}/model")
 
         if hasattr(model_with_results.model, "predict"):
 

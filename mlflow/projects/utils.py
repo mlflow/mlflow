@@ -171,9 +171,7 @@ def _fetch_project(uri, version=None):
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
-        raise ExecutionException(
-            "Could not find subdirectory {} of {}".format(subdirectory, dst_dir)
-        )
+        raise ExecutionException(f"Could not find subdirectory {subdirectory} of {dst_dir}")
     return res
 
 

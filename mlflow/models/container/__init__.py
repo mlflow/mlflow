@@ -112,7 +112,7 @@ def _install_pyfunc_deps(
                 os.makedirs(env_path_dst_dir)
             shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
             if env_manager == em.CONDA:
-                conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path_dst)
+                conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
                     raise Exception("Failed to create model environment.")
                 activate_cmd = ["source /miniconda/bin/activate custom_env"]
@@ -138,7 +138,7 @@ def _install_pyfunc_deps(
         install_mlflow_cmd = [
             "pip install /opt/mlflow/."
             if _container_includes_mlflow_source()
-            else "pip install mlflow=={}".format(MLFLOW_VERSION)
+            else f"pip install mlflow=={MLFLOW_VERSION}"
         ]
         if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
             raise Exception("Failed to install mlflow into the model environment.")

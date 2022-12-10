@@ -147,7 +147,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
-        raise Exception("Yaml file '{}' exists as '{}".format(file_path, yaml_file_name))
+        raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
 
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
@@ -205,7 +205,7 @@ def read_yaml(root, file_name):
     """
     if not exists(root):
         raise MissingConfigException(
-            "Cannot read '{}'. Parent dir '{}' does not exist.".format(file_name, root)
+            f"Cannot read '{file_name}'. Parent dir '{root}' does not exist."
         )
 
     file_path = os.path.join(root, file_name)
@@ -383,9 +383,7 @@ def get_relative_path(root_path, target_path):
     :return: Path relative to root_path
     """
     if len(root_path) > len(target_path):
-        raise Exception(
-            "Root path '{}' longer than target path '{}'".format(root_path, target_path)
-        )
+        raise Exception(f"Root path '{root_path}' longer than target path '{target_path}'")
     common_prefix = os.path.commonprefix([root_path, target_path])
     return os.path.relpath(target_path, common_prefix)
 

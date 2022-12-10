@@ -31,15 +31,15 @@ def get_conda_command(conda_env_name):
         activate_conda_env = [
             "source {}/../etc/profile.d/conda.sh".format(os.path.dirname(conda_path))
         ]
-        activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
+        activate_conda_env += [f"conda activate {conda_env_name} 1>&2"]
     else:
         activate_path = get_conda_bin_executable("activate")
         # in case os name is not 'nt', we are not running on windows. It introduces
         # bash command otherwise.
         if os.name != "nt":
-            return ["source {} {} 1>&2".format(activate_path, conda_env_name)]
+            return [f"source {activate_path} {conda_env_name} 1>&2"]
         else:
-            return ["conda activate %s" % (conda_env_name)]
+            return [f"conda activate {conda_env_name}"]
     return activate_conda_env
 
 
@@ -242,13 +242,13 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         process._exec_cmd([conda_path, "--help"], throw_on_error=False)
     except OSError:
         raise ExecutionException(
-            "Could not find Conda executable at {}. "
+            f"Could not find Conda executable at {conda_path}. "
             "Ensure Conda is installed as per the instructions at "
             "https://conda.io/projects/conda/en/latest/"
             "user-guide/install/index.html. "
             "You can also configure MLflow to look for a specific "
-            "Conda executable by setting the {} environment variable "
-            "to the path of the Conda executable".format(conda_path, MLFLOW_CONDA_HOME)
+            f"Conda executable by setting the {MLFLOW_CONDA_HOME} environment variable "
+            "to the path of the Conda executable"
         )
 
     try:
@@ -256,14 +256,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except OSError:
         raise ExecutionException(
-            "You have set the env variable {0}, but {1} does not exist or "
-            "it is not working properly. Note that {1} and the conda executable need to be "
+            f"You have set the env variable {MLFLOW_CONDA_CREATE_ENV_CMD}, but "
+            f"{conda_env_create_path} does not exist or it is not working properly. "
+            f"Note that {conda_env_create_path} and the conda executable need to be "
             "in the same conda environment. You can change the search path by"
-            "modifying the env variable {2}".format(
-                MLFLOW_CONDA_CREATE_ENV_CMD,
-                conda_env_create_path,
-                MLFLOW_CONDA_HOME,
-            )
+            f"modifying the env variable {MLFLOW_CONDA_HOME}"
         )
 
     conda_extra_env_vars = _get_conda_extra_env_vars(env_root_dir)
