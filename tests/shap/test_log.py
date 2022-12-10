@@ -31,6 +31,13 @@ def shap_model():
     return shap.Explainer(model.predict, X, algorithm="permutation")
 
 
+def get_housing_data():
+
+    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+
+    return X[:1000], y[:1000]
+
+
 def test_sklearn_log_explainer():
     """
     Tests mlflow.shap log_explainer with mlflow serialization of the underlying model
@@ -40,7 +47,7 @@ def test_sklearn_log_explainer():
 
         run_id = run.info.run_id
 
-        X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+        X, y = get_housing_data()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -77,7 +84,7 @@ def test_sklearn_log_explainer_self_serialization():
 
         run_id = run.info.run_id
 
-        X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+        X, y = get_housing_data()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -117,7 +124,7 @@ def test_sklearn_log_explainer_pyfunc():
 
         run_id = run.info.run_id
 
-        X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+        X, y = get_housing_data()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -157,7 +164,7 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 def test_load_pyfunc(tmpdir):
 
-    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+    X, y = get_housing_data()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
@@ -315,7 +322,7 @@ def create_identity_function():
 
 
 def test_pyfunc_serve_and_score():
-    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+    X, y = get_housing_data()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
