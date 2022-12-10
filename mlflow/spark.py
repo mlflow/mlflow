@@ -268,7 +268,7 @@ def log_model(
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                "runs:/{}/{}".format(run_id, artifact_path),
+                f"runs:/{run_id}/{artifact_path}",
                 registered_model_name,
                 await_registration_for,
             )
@@ -282,7 +282,7 @@ def _tmp_path(dfs_tmp):
 def _mlflowdbfs_path(run_id, artifact_path):
     if artifact_path.startswith("/"):
         raise MlflowException(
-            "artifact_path should be relative, found: {}".format(artifact_path),
+            f"artifact_path should be relative, found: {artifact_path}",
             INVALID_PARAMETER_VALUE,
         )
     return "{}:///artifacts?run_id={}&path=/{}".format(

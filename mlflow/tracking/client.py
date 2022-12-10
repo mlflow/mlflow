@@ -2753,11 +2753,7 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    "Could not find any model version for {} stage".format(
-                        stage,
-                    )
-                )
+                raise MlflowException(f"Could not find any model version for {stage} stage")
             version = latest_versions[0].version
 
         self._get_registry_client().set_model_version_tag(name, version, key, value)
@@ -2832,10 +2828,6 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    "Could not find any model version for {} stage".format(
-                        stage,
-                    )
-                )
+                raise MlflowException("Could not find any model version for {stage} stage")
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)

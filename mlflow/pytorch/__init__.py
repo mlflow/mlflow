@@ -629,9 +629,7 @@ def _load_model(path, **kwargs):
                 raise MlflowException(
                     message=(
                         "Failed to import the pickle module that was used to save the PyTorch"
-                        " model. Pickle module name: `{pickle_module_name}`".format(
-                            pickle_module_name=pickle_module_name
-                        )
+                        f" model. Pickle module name: `{pickle_module_name}`"
                     ),
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 ) from exc

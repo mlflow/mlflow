@@ -103,8 +103,8 @@ def test_plugin_raising_error():
 
 def test_target_uri_parsing():
     deployments.get_deploy_client(f_target)
-    deployments.get_deploy_client("{target}:/somesuffix".format(target=f_target))
-    deployments.get_deploy_client("{target}://somesuffix".format(target=f_target))
+    deployments.get_deploy_client(f"{f_target}:/somesuffix")
+    deployments.get_deploy_client(f"{f_target}://somesuffix")
 
 
 def test_explain_with_no_target_implementation():

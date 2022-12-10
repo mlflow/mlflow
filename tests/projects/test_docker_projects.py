@@ -26,7 +26,7 @@ from tests.projects.utils import docker_example_base_image  # pylint: disable=un
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
-        return "{}#{}".format(base_uri, subdirectory)
+        return f"{base_uri}#{subdirectory}"
     return base_uri
 
 
@@ -187,7 +187,7 @@ def test_docker_mount_local_artifact_uri(
 
     docker_command = _get_docker_command(image, active_run)
 
-    docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
+    docker_volume_expected = f"-v {host_artifact_uri}:{container_artifact_uri}"
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
@@ -276,7 +276,7 @@ def test_docker_run_args(docker_args):
     docker_command = _get_docker_command(image, active_run, docker_args, None, None)
 
     for flag, value in docker_args.items():
-        assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)
+        assert docker_command[docker_command.index(value) - 1] == f"--{flag}"
 
 
 def test_docker_build_image_local(tmp_path):

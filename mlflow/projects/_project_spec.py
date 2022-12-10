@@ -233,7 +233,7 @@ class EntryPoint:
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
         command_with_params = self.command.format(**params)
         command_arr = [command_with_params]
-        command_arr.extend(["--{} {}".format(key, value) for key, value in extra_params.items()])
+        command_arr.extend([f"--{key} {value}" for key, value in extra_params.items()])
         return " ".join(command_arr)
 
     @staticmethod
@@ -269,7 +269,7 @@ class Parameter:
                     "directory was found." % (user_param_value, self.name)
                 )
             return os.path.abspath(local_path)
-        target_sub_dir = "param_{}".format(key_position)
+        target_sub_dir = f"param_{key_position}"
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
         return artifact_utils._download_artifact_from_uri(

@@ -27,16 +27,14 @@ def _get_flavor_configuration(model_path, flavor_name):
     model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_configuration_path):
         raise MlflowException(
-            'Could not find an "{model_file}" configuration file at "{model_path}"'.format(
-                model_file=MLMODEL_FILE_NAME, model_path=model_path
-            ),
+            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
             RESOURCE_DOES_NOT_EXIST,
         )
 
     model_conf = Model.load(model_configuration_path)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            f'Model does not have the "{flavor_name}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
     conf = model_conf.flavors[flavor_name]
@@ -60,9 +58,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
         )
     except Exception as ex:
         raise MlflowException(
-            'Failed to download an "{model_file}" model file from "{model_uri}": {ex}'.format(
-                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex
-            ),
+            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}": {ex}',
             RESOURCE_DOES_NOT_EXIST,
         )
     return _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name)
@@ -72,7 +68,7 @@ def _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name):
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            f'Model does not have the "{flavor_name}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
     return model_conf.flavors[flavor_name]
@@ -120,7 +116,7 @@ def _add_code_to_system_path(code_path):
 def _validate_and_prepare_target_save_path(path):
     if os.path.exists(path) and any(os.scandir(path)):
         raise MlflowException(
-            message="Path '{}' already exists and is not empty".format(path),
+            message=f"Path '{path}' already exists and is not empty",
             error_code=RESOURCE_ALREADY_EXISTS,
         )
 

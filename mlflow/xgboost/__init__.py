@@ -546,12 +546,12 @@ def autolog(
                         # Only set a label the first time a bar for a particular class is plotted to
                         # avoid duplicate legend entries. If we were to set a label for every bar,
                         # the legend would contain `num_features` labels for each class.
-                        bar.set_label("Class {}".format(class_idx))
+                        bar.set_label(f"Class {class_idx}")
 
             ax.set_yticks(feature_ylocs)
             ax.set_yticklabels(features)
             ax.set_xlabel("Importance")
-            ax.set_title("Feature Importance ({})".format(importance_type))
+            ax.set_title(f"Feature Importance ({importance_type})")
             if label_classes_on_plot:
                 ax.legend()
             fig.tight_layout()
@@ -559,7 +559,7 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -652,7 +652,7 @@ def autolog(
             if imp is not None:
                 tmpdir = tempfile.mkdtemp()
                 try:
-                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                    filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)

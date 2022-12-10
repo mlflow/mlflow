@@ -101,7 +101,7 @@ class TestParseDbUri(unittest.TestCase):
             assert target_db_type == parsed_db_type
             # try each of the popular drivers (per SQLAlchemy's dialect pages)
             for driver in drivers:
-                uri = "{}+{}://...".format(target_db_type, driver)
+                uri = f"{target_db_type}+{driver}://..."
                 parsed_db_type = extract_db_type_from_uri(uri)
                 assert target_db_type == parsed_db_type
 
@@ -1901,7 +1901,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1}/{r1}/artifacts'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
@@ -1916,7 +1916,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e2}/{r1}/artifacts'"
         assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.artifact_uri = 'random_artifact_path'"
@@ -1927,7 +1927,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
+        filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
@@ -1950,7 +1950,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
-                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
+                self._search([e1, e2], f"attribute.{k} = '{v}'")
 
     def test_search_full(self):
         experiment_id = self._experiment_factory("search_params")

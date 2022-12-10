@@ -452,7 +452,7 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
-    resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
+    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     if not resp.ok:
         return False
 

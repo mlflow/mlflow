@@ -92,7 +92,7 @@ def test_render_and_merge_yaml(tmpdir):
             test_3: {{ TEST_VAR_2 }}
             test_4: {{ TEST_VAR_4 }}
             """
-            + r"test_5: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
+            + rf"test_5: {{{{ ('{json_file}' | from_json)['key'] }}}}"
         )
     context_yaml_file = random_file("yaml")
     with open(tmpdir / context_yaml_file, "w") as f:
@@ -102,7 +102,7 @@ def test_render_and_merge_yaml(tmpdir):
             TEST_VAR_1: ["a", 1.2]
             TEST_VAR_2: {"a": 2}
             """
-            + r"TEST_VAR_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
+            + rf"TEST_VAR_4: {{{{ ('{json_file}' | from_json)['key'] }}}}"
         )
 
     with tmpdir.as_cwd():

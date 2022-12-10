@@ -218,9 +218,7 @@ name: mlflow-env
         )
         mock_warning.assert_called_once_with(
             "The following conda dependencies have been excluded from the environment file: "
-            "python={python_version}, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0.".format(
-                python_version=PYTHON_VERSION
-            )
+            f"python={PYTHON_VERSION}, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
         )
 
     conda_yml_file.write_text(

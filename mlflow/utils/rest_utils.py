@@ -162,7 +162,7 @@ def http_request(
         kwargs["auth"] = AWSSigV4("execute-api")
 
     cleaned_hostname = strip_suffix(hostname, "/")
-    url = "{}{}".format(cleaned_hostname, endpoint)
+    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -182,7 +182,7 @@ def http_request(
             " to a larger value."
         )
     except Exception as e:
-        raise MlflowException("API request to {} failed with exception {}".format(url, e))
+        raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
 def _can_parse_as_json_object(string):
@@ -239,7 +239,7 @@ def augmented_raise_for_status(response):
 
 
 def _get_path(path_prefix, endpoint_path):
-    return "{}{}".format(path_prefix, endpoint_path)
+    return f"{path_prefix}{endpoint_path}"
 
 
 def extract_api_info_for_service(service, path_prefix):

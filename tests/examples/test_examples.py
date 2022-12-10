@@ -24,7 +24,7 @@ def find_python_env_yaml(directory: Path) -> Path:
 def replace_mlflow_with_dev_version(yml_path: Path) -> None:
     old_src = yml_path.read_text()
     mlflow_dir = Path(mlflow.__path__[0]).parent
-    new_src = re.sub(r"- mlflow.*\n", "- {}\n".format(mlflow_dir), old_src)
+    new_src = re.sub(r"- mlflow.*\n", f"- {mlflow_dir}\n", old_src)
     yml_path.write_text(new_src)
 
 
