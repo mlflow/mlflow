@@ -2235,7 +2235,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="attributes.Created > 2",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([])
+        assert result == []
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
