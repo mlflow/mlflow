@@ -239,9 +239,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     mleap_datapath_sub = os.path.join("mleap", "model")
     mleap_datapath_full = os.path.join(path, mleap_datapath_sub)
     if os.path.exists(mleap_path_full):
-        raise Exception(
-            "MLeap model data path already exists at: {path}".format(path=mleap_path_full)
-        )
+        raise Exception(f"MLeap model data path already exists at: {mleap_path_full}")
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)

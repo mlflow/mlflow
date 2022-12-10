@@ -77,7 +77,7 @@ def gluon_random_data_run(log_models=True):
 def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     data = gluon_random_data_run.data
     train_prefix = get_train_prefix()
-    assert "{} accuracy".format(train_prefix) in data.metrics
+    assert f"{train_prefix} accuracy" in data.metrics
     assert "validation accuracy" in data.metrics
 
     # In mxnet >= 1.6.0, `Estimator` monitors `loss` only when `train_metrics` is specified.
@@ -85,7 +85,7 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     # estimator.Estimator(loss=SomeLoss())  # monitors `loss`
     # estimator.Estimator(loss=SomeLoss(), train_metrics=SomeMetric()) # doesn't monitor `loss`
     if is_mxnet_older_than_1_6_0():
-        assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
+        assert f"{train_prefix} softmaxcrossentropyloss" in data.metrics
         assert "validation softmaxcrossentropyloss" in data.metrics
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
@@ -118,8 +118,8 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
     train_prefix = get_train_prefix()
-    assert "{} accuracy".format(train_prefix) in original_metrics
-    assert "{} accuracy".format(train_prefix) in patched_metrics_data
+    assert f"{train_prefix} accuracy" in original_metrics
+    assert f"{train_prefix} accuracy" in patched_metrics_data
 
 
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):

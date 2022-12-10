@@ -307,7 +307,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
 def test_model_load_from_remote_uri_succeeds(
     sklearn_knn_model, main_scoped_model_class, tmpdir, mock_s3_bucket, iris_data
 ):
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_repo = S3ArtifactRepository(artifact_root)
 
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -496,7 +496,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         preexec_fn=os.setsid,
     )
     _, stderr = process.communicate()
-    assert process.wait() == 0, "stderr = \n\n{}\n\n".format(stderr)
+    assert process.wait() == 0, f"stderr = \n\n{stderr}\n\n"
     with open(output_json_path) as f:
         result_df = pd.DataFrame(data=json.load(f)["predictions"])
     np.testing.assert_array_equal(

@@ -23,7 +23,7 @@ def _user_args_to_dict(user_list):
                 "``--config key=value``",
             ) from exc
         if name in user_dict:
-            raise click.ClickException("Repeated parameter: '{}'".format(name))
+            raise click.ClickException(f"Repeated parameter: '{name}'")
         user_dict[name] = value
     return user_dict
 
@@ -42,7 +42,7 @@ target_details = click.option(
     "--target",
     "-t",
     required=True,
-    help="""
+    help=f"""
                                    Deployment target URI. Run
                                    `mlflow deployments help --target-name <target-name>` for
                                    more details on the supported URI format and config options
@@ -52,9 +52,7 @@ target_details = click.option(
                                    See all supported deployment targets and installation
                                    instructions at
                                    https://mlflow.org/docs/latest/plugins.html#community-plugins
-                                   """.format(
-        supported_targets_msg=supported_targets_msg
-    ),
+                                   """,
 )
 deployment_name = click.option("--name", "name", required=True, help="Name of the deployment")
 optional_deployment_name = click.option("--name", "name", help="Name of the deployment")
@@ -85,7 +83,7 @@ optional_endpoint_param = click.option("--endpoint", help="Name of the endpoint"
 
 @click.group(
     "deployments",
-    help="""
+    help=f"""
     Deploy MLflow models to custom targets.
     Run `mlflow deployments help --target-name <target-name>` for
     more details on the supported URI format and config options for a given target.
@@ -97,9 +95,7 @@ optional_endpoint_param = click.option("--endpoint", help="Name of the endpoint"
     You can also write your own plugin for deployment to a custom target. For instructions on
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
-""".format(
-        supported_targets_msg=supported_targets_msg
-    ),
+""",
 )
 def commands():
     """
@@ -213,7 +209,7 @@ def delete_deployment(target, name, config, endpoint):
         else:
             client.delete_deployment(name)
 
-    click.echo("Deployment {} is deleted".format(name))
+    click.echo(f"Deployment {name} is deleted")
 
 
 @commands.command("list")
@@ -231,7 +227,7 @@ def list_deployment(target, endpoint):
         ids = client.list_deployments(endpoint=endpoint)
     else:
         ids = client.list_deployments()
-    click.echo("List of all deployments:\n{}".format(ids))
+    click.echo(f"List of all deployments:\n{ids}")
 
 
 @commands.command("get")
@@ -251,7 +247,7 @@ def get_deployment(target, name, endpoint):
     else:
         desc = client.get_deployment(name)
     for key, val in desc.items():
-        click.echo("{}: {}".format(key, val))
+        click.echo(f"{key}: {val}")
     click.echo("\n")
 
 
@@ -415,7 +411,7 @@ def update_endpoint(target, endpoint, config):
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
     client.update_endpoint(endpoint, config=config_dict)
-    click.echo("\nEndpoint {} is updated".format(endpoint))
+    click.echo(f"\nEndpoint {endpoint} is updated")
 
 
 @commands.command("delete-endpoint")
@@ -427,7 +423,7 @@ def delete_endpoint(target, endpoint):
     """
     client = interface.get_deploy_client(target)
     client.delete_endpoint(endpoint)
-    click.echo("\nEndpoint {} is deleted".format(endpoint))
+    click.echo(f"\nEndpoint {endpoint} is deleted")
 
 
 @commands.command("list-endpoints")
@@ -438,7 +434,7 @@ def list_endpoints(target):
     """
     client = interface.get_deploy_client(target)
     ids = client.list_endpoints()
-    click.echo("List of all endpoints:\n{}".format(ids))
+    click.echo(f"List of all endpoints:\n{ids}")
 
 
 @commands.command("get-endpoint")
@@ -451,5 +447,5 @@ def get_endpoint(target, endpoint):
     client = interface.get_deploy_client(target)
     desc = client.get_endpoint(endpoint)
     for key, val in desc.items():
-        click.echo("{}: {}".format(key, val))
+        click.echo(f"{key}: {val}")
     click.echo("\n")

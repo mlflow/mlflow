@@ -26,7 +26,7 @@ class DatabricksJobRunContext(RunContextProvider):
         workspace_url_fallback, workspace_id = databricks_utils.get_workspace_info_from_dbutils()
         tags = {
             MLFLOW_SOURCE_NAME: (
-                "jobs/{job_id}/run/{job_run_id}".format(job_id=job_id, job_run_id=job_run_id)
+                f"jobs/{job_id}/run/{job_run_id}"
                 if job_id is not None and job_run_id is not None
                 else None
             ),

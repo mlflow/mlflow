@@ -265,9 +265,7 @@ class BaseCard:
             rendered_table = (
                 styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
             )
-        return '<div style="max-height: 500px; overflow: scroll;">{src}</div>'.format(
-            src=rendered_table
-        )
+        return f'<div style="max-height: 500px; overflow: scroll;">{rendered_table}</div>'
 
 
 class FailureCard(BaseCard):

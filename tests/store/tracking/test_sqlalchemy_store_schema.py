@@ -48,14 +48,10 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
         assert generated_lines == expected_lines, (
             "Generated schema did not match expected schema. Generated schema had table "
-            "definition:\n{generated_table}\nExpected schema had table definition:"
-            "\n{expected_table}\nIf you intended to make schema changes, run "
-            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to "
-            "update the schema snapshot.".format(
-                generated_table=generated_schema_table,
-                expected_table=expected_schema_table,
-                expected_file=expected_schema_file,
-            )
+            f"definition:\n{generated_schema_table}\nExpected schema had table definition:"
+            f"\n{expected_schema_table}\nIf you intended to make schema changes, run "
+            f"'python tests/store/dump_schema.py {expected_schema_file}' from your checkout"
+            " of MLflow to update the schema snapshot."
         )
 
 

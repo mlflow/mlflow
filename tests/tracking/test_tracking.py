@@ -813,11 +813,11 @@ def test_search_runs():
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_search_runs_multiple_experiments():
-    experiment_ids = [mlflow.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
+    experiment_ids = [mlflow.create_experiment(f"exp__{exp_id}") for exp_id in range(1, 4)]
     for eid in experiment_ids:
         with mlflow.start_run(experiment_id=eid):
             mlflow.log_metric("m0", 1)
-            mlflow.log_metric("m_{}".format(eid), 2)
+            mlflow.log_metric(f"m_{eid}", 2)
 
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m0 > 0", ViewType.ALL)) == 3
 

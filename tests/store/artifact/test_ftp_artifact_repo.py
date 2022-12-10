@@ -371,7 +371,7 @@ def test_download_artifacts(ftp_mock):
         elif call_arg == empty_dir_path:
             return []
         else:
-            raise Exception("should never call nlst for non-directories {}".format(call_arg))
+            raise Exception(f"should never call nlst for non-directories {call_arg}")
 
     ftp_mock.nlst = MagicMock(side_effect=nlst_side_effect)
     repo.download_artifacts("model")

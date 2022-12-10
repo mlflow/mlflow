@@ -526,7 +526,7 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path
@@ -591,7 +591,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path

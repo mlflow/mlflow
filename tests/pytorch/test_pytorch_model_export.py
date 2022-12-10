@@ -342,7 +342,7 @@ def test_load_model_from_remote_uri_succeeds(
 ):
     mlflow.pytorch.save_model(sequential_model, model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)

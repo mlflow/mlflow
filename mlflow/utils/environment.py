@@ -234,7 +234,7 @@ def _mlflow_conda_env(
             conda_deps.append("pip")
 
     env = yaml.safe_load(_conda_header)
-    env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
+    env["dependencies"] = [f"python={PYTHON_VERSION}"]
     env["dependencies"] += conda_deps
     env["dependencies"].append({"pip": pip_deps})
     if additional_conda_channels is not None:
@@ -552,9 +552,9 @@ def _get_pip_install_mlflow():
     """
     mlflow_home = os.getenv("MLFLOW_HOME")
     if mlflow_home:  # dev version
-        return "pip install -e {} 1>&2".format(mlflow_home)
+        return f"pip install -e {mlflow_home} 1>&2"
     else:
-        return "pip install mlflow=={} 1>&2".format(VERSION)
+        return f"pip install mlflow=={VERSION} 1>&2"
 
 
 class Environment:

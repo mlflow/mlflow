@@ -183,10 +183,8 @@ class S3ArtifactRepository(ArtifactRepository):
         if not listed_object_path.startswith(artifact_path):
             raise MlflowException(
                 "The path of the listed S3 object does not begin with the specified"
-                " artifact path. Artifact path: {artifact_path}. Object path:"
-                " {object_path}.".format(
-                    artifact_path=artifact_path, object_path=listed_object_path
-                )
+                f" artifact path. Artifact path: {artifact_path}. Object path:"
+                f" {listed_object_path}."
             )
 
     def _download_file(self, remote_file_path, local_path):

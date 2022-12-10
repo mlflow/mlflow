@@ -163,7 +163,7 @@ def _build_block_list_xml(block_list):
         # Because block IDs are base64-encoded and base64 strings do not contain
         # XML special characters, we can safely insert the block ID directly into
         # the XML document
-        xml += "<Uncommitted>{}</Uncommitted>\n".format(block_id)
+        xml += f"<Uncommitted>{block_id}</Uncommitted>\n"
     xml += "</BlockList>"
     return xml
 
