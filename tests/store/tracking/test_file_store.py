@@ -1286,21 +1286,21 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             filter_string="attributes.start_time > 0",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert {r.info.run_id for r in result]} == {run_id1, run_id2}
+        assert {r.info.run_id for r in result} == {run_id1, run_id2}
 
         result = fs.search_runs(
             [exp_id],
             filter_string="attributes.created > 1",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == {run_id2}
+        assert [r.info.run_id for r in result] == [run_id2]
 
         result = fs.search_runs(
             [exp_id],
             filter_string="attributes.Created > 2",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-assert result == []
+        assert result == []
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
