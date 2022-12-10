@@ -1,28 +1,26 @@
 import os
 import shutil
+import tempfile
 import time
 import unittest
-
-import tempfile
-from unittest import mock
 import uuid
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
-    RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModelTag,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.model_registry.file_store import FileStore
-
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
-from mlflow.utils.file_utils import write_yaml, path_to_local_file_uri
-
+from mlflow.store.model_registry.file_store import FileStore
+from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
 from tests.helper_functions import random_int, random_str
 
 
