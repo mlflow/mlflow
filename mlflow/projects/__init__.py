@@ -406,9 +406,7 @@ def _parse_kubernetes_config(backend_config):
         kube_job_template = yaml_obj
         kube_config["kube-job-template"] = kube_job_template
     else:
-        raise ExecutionException(
-            "Could not find 'kube-job-template-path': {}".format(kube_job_template)
-        )
+        raise ExecutionException(f"Could not find 'kube-job-template-path': {kube_job_template}")
     if "kube-context" not in backend_config.keys():
         _logger.debug(
             "Could not find kube-context in backend_config."

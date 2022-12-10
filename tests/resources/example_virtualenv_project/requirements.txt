@@ -1,2 +1,2 @@
-mlflow
+/home/akira/akira/oss/mlflow
 scikit-learn==1.0.2

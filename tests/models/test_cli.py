@@ -138,7 +138,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
 
     model_uris = [
         "models:/{name}/{stage}".format(name="imlegit", stage="None"),
-        "runs:/{run_id}/model".format(run_id=run_id),
+        f"runs:/{run_id}/model",
     ]
     for model_uri in model_uris:
         with TempDir() as tpm:

@@ -222,7 +222,7 @@ class ArtifactRepository:
             raise MlflowException(
                 message=(
                     "The destination path for downloaded artifacts does not"
-                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)
+                    f" exist! Destination path: {dst_path}"
                 ),
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
@@ -230,7 +230,7 @@ class ArtifactRepository:
             raise MlflowException(
                 message=(
                     "The destination path for downloaded artifacts must be a directory!"
-                    " Destination path: {dst_path}".format(dst_path=dst_path)
+                    f" Destination path: {dst_path}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )

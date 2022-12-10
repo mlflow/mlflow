@@ -13,7 +13,7 @@ def test_import_mlflow(tmp_path):
     tmp_script = tmp_path.joinpath("test.sh")
     uid = uuid.uuid4().hex
     tmp_script.write_text(
-        """
+        f"""
 set -ex
 
 # Install mlflow without extra dependencies
@@ -29,9 +29,7 @@ python -c 'import mlflow'
 if [ -d "./mlruns" ]; then
     exit 1
 fi
-""".format(
-            uid=uid
-        )
+"""
     )
     tmp_script.chmod(0o777)
     workdir = "/app"

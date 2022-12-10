@@ -342,7 +342,7 @@ def test_load_model_from_remote_uri_succeeds(
 ):
     mlflow.pytorch.save_model(sequential_model, model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -900,7 +900,9 @@ def test_pyfunc_serve_and_score_transformers():
     scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
         predictions_format="ndarray"
     )
-    assert_array_almost_equal(scores, model(input_ids).detach().numpy(), rtol=1e-6)
+    assert_array_almost_equal(
+        scores, model(input_ids).detach().numpy(), rtol=1e-6  # pylint: disable=not-callable
+    )
 
 
 @pytest.fixture

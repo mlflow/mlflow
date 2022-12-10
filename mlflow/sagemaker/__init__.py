@@ -86,10 +86,8 @@ def _validate_deployment_flavor(model_config, flavor):
     if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
         raise MlflowException(
             message=(
-                "The specified flavor: `{flavor_name}` is not supported for deployment."
-                " Please use one of the supported flavors: {supported_flavor_names}".format(
-                    flavor_name=flavor, supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS
-                )
+                f"The specified flavor: `{flavor}` is not supported for deployment."
+                f" Please use one of the supported flavors: {SUPPORTED_DEPLOYMENT_FLAVORS}"
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -141,15 +139,15 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         "aws ecr get-login-password"
         " | docker login  --username AWS "
         "--password-stdin "
-        "{account}.dkr.ecr.{region}.amazonaws.com".format(account=account, region=region)
+        f"{account}.dkr.ecr.{region}.amazonaws.com"
     )
 
     os_command_separator = ";\n"
     if platform.system() == "Windows":
         os_command_separator = " && "
 
-    docker_tag_cmd = "docker tag {image} {fullname}".format(image=image, fullname=fullname)
-    docker_push_cmd = "docker push {}".format(fullname)
+    docker_tag_cmd = f"docker tag {image} {fullname}"
+    docker_push_cmd = f"docker push {fullname}"
 
     cmd = os_command_separator.join([docker_login_cmd, docker_tag_cmd, docker_push_cmd])
 
@@ -339,8 +337,9 @@ def _deploy(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's root directory."
-            ).format(MLMODEL_FILE_NAME),
+                f"Failed to find {MLMODEL_FILE_NAME} configuration within the specified model's "
+                "root directory."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
     model_config = Model.load(model_config_path)
@@ -360,15 +359,10 @@ def _deploy(
     if endpoint_exists and mode == DEPLOYMENT_MODE_CREATE:
         raise MlflowException(
             message=(
-                "You are attempting to deploy an application with name: {application_name} in"
-                " '{mode_create}' mode. However, an application with the same name already"
-                " exists. If you want to update this application, deploy in '{mode_add}' or"
-                " '{mode_replace}' mode.".format(
-                    application_name=app_name,
-                    mode_create=DEPLOYMENT_MODE_CREATE,
-                    mode_add=DEPLOYMENT_MODE_ADD,
-                    mode_replace=DEPLOYMENT_MODE_REPLACE,
-                )
+                f"You are attempting to deploy an application with name: {app_name} in"
+                f" '{DEPLOYMENT_MODE_CREATE}' mode. However, an application with the same name"
+                f" already exists. If you want to update this application, deploy in"
+                f" '{DEPLOYMENT_MODE_ADD}' or '{DEPLOYMENT_MODE_REPLACE}' mode."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -695,8 +689,9 @@ def deploy_transform_job(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's root directory."
-            ).format(MLMODEL_FILE_NAME),
+                f"Failed to find {MLMODEL_FILE_NAME} configuration within the specified model's"
+                " root directory."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
     model_config = Model.load(model_config_path)
@@ -718,10 +713,8 @@ def deploy_transform_job(
     if transform_job_exists:
         raise MlflowException(
             message=(
-                "You are attempting to deploy a batch transform job with name: {job_name}."
-                "However, a batch transform job with the same name already exists.".format(
-                    job_name=job_name
-                )
+                f"You are attempting to deploy a batch transform job with name: {job_name}."
+                "However, a batch transform job with the same name already exists."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -969,8 +962,9 @@ def push_model_to_sagemaker(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's root directory."
-            ).format(MLMODEL_FILE_NAME),
+                f"Failed to find {MLMODEL_FILE_NAME} configuration within the specified model's"
+                " root directory."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
     model_config = Model.load(model_config_path)
@@ -989,8 +983,8 @@ def push_model_to_sagemaker(
     if _does_model_exist(model_name=model_name, sage_client=sage_client):
         raise MlflowException(
             message=(
-                "You are attempting to create a Sagemaker model with name: {model_name}."
-                "However, a model with the same name already exists.".format(model_name=model_name)
+                f"You are attempting to create a Sagemaker model with name: {model_name}."
+                "However, a model with the same name already exists."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -1107,9 +1101,9 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
     _logger.info("launching docker image with path %s", model_path)
-    cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port]
+    cmd = ["docker", "run", "-v", f"{model_path}:/opt/ml/model/", "-p", "%d:8080" % port]
     for key, value in deployment_config.items():
-        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
+        cmd += ["-e", f"{key}={value}"]
     cmd += ["--rm", image, "serve"]
     _logger.info("executing: %s", " ".join(cmd))
     proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
@@ -1224,9 +1218,7 @@ def _get_default_s3_bucket(region_name, **assume_role_credentials):
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id(**assume_role_credentials)
-    bucket_name = "{pfx}-{rn}-{aid}".format(
-        pfx=DEFAULT_BUCKET_NAME_PREFIX, rn=region_name, aid=account_id
-    )
+    bucket_name = f"{DEFAULT_BUCKET_NAME_PREFIX}-{region_name}-{account_id}"
     s3 = sess.client("s3", **assume_role_credentials)
     response = s3.list_buckets()
     buckets = [b["Name"] for b in response["Buckets"]]
@@ -1285,7 +1277,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assum
                 Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
             _logger.info("tag response: %s", response)
-            return "s3://{}/{}".format(bucket, key)
+            return f"s3://{bucket}/{key}"
 
 
 def _get_deployment_config(flavor_name, env_override=None):
@@ -1441,9 +1433,7 @@ def _create_sagemaker_transform_job(
         if transform_job_status == "InProgress":
             return _SageMakerOperationStatus.in_progress(
                 'Waiting for batch transform job to reach the "Completed" state.                   '
-                '  Current batch transform job status: "{transform_job_status}"'.format(
-                    transform_job_status=transform_job_status
-                )
+                f'  Current batch transform job status: "{transform_job_status}"'
             )
         elif transform_job_status == "Completed":
             return _SageMakerOperationStatus.succeeded(
@@ -1561,7 +1551,7 @@ def _create_sagemaker_endpoint(
         if endpoint_status == "Creating":
             return _SageMakerOperationStatus.in_progress(
                 'Waiting for endpoint to reach the "InService" state. Current endpoint status:'
-                ' "{endpoint_status}"'.format(endpoint_status=endpoint_status)
+                f' "{endpoint_status}"'
             )
         elif endpoint_status == "InService":
             return _SageMakerOperationStatus.succeeded(
@@ -1625,7 +1615,7 @@ def _update_sagemaker_endpoint(
     :param tags: A dictionary of tags to apply to the endpoint.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
-        msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
+        msg = f"Invalid mode `{mode}` for deployment to a pre-existing application"
         raise ValueError(msg)
 
     endpoint_info = sage_client.describe_endpoint(EndpointName=endpoint_name)
@@ -2852,9 +2842,9 @@ class _SageMakerOperationStatus:
     def timed_out(cls, duration_seconds):
         return cls(
             _SageMakerOperationStatus.STATE_TIMED_OUT,
-            "Timed out after waiting {duration_seconds} seconds for the operation to"
+            f"Timed out after waiting {duration_seconds} seconds for the operation to"
             " complete. This operation may still be in progress. Please check the AWS"
-            " console for more information.".format(duration_seconds=duration_seconds),
+            " console for more information.",
         )
 
     @classmethod

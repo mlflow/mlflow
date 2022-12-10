@@ -11,11 +11,9 @@ import mlflow
 
 def main(expected_env_name):
     actual_conda_env = os.environ.get("CONDA_DEFAULT_ENV", None)
-    assert (
-        actual_conda_env == expected_env_name
-    ), "Script expected to be run from conda env {} but was actually run from env {}".format(
-        expected_env_name,
-        actual_conda_env,
+    assert actual_conda_env == expected_env_name, (
+        f"Script expected to be run from conda env {expected_env_name} but was actually run "
+        f" from env {actual_conda_env}"
     )
     mlflow.log_metric("CPU usage", psutil.cpu_percent())
 

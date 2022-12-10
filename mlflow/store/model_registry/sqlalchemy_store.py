@@ -209,7 +209,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if len(rms) == 0:
             raise MlflowException(
-                "Registered Model with name={} not found".format(name), RESOURCE_DOES_NOT_EXIST
+                f"Registered Model with name={name} not found", RESOURCE_DOES_NOT_EXIST
             )
         if len(rms) > 1:
             raise MlflowException(
@@ -300,10 +300,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
-                "Invalid value for request parameter max_results. "
-                "It must be at most {}, but got value {}".format(
-                    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD, max_results
-                ),
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -490,15 +488,13 @@ class SqlAlchemyStore(AbstractStore):
                     field = SqlRegisteredModel.last_updated_time
                 else:
                     raise MlflowException(
-                        "Invalid order by key '{}' specified.".format(attribute_token)
+                        f"Invalid order by key '{attribute_token}' specified."
                         + "Valid keys are "
-                        + "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
+                        + f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 if field.key in observed_order_by_clauses:
-                    raise MlflowException(
-                        "`order_by` contains duplicate fields: {}".format(order_by_list)
-                    )
+                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
                 observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
@@ -651,8 +647,8 @@ class SqlAlchemyStore(AbstractStore):
                         "s" if more_retries > 1 else "",
                     )
         raise MlflowException(
-            "Model Version creation error (name={}). Giving up after "
-            "{} attempts.".format(name, self.CREATE_MODEL_VERSION_RETRIES)
+            f"Model Version creation error (name={name}). Giving up after "
+            f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
         )
 
     @classmethod
@@ -663,13 +659,13 @@ class SqlAlchemyStore(AbstractStore):
 
         if len(versions) == 0:
             raise MlflowException(
-                "Model Version (name={}, version={}) not found".format(name, version),
+                f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         if len(versions) > 1:
             raise MlflowException(
-                "Expected only 1 model version with (name={}, version={}). "
-                "Found {}.".format(name, version, len(versions)),
+                f"Expected only 1 model version with (name={name}, version={version}). "
+                f"Found {len(versions)}.",
                 INVALID_STATE,
             )
         return versions[0]

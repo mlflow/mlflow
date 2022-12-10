@@ -339,7 +339,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters, en
         mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
         for key, value in parameters.items():
-            mlflow_run_arr.extend(["-P", "{}={}".format(key, value)])
+            mlflow_run_arr.extend(["-P", f"{key}={value}"])
     return mlflow_run_arr
 
 
@@ -363,29 +363,21 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, 
     )
     mlflow_run_cmd = " ".join([quote(elem) for elem in mlflow_run_arr])
     shell_command = textwrap.dedent(
-        """
+        f"""
     export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&
     # Make local directories in the container into which to copy/extract the tarred project
-    mkdir -p {tarfile_base} {projects_base} &&
+    mkdir -p {DB_TARFILE_BASE} {DB_PROJECTS_BASE} &&
     # Rsync from DBFS FUSE to avoid copying archive into local filesystem if it already exists
-    rsync -a -v --ignore-existing {dbfs_fuse_tar_path} {tarfile_base} &&
+    rsync -a -v --ignore-existing {dbfs_fuse_tar_uri} {DB_TARFILE_BASE} &&
     # Extract project into a temporary directory. We don't extract directly into the desired
     # directory as tar extraction isn't guaranteed to be atomic
     cd $(mktemp -d) &&
     tar --no-same-owner -xzvf {container_tar_path} &&
     # Atomically move the extracted project into the desired directory
-    mv -T {tarfile_archive_name} {work_dir} &&
-    {mlflow_run}
-    """.format(
-            tarfile_base=DB_TARFILE_BASE,
-            projects_base=DB_PROJECTS_BASE,
-            dbfs_fuse_tar_path=dbfs_fuse_tar_uri,
-            container_tar_path=container_tar_path,
-            tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME,
-            work_dir=project_dir,
-            mlflow_run=mlflow_run_cmd,
-        )
+    mv -T {DB_TARFILE_ARCHIVE_NAME} {project_dir} &&
+    {mlflow_run_cmd}
+    """
     )
     return ["bash", "-c", shell_command]
 

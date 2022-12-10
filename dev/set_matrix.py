@@ -117,7 +117,7 @@ def read_yaml(location, if_error=None):
                 return yaml.safe_load(f)
     except Exception as e:
         if if_error is not None:
-            print("Failed to read '{}' due to: `{}`".format(location, e))
+            print(f"Failed to read '{location}' due to: `{e}`")
             return if_error
         raise
 
@@ -232,7 +232,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join("'{}'".format(x) for x in packages)
+    return "pip install " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):

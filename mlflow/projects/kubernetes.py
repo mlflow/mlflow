@@ -36,7 +36,7 @@ def _get_kubernetes_job_definition(
 ):
     container_image = image_tag + "@" + image_digest
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
-    job_name = "{}-{}".format(project_name, timestamp)
+    job_name = f"{project_name}-{timestamp}"
     _logger.info("=== Creating Job %s ===", job_name)
     if os.environ.get("KUBE_MLFLOW_TRACKING_URI") is not None:
         env_vars["MLFLOW_TRACKING_URI"] = os.environ["KUBE_MLFLOW_TRACKING_URI"]

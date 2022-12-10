@@ -356,12 +356,10 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
     if not (build or push):
         click.echo("skipping both build and push, have nothing to do!")
     if build:
-        sagemaker_image_entrypoint = """
+        sagemaker_image_entrypoint = f"""
         ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
         C._init(sys.argv[1], '{env_manager}')"]
-        """.format(
-            env_manager=env_manager
-        )
+        """
 
         def setup_container(_):
             return "\n".join(

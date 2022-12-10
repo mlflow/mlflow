@@ -126,14 +126,14 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     if mlflow_home:
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
         return (
-            "COPY {mlflow_dir} /opt/mlflow\n"
+            f"COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
             "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            "mvn --batch-mode package -DskipTests {maven_proxy} && "
+            f"mvn --batch-mode package -DskipTests {maven_proxy} && "
             "mkdir -p /opt/java/jars && "
             "mv /opt/mlflow/mlflow/java/scoring/target/"
             "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        ).format(mlflow_dir=mlflow_dir, maven_proxy=maven_proxy)
+        )
     else:
         return (
             "RUN pip install mlflow=={version}\n"

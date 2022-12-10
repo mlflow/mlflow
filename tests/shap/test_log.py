@@ -189,7 +189,7 @@ def test_merge_environment():
         "name": "mlflow-env",
         "channels": ["conda-forge"],
         "dependencies": [
-            "python={}".format(PYTHON_VERSION),
+            f"python={PYTHON_VERSION}",
             "pip",
             {
                 "pip": [

@@ -482,8 +482,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         parts = regex.match(older_than)
         if parts is None:
             raise MlflowException(
-                "Could not parse any time information from '{}'. "
-                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than),
+                f"Could not parse any time information from '{older_than}'. "
+                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}

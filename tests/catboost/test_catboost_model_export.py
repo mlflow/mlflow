@@ -198,7 +198,7 @@ def test_signature_and_examples_are_saved_correctly(
 def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_bucket):
     model, inference_dataframe = reg_model
     mlflow.catboost.save_model(cb_model=model, path=model_path)
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_path = "model"
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)

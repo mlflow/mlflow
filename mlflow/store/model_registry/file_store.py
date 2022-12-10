@@ -300,10 +300,8 @@ class FileStore(AbstractStore):
 
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
-                "Invalid value for request parameter max_results. "
-                "It must be at most {}, but got value {}".format(
-                    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD, max_results
-                ),
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
 
