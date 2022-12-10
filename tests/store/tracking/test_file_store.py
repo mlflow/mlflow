@@ -1286,7 +1286,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             filter_string="attributes.start_time > 0",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == {run_id1, run_id2}
+        assert {r.info.run_id for r in result]} == {run_id1, run_id2}
 
         result = fs.search_runs(
             [exp_id],
