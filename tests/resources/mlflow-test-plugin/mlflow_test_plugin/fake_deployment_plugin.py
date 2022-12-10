@@ -55,7 +55,7 @@ def run_local(name, model_uri, flavor=None, config=None):
     # pylint: disable-next=print-function
     print(
         f"Deployed locally at the key {name} using the model from {model_uri}. "
-        + f"It's flavor is {flavor} and config is {config}"
+        f"It's flavor is {flavor} and config is {config}"
     )
 
 
