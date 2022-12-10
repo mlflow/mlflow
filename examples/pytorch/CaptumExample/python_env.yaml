@@ -7,7 +7,7 @@ dependencies:
   - scipy
   - captum
   - boto3
-  - sklearn
+  - scikit-learn
   - prettytable
   - ipython
   - torch
