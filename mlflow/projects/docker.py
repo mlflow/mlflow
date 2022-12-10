@@ -81,7 +81,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image
     else:
         dockerfile = (
             f"FROM {base_image}\n COPY {_PROJECT_TAR_ARCHIVE_NAME}/ {MLFLOW_DOCKER_WORKDIR_PATH}\n"
-            " WORKDIR {MLFLOW_DOCKER_WORKDIR_PATH}\n"
+            f" WORKDIR {MLFLOW_DOCKER_WORKDIR_PATH}\n"
         )
         build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
         with open(build_ctx_path, "rb") as docker_build_ctx:
