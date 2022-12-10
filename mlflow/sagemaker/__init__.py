@@ -361,7 +361,7 @@ def _deploy(
             message=(
                 f"You are attempting to deploy an application with name: {app_name} in"
                 f" '{DEPLOYMENT_MODE_CREATE}' mode. However, an application with the same name"
-                f" already exists. If you want to update this application, deploy in"
+                " already exists. If you want to update this application, deploy in"
                 f" '{DEPLOYMENT_MODE_ADD}' or '{DEPLOYMENT_MODE_REPLACE}' mode."
             ),
             error_code=INVALID_PARAMETER_VALUE,

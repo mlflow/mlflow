@@ -972,7 +972,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run_info.experiment_id, run_id, key)
         if not exists(tag_path):
             raise MlflowException(
-                f"No tag with name: {key} in run with id {id}",
+                f"No tag with name: {key} in run with id {run_id}",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)

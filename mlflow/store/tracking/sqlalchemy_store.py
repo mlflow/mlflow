@@ -198,9 +198,9 @@ class SqlAlchemyStore(AbstractStore):
 
         def decorate(s):
             if is_string_type(s):
-                return f"'{s}'"
+                return repr(s)
             else:
-                return f"{s}"
+                return str(s)
 
         # Get a list of keys to ensure we have a deterministic ordering
         columns = list(default_experiment.keys())
