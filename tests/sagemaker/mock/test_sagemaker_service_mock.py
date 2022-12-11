@@ -72,7 +72,7 @@ def test_all_models_are_listed_after_creating_many_models(sagemaker_client):
     model_names = []
 
     for i in range(100):
-        model_name = "sample-model-{idx}".format(idx=i)
+        model_name = f"sample-model-{i}"
         model_names.append(model_name)
 
         create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
@@ -191,7 +191,7 @@ def test_all_endpoint_configs_are_listed_after_creating_many_configs(sagemaker_c
     endpoint_config_names = []
 
     for i in range(100):
-        endpoint_config_name = "sample-config-{idx}".format(idx=i)
+        endpoint_config_name = f"sample-config-{i}"
         endpoint_config_names.append(endpoint_config_name)
 
         create_endpoint_config(
@@ -360,7 +360,7 @@ def test_all_endpoint_are_listed_after_creating_many_endpoints(sagemaker_client)
     endpoint_names = []
 
     for i in range(100):
-        endpoint_name = "sample-endpoint-{idx}".format(idx=i)
+        endpoint_name = f"sample-endpoint-{i}"
         endpoint_names.append(endpoint_name)
 
         sagemaker_client.create_endpoint(
@@ -614,7 +614,7 @@ def test_all_transform_jobs_are_listed_after_creating_many_transform_jobs(sagema
     job_names = []
 
     for i in range(100):
-        job_name = "sample-job-{idx}".format(idx=i)
+        job_name = f"sample-job-{i}"
         job_names.append(job_name)
 
         sagemaker_client.create_transform_job(

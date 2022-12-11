@@ -37,7 +37,7 @@ def register_model(
     :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
              backend.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow.sklearn

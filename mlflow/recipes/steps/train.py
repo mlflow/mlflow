@@ -639,7 +639,7 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: "{:.6g}".format(x))  # pylint: disable=unnecessary-lambda
+                lambda s: s.map(lambda x: f"{x:.6g}")  # pylint: disable=unnecessary-lambda
                 if s.name in metric_names
                 else s,  # pylint: disable=unnecessary-lambda
                 axis=0,
@@ -750,9 +750,7 @@ class TrainStep(BaseStep):
                 }
                 for spec in inputs
             )
-            return '<div style="margin: 5px"><h2>{title}</h2>{table}</div>'.format(
-                title=title, table=table
-            )
+            return f'<div style="margin: 5px"><h2>{title}</h2>{table}</div>'
 
         schema_tables = [render_schema(model_schema.inputs.inputs, "Inputs")]
         if model_schema.outputs:

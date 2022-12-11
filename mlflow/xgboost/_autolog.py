@@ -63,7 +63,7 @@ if IS_TRAINING_CALLBACK_SUPPORTED:
             for data_name, metric_dict in evals_log.items():
                 metric_dict = _patch_metric_names(metric_dict)
                 for metric_name, metric_values_on_each_iter in metric_dict.items():
-                    key = "{}-{}".format(data_name, metric_name)
+                    key = f"{data_name}-{metric_name}"
                     # The last element in `metric_values_on_each_iter` corresponds to
                     # the metric on the current iteration
                     evaluation_result_dict[key] = metric_values_on_each_iter[-1]

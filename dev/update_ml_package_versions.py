@@ -27,7 +27,7 @@ def save_file(src, path):
 
 
 def get_package_versions(package_name):
-    url = "https://pypi.python.org/pypi/{}/json".format(package_name)
+    url = f"https://pypi.python.org/pypi/{package_name}/json"
     with urllib.request.urlopen(url) as res:
         data = json.load(res)
 
@@ -86,7 +86,7 @@ def update_max_version(src, key, new_max_version, category):
     #   <category>:
     #     ...
     #     maximum: "1.2.3"
-    return re.sub(pattern, r'\g<1>"{}"'.format(new_max_version), src, flags=re.DOTALL)
+    return re.sub(pattern, rf'\g<1>"{new_max_version}"', src, flags=re.DOTALL)
 
 
 def parse_args(args):

@@ -233,9 +233,7 @@ def _read_example(mlflow_model: Model, path: str):
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
-        raise MlflowException(
-            "This version of mlflow can not load example of type {}".format(example_type)
-        )
+        raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
@@ -316,22 +314,18 @@ def _enforce_tensor_spec(
 
     if len(expected_shape) != len(actual_shape):
         raise MlflowException(
-            "Shape of input {} does not match expected shape {}.".format(
-                actual_shape, expected_shape
-            )
+            f"Shape of input {actual_shape} does not match expected shape {expected_shape}."
         )
     for expected, actual in zip(expected_shape, actual_shape):
         if expected == -1:
             continue
         if expected != actual:
             raise MlflowException(
-                "Shape of input {} does not match expected shape {}.".format(
-                    actual_shape, expected_shape
-                )
+                f"Shape of input {actual_shape} does not match expected shape {expected_shape}."
             )
     if clean_tensor_type(actual_type) != expected_type:
         raise MlflowException(
-            "dtype of input {} does not match expected dtype {}".format(actual_type, expected_type)
+            f"dtype of input {actual_type} does not match expected dtype {expected_type}"
         )
     return values
 
@@ -632,9 +626,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = "Model is missing inputs {}.".format(missing_cols)
+            message = f"Model is missing inputs {missing_cols}."
             if extra_cols:
-                message += " Note that there were extra inputs: {}".format(extra_cols)
+                message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.

@@ -306,7 +306,7 @@ def _predict(model_uri, input_path, output_path, content_type):
         else:
             df = parse_csv_input(sys.stdin)
     else:
-        raise Exception("Unknown content type '{}'".format(content_type))
+        raise Exception(f"Unknown content type '{content_type}'")
 
     if output_path is None:
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)

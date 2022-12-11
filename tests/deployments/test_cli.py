@@ -18,11 +18,11 @@ def test_create():
         cli.create_deployment,
         ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
     )
-    assert "{} deployment {} is created".format(f_flavor, f_name) in res.stdout
+    assert f"{f_flavor} deployment {f_name} is created" in res.stdout
     res = runner.invoke(
         cli.create_deployment, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name]
     )
-    assert "{} deployment {} is created".format(f_flavor, f_name) in res.stdout
+    assert f"{f_flavor} deployment {f_name} is created" in res.stdout
 
 
 def test_update():
@@ -30,24 +30,24 @@ def test_update():
         cli.update_deployment,
         ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
     )
-    assert "Deployment {} is updated (with flavor {})".format(f_name, f_flavor) in res.stdout
+    assert f"Deployment {f_name} is updated (with flavor {f_flavor})" in res.stdout
 
 
 def test_delete():
     res = runner.invoke(cli.delete_deployment, ["--name", f_name, "--target", f_target])
-    assert "Deployment {} is deleted".format(f_name) in res.stdout
+    assert f"Deployment {f_name} is deleted" in res.stdout
 
 
 def test_update_no_flavor():
     res = runner.invoke(
         cli.update_deployment, ["--name", f_name, "--target", f_target, "-m", f_model_uri]
     )
-    assert "Deployment {} is updated (with flavor None)".format(f_name) in res.stdout
+    assert f"Deployment {f_name} is updated (with flavor None)" in res.stdout
 
 
 def test_list():
     res = runner.invoke(cli.list_deployment, ["--target", f_target])
-    assert "[{{'name': '{f_name}'}}]".format(f_name=f_name) in res.stdout
+    assert f"[{{'name': '{f_name}'}}]" in res.stdout
 
 
 def test_create_deployment_with_custom_args():
@@ -123,8 +123,8 @@ def test_run_local():
     res = runner.invoke(
         cli.run_local, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name]
     )
-    assert "Deployed locally at the key {}".format(f_name) in res.stdout
-    assert "using the model from {}.".format(f_model_uri) in res.stdout
+    assert f"Deployed locally at the key {f_name}" in res.stdout
+    assert f"using the model from {f_model_uri}." in res.stdout
     assert "It's flavor is {} and config is {}".format(f_flavor, str({})) in res.stdout
 
 

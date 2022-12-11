@@ -56,7 +56,7 @@ def prediction_assertions(output_dir: Path, output_format: str, output_name: str
         sdf = spark.table(output_name)
         df = sdf.toPandas()
     else:
-        file_name = "{}.{}".format(output_name, output_format)
+        file_name = f"{output_name}.{output_format}"
         (output_dir / file_name).exists()
         df = pd.read_parquet(output_dir / file_name)
     assert "prediction" in df
@@ -266,7 +266,7 @@ def test_predict_step_output_formats(
     if output_format == "table":
         recipe_config["steps"]["predict"]["output"]["location"] = output_name
     else:
-        file_name = "{}.{}".format(output_name, output_format)
+        file_name = f"{output_name}.{output_format}"
         recipe_config["steps"]["predict"]["output"]["location"] = str(
             predict_step_output_dir / file_name
         )

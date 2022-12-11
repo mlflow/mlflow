@@ -249,9 +249,7 @@ class PyFuncBackend(FlavorBackend):
                 rc = child_proc.wait()
                 if rc != 0:
                     raise Exception(
-                        "Command '{}' returned non zero return code. Return code = {}".format(
-                            command, rc
-                        )
+                        f"Command '{command}' returned non zero return code. Return code = {rc}"
                     )
                 return 0
             else:
@@ -395,7 +393,7 @@ def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
                     + f'env_manager="{env_manager}"'
                     + ")"
                 ),
-                'C._serve("{env_manager}")'.format(env_manager=env_manager),
+                f'C._serve("{env_manager}")',
             ]
         )
         pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(

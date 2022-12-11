@@ -303,9 +303,7 @@ def gen_autologging_package_version_requirements_doc(integration_name):
     """
     _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
     min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
-    required_pkg_versions = "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
-        min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
-    )
+    required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
         "    .. Note:: Autologging is known to be compatible with the following package versions: "
@@ -349,13 +347,13 @@ def autologging_integration(name):
     def validate_param_spec(param_spec):
         if "disable" not in param_spec or param_spec["disable"].default is not False:
             raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must specify a 'disable' argument with default value 'False'".format(name)
+                f"Invalid `autolog()` function for integration '{name}'. `autolog()` functions"
+                " must specify a 'disable' argument with default value 'False'"
             )
         elif "silent" not in param_spec or param_spec["silent"].default is not False:
             raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must specify a 'silent' argument with default value 'False'".format(name)
+                f"Invalid `autolog()` function for integration '{name}'. `autolog()` functions"
+                " must specify a 'silent' argument with default value 'False'"
             )
 
     def wrapper(_autolog):

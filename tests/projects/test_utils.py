@@ -32,7 +32,7 @@ from tests.projects.utils import (
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
-        return "{}#{}".format(base_uri, subdirectory)
+        return f"{base_uri}#{subdirectory}"
     return base_uri
 
 

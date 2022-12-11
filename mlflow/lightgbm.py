@@ -516,13 +516,13 @@ def autolog(
             ax.set_yticks(yloc)
             ax.set_yticklabels(features)
             ax.set_xlabel("Importance")
-            ax.set_title("Feature Importance ({})".format(importance_type))
+            ax.set_title(f"Feature Importance ({importance_type})")
             fig.tight_layout()
 
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -619,7 +619,7 @@ def autolog(
             imp = dict(zip(features, importance.tolist()))
             tmpdir = tempfile.mkdtemp()
             try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 mlflow.log_artifact(filepath)

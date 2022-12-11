@@ -86,7 +86,7 @@ def test_runs_artifact_repo_init_with_real_run():
 
     assert runs_repo.artifact_uri == runs_uri
     assert isinstance(runs_repo.repo, S3ArtifactRepository)
-    expected_absolute_uri = "{}{}/artifacts/path/to/model".format(artifact_location, run_id)
+    expected_absolute_uri = f"{artifact_location}{run_id}/artifacts/path/to/model"
     assert runs_repo.repo.artifact_uri == expected_absolute_uri
 
 
@@ -99,7 +99,7 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     experiment_id = mlflow.create_experiment("expr_abcd", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
         run_id = mlflow.active_run().info.run_id
-    runs_repo = RunsArtifactRepository("runs:/{}".format(run_id))
+    runs_repo = RunsArtifactRepository(f"runs:/{run_id}")
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")
     runs_repo.repo.download_artifacts.assert_called_once()

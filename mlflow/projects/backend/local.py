@@ -210,13 +210,13 @@ def _build_mlflow_run_cmd(
     mlflow_run_arr = ["mlflow", "run", uri, "-e", entry_point, "--run-id", run_id]
     if docker_args is not None:
         for key, value in docker_args.items():
-            args = key if isinstance(value, bool) else "{}={}".format(key, value)
+            args = key if isinstance(value, bool) else f"{key}={value}"
             mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     mlflow_run_arr.extend(["--env-manager", env_manager])
     for key, value in parameters.items():
-        mlflow_run_arr.extend(["-P", "{}={}".format(key, value)])
+        mlflow_run_arr.extend(["-P", f"{key}={value}"])
     return mlflow_run_arr
 
 
@@ -317,7 +317,7 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
             cmd += ["-v", v]
 
     for key, value in env_vars.items():
-        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
+        cmd += ["-e", f"{key}={value}"]
     cmd += [image.tags[0]]
     return cmd
 
@@ -329,7 +329,7 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
         container_path = os.path.join(MLFLOW_DOCKER_WORKDIR_PATH, container_path)
         container_path = os.path.normpath(container_path)
     abs_artifact_dir = os.path.abspath(artifact_dir)
-    return ["-v", "{}:{}".format(abs_artifact_dir, container_path)], {}
+    return ["-v", f"{abs_artifact_dir}:{container_path}"], {}
 
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
@@ -370,7 +370,7 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
 
     if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
         credentials_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-        cmds = ["-v", "{}:/.gcs".format(credentials_path)]
+        cmds = ["-v", f"{credentials_path}:/.gcs"]
         envs["GOOGLE_APPLICATION_CREDENTIALS"] = "/.gcs"
     return cmds, envs
 

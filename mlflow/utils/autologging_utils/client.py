@@ -69,7 +69,7 @@ class RunOperations:
             raise MlflowException(
                 message=(
                     "The following failures occurred while performing one or more logging"
-                    " operations: {failures}".format(failures=failed_operations)
+                    f" operations: {failed_operations}"
                 )
             )
 
@@ -346,8 +346,8 @@ class MlflowAutologgingQueueingClient:
         if len(failures) > 0:
             raise MlflowException(
                 message=(
-                    "Failed to perform one or more operations on the run with ID {run_id}."
-                    " Failed operations: {failures}".format(run_id=run_id, failures=failures)
+                    f"Failed to perform one or more operations on the run with ID {run_id}."
+                    f" Failed operations: {failures}"
                 )
             )
 

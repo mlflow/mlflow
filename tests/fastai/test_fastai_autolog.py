@@ -315,7 +315,7 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
     assert "early_stop_comp" in params
     assert params["early_stop_comp"] == "less"
     assert "early_stop_min_delta" in params
-    assert params["early_stop_min_delta"] == "-{}".format(MIN_DELTA)
+    assert params["early_stop_min_delta"] == f"-{MIN_DELTA}"
 
     client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
@@ -338,7 +338,7 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     assert params["early_stop_monitor"] == "valid_loss"
     assert "early_stop_comp" in params
     assert "early_stop_min_delta" in params
-    assert params["early_stop_min_delta"] == "-{}".format(MIN_DELTA)
+    assert params["early_stop_min_delta"] == f"-{MIN_DELTA}"
 
     num_of_epochs = len(model.recorder.values)
     client = MlflowClient()

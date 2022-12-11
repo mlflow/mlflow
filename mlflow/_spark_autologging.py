@@ -40,10 +40,8 @@ def _get_current_listener():
 
 def _get_table_info_string(path, version, data_format):
     if data_format == "delta":
-        return "path={path},version={version},format={format}".format(
-            path=path, version=version, format=data_format
-        )
-    return "path={path},format={format}".format(path=path, format=data_format)
+        return f"path={path},version={version},format={data_format}"
+    return f"path={path},format={data_format}"
 
 
 def _merge_tag_lines(existing_tag, new_table_info):
@@ -223,7 +221,7 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
         return self._repl_id
 
     class Java:
-        implements = ["{}.MlflowAutologEventSubscriber".format(_JAVA_PACKAGE)]
+        implements = [f"{_JAVA_PACKAGE}.MlflowAutologEventSubscriber"]
 
 
 class SparkAutologgingContext(RunContextProvider):

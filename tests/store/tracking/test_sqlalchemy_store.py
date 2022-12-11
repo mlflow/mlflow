@@ -101,7 +101,7 @@ class TestParseDbUri(unittest.TestCase):
             assert target_db_type == parsed_db_type
             # try each of the popular drivers (per SQLAlchemy's dialect pages)
             for driver in drivers:
-                uri = "{}+{}://...".format(target_db_type, driver)
+                uri = f"{target_db_type}+{driver}://..."
                 parsed_db_type = extract_db_type_from_uri(uri)
                 assert target_db_type == parsed_db_type
 
@@ -1890,7 +1890,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1}/{r1}/artifacts'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(
@@ -1905,7 +1905,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e2}/{r1}/artifacts'"
         assert self._search([e1, e2], filter_string) == []
 
         filter_string = "attribute.artifact_uri = 'random_artifact_path'"
@@ -1916,7 +1916,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r1, r2],
         ) == sorted(self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
+        filter_string = f"attribute.artifact_uri LIKE '%{r1}%'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
@@ -1939,7 +1939,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
-                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
+                self._search([e1, e2], f"attribute.{k} = '{v}'")
 
     def test_search_full(self):
         experiment_id = self._experiment_factory("search_params")
@@ -2075,6 +2075,24 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [r.info.run_id for r in result] == [run1.info.run_id]
         result = self.store.search_runs(
             [exp_id],
+            filter_string="attributes.`Run name` = 'run_name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run1.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.`run name` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.`Run Name` = 'run_name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run2.info.run_id]
+        result = self.store.search_runs(
+            [exp_id],
             filter_string="tags.`mlflow.runName` = 'run_name2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
@@ -2162,6 +2180,59 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         result = self.store.search_runs(
             [exp_id],
             filter_string=f"attributes.run_id NOT IN ('{run_id1}', '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
+    def test_search_runs_start_time_alias(self):
+        exp_id = self._experiment_factory("test_search_runs_start_time_alias")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.start_time DESC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.created ASC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id1, run_id2]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.run_name = 'name'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            order_by=["attributes.Created DESC"],
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.start_time > 0",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert {r.info.run_id for r in result} == {run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.created > 1",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2]
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="attributes.Created > 2",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert result == []
