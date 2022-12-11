@@ -28,6 +28,118 @@ def now():
     return int(time.time() * 1000)
 
 
+@pytest.fixture(scope="session")
+def test_root(tmp_path_factory):
+    tmp_path = str(tmp_path_factory.mktemp("test_root") / f"test_file_store_{random_int()}")
+    return tmp_path
+
+
+@pytest.fixture(scope="module")
+def store(test_root):
+    return FileStore(test_root)
+
+
+@pytest.fixture(scope="module")
+def registered_models():
+    return [random_str() for _ in range(3)]  # pylint: disable=attribute-defined-outside-init
+
+
+@pytest.fixture(scope="module")
+def rm_data(registered_models, test_root):
+    rm_data = {}
+    for name in registered_models:
+        # create registered model
+        creation_time = now()
+        rm_folder = os.path.join(test_root, FileStore.MODELS_FOLDER_NAME, name)
+        os.makedirs(rm_folder)
+        d = {
+            "name": name,
+            "creation_timestamp": creation_time,
+            "last_updated_timestamp": creation_time,
+            "description": None,
+            "latest_versions": [],
+            "tags": {},
+        }
+        rm_data[name] = d
+        write_yaml(rm_folder, FileStore.META_DATA_FILE_NAME, d)
+        os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
+        return rm_data
+
+
+# def _create_registered_models_for_test(self):
+#     self.registered_models = [  # pylint: disable=attribute-defined-outside-init
+#         random_str() for _ in range(3)
+#     ]
+#     self.rm_data = {}  # pylint: disable=attribute-defined-outside-init
+#     self.mv_data = {}  # pylint: disable=attribute-defined-outside-init
+#     for name in self.registered_models:
+#         # create registered model
+#         creation_time = now()
+#         rm_folder = os.path.join(self.test_root, FileStore.MODELS_FOLDER_NAME, name)
+#         os.makedirs(rm_folder)
+#         d = {
+#             "name": name,
+#             "creation_timestamp": creation_time,
+#             "last_updated_timestamp": creation_time,
+#             "description": None,
+#             "latest_versions": [],
+#             "tags": {},
+#         }
+#         self.rm_data[name] = d
+#         write_yaml(rm_folder, FileStore.META_DATA_FILE_NAME, d)
+#         # tags
+#         os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
+
+
+def test_create_registered_model(store):
+    # fs = self.get_store()
+
+    # Error cases
+    with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+        store.create_registered_model(None)
+    with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+        store.create_registered_model("")
+
+    name = random_str()
+    model = store.create_registered_model(name)
+    assert model.name == name
+    assert model.latest_versions == []
+    assert model.creation_timestamp == model.last_updated_timestamp
+    assert model.tags == {}
+
+
+def _verify_registered_model(fs, name, rm_data):
+    rm = fs.get_registered_model(name)
+    assert rm.name == name
+    assert rm.creation_timestamp == rm_data[name]["creation_timestamp"]
+    assert rm.last_updated_timestamp == rm_data[name]["last_updated_timestamp"]
+    assert rm.description == rm_data[name]["description"]
+    assert rm.latest_versions == rm_data[name]["latest_versions"]
+    assert rm.tags == rm_data[name]["tags"]
+
+
+def test_get_registered_model(store, registered_models, rm_data):
+    # print("!!" * 30)
+    # print(registered_models)
+    # self._create_registered_models_for_test()
+    for name in registered_models:
+        # print("&&" * 30)
+        # print(name)
+        # print(rm_)
+        # print(store)
+        _verify_registered_model(store, name, rm_data)
+
+    # test that fake registered models dont exist.
+    for name in {random_str(25) for _ in range(10)}:
+        with pytest.raises(
+            MlflowException, match=f"Could not find registered model with name {name}"
+        ):
+            store.get_registered_model(name)
+
+
+# @pytest.fixture
+
+
 class TestFileStore(unittest.TestCase):
     ROOT_LOCATION = tempfile.gettempdir()
 
