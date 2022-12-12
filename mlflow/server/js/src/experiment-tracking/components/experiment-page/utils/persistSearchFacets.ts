@@ -1,4 +1,4 @@
-import { isArray, isEqual, isObject } from 'lodash';
+import { isArray, isObject } from 'lodash';
 import QueryString, { IParseOptions } from 'qs';
 import { shouldUseNextRunsComparisonUI } from '../../../../common/utils/FeatureUtils';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
@@ -15,8 +15,6 @@ import {
 // Let's enable serialization/deserialization mechanism basing on the same feature flag
 // as next-gen runs comparison UI since the features are related
 const shouldUseStateSerializer = () => shouldUseNextRunsComparisonUI();
-
-const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
 
 const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
 
@@ -190,16 +188,20 @@ export function restoreExperimentSearchFacetsState(locationSearch: string, idKey
     // We need merge specified fields from the URL query to the empty state.
     // In certain scenarios, parts of the state (e.g. empty arrays) are not being persisted in the URL
     // and we need to regenerate them.
-    const urlState = Object.assign(new SearchExperimentRunsFacetsState(), stateData);
+    const urlState = Object.assign(new SearchExperimentRunsFacetsState(), transformedStateData);
     baseState = mergeFacetsStates(baseState, urlState);
   }
 
   // Step 4: persist combined state again
   persistLocalStorage(baseState, idKey);
 
+  // Make it impossible to use comparing runs mode if flag is disabled
+  if (!shouldUseNextRunsComparisonUI()) {
+    baseState.isComparingRuns = false;
+  }
+
   return {
     state: baseState,
-    isPristine: isEqual(new SearchExperimentRunsFacetsState(), baseState),
     queryString: createPersistedQueryString({ ...restData, ...baseState }),
   };
 }

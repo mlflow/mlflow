@@ -132,11 +132,6 @@ describe('persistSearchFacet', () => {
       expect(state).toBeTruthy();
       expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
     });
-
-    test('it marks the calculated state as pristine if no changes are done', () => {
-      const { isPristine } = restoreExperimentSearchFacetsState('', 'id-key');
-      expect(isPristine).toEqual(true);
-    });
   });
 
   describe('persistExperimentSearchFacetsState', () => {
