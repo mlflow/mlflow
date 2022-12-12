@@ -16,22 +16,26 @@ from mlflow.recipes.steps.split import (
 from unittest import mock
 
 
-def test_split_step_run(tmp_path):
+def set_up_dataset(tmp_path, num_classes=2):
     ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
     ingest_output_dir.mkdir(parents=True)
     split_output_dir = tmp_path / "steps" / "split" / "outputs"
     split_output_dir.mkdir(parents=True)
-
     num_rows = 1000
     num_good_rows = 900
     input_dataframe = pd.DataFrame(
         {
             "a": list(range(num_rows)),
             "b": [str(i) for i in range(num_rows)],
-            "y": [float(i % 2) if i < num_good_rows else None for i in range(num_rows)],
+            "y": [float(i % num_classes) if i < num_good_rows else None for i in range(num_rows)],
         }
     )
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
+    return num_good_rows, split_output_dir, input_dataframe
+
+
+def test_split_step_run(tmp_path):
+    num_good_rows, split_output_dir, _ = set_up_dataset(tmp_path)
 
     split_ratios = [0.6, 0.3, 0.1]
 
@@ -67,6 +71,32 @@ def test_split_step_run(tmp_path):
     assert set(merged_output_df.a.tolist()) == set(range(num_good_rows))
     assert set(merged_output_df.b.tolist()) == {str(i) for i in range(num_good_rows)}
     assert set(merged_output_df.y.tolist()) == {0.0, 1.0}
+
+
+def test_split_step_run_with_multiple_classes(tmp_path):
+    num_good_rows, split_output_dir, _ = set_up_dataset(tmp_path, num_classes=10)
+
+    split_ratios = [0.6, 0.3, 0.1]
+
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+        split_step = SplitStep(
+            {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
+            "fake_root",
+        )
+        split_step.run(str(split_output_dir))
+
+    output_train_df = pd.read_parquet(str(split_output_dir / "train.parquet"))
+    output_validation_df = pd.read_parquet(str(split_output_dir / "validation.parquet"))
+    output_test_df = pd.read_parquet(str(split_output_dir / "test.parquet"))
+
+    assert len(output_train_df) + len(output_validation_df) + len(output_test_df) == num_good_rows
+
+    merged_output_df = pd.concat([output_train_df, output_validation_df, output_test_df])
+    assert merged_output_df.columns.tolist() == ["a", "b", "y"]
+    assert set(merged_output_df.a.tolist()) == set(range(num_good_rows))
+    assert set(merged_output_df.b.tolist()) == {str(i) for i in range(num_good_rows)}
 
 
 def test_make_elem_hashable():

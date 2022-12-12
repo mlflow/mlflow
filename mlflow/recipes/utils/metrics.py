@@ -1,7 +1,7 @@
 import logging
 import importlib
 import sys
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.exceptions import MlflowException, BAD_REQUEST
@@ -50,10 +50,6 @@ BUILTIN_BINARY_CLASSIFICATION_RECIPE_METRICS = [
 ]
 
 BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS = [
-    RecipeMetric(name="true_negatives", greater_is_better=True),
-    RecipeMetric(name="false_positives", greater_is_better=False),
-    RecipeMetric(name="false_negatives", greater_is_better=False),
-    RecipeMetric(name="true_positives", greater_is_better=True),
     RecipeMetric(name="recall_score", greater_is_better=True),
     RecipeMetric(name="precision_score", greater_is_better=True),
     RecipeMetric(name="f1_score_macro", greater_is_better=True),
@@ -100,22 +96,21 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
     )
 
 
-def _get_extended_task(step_config: Dict[str, Any]) -> str:
+def _get_extended_task(recipe: str, positive_class: str) -> str:
     """
     :param step_config: Step config
     :return: Extended type string. Currently supported types are: "regression",
     "binary_classification", "multiclass_classification"
     """
-    tmpl = step_config.get("recipe")
-    if "regression" in tmpl:
+    if "regression" in recipe:
         return "regression"
-    elif "classification" in tmpl:
-        if "positive_class" in step_config:
-            return "binary_classification"
+    elif "classification" in recipe:
+        if positive_class is not None:
+            return "classification/binary"
         else:
-            return "multiclass_classification"
+            return "classification/multiclass"
     raise MlflowException(
-        f"No model type for template kind {tmpl}",
+        f"No model type for template kind {recipe}",
         error_code=INVALID_PARAMETER_VALUE,
     )
 
@@ -143,9 +138,9 @@ def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
     """
     if ext_task == "regression":
         return BUILTIN_REGRESSION_RECIPE_METRICS
-    elif ext_task == "binary_classification":
+    elif ext_task == "classification/binary":
         return BUILTIN_BINARY_CLASSIFICATION_RECIPE_METRICS
-    elif ext_task == "multiclass_classification":
+    elif ext_task == "classification/multiclass":
         return BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS
     raise MlflowException(
         f"No builtin metrics for template kind {ext_task}",
@@ -154,7 +149,7 @@ def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
 
 
 def check_multiclass_metrics(metric_name: str, ext_task: str) -> str:
-    if ext_task == "multiclass_classification":
+    if ext_task == "classification/multiclass":
         for m in BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS:
             if metric_name in m.name:
                 return m.name

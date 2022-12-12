@@ -147,8 +147,8 @@ class TrainStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self.extended_task = _get_extended_task(self.step_config)
         self.positive_class = self.step_config.get("positive_class")
+        self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if "estimator_method" not in self.step_config and self.step_config["using"] == "custom":
@@ -247,7 +247,7 @@ class TrainStep(BaseStep):
             )
             train_df = pd.read_parquet(transformed_training_data_path)
             self.using_rebalancing = False
-            if self.extended_task == "binary_classification":
+            if self.extended_task == "classification/binary":
                 classes = np.unique(train_df[self.target_col])
                 class_weights = compute_class_weight(
                     class_weight="balanced",

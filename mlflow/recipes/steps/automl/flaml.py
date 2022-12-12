@@ -15,7 +15,7 @@ from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
-_AUTOML_DEFAULT_TIME_BUDGET = 10
+_AUTOML_DEFAULT_TIME_BUDGET = 30
 _MLFLOW_TO_FLAML_METRICS = {
     "mean_absolute_error": "mae",
     "mean_squared_error": "mse",
@@ -26,6 +26,9 @@ _MLFLOW_TO_FLAML_METRICS = {
     "f1_score_micro": "micro_f1",
     "f1_score_macro": "macro_f1",
     "accuracy_score": "accuracy",
+    "roc_auc": "roc_auc",
+    "roc_auc_ovr": "roc_auc_ovr",
+    "roc_auc_ovo": "roc_auc_ovo",
 }
 
 # metrics that are not supported natively in FLAML
@@ -160,8 +163,15 @@ def _create_model_automl(
         automl = AutoML()
         automl.fit(X, y, **automl_settings)
         mlflow.autolog(disable=False, log_models=False)
+        if automl.model is None:
+            raise MlflowException(
+                "AutoML (FLAML) could not train a suitable algorithm. "
+                "Maybe you should increase `time_budget_secs`parameter "
+                "to give AutoML process more time."
+            )
         return automl.model.estimator, automl.best_config
     except Exception as e:
+        _logger.warning(e, exc_info=e, stack_info=True)
         raise MlflowException(
             f"Error has occurred during training of AutoML model using FLAML: {repr(e)}"
         )

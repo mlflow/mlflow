@@ -284,14 +284,14 @@ def test_train_step_classifier_automl(tmp_recipe_root_path, recipe):
             steps:
                 train:
                     using: automl/flaml
-                    time_budget_secs: 20
+                    time_budget_secs: 5
                     flaml_params:
                         estimator_list:
                         - rf
                         - lgbm
             """.format(
                 tracking_uri=mlflow.get_tracking_uri(),
-                metric="f1_score" if recipe == "binary_classification" else "f1_score_macro",
+                metric="roc_auc" if recipe == "binary_classification" else "roc_auc_ovr",
                 positive_class='positive_class: "a"' if recipe == "binary_classification" else "",
             )
         )

@@ -64,7 +64,7 @@ class EvaluateStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         self.positive_class = self.step_config.get("positive_class")
-        self.extended_task = _get_extended_task(self.step_config)
+        self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.user_defined_custom_metrics = {
@@ -208,7 +208,7 @@ class EvaluateStep(BaseStep):
                         },
                     ),
                 ):
-                    if self.extended_task == "binary_classification":
+                    if self.extended_task == "classification/binary":
                         evaluator_config["pos_label"] = self.positive_class
                     eval_result = mlflow.evaluate(
                         model=model_uri,

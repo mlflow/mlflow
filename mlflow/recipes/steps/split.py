@@ -3,9 +3,11 @@ import os
 import time
 import importlib
 import sys
-
+from functools import partial
 import numpy as np
+import pandas as pd
 from sklearn.utils import compute_class_weight
+from multiprocessing.pool import ThreadPool, Pool
 
 from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
@@ -14,6 +16,7 @@ from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.step import get_pandas_data_profiles
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.store.artifact.artifact_repo import _NUM_DEFAULT_CPUS
 
 
 _logger = logging.getLogger(__name__)
@@ -29,8 +32,6 @@ _USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
 
 
 def _make_elem_hashable(elem):
-    import numpy as np  # pylint: disable=reimported
-
     if isinstance(elem, list):
         return tuple(_make_elem_hashable(e) for e in elem)
     elif isinstance(elem, dict):
@@ -39,6 +40,48 @@ def _make_elem_hashable(elem):
         return elem.shape, tuple(elem.flatten(order="C"))
     else:
         return elem
+
+
+def _run_split(task, input_df, split_ratios, target_col):
+    if task == "classification":
+        return _perform_split_per_class(input_df, split_ratios, target_col)
+    elif task == "regression":
+        return _perform_split(input_df, split_ratios)
+
+
+def _perform_split_per_class(input_df, split_ratios, target_col):
+
+    classes = np.unique(input_df[target_col])
+    if len(classes) > 2:
+        partial_func = partial(
+            _perform_split_for_one_class,
+            input_df=input_df,
+            split_ratios=split_ratios,
+            target_col=target_col,
+        )
+
+        with ThreadPool(os.cpu_count() or _NUM_DEFAULT_CPUS) as p:
+            zipped_dfs = p.map(partial_func, classes)
+            test_df, train_df, validation_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
+            return test_df, train_df, validation_df
+    else:
+        return _perform_split(input_df, split_ratios)
+
+
+def _perform_split_for_one_class(
+    class_value,
+    input_df,
+    split_ratios,
+    target_col,
+):
+    filtered_df = input_df[input_df[target_col] == class_value]
+    return _perform_split(filtered_df, split_ratios)
+
+
+def _perform_split(input_df, split_ratios):
+    hash_buckets = _create_hash_buckets(input_df)
+    train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, split_ratios)
+    return test_df, train_df, validation_df
 
 
 def _get_split_df(input_df, hash_buckets, split_ratios):
@@ -68,10 +111,6 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
 
 
 def _parallelize(data, func):
-    import numpy as np  # pylint: disable=reimported
-    import pandas as pd
-    from multiprocessing import Pool
-
     data_split = np.array_split(data, _MULTI_PROCESS_POOL_SIZE)
     pool = Pool(_MULTI_PROCESS_POOL_SIZE)
     data = pd.concat(pool.map(func, data_split))
@@ -85,7 +124,6 @@ def _run_on_subset(func, data_subset):
 
 
 def _parallelize_on_rows(data, func):
-    from functools import partial
 
     return _parallelize(data, partial(_run_on_subset, func))
 
@@ -125,8 +163,6 @@ def _validate_user_code_output(post_split, train_df, validation_df, test_df):
             message="Error in cleaning up the data frame post split step."
             " Expected output is a tuple with (train_df, validation_df, test_df)"
         ) from None
-
-    import pandas as pd
 
     for (post_split_df, pre_split_df, split_type) in [
         [post_filter_train_df, train_df, "train"],
@@ -278,8 +314,6 @@ class SplitStep(BaseStep):
         return card
 
     def _run(self, output_directory):
-        import pandas as pd
-
         run_start_time = time.time()
 
         # read ingested dataset
@@ -302,8 +336,9 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
         # split dataset
-        hash_buckets = _create_hash_buckets(input_df)
-        train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, self.split_ratios)
+        test_df, train_df, validation_df = _run_split(
+            self.task, input_df, self.split_ratios, self.target_col
+        )
         # Import from user function module to process dataframes
         post_split_config = self.step_config.get("post_split_method", None)
         post_split_filter_config = self.step_config.get("post_split_filter_method", None)
