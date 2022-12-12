@@ -356,6 +356,28 @@ class FileStore(AbstractStore):
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
 
+    def _validate_experiment_exists(self, experiment_id):
+        if not self._has_experiment(experiment_id):
+            raise MlflowException(
+                "Experiment with ID '%s' does not exist. " % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+
+    def move_runs(self, run_ids, experiment_id):
+        self._check_root_dir()
+        self._validate_experiment_exists(experiment_id)
+
+        for run_id in run_ids:
+            _validate_run_id(run_id)
+            run_info = self._get_run_info(run_id)
+            run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+            new_info = run_info.copy_with_overrides(experiment_id=experiment_id)
+            new_dir = self._get_run_dir(experiment_id, run_info.run_id)
+            shutil.move(run_dir, new_dir)
+            self._overwrite_run_info(new_info)
+
+        return experiment_id
+
     def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
         _validate_experiment_name(name)
@@ -495,7 +517,7 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
-        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+        new_info = run_info.copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info, deleted_time=get_current_time_millis())
 
     def _hard_delete_run(self, run_id):
@@ -533,7 +555,7 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
-        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
+        new_info = run_info.copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
         self._overwrite_run_info(new_info, deleted_time=None)
 
     def _find_experiment_folder(self, run_path):
@@ -560,7 +582,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
+        new_info = run_info.copy_with_overrides(run_status, end_time, run_name=run_name)
         if run_name:
             self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)

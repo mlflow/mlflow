@@ -34,6 +34,22 @@ service MlflowService {
     };
   }
 
+  // Move runs to another experiment. Returns ID of the experiment.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified ID exists.
+  //
+  rpc moveRuns (MoveRuns) returns (MoveRuns.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/move-runs",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Move Runs",
+    };
+  }
+
   // Create an experiment with a name. Returns the ID of the newly created experiment.
   // Validates that another experiment with the same name does not already exist and fails
   // if another experiment with the same name already exists.
@@ -574,6 +590,21 @@ message Experiment {
 
   // Tags: Additional metadata key-value pairs.
   repeated ExperimentTag tags = 7;
+}
+
+message MoveRuns {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ids.
+  repeated string run_ids = 1 [(validate_required) = true];
+
+  // Experiment id.
+  required string experiment_id = 2 [(validate_required) = true];
+
+  message Response {
+    // Unique identifier for the experiment.
+    optional string experiment_id = 1;
+  }
 }
 
 message CreateExperiment {

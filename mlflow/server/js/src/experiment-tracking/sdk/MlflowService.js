@@ -16,6 +16,12 @@ export class MlflowService {
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/create', data });
 
   /**
+   * Create a mlflow experiment
+   */
+  static moveRuns = (data) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/move-runs', data });
+
+  /**
    * Delete a mlflow experiment
    */
   static deleteExperiment = (data) =>

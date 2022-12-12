@@ -6,6 +6,18 @@ import { ViewType } from './sdk/MlflowEnums';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
+export const MOVE_RUNS_API = 'MOVE_RUNS_API';
+export const moveRunsApi = (runIds, experimentId, id = getUUID()) => {
+  return {
+    type: MOVE_RUNS_API,
+    payload: MlflowService.moveRuns({
+      run_ids: runIds,
+      experiment_id: experimentId,
+    }),
+    meta: { id },
+  };
+};
+
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
 export const searchExperimentsApi = (id = getUUID()) => {
   return {

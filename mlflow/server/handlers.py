@@ -21,6 +21,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
+    MoveRuns,
     CreateExperiment,
     MlflowService,
     GetExperiment,
@@ -602,6 +603,29 @@ def _create_experiment():
         request_message.name, request_message.artifact_location, tags
     )
     response_message = CreateExperiment.Response()
+    response_message.experiment_id = experiment_id
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _move_runs():
+
+    request_message = _get_request_message(
+        MoveRuns(),
+        schema={
+            "run_ids": [_assert_array, _assert_required],
+            "experiment_id": [_assert_required],
+        },
+    )
+
+    experiment_id = _get_tracking_store().move_runs(
+        request_message.run_ids,
+        request_message.experiment_id,
+    )
+    response_message = MoveRuns.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1593,6 +1617,7 @@ def get_endpoints():
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
+    MoveRuns: _move_runs,
     GetExperiment: _get_experiment,
     GetExperimentByName: _get_experiment_by_name,
     DeleteExperiment: _delete_experiment,

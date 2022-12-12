@@ -214,6 +214,16 @@ class TrackingServiceClient:
             tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
         )
 
+    def move_runs(self, run_ids, experiment_id):
+        """
+        Move runs to another experiment.
+
+        :param run_ids: IDs of the runs to be moved.
+        :param experiment_id: IDs of the experiment the runs are moved to.
+        :return: String ID of the experiment.
+        """
+        return self.store.move_runs(run_ids=run_ids, experiment_id=experiment_id)
+
     def delete_experiment(self, experiment_id):
         """
         Delete an experiment from the backend store.

@@ -824,3 +824,16 @@ def test_search_runs_multiple_experiments():
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_1 > 0", ViewType.ALL)) == 1
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_2 = 2", ViewType.ALL)) == 1
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_3 < 4", ViewType.ALL)) == 1
+
+
+@pytest.mark.usefixtures("reset_active_experiment")
+def test_move_runs():
+    exp1_id = mlflow.create_experiment("exp__1")
+    exp2_id = mlflow.create_experiment("exp__2")
+    run1 = mlflow.start_run(experiment_id=exp1_id)
+    mlflow.end_run()
+    run2 = mlflow.start_run(experiment_id=exp1_id)
+    mlflow.end_run()
+    assert (
+        tracking.MlflowClient().move_runs([run1.info.run_id, run2.info.run_id], exp2_id) == exp2_id
+    )

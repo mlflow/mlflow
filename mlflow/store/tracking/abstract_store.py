@@ -99,6 +99,17 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def move_runs(self, run_ids, experiment_id):
+        """
+        Move runs to another experiment.
+
+        :param run_ids: IDs of the runs to be moved.
+        :param experiment_id: IDs of the experiment the runs are moved to.
+        :return: String ID of the experiment.
+        """
+        pass
+
+    @abstractmethod
     def get_experiment(self, experiment_id):
         """
         Fetch the experiment by ID from the backend store.

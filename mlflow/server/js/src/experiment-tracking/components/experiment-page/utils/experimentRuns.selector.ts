@@ -29,6 +29,11 @@ export type ExperimentRunsSelectorResult = {
   metricKeyList: string[];
 
   /**
+   * List of experiments
+   */
+  experimentList: Record<string, ExperimentEntity>;
+
+  /**
    * List of unique param keys
    */
   paramKeyList: string[];
@@ -188,6 +193,8 @@ export const experimentRunsSelector = (
     comparingExperiments ? {} : getExperimentTags(firstExperimentId, state)
   ) as Record<string, KeyValueEntity>;
 
+  const experimentList = state.entities.experimentsById;
+
   return {
     modelVersionsByRunUuid,
     experimentTags,
@@ -195,6 +202,7 @@ export const experimentRunsSelector = (
     paramsList,
     tagsList,
     metricsList,
+    experimentList,
     runUuidsMatchingFilter,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
