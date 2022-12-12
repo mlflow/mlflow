@@ -203,7 +203,7 @@ describe('RunView', () => {
             'mlflow.source.name': RunTag.fromJs({ key: 'mlflow.source.name', value: 'notebook' }),
             'mlflow.source.git.commit': RunTag.fromJs({
               key: 'mlflow.source.git.commit',
-              value: 'abc'
+              value: 'abc',
             }),
           },
         },
