@@ -10,6 +10,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.exceptions import MlflowException
+from urllib.parse import unquote
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -28,6 +29,10 @@ class FTPArtifactRepository(ArtifactRepository):
 
         if self.config["host"] is None:
             self.config["host"] = "localhost"
+        if self.config["password"] is None:
+            self.config["password"] = ""
+        else:
+            self.config["password"] = unquote(parsed.password)
 
         super().__init__(artifact_uri)
 
