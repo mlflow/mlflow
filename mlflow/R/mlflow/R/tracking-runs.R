@@ -273,6 +273,47 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   invisible(value)
 }
 
+#' Fetch single page of metric history
+#'
+#' Helper function for fetching a single page of results for GetMetricHistory
+#' If the max_results parameter value is greater than the metric history that has been logged,
+#' a single page of results will return with the `next_page_token` value in the response
+#' being an empty string.
+#'
+#' @param client The MLflow client
+#' @param run_id The run_id of the run being queried for metric history
+#' @param metric_key The name of the metric that has been logged and results are being fetched for
+#' @param page_token The continuation token for subsequent page fetches
+#' @return Returns the REST response from GetMetricHistory of a List of Metric type and an
+#'         optional next_page_token
+paged_metric_history_request <- function(client, run_id, metric_key, page_token = NULL) {
+  response <- mlflow_rest(
+    "metrics", "get-history",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id,
+                 run_id = run_id,
+                 metric_key = metric_key,
+                 max_results = 25000,
+                 page_token = page_token)
+  )
+  response
+}
+
+#' Convert List of Metric to tibble dataframe
+#'
+#' Helper function for transforming the Metric structure to an R Dataframe
+#'
+#' @param metrics a collection of Metric data that is returned by a call to GetMetricHistory
+#' @return The metric data as a tibble dataframe structure
+paged_metric_history_to_dataframe <- function(metrics) {
+  metrics %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
+    tibble::as_tibble()
+}
+
 #' Get Metric History
 #'
 #' Get a list of all values for the specified metric for a given run.
@@ -287,19 +328,23 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
   client <- resolve_client(client)
 
   metric_key <- cast_string(metric_key)
+  response <- paged_metric_history_request(client, run_id, metric_key)
+  history <- paged_metric_history_to_dataframe(response$metrics)
+  next_token <- response$next_page_token
 
-  response <- mlflow_rest(
-    "metrics", "get-history",
-    client = client, verb = "GET",
-    query = list(run_uuid = run_id, run_id = run_id, metric_key = metric_key)
-  )
+  # Handle client-side pagination if a next_page_token is returned
+  while (!is.null(next_token)) {
 
-  response$metrics %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    purrr::map_at("timestamp", milliseconds_to_date) %>%
-    purrr::map_at("step", as.double) %>%
-    tibble::as_tibble()
+    next_page <- paged_metric_history_request(
+      client, run_id,
+      metric_key, next_token
+    )
+    next_token <- next_page$next_page_token
+    next_page_metrics <- paged_metric_history_to_dataframe(next_page$metrics)
+    history <- rbind(history, next_page_metrics)
+  }
+
+  history
 }
 
 #' Search Runs
