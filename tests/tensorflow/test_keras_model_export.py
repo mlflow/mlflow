@@ -298,6 +298,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     assert model_loaded is not None
     with pytest.raises(TypeError, match=r".+"):
         mlflow.tensorflow.load_model(model_path)
+    mlflow.tensorflow.load_model(model_path)
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
