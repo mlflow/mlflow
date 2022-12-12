@@ -564,7 +564,7 @@ def load_model(
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:
         raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=FLAVOR_NAME),
+            f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
     model_py_version = conf.get(PY_VERSION)
@@ -673,7 +673,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
             " dependencies will be ignored."
         )
 
-        with open(get_conda_yaml_path(), "r") as yf:
+        with open(get_conda_yaml_path()) as yf:
             conda_yaml = yaml.safe_load(yf)
 
         conda_deps = conda_yaml.get("dependencies", [])
@@ -1025,8 +1025,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     args = args[: len(names)]
                 if len(args) < len(names):
                     raise MlflowException(
-                        "Model input is missing columns. Expected {0} input columns {1},"
-                        " but the model received only {2} unnamed input columns"
+                        "Model input is missing columns. Expected {} input columns {},"
+                        " but the model received only {} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
@@ -1333,7 +1333,7 @@ def save_model(
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
-        raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
+        raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
     if code_path is not None:
         if not isinstance(code_path, list):
             raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))

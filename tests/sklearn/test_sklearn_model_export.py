@@ -142,7 +142,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
 def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -273,9 +273,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
-    with open(sklearn_custom_env, "r") as f:
+    with open(sklearn_custom_env) as f:
         sklearn_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == sklearn_custom_env_parsed
 
@@ -373,7 +373,7 @@ def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == conda_env
 
@@ -398,9 +398,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != sklearn_custom_env
 
-    with open(sklearn_custom_env, "r") as f:
+    with open(sklearn_custom_env) as f:
         sklearn_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == sklearn_custom_env_parsed
 
@@ -508,7 +508,7 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
 
     pip_deps = [
@@ -544,7 +544,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         )
         saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
         assert os.path.exists(saved_conda_env_path)
-        with open(saved_conda_env_path, "r") as f:
+        with open(saved_conda_env_path) as f:
             saved_conda_env_parsed = yaml.safe_load(f)
         assert all(
             "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]

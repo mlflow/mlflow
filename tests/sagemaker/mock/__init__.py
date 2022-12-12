@@ -182,6 +182,20 @@ class SageMakerResponse(BaseResponse):
         self.sagemaker_backend.delete_model(model_name)
         return ""
 
+    def list_tags(self):
+        """
+        Handler for the SageMaker "ListTags" API call documented here:
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        model_arn = self.request_params["ResourceArn"]
+
+        results = self.sagemaker_backend.list_tags(
+            resource_arn=model_arn,
+            region_name=self.region,
+        )
+
+        return json.dumps({"Tags": results, "NextToken": None})
+
     def create_transform_job(self):
         """
         Handler for the SageMaker "CreateTransformJob" API call documented here:
@@ -317,8 +331,8 @@ class SageMakerBackend(BaseBackend):
         if config_name in self.endpoint_configs:
             raise ValueError(
                 "Attempted to create an endpoint configuration with name:"
-                " {config_name}, but an endpoint configuration with this"
-                " name already exists.".format(config_name=config_name)
+                f" {config_name}, but an endpoint configuration with this"
+                " name already exists."
             )
         for production_variant in production_variants:
             if "ModelName" not in production_variant:
@@ -345,8 +359,8 @@ class SageMakerBackend(BaseBackend):
         """
         if config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to describe an endpoint config with name: `{config_name}`"
-                " that does not exist.".format(config_name=config_name)
+                f"Attempted to describe an endpoint config with name: `{config_name}`"
+                " that does not exist."
             )
 
         config = self.endpoint_configs[config_name]
@@ -360,8 +374,8 @@ class SageMakerBackend(BaseBackend):
         """
         if config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to delete an endpoint config with name: `{config_name}`"
-                " that does not exist.".format(config_name=config_name)
+                f"Attempted to delete an endpoint config with name: `{config_name}`"
+                " that does not exist."
             )
 
         del self.endpoint_configs[config_name]
@@ -374,18 +388,14 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name in self.endpoints:
             raise ValueError(
-                "Attempted to create an endpoint with name: `{endpoint_name}`"
-                " but an endpoint with this name already exists.".format(
-                    endpoint_name=endpoint_name
-                )
+                f"Attempted to create an endpoint with name: `{endpoint_name}`"
+                " but an endpoint with this name already exists."
             )
 
         if endpoint_config_name not in self.endpoint_configs:
             raise ValueError(
                 "Attempted to create an endpoint with a configuration named:"
-                " `{config_name}` However, this configuration does not exist.".format(
-                    config_name=endpoint_config_name
-                )
+                f" `{endpoint_config_name}` However, this configuration does not exist."
             )
 
         new_endpoint = Endpoint(
@@ -409,8 +419,8 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to describe an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to describe an endpoint with name: `{endpoint_name}`"
+                " that does not exist."
             )
 
         endpoint = self.endpoints[endpoint_name]
@@ -427,15 +437,15 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to update an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to update an endpoint with name: `{endpoint_name}`"
+                " that does not exist."
             )
 
         if new_config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to update an endpoint named `{endpoint_name}` with a new"
-                " configuration named: `{config_name}`. However, this configuration"
-                " does not exist.".format(endpoint_name=endpoint_name, config_name=new_config_name)
+                f"Attempted to update an endpoint named `{endpoint_name}` with a new"
+                f" configuration named: `{new_config_name}`. However, this configuration"
+                " does not exist."
             )
 
         endpoint = self.endpoints[endpoint_name]
@@ -453,8 +463,8 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to delete an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to delete an endpoint with name: `{endpoint_name}`"
+                " that does not exist."
             )
 
         del self.endpoints[endpoint_name]
@@ -497,6 +507,14 @@ class SageMakerBackend(BaseBackend):
             summaries.append(summary)
         return summaries
 
+    def list_tags(self, resource_arn, region_name):
+        """
+        Modifies backend state during calls to the SageMaker "ListTags" API
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        model = next(model for model in self.models.values() if model.arn == resource_arn)
+        return model.resource.tags
+
     def create_model(
         self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None
     ):
@@ -507,8 +525,8 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name in self.models:
             raise ValueError(
-                "Attempted to create a model with name: `{model_name}`"
-                " but a model with this name already exists.".format(model_name=model_name)
+                f"Attempted to create a model with name: `{model_name}`"
+                " but a model with this name already exists."
             )
 
         new_model = Model(
@@ -531,8 +549,7 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name not in self.models:
             raise ValueError(
-                "Attempted to describe a model with name: `{model_name}`"
-                " that does not exist.".format(model_name=model_name)
+                f"Attempted to describe a model with name: `{model_name}` that does not exist."
             )
 
         model = self.models[model_name]
@@ -546,8 +563,7 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name not in self.models:
             raise ValueError(
-                "Attempted to delete an model with name: `{model_name}`"
-                " that does not exist.".format(model_name=model_name)
+                f"Attempted to delete an model with name: `{model_name}` that does not exist."
             )
 
         del self.models[model_name]
@@ -571,14 +587,14 @@ class SageMakerBackend(BaseBackend):
         if job_name in self.transform_jobs:
             raise ValueError(
                 "Attempted to create a transform job with name:"
-                " {job_name}, but a transform job with this"
-                " name already exists.".format(job_name=job_name)
+                f" {job_name}, but a transform job with this"
+                " name already exists."
             )
 
         if model_name not in self.models:
             raise ValueError(
                 "Attempted to create a transform job with a model named:"
-                " `{model_name}` However, this model does not exist.".format(model_name=model_name)
+                f" `{model_name}` However, this model does not exist."
             )
 
         new_job = TransformJob(
@@ -606,8 +622,8 @@ class SageMakerBackend(BaseBackend):
         """
         if job_name not in self.transform_jobs:
             raise ValueError(
-                "Attempted to describe a transform job with name: `{job_name}`"
-                " that does not exist.".format(job_name=job_name)
+                f"Attempted to describe a transform job with name: `{job_name}`"
+                " that does not exist."
             )
 
         transform_job = self.transform_jobs[job_name]
@@ -621,8 +637,7 @@ class SageMakerBackend(BaseBackend):
         """
         if job_name not in self.transform_jobs:
             raise ValueError(
-                "Attempted to stop a transform job with name: `{job_name}`"
-                " that does not exist.".format(job_name=job_name)
+                f"Attempted to stop a transform job with name: `{job_name}` that does not exist."
             )
 
         self.transform_jobs[

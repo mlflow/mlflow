@@ -772,8 +772,8 @@ def _validate_autologging_run(autologging_integration, run_id):
     run = client.get_run(run_id)
     autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)
     assert autologging_tag_value == autologging_integration, (
-        "Autologging run with id {} failed to set autologging tag with expected value. Expected: "
-        "'{}', Actual: '{}'".format(run_id, autologging_integration, autologging_tag_value)
+        f"Autologging run with id {run_id} failed to set autologging tag with expected value. "
+        f"Expected: '{autologging_integration}', Actual: '{autologging_tag_value}'"
     )
     assert RunStatus.is_terminated(
         RunStatus.from_string(run.info.status)
@@ -913,31 +913,29 @@ def _validate_args(
                 _validate_new_input(item)
         elif callable(inp):
             assert getattr(inp, _ATTRIBUTE_EXCEPTION_SAFE, False), (
-                "New function argument '{}' passed to original function is not exception-safe."
+                f"New function argument '{inp}' passed to original function is not exception-safe."
                 " Please decorate the function with `exception_safe_function` or "
                 "`pickalable_exception_safe_function`"
-            ).format(inp)
+            )
         else:
             assert hasattr(inp, "__class__") and type(inp.__class__) in [
                 ExceptionSafeClass,
                 ExceptionSafeAbstractClass,
             ], (
-                "Invalid new input '{}'. New args / kwargs introduced to `original` function "
+                f"Invalid new input '{inp}'. New args / kwargs introduced to `original` function "
                 "calls by patched code must either be functions decorated with "
                 "`exception_safe_function_for_class`, instances of classes with the "
                 "`ExceptionSafeClass` or `ExceptionSafeAbstractClass` metaclass safe or lists of "
-                "such exception safe functions / classes.".format(inp)
+                "such exception safe functions / classes."
             )
 
     def _assert_autologging_input_positional_args_are_superset(
         autologging_call_input, user_call_input
     ):
-        length_difference = len(autologging_call_input) - len(user_call_input)
+        length_diff = len(autologging_call_input) - len(user_call_input)
         assert (
-            length_difference >= 0
-        ), "{} expected inputs are missing from the call to the original function.".format(
-            length_difference
-        )
+            length_diff >= 0
+        ), f"{length_diff} expected inputs are missing from the call to the original function."
 
     def _assert_autologging_input_kwargs_are_superset(autologging_call_input, user_call_input):
         assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
@@ -994,7 +992,7 @@ def _validate_args(
                 or autologging_call_input == user_call_input
             ), (
                 "Input to original function does not match expected input."
-                " Original: '{}'. Expected: '{}'".format(autologging_call_input, user_call_input)
+                f" Original: '{autologging_call_input}'. Expected: '{user_call_input}'"
             )
 
     # Similar validation logic found in _validate, unraveling the list of arguments to exclude

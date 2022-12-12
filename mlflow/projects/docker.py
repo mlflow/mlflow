@@ -80,11 +80,8 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image
         image_uri = base_image
     else:
         dockerfile = (
-            "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
-        ).format(
-            imagename=base_image,
-            build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
-            workdir=MLFLOW_DOCKER_WORKDIR_PATH,
+            f"FROM {base_image}\n COPY {_PROJECT_TAR_ARCHIVE_NAME}/ {MLFLOW_DOCKER_WORKDIR_PATH}\n"
+            f" WORKDIR {MLFLOW_DOCKER_WORKDIR_PATH}\n"
         )
         build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
         with open(build_ctx_path, "rb") as docker_build_ctx:
@@ -147,7 +144,7 @@ def get_docker_tracking_cmd_and_envs(tracking_uri):
 
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
     if local_path is not None:
-        cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
+        cmds = ["-v", f"{local_path}:{_MLFLOW_DOCKER_TRACKING_DIR_PATH}"]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
     env_vars.update(get_databricks_env_vars(tracking_uri))
     return cmds, env_vars

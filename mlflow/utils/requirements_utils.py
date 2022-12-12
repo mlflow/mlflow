@@ -352,7 +352,7 @@ _PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
 
 def _load_pypi_package_index():
     pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path, "r") as f:
+    with open(pypi_index_path) as f:
         index_dict = json.load(f)
 
     return _PyPIPackageIndex(
@@ -456,16 +456,11 @@ def _get_pinned_requirement(package, version=None, module=None):
         if local_version_label:
             version = _strip_local_version_label(version_raw)
             msg = (
-                "Found {package} version ({version_raw}) contains a local version label "
-                "(+{local_version_label}). MLflow logged a pip requirement for this package as "
-                "'{package}=={version_logged}' without the local version label to make it "
+                f"Found {package} version ({version_raw}) contains a local version label "
+                f"(+{local_version_label}). MLflow logged a pip requirement for this package as "
+                f"'{package}=={version}' without the local version label to make it "
                 "installable from PyPI. To specify pip requirements containing local version "
                 "labels, please use `conda_env` or `pip_requirements`."
-            ).format(
-                package=package,
-                version_raw=version_raw,
-                version_logged=version,
-                local_version_label=local_version_label,
             )
             _logger.warning(msg)
 

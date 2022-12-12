@@ -504,8 +504,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         )
 
         time.sleep(120)
-        for x in it:
-            yield x
+        yield from it
 
     def run_job():
         # Start a spark job with only one UDF task,

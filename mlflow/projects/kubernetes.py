@@ -36,7 +36,7 @@ def _get_kubernetes_job_definition(
 ):
     container_image = image_tag + "@" + image_digest
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
-    job_name = "{}-{}".format(project_name, timestamp)
+    job_name = f"{project_name}-{timestamp}"
     _logger.info("=== Creating Job %s ===", job_name)
     if os.environ.get("KUBE_MLFLOW_TRACKING_URI") is not None:
         env_vars["MLFLOW_TRACKING_URI"] = os.environ["KUBE_MLFLOW_TRACKING_URI"]
@@ -63,7 +63,7 @@ def _load_kube_context(context=None):
         # trying to load either the context passed as arg or, if None,
         # the one provided as env var `KUBECONFIG` or in `~/.kube/config`
         kubernetes.config.load_kube_config(context=context)
-    except (IOError, ConfigException) as e:
+    except (OSError, ConfigException) as e:
         _logger.debug('Error loading kube context "%s": %s', context, e)
         _logger.info("No valid kube config found, using in-cluster configuration")
         kubernetes.config.load_incluster_config()

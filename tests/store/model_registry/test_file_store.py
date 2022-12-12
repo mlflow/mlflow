@@ -102,7 +102,7 @@ class TestFileStore(unittest.TestCase):
             self._verify_registered_model(fs, name)
 
         # test that fake registered models dont exist.
-        for name in set(random_str(25) for _ in range(10)):
+        for name in {random_str(25) for _ in range(10)}:
             with pytest.raises(
                 MlflowException, match=f"Could not find registered model with name {name}"
             ):
@@ -184,7 +184,7 @@ class TestFileStore(unittest.TestCase):
     def test_list_registered_model_paginated_returns_in_correct_order(self):
         fs = self.get_store()
 
-        rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
+        rms = [fs.create_registered_model(f"RM{i:03}").name for i in range(50)]
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
@@ -206,7 +206,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_list_registered_model_paginated_errors(self):
         fs = self.get_store()
-        rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
+        rms = [fs.create_registered_model(f"RM{i:03}").name for i in range(50)]
         # test that providing a completely invalid page token throws
         with pytest.raises(
             MlflowException, match=r"Invalid page token, could not base64-decode"
@@ -221,7 +221,7 @@ class TestFileStore(unittest.TestCase):
             fs.list_registered_models(page_token="evilhax", max_results=1e15)
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # list should not return deleted models
-        fs.delete_registered_model(name="RM{0:03}".format(0))
+        fs.delete_registered_model(name="RM{:03}".format(0))
         assert set(
             self._extract_names(fs.list_registered_models(max_results=100, page_token=None))
         ) == set(rms[1:])
@@ -880,7 +880,7 @@ class TestFileStore(unittest.TestCase):
         assert rms == []
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        rms, _ = self._search_registered_models(fs, "name LIKE '{}%'".format(prefix))
+        rms, _ = self._search_registered_models(fs, f"name LIKE '{prefix}%'")
         assert rms == names
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
@@ -970,7 +970,7 @@ class TestFileStore(unittest.TestCase):
         assert self._search_registered_models(fs, "name='{}'".format(names[-1])) == ([], None)
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        assert self._search_registered_models(fs, "name LIKE '{}%'".format(prefix)) == (
+        assert self._search_registered_models(fs, f"name LIKE '{prefix}%'") == (
             names[0:5],
             None,
         )
@@ -1049,7 +1049,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_search_registered_model_pagination(self):
         fs = self.get_store()
-        rms = [fs.create_registered_model("RM{:03}".format(i)).name for i in range(50)]
+        rms = [fs.create_registered_model(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
@@ -1107,7 +1107,7 @@ class TestFileStore(unittest.TestCase):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
-            rms.append(fs.create_registered_model("RM{:03}".format(i)).name)
+            rms.append(fs.create_registered_model(f"RM{i:03}").name)
             time.sleep(0.01)
 
         # test flow with fixed max_results and order_by (test stable order across pages)

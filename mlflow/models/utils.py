@@ -135,7 +135,7 @@ class _Example:
                 for i, x in enumerate(input_ex):
                     if isinstance(x, np.ndarray) and len(x.shape) > 1:
                         raise TensorsNotSupportedException(
-                            "Row '{0}' has shape {1}".format(i, x.shape)
+                            "Row '{}' has shape {}".format(i, x.shape)
                         )
                 if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
@@ -233,9 +233,7 @@ def _read_example(mlflow_model: Model, path: str):
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
-        raise MlflowException(
-            "This version of mlflow can not load example of type {}".format(example_type)
-        )
+        raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
@@ -247,13 +245,13 @@ def _read_example(mlflow_model: Model, path: str):
 
 
 def _read_tensor_input_from_json(path, schema=None):
-    with open(path, "r") as handle:
+    with open(path) as handle:
         inp_dict = json.load(handle)
         return parse_tf_serving_input(inp_dict, schema)
 
 
 def _read_sparse_matrix_from_json(path, example_type):
-    with open(path, "r") as handle:
+    with open(path) as handle:
         matrix_data = json.load(handle)
         data = matrix_data["data"]
         indices = matrix_data["indices"]
@@ -316,24 +314,18 @@ def _enforce_tensor_spec(
 
     if len(expected_shape) != len(actual_shape):
         raise MlflowException(
-            "Shape of input {0} does not match expected shape {1}.".format(
-                actual_shape, expected_shape
-            )
+            f"Shape of input {actual_shape} does not match expected shape {expected_shape}."
         )
     for expected, actual in zip(expected_shape, actual_shape):
         if expected == -1:
             continue
         if expected != actual:
             raise MlflowException(
-                "Shape of input {0} does not match expected shape {1}.".format(
-                    actual_shape, expected_shape
-                )
+                f"Shape of input {actual_shape} does not match expected shape {expected_shape}."
             )
     if clean_tensor_type(actual_type) != expected_type:
         raise MlflowException(
-            "dtype of input {0} does not match expected dtype {1}".format(
-                actual_type, expected_type
-            )
+            f"dtype of input {actual_type} does not match expected dtype {expected_type}"
         )
     return values
 
@@ -392,7 +384,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.datetime64, errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
             ) from e
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
@@ -402,7 +394,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return pd.to_numeric(values, errors="raise")
         except ValueError:
             raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+                "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
             )
 
     numpy_type = t.to_numpy()
@@ -444,8 +436,8 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             )
 
         raise MlflowException(
-            "Incompatible input types for column {0}. "
-            "Can not safely convert {1} to {2}.{3}".format(name, values.dtype, numpy_type, hint)
+            "Incompatible input types for column {}. "
+            "Can not safely convert {} to {}.{}".format(name, values.dtype, numpy_type, hint)
         )
 
 
@@ -527,7 +519,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
                     raise MlflowException(
                         "This model contains a tensor-based model signature with input names,"
                         " which suggests a dictionary input mapping input name to a numpy"
-                        " array, but a dict with value type {0} was found.".format(
+                        " array, but a dict with value type {} was found.".format(
                             type(pf_input[col_name])
                         ),
                         error_code=INVALID_PARAMETER_VALUE,
@@ -607,7 +599,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"
                     " input. There was an error casting the input data to a DataFrame:"
-                    " {0}".format(str(e))
+                    " {}".format(str(e))
                 )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
@@ -634,9 +626,9 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = "Model is missing inputs {0}.".format(missing_cols)
+            message = f"Model is missing inputs {missing_cols}."
             if extra_cols:
-                message += " Note that there were extra inputs: {0}".format(extra_cols)
+                message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
@@ -644,8 +636,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         if num_actual_columns < len(input_schema.inputs):
             raise MlflowException(
                 "Model inference is missing inputs. The model signature declares "
-                "{0} inputs  but the provided value only has "
-                "{1} inputs. Note: the inputs were not named in the signature so we can "
+                "{} inputs  but the provided value only has "
+                "{} inputs. Note: the inputs were not named in the signature so we can "
                 "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
             )
 

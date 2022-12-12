@@ -93,12 +93,12 @@ def _validate_metric_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            f"Invalid metric name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
+            "Invalid metric name: '{}'. {}".format(name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -216,12 +216,12 @@ def _validate_param_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            f"Invalid parameter name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
+            "Invalid parameter name: '{}'. {}".format(name, bad_path_message(name)),
             INVALID_PARAMETER_VALUE,
         )
 
@@ -236,11 +236,13 @@ def _validate_tag_name(name):
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
+            f"Invalid tag name: '{name}'. {_BAD_CHARACTERS_MESSAGE}",
+            INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE
+            "Invalid tag name: '{}'. {}".format(name, bad_path_message(name)),
+            INVALID_PARAMETER_VALUE,
         )
 
 
@@ -270,10 +272,10 @@ def _validate_experiment_id(exp_id):
 def _validate_batch_limit(entity_name, limit, length):
     if length > limit:
         error_msg = (
-            "A batch logging request can contain at most {limit} {name}. "
-            "Got {count} {name}. Please split up {name} across multiple requests and try "
-            "again."
-        ).format(name=entity_name, count=length, limit=limit)
+            f"A batch logging request can contain at most {limit} {entity_name}. "
+            f"Got {length} {entity_name}. Please split up {entity_name} across multiple"
+            " requests and try again."
+        )
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 
@@ -349,7 +351,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            "Model version must be an integer, got '{}'".format(model_version),
+            f"Model version must be an integer, got '{model_version}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -365,7 +367,7 @@ def _validate_experiment_artifact_location(artifact_location):
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
     if db_type not in DATABASE_ENGINES:
-        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
+        error_msg = f"Invalid database engine: '{db_type}'. '{_UNSUPPORTED_DB_TYPE_MSG}'"
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 

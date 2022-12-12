@@ -117,7 +117,7 @@ def read_yaml(location, if_error=None):
                 return yaml.safe_load(f)
     except Exception as e:
         if if_error is not None:
-            print("Failed to read '{}' due to: `{}`".format(location, e))
+            print(f"Failed to read '{location}' due to: `{e}`")
             return if_error
         raise
 
@@ -232,7 +232,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join("'{}'".format(x) for x in packages)
+    return "pip install " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -384,7 +384,7 @@ def expand_config(config):
 
 
 def apply_changed_files(changed_files, matrix):
-    all_flavors = set(x.flavor for x in matrix)
+    all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
@@ -449,7 +449,7 @@ def main(args):
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     is_matrix_empty = len(matrix) == 0
-    matrix = sorted(matrix, key=lambda x: x.job_name)
+    matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
     matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
     print(divider("Matrix"))

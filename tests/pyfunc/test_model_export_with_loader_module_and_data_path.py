@@ -839,9 +839,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
         )
         run_id = mlflow.active_run().info.run_id
 
-    pyfunc_model_path = _download_artifact_from_uri(
-        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
-    )
+    pyfunc_model_path = _download_artifact_from_uri(f"runs:/{run_id}/{pyfunc_artifact_path}")
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -850,9 +848,9 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env_file
 
-    with open(pyfunc_custom_env_file, "r") as f:
+    with open(pyfunc_custom_env_file) as f:
         pyfunc_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
@@ -875,9 +873,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
         )
         run_id = mlflow.active_run().info.run_id
 
-    pyfunc_model_path = _download_artifact_from_uri(
-        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
-    )
+    pyfunc_model_path = _download_artifact_from_uri(f"runs:/{run_id}/{pyfunc_artifact_path}")
 
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
@@ -885,7 +881,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_dict
 
@@ -908,14 +904,12 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
         )
         run_id = mlflow.active_run().info.run_id
 
-    pyfunc_model_path = _download_artifact_from_uri(
-        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
-    )
+    pyfunc_model_path = _download_artifact_from_uri(f"runs:/{run_id}/{pyfunc_artifact_path}")
 
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
 
-    with open(saved_pip_req_path, "r") as f:
+    with open(saved_pip_req_path) as f:
         requirements = f.read().split("\n")
 
     assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements

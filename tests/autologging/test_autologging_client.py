@@ -81,14 +81,12 @@ def test_client_logs_expected_run_data():
     client = MlflowAutologgingQueueingClient()
 
     params_to_log = {
-        "param_key_{}".format(i): "param_val_{}".format(i)
-        for i in range((2 * MAX_PARAMS_TAGS_PER_BATCH) + 1)
+        f"param_key_{i}": f"param_val_{i}" for i in range((2 * MAX_PARAMS_TAGS_PER_BATCH) + 1)
     }
     tags_to_log = {
-        "tag_key_{}".format(i): "tag_val_{}".format(i)
-        for i in range((2 * MAX_PARAMS_TAGS_PER_BATCH) + 1)
+        f"tag_key_{i}": f"tag_val_{i}" for i in range((2 * MAX_PARAMS_TAGS_PER_BATCH) + 1)
     }
-    metrics_to_log = {"metric_key_{}".format(i): i for i in range((4 * MAX_METRICS_PER_BATCH) + 1)}
+    metrics_to_log = {f"metric_key_{i}": i for i in range((4 * MAX_METRICS_PER_BATCH) + 1)}
 
     with mlflow.start_run(run_name="my name") as run:
         client.log_params(run_id=run.info.run_id, params=params_to_log)

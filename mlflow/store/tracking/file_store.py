@@ -186,7 +186,7 @@ class FileStore(AbstractStore):
                 return exp_list[0]
         if assert_exists:
             raise MlflowException(
-                "Experiment {} does not exist.".format(experiment_id),
+                f"Experiment {experiment_id} does not exist.",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         return None
@@ -753,7 +753,7 @@ class FileStore(AbstractStore):
         if metric_key not in metric_files:
             run_id = run_info.run_id
             raise MlflowException(
-                "Metric '%s' not found under run '%s'" % (metric_key, run_id),
+                f"Metric '{metric_key}' not found under run '{run_id}'",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         return [
@@ -855,7 +855,7 @@ class FileStore(AbstractStore):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         runs = []
@@ -877,7 +877,7 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "%s %s %s\n" % (metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, "{} {} {}\n".format(metric.timestamp, metric.value, metric.step))
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -915,13 +915,13 @@ class FileStore(AbstractStore):
         :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
                  does not match the existing parameter value.
         """
-        with open(param_path, "r") as param_file:
+        with open(param_path) as param_file:
             current_value = param_file.read()
         if current_value != new_value:
             raise MlflowException(
-                "Changing param values is not allowed. Param with key='{}' was already"
-                " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                " '{}'.".format(param_key, current_value, run_id, new_value),
+                f"Changing param values is not allowed. Param with key='{param_key}' was already"
+                f" logged with value='{current_value}' for run ID='{run_id}'. Attempted logging"
+                f" new value '{new_value}'.",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
@@ -972,7 +972,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run_info.experiment_id, run_id, key)
         if not exists(tag_path):
             raise MlflowException(
-                "No tag with name: {} in run with id {}".format(key, run_id),
+                f"No tag with name: {key} in run with id {run_id}",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
@@ -1022,7 +1022,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
         if os.path.exists(path):
-            with open(path, "r") as f:
+            with open(path) as f:
                 model_list = json.loads(f.read())
         else:
             model_list = []

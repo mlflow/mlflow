@@ -58,7 +58,7 @@ def test_csv_generation():
                 experiments.generate_csv_with_runs,
                 ["--experiment-id", "1", "--filename", result_filename],
             )
-            with open(result_filename, "r") as fd:
+            with open(result_filename) as fd:
                 assert expected_csv == fd.read()
         finally:
             shutil.rmtree(tempdir)

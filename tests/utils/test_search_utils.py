@@ -220,9 +220,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         run_data=RunData(metrics=[], params=[], tags=[]),
     )
     for bad_comparator in bad_comparators:
-        bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-            entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
-        )
+        bad_filter = f"{entity_type}.{key} {bad_comparator} {entity_value}"
         with pytest.raises(MlflowException, match="Invalid comparator"):
             SearchUtils.filter([run], bad_filter)
 
@@ -620,7 +618,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
-        (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(b"not json"), "Invalid page token"),
         ("not base64", "Invalid page token"),
     ],
 )

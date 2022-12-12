@@ -170,7 +170,7 @@ def get_params_to_log(estimator):
 
 def load_json_artifact(artifact_path):
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         return json.load(f)
 
 
@@ -180,7 +180,7 @@ def load_json_csv(artifact_path):
 
 
 def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
-    return mlflow.spark.load_model("runs:/{}/{}".format(run_id, model_dir))
+    return mlflow.spark.load_model(f"runs:/{run_id}/{model_dir}")
 
 
 def test_basic_estimator(dataset_binomial):
@@ -224,9 +224,9 @@ def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-arg
     non_existent_classes = list(
         filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
     )
-    assert len(non_existent_classes) == 0, "{} in log_model_allowlist don't exist".format(
-        non_existent_classes
-    )
+    assert (
+        len(non_existent_classes) == 0
+    ), f"{non_existent_classes} in log_model_allowlist don't exist"
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
@@ -560,7 +560,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
 
     client = MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, f"tags.`mlflow.parentRunId` = '{run_id}'"
     )
     assert len(child_runs) == len(search_results)
 
@@ -575,9 +575,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
                 for key, value in row_params.items()
             ]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
-            run_id, params_search_clause
-        )
+        search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
         child_run = child_runs[0]
@@ -948,7 +946,7 @@ def _read_model_conf_as_dict(run):
     ml_model_filename = "MLmodel"
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 

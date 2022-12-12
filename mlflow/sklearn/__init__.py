@@ -230,11 +230,8 @@ def save_model(
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
             message=(
-                "Unrecognized serialization format: {serialization_format}. Please specify one"
-                " of the following supported formats: {supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
+                f"Unrecognized serialization format: {serialization_format}. Please specify one"
+                f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -434,11 +431,8 @@ def _load_model_from_local_file(path, serialization_format):
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
             message=(
-                "Unrecognized serialization format: {serialization_format}. Please specify one"
-                " of the following supported formats: {supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
+                f"Unrecognized serialization format: {serialization_format}. Please specify one"
+                f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -542,9 +536,7 @@ def _save_model(sk_model, output_path, serialization_format):
             _dump_model(cloudpickle, sk_model, out)
         else:
             raise MlflowException(
-                message="Unrecognized serialization format: {serialization_format}".format(
-                    serialization_format=serialization_format
-                ),
+                message=f"Unrecognized serialization format: {serialization_format}",
                 error_code=INTERNAL_ERROR,
             )
 
@@ -1267,9 +1259,7 @@ def _autolog(
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(
-            message=(
-                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
-            ),
+            message=f"`max_tuning_runs` must be non-negative, instead got {max_tuning_runs}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1486,7 +1476,7 @@ def _autolog(
 
             if hasattr(estimator, "best_params_"):
                 best_params = {
-                    "best_{param_name}".format(param_name=param_name): param_value
+                    f"best_{param_name}": param_value
                     for param_name, param_value in estimator.best_params_.items()
                 }
                 autologging_client.log_params(

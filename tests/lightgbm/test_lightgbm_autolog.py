@@ -310,7 +310,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
     data = run.data
     client = MlflowClient()
     for valid_name in valid_names:
-        metric_key = "{}-multi_logloss".format(valid_name)
+        metric_key = f"{valid_name}-multi_logloss"
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
         assert metric_key in data.metrics
         assert len(metric_history) == 10
@@ -383,7 +383,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     client = MlflowClient()
     for valid_name in valid_names:
         for metric_name in params["metric"]:
-            metric_key = "{}-{}".format(valid_name, metric_name)
+            metric_key = f"{valid_name}-{metric_name}"
             metric_history = [
                 x.value for x in client.get_metric_history(run.info.run_id, metric_key)
             ]
@@ -526,7 +526,7 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
 
     for valid_name in valid_names:
         for metric_name in params["metric"]:
-            metric_key = "{}-{}".format(valid_name, metric_name)
+            metric_key = f"{valid_name}-{metric_name}"
             metric_history = [
                 x.value for x in client.get_metric_history(run.info.run_id, metric_key)
             ]
@@ -546,14 +546,14 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in ["split", "gain"]:
-        plot_name = "feature_importance_{}.png".format(imp_type)
+        plot_name = f"feature_importance_{imp_type}.png"
         assert plot_name in artifacts
 
-        json_name = "feature_importance_{}.json".format(imp_type)
+        json_name = f"feature_importance_{imp_type}.json"
         assert json_name in artifacts
 
         json_path = os.path.join(artifacts_dir, json_name)
-        with open(json_path, "r") as f:
+        with open(json_path) as f:
             loaded_imp = json.load(f)
 
         features = model.feature_name()
@@ -575,7 +575,7 @@ def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     run = get_latest_run()
     run_id = run.info.run_id
 
-    loaded_model = mlflow.lightgbm.load_model("runs:/{}/model".format(run_id))
+    loaded_model = mlflow.lightgbm.load_model(f"runs:/{run_id}/model")
     np.testing.assert_array_almost_equal(
         model.predict(train_set.data), loaded_model.predict(train_set.data)
     )
@@ -626,7 +626,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None
@@ -676,7 +676,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     assert data is not None

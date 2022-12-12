@@ -73,7 +73,7 @@ def test_load_model_from_remote_uri_succeeds(tmp_path, model_path, mock_s3_bucke
     monkeypatch.chdir(tmp_path)
     model_data_info = save_or_log_tf_model_by_mlflow128(tmp_path, "iris", "save_model", model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -168,7 +168,8 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         results_df.sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-3,
+        atol=1e-5,
+        rtol=0,
     )
 
     # can also call predict with a dict
@@ -180,7 +181,8 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(tmp_path, model
     pandas.testing.assert_frame_equal(
         pandas.DataFrame.from_dict(data=results).sort_index(axis=1),
         model_data_info.expected_results_df.sort_index(axis=1),
-        rtol=1e-3,
+        atol=1e-5,
+        rtol=0,
     )
 
     # can not call predict with a list

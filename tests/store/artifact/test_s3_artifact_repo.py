@@ -20,7 +20,7 @@ from unittest import mock
 
 @pytest.fixture
 def s3_artifact_root(mock_s3_bucket):
-    return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    return f"s3://{mock_s3_bucket}"
 
 
 @pytest.fixture(autouse=True)
@@ -235,7 +235,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
 
     downloaded_dir_path = repo.download_artifacts("nested")
     assert file_a_name in os.listdir(downloaded_dir_path)
-    with open(os.path.join(downloaded_dir_path, file_a_name), "r") as f:
+    with open(os.path.join(downloaded_dir_path, file_a_name)) as f:
         assert f.read() == file_a_text
 
 
@@ -252,7 +252,7 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     repo.log_artifact(file_a_path)
 
     downloaded_file_path = repo.download_artifacts(file_a_name)
-    with open(downloaded_file_path, "r") as f:
+    with open(downloaded_file_path) as f:
         assert f.read() == file_a_text
 
 

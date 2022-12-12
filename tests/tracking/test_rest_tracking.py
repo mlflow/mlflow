@@ -672,7 +672,7 @@ def test_log_batch_validation(mlflow_client):
 def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
-        model_paths = ["model/path/{}".format(i) for i in range(3)]
+        model_paths = [f"model/path/{i}" for i in range(3)]
         mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
@@ -691,7 +691,7 @@ def test_log_model(mlflow_client):
                 history_model_meta = models[i].copy()
                 original_model_uuid = history_model_meta.pop("model_uuid")
                 model_meta = model.to_dict().copy()
-                new_model_uuid = model_meta.pop(("model_uuid"))
+                new_model_uuid = model_meta.pop("model_uuid")
                 assert history_model_meta == model_meta
                 assert original_model_uuid != new_model_uuid
                 assert len(models) == i + 1
@@ -747,13 +747,13 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"
-    assert open("%s/dir/my.file" % all_artifacts, "r").read() == "Hello, World!"
+    assert open("%s/my.file" % all_artifacts).read() == "Hello, World!"
+    assert open("%s/dir/my.file" % all_artifacts).read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
+    assert open("%s/my.file" % dir_artifacts).read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):

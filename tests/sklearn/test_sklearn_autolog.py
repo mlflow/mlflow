@@ -88,7 +88,7 @@ def get_run_data(run_id):
 
 
 def load_model_by_run_id(run_id):
-    return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    return mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_DIR}")
 
 
 def get_model_conf(artifact_uri, model_subpath=MODEL_DIR):
@@ -715,7 +715,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
     metrics_size = 2
     metrics_to_log = {
-        "score_{}".format(i): sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
+        f"score_{i}": sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
         for i in range(metrics_size)
     }
 
@@ -782,7 +782,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
     expected_cv_params = truncate_dict(stringify_dict_values(cv_model.get_params(deep=False)))
     expected_cv_params.update(
         {
-            "best_{}".format(param_name): str(param_value)
+            f"best_{param_name}": str(param_value)
             for param_name, param_value in cv_model.best_params_.items()
         }
     )
@@ -796,9 +796,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     assert "best_estimator" in artifacts
     assert "cv_results.csv" in artifacts
 
-    best_estimator = mlflow.sklearn.load_model("runs:/{}/best_estimator".format(run_id))
+    best_estimator = mlflow.sklearn.load_model(f"runs:/{run_id}/best_estimator")
     assert isinstance(best_estimator, sklearn.svm.SVC)
-    cv_model = mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    cv_model = mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_DIR}")
     assert isinstance(cv_model, cv_class)
 
     # Ensure that a signature and input example are produced for the best estimator
@@ -811,7 +811,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
     client = MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, f"tags.`mlflow.parentRunId` = '{run_id}'"
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
     num_total_results = len(cv_results)
@@ -832,11 +832,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
-            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
-            run_id, params_search_clause
-        )
+        search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
         child_run = child_runs[0]
@@ -855,11 +853,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     for _, result in cv_results_rest_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
-            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
-            run_id, params_search_clause
-        )
+        search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 0
 
@@ -869,7 +865,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
 
     metrics_size = MAX_METRICS_PER_BATCH + 10
     metrics_to_log = {
-        "score_{}".format(i): sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
+        f"score_{i}": sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
         for i in range(metrics_size)
     }
 
@@ -883,7 +879,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
 
     client = MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, f"tags.`mlflow.parentRunId` = '{run_id}'"
     )
     assert len(child_runs) == 1
     child_run = child_runs[0]
@@ -1236,7 +1232,7 @@ def load_json_artifact(artifact_path):
     import json
 
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         return json.load(f)
 
 
