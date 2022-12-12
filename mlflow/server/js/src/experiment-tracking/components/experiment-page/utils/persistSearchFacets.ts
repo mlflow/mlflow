@@ -18,8 +18,6 @@ const shouldUseStateSerializer = () => shouldUseNextRunsComparisonUI();
 
 const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
 
-const KNOWN_STATE_KEYS = Object.keys(new SearchExperimentRunsFacetsState());
-
 /**
  * Function used by QueryString.parse(), implements better handling of booleans and undefined values
  */
