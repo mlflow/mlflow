@@ -834,6 +834,22 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   *  Returns a RegisteredModel from the model registry for the given model name.
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+   *       RegisteredModel registeredModel = getRegisteredModel("model");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @return a registered model {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
+   */
+  public RegisteredModel getRegisteredModel(String modelName) {
+    String json = sendGet(mapper.makeGetRegisteredModel(modelName));
+    GetRegisteredModel.Response response = mapper.toGetRegisteredModelResponse(json);
+    return response.getRegisteredModel();
+  }
+
+  /**
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
