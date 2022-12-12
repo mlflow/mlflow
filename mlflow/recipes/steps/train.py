@@ -36,6 +36,7 @@ from mlflow.recipes.utils.metrics import (
 from mlflow.recipes.utils.step import (
     get_merged_eval_metrics,
     get_pandas_data_profiles,
+    validate_classification_config,
 )
 from mlflow.recipes.utils.tracking import (
     get_recipe_tracking_config,
@@ -246,6 +247,9 @@ class TrainStep(BaseStep):
                 relative_path="transformed_training_data.parquet",
             )
             train_df = pd.read_parquet(transformed_training_data_path)
+            validate_classification_config(
+                self.task, self.positive_class, train_df, self.target_col
+            )
             self.using_rebalancing = False
             if self.extended_task == "classification/binary":
                 classes = np.unique(train_df[self.target_col])

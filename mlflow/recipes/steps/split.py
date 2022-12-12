@@ -14,7 +14,7 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils.step import get_pandas_data_profiles
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.store.artifact.artifact_repo import _NUM_DEFAULT_CPUS
 
@@ -50,7 +50,6 @@ def _run_split(task, input_df, split_ratios, target_col):
 
 
 def _perform_split_per_class(input_df, split_ratios, target_col):
-
     classes = np.unique(input_df[target_col])
     if len(classes) > 2:
         partial_func = partial(
@@ -323,6 +322,7 @@ class SplitStep(BaseStep):
             relative_path=_INPUT_FILE_NAME,
         )
         input_df = pd.read_parquet(ingested_data_path)
+        validate_classification_config(self.task, self.positive_class, input_df, self.target_col)
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)

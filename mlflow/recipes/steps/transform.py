@@ -12,7 +12,8 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils.step import get_pandas_data_profiles
+from mlflow.recipes.utils.metrics import _get_extended_task
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.recipes.utils.tracking import get_recipe_tracking_config, TrackingConfig
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
@@ -72,6 +73,7 @@ class TransformStep(BaseStep):
 
     def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
+        self.positive_class = self.step_config.get("positive_class")
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in recipe config.",
@@ -101,6 +103,7 @@ class TransformStep(BaseStep):
             relative_path="train.parquet",
         )
         train_df = pd.read_parquet(train_data_path)
+        validate_classification_config(self.task, self.positive_class, train_df, self.target_col)
 
         validation_data_path = get_step_output_path(
             recipe_root_path=self.recipe_root,

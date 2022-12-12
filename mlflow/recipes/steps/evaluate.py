@@ -21,7 +21,7 @@ from mlflow.recipes.utils.metrics import (
     _get_extended_task,
     check_multiclass_metrics,
 )
-from mlflow.recipes.utils.step import get_merged_eval_metrics
+from mlflow.recipes.utils.step import get_merged_eval_metrics, validate_classification_config
 from mlflow.recipes.utils.tracking import (
     get_recipe_tracking_config,
     apply_recipe_tracking_config,
@@ -155,6 +155,7 @@ class EvaluateStep(BaseStep):
                 relative_path="test.parquet",
             )
             test_df = pd.read_parquet(test_df_path)
+            validate_classification_config(self.task, self.positive_class, test_df, self.target_col)
 
             validation_df_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
