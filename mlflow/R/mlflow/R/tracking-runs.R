@@ -280,12 +280,10 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
 #' a single page of results will return with the `next_page_token` value in the response
 #' being an empty string.
 #'
-#' @param client The MLflow client
-#' @param run_id The run_id of the run being queried for metric history
+#' @template roxlate-client
+#' @template roxlate-run-id
 #' @param metric_key The name of the metric that has been logged and results are being fetched for
 #' @param page_token The continuation token for subsequent page fetches
-#' @return Returns the REST response from GetMetricHistory of a List of Metric type and an
-#'         optional next_page_token
 paged_metric_history_request <- function(client, run_id, metric_key, page_token = NULL) {
   response <- mlflow_rest(
     "metrics", "get-history",
@@ -304,7 +302,6 @@ paged_metric_history_request <- function(client, run_id, metric_key, page_token 
 #' Helper function for transforming the Metric structure to an R Dataframe
 #'
 #' @param metrics a collection of Metric data that is returned by a call to GetMetricHistory
-#' @return The metric data as a tibble dataframe structure
 paged_metric_history_to_dataframe <- function(metrics) {
   metrics %>%
     purrr::transpose() %>%
