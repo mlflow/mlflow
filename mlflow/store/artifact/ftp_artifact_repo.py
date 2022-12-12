@@ -12,6 +12,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.exceptions import MlflowException
 from urllib.parse import unquote
 
+
 class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via ftp."""
 
