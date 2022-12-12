@@ -12,7 +12,6 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils.metrics import _get_extended_task
 from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.recipes.utils.tracking import get_recipe_tracking_config, TrackingConfig
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
