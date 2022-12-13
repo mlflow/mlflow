@@ -72,12 +72,12 @@ def load_text(artifact_uri: str) -> str:
     :return: str
 
     .. code-block:: python
-        :caption: Example
+        :caption: example
 
         import mlflow
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
-            mlflow.log_text("This is a sentence", "file.txt")
+            mlflow.log_text("this is a sentence", "file.txt")
             file_content = mlflow.artifacts.load_text(artifact_uri + "/file.txt")
             print(file_content)
 
