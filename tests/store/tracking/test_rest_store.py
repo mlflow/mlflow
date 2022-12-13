@@ -388,6 +388,67 @@ class TestRestStore:
                 ),
             )
 
+    @mock.patch("requests.Session.request")
+    def test_get_metric_history_paginated(self, request):
+        creds = MlflowHostCreds("https://hello")
+        store = RestStore(lambda: creds)
+
+        response_1 = mock.MagicMock()
+        response_1.status_code = 200
+        response_payload_1 = {
+            "metrics": [
+                {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
+                {"key": "a_metric", "value": 46, "timestamp": 123456797, "step": 1},
+            ],
+            "next_page_token": "AcursorForTheRestofTheData",
+        }
+        response_1.text = json.dumps(response_payload_1)
+        response_2 = mock.MagicMock()
+        response_2.status_code = 200
+        response_payload_2 = {
+            "metrics": [
+                {"key": "a_metric", "value": 40, "timestamp": 123456877, "step": 2},
+                {"key": "a_metric", "value": 56, "timestamp": 123456897, "step": 3},
+            ],
+            "next_page_token": "",
+        }
+        response_2.text = json.dumps(response_payload_2)
+        with mock.patch(
+            "requests.Session.request", side_effect=[response_1, response_2]
+        ) as mock_request:
+            # Fetch the first page
+            metrics = store.get_metric_history(
+                run_id="2", metric_key="a_metric", max_results=2, page_token=None
+            )
+            mock_request.assert_called_once()
+            assert mock_request.call_args.kwargs["params"] == {
+                "max_results": 2,
+                "metric_key": "a_metric",
+                "run_id": "2",
+                "run_uuid": "2",
+            }
+            assert len(metrics) == 2
+            assert metrics[0] == Metric(key="a_metric", value=42, timestamp=123456777, step=0)
+            assert metrics[1] == Metric(key="a_metric", value=46, timestamp=123456797, step=1)
+            assert metrics.token == "AcursorForTheRestofTheData"
+            # Fetch the second page
+            mock_request.reset_mock()
+            metrics = store.get_metric_history(
+                run_id="2", metric_key="a_metric", max_results=2, page_token=metrics.token
+            )
+            mock_request.assert_called_once()
+            assert mock_request.call_args.kwargs["params"] == {
+                "max_results": 2,
+                "page_token": "AcursorForTheRestofTheData",
+                "metric_key": "a_metric",
+                "run_id": "2",
+                "run_uuid": "2",
+            }
+            assert len(metrics) == 2
+            assert metrics[0] == Metric(key="a_metric", value=40, timestamp=123456877, step=2)
+            assert metrics[1] == Metric(key="a_metric", value=56, timestamp=123456897, step=3)
+            assert metrics.token is None
+
 
 if __name__ == "__main__":
     unittest.main()
