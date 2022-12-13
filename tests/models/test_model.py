@@ -97,8 +97,11 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifact(str(model_path))
 
-    model_reloaded = Model.load(f"{artifact_root}/MLmodel")
-    assert model_reloaded == model
+    model_reloaded_1 = Model.load(f"{artifact_root}/MLmodel")
+    assert model_reloaded_1 == model
+
+    model_reloaded_2 = Model.load(artifact_root)
+    assert model_reloaded_2 == model
 
 
 class TestFlavor:

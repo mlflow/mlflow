@@ -300,9 +300,9 @@ class Model:
         Load a model from its YAML representation.
 
         :param path: A local filesystem path or URI referring to the MLmodel YAML file
-                     representation of the :py:ref:`Model` object or to the directory containing
+                     representation of the :py:class:`Model` object or to the directory containing
                      the MLmodel YAML file representation.
-        :return: An instance of :py:ref:`Model`
+        :return: An instance of :py:class:`Model`.
 
 
         .. code-block:: python
