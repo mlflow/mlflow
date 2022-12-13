@@ -256,11 +256,6 @@ class AbstractStore:
         :param page_token: A Token specifying the next paginated set of results of metric history.
             This value is obtained as a return value from a paginated call to GetMetricHistory.
 
-        note: The pagination feature within this API is managed on the client side and is only
-            utilized if the client submits a request that includes a 'max_results' value. Clients
-            that do not provide this value will not perform a paginated query and will instead
-            fall back to the former non-paginated behavior.
-
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
 
