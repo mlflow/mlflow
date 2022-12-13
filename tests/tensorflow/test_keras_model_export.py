@@ -296,8 +296,17 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
     )
     assert model_loaded is not None
-    with pytest.raises(TypeError, match=r".+"):
-        mlflow.tensorflow.load_model(model_path)
+    if Version(tf.__version__) <= Version("2.11.0"):
+        with pytest.raises(TypeError, match=r".+"):
+            mlflow.tensorflow.load_model(model_path)
+    else:
+        # TF dev build following the release of 2.11.0 introduced changes to the recursive
+        # loading strategy wherein the validation stage of custom objects loaded won't be
+        # validated eagerly. This prevents a TypeError from being thrown as in the above
+        # expectation catching validation block. The change in logic now permits loading and
+        # will not raise an Exception, as validated below.
+        incorrect_loaded = mlflow.tensorflow.load_model(model_path)
+        assert incorrect_loaded is not None
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
