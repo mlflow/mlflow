@@ -5,9 +5,9 @@ NULL
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)
-  } else if (is.infinite(value) & value > 0) {
+  } else if (is.infinite(value) && value > 0) {
     "Infinity"
-  } else if (is.infinite(value) & value < 0) {
+  } else if (is.infinite(value) && value < 0) {
     "-Infinity"
   } else {
     as.character(value)
@@ -273,17 +273,6 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   invisible(value)
 }
 
-#' Fetch single page of metric history
-#'
-#' Helper function for fetching a single page of results for GetMetricHistory
-#' If the max_results parameter value is greater than the metric history that has been logged,
-#' a single page of results will return with the `next_page_token` value in the response
-#' being an empty string.
-#'
-#' @template roxlate-client
-#' @template roxlate-run-id
-#' @param metric_key The name of the metric that has been logged and results are being fetched for
-#' @param page_token The continuation token for subsequent page fetches
 paged_metric_history_request <- function(client, run_id, metric_key, page_token = NULL) {
   response <- mlflow_rest(
     "metrics", "get-history",
@@ -297,11 +286,6 @@ paged_metric_history_request <- function(client, run_id, metric_key, page_token 
   response
 }
 
-#' Convert List of Metric to tibble dataframe
-#'
-#' Helper function for transforming the Metric structure to an R Dataframe
-#'
-#' @param metrics a collection of Metric data that is returned by a call to GetMetricHistory
 paged_metric_history_to_dataframe <- function(metrics) {
   metrics %>%
     purrr::transpose() %>%
@@ -351,8 +335,9 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @template roxlate-client
 #' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
 #' over. Attempts to use active experiment if not specified.
-#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
-#'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
+#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset
+#'   of runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+#'   between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
 #' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
@@ -524,7 +509,7 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   mlflow_rest("runs", "log-model", client = client, verb = "POST", data = list(
     run_id = run_id,
-    model_json = jsonlite::toJSON(model_spec, auto_unbox=TRUE)
+    model_json = jsonlite::toJSON(model_spec, auto_unbox = TRUE)
   ))
 }
 
@@ -553,12 +538,15 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL, nested = FALSE) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL,
+                             start_time = NULL, tags = NULL,
+                             client = NULL, nested = FALSE) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
-    if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
+    if (!is.null(run_id))
+      stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
     run <- mlflow_create_run(client = client, start_time = start_time,
                              tags = tags, experiment_id = experiment_id)
     return(run)
