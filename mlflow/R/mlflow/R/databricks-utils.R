@@ -98,6 +98,14 @@ get_databricks_config <- function(profile) {
   config
 }
 
+#' Get information from Databricks Notebook environment
+#'
+#' Retrieves the notebook id, path, url, name, version, and type from the Databricks Notebook
+#' execution environment and sets them to a list to be used for setting the configured environment
+#' for executing an MLflow run in R from Databricks.
+#'
+#' @param notebook_info The configuration data from the Databricks Notebook environment
+#'
 #' @return A list of tags to be set by the run context when creating MLflow runs in the
 #' current Databricks Notebook environment
 build_context_tags_from_databricks_notebook_info <- function(notebook_info) {
@@ -111,6 +119,14 @@ build_context_tags_from_databricks_notebook_info <- function(notebook_info) {
   tags
 }
 
+#' Get information from a Databricks job execution context
+#'
+#' Parses the data from a job execution context when running on Databricks in a non-interactive
+#' mode. This function extracts relevant data that Mlflow needs in order to properly utilize the
+#' MLflow APIs from this context.
+#'
+#' @param job_info The job-related metadata from a running Databricks job
+#'
 #' @return A list of tags to be set by the run context when creating MLflow runs in the
 #' current Databricks Job environment
 build_context_tags_from_databricks_job_info <- function(job_info) {

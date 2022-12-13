@@ -799,6 +799,17 @@ cd docs
 make rdocs
 ```
 
+---
+**NOTE**
+
+If you attempt to build the R documentation on an ARM-based platform (Apple silicon M1, M2, etc.)
+you will likely get an error when trying to execute the Docker build process for the make command. 
+To address this, set the default docker platform environment variable as follows:
+```commandline
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+```
+---
+
 Generate Java API rst doc files via:
 
 ```bash
