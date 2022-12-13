@@ -44714,10 +44714,9 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of logged instances of a metric for a run to return per call.
-     * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries.
-     * Queries that do not specify this value will behave as a non-paginated query wherein all
-     * metric history values for a given metric within a run will be returned in a single request.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
      * </pre>
      *
      * <code>optional int32 max_results = 5;</code>
@@ -44727,10 +44726,9 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of logged instances of a metric for a run to return per call.
-     * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries.
-     * Queries that do not specify this value will behave as a non-paginated query wherein all
-     * metric history values for a given metric within a run will be returned in a single request.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
      * </pre>
      *
      * <code>optional int32 max_results = 5;</code>
@@ -46248,10 +46246,9 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of logged instances of a metric for a run to return per call.
-     * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries.
-     * Queries that do not specify this value will behave as a non-paginated query wherein all
-     * metric history values for a given metric within a run will be returned in a single request.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
      * </pre>
      *
      * <code>optional int32 max_results = 5;</code>
@@ -46264,10 +46261,9 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of logged instances of a metric for a run to return per call.
-     * Backend servers may select a specific `max_results` value to alleviate memory pressure
-     * for extremely large queries.
-     * Queries that do not specify this value will behave as a non-paginated query wherein all
-     * metric history values for a given metric within a run will be returned in a single request.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
      * </pre>
      *
      * <code>optional int32 max_results = 5;</code>
@@ -47138,10 +47134,9 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of logged instances of a metric for a run to return per call.
-       * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries.
-       * Queries that do not specify this value will behave as a non-paginated query wherein all
-       * metric history values for a given metric within a run will be returned in a single request.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
        * </pre>
        *
        * <code>optional int32 max_results = 5;</code>
@@ -47154,10 +47149,9 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of logged instances of a metric for a run to return per call.
-       * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries.
-       * Queries that do not specify this value will behave as a non-paginated query wherein all
-       * metric history values for a given metric within a run will be returned in a single request.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
        * </pre>
        *
        * <code>optional int32 max_results = 5;</code>
@@ -47170,10 +47164,9 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of logged instances of a metric for a run to return per call.
-       * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries.
-       * Queries that do not specify this value will behave as a non-paginated query wherein all
-       * metric history values for a given metric within a run will be returned in a single request.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
        * </pre>
        *
        * <code>optional int32 max_results = 5;</code>
@@ -47189,10 +47182,9 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of logged instances of a metric for a run to return per call.
-       * Backend servers may select a specific `max_results` value to alleviate memory pressure
-       * for extremely large queries.
-       * Queries that do not specify this value will behave as a non-paginated query wherein all
-       * metric history values for a given metric within a run will be returned in a single request.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
        * </pre>
        *
        * <code>optional int32 max_results = 5;</code>
