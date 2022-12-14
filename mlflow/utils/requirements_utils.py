@@ -267,7 +267,6 @@ def _capture_imported_modules(model_uri, flavor):
     from mlflow.utils import _capture_modules
 
     local_model_path = _download_artifact_from_uri(model_uri)
-    _logger.debug(f"local_model_path:{local_model_path} = _download_artifact_from_uri(model_uri:{model_uri})")
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
 
@@ -379,7 +378,6 @@ def _infer_requirements(model_uri, flavor):
     if _PYPI_PACKAGE_INDEX is None:
         _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
 
-    _logger.debug(f"_infer_requirements(model_uri:{model_uri}, flavor:{flavor})")
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)

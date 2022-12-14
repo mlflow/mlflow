@@ -215,9 +215,10 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
-        remote_model_path = append_to_uri_path(run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB)
+        remote_model_path = append_to_uri_path(
+            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
+        )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
-        _logger.debug(f"Using mlflowdbfs: {mlflowdbfs_path}, artifact_path: {append_to_uri_path(run_root_artifact_uri, artifact_path)}")
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
@@ -266,7 +267,7 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
-            remote_model_path=remote_model_path
+            remote_model_path=remote_model_path,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -514,7 +515,6 @@ def _save_model_metadata(
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
-    _logger.debug(f"Saved model file to: {os.path.join(dst_dir, MLMODEL_FILE_NAME)}")
 
     if conda_env is None:
         if pip_requirements is None:
