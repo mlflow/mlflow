@@ -264,7 +264,7 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
-            pyfunc_load_model_path=append_to_uri_path(run_root_artifact_uri, artifact_path)
+            pyfunc_load_model_path=append_to_uri_path(run_root_artifact_uri, artifact_path, "sparkml")
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
