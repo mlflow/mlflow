@@ -181,6 +181,9 @@ def log_model(
     :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
     :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -295,6 +298,9 @@ def save_model(
     :param keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
                                to be saved is a keras model.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     import tensorflow
     from tensorflow.keras.models import Model as KerasModel

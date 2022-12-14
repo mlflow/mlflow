@@ -76,6 +76,9 @@ def log_model(
                           base64-encoded.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
+
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -189,6 +192,9 @@ def save_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()

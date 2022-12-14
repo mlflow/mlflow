@@ -201,6 +201,9 @@ def save_model(
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
+
     .. code-block:: python
         :caption: Example
 
@@ -388,6 +391,9 @@ def log_model(
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 

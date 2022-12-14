@@ -162,6 +162,9 @@ class ModelInfo:
     @property
     def metadata(self) -> Optional[Dict[str, Any]]:
         """
+        .. Note::
+            Experimental: This method may change or be removed in a future release without warning.
+
         User defined metadata added to the model
         """
         return self._metadata
@@ -236,6 +239,12 @@ class Model:
 
     @property
     def metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        .. Note::
+            Experimental: This method may change or be removed in a future release without warning.
+
+        Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        """
         return self._metadata
 
     @metadata.setter
@@ -387,6 +396,9 @@ class Model:
 
         :param metadata: Custom metadata dictionary passed to the model and stored in
                          the MLmodel file.
+
+                         .. Note:: Experimental: This parameter may change or be removed in a
+                                                 future release without warning.
 
         :param kwargs: Extra args passed to the model flavor.
 

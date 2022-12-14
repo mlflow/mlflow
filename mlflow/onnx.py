@@ -129,6 +129,9 @@ def save_model(
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     import onnx
 
@@ -445,6 +448,9 @@ def log_model(
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
