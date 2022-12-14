@@ -19,7 +19,7 @@ from mlflow.recipes.utils.metrics import (
     _get_model_type_from_template,
     _load_custom_metrics,
     _get_extended_task,
-    check_multiclass_metrics,
+    transform_multiclass_metric,
 )
 from mlflow.recipes.utils.step import get_merged_eval_metrics, validate_classification_config
 from mlflow.recipes.utils.tracking import (
@@ -66,7 +66,9 @@ class EvaluateStep(BaseStep):
         self.positive_class = self.step_config.get("positive_class")
         self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.model_validation_status = "UNKNOWN"
-        self.primary_metric = _get_primary_metric(self.step_config)
+        self.primary_metric = _get_primary_metric(
+            self.step_config.get("primary_metric"), self.extended_task
+        )
         self.user_defined_custom_metrics = {
             metric.name: metric
             for metric in _get_custom_metrics(self.step_config, self.extended_task)
@@ -225,7 +227,7 @@ class EvaluateStep(BaseStep):
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
                     eval_metrics[dataset_name] = {
-                        check_multiclass_metrics(
+                        transform_multiclass_metric(
                             strip_prefix(k, evaluator_config["metric_prefix"]), self.extended_task
                         ): v
                         for k, v in eval_result.metrics.items()

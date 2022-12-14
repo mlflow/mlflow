@@ -1,6 +1,7 @@
+import importlib
 import os
 import sys
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 from unittest import mock
 import cloudpickle
 from pathlib import Path
@@ -10,6 +11,7 @@ import pandas as pd
 
 import mlflow
 import sklearn.compose
+
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
 from mlflow.recipes.utils.execution import (
@@ -61,7 +63,7 @@ def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
         import math
         import random
 
-        if recipe == "binary_classification":
+        if recipe == "classification/binary":
             minority_class_cnt = math.ceil(0.1 * num_rows)
             majority_class_cnt = num_rows - minority_class_cnt
             y = ["a"] * minority_class_cnt + ["b"] * majority_class_cnt
@@ -101,7 +103,10 @@ def setup_train_dataset(recipe_root: Path, recipe: str = "regression"):
 
 # Sets up the constructed TrainStep instance
 def setup_train_step_with_tuning(
-    recipe_root: Path, use_tuning: bool, with_hardcoded_params: bool = True
+    recipe_root: Path,
+    use_tuning: bool,
+    with_hardcoded_params: bool = True,
+    recipe: str = "regression",
 ):
     recipe_yaml = recipe_root.joinpath(_RECIPE_CONFIG_FILE_NAME)
     if with_hardcoded_params:
@@ -114,10 +119,11 @@ def setup_train_step_with_tuning(
         """
     else:
         estimator_params = ""
+    estimator_fn = "estimator_fn" if recipe == "regression" else "classifier_estimator_fn"
     if use_tuning:
         recipe_yaml.write_text(
             """
-            recipe: "regression/v1"
+            recipe: "{recipe}/v1"
             target_col: "y"
             profile: "test_profile"
             run_args:
@@ -128,7 +134,7 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: custom
-                    estimator_method: estimator_fn
+                    estimator_method: {fn}
                     {estimator_params}
                     tuning:
                         enabled: true
@@ -147,13 +153,16 @@ def setup_train_step_with_tuning(
                                 mu: 0.01
                                 sigma: 0.0001
             """.format(
-                tracking_uri=mlflow.get_tracking_uri(), estimator_params=estimator_params
+                tracking_uri=mlflow.get_tracking_uri(),
+                estimator_params=estimator_params,
+                recipe=recipe,
+                fn=estimator_fn,
             )
         )
     else:
         recipe_yaml.write_text(
             """
-            recipe: "regression/v1"
+            recipe: "{recipe}/v1"
             target_col: "y"
             profile: "test_profile"
             run_args:
@@ -164,11 +173,11 @@ def setup_train_step_with_tuning(
             steps:
                 train:
                     using: custom
-                    estimator_method: estimator_fn
+                    estimator_method: {fn}
                     tuning:
                         enabled: false
             """.format(
-                tracking_uri=mlflow.get_tracking_uri()
+                tracking_uri=mlflow.get_tracking_uri(), recipe=recipe, fn=estimator_fn
             )
         )
     recipe_config = read_yaml(recipe_root, _RECIPE_CONFIG_FILE_NAME)
@@ -222,7 +231,9 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
     with mock.patch.dict(
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
     ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path, recipe="classification")
+        train_step_output_dir = setup_train_dataset(
+            tmp_recipe_root_path, recipe="classification/multiclass"
+        )
         recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
         recipe_yaml.write_text(
             """
@@ -262,7 +273,7 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
     assert "val_f1_score" in metrics
 
 
-@pytest.mark.parametrize("recipe", ["binary_classification", "multiclass_classification"])
+@pytest.mark.parametrize("recipe", ["classification/binary", "classification/multiclass"])
 def test_train_step_classifier_automl(tmp_recipe_root_path, recipe):
     with mock.patch.dict(
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
@@ -291,8 +302,8 @@ def test_train_step_classifier_automl(tmp_recipe_root_path, recipe):
                         - lgbm
             """.format(
                 tracking_uri=mlflow.get_tracking_uri(),
-                metric="roc_auc" if recipe == "binary_classification" else "roc_auc_ovr",
-                positive_class='positive_class: "a"' if recipe == "binary_classification" else "",
+                metric="roc_auc" if recipe == "classification/binary" else "recall_score",
+                positive_class='positive_class: "a"' if recipe == "classification/binary" else "",
             )
         )
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
@@ -626,3 +637,43 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 
         metrics = MlflowClient().get_run(run_id).data.metrics
         assert f"training_{primary_metric}" in metrics
+
+
+def test_tuning_multiclass(tmp_recipe_root_path):
+    with mock.patch.dict(
+        os.environ,
+        {
+            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
+            _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
+        },
+    ):
+        train_step_output_dir = setup_train_dataset(
+            tmp_recipe_root_path, recipe="classification/multiclass"
+        )
+
+        train_step = setup_train_step_with_tuning(
+            tmp_recipe_root_path,
+            use_tuning=True,
+            with_hardcoded_params=False,
+            recipe="classification",
+        )
+
+        _old_import_module = importlib.import_module
+
+        def _import_module(name: str, package: str = None):
+            if "steps" in name:
+                return _old_import_module("tests.recipes.test_train_step")
+            else:
+                return _old_import_module(name, package)
+
+        imp_pkg = MagicMock(name="api")
+        imp_pkg.side_effect = _import_module
+        with mock.patch("importlib.import_module", new=imp_pkg):
+            train_step._validate_and_apply_step_config()
+            train_step._run(str(train_step_output_dir))
+
+        with open(train_step_output_dir / "run_id") as f:
+            run_id = f.read()
+
+        metrics = MlflowClient().get_run(run_id).data.metrics
+        assert "training_f1_score" in metrics

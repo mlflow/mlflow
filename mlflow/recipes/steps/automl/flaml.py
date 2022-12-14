@@ -89,7 +89,7 @@ def _create_custom_metric_flaml(
     return custom_metric
 
 
-def _create_sklearn_metric_flaml(metric_name: str, coeff: int) -> callable:
+def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binary") -> callable:
     # pylint: disable=keyword-arg-before-vararg
     # pylint: disable=unused-argument
     def sklearn_metric(
@@ -107,8 +107,8 @@ def _create_sklearn_metric_flaml(metric_name: str, coeff: int) -> callable:
 
         custom_metrics_mod = importlib.import_module("sklearn.metrics")
         eval_fn = getattr(custom_metrics_mod, metric_name)
-        val_metric = coeff * eval_fn(y_val, estimator.predict(X_val))
-        train_metric = coeff * eval_fn(y_train, estimator.predict(X_train))
+        val_metric = coeff * eval_fn(y_val, estimator.predict(X_val), average=avg)
+        train_metric = coeff * eval_fn(y_train, estimator.predict(X_train), average=avg)
         return val_metric, {
             f"{metric_name}_train": train_metric,
             f"{metric_name}_val": val_metric,
@@ -137,7 +137,9 @@ def _create_model_automl(
             metric = _MLFLOW_TO_FLAML_METRICS[primary_metric]
         elif primary_metric in _SKLEARN_METRICS and primary_metric in evaluation_metrics:
             metric = _create_sklearn_metric_flaml(
-                primary_metric, -1 if evaluation_metrics[primary_metric].greater_is_better else 1
+                primary_metric,
+                -1 if evaluation_metrics[primary_metric].greater_is_better else 1,
+                "macro" if extended_task in ["classification/multiclass"] else "binary",
             )
         elif primary_metric in evaluation_metrics:
             metric = _create_custom_metric_flaml(

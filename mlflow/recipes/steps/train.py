@@ -32,6 +32,7 @@ from mlflow.recipes.utils.metrics import (
     _get_model_type_from_template,
     _load_custom_metrics,
     _get_extended_task,
+    transform_multiclass_metrics_dict,
 )
 from mlflow.recipes.utils.step import (
     get_merged_eval_metrics,
@@ -160,7 +161,9 @@ class TrainStep(BaseStep):
             )
 
         self.predict_proba = self.step_config.get("predict_proba", False)
-        self.primary_metric = _get_primary_metric(self.step_config)
+        self.primary_metric = _get_primary_metric(
+            self.step_config.get("primary_metric"), self.extended_task
+        )
         builtin_metrics = _get_builtin_metrics(self.extended_task)
         custom_metrics = _get_custom_metrics(self.step_config, self.extended_task)
         self.user_defined_custom_metrics = {metric.name: metric for metric in custom_metrics}
@@ -1017,8 +1020,11 @@ class TrainStep(BaseStep):
                     mlflow.log_params(manual_log_params)
 
                 # return +/- metric
+                transformed_metrics = transform_multiclass_metrics_dict(
+                    eval_result.metrics, self.extended_task
+                )
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
-                return sign * eval_result.metrics[self.primary_metric]
+                return sign * transformed_metrics[self.primary_metric]
 
         search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
