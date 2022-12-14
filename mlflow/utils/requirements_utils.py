@@ -254,7 +254,7 @@ def _get_installed_version(package, module=None):
     return version
 
 
-def _capture_imported_modules(model_uri, flavor, pyfunc_load_model_path=None):
+def _capture_imported_modules(model_uri, flavor):
     """
     Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
@@ -267,7 +267,7 @@ def _capture_imported_modules(model_uri, flavor, pyfunc_load_model_path=None):
     from mlflow.utils import _capture_modules
 
     local_model_path = _download_artifact_from_uri(model_uri)
-    _logger.warning(f"local_model_path:{local_model_path} = _download_artifact_from_uri(model_uri:{model_uri})")
+    _logger.debug(f"local_model_path:{local_model_path} = _download_artifact_from_uri(model_uri:{model_uri})")
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
 
@@ -365,7 +365,7 @@ def _load_pypi_package_index():
 _PYPI_PACKAGE_INDEX = None
 
 
-def _infer_requirements(model_uri, flavor, pyfunc_load_model_path=None):
+def _infer_requirements(model_uri, flavor):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -378,8 +378,8 @@ def _infer_requirements(model_uri, flavor, pyfunc_load_model_path=None):
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
         _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
-    _logger.warning(f"_infer_requirements(model_uri:{model_uri}, flavor:{flavor})")
-    modules = _capture_imported_modules(model_uri, flavor, pyfunc_load_model_path)
+    _logger.debug(f"_infer_requirements(model_uri:{model_uri}, flavor:{flavor})")
+    modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)
     packages = _prune_packages(packages)

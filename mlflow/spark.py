@@ -215,7 +215,7 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     if _should_use_mlflowdbfs(run_root_artifact_uri):
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
-        _logger.warning(f"Using mlflowdbfs: {mlflowdbfs_path}, artifact_path: {append_to_uri_path(run_root_artifact_uri, artifact_path)}")
+        _logger.debug(f"Using mlflowdbfs: {mlflowdbfs_path}, artifact_path: {append_to_uri_path(run_root_artifact_uri, artifact_path)}")
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
@@ -510,7 +510,7 @@ def _save_model_metadata(
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
-    _logger.warning(f"Saved model file to: {os.path.join(dst_dir, MLMODEL_FILE_NAME)}")
+    _logger.debug(f"Saved model file to: {os.path.join(dst_dir, MLMODEL_FILE_NAME)}")
 
     if conda_env is None:
         if pip_requirements is None:
@@ -520,8 +520,7 @@ def _save_model_metadata(
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 pyfunc_load_model_path,
                 FLAVOR_NAME,
-                fallback=default_reqs,
-                pyfunc_load_model_path=pyfunc_load_model_path
+                fallback=default_reqs
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

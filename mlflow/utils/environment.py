@@ -376,7 +376,7 @@ _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None, pyfunc_load_model_path=None):
+def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -388,7 +388,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, pyfunc_load_model_p
     :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
     """
     try:
-        return _infer_requirements(model_uri, flavor, pyfunc_load_model_path)
+        return _infer_requirements(model_uri, flavor)
     except Exception:
         if fallback is not None:
             _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
