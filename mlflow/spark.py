@@ -518,7 +518,7 @@ def _save_model_metadata(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                dst_dir,
+                pyfunc_load_model_path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
                 pyfunc_load_model_path=pyfunc_load_model_path

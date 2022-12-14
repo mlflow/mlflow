@@ -287,7 +287,7 @@ def _capture_imported_modules(model_uri, flavor, pyfunc_load_model_path=None):
                 sys.executable,
                 _capture_modules.__file__,
                 "--model-path",
-                local_model_path if pyfunc_load_model_path is None else pyfunc_load_model_path,
+                local_model_path,
                 "--flavor",
                 flavor,
                 "--output-file",
