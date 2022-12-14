@@ -1,0 +1,4 @@
+flavors:
+  crate:
+    version: 0.1.0
+    model: crate.bin
