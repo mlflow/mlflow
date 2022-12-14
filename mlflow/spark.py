@@ -519,6 +519,12 @@ def _save_model_metadata(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            if remote_model_path:
+                _logger.info(
+                    "Inferring pip requirements by reloading the logged model from the databricks "
+                    "artifact repository, which can be time-consuming. To speed up, explicitly "
+                    "specify the conda_env or pip_requirements when calling log_model()."
+                )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
