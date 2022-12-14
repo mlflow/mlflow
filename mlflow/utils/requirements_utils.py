@@ -378,6 +378,7 @@ def _infer_requirements(model_uri, flavor):
     global _PYPI_PACKAGE_INDEX
     if _PYPI_PACKAGE_INDEX is None:
         _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
+
     _logger.debug(f"_infer_requirements(model_uri:{model_uri}, flavor:{flavor})")
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])

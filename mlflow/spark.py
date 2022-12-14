@@ -733,7 +733,6 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
-    _logger.warning(f"is_in_cluster? {databricks_utils.is_in_cluster()}, is_dbfs_fuse_available? {databricks_utils.is_dbfs_fuse_available()}")
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
@@ -841,7 +840,6 @@ def _load_pyfunc(path):
         # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
         # (e.g. as part of spark_udf).
         spark = _create_local_spark_session_for_loading_spark_model()
-    _logger.debug(f"path: {path}")
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
