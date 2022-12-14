@@ -5,9 +5,9 @@ NULL
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)
-  } else if (is.infinite(value) & value > 0) {
+  } else if (is.infinite(value) && value > 0) {
     "Infinity"
-  } else if (is.infinite(value) & value < 0) {
+  } else if (is.infinite(value) && value < 0) {
     "-Infinity"
   } else {
     as.character(value)
@@ -273,6 +273,28 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   invisible(value)
 }
 
+paged_metric_history_request <- function(client, run_id, metric_key, page_token = NULL) {
+  response <- mlflow_rest(
+    "metrics", "get-history",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id,
+                 run_id = run_id,
+                 metric_key = metric_key,
+                 max_results = 25000,
+                 page_token = page_token)
+  )
+  response
+}
+
+paged_metric_history_to_dataframe <- function(metrics) {
+  metrics %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
+    tibble::as_tibble()
+}
+
 #' Get Metric History
 #'
 #' Get a list of all values for the specified metric for a given run.
@@ -287,19 +309,21 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
   client <- resolve_client(client)
 
   metric_key <- cast_string(metric_key)
+  response <- paged_metric_history_request(client, run_id, metric_key)
+  history <- paged_metric_history_to_dataframe(response$metrics)
+  next_token <- response$next_page_token
 
-  response <- mlflow_rest(
-    "metrics", "get-history",
-    client = client, verb = "GET",
-    query = list(run_uuid = run_id, run_id = run_id, metric_key = metric_key)
-  )
-
-  response$metrics %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    purrr::map_at("timestamp", milliseconds_to_date) %>%
-    purrr::map_at("step", as.double) %>%
-    tibble::as_tibble()
+  # Handle client-side pagination if a next_page_token is returned
+  while (!is.null(next_token)) {
+    next_page <- paged_metric_history_request(
+      client, run_id,
+      metric_key, next_token
+    )
+    next_token <- next_page$next_page_token
+    next_page_metrics <- paged_metric_history_to_dataframe(next_page$metrics)
+    history <- rbind(history, next_page_metrics)
+  }
+  history
 }
 
 #' Search Runs
@@ -309,8 +333,9 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @template roxlate-client
 #' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
 #' over. Attempts to use active experiment if not specified.
-#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
-#'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
+#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset
+#'   of runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+#'   between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
 #' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
@@ -482,7 +507,7 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   mlflow_rest("runs", "log-model", client = client, verb = "POST", data = list(
     run_id = run_id,
-    model_json = jsonlite::toJSON(model_spec, auto_unbox=TRUE)
+    model_json = jsonlite::toJSON(model_spec, auto_unbox = TRUE)
   ))
 }
 
@@ -511,12 +536,15 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL, nested = FALSE) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL,
+                             start_time = NULL, tags = NULL,
+                             client = NULL, nested = FALSE) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
-    if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
+    if (!is.null(run_id))
+        stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
     run <- mlflow_create_run(client = client, start_time = start_time,
                              tags = tags, experiment_id = experiment_id)
     return(run)
@@ -524,8 +552,10 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
 
   # Fluent mode, check to see if extraneous params passed.
 
-  if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
-  if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(start_time))
+    stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(tags))
+    stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
   active_run_id <- mlflow_get_active_run_id()
   if (!is.null(active_run_id) && !nested) {
