@@ -13,7 +13,6 @@ It also extends the functionality to support custom hooks for import errors
 
 import sys
 import threading
-
 import importlib  # pylint: disable=unused-import
 
 string_types = (str,)
@@ -181,14 +180,21 @@ def _create_import_hook_from_entrypoint(entrypoint):
 
 
 def discover_post_import_hooks(group):
-    try:
-        import pkg_resources
-    except ImportError:
-        return
+    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
+    if sys.version_info.major > 2 and sys.version_info.minor > 8:
+        from importlib.resources import files
 
-    for entrypoint in pkg_resources.iter_entry_points(group=group):
-        callback = _create_import_hook_from_entrypoint(entrypoint)
-        register_post_import_hook(callback, entrypoint.name)
+        for entrypoint in (
+            resource.name for resource in files(group).iterdir() if resource.is_file()
+        ):
+            callback = _create_import_hook_from_entrypoint(entrypoint)
+            register_post_import_hook(callback, entrypoint.name)
+    else:
+        from importlib.resources import contents
+
+        for entrypoint in contents(group):
+            callback = _create_import_hook_from_entrypoint(entrypoint)
+            register_post_import_hook(callback, entrypoint.name)
 
 
 # Indicate that a module has been loaded. Any post import hooks which
