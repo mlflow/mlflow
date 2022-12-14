@@ -240,20 +240,34 @@ class RestStore(AbstractStore):
         req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
         Return all logged values for a given metric.
 
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
+        :param max_results: Maximum number of metric history events (steps) to return per paged
+            query. Only supported in 'databricks' backend.
+        :param page_token: A Token specifying the next paginated set of results of metric history.
 
-        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        :return: A PagedList of :py:class:`mlflow.entities.Metric` entities if a paginated request
+            is made by setting ``max_results`` to a value other than ``None``, a List of
+            :py:class:`mlflow.entities.Metric` entities if ``max_results`` is None, else, if no
+            metrics of the ``metric_key`` have been logged to the ``run_id``, an empty list.
         """
         req_body = message_to_json(
-            GetMetricHistory(run_uuid=run_id, run_id=run_id, metric_key=metric_key)
+            GetMetricHistory(
+                run_uuid=run_id,
+                run_id=run_id,
+                metric_key=metric_key,
+                max_results=max_results,
+                page_token=page_token,
+            )
         )
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
-        return [Metric.from_proto(metric) for metric in response_proto.metrics]
+
+        metric_history = [Metric.from_proto(metric) for metric in response_proto.metrics]
+        return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token

@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from itertools import zip_longest
 
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_MAX_RESULTS
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils.validation import (
@@ -80,7 +80,30 @@ class TrackingServiceClient:
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        return self.store.get_metric_history(run_id=run_id, metric_key=key)
+
+        # NB: Paginated query support is currently only available for the RestStore backend.
+        # FileStore and SQLAlchemy store do not provide support for paginated queries and will
+        # raise an MlflowException if the `page_token` argument is not None when calling this
+        # API for a continuation query.
+        history = self.store.get_metric_history(
+            run_id=run_id,
+            metric_key=key,
+            max_results=GET_METRIC_HISTORY_MAX_RESULTS,
+            page_token=None,
+        )
+        token = history.token
+        # Continue issuing queries to the backend store to retrieve all pages of
+        # metric history.
+        while token is not None:
+            paged_history = self.store.get_metric_history(
+                run_id=run_id,
+                metric_key=key,
+                max_results=GET_METRIC_HISTORY_MAX_RESULTS,
+                page_token=token,
+            )
+            history.extend(paged_history)
+            token = paged_history.token
+        return history
 
     def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
         """
@@ -94,7 +117,7 @@ class TrackingServiceClient:
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
-        :param name: The name of this run.
+        :param run_name: The name of this run.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
 
