@@ -9,11 +9,9 @@ import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsA
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
 import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
-const DEFAULT_VIEW_STATE = new SearchExperimentRunsViewState();
 
 const MOCK_RUNS_DATA = experimentRunsSelector(EXPERIMENT_RUNS_MOCK_STORE, {
   experiments: [MOCK_EXPERIMENT],
@@ -25,23 +23,10 @@ export default {
   argTypes: {},
 };
 
-const createComponentWrapper = () => () => {
-  const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
+const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () => {
+  const [searchFacetsState] = useState<SearchExperimentRunsFacetsState>(
     new SearchExperimentRunsFacetsState(),
   );
-  const [messages, setMessages] = useState<string[]>([]);
-  const updateSearchFacets = ((
-    updatedFacetsState: Partial<SearchExperimentRunsFacetsState>,
-    refresh?: boolean,
-  ) => {
-    setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
-    setMessages((currentMessages) => [
-      refresh
-        ? 'updateSearchFacets() called requesting refresh data'
-        : `updateSearchFacets() called while updating state ${JSON.stringify(updatedFacetsState)}`,
-      ...currentMessages,
-    ]);
-  }) as UpdateExperimentSearchFacetsFn;
 
   return (
     <Provider
@@ -64,30 +49,12 @@ const createComponentWrapper = () => () => {
               <h2>Component:</h2>
             </div>
             <ExperimentViewRunsControlsActions
+              visibleRowsCount={MOCK_RUNS_DATA.runInfos.length}
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
-              viewState={DEFAULT_VIEW_STATE}
-              updateSearchFacets={updateSearchFacets}
+              viewState={viewState}
+              updateSearchFacets={() => {}}
             />
-            <div
-              css={{
-                marginTop: 20,
-                paddingTop: 10,
-                borderTop: '1px solid #ccc',
-              }}
-            >
-              <h2>Debug info:</h2>
-              <h3>Current search-facets state:</h3>
-              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>
-                {JSON.stringify(searchFacetsState)}
-              </div>
-              <h3>Log:</h3>
-              {messages.map((m, i) => (
-                <div key={i} css={{ fontFamily: 'monospace' }}>
-                  - {m}
-                </div>
-              ))}
-            </div>
           </IntlProvider>
         </GetExperimentRunsContextProvider>
       </StaticRouter>
@@ -95,4 +62,20 @@ const createComponentWrapper = () => () => {
   );
 };
 
-export const Default = createComponentWrapper();
+export const Default = createComponentWrapper(new SearchExperimentRunsViewState());
+export const WithOneRunSelected = createComponentWrapper(
+  Object.assign(new SearchExperimentRunsViewState(), {
+    runsSelected: {
+      experiment123456789_run1: true,
+    },
+  }),
+);
+
+export const WithTwoRunsSelected = createComponentWrapper(
+  Object.assign(new SearchExperimentRunsViewState(), {
+    runsSelected: {
+      experiment123456789_run1: true,
+      experiment123456789_run2: true,
+    },
+  }),
+);

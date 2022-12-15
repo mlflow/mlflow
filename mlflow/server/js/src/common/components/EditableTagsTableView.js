@@ -79,7 +79,7 @@ export class EditableTagsTableViewImpl extends Component {
           onSaveEdit={handleSaveEdit}
           onDelete={handleDeleteTag}
         />
-        <Spacer size='small' />
+        <Spacer size='sm' />
         <div>
           <Form ref={innerRef} layout='inline' onFinish={handleAddTag} css={styles.form}>
             <Form.Item
@@ -98,6 +98,7 @@ export class EditableTagsTableViewImpl extends Component {
             >
               <Input
                 aria-label='tag name'
+                data-testid='tags-form-input-name'
                 placeholder={this.props.intl.formatMessage({
                   defaultMessage: 'Name',
                   description:
@@ -108,6 +109,7 @@ export class EditableTagsTableViewImpl extends Component {
             <Form.Item name='value' rules={[]}>
               <Input
                 aria-label='tag value'
+                data-testid='tags-form-input-value'
                 placeholder={this.props.intl.formatMessage({
                   defaultMessage: 'Value',
                   description:
@@ -116,7 +118,7 @@ export class EditableTagsTableViewImpl extends Component {
               />
             </Form.Item>
             <Form.Item>
-              <Button loading={isRequestPending} htmlType='submit' data-test-id='add-tag-button'>
+              <Button loading={isRequestPending} htmlType='submit' data-testid='add-tag-button'>
                 <FormattedMessage
                   defaultMessage='Add'
                   description='Add button text in editable tags table view in MLflow'

@@ -1,8 +1,8 @@
 import { IntlShape } from 'react-intl';
 import { saveAs } from 'file-saver';
 import { ExperimentEntity } from '../../../types';
-import ExperimentViewUtil from '../../ExperimentViewUtil';
 import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
+import { runInfosToCsv } from '../../../utils/CsvUtils';
 
 export const EXPERIMENT_FIELD_PREFIX_PARAM = '$$$param$$$';
 export const EXPERIMENT_FIELD_PREFIX_METRIC = '$$$metric$$$';
@@ -59,16 +59,15 @@ export const downloadRunsCsv = (
 ) => {
   const { runInfos, paramsList, metricsList, tagsList } = runsData;
 
-  // TODO: refactor runInfosToCsv() logic out of ExperimentViewUtil
-  const csv = ExperimentViewUtil.runInfosToCsv(
+  const csv = runInfosToCsv({
     runInfos,
-    filteredParamKeys,
-    filteredMetricKeys,
-    filteredTagKeys,
+    paramKeyList: filteredParamKeys,
+    metricKeyList: filteredMetricKeys,
+    tagKeyList: filteredTagKeys,
     paramsList,
     metricsList,
     tagsList,
-  );
+  });
   const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
   saveAs(blob, 'runs.csv');
 };
