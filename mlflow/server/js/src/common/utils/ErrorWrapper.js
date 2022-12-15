@@ -48,4 +48,12 @@ export class ErrorWrapper {
       return simplifiedText;
     }
   }
+
+  /**
+   * Returns true if this instance wraps HTTP client (4XX) error
+   */
+  is4xxError() {
+    const status = parseInt(this.getStatus(), 10);
+    return status >= 400 && status <= 499;
+  }
 }

@@ -542,7 +542,7 @@ export class CompareRunView extends Component {
               description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
             />
           </Typography.Text>
-          <Spacer size='large' />
+          <Spacer size='lg' />
           {this.renderParamTable(colWidth)}
         </CollapsibleSection>
         <CollapsibleSection
@@ -562,7 +562,7 @@ export class CompareRunView extends Component {
               description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
             />
           </Typography.Text>
-          <Spacer size='large' />
+          <Spacer size='lg' />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
         <CollapsibleSection
@@ -582,7 +582,7 @@ export class CompareRunView extends Component {
               description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
             />
           </Typography.Text>
-          <Spacer size='large' />
+          <Spacer size='lg' />
           {this.renderTagTable(colWidth)}
         </CollapsibleSection>
       </div>

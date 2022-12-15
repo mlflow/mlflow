@@ -70,5 +70,6 @@ const styles = {
     display: 'flex',
     justifyContent: 'flex-end',
     width: (level + 1) * theme.spacing.lg,
+    height: theme.general.heightSm,
   }),
 };
