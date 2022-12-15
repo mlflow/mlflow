@@ -41,10 +41,10 @@ def store(test_root):
 
 @pytest.fixture(scope="module")
 def registered_models():
-    return [random_str() for _ in range(3)]  # pylint: disable=attribute-defined-outside-init
+    return [random_str() for _ in range(3)]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def rm_data(registered_models, test_root):
     rm_data = {}
     for name in registered_models:
@@ -63,7 +63,10 @@ def rm_data(registered_models, test_root):
         rm_data[name] = d
         write_yaml(rm_folder, FileStore.META_DATA_FILE_NAME, d)
         os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
-        return rm_data
+    yield rm_data
+    for name in registered_models:
+        rm_folder = os.path.join(test_root, FileStore.MODELS_FOLDER_NAME, name)
+        os.remove(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
 
 
 # def _create_registered_models_for_test(self):
@@ -119,14 +122,9 @@ def _verify_registered_model(fs, name, rm_data):
 
 
 def test_get_registered_model(store, registered_models, rm_data):
-    # print("!!" * 30)
-    # print(registered_models)
-    # self._create_registered_models_for_test()
+
     for name in registered_models:
-        # print("&&" * 30)
-        # print(name)
-        # print(rm_)
-        # print(store)
+
         _verify_registered_model(store, name, rm_data)
 
     # test that fake registered models dont exist.
@@ -135,6 +133,64 @@ def test_get_registered_model(store, registered_models, rm_data):
             MlflowException, match=f"Could not find registered model with name {name}"
         ):
             store.get_registered_model(name)
+
+
+# def test_rename_registered_model(store, registered_models):
+#     model_name = registered_models[random_int(0, len(registered_models) - 1)]
+
+#     # Error cases
+#     with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+#         store.rename_registered_model(model_name, None)
+#     # test that names of existing registered models are checked before renaming
+#     other_model_name = None
+#     for name in registered_models:
+#         if name != model_name:
+#             other_model_name = name
+#             break
+#     with pytest.raises(
+#         MlflowException, match=rf"Registered Model \(name={other_model_name}\) already exists."
+#     ):
+#         store.rename_registered_model(model_name, other_model_name)
+
+#     new_name = model_name + "!!!"
+#     assert model_name != new_name
+#     store.rename_registered_model(model_name, new_name)
+#     assert store.get_registered_model(new_name).name == new_name
+
+
+def _extract_names(registered_models):
+    return [rm.name for rm in registered_models]
+
+
+def test_delete_registered_model(store, registered_models):
+    model_name = registered_models[random_int(0, len(registered_models) - 1)]
+    # print(store.list_registered_models(max_results=10, page_token=None))
+
+    # Error cases
+    with pytest.raises(
+        MlflowException, match=f"Could not find registered model with name {model_name}!!!"
+    ):
+        store.delete_registered_model(model_name + "!!!")
+
+    store.delete_registered_model(model_name)
+    assert model_name not in _extract_names(
+        store.list_registered_models(max_results=10, page_token=None)
+    )
+    # Cannot delete a deleted model
+    with pytest.raises(
+        MlflowException, match=f"Could not find registered model with name {model_name}"
+    ):
+        store.delete_registered_model(model_name)
+    # print(store.list_registered_models(max_results=10, page_token=None))
+
+
+def test_list_registered_model(store, registered_models, rm_data):
+    for rm in store.list_registered_models(max_results=10, page_token=None):
+        # print("!" * 20)
+        # print(rm)
+        name = rm.name
+        assert name in registered_models
+        assert name == rm_data[name]["name"]
 
 
 # @pytest.fixture
@@ -155,92 +211,6 @@ class TestFileStore(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.test_root, ignore_errors=True)
-
-    def _create_registered_models_for_test(self):
-        self.registered_models = [  # pylint: disable=attribute-defined-outside-init
-            random_str() for _ in range(3)
-        ]
-        self.rm_data = {}  # pylint: disable=attribute-defined-outside-init
-        self.mv_data = {}  # pylint: disable=attribute-defined-outside-init
-        for name in self.registered_models:
-            # create registered model
-            creation_time = now()
-            rm_folder = os.path.join(self.test_root, FileStore.MODELS_FOLDER_NAME, name)
-            os.makedirs(rm_folder)
-            d = {
-                "name": name,
-                "creation_timestamp": creation_time,
-                "last_updated_timestamp": creation_time,
-                "description": None,
-                "latest_versions": [],
-                "tags": {},
-            }
-            self.rm_data[name] = d
-            write_yaml(rm_folder, FileStore.META_DATA_FILE_NAME, d)
-            # tags
-            os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
-
-    def test_create_registered_model(self):
-        fs = self.get_store()
-
-        # Error cases
-        with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
-            fs.create_registered_model(None)
-        with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
-            fs.create_registered_model("")
-
-        name = random_str()
-        model = fs.create_registered_model(name)
-        assert model.name == name
-        assert model.latest_versions == []
-        assert model.creation_timestamp == model.last_updated_timestamp
-        assert model.tags == {}
-
-    def _verify_registered_model(self, fs, name):
-        rm = fs.get_registered_model(name)
-        assert rm.name == name
-        assert rm.creation_timestamp == self.rm_data[name]["creation_timestamp"]
-        assert rm.last_updated_timestamp == self.rm_data[name]["last_updated_timestamp"]
-        assert rm.description == self.rm_data[name]["description"]
-        assert rm.latest_versions == self.rm_data[name]["latest_versions"]
-        assert rm.tags == self.rm_data[name]["tags"]
-
-    def test_get_registered_model(self):
-        fs = self.get_store()
-        self._create_registered_models_for_test()
-        for name in self.registered_models:
-            self._verify_registered_model(fs, name)
-
-        # test that fake registered models dont exist.
-        for name in {random_str(25) for _ in range(10)}:
-            with pytest.raises(
-                MlflowException, match=f"Could not find registered model with name {name}"
-            ):
-                fs.get_registered_model(name)
-
-    def test_rename_registered_model(self):
-        fs = self.get_store()
-        self._create_registered_models_for_test()
-        model_name = self.registered_models[random_int(0, len(self.registered_models) - 1)]
-
-        # Error cases
-        with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
-            fs.rename_registered_model(model_name, None)
-        # test that names of existing registered models are checked before renaming
-        other_model_name = None
-        for name in self.registered_models:
-            if name != model_name:
-                other_model_name = name
-                break
-        with pytest.raises(
-            MlflowException, match=rf"Registered Model \(name={other_model_name}\) already exists."
-        ):
-            fs.rename_registered_model(model_name, other_model_name)
-
-        new_name = model_name + "!!!"
-        assert model_name != new_name
-        fs.rename_registered_model(model_name, new_name)
-        assert fs.get_registered_model(new_name).name == new_name
 
     def _extract_names(self, registered_models):
         return [rm.name for rm in registered_models]
