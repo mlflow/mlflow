@@ -7,13 +7,13 @@ class Routes {
     return `/experiments/${experimentId}`;
   }
 
-  static getExperimentByUser(experimentId, user_id) {
-    const filter_string = `user_id = ${user_id}`;
-    return `/experiments/${experimentId}?searchFilter=${escape(filter_string)}`;
+  static searchRunsByUser(experimentId, user_id) {
+    const filter_string = `user_id = '${user_id}'`;
+    return `/experiments/${experimentId}?searchFilter=${encodeURIComponent(filter_string)}`;
   }
 
-  static getExperimentByLifeCycle(experimentId, lifeCycleStage) {
-    return `/experiments/${experimentId}?lifecycleFilter=${lifeCycleStage}`;
+  static searchRunsByLifecycleStage(experimentId, lifecycleStage) {
+    return `/experiments/${experimentId}?lifecycleFilter=${lifecycleStage}`;
   }
 
   static experimentPageRoute = '/experiments/:experimentId';

@@ -179,53 +179,6 @@ describe('RunView', () => {
     expect(wrapper.html()).toContain('Job Output');
   });
 
-  test('With user_id, when clicked, link to searchRuns with user_id filter', () => {
-    const store = mockStore({
-      ...minimalStoreRaw,
-      entities: {
-        ...minimalStoreRaw.entities,
-        runInfosByUuid: {
-          ...minimalStoreRaw.entities.runInfosByUuid,
-          'uuid-1234-5678-9012': RunInfo.fromJs({
-            run_uuid: 'uuid-1234-5678-9012',
-            experiment_id: '12345',
-            user_id: 'me@me.com',
-            status: 'RUNNING',
-            start_time: 12345678990,
-            end_time: 12345678999,
-            artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
-            lifecycle_stage: 'active',
-          }),
-        },
-        tagsByRunUuid: {
-          'uuid-1234-5678-9012': {
-            'mlflow.source.type': RunTag.fromJs({ key: 'mlflow.source.type', value: 'PROJECT' }),
-            'mlflow.source.name': RunTag.fromJs({ key: 'mlflow.source.name', value: 'notebook' }),
-            'mlflow.source.git.commit': RunTag.fromJs({
-              key: 'mlflow.source.git.commit',
-              value: 'abc',
-            }),
-          },
-        },
-        paramsByRunUuid: {
-          'uuid-1234-5678-9012': {
-            p1: Param.fromJs({ key: 'p1', value: 'v1' }),
-          },
-        },
-      },
-    });
-    wrapper = mountWithIntl(
-      <Provider store={store}>
-        <BrowserRouter>
-          <RunView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    ).find(RunView);
-
-    expect(wrapper.find("a[data-test-id='user-id-search']").text()).toBe('me@me.com');
-    expect(wrapper.find("a[data-test-id='life-cycle-search']").text()).toBe('active');
-  });
-
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>

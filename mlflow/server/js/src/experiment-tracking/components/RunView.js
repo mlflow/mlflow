@@ -11,6 +11,7 @@ import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
+import { capitalizeFirstLetter } from '../../common/utils/StringUtils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
@@ -226,6 +227,28 @@ export class RunViewImpl extends Component {
     );
   }
 
+  renderUserIdLink = () => {
+    const { run, tags, experimentId } = this.props;
+    // TODO: On Databricks, just return `user` instead of a link because MLflow backend on Databricks
+    // does not support searching runs by user.
+    const user = Utils.getUser(run, tags);
+    return <Link to={Routes.searchRunsByUser(experimentId, user)}>{user}</Link>;
+  };
+
+  renderLifecycleLink = () => {
+    const lifecycleStage = this.props.run.getLifecycleStage();
+    return (
+      <Link
+        to={Routes.searchRunsByLifecycleStage(
+          this.props.experimentId,
+          capitalizeFirstLetter(lifecycleStage),
+        )}
+      >
+        {lifecycleStage}
+      </Link>
+    );
+  };
+
   render() {
     const {
       runUuid,
@@ -340,12 +363,7 @@ export class RunViewImpl extends Component {
               description: 'Label for displaying the user who created the experiment run',
             })}
           >
-            <Link
-              data-test-id='user-id-search'
-              to={Routes.getExperimentByUser(this.props.experimentId, Utils.getUser(run, tags))}
-            >
-              {Utils.getUser(run, tags)}
-            </Link>
+            {this.renderUserIdLink()}
           </Descriptions.Item>
           {duration ? (
             <Descriptions.Item
@@ -376,12 +394,7 @@ export class RunViewImpl extends Component {
                   'Label for displaying lifecycle stage of the experiment run to see if its active or deleted',
               })}
             >
-              <Link
-                data-test-id='life-cycle-search'
-                to={Routes.getExperimentByLifeCycle(this.props.experimentId, lifecycleStage)}
-              >
-                {lifecycleStage}
-              </Link>
+              {this.renderLifecycleLink()}
             </Descriptions.Item>
           ) : null}
           {tags['mlflow.parentRunId'] !== undefined ? (
