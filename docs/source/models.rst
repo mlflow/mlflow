@@ -2317,6 +2317,26 @@ dataframe's column names must match the model signature's column names.
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
+If a model requires multi-dimensional data input, you need to pass a column of array type
+as a corresponding UDF argument, the column values must be one dimension arrays and the
+UDF will reshape the column values to the required shape with C_CONTIGUOUS (row-major)
+order and cast the values as the required tensor spec type. For example, assuming a model
+requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5), then we need to
+prepare an inference spark dataframe with column 'a' containing arrays of length 6 and
+column 'b' containing arrays of length 20, then invoke the UDF like following example code.
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    # Assuming the model requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5)
+    model_path = <path-to-model-requiring-multidimensional-inputs>
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_path)
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct('a', 'b')))
+
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value, an array of values, or a struct containing multiple field values
 of the same type per observation. By default, we return the first
