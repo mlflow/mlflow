@@ -810,11 +810,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     are ordinals (0, 1, ...). On some versions of Spark (3.0 and above), it is also possible to
     wrap the input in a struct. In that case, the data will be passed as a DataFrame with column
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
-    will get the data as a pandas DataFrame with 2 columns 'x' and 'y'). If a model requires
-    multi-dimensional data input, you need to pass a column of array type as a corresponding UDF
-    argument, the column values must be one dimension arrays and the UDF will reshape the column
-    values to the required shape with C_CONTIGUOUS (row-major) order and cast the values as the
-    required tensor spec type.
+    will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
+
+    If a model contains a signature with tensor spec inputs, you need to pass a column of array
+    type as a corresponding UDF argument, the column values must be one dimension arrays and the
+    UDF will reshape the column values to the required shape with C_CONTIGUOUS (row-major) order
+    and cast the values as the required tensor spec type.
 
     If a model contains a signature, the UDF can be called without specifying column name
     arguments. In this case, the UDF will be called with column names from signature, so the

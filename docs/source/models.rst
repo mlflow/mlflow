@@ -2317,8 +2317,9 @@ dataframe's column names must match the model signature's column names.
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
-If a model requires multi-dimensional data input, you need to pass a column of array type
-as a corresponding UDF argument, the column values must be one dimension arrays and the
+If a model contains a signature with tensor spec inputs,
+you need to pass a column of array type as a corresponding UDF argument,
+the column values must be one dimension arrays and the
 UDF will reshape the column values to the required shape with C_CONTIGUOUS (row-major)
 order and cast the values as the required tensor spec type. For example, assuming a model
 requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5), then we need to
