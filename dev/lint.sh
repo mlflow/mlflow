@@ -6,7 +6,7 @@ err=0
 trap 'err=1' ERR
 
 echo -e "\n========== black ==========\n"
-./dev/black.sh
+black --check $(git ls-files | grep '\.py$')
 
 echo -e "\n========== pylint ==========\n"
 pylint $(git ls-files | grep '\.py$')
