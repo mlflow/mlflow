@@ -849,7 +849,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     :param result_type: the return type of the user-defined function. The value can be either a
         ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
-        type or an array ``pyspark.sql.types.ArrayType`` of primitive type are allowed.
+        type, an array ``pyspark.sql.types.ArrayType`` of primitive type, or a struct type
+        containing fields of above 2 kinds of types are allowed.
         The following classes of result type are supported:
 
         - "int" or ``pyspark.sql.types.IntegerType``: The leftmost integer that can fit in an
@@ -876,6 +877,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
           to ``bool`` or an exception if there is none.
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
+
+        - "field1 FIELD1_TYPE, field2 FIELD2_TYPE, ...": A struct type containing multiple fields
+          separated by comma, each field type must be one of types listed above.
 
     :param env_manager: The environment manager to use in order to create the python environment
                         for model inference. Note that environment is only restored in the context
@@ -1065,7 +1069,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             LongType: np.int64,
             FloatType: np.float32,
             DoubleType: np.float64,
-            BooleanType: bool,
+            BooleanType: np.bool_,
+            StringType: np.str_,
         }
 
         if isinstance(result_type, SparkStructType):

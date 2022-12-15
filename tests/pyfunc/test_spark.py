@@ -271,6 +271,8 @@ def test_spark_udf_with_struct_return_type(spark):
                 "r2": [1.5] * input_len,
                 "r3": [[1, 2]] * input_len,
                 "r4": [np.array([1.5, 2.5])] * input_len,
+                "r5": [True] * input_len,
+                "r6": ["abc"] * input_len,
             }
 
     with mlflow.start_run() as run:
@@ -279,13 +281,13 @@ def test_spark_udf_with_struct_return_type(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark,
             "runs:/{}/model".format(run.info.run_id),
-            result_type="r1 int, r2 float, r3 array<long>, r4 array<double>",
+            result_type="r1 int, r2 float, r3 array<long>, r4 array<double>, r5 boolean, r6 string",
         )
 
         data1 = spark.range(2).repartition(1)
         result = (
             data1.withColumn("res", udf("id"))
-            .select("res.r1", "res.r2", "res.r3", "res.r4")
+            .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5", "res.r6")
             .toPandas()
         )
         assert result.r1.tolist() == [1] * 2
@@ -294,6 +296,8 @@ def test_spark_udf_with_struct_return_type(spark):
         np.testing.assert_almost_equal(
             np.vstack(result.r4.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
         )
+        assert result.r5.tolist() == [True] * 2
+        assert result.r6.tolist() == ["abc"] * 2
 
 
 def test_spark_udf_autofills_no_arguments(spark):
