@@ -1,7 +1,6 @@
 import tempfile
 import shutil
 import os
-from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
 
 def _get_active_spark_session():
@@ -83,12 +82,21 @@ def _create_local_spark_session_for_loading_spark_model():
 _NFS_PATH_PREFIX = "nfs:"
 
 
+def _get_spark_distributor_nfs_cache_dir():
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir  # avoid recursive importing
+
+    _nfs_root_dir = get_nfs_cache_root_dir()
+    if _nfs_root_dir is not None:
+        cache_dir = os.path.join(_nfs_root_dir, "mlflow_distributor_cache_dir")
+        os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
+    return None
+
+
 class _SparkDirectoryDistributor:
     """Distribute spark directory from driver to executors."""
 
     _extracted_dir_paths = {}
-
-    _nfs_root_dir = get_nfs_cache_root_dir()
 
     def __init__(self):
         pass
@@ -104,14 +112,13 @@ class _SparkDirectoryDistributor:
         # directories when recursive=True.
         archive_path = shutil.make_archive(archive_basepath, "zip", dir_path)
 
-        if _SparkDirectoryDistributor._nfs_root_dir is not None:
+        nfs_cache_dir = _get_spark_distributor_nfs_cache_dir()
+        if nfs_cache_dir is not None:
             # If NFS directory (shared by all spark nodes) is available, use NFS directory
-            # instead of `SparkContext.addFile` to broadcast files.
+            # instead of `SparkContext.addFile` to distribute files.
             # Because on databricks runtime, `SparkContext.addFile` has security issue and
             # is not allowed to be called on shared cluster.
-            cache_dir = os.path.join(_SparkDirectoryDistributor._nfs_root_dir, "cached_models")
-            os.makedirs(cache_dir, exist_ok=True)
-            dest_path = os.path.join(cache_dir, os.path.basename(archive_path))
+            dest_path = os.path.join(nfs_cache_dir, os.path.basename(archive_path))
             shutil.copy(archive_path, dest_path)
             return _NFS_PATH_PREFIX + dest_path
 
