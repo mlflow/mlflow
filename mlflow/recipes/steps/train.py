@@ -1056,7 +1056,13 @@ class TrainStep(BaseStep):
             "trials": hp_trials,
         }
         if "early_stop_fn" in tuning_params:
-            train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
+            try:
+                train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(
+                    ".", 1
+                )
+            except ValueError:
+                early_stop_fn_name = tuning_params["early_stop_fn"]
+                train_module_name = _USER_DEFINED_TRAIN_STEP_MODULE
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             fmin_kwargs["early_stop_fn"] = early_stop_fn
         best_hp_params = fmin(**fmin_kwargs)
