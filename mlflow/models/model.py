@@ -165,7 +165,34 @@ class ModelInfo:
         .. Note::
             Experimental: This method may change or be removed in a future release without warning.
 
-        User defined metadata added to the model
+        User defined metadata added to the model.
+
+        .. code-block:: python
+            :caption: Example
+
+            # Create and log a model with metadata to the Model Registry
+
+            from sklearn import datasets
+            from sklearn.ensemble import RandomForestClassifier
+            import mlflow
+
+            with mlflow.start_run():
+                iris = datasets.load_iris()
+                clf = RandomForestClassifier()
+                clf.fit(iris.data, iris.target)
+                mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-metadata",
+                                         metadata={"metadata_key": "metadata_value"})
+
+            # model uri for the above model
+            model_uri = "models:/model-with-metadata/1"
+
+            # Load the model and access the custom metadata from its ModelInfo object
+            model = mlflow.pyfunc.load_model(model_uri=model_uri)
+            assert model.metadata.get_model_info().metadata["metadata_key"] == "metadata_value"
+
+            # Load the ModelInfo and access the custom metadata
+            model_info = mlflow.models.get_model_info(model_uri=model_uri)
+            assert model_info.metadata["metadata_key"] == "metadata_value"
         """
         return self._metadata
 
@@ -244,6 +271,29 @@ class Model:
             Experimental: This method may change or be removed in a future release without warning.
 
         Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+        .. code-block:: python
+            :caption: Example
+
+            # Create and log a model with metadata to the Model Registry
+
+            from sklearn import datasets
+            from sklearn.ensemble import RandomForestClassifier
+            import mlflow
+
+            with mlflow.start_run():
+                iris = datasets.load_iris()
+                clf = RandomForestClassifier()
+                clf.fit(iris.data, iris.target)
+                mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-metadata",
+                                         metadata={"metadata_key": "metadata_value"})
+
+            # model uri for the above model
+            model_uri = "models:/model-with-metadata/1"
+
+            # Load the model and access the custom metadata
+            model = mlflow.pyfunc.load_model(model_uri=model_uri)
+            assert model.metadata.metadata["metadata_key"] == "metadata_value"
         """
         return self._metadata
 
