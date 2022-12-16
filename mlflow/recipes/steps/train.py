@@ -9,6 +9,7 @@ import yaml
 import cloudpickle
 
 import mlflow
+import sklearn
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.recipes.artifacts import (
@@ -58,6 +59,8 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
+from mlflow.models import Model
+from mlflow.utils.file_utils import TempDir
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -69,6 +72,7 @@ _logger = logging.getLogger(__name__)
 class TrainStep(BaseStep):
 
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
+    SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH = "sk_model"
     PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"
 
     def __init__(self, step_config, recipe_root, recipe_config=None):
@@ -331,27 +335,75 @@ class TrainStep(BaseStep):
                 mlflow.sklearn.log_model(
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
-                model = WrappedRecipeModel(
-                    make_pipeline(transformer, estimator),
-                    self.predict_scores_for_all_classes,
-                    self.predict_prefix,
+
+                trained_pipeline = make_pipeline(transformer, estimator)
+                # Creating a wrapped recipe model which exposes a single predict function
+                # so it can output both predict and predict_proba(for a classification problem)
+                # at the same time.
+                wrapped_model = WrappedRecipeModel(
+                    self.predict_scores_for_all_classes, self.predict_prefix
                 )
-                model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                model_info = mlflow.sklearn.log_model(
-                    model,
-                    f"{self.name}/model",
-                    signature=model_schema,
-                    code_paths=self.code_paths,
-                )
-                output_model_path = get_step_output_path(
+
+                model_uri = get_step_output_path(
                     recipe_root_path=self.recipe_root,
                     step_name=self.name,
                     relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
                 )
-                if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-                    shutil.rmtree(output_model_path)
+                sklearn_model_uri = get_step_output_path(
+                    recipe_root_path=self.recipe_root,
+                    step_name=self.name,
+                    relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
+                )
+                if os.path.exists(model_uri):
+                    shutil.rmtree(model_uri)
+                if os.path.exists(sklearn_model_uri):
+                    shutil.rmtree(sklearn_model_uri)
 
-                mlflow.sklearn.save_model(model, output_model_path)
+                # Saving the sklearn model as a separate output since `mlflow.evaluate()`, which is
+                # used in evaluate step of the recipe, needs this model's sklearn representation
+                # to computes metrics (the pyfunc representation of the user-facing model logged to
+                # MLflow Tracking is not currently compatible with `mlflow.evaluate()`)
+                mlflow.sklearn.save_model(trained_pipeline, sklearn_model_uri)
+                artifacts = {"model_path": sklearn_model_uri}
+                with TempDir() as tmp:
+                    # Saving a temp model so that the output schema (signature) of the model's
+                    # pyfunc representation can be inferred and included when logging the model
+                    # to MLflow Tracking. Unfortunately, there is currently no easy way to infer
+                    # the model's signature without first saving a copy of it, and there is no easy
+                    # way to add an inferred signature to an existing model
+                    pyfunc_model_tmp_path = os.path.join(tmp.path(), "pyfunc_model")
+                    mlflow.pyfunc.save_model(
+                        path=pyfunc_model_tmp_path,
+                        python_model=wrapped_model,
+                        artifacts=artifacts,
+                    )
+                    tempModel = mlflow.pyfunc.load_model(pyfunc_model_tmp_path)
+                    model_schema = infer_signature(
+                        raw_X_train, tempModel.predict(raw_X_train.copy())
+                    )
+                    mlflow.pyfunc.save_model(
+                        path=model_uri,
+                        python_model=wrapped_model,
+                        artifacts=artifacts,
+                        signature=model_schema,
+                        code_path=self.code_paths,
+                    )
+                model = mlflow.pyfunc.load_model(model_uri)
+                # Adding a sklearn flavor to the pyfunc model so models could be loaded easily
+                # using mlflow.sklearn.load_model
+                model_info = Model.load(model_uri)
+                model_data_subpath = os.path.join(
+                    "artifacts", TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH, "model.pkl"
+                )
+                model_info.add_flavor(
+                    mlflow.sklearn.FLAVOR_NAME,
+                    pickled_model=model_data_subpath,
+                    sklearn_version=sklearn.__version__,
+                    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+                    code="code",
+                )
+                model_info.save(f"{model_uri}/MLmodel")
+                mlflow.log_artifacts(model_uri, "train/model")
 
                 with open(os.path.join(output_directory, "run_id"), "w") as f:
                     f.write(run.info.run_id)
@@ -390,18 +442,21 @@ class TrainStep(BaseStep):
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
 
-            if model.classification:
+            use_predict_proba = isinstance(prediction_result, pd.DataFrame)
+            if use_predict_proba:
                 prediction_result_for_error = (
-                    prediction_result.drop(["predicted_label", "predicted_score"], axis=1)
+                    prediction_result.drop(
+                        [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
+                    )
                     .iloc[0:]
                     .values
                 )
-                prediction_result = prediction_result["predicted_label"].values
+                prediction_result = prediction_result[f"{self.predict_prefix}label"].values
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.recipe,
-                use_probability=model.classification,
+                use_probability=use_predict_proba,
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
@@ -412,8 +467,11 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            if model.classification:
-                train_predicted_probs = model.predict(raw_train_df.drop(self.target_col, axis=1))
+            if isinstance(train_predictions, pd.DataFrame):
+                train_predicted_result = model.predict(raw_train_df.drop(self.target_col, axis=1))
+                train_predicted_probs = train_predicted_result.drop(
+                    [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
+                )
                 predicted_training_data = raw_train_df.assign(
                     predicted_data=train_predictions["predicted_label"],
                     predicted_probability=train_predicted_probs.iloc[0:, 0].values,
@@ -461,7 +519,7 @@ class TrainStep(BaseStep):
                 model=model,
                 model_schema=model_schema,
                 run_id=run.info.run_id,
-                model_uri=model_info.model_uri,
+                model_uri=model_uri,
                 worst_examples_df=worst_examples_df,
                 train_df=raw_train_df,
                 output_directory=output_directory,
@@ -738,7 +796,11 @@ class TrainStep(BaseStep):
             )
         # Tab 3: Model architecture.
         set_config(display="diagram")
-        model_repr = estimator_html_repr(model._classifier)
+        model_repr = estimator_html_repr(
+            mlflow.sklearn.load_model(
+                os.path.join(model_uri, "artifacts", TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH)
+            )
+        )
         card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
 
         # Tab 4: Inferred model (transformer + estimator) schema.
@@ -854,6 +916,7 @@ class TrainStep(BaseStep):
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
         )
+        model_uri_path = f"runs:/{run_id}/train/model"
         run_url = get_databricks_run_url(
             tracking_uri=mlflow.get_tracking_uri(),
             run_id=run_id,
@@ -861,7 +924,7 @@ class TrainStep(BaseStep):
         model_url = get_databricks_run_url(
             tracking_uri=mlflow.get_tracking_uri(),
             run_id=run_id,
-            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri),
+            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri_path),
         )
 
         if run_url is not None:
@@ -873,10 +936,10 @@ class TrainStep(BaseStep):
 
         if model_url is not None:
             run_card_tab.add_html(
-                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri_path}</a>"
             )
         else:
-            run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
+            run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri_path}`")
 
         return card
 
