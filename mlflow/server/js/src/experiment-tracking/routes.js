@@ -7,6 +7,15 @@ class Routes {
     return `/experiments/${experimentId}`;
   }
 
+  static searchRunsByUser(experimentId, user_id) {
+    const filterString = `user_id = '${user_id}'`;
+    return `/experiments/${experimentId}?searchFilter=${encodeURIComponent(filterString)}`;
+  }
+
+  static searchRunsByLifecycleStage(experimentId, lifecycleStage) {
+    return `/experiments/${experimentId}?lifecycleFilter=${lifecycleStage}`;
+  }
+
   static experimentPageRoute = '/experiments/:experimentId';
 
   static experimentPageSearchRoute = '/experiments/:experimentId/:searchString';
