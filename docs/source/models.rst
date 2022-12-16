@@ -1855,7 +1855,7 @@ the type and encoding of the input data
   ``data = {"dataframe_split": pandas_df.to_dict(orient='split')``.
 
 * ``dataframe_records`` field with pandas DataFrame in the ``records`` orientation. For example,
-  ``data = {"dataframe_split": pandas_df.to_dict(orient='records')``.*We do not
+  ``data = {"dataframe_records": pandas_df.to_dict(orient='records')``.*We do not
   recommend using this format because it is not guaranteed to preserve column ordering.*
 
 * ``instances`` field with tensor input formatted as described in `TF Serving's API docs
