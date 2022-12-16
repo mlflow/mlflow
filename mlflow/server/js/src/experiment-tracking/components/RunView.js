@@ -229,8 +229,8 @@ export class RunViewImpl extends Component {
 
   renderUserIdLink = () => {
     const { run, tags, experimentId } = this.props;
-    // TODO: On Databricks, just return `user` instead of a link because MLflow backend on Databricks
-    // does not support searching runs by user.
+    // TODO: On Databricks, just return `user` instead of a link because MLflow backend on
+    // Databricks does not support searching runs by user.
     const user = Utils.getUser(run, tags);
     return <Link to={Routes.searchRunsByUser(experimentId, user)}>{user}</Link>;
   };
