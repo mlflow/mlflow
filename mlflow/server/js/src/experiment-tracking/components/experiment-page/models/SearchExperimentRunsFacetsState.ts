@@ -7,6 +7,7 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_START_TIME,
 } from '../../../constants';
+import { CompareRunsChartSetup } from '../../../types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
 
 const DEFAULT_SELECTED_COLUMNS = [
@@ -66,4 +67,14 @@ export class SearchExperimentRunsFacetsState {
    * List of pinned row UUIDs
    */
   runsPinned: string[] = [];
+
+  /**
+   * Is in compare runs mode
+   */
+  isComparingRuns = false;
+
+  /**
+   * Currently configured charts for comparing runs
+   */
+  compareRunCharts: CompareRunsChartSetup[] = [];
 }

@@ -978,9 +978,22 @@ message GetMetricHistory {
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];
 
+  // Token indicating the page of metric history to fetch
+  optional string page_token = 4;
+
+  // Maximum number of logged instances of a metric for a run to return per call.
+  // Backend servers may restrict the value of `max_results` depending on performance requirements.
+  // Requests that do not specify this value will behave as non-paginated queries where all
+  // metric history values for a given metric within a run are returned in a single response.
+  optional int32 max_results = 5;
+
   message Response {
     // All logged values for this metric.
     repeated Metric metrics = 1;
+
+    // Token that can be used to issue a query for the next page of metric history values.
+    // A missing token indicates that no additional metrics are available to fetch.
+    optional string next_page_token = 2;
   }
 }
 

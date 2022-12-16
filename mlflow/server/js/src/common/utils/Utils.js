@@ -45,17 +45,17 @@ class Utils {
    * Method used to register notifications API instance
    */
   static registerNotificationsApi(api) {
-    this.#notificationsApi = api;
+    Utils.#notificationsApi = api;
   }
 
   /**
    * Displays the error notification in the UI.
    */
   static displayGlobalErrorNotification(content) {
-    if (!this.#notificationsApi) {
+    if (!Utils.#notificationsApi) {
       return;
     }
-    this.#notificationsApi.error({ message: content });
+    Utils.#notificationsApi.error({ message: content });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -211,7 +211,7 @@ class Utils {
    * @param endTime in milliseconds
    */
   static getDuration(startTime, endTime) {
-    return startTime && endTime ? this.formatDuration(endTime - startTime) : null;
+    return startTime && endTime ? Utils.formatDuration(endTime - startTime) : null;
   }
 
   static baseName(path) {
@@ -526,7 +526,7 @@ class Utils {
       marginRight: '4px',
     };
 
-    const sourceType = this.getSourceType(tags);
+    const sourceType = Utils.getSourceType(tags);
     if (sourceType === 'NOTEBOOK') {
       if (Utils.getNotebookRevisionId(tags)) {
         return (
@@ -874,7 +874,7 @@ class Utils {
    * { artifactPath: string, flavors: string[], utcTimeCreated: number }
    */
   static getLoggedModelsFromTags(tags) {
-    const modelsTag = tags[this.loggedModelsTag];
+    const modelsTag = tags[Utils.loggedModelsTag];
     if (modelsTag) {
       const models = JSON.parse(modelsTag.value);
       if (models) {
@@ -912,15 +912,15 @@ class Utils {
     const registeredModelsWithNormalizedPath = registeredModels.map((model) => {
       return {
         registeredModelName: model.name,
-        artifactPath: this.normalize(model.source).split('/artifacts/')[1],
+        artifactPath: Utils.normalize(model.source).split('/artifacts/')[1],
         registeredModelVersion: model.version,
         registeredModelCreationTimestamp: model.creation_timestamp,
       };
     });
     const loggedModelsWithNormalizedPath = loggedModels.map((model) => {
-      return { ...model, artifactPath: this.normalize(model.artifactPath) };
+      return { ...model, artifactPath: Utils.normalize(model.artifactPath) };
     });
-    const models = this.concatAndGroupArraysById(
+    const models = Utils.concatAndGroupArraysById(
       loggedModelsWithNormalizedPath,
       registeredModelsWithNormalizedPath,
       'artifactPath',
@@ -954,10 +954,10 @@ class Utils {
   ) {
     console.error(e);
     if (typeof e === 'string') {
-      this.displayGlobalErrorNotification(e);
+      Utils.displayGlobalErrorNotification(e);
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
-      this.displayGlobalErrorNotification(e.renderHttpError());
+      Utils.displayGlobalErrorNotification(e.renderHttpError());
       // eslint-disable-next-line no-empty
     } else {
     }
@@ -1085,7 +1085,7 @@ class Utils {
   }
 
   static getIframeCorrectedRoute(route) {
-    if (this.isUsingExternalRouter()) {
+    if (Utils.isUsingExternalRouter()) {
       // If using external routing, include the parent params and assume mlflow served at #
       const parentHref = window.parent.location.href;
       const parentHrefBeforeMlflowHash = parentHref.split('#')[0];

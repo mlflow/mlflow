@@ -742,13 +742,35 @@ class FileStore(AbstractStore):
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
         return Metric(key=metric_name, value=val, timestamp=ts, step=step)
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for FileStore and is unused in this store's implementation.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for FileStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
+        # NB: The FileStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
+            raise MlflowException(
+                "The FileStore backend does not support pagination for the "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
+                "be `None`."
+            )
+
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
-        return self._get_metric_history(run_info, metric_key)
 
-    def _get_metric_history(self, run_info, metric_key):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
             run_id = run_info.run_id
@@ -756,10 +778,13 @@ class FileStore(AbstractStore):
                 f"Metric '{metric_key}' not found under run '{run_id}'",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        return [
-            FileStore._get_metric_from_line(metric_key, line)
-            for line in read_file_lines(parent_path, metric_key)
-        ]
+        return PagedList(
+            [
+                FileStore._get_metric_from_line(metric_key, line)
+                for line in read_file_lines(parent_path, metric_key)
+            ],
+            None,
+        )
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):

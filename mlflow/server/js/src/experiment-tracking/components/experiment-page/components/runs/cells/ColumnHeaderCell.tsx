@@ -1,3 +1,5 @@
+import { SortAscendingIcon, SortDescendingIcon } from '@databricks/design-system';
+import { Theme } from '@emotion/react';
 import React from 'react';
 
 export interface ColumnHeaderCellProps {
@@ -37,29 +39,42 @@ export class ColumnHeaderCell extends React.Component<ColumnHeaderCellProps> {
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus
       <div
         role='columnheader'
-        css={styles.headerLabelWrapper}
+        css={styles.headerLabelWrapper(enableSorting)}
         className={getClassName(canonicalSortKey)}
         onClick={enableSorting ? () => this.handleSortBy() : undefined}
       >
-        {enableSorting && canonicalSortKey === orderByKey ? (
-          <span style={styles.headerSortIcon}>
-            <i className={`fa fa-long-arrow-${orderByAsc ? 'up' : 'down'}`} />
-          </span>
-        ) : null}
         <span data-test-id={`sort-header-${displayName}`}>{displayName}</span>
+        {enableSorting && canonicalSortKey === orderByKey ? (
+          orderByAsc ? (
+            <SortAscendingIcon />
+          ) : (
+            <SortDescendingIcon />
+          )
+        ) : null}
       </div>
     );
   }
 }
 
 const styles = {
-  headerLabelWrapper: {
+  headerLabelWrapper: (sortable: boolean) => (theme: Theme) => ({
     height: '100%',
     width: '100%',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: '0 12px',
-  },
+    svg: {
+      color: theme.colors.textSecondary,
+    },
+    '&:hover': {
+      color: sortable ? theme.colors.actionTertiaryTextHover : 'unset',
+      svg: {
+        color: theme.colors.actionTertiaryTextHover,
+      },
+    },
+  }),
+
   headerSortIcon: {
     marginRight: 4,
   },

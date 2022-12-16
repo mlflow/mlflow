@@ -16,6 +16,12 @@ export class Services {
     postBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/create', data });
 
   /**
+   * List all registered models
+   */
+  static listRegisteredModels = (data) =>
+    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/list', data });
+
+  /**
    * Search registered models
    */
   static searchRegisteredModels = (data) =>

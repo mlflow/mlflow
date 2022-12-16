@@ -37,7 +37,7 @@ export const ExperimentViewOnboarding = React.memo(() => {
         closable
         onClose={disableOnboardingHelper}
       />
-      <Spacer size='medium' />
+      <Spacer />
     </>
   ) : null;
 });

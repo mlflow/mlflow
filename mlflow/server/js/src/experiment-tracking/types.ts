@@ -161,13 +161,11 @@ export interface ExperimentStoreEntities {
   runUuidsMatchingFilter: string[];
 }
 
-// eslint-disable-next-line no-shadow
 export enum LIFECYCLE_FILTER {
   ACTIVE = 'Active',
   DELETED = 'Deleted',
 }
 
-// eslint-disable-next-line no-shadow
 export enum MODEL_VERSION_FILTER {
   WITH_MODEL_VERSIONS = 'With Model Versions',
   WTIHOUT_MODEL_VERSIONS = 'Without Model Versions',
@@ -204,3 +202,13 @@ export type UpdateExperimentSearchFacetsFn = (
 export type UpdateExperimentViewStateFn = (
   newPartialViewState: Partial<SearchExperimentRunsViewState>,
 ) => void;
+
+/**
+ * A type describing a single chart configured in the compare runs view.
+ * TODO: finalize it with the actual field and enums
+ */
+export interface CompareRunsChartSetup {
+  type: string; // TODO: change to an enum
+  metricKey: string; // TODO: expand it to multiple axes
+  uuid: string;
+}

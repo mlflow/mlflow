@@ -1,3 +1,4 @@
+import { Theme } from '@emotion/react';
 import React, { useCallback } from 'react';
 import Utils from '../../../../../common/utils/Utils';
 import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
@@ -17,6 +18,8 @@ type ExperimentViewRunsControlsProps = {
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
 
   runsData: ExperimentRunsSelectorResult;
+
+  visibleRowsCount: number;
 };
 
 /**
@@ -30,6 +33,7 @@ export const ExperimentViewRunsControls = React.memo(
     updateViewState,
     updateSearchFacets,
     searchFacetsState,
+    visibleRowsCount,
   }: ExperimentViewRunsControlsProps) => {
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
@@ -44,33 +48,35 @@ export const ExperimentViewRunsControls = React.memo(
 
     const sortOptions = useRunSortOptions(filteredMetricKeys, filteredParamKeys);
 
-    const selectedRunsCount = Object.values(viewState.runsSelected).filter(Boolean).length;
-
     return (
       <div css={styles.wrapper}>
-        {selectedRunsCount > 0 ? (
-          <ExperimentViewRunsControlsActions
-            runsData={runsData}
-            updateSearchFacets={updateSearchFacets}
-            searchFacetsState={searchFacetsState}
-            viewState={viewState}
-          />
-        ) : (
-          <ExperimentViewRunsControlsFilters
-            onDownloadCsv={onDownloadCsv}
-            updateSearchFacets={updateSearchFacets}
-            searchFacetsState={searchFacetsState}
-            viewState={viewState}
-            updateViewState={updateViewState}
-            sortOptions={sortOptions}
-            runsData={runsData}
-          />
-        )}
+        <ExperimentViewRunsControlsFilters
+          onDownloadCsv={onDownloadCsv}
+          updateSearchFacets={updateSearchFacets}
+          searchFacetsState={searchFacetsState}
+          viewState={viewState}
+          updateViewState={updateViewState}
+          sortOptions={sortOptions}
+          runsData={runsData}
+        />
+        <ExperimentViewRunsControlsActions
+          runsData={runsData}
+          updateSearchFacets={updateSearchFacets}
+          searchFacetsState={searchFacetsState}
+          viewState={viewState}
+          visibleRowsCount={visibleRowsCount}
+        />
       </div>
     );
   },
 );
 
 const styles = {
-  wrapper: { display: 'flex', gap: 8, flexDirection: 'column' as const, marginTop: 12 },
+  wrapper: (theme: Theme) => ({
+    display: 'flex',
+    gap: theme.spacing.sm,
+    flexDirection: 'column' as const,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  }),
 };

@@ -10,7 +10,7 @@ import Utils from '../../common/utils/Utils';
 import { PageContainer } from '../../common/components/PageContainer';
 import Routes from '../routes';
 
-// eslint-disable-next-line no-unused-vars
+// Lazy load experiment page in order to promote bundle splitting
 const ExperimentPage = React.lazy(() => import('./experiment-page/ExperimentPage'));
 
 export const getFirstActiveExperiment = (experiments) => {

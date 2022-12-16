@@ -190,18 +190,6 @@ module.exports = function ({ env }) {
         ],
       ],
     },
-    ...(process.env.MLFLOW_DEV_PROXY_MODE && {
-      devServer: {
-        hot: true,
-        port: process.env.DATABRICKS_DEV_PROXY_MLFLOW_PORT,
-        client: {
-          // Use the browser location and protocol to compute the URL that the client will use to connect to webpack. Webpack
-          // always listens on /ws. dev-proxy terminates SSL and handles the rewrite.
-          webSocketURL: 'auto://0.0.0.0:0/mlflow-ws',
-        },
-        open: false,
-      },
-    }),
     ...(useProxyServer && {
       devServer: {
         hot: true,

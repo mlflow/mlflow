@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
 import {
   ExperimentEntity,
@@ -21,6 +21,11 @@ import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRu
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { ExperimentViewLoadMore } from './ExperimentViewLoadMore';
+import Utils from '../../../../../common/utils/Utils';
+import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../constants';
+import { RunRowType } from '../../utils/experimentPage.row-types';
+import { prepareRunsGridData } from '../../utils/experimentPage.row-utils';
+import { RunsCompare } from '../../../runs-compare/RunsCompare';
 
 export interface ExperimentViewRunsOwnProps {
   experiments: ExperimentEntity[];
@@ -31,6 +36,16 @@ export interface ExperimentViewRunsOwnProps {
 export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   runsData: ExperimentRunsSelectorResult;
 }
+
+/**
+ * Creates time with milliseconds set to zero, usable in calculating
+ * relative time
+ */
+const createCurrentTime = () => {
+  const mountTime = new Date();
+  mountTime.setMilliseconds(0);
+  return mountTime;
+};
 
 export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps) => {
   const { experiments, runsData } = props;
@@ -44,6 +59,8 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     loadMoreRuns,
     moreRunsAvailable,
   } = useFetchExperimentRuns();
+
+  const [visibleRuns, setVisibleRuns] = useState<RunRowType[]>([]);
 
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new SearchExperimentRunsViewState());
@@ -64,6 +81,76 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     updateViewState({ columnSelectorVisible: true });
   }, [updateViewState]);
 
+  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns } = searchFacetsState;
+
+  const shouldNestChildrenAndFetchParents = useMemo(
+    () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+    [orderByKey, searchFilter],
+  );
+
+  // Value used a reference for the "date" column
+  const [referenceTime, setReferenceTime] = useState(createCurrentTime);
+
+  const {
+    paramKeyList,
+    metricKeyList,
+    tagsList,
+    modelVersionsByRunUuid,
+    paramsList,
+    metricsList,
+    runInfos,
+    runUuidsMatchingFilter,
+  } = runsData;
+
+  // We're setting new reference date only when new runs data package has arrived
+  useEffect(() => {
+    setReferenceTime(createCurrentTime);
+  }, [runInfos]);
+
+  const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
+
+  useEffect(() => {
+    if (isLoadingRuns) {
+      return;
+    }
+    const runs = prepareRunsGridData({
+      experiments,
+      paramKeyList,
+      metricKeyList,
+      modelVersionsByRunUuid,
+      runsExpanded,
+      tagKeyList: filteredTagKeys,
+      nestChildren: shouldNestChildrenAndFetchParents,
+      referenceTime,
+      runData: runInfos.map((runInfo, index) => ({
+        runInfo,
+        params: paramsList[index],
+        metrics: metricsList[index],
+        tags: tagsList[index],
+      })),
+      runUuidsMatchingFilter,
+      runsPinned,
+    });
+
+    setVisibleRuns(runs);
+  }, [
+    isLoadingRuns,
+    experiments,
+    metricKeyList,
+    metricsList,
+    modelVersionsByRunUuid,
+    paramKeyList,
+    paramsList,
+    runInfos,
+    runsExpanded,
+    tagsList,
+    filteredTagKeys,
+    shouldNestChildrenAndFetchParents,
+    referenceTime,
+    runsPinned,
+    runUuidsMatchingFilter,
+  ]);
+
   return (
     <>
       <ExperimentViewRunsControls
@@ -72,17 +159,31 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         updateSearchFacets={updateSearchFacets}
+        visibleRowsCount={visibleRuns.length}
       />
-      <ExperimentViewRunsTable
-        experiments={experiments}
-        runsData={runsData}
-        searchFacetsState={searchFacetsState}
-        viewState={viewState}
-        isLoading={isLoadingRuns}
-        updateSearchFacets={updateSearchFacets}
-        updateViewState={updateViewState}
-        onAddColumnClicked={addColumnClicked}
-      />
+      <div css={styles.createRunsTableWrapper(isComparingRuns)}>
+        <ExperimentViewRunsTable
+          experiments={experiments}
+          runsData={runsData}
+          searchFacetsState={searchFacetsState}
+          viewState={viewState}
+          isLoading={isLoadingRuns}
+          updateSearchFacets={updateSearchFacets}
+          updateViewState={updateViewState}
+          onAddColumnClicked={addColumnClicked}
+          rowsData={visibleRuns}
+        />
+        {isComparingRuns && (
+          <RunsCompare
+            isLoading={isLoadingRuns}
+            comparedRuns={visibleRuns}
+            metricKeyList={runsData.metricKeyList}
+            paramKeyList={runsData.paramKeyList}
+            searchFacetsState={searchFacetsState}
+            updateSearchFacets={updateSearchFacets}
+          />
+        )}
+      </div>
       <ExperimentViewLoadMore
         isLoadingRuns={isLoadingRuns}
         loadMoreRuns={loadMoreRuns}
@@ -91,6 +192,15 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     </>
   );
 });
+
+const styles = {
+  createRunsTableWrapper: (isComparingRuns: boolean) => ({
+    display: 'grid',
+    // When comparing runs, we fix the table width to 260px.
+    // We can consider making it resizable by a user.
+    gridTemplateColumns: isComparingRuns ? '260px 1fr' : '1fr',
+  }),
+};
 
 /**
  * Concrete actions for GetExperimentRuns context provider
