@@ -401,9 +401,9 @@ class PyFuncModel:
                      `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
                      `pandas.DataFrame`. If data is of `pandas.DataFrame` type and an input field
                      requires multidimensional array input, the corresponding column values in
-                     the pandas DataFrame will be reshaped to the required shape with C_CONTIGUOUS
-                     (row-major) order, and DataFrame column values will be cast as the required
-                     tensor spec type.
+                     the pandas DataFrame will be reshaped to the required shape with 'C' order
+                     (i.e. read / write the elements using C-like index order), and DataFrame
+                     column values will be cast as the required tensor spec type.
 
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -812,10 +812,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
     will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
-    If a model contains a signature with tensor spec inputs, you need to pass a column of array
-    type as a corresponding UDF argument, the column values must be one dimension arrays and the
-    UDF will reshape the column values to the required shape with C_CONTIGUOUS (row-major) order
-    and cast the values as the required tensor spec type.
+    If a model contains a signature with tensor spec inputs, you will need to pass a column of
+    array type as a corresponding UDF argument. The column values of which must be one dimensional
+    arrays. The UDF will reshape the column values to the required shape with 'C' order
+    (i.e. read / write the elements using C-like index order) and cast the values as the required
+    tensor spec type.
 
     If a model contains a signature, the UDF can be called without specifying column name
     arguments. In this case, the UDF will be called with column names from signature, so the

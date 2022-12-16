@@ -2318,13 +2318,15 @@ dataframe's column names must match the model signature's column names.
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
 If a model contains a signature with tensor spec inputs,
-you need to pass a column of array type as a corresponding UDF argument,
-the column values must be one dimension arrays and the
-UDF will reshape the column values to the required shape with C_CONTIGUOUS (row-major)
-order and cast the values as the required tensor spec type. For example, assuming a model
-requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5), then we need to
-prepare an inference spark dataframe with column 'a' containing arrays of length 6 and
-column 'b' containing arrays of length 20, then invoke the UDF like following example code.
+you will need to pass a column of array type as a corresponding UDF argument.
+The values in this column must be comprised of one-dimensional arrays. The
+UDF will reshape the array values to the required shape with 'C' order
+(i.e. read / write the elements using C-like index order) and cast the values
+as the required tensor spec type. For example, assuming a model
+requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5). In order to
+perform inference on this data, we need to prepare a Spark DataFrame with column 'a'
+containing arrays of length 6 and column 'b' containing arrays of length 20. We can then
+invoke the UDF like following example code:
 
 .. rubric:: Example
 
