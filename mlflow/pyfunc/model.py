@@ -18,6 +18,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _process_pip_requirements,
@@ -40,6 +41,7 @@ CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 
 
+@developer_stable
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -49,6 +51,7 @@ def get_default_pip_requirements():
     return [_get_pinned_requirement("cloudpickle")]
 
 
+@developer_stable
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -59,6 +62,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@developer_stable
 class PythonModel:
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
@@ -96,6 +100,7 @@ class PythonModel:
         """
 
 
+@developer_stable
 class PythonModelContext:
     """
     A collection of artifacts that a :class:`~PythonModel` can use when performing inference.

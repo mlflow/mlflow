@@ -7,6 +7,7 @@ import urllib
 import logging
 
 from mlflow.utils import rest_utils
+from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 _PUT_BLOCK_HEADERS = {
@@ -14,6 +15,7 @@ _PUT_BLOCK_HEADERS = {
 }
 
 
+@developer_stable
 def put_adls_file_creation(sas_url, headers):
     """
     Performs an ADLS Azure file create `Put` operation
@@ -38,6 +40,7 @@ def put_adls_file_creation(sas_url, headers):
         rest_utils.augmented_raise_for_status(response)
 
 
+@developer_stable
 def patch_adls_file_upload(sas_url, data, position, headers, is_single):
     """
     Performs an ADLS Azure file create `Patch` operation
@@ -67,6 +70,7 @@ def patch_adls_file_upload(sas_url, data, position, headers, is_single):
         rest_utils.augmented_raise_for_status(response)
 
 
+@developer_stable
 def patch_adls_flush(sas_url, position, headers):
     """
     Performs an ADLS Azure file flush `Patch` operation
@@ -92,6 +96,7 @@ def patch_adls_flush(sas_url, position, headers):
         rest_utils.augmented_raise_for_status(response)
 
 
+@developer_stable
 def put_block(sas_url, block_id, data, headers):
     """
     Performs an Azure `Put Block` operation
@@ -119,6 +124,7 @@ def put_block(sas_url, block_id, data, headers):
         rest_utils.augmented_raise_for_status(response)
 
 
+@developer_stable
 def put_block_list(sas_url, block_list, headers):
     """
     Performs an Azure `Put Block List` operation

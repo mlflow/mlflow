@@ -255,7 +255,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import find_free_port
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, experimental, developer_stable
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
@@ -304,6 +304,7 @@ PY_VERSION = "python_version"
 _logger = logging.getLogger(__name__)
 
 
+@developer_stable
 def add_to_model(
     model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
 ):
@@ -360,6 +361,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+@developer_stable
 class PyFuncModel:
     """
     MLflow 'python function' model.
@@ -419,6 +421,8 @@ class PyFuncModel:
         This method is useful for accessing custom model functions, while still being able to
         leverage the MLflow designed workflow through the `predict()` method.
 
+        :return: The underlying wrapped model object
+
         .. test-code-block:: python
             :caption: Example
 
@@ -455,6 +459,7 @@ class PyFuncModel:
 
             # works, but None is needed for context arg
             print(unwrapped_model.predict(None, some_input))
+
         """
         try:
             python_model = self._model_impl.python_model
@@ -526,6 +531,7 @@ def _warn_dependency_requirement_mismatches(model_path):
         _logger.debug("", exc_info=True)
 
 
+@developer_stable
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
@@ -709,6 +715,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         )
 
 
+@developer_stable
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
     :param model_uri: The uri of the model to get dependencies from.
@@ -801,6 +808,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+@developer_stable
 def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1229,6 +1237,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     return udf_with_default_cols
 
 
+@developer_stable
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     path,
@@ -1401,6 +1410,7 @@ def save_model(
         )
 
 
+@developer_stable
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     artifact_path,

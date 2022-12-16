@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class FlavorBackend:
     """
     Abstract class for Flavor Backend.

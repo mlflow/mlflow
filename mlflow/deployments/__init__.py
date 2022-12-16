@@ -19,8 +19,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.interface import get_deploy_client, run_local
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class PredictionsResponse(dict):
     """
     Represents the predictions and metadata returned in response to a scoring request, such as a

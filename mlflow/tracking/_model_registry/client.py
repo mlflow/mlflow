@@ -13,12 +13,15 @@ from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFA
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.annotations import developer_stable
+
 
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
 
 
+@developer_stable
 class ModelRegistryClient:
     """
     Client of an MLflow Model Registry Server that creates and manages registered
@@ -41,6 +44,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
+    @developer_stable
     def create_registered_model(self, name, tags=None, description=None):
         """
          Create a new registered model in backend store.
@@ -58,6 +62,7 @@ class ModelRegistryClient:
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags, description)
 
+    @developer_stable
     def update_registered_model(self, name, description):
         """
         Updates description for RegisteredModel entity.
@@ -70,6 +75,7 @@ class ModelRegistryClient:
         """
         return self.store.update_registered_model(name=name, description=description)
 
+    @developer_stable
     def rename_registered_model(self, name, new_name):
         """
         Update registered model name.
@@ -83,6 +89,7 @@ class ModelRegistryClient:
             raise MlflowException("The name must not be an empty string.")
         return self.store.rename_registered_model(name=name, new_name=new_name)
 
+    @developer_stable
     def delete_registered_model(self, name):
         """
         Delete registered model.
@@ -92,6 +99,7 @@ class ModelRegistryClient:
         """
         self.store.delete_registered_model(name)
 
+    @developer_stable
     def search_registered_models(
         self,
         filter_string=None,
@@ -114,6 +122,7 @@ class ModelRegistryClient:
         """
         return self.store.search_registered_models(filter_string, max_results, order_by, page_token)
 
+    @developer_stable
     def get_registered_model(self, name):
         """
         :param name: Name of the registered model to get.
@@ -121,6 +130,7 @@ class ModelRegistryClient:
         """
         return self.store.get_registered_model(name)
 
+    @developer_stable
     def get_latest_versions(self, name, stages=None):
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
@@ -133,6 +143,7 @@ class ModelRegistryClient:
         """
         return self.store.get_latest_versions(name, stages)
 
+    @developer_stable
     def set_registered_model_tag(self, name, key, value):
         """
         Set a tag for the registered model.
@@ -144,6 +155,7 @@ class ModelRegistryClient:
         """
         self.store.set_registered_model_tag(name, RegisteredModelTag(key, str(value)))
 
+    @developer_stable
     def delete_registered_model_tag(self, name, key):
         """
         Delete a tag associated with the registered model.
@@ -156,6 +168,7 @@ class ModelRegistryClient:
 
     # Model Version Methods
 
+    @developer_stable
     def create_model_version(
         self,
         name,
@@ -215,6 +228,7 @@ class ModelRegistryClient:
                 )
         return mv
 
+    @developer_stable
     def update_model_version(self, name, version, description):
         """
         Update metadata associated with a model version in backend.
@@ -225,6 +239,7 @@ class ModelRegistryClient:
         """
         return self.store.update_model_version(name=name, version=version, description=description)
 
+    @developer_stable
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
@@ -247,6 +262,7 @@ class ModelRegistryClient:
             archive_existing_versions=archive_existing_versions,
         )
 
+    @developer_stable
     def get_model_version(self, name, version):
         """
         :param name: Name of the containing registered model.
@@ -255,6 +271,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version(name, version)
 
+    @developer_stable
     def delete_model_version(self, name, version):
         """
         Delete model version in backend.
@@ -264,6 +281,7 @@ class ModelRegistryClient:
         """
         self.store.delete_model_version(name, version)
 
+    @developer_stable
     def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
@@ -274,6 +292,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_download_uri(name, version)
 
+    @developer_stable
     def search_model_versions(self, filter_string):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -285,12 +304,14 @@ class ModelRegistryClient:
         """
         return self.store.search_model_versions(filter_string)
 
+    @developer_stable
     def get_model_version_stages(self, name, version):
         """
         :return: A list of valid stages.
         """
         return self.store.get_model_version_stages(name, version)
 
+    @developer_stable
     def set_model_version_tag(self, name, version, key, value):
         """
         Set a tag for the model version.
@@ -303,6 +324,7 @@ class ModelRegistryClient:
         """
         self.store.set_model_version_tag(name, version, ModelVersionTag(key, str(value)))
 
+    @developer_stable
     def delete_model_version_tag(self, name, version, key):
         """
         Delete a tag associated with the model version.

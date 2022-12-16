@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-
+from mlflow.utils.annotations import developer_stable
 import numpy as np
 
 
@@ -67,6 +67,7 @@ def _cumulative_gain_curve(y_true, y_score, pos_label=None):
     return percentages, gains
 
 
+@developer_stable
 def plot_lift_curve(
     y_true,
     y_probas,

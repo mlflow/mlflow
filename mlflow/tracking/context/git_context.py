@@ -3,6 +3,7 @@ import logging
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.tracking.context.default_context import _get_main_file
 from mlflow.utils.git_utils import get_git_commit
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT
 
 _logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ def _get_source_version():
     return None
 
 
+@developer_stable
 class GitRunContext(RunContextProvider):
     def __init__(self):
         self._cache = {}

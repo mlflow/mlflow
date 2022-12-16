@@ -16,6 +16,7 @@ from mlflow.projects import _project_spec
 from mlflow import tracking
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
@@ -132,6 +133,7 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
+@developer_stable
 def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, version=version)
@@ -140,6 +142,7 @@ def fetch_and_validate_project(uri, version, entry_point, parameters):
     return work_dir
 
 
+@developer_stable
 def load_project(work_dir):
     return _project_spec.load_project(work_dir)
 
@@ -252,6 +255,7 @@ def _fetch_zip_repo(uri):
     return BytesIO(response.content)
 
 
+@developer_stable
 def get_or_create_run(run_id, uri, experiment_id, work_dir, version, entry_point, parameters):
     if run_id:
         return tracking.MlflowClient().get_run(run_id)
@@ -310,6 +314,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     return active_run
 
 
+@developer_stable
 def get_entry_point_command(project, entry_point, parameters, storage_dir):
     """
     Returns the shell command to execute in order to run the specified entry point.
@@ -332,6 +337,7 @@ def get_entry_point_command(project, entry_point, parameters, storage_dir):
     return commands
 
 
+@developer_stable
 def get_run_env_vars(run_id, experiment_id):
     """
     Returns a dictionary of environment variable key-value pairs to set in subprocess launched
@@ -344,6 +350,7 @@ def get_run_env_vars(run_id, experiment_id):
     }
 
 
+@developer_stable
 def get_databricks_env_vars(tracking_uri):
     if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}

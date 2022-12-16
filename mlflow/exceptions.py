@@ -14,6 +14,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
+from mlflow.utils.annotations import developer_stable
+
 
 ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.Name(INTERNAL_ERROR): 500,
@@ -41,6 +43,7 @@ def get_error_code(http_status):
     )
 
 
+@developer_stable
 class MlflowException(Exception):
     """
     Generic exception thrown to surface failure information about external-facing operations.
@@ -89,6 +92,7 @@ class MlflowException(Exception):
         return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
 
+@developer_stable
 class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
 
@@ -102,12 +106,14 @@ class RestException(MlflowException):
         self.json = json
 
 
+@developer_stable
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails"""
 
     pass
 
 
+@developer_stable
 class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
 

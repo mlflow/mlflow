@@ -43,6 +43,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.utils.annotations import developer_stable
 from mlflow.projects import env_type
 
 from mlflow.environment_variables import (
@@ -63,6 +64,7 @@ def _env_type_to_env_manager(env_typ):
         return _EnvManager.LOCAL
 
 
+@developer_stable
 class LocalBackend(AbstractBackend):
     def run(
         self,

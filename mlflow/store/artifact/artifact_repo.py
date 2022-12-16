@@ -5,10 +5,11 @@ from abc import abstractmethod, ABCMeta
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from mlflow.utils.validation import path_not_unique, bad_path_message
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.annotations import developer_stable
+from mlflow.utils.validation import path_not_unique, bad_path_message
+
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
@@ -21,6 +22,7 @@ assert _NUM_MAX_THREADS_PER_CPU > 0
 _NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 
 
+@developer_stable
 class ArtifactRepository:
     """
     Abstract artifact repo that defines how to upload (log) and download potentially large
@@ -299,6 +301,7 @@ class ArtifactRepository:
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
 
+@developer_stable
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(

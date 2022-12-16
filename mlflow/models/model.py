@@ -13,12 +13,13 @@ import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 
 _logger = logging.getLogger(__name__)
 
-
+# NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed, possibly due older "
@@ -29,9 +30,11 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "1.7.0 or above. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
+# NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
 
 
+@developer_stable
 class ModelInfo:
     """
     The metadata of a logged MLflow Model.
@@ -159,6 +162,7 @@ class ModelInfo:
         return self._mlflow_version
 
 
+@developer_stable
 class Model:
     """
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
@@ -410,6 +414,7 @@ class Model:
         return mlflow_model.get_model_info()
 
 
+@developer_stable
 def get_model_info(model_uri: str) -> ModelInfo:
     """
     Get metadata for the specified model, such as its input/output signature.

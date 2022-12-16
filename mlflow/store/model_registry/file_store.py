@@ -30,6 +30,7 @@ from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
 )
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.validation import (
@@ -68,6 +69,7 @@ def _default_root_dir():
     return get_env(_REGISTRY_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
+@developer_stable
 class FileStore(AbstractStore):
     MODELS_FOLDER_NAME = "models"
     META_DATA_FILE_NAME = "meta.yaml"

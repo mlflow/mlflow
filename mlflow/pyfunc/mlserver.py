@@ -2,6 +2,7 @@ import logging
 import os
 
 from typing import Tuple, Dict
+from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 
@@ -9,6 +10,7 @@ MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
 
 
+@developer_stable
 def get_cmd(
     model_uri: str, port: int = None, host: str = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:

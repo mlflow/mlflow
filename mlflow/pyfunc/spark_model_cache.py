@@ -1,6 +1,8 @@
 from mlflow.utils._spark_utils import _SparkDirectoryDistributor
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class SparkModelCache:
     """Caches models in memory on Spark Executors, to avoid continually reloading from disk.
 

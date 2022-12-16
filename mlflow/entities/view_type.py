@@ -1,6 +1,8 @@
 from mlflow.protos import service_pb2
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class ViewType:
     """Enum to filter requested experiment types."""
 

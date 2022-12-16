@@ -1,8 +1,10 @@
 from functools import lru_cache
 
 from mlflow.tracking.registry import StoreRegistry
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class ModelRegistryStoreRegistry(StoreRegistry):
     """Scheme-based registry for model registry store implementations
 

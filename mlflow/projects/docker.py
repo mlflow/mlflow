@@ -14,6 +14,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.utils import process, file_utils
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
 from mlflow.utils.git_utils import get_git_commit
@@ -25,6 +26,7 @@ _MLFLOW_DOCKER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 
+@developer_stable
 def validate_docker_installation():
     """
     Verify if Docker is installed and running on host machine.
@@ -52,6 +54,7 @@ def validate_docker_installation():
         )
 
 
+@developer_stable
 def validate_docker_env(project):
     if not project.name:
         raise ExecutionException(
@@ -64,6 +67,7 @@ def validate_docker_env(project):
         )
 
 
+@developer_stable
 def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
@@ -138,6 +142,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
+@developer_stable
 def get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
     env_vars = {}

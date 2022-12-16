@@ -1,7 +1,9 @@
 from mlflow.entities.view_type import ViewType
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class LifecycleStage:
     ACTIVE = "active"
     DELETED = "deleted"

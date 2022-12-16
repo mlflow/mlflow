@@ -1,9 +1,11 @@
 import entrypoints
 import warnings
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.import_hooks import register_post_import_hook
 
 
+@developer_stable
 class ModelEvaluatorRegistry:
     """
     Scheme-based registry for model evaluator implementations
@@ -47,6 +49,7 @@ class ModelEvaluatorRegistry:
 _model_evaluation_registry = ModelEvaluatorRegistry()
 
 
+@developer_stable
 def register_evaluators(module):
     from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 

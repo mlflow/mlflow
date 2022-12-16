@@ -12,6 +12,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import append_to_uri_path
 
@@ -35,6 +36,7 @@ def _get_flavor_backend_for_local_model(model=None, build_docker=True, **kwargs)
     return None, None
 
 
+@developer_stable
 def get_flavor_backend(model_uri, **kwargs):
     if model_uri:
         with TempDir() as tmp:

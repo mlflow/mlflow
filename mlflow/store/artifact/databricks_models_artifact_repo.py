@@ -6,6 +6,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.rest_utils import http_request
@@ -17,10 +18,13 @@ from mlflow.store.artifact.utils.models import (
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100000000
+# The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
+# The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
 REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
+@developer_stable
 class DatabricksModelsArtifactRepository(ArtifactRepository):
     """
     Performs storage operations on artifacts controlled by a Databricks-hosted model registry.

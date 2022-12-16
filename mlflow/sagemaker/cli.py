@@ -7,8 +7,9 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
-import mlflow.models.docker_utils
 from mlflow.utils import env_manager as em
+import mlflow.models.docker_utils
+from mlflow.utils.annotations import developer_stable
 
 
 @click.group("sagemaker")
@@ -22,6 +23,7 @@ def commands():
     pass
 
 
+@developer_stable
 @commands.command("deploy-transform-job")
 @click.option("--job-name", "-n", help="Transform job name", required=True)
 @cli_args.MODEL_URI
@@ -218,6 +220,7 @@ def deploy_transform_job(
     )
 
 
+@developer_stable
 @commands.command("terminate-transform-job")
 @click.option("--job-name", "-n", help="Transform job name", required=True)
 @click.option(
@@ -277,6 +280,7 @@ def terminate_transform_job(job_name, region_name, archive, asynchronous, timeou
     )
 
 
+@developer_stable
 @commands.command("push-model")
 @click.option("--model-name", "-n", help="Sagemaker model name", required=True)
 @cli_args.MODEL_URI
@@ -338,6 +342,7 @@ def push_model_to_sagemaker(
     )
 
 
+@developer_stable
 @commands.command("build-and-push-container")
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")

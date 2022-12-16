@@ -7,6 +7,7 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 from mlflow.environment_variables import (
@@ -16,6 +17,7 @@ from mlflow.environment_variables import (
 )
 
 
+@developer_stable
 class HdfsArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on HDFS.

@@ -31,6 +31,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
@@ -53,6 +54,7 @@ _logger = logging.getLogger(__name__)
 sqlalchemy.orm.configure_mappers()
 
 
+@developer_stable
 class SqlAlchemyStore(AbstractStore):
     """
     This entity may change or be removed in a future release without warning.

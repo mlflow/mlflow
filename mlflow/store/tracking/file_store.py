@@ -38,6 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.validation import (
     _validate_metric,
@@ -130,6 +131,7 @@ def _read_persisted_run_info_dict(run_info_dict):
     return RunInfo.from_dictionary(dict_copy)
 
 
+@developer_stable
 class FileStore(AbstractStore):
     TRASH_FOLDER_NAME = ".trash"
     ARTIFACTS_FOLDER_NAME = "artifacts"

@@ -7,8 +7,10 @@ from mlflow.protos.service_pb2 import (
     Param as ProtoParam,
     RunTag as ProtoRunTag,
 )
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).

@@ -5,6 +5,8 @@ from mlflow.models import build_docker as build_docker_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.annotations import developer_stable
+
 
 _logger = logging.getLogger(__name__)
 
@@ -20,6 +22,7 @@ def commands():
     pass
 
 
+@developer_stable
 @commands.command("serve")
 @cli_args.MODEL_URI
 @cli_args.PORT
@@ -108,6 +111,7 @@ def serve(
     )
 
 
+@developer_stable
 @commands.command("predict")
 @cli_args.MODEL_URI
 @click.option(
@@ -151,6 +155,7 @@ def predict(
     )
 
 
+@developer_stable
 @commands.command("prepare-env")
 @cli_args.MODEL_URI
 @cli_args.ENV_MANAGER
@@ -171,6 +176,7 @@ def prepare_env(
     ).prepare_env(model_uri=model_uri)
 
 
+@developer_stable
 @commands.command("generate-dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option(
@@ -215,6 +221,7 @@ def generate_dockerfile(
         raise NotImplementedError("Cannot build docker image for selected backend")
 
 
+@developer_stable
 @commands.command("build-docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")

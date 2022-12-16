@@ -3,6 +3,7 @@ import os
 import shutil
 
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import (
     mkdir,
     list_all,
@@ -12,6 +13,7 @@ from mlflow.utils.file_utils import (
 )
 
 
+@developer_stable
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 

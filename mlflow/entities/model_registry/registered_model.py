@@ -5,8 +5,10 @@ from mlflow.protos.model_registry_pb2 import (
     RegisteredModel as ProtoRegisteredModel,
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class RegisteredModel(_ModelRegistryEntity):
     """
     MLflow entity for Registered Model.

@@ -7,10 +7,12 @@ import pandas as pd
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import _DateTimeEncoder
 from mlflow.deployments import PredictionsResponse
 
 
+@developer_stable
 class ScoringServerClient:
     def __init__(self, host, port):
         self.url_prefix = f"http://{host}:{port}"

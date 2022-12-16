@@ -14,10 +14,12 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append_to_uri_path
 from mlflow.utils.file_utils import path_to_local_file_uri
 
 
+@developer_stable
 def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
     """
     Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,

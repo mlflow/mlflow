@@ -3,8 +3,10 @@ from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class Run(_MLflowObject):
     """
     Run object.

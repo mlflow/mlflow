@@ -3,6 +3,7 @@ import re
 
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.utils.annotations import developer_stable
 from mlflow.exceptions import MlflowException
 
 
@@ -38,6 +39,7 @@ def _validate_uri_scheme(scheme):
         )
 
 
+@developer_stable
 class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 

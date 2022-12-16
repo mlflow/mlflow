@@ -6,8 +6,10 @@ import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class DataType(Enum):
     """
     MLflow data types.
@@ -63,6 +65,7 @@ class DataType(Enum):
         return [dt.to_spark() for dt in cls._member_map_.values()]
 
 
+@developer_stable
 class ColSpec:
     """
     Specification of name and type of a single column in a dataset.
@@ -114,6 +117,7 @@ class ColSpec:
             return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
+@developer_stable
 class TensorInfo:
     """
     Representation of the shape and type of a Tensor.
@@ -176,6 +180,7 @@ class TensorInfo:
         return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
 
 
+@developer_stable
 class TensorSpec:
     """
     Specification used to represent a dataset stored as a Tensor.
@@ -244,6 +249,7 @@ class TensorSpec:
             return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
 
 
+@developer_stable
 class Schema:
     """
     Specification of a dataset.

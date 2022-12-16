@@ -19,6 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
@@ -104,6 +105,7 @@ def _validate_deployment_flavor(model_config, flavor):
         )
 
 
+@developer_stable
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     """
     Push local Docker image to AWS ECR.
@@ -543,6 +545,7 @@ def _delete(
             delete_operation.clean_up()
 
 
+@developer_stable
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -780,6 +783,7 @@ def deploy_transform_job(
             deployment_operation.clean_up()
 
 
+@developer_stable
 def terminate_transform_job(
     job_name,
     region_name="us-west-2",
@@ -877,6 +881,7 @@ def terminate_transform_job(
             stop_operation.clean_up()
 
 
+@developer_stable
 def push_model_to_sagemaker(
     model_name,
     model_uri,
@@ -1022,6 +1027,7 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
+@developer_stable
 def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
     """
     Serve the model locally in a SageMaker compatible Docker container.
@@ -1118,6 +1124,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
     proc.wait()
 
 
+@developer_stable
 def target_help():
     """
     Provide help information for the SageMaker deployment client.
@@ -1876,6 +1883,7 @@ def _does_model_exist(model_name, sage_client):
         return True if response else False
 
 
+@developer_stable
 class SageMakerDeploymentClient(BaseDeploymentClient):
     """
     Initialize a deployment client for SageMaker. The default region and assumed role ARN will

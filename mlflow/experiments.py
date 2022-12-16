@@ -6,6 +6,7 @@ import mlflow
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.string_utils import _create_table
 
 
@@ -21,6 +22,7 @@ def commands():
     pass
 
 
+@developer_stable
 @commands.command()
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option(
@@ -48,6 +50,7 @@ def create(experiment_name, artifact_location):
     click.echo(f"Created experiment '{experiment_name}' with id {exp_id}")
 
 
+@developer_stable
 @commands.command("search")
 @click.option(
     "--view",
@@ -75,6 +78,7 @@ def search_experiments(view):
     click.echo(_create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
+@developer_stable
 @commands.command("delete")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):
@@ -98,6 +102,7 @@ def delete_experiment(experiment_id):
     click.echo("Experiment with ID %s has been deleted." % str(experiment_id))
 
 
+@developer_stable
 @commands.command("restore")
 @EXPERIMENT_ID
 def restore_experiment(experiment_id):
@@ -111,6 +116,7 @@ def restore_experiment(experiment_id):
     click.echo("Experiment with id %s has been restored." % str(experiment_id))
 
 
+@developer_stable
 @commands.command("rename")
 @EXPERIMENT_ID
 @click.option("--new-name", type=click.STRING, required=True)
@@ -124,6 +130,7 @@ def rename_experiment(experiment_id, new_name):
     click.echo(f"Experiment with id {experiment_id} has been renamed to '{new_name}'.")
 
 
+@developer_stable
 @commands.command("csv")
 @EXPERIMENT_ID
 @click.option("--filename", "-o", type=click.STRING)

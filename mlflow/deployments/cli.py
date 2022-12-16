@@ -4,6 +4,7 @@ import json
 from inspect import signature
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
@@ -113,6 +114,7 @@ def commands():
     """
 
 
+@developer_stable
 @commands.command("create")
 @optional_endpoint_param
 @parse_custom_arguments
@@ -143,6 +145,7 @@ def create_deployment(flavor, model_uri, target, name, config, endpoint):
     click.echo("\n{} deployment {} is created".format(deployment["flavor"], deployment["name"]))
 
 
+@developer_stable
 @commands.command("update")
 @optional_endpoint_param
 @parse_custom_arguments
@@ -185,6 +188,7 @@ def update_deployment(flavor, model_uri, target, name, config, endpoint):
     click.echo("Deployment {} is updated (with flavor {})".format(name, ret["flavor"]))
 
 
+@developer_stable
 @commands.command("delete")
 @optional_endpoint_param
 @parse_custom_arguments
@@ -212,6 +216,7 @@ def delete_deployment(target, name, config, endpoint):
     click.echo(f"Deployment {name} is deleted")
 
 
+@developer_stable
 @commands.command("list")
 @optional_endpoint_param
 @target_details
@@ -230,6 +235,7 @@ def list_deployment(target, endpoint):
     click.echo(f"List of all deployments:\n{ids}")
 
 
+@developer_stable
 @commands.command("get")
 @optional_endpoint_param
 @deployment_name
@@ -251,6 +257,7 @@ def get_deployment(target, name, endpoint):
     click.echo("\n")
 
 
+@developer_stable
 @commands.command("help")
 @target_details
 def target_help(target):
@@ -261,6 +268,7 @@ def target_help(target):
     click.echo(interface._target_help(target))
 
 
+@developer_stable
 @commands.command("run-local")
 @parse_custom_arguments
 @deployment_name
@@ -284,6 +292,7 @@ def predictions_to_json(raw_predictions, output):
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
+@developer_stable
 @commands.command("predict")
 @click.option(
     "--name",
@@ -320,6 +329,7 @@ def predict(target, name, input_path, output_path, endpoint):
         click.echo(result.to_json())
 
 
+@developer_stable
 @commands.command("explain")
 @click.option(
     "--name",
@@ -364,6 +374,7 @@ def explain(target, name, input_path, output_path, endpoint):
         predictions_to_json(result, sys.stdout)
 
 
+@developer_stable
 @commands.command("create-endpoint")
 @click.option(
     "--config",
@@ -389,6 +400,7 @@ def create_endpoint(target, name, config):
     click.echo("\nEndpoint {} is created".format(endpoint["name"]))
 
 
+@developer_stable
 @commands.command("update-endpoint")
 @click.option(
     "--config",
@@ -414,6 +426,7 @@ def update_endpoint(target, endpoint, config):
     click.echo(f"\nEndpoint {endpoint} is updated")
 
 
+@developer_stable
 @commands.command("delete-endpoint")
 @required_endpoint_param
 @target_details
@@ -426,6 +439,7 @@ def delete_endpoint(target, endpoint):
     click.echo(f"\nEndpoint {endpoint} is deleted")
 
 
+@developer_stable
 @commands.command("list-endpoints")
 @target_details
 def list_endpoints(target):
@@ -437,6 +451,7 @@ def list_endpoints(target):
     click.echo(f"List of all endpoints:\n{ids}")
 
 
+@developer_stable
 @commands.command("get-endpoint")
 @required_endpoint_param
 @target_details

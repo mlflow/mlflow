@@ -12,8 +12,10 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
@@ -43,6 +45,7 @@ def is_tracking_uri_set():
     return False
 
 
+@developer_stable
 def set_tracking_uri(uri: Union[str, Path]) -> None:
     """
     Set the tracking server URI. This does not affect the
@@ -107,6 +110,7 @@ def _resolve_tracking_uri(tracking_uri=None):
     return tracking_uri or get_tracking_uri()
 
 
+@developer_stable
 def get_tracking_uri() -> str:
     """
     Get the current tracking URI. This may not correspond to the tracking URI of

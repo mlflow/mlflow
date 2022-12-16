@@ -27,6 +27,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -37,6 +38,7 @@ from mlflow.utils.rest_utils import (
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
 
+@developer_stable
 class RestStore(AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls

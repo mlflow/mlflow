@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils import chunk_list
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
@@ -32,6 +33,7 @@ from mlflow.utils.time_utils import get_current_time_millis
 from collections import OrderedDict
 
 
+@developer_stable
 class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.

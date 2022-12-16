@@ -3,8 +3,10 @@ from abc import abstractmethod, ABCMeta
 from mlflow.entities import ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class AbstractStore:
     """
     Abstract class for Backend Storage.

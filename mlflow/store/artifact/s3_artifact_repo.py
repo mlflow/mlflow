@@ -8,15 +8,16 @@ import urllib.parse
 
 from mlflow import data
 from mlflow.entities import FileInfo
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import relative_path_to_artifact_path
-
 from mlflow.environment_variables import (
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
 )
+from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.annotations import developer_stable
+from mlflow.utils.file_utils import relative_path_to_artifact_path
+
 
 _MAX_CACHE_SECONDS = 300
 
@@ -63,6 +64,7 @@ def _cached_get_s3_client(
     )
 
 
+@developer_stable
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
