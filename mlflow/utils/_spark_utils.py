@@ -1,6 +1,7 @@
 import tempfile
 import shutil
 import os
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
 
 def _get_active_spark_session():
@@ -79,10 +80,15 @@ def _create_local_spark_session_for_loading_spark_model():
     )
 
 
+_NFS_PATH_PREFIX = "nfs:"
+
+
 class _SparkDirectoryDistributor:
     """Distribute spark directory from driver to executors."""
 
     _extracted_dir_paths = {}
+
+    _nfs_root_dir = get_nfs_cache_root_dir()
 
     def __init__(self):
         pass
@@ -97,6 +103,18 @@ class _SparkDirectoryDistributor:
         # NB: We must archive the directory as Spark.addFile does not support non-DFS
         # directories when recursive=True.
         archive_path = shutil.make_archive(archive_basepath, "zip", dir_path)
+
+        if _SparkDirectoryDistributor._nfs_root_dir is not None:
+            # If NFS directory (shared by all spark nodes) is available, use NFS directory
+            # instead of `SparkContext.addFile` to broadcast files.
+            # Because on databricks runtime, `SparkContext.addFile` has security issue and
+            # is not allowed to be called on shared cluster.
+            cache_dir = os.path.join(_SparkDirectoryDistributor._nfs_root_dir, "cached_models")
+            os.makedirs(cache_dir, exist_ok=True)
+            dest_path = os.path.join(cache_dir, os.path.basename(archive_path))
+            shutil.copy(archive_path, dest_path)
+            return _NFS_PATH_PREFIX + dest_path
+
         spark.sparkContext.addFile(archive_path)
         return archive_path
 
@@ -115,8 +133,11 @@ class _SparkDirectoryDistributor:
         # BUG: Despite the documentation of SparkContext.addFile() and SparkFiles.get() in Scala
         # and Python, it turns out that we actually need to use the basename as the input to
         # SparkFiles.get(), as opposed to the (absolute) path.
-        archive_path_basename = os.path.basename(archive_path)
-        local_path = SparkFiles.get(archive_path_basename)
+        if archive_path.startswith(_NFS_PATH_PREFIX):
+            local_path = archive_path[len(_NFS_PATH_PREFIX):]
+        else:
+            archive_path_basename = os.path.basename(archive_path)
+            local_path = SparkFiles.get(archive_path_basename)
         temp_dir = tempfile.mkdtemp()
         zip_ref = zipfile.ZipFile(local_path, "r")
         zip_ref.extractall(temp_dir)
