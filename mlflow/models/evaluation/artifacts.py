@@ -58,7 +58,7 @@ class JsonEvaluationArtifact(EvaluationArtifact):
             json.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
-        with open(local_artifact_path, "r") as f:
+        with open(local_artifact_path) as f:
             self._content = json.load(f)
         return self._content
 
@@ -69,7 +69,7 @@ class TextEvaluationArtifact(EvaluationArtifact):
             f.write(self._content)
 
     def _load_content_from_file(self, local_artifact_path):
-        with open(local_artifact_path, "r") as f:
+        with open(local_artifact_path) as f:
             self._content = f.read()
         return self._content
 

@@ -77,7 +77,7 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
              experiment.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -213,7 +213,7 @@ def start_run(
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -291,17 +291,15 @@ def start_run(
             and _active_experiment_id != active_run_obj.info.experiment_id
         ):
             raise MlflowException(
-                "Cannot start run with ID {} because active run ID "
+                f"Cannot start run with ID {existing_run_id} because active run ID "
                 "does not match environment run ID. Make sure --experiment-name "
                 "or --experiment-id matches experiment set with "
-                "set_experiment(), or just use command-line "
-                "arguments".format(existing_run_id)
+                "set_experiment(), or just use command-line arguments"
             )
         # Check to see if current run isn't deleted
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException(
-                "Cannot start run with ID {} because it is in the "
-                "deleted state.".format(existing_run_id)
+                f"Cannot start run with ID {existing_run_id} because it is in the deleted state."
             )
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
@@ -359,7 +357,7 @@ def start_run(
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     """End an active MLflow run (if there is one).
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -405,7 +403,7 @@ def active_run() -> Optional[ActiveRun]:
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
     to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -429,7 +427,7 @@ def last_active_run() -> Optional[Run]:
 
     Examples:
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: To retrieve the most recent autologged run:
 
         import mlflow
@@ -451,7 +449,7 @@ def last_active_run() -> Optional[Run]:
         predictions = rf.predict(X_test)
         autolog_run = mlflow.last_active_run()
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: To get the most recently active run that ended:
 
         import mlflow
@@ -460,7 +458,7 @@ def last_active_run() -> Optional[Run]:
         mlflow.end_run()
         run = mlflow.last_active_run()
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: To retrieve the currently active run:
 
         import mlflow
@@ -495,7 +493,7 @@ def get_run(run_id: str) -> Run:
     :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                 raises an exception.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -530,7 +528,7 @@ def log_param(key: str, value: Any) -> Any:
 
     :return: the parameter value that is logged.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -555,7 +553,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -580,7 +578,7 @@ def set_tag(key: str, value: Any) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -599,7 +597,7 @@ def delete_tag(key: str) -> None:
 
     :param key: Name of the tag
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -633,7 +631,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -659,7 +657,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
 
     :returns: None
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -685,7 +683,7 @@ def log_params(params: Dict[str, Any]) -> None:
                    not)
     :returns: None
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -707,7 +705,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
 
     :param tags: Dictionary containing tag names and corresponding values.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -733,7 +731,7 @@ def set_tags(tags: Dict[str, Any]) -> None:
                  not)
     :returns: None
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -759,7 +757,7 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -786,9 +784,10 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
     :param local_dir: Path to the directory of files to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
+        import json
         import os
         import mlflow
 
@@ -819,7 +818,7 @@ def log_text(text: str, artifact_file: str) -> None:
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the text is saved (e.g. "dir/file.txt").
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -849,7 +848,7 @@ def log_dict(dictionary: Any, artifact_file: str) -> None:
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the dictionary is saved (e.g. "dir/data.json").
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -891,7 +890,7 @@ def log_figure(
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the figure is saved (e.g. "dir/file.png").
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Matplotlib Example
 
         import mlflow
@@ -903,7 +902,7 @@ def log_figure(
         with mlflow.start_run():
             mlflow.log_figure(fig, "figure.png")
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Plotly Example
 
         import mlflow
@@ -955,7 +954,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the image is saved (e.g. "dir/image.png").
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Numpy Example
 
         import mlflow
@@ -966,7 +965,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
         with mlflow.start_run():
             mlflow.log_image(image, "image.png")
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Pillow Example
 
         import mlflow
@@ -993,7 +992,7 @@ def get_experiment(experiment_id: str) -> Experiment:
     :param experiment_id: The string-ified experiment ID returned from ``create_experiment``.
     :return: :py:class:`mlflow.entities.Experiment`
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1025,7 +1024,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     :return: An instance of :py:class:`mlflow.entities.Experiment`
              if an experiment with the specified name exists, otherwise None.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1104,7 +1103,7 @@ def search_experiments(
 
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1182,7 +1181,7 @@ def create_experiment(
                             tags on the experiment.
     :return: String ID of the created experiment.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1221,7 +1220,7 @@ def delete_experiment(experiment_id: str) -> None:
 
     :param experiment_id: The The string-ified experiment ID returned from ``create_experiment``.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1252,7 +1251,7 @@ def delete_run(run_id: str) -> None:
 
     :param run_id: Unique identifier for the run to delete.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1293,7 +1292,7 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1368,7 +1367,7 @@ def search_runs(
              the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
              respectively.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import mlflow
@@ -1593,17 +1592,20 @@ def autolog(
     Note that framework-specific configurations set at any point will take precedence over
     any configurations set by this function. For example:
 
-    .. code-block:: python
+    .. test-code-block:: python
 
+        import mlflow
         mlflow.autolog(log_models=False, exclusive=True)
         import sklearn
 
     would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
     but
 
-    .. code-block:: python
+    .. test-code-block:: python
 
+        import mlflow
         mlflow.autolog(log_models=False, exclusive=True)
+
         import sklearn
         mlflow.sklearn.autolog(log_models=True)
 
@@ -1640,7 +1642,7 @@ def autolog(
                    setup and training execution. If ``False``, show all events and warnings during
                    autologging setup and training execution.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
         import numpy as np
@@ -1680,10 +1682,10 @@ def autolog(
                  'fit_intercept': 'True',
                  'n_jobs': 'None'}
         metrics: {'training_score': 1.0,
-                  'training_rmse': 4.440892098500626e-16,
+                  'training_root_mean_squared_error': 4.440892098500626e-16,
                   'training_r2_score': 1.0,
-                  'training_mae': 2.220446049250313e-16,
-                  'training_mse': 1.9721522630525295e-31}
+                  'training_mean_absolute_error': 2.220446049250313e-16,
+                  'training_mean_squared_error': 1.9721522630525295e-31}
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """

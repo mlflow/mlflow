@@ -482,8 +482,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         parts = regex.match(older_than)
         if parts is None:
             raise MlflowException(
-                "Could not parse any time information from '{}'. "
-                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than),
+                f"Could not parse any time information from '{older_than}'. "
+                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
@@ -579,6 +579,20 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
             click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
+
+
+@cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
+@click.option(
+    "--mask-envs",
+    is_flag=True,
+    help=(
+        "If set (the default behavior without setting this flag is not to obfuscate information), "
+        'mask the MLflow environment variable values (e.g. `"MLFLOW_ENV_VAR": "***"`) '
+        "in the output to prevent leaking sensitive information."
+    ),
+)
+def doctor(mask_envs):
+    mlflow.doctor(mask_envs)
 
 
 cli.add_command(mlflow.deployments.cli.commands)

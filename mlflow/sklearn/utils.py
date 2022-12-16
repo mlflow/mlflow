@@ -264,7 +264,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
             classifier_metrics.extend(
                 [
                     _SklearnMetric(
-                        name=prefix + "roc_auc_score",
+                        name=prefix + "roc_auc",
                         function=sklearn.metrics.roc_auc_score,
                         arguments={
                             "y_true": y_true,
@@ -427,7 +427,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
 
     regressor_metrics = [
         _SklearnMetric(
-            name=prefix + "mse",
+            name=prefix + "mean_squared_error",
             function=sklearn.metrics.mean_squared_error,
             arguments={
                 "y_true": y_true,
@@ -437,7 +437,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
             },
         ),
         _SklearnMetric(
-            name=prefix + "mae",
+            name=prefix + "mean_absolute_error",
             function=sklearn.metrics.mean_absolute_error,
             arguments={
                 "y_true": y_true,
@@ -462,7 +462,9 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict[prefix + "rmse"] = np.sqrt(metrics_value_dict[prefix + "mse"])
+    metrics_value_dict[prefix + "root_mean_squared_error"] = np.sqrt(
+        metrics_value_dict[prefix + "mean_squared_error"]
+    )
 
     return metrics_value_dict
 
@@ -713,7 +715,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     elif max_tuning_runs == 1:
         logging_phrase = "the best run"
     else:
-        logging_phrase = "the {} best runs".format(max_tuning_runs)
+        logging_phrase = f"the {max_tuning_runs} best runs"
 
     # Set logging statement for runs to be omitted.
     if rest <= 0:
@@ -721,7 +723,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
     elif rest == 1:
         omitting_phrase = "one run"
     else:
-        omitting_phrase = "{} runs".format(rest)
+        omitting_phrase = f"{rest} runs"
 
     _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
 
@@ -780,12 +782,9 @@ def _create_child_runs_for_parameter_search(
         if rank_column_name not in cv_results_df.columns.values:
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
-                "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs,
-                    rank_column_name,
-                )
-                + " You can choose not to limit the number of child runs created by"
-                + " setting `max_tuning_runs=None`."
+                f"Top {max_tuning_runs} child runs will be created based on ordering in "
+                f"{rank_column_name} column.  You can choose not to limit the number of "
+                "child runs created by setting `max_tuning_runs=None`."
             )
         cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
         # Log how many child runs will be created vs omitted.

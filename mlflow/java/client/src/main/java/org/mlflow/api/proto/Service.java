@@ -44681,6 +44681,60 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getMetricKeyBytes();
+
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return Whether the pageToken field is set.
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return The pageToken.
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return The bytes for pageToken.
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+
+    /**
+     * <pre>
+     * Maximum number of logged instances of a metric for a run to return per call.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5;</code>
+     * @return Whether the maxResults field is set.
+     */
+    boolean hasMaxResults();
+    /**
+     * <pre>
+     * Maximum number of logged instances of a metric for a run to return per call.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5;</code>
+     * @return The maxResults.
+     */
+    int getMaxResults();
   }
   /**
    * Protobuf type {@code mlflow.GetMetricHistory}
@@ -44698,6 +44752,7 @@ public final class Service {
       runId_ = "";
       runUuid_ = "";
       metricKey_ = "";
+      pageToken_ = "";
     }
 
     @java.lang.Override
@@ -44747,6 +44802,17 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               runId_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              pageToken_ = bs;
+              break;
+            }
+            case 40: {
+              bitField0_ |= 0x00000010;
+              maxResults_ = input.readInt32();
               break;
             }
             default: {
@@ -44828,6 +44894,38 @@ public final class Service {
        */
       org.mlflow.api.proto.Service.MetricOrBuilder getMetricsOrBuilder(
           int index);
+
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
     }
     /**
      * Protobuf type {@code mlflow.GetMetricHistory.Response}
@@ -44843,6 +44941,7 @@ public final class Service {
       }
       private Response() {
         metrics_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
       }
 
       @java.lang.Override
@@ -44885,6 +44984,12 @@ public final class Service {
                     input.readMessage(org.mlflow.api.proto.Service.Metric.PARSER, extensionRegistry));
                 break;
               }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
               default: {
                 if (!parseUnknownField(
                     input, unknownFields, extensionRegistry, tag)) {
@@ -44920,6 +45025,7 @@ public final class Service {
                 org.mlflow.api.proto.Service.GetMetricHistory.Response.class, org.mlflow.api.proto.Service.GetMetricHistory.Response.Builder.class);
       }
 
+      private int bitField0_;
       public static final int METRICS_FIELD_NUMBER = 1;
       private java.util.List<org.mlflow.api.proto.Service.Metric> metrics_;
       /**
@@ -44980,6 +45086,69 @@ public final class Service {
         return metrics_.get(index);
       }
 
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      @java.lang.Override
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      @java.lang.Override
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Token that can be used to issue a query for the next page of metric history values.
+       * A missing token indicates that no additional metrics are available to fetch.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -44997,6 +45166,9 @@ public final class Service {
         for (int i = 0; i < metrics_.size(); i++) {
           output.writeMessage(1, metrics_.get(i));
         }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
         unknownFields.writeTo(output);
       }
 
@@ -45009,6 +45181,9 @@ public final class Service {
         for (int i = 0; i < metrics_.size(); i++) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, metrics_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -45027,6 +45202,11 @@ public final class Service {
 
         if (!getMetricsList()
             .equals(other.getMetricsList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
+        if (hasNextPageToken()) {
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
+        }
         if (!unknownFields.equals(other.unknownFields)) return false;
         return true;
       }
@@ -45041,6 +45221,10 @@ public final class Service {
         if (getMetricsCount() > 0) {
           hash = (37 * hash) + METRICS_FIELD_NUMBER;
           hash = (53 * hash) + getMetricsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -45182,6 +45366,8 @@ public final class Service {
           } else {
             metricsBuilder_.clear();
           }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
           return this;
         }
 
@@ -45209,6 +45395,7 @@ public final class Service {
         public org.mlflow.api.proto.Service.GetMetricHistory.Response buildPartial() {
           org.mlflow.api.proto.Service.GetMetricHistory.Response result = new org.mlflow.api.proto.Service.GetMetricHistory.Response(this);
           int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
           if (metricsBuilder_ == null) {
             if (((bitField0_ & 0x00000001) != 0)) {
               metrics_ = java.util.Collections.unmodifiableList(metrics_);
@@ -45218,6 +45405,11 @@ public final class Service {
           } else {
             result.metrics_ = metricsBuilder_.build();
           }
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
           onBuilt();
           return result;
         }
@@ -45291,6 +45483,11 @@ public final class Service {
                 metricsBuilder_.addAllMessages(other.metrics_);
               }
             }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -45633,6 +45830,120 @@ public final class Service {
           }
           return metricsBuilder_;
         }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return Whether the nextPageToken field is set.
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The nextPageToken.
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The bytes for nextPageToken.
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token that can be used to issue a query for the next page of metric history values.
+         * A missing token indicates that no additional metrics are available to fetch.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
         @java.lang.Override
         public final Builder setUnknownFields(
             final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -45870,6 +46181,99 @@ public final class Service {
       }
     }
 
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 4;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return Whether the pageToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return The pageToken.
+     */
+    @java.lang.Override
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Token indicating the page of metric history to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     * @return The bytes for pageToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int MAX_RESULTS_FIELD_NUMBER = 5;
+    private int maxResults_;
+    /**
+     * <pre>
+     * Maximum number of logged instances of a metric for a run to return per call.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5;</code>
+     * @return Whether the maxResults field is set.
+     */
+    @java.lang.Override
+    public boolean hasMaxResults() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * Maximum number of logged instances of a metric for a run to return per call.
+     * Backend servers may restrict the value of `max_results` depending on performance requirements.
+     * Requests that do not specify this value will behave as non-paginated queries where all
+     * metric history values for a given metric within a run are returned in a single response.
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5;</code>
+     * @return The maxResults.
+     */
+    @java.lang.Override
+    public int getMaxResults() {
+      return maxResults_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -45893,6 +46297,12 @@ public final class Service {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runId_);
       }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, pageToken_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        output.writeInt32(5, maxResults_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -45910,6 +46320,13 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runId_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, pageToken_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(5, maxResults_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -45941,6 +46358,16 @@ public final class Service {
         if (!getMetricKey()
             .equals(other.getMetricKey())) return false;
       }
+      if (hasPageToken() != other.hasPageToken()) return false;
+      if (hasPageToken()) {
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
+      }
+      if (hasMaxResults() != other.hasMaxResults()) return false;
+      if (hasMaxResults()) {
+        if (getMaxResults()
+            != other.getMaxResults()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -45963,6 +46390,14 @@ public final class Service {
       if (hasMetricKey()) {
         hash = (37 * hash) + METRIC_KEY_FIELD_NUMBER;
         hash = (53 * hash) + getMetricKey().hashCode();
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasMaxResults()) {
+        hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
+        hash = (53 * hash) + getMaxResults();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -46103,6 +46538,10 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000002);
         metricKey_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        maxResults_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -46143,6 +46582,14 @@ public final class Service {
           to_bitField0_ |= 0x00000004;
         }
         result.metricKey_ = metricKey_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          result.maxResults_ = maxResults_;
+          to_bitField0_ |= 0x00000010;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -46206,6 +46653,14 @@ public final class Service {
           bitField0_ |= 0x00000004;
           metricKey_ = other.metricKey_;
           onChanged();
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000008;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        if (other.hasMaxResults()) {
+          setMaxResults(other.getMaxResults());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -46563,6 +47018,181 @@ public final class Service {
   }
   bitField0_ |= 0x00000004;
         metricKey_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @return Whether the pageToken field is set.
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @return The pageToken.
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @return The bytes for pageToken.
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token indicating the page of metric history to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+
+      private int maxResults_ ;
+      /**
+       * <pre>
+       * Maximum number of logged instances of a metric for a run to return per call.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5;</code>
+       * @return Whether the maxResults field is set.
+       */
+      @java.lang.Override
+      public boolean hasMaxResults() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * Maximum number of logged instances of a metric for a run to return per call.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5;</code>
+       * @return The maxResults.
+       */
+      @java.lang.Override
+      public int getMaxResults() {
+        return maxResults_;
+      }
+      /**
+       * <pre>
+       * Maximum number of logged instances of a metric for a run to return per call.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5;</code>
+       * @param value The maxResults to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMaxResults(int value) {
+        bitField0_ |= 0x00000010;
+        maxResults_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum number of logged instances of a metric for a run to return per call.
+       * Backend servers may restrict the value of `max_results` depending on performance requirements.
+       * Requests that do not specify this value will behave as non-paginated queries where all
+       * metric history values for a given metric within a run are returned in a single response.
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearMaxResults() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        maxResults_ = 0;
         onChanged();
         return this;
       }
@@ -52243,102 +52873,104 @@ public final class Service {
       "(\0132\020.mlflow.FileInfo\022\027\n\017next_page_token\030" +
       "\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this" +
       ".Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006" +
-      "is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetM" +
+      "is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\352\001\n\020GetM" +
       "etricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid" +
-      "\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Resp" +
-      "onse\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metri" +
-      "cs\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\013" +
-      "2\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.R" +
-      "unTag\032\n\n\010Response:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"g\n\010LogModel\022\016\n\006ru" +
-      "n_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\225\001\n\023GetExperimentByName\022\035\n\017exper" +
-      "iment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\nex" +
-      "periment\030\001 \001(\0132\022.mlflow.Experiment:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]*" +
-      "6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_" +
-      "ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOO" +
-      "K\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007" +
-      "UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\t" +
-      "SCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n" +
-      "\006KILLED\020\0052\201\027\n\rMlflowService\022\246\001\n\023getExper" +
-      "imentByName\022\033.mlflow.GetExperimentByName" +
-      "\032$.mlflow.GetExperimentByName.Response\"L" +
-      "\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-" +
-      "name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\224\001\n" +
-      "\020createExperiment\022\030.mlflow.CreateExperim" +
-      "ent\032!.mlflow.CreateExperiment.Response\"C" +
-      "\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/create" +
-      "\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021searchEx" +
-      "periments\022\031.mlflow.SearchExperiments\032\".m" +
-      "lflow.SearchExperiments.Response\"m\362\206\031i\n(" +
-      "\n\004POST\022\032/mlflow/experiments/search\032\004\010\002\020\000" +
-      "\n\'\n\003GET\022\032/mlflow/experiments/search\032\004\010\002\020" +
-      "\000\020\001*\022Search Experiments\022\204\001\n\rgetExperimen" +
-      "t\022\025.mlflow.GetExperiment\032\036.mlflow.GetExp" +
-      "eriment.Response\"<\362\206\0318\n$\n\003GET\022\027/mlflow/e" +
-      "xperiments/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\224" +
-      "\001\n\020deleteExperiment\022\030.mlflow.DeleteExper" +
-      "iment\032!.mlflow.DeleteExperiment.Response" +
-      "\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/dele" +
-      "te\032\004\010\002\020\000\020\001*\021Delete Experiment\022\231\001\n\021restor" +
-      "eExperiment\022\031.mlflow.RestoreExperiment\032\"" +
-      ".mlflow.RestoreExperiment.Response\"E\362\206\031A" +
-      "\n)\n\004POST\022\033/mlflow/experiments/restore\032\004\010" +
-      "\002\020\000\020\001*\022Restore Experiment\022\224\001\n\020updateExpe" +
-      "riment\022\030.mlflow.UpdateExperiment\032!.mlflo" +
-      "w.UpdateExperiment.Response\"C\362\206\031?\n(\n\004POS" +
-      "T\022\032/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021U" +
-      "pdate Experiment\022q\n\tcreateRun\022\021.mlflow.C" +
-      "reateRun\032\032.mlflow.CreateRun.Response\"5\362\206" +
-      "\0311\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\020\001*" +
-      "\nCreate Run\022q\n\tupdateRun\022\021.mlflow.Update" +
-      "Run\032\032.mlflow.UpdateRun.Response\"5\362\206\0311\n!\n" +
-      "\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpda" +
-      "te Run\022q\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032" +
-      ".mlflow.DeleteRun.Response\"5\362\206\0311\n!\n\004POST" +
-      "\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Ru" +
-      "n\022v\n\nrestoreRun\022\022.mlflow.RestoreRun\032\033.ml" +
-      "flow.RestoreRun.Response\"7\362\206\0313\n\"\n\004POST\022\024" +
-      "/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Ru" +
-      "n\022u\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlfl" +
-      "ow.LogMetric.Response\"9\362\206\0315\n%\n\004POST\022\027/ml" +
-      "flow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric" +
-      "\022t\n\010logParam\022\020.mlflow.LogParam\032\031.mlflow." +
-      "LogParam.Response\";\362\206\0317\n(\n\004POST\022\032/mlflow" +
-      "/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\241" +
-      "\001\n\020setExperimentTag\022\030.mlflow.SetExperime" +
-      "ntTag\032!.mlflow.SetExperimentTag.Response" +
-      "\"P\362\206\031L\n4\n\004POST\022&/mlflow/experiments/set-" +
-      "experiment-tag\032\004\010\002\020\000\020\001*\022Set Experiment T" +
-      "ag\022f\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.Se" +
-      "tTag.Response\"3\362\206\031/\n\"\n\004POST\022\024/mlflow/run" +
-      "s/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022u\n\tdeleteTag\022" +
-      "\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag.Re" +
-      "sponse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delet" +
-      "e-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022a\n\006getRun\022\016.ml" +
-      "flow.GetRun\032\027.mlflow.GetRun.Response\".\362\206" +
-      "\031*\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get" +
-      " Run\022u\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033" +
-      ".mlflow.SearchRuns.Response\"6\362\206\0312\n!\n\004POS" +
-      "T\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search R" +
-      "uns\022\203\001\n\rlistArtifacts\022\025.mlflow.ListArtif" +
-      "acts\032\036.mlflow.ListArtifacts.Response\";\362\206" +
-      "\0317\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020" +
-      "\001*\016List Artifacts\022\225\001\n\020getMetricHistory\022\030" +
-      ".mlflow.GetMetricHistory\032!.mlflow.GetMet" +
-      "ricHistory.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflo" +
-      "w/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metri" +
-      "c History\022p\n\010logBatch\022\020.mlflow.LogBatch\032" +
-      "\031.mlflow.LogBatch.Response\"7\362\206\0313\n$\n\004POST" +
-      "\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Ba" +
-      "tch\022p\n\010logModel\022\020.mlflow.LogModel\032\031.mlfl" +
-      "ow.LogModel.Response\"7\362\206\0313\n$\n\004POST\022\026/mlf" +
-      "low/runs/log-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n" +
-      "\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\022\022\n\npage" +
+      "_token\030\004 \001(\t\022\023\n\013max_results\030\005 \001(\005\032D\n\010Res" +
+      "ponse\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric\022\027" +
+      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatc" +
+      "h\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlf" +
+      "low.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Para" +
+      "m\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respo" +
+      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\n" +
+      "model_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"\225\001\n\023Ge" +
+      "tExperimentByName\022\035\n\017experiment_name\030\001 \001" +
+      "(\tB\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030\001 \001(\013" +
+      "2\022.mlflow.Experiment:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]*6\n\010ViewType\022\017\n" +
+      "\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020" +
+      "\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013" +
+      "\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\t" +
+      "RunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n" +
+      "\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\201\027\n\r" +
+      "MlflowService\022\246\001\n\023getExperimentByName\022\033." +
+      "mlflow.GetExperimentByName\032$.mlflow.GetE" +
+      "xperimentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/" +
+      "mlflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026" +
+      "Get Experiment By Name\022\224\001\n\020createExperim" +
+      "ent\022\030.mlflow.CreateExperiment\032!.mlflow.C" +
+      "reateExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032" +
+      "/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Crea" +
+      "te Experiment\022\301\001\n\021searchExperiments\022\031.ml" +
+      "flow.SearchExperiments\032\".mlflow.SearchEx" +
+      "periments.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflo" +
+      "w/experiments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlfl" +
+      "ow/experiments/search\032\004\010\002\020\000\020\001*\022Search Ex" +
+      "periments\022\204\001\n\rgetExperiment\022\025.mlflow.Get" +
+      "Experiment\032\036.mlflow.GetExperiment.Respon" +
+      "se\"<\362\206\0318\n$\n\003GET\022\027/mlflow/experiments/get" +
+      "\032\004\010\002\020\000\020\001*\016Get Experiment\022\224\001\n\020deleteExper" +
+      "iment\022\030.mlflow.DeleteExperiment\032!.mlflow" +
+      ".DeleteExperiment.Response\"C\362\206\031?\n(\n\004POST" +
+      "\022\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021De" +
+      "lete Experiment\022\231\001\n\021restoreExperiment\022\031." +
+      "mlflow.RestoreExperiment\032\".mlflow.Restor" +
+      "eExperiment.Response\"E\362\206\031A\n)\n\004POST\022\033/mlf" +
+      "low/experiments/restore\032\004\010\002\020\000\020\001*\022Restore" +
+      " Experiment\022\224\001\n\020updateExperiment\022\030.mlflo" +
+      "w.UpdateExperiment\032!.mlflow.UpdateExperi" +
+      "ment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/exp" +
+      "eriments/update\032\004\010\002\020\000\020\001*\021Update Experime" +
+      "nt\022q\n\tcreateRun\022\021.mlflow.CreateRun\032\032.mlf" +
+      "low.CreateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/m" +
+      "lflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022q\n" +
+      "\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflow.U" +
+      "pdateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow" +
+      "/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\tdele" +
+      "teRun\022\021.mlflow.DeleteRun\032\032.mlflow.Delete" +
+      "Run.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs" +
+      "/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nrestoreRu" +
+      "n\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreRu" +
+      "n.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/r" +
+      "estore\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlogMetric" +
+      "\022\021.mlflow.LogMetric\032\032.mlflow.LogMetric.R" +
+      "esponse\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-" +
+      "metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logParam\022\020" +
+      ".mlflow.LogParam\032\031.mlflow.LogParam.Respo" +
+      "nse\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-para" +
+      "meter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setExperime" +
+      "ntTag\022\030.mlflow.SetExperimentTag\032!.mlflow" +
+      ".SetExperimentTag.Response\"P\362\206\031L\n4\n\004POST" +
+      "\022&/mlflow/experiments/set-experiment-tag" +
+      "\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022f\n\006setTag\022\016" +
+      ".mlflow.SetTag\032\027.mlflow.SetTag.Response\"" +
+      "3\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020" +
+      "\000\020\001*\007Set Tag\022u\n\tdeleteTag\022\021.mlflow.Delet" +
+      "eTag\032\032.mlflow.DeleteTag.Response\"9\362\206\0315\n%" +
+      "\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*" +
+      "\nDelete Tag\022a\n\006getRun\022\016.mlflow.GetRun\032\027." +
+      "mlflow.GetRun.Response\".\362\206\031*\n\035\n\003GET\022\020/ml" +
+      "flow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022u\n\nsearch" +
+      "Runs\022\022.mlflow.SearchRuns\032\033.mlflow.Search" +
+      "Runs.Response\"6\362\206\0312\n!\n\004POST\022\023/mlflow/run" +
+      "s/search\032\004\010\002\020\000\020\001*\013Search Runs\022\203\001\n\rlistAr" +
+      "tifacts\022\025.mlflow.ListArtifacts\032\036.mlflow." +
+      "ListArtifacts.Response\";\362\206\0317\n#\n\003GET\022\026/ml" +
+      "flow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifa" +
+      "cts\022\225\001\n\020getMetricHistory\022\030.mlflow.GetMet" +
+      "ricHistory\032!.mlflow.GetMetricHistory.Res" +
+      "ponse\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/get-" +
+      "history\032\004\010\002\020\000\020\001*\022Get Metric History\022p\n\010l" +
+      "ogBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogBa" +
+      "tch.Response\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs" +
+      "/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logMode" +
+      "l\022\020.mlflow.LogModel\032\031.mlflow.LogModel.Re" +
+      "sponse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-m" +
+      "odel\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlflow.ap" +
+      "i.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -52621,13 +53253,13 @@ public final class Service {
     internal_static_mlflow_GetMetricHistory_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_descriptor,
-        new java.lang.String[] { "RunId", "RunUuid", "MetricKey", });
+        new java.lang.String[] { "RunId", "RunUuid", "MetricKey", "PageToken", "MaxResults", });
     internal_static_mlflow_GetMetricHistory_Response_descriptor =
       internal_static_mlflow_GetMetricHistory_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetMetricHistory_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_Response_descriptor,
-        new java.lang.String[] { "Metrics", });
+        new java.lang.String[] { "Metrics", "NextPageToken", });
     internal_static_mlflow_LogBatch_descriptor =
       getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new

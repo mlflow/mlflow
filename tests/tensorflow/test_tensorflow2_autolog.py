@@ -241,7 +241,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    decay_opt = "opt_weight_decay" if Version(tf.__version__) > Version("2.10") else "opt_decay"
+    decay_opt = "opt_weight_decay" if Version(tf.__version__) >= Version("2.11") else "opt_decay"
     assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
@@ -278,8 +278,7 @@ class __ExampleSequence(tf.keras.utils.Sequence):
 def __generator(data, target, batch_size):
     data_batches = np.split(data, data.shape[0] // batch_size)
     target_batches = np.split(target, target.shape[0] // batch_size)
-    for data_batch, target_batch in zip(data_batches, target_batches):
-        yield data_batch, target_batch
+    yield from zip(data_batches, target_batches)
 
 
 class __GeneratorClass:
@@ -950,7 +949,7 @@ def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output
     ml_model_filename = "MLmodel"
     assert str(os.path.join("model", ml_model_filename)) in artifacts
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
         assert data is not None
         assert "signature" in data
@@ -1103,7 +1102,7 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     mlmodel_path = mlflow.artifacts.download_artifacts(
         f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
     )
-    mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
+    mlmodel_contents = yaml.safe_load(open(mlmodel_path))
     assert "signature" in mlmodel_contents.keys()
     signature = mlmodel_contents["signature"]
     assert signature is not None

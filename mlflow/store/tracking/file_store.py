@@ -4,7 +4,6 @@ import time
 import os
 import sys
 import shutil
-import tempfile
 
 import uuid
 
@@ -30,6 +29,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
 )
+from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -59,6 +59,7 @@ from mlflow.utils.file_utils import (
     mkdir,
     exists,
     write_yaml,
+    overwrite_yaml,
     read_yaml,
     find,
     read_file_lines,
@@ -185,7 +186,7 @@ class FileStore(AbstractStore):
                 return exp_list[0]
         if assert_exists:
             raise MlflowException(
-                "Experiment {} does not exist.".format(experiment_id),
+                f"Experiment {experiment_id} does not exist.",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         return None
@@ -238,7 +239,12 @@ class FileStore(AbstractStore):
 
     def _get_active_experiments(self, full_path=False):
         exp_list = list_subdirs(self.root_directory, full_path)
-        return [exp for exp in exp_list if not exp.endswith(FileStore.TRASH_FOLDER_NAME)]
+        return [
+            exp
+            for exp in exp_list
+            if not exp.endswith(FileStore.TRASH_FOLDER_NAME)
+            and exp != ModelRegistryFileStore.MODELS_FOLDER_NAME
+        ]
 
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
@@ -420,7 +426,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         experiment._set_last_update_time(get_current_time_millis())
         meta_dir = os.path.join(self.root_directory, experiment_id)
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
@@ -453,7 +459,7 @@ class FileStore(AbstractStore):
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         experiment._set_last_update_time(get_current_time_millis())
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
@@ -477,7 +483,7 @@ class FileStore(AbstractStore):
                 "Cannot rename experiment in non-active lifecycle stage."
                 " Current stage: %s" % experiment.lifecycle_stage
             )
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
@@ -736,24 +742,49 @@ class FileStore(AbstractStore):
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
         return Metric(key=metric_name, value=val, timestamp=ts, step=step)
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for FileStore and is unused in this store's implementation.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for FileStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
+        # NB: The FileStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
+            raise MlflowException(
+                "The FileStore backend does not support pagination for the "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
+                "be `None`."
+            )
+
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
-        return self._get_metric_history(run_info, metric_key)
 
-    def _get_metric_history(self, run_info, metric_key):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
             run_id = run_info.run_id
             raise MlflowException(
-                "Metric '%s' not found under run '%s'" % (metric_key, run_id),
+                f"Metric '{metric_key}' not found under run '{run_id}'",
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        return [
-            FileStore._get_metric_from_line(metric_key, line)
-            for line in read_file_lines(parent_path, metric_key)
-        ]
+        return PagedList(
+            [
+                FileStore._get_metric_from_line(metric_key, line)
+                for line in read_file_lines(parent_path, metric_key)
+            ],
+            None,
+        )
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -849,7 +880,7 @@ class FileStore(AbstractStore):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         runs = []
@@ -871,7 +902,7 @@ class FileStore(AbstractStore):
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "%s %s %s\n" % (metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, "{} {} {}\n".format(metric.timestamp, metric.value, metric.step))
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -909,13 +940,13 @@ class FileStore(AbstractStore):
         :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
                  does not match the existing parameter value.
         """
-        with open(param_path, "r") as param_file:
+        with open(param_path) as param_file:
             current_value = param_file.read()
         if current_value != new_value:
             raise MlflowException(
-                "Changing param values is not allowed. Param with key='{}' was already"
-                " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                " '{}'.".format(param_key, current_value, run_id, new_value),
+                f"Changing param values is not allowed. Param with key='{param_key}' was already"
+                f" logged with value='{current_value}' for run ID='{run_id}'. Attempted logging"
+                f" new value '{new_value}'.",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
@@ -966,7 +997,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_tag_path(run_info.experiment_id, run_id, key)
         if not exists(tag_path):
             raise MlflowException(
-                "No tag with name: {} in run with id {}".format(key, run_id),
+                f"No tag with name: {key} in run with id {run_id}",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
@@ -1016,7 +1047,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
         if os.path.exists(path):
-            with open(path, "r") as f:
+            with open(path) as f:
                 model_list = json.loads(f.read())
         else:
             model_list = []
@@ -1026,37 +1057,6 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
-
-    @staticmethod
-    def _overwrite_yaml(root, file_name, data):
-        """
-        Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
-        corrupted if the write fails. This is achieved by writing contents to a temporary file
-        and moving the temporary file to replace the preexisting file, rather than opening the
-        preexisting file for a direct write.
-
-        :param root: Directory name.
-        :param file_name: File name. Expects to have '.yaml' extension.
-        :param data: The data to write, represented as a dictionary.
-        """
-        tmp_file_path = None
-        try:
-            tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
-            os.close(tmp_file_fd)
-            write_yaml(
-                root=get_parent_dir(tmp_file_path),
-                file_name=os.path.basename(tmp_file_path),
-                data=data,
-                overwrite=True,
-                sort_keys=True,
-            )
-            shutil.move(
-                tmp_file_path,
-                os.path.join(root, file_name),
-            )
-        finally:
-            if tmp_file_path is not None and os.path.exists(tmp_file_path):
-                os.remove(tmp_file_path)
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):

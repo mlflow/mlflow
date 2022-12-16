@@ -68,9 +68,7 @@ class RegisterStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
             MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["recipe"],
         }
-        self.model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=run_id, artifact_path=artifact_path
-        )
+        self.model_uri = f"runs:/{run_id}/{artifact_path}"
         if model_validation == "VALIDATED" or (
             model_validation == "UNKNOWN" and self.allow_non_validated_model
         ):

@@ -198,9 +198,9 @@ class SqlAlchemyStore(AbstractStore):
 
         def decorate(s):
             if is_string_type(s):
-                return "'{}'".format(s)
+                return repr(s)
             else:
-                return "{}".format(s)
+                return str(s)
 
         # Get a list of keys to ensure we have a deterministic ordering
         columns = list(default_experiment.keys())
@@ -209,9 +209,7 @@ class SqlAlchemyStore(AbstractStore):
         try:
             self._set_zero_value_insertion_for_autoincrement_column(session)
             session.execute(
-                sql.text(
-                    "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
-                )
+                sql.text(f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({values});")
             )
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
@@ -359,7 +357,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
+                f"No Experiment with id={experiment_id} exists", RESOURCE_DOES_NOT_EXIST
             )
 
         return experiment
@@ -514,9 +512,7 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         if len(runs) == 0:
-            raise MlflowException(
-                "Run with id={} not found".format(run_uuid), RESOURCE_DOES_NOT_EXIST
-            )
+            raise MlflowException(f"Run with id={run_uuid} not found", RESOURCE_DOES_NOT_EXIST)
         if len(runs) > 1:
             raise MlflowException(
                 "Expected only 1 run with id={}. Found {}.".format(run_uuid, len(runs)),
@@ -837,10 +833,34 @@ class SqlAlchemyStore(AbstractStore):
         if new_latest_metric_dict:
             self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for SQLAlchemyStore and is unused in this store's implementation.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for SQLAlchemyStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
+        # NB: The SQLAlchemyStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
+            raise MlflowException(
+                "The SQLAlchemyStore backend does not support pagination for the "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be "
+                "`None`."
+            )
+
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
-            return [metric.to_mlflow_entity() for metric in metrics]
+            return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)
@@ -914,8 +934,8 @@ class SqlAlchemyStore(AbstractStore):
 
             if non_matching_params:
                 raise MlflowException(
-                    "Changing param values is not allowed. Params were already logged='{}'"
-                    " for run ID='{}'.".format(non_matching_params, run_id),
+                    "Changing param values is not allowed. Params were already"
+                    f" logged='{non_matching_params}' for run ID='{run_id}'.",
                     INVALID_PARAMETER_VALUE,
                 )
 
@@ -1047,7 +1067,7 @@ class SqlAlchemyStore(AbstractStore):
             filtered_tags = session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
             if len(filtered_tags) == 0:
                 raise MlflowException(
-                    "No tag with name: {} in run with id {}".format(key, run_id),
+                    f"No tag with name: {key} in run with id {run_id}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             elif len(filtered_tags) > 1:
@@ -1073,7 +1093,7 @@ class SqlAlchemyStore(AbstractStore):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -1192,6 +1212,8 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
 
+        key_name = SearchUtils.translate_key_alias(key_name)
+
         if SearchUtils.is_string_attribute(
             key_type, key_name, comparator
         ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
@@ -1254,6 +1276,7 @@ def _get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
+            key = SearchUtils.translate_key_alias(key)
             if SearchUtils.is_string_attribute(
                 key_type, key, "="
             ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
@@ -1302,9 +1325,7 @@ def _get_orderby_clauses(order_by_list, session):
             select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
-                raise MlflowException(
-                    "`order_by` contains duplicate fields: {}".format(order_by_list)
-                )
+                raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
             observed_order_by_clauses.add((key_type, key))
 
             if ascending:

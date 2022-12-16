@@ -3,6 +3,7 @@ import random
 import functools
 from unittest import mock
 from contextlib import ExitStack, contextmanager
+from packaging.version import Version
 
 import logging
 import requests
@@ -383,12 +384,12 @@ def create_mock_response(status_code, text):
 
 
 def _read_yaml(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f)
 
 
 def _read_lines(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return f.read().splitlines()
 
 
@@ -404,8 +405,8 @@ def _compare_logged_code_paths(code_path, model_path, flavor_name):
     saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
     assert os.path.exists(saved_code_path)
 
-    with open(os.path.join(saved_code_path, os.path.basename(code_path)), "r") as f1:
-        with open(code_path, "r") as f2:
+    with open(os.path.join(saved_code_path, os.path.basename(code_path))) as f1:
+        with open(code_path) as f2:
             assert f1.read() == f2.read()
 
 
@@ -451,7 +452,7 @@ def _is_available_on_pypi(package, version=None, module=None):
     """
     from mlflow.utils.requirements_utils import _get_installed_version
 
-    resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
+    resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     if not resp.ok:
         return False
 
@@ -538,3 +539,10 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
         np.testing.assert_allclose(actual_array, desired_array, rtol=rtol)
     else:
         np.testing.assert_array_equal(actual_array, desired_array)
+
+
+def _mlflow_major_version_string():
+    ver = Version(mlflow.version.VERSION)
+    major = ver.major
+    minor = ver.minor
+    return f"mlflow<{major + 1},>={major}.{minor}"

@@ -9,8 +9,9 @@ from databricks_cli.configure.provider import DatabricksConfig
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.docker import _get_docker_image_uri
-from mlflow.projects import ExecutionException
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
@@ -21,13 +22,11 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from mlflow.projects import _project_spec
-from mlflow.exceptions import MlflowException
 
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
-        return "%s#%s" % (base_uri, subdirectory)
+        return f"{base_uri}#{subdirectory}"
     return base_uri
 
 
@@ -188,7 +187,7 @@ def test_docker_mount_local_artifact_uri(
 
     docker_command = _get_docker_command(image, active_run)
 
-    docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
+    docker_volume_expected = f"-v {host_artifact_uri}:{container_artifact_uri}"
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
@@ -277,7 +276,7 @@ def test_docker_run_args(docker_args):
     docker_command = _get_docker_command(image, active_run, docker_args, None, None)
 
     for flag, value in docker_args.items():
-        assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)
+        assert docker_command[docker_command.index(value) - 1] == f"--{flag}"
 
 
 def test_docker_build_image_local(tmp_path):

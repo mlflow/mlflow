@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Read the wine-quality csv file from the URL
     csv_url = (
-        "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv"
     )
     try:
         data = pd.read_csv(csv_url, sep=";")
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
         (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+        print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
         print("  RMSE: %s" % rmse)
         print("  MAE: %s" % mae)
         print("  R2: %s" % r2)

@@ -235,11 +235,8 @@ def save_model(
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
             message=(
-                "Unrecognized serialization format: {serialization_format}. Please specify one"
-                " of the following supported formats: {supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
+                f"Unrecognized serialization format: {serialization_format}. Please specify one"
+                f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -447,11 +444,8 @@ def _load_model_from_local_file(path, serialization_format):
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
             message=(
-                "Unrecognized serialization format: {serialization_format}. Please specify one"
-                " of the following supported formats: {supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
+                f"Unrecognized serialization format: {serialization_format}. Please specify one"
+                f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -555,9 +549,7 @@ def _save_model(sk_model, output_path, serialization_format):
             _dump_model(cloudpickle, sk_model, out)
         else:
             raise MlflowException(
-                message="Unrecognized serialization format: {serialization_format}".format(
-                    serialization_format=serialization_format
-                ),
+                message=f"Unrecognized serialization format: {serialization_format}",
                 error_code=INTERNAL_ERROR,
             )
 
@@ -1155,10 +1147,10 @@ def autolog(
 
         pprint(metrics)
         # {'training_score': 1.0,
-           'training_mae': 2.220446049250313e-16,
-           'training_mse': 1.9721522630525295e-31,
+           'training_mean_absolute_error': 2.220446049250313e-16,
+           'training_mean_squared_error': 1.9721522630525295e-31,
            'training_r2_score': 1.0,
-           'training_rmse': 4.440892098500626e-16}
+           'training_root_mean_squared_error': 4.440892098500626e-16}
 
         pprint(tags)
         # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
@@ -1280,9 +1272,7 @@ def _autolog(
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(
-            message=(
-                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
-            ),
+            message=f"`max_tuning_runs` must be non-negative, instead got {max_tuning_runs}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1499,7 +1489,7 @@ def _autolog(
 
             if hasattr(estimator, "best_params_"):
                 best_params = {
-                    "best_{param_name}".format(param_name=param_name): param_value
+                    f"best_{param_name}": param_value
                     for param_name, param_value in estimator.best_params_.items()
                 }
                 autologging_client.log_params(
@@ -1541,23 +1531,29 @@ def _autolog(
                     )
                     _logger.warning(msg)
 
-    def patched_fit(fit_impl, original, self, *args, **kwargs):
+    def patched_fit(fit_impl, allow_children_patch, original, self, *args, **kwargs):
         """
         Autologging patch function to be applied to a sklearn model class that defines a `fit`
         method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
 
-        :param clazz: The scikit-learn model class to which this patch function is being applied for
-                      autologging (e.g., `sklearn.linear_model.LogisticRegression`)
-        :param func_name: The function name on the specified `clazz` that this patch is overriding
-                          for autologging (e.g., specify "fit" in order to indicate that
-                          `sklearn.linear_model.LogisticRegression.fit()` is being patched)
+        :param fit_impl: The patched fit function implementation, the function should be defined as
+                         `fit_mlflow(original, self, *args, **kwargs)`, the `original` argument
+                          refers to the original `EstimatorClass.fit` method, the `self` argument
+                          refers to the estimator instance being patched, the `*args` and
+                          `**kwargs` are arguments passed to the original fit method.
+
+        :param allow_children_patch: Whether to allow children sklearn session logging or not.
+        :param original: the original `EstimatorClass.fit` method to be patched.
+        :param self: the estimator instance being patched.
+        :param args: positional arguments to be passed to the original fit method.
+        :param kwargs: keyword arguments to be passed to the original fit method.
         """
         should_log_post_training_metrics = (
             log_post_training_metrics
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
 
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+        with _SklearnTrainingSession(estimator=self, allow_children=allow_children_patch) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
@@ -1722,12 +1718,15 @@ def _autolog(
     if flavor_name == mlflow.xgboost.FLAVOR_NAME:
         estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
         patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+        allow_children_patch = True
     elif flavor_name == mlflow.lightgbm.FLAVOR_NAME:
         estimators_to_patch = _gen_lightgbm_sklearn_estimators_to_patch()
         patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+        allow_children_patch = True
     else:
         estimators_to_patch = _gen_estimators_to_patch()
         patched_fit_impl = fit_mlflow
+        allow_children_patch = False
 
     for class_def in estimators_to_patch:
         # Patch fitting methods
@@ -1736,7 +1735,7 @@ def _autolog(
                 flavor_name,
                 class_def,
                 func_name,
-                functools.partial(patched_fit, patched_fit_impl),
+                functools.partial(patched_fit, patched_fit_impl, allow_children_patch),
                 manage_run=True,
             )
 

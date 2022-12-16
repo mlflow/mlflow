@@ -1,32 +1,40 @@
 from pathlib import Path
 from packaging.version import Version
 import os
-import pytest
 import shutil
 import random
 import json
+import yaml
 import pickle
 
+import pytest
+from unittest import mock
+
 import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Layer, Dense
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import SGD
 
 # pylint: disable=no-name-in-module
 from sklearn import datasets
 import pandas as pd
 import numpy as np
-import yaml
-from unittest import mock
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
     _compare_conda_env_requirements,
@@ -35,18 +43,11 @@ from tests.helper_functions import (
     _is_importable,
     _compare_logged_code_paths,
     assert_array_almost_equal,
+    _mlflow_major_version_string,
 )
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.tensorflow.test_load_saved_tensorflow_estimator import ModelDataInfo
-
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.conda import get_or_create_conda_env
-
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Layer, Dense
-from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers import SGD
 
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -248,8 +249,8 @@ def test_score_model_as_spark_udf(data):
 
 
 def test_signature_and_examples_are_saved_correctly(model, data):
-    signature_ = infer_signature(*data)
-    example_ = data[0].head(3)
+    signature_ = infer_signature(data[0].to_numpy(), data[1])
+    example_ = data[0].head(3).to_numpy()
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -262,7 +263,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    np.testing.assert_allclose(_read_example(mlflow_model, path), example)
 
 
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
@@ -295,15 +296,24 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
     )
     assert model_loaded is not None
-    with pytest.raises(TypeError, match=r".+"):
-        mlflow.tensorflow.load_model(model_path)
+    if Version(tf.__version__) <= Version("2.11.0"):
+        with pytest.raises(TypeError, match=r".+"):
+            mlflow.tensorflow.load_model(model_path)
+    else:
+        # TF dev build following the release of 2.11.0 introduced changes to the recursive
+        # loading strategy wherein the validation stage of custom objects loaded won't be
+        # validated eagerly. This prevents a TypeError from being thrown as in the above
+        # expectation catching validation block. The change in logic now permits loading and
+        # will not raise an Exception, as validated below.
+        incorrect_loaded = mlflow.tensorflow.load_model(model_path)
+        assert incorrect_loaded is not None
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
     mlflow.tensorflow.save_model(model, path=model_path)
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
@@ -371,9 +381,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
-    with open(keras_custom_env, "r") as f:
+    with open(keras_custom_env) as f:
         keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
@@ -387,7 +397,7 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == conda_env
 
@@ -402,12 +412,15 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -417,7 +430,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
             pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -429,13 +442,14 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.tensorflow.get_default_pip_requirements()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -444,7 +458,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model, artifact_path="model", extra_pip_requirements=req_file.strpath
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -454,7 +470,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
             extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -466,7 +482,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -500,9 +516,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != keras_custom_env
 
-    with open(keras_custom_env, "r") as f:
+    with open(keras_custom_env) as f:
         keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
@@ -600,7 +616,10 @@ def test_load_without_save_format(tf_keras_model, model_path):
 
 
 @pytest.mark.skipif(
-    not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0")),
+    # TODO: Reenable this test on TF 2.11.0 once a compatible version of the transformers
+    # library is released
+    Version(tf.__version__) == Version("2.11.0")
+    or (not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0"))),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():

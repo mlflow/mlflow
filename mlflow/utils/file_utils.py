@@ -147,7 +147,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
-        raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
+        raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
 
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
@@ -163,6 +163,37 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
         raise e
 
 
+def overwrite_yaml(root, file_name, data):
+    """
+    Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
+    corrupted if the write fails. This is achieved by writing contents to a temporary file
+    and moving the temporary file to replace the preexisting file, rather than opening the
+    preexisting file for a direct write.
+
+    :param root: Directory name.
+    :param file_name: File name. Expects to have '.yaml' extension.
+    :param data: The data to write, represented as a dictionary.
+    """
+    tmp_file_path = None
+    try:
+        tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
+        os.close(tmp_file_fd)
+        write_yaml(
+            root=get_parent_dir(tmp_file_path),
+            file_name=os.path.basename(tmp_file_path),
+            data=data,
+            overwrite=True,
+            sort_keys=True,
+        )
+        shutil.move(
+            tmp_file_path,
+            os.path.join(root, file_name),
+        )
+    finally:
+        if tmp_file_path is not None and os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
+
+
 def read_yaml(root, file_name):
     """
     Read data from yaml file and return as dictionary
@@ -174,7 +205,7 @@ def read_yaml(root, file_name):
     """
     if not exists(root):
         raise MissingConfigException(
-            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root)
+            f"Cannot read '{file_name}'. Parent dir '{root}' does not exist."
         )
 
     file_path = os.path.join(root, file_name)
@@ -226,7 +257,7 @@ def render_and_merge_yaml(root, template_name, context_name):
     def from_json(input_var):
         import json
 
-        with open(input_var, mode="r", encoding="utf-8") as f:
+        with open(input_var, encoding="utf-8") as f:
             return json.load(f)
 
     j2_env.filters["from_json"] = from_json
@@ -352,7 +383,7 @@ def get_relative_path(root_path, target_path):
     :return: Path relative to root_path
     """
     if len(root_path) > len(target_path):
-        raise Exception("Root path '%s' longer than target path '%s'" % (root_path, target_path))
+        raise Exception(f"Root path '{root_path}' longer than target path '{target_path}'")
     common_prefix = os.path.commonprefix([root_path, target_path])
     return os.path.relpath(target_path, common_prefix)
 
@@ -407,7 +438,7 @@ def _copy_project(src_path, dst_path=""):
         docker_ignore = os.path.join(mlflow_root, ".dockerignore")
         patterns = []
         if os.path.exists(docker_ignore):
-            with open(docker_ignore, "r") as f:
+            with open(docker_ignore) as f:
                 patterns = [x.strip() for x in f.readlines()]
 
         def ignore(_, names):
@@ -486,11 +517,7 @@ def path_to_local_file_uri(path):
     """
     Convert local filesystem path to local file uri.
     """
-    path = pathname2url(path)
-    if path == posixpath.abspath(path):
-        return "file://{path}".format(path=path)
-    else:
-        return "file:{path}".format(path=path)
+    return pathlib.Path(os.path.abspath(path)).as_uri()
 
 
 def path_to_local_sqlite_uri(path):

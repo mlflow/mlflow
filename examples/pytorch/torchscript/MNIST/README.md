@@ -4,6 +4,7 @@ This example demonstrates training of MNIST handwritten recognition model and lo
 `mlflow.pytorch.log_model()` is used to log the scripted model to MLflow and `mlflow.pytorch.load_model()` to load it from MLflow
 
 ### Code related to MLflow:
+
 This will log the TorchScripted model into MLflow and load the logged model.
 
 ## Setting Tracking URI
@@ -15,13 +16,14 @@ Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
 For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
+
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/torchscript/MNIST` directory and run the command
 
 ```
 mlflow run .
 ```
 
-This will run `mnist_torchscript.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_torchscript.py` with the default set of parameters such as `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 

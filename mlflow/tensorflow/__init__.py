@@ -25,6 +25,7 @@ import re
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -67,6 +68,7 @@ from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
+from mlflow.exceptions import INVALID_PARAMETER_VALUE
 
 
 FLAVOR_NAME = "tensorflow"
@@ -139,6 +141,33 @@ def log_model(
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
 
+    .. note::
+
+        If you log a Keras or TensorFlow model without a signature, inference with
+        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model's pyfunc
+        representation accepts pandas DataFrames as inference inputs.
+
+        You can infer a model's signature by calling the :py:func:`mlflow.models.infer_signature()`
+        API on features from the model's test dataset. You can also manually create a model
+        signature, for example:
+
+        .. code-block:: python
+            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
+            import numpy as np
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            # Create the signature for a model that requires 2 inputs:
+            #  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
+            signature = ModelSignature(inputs=input_schema)
+
     :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
@@ -188,21 +217,6 @@ def log_model(
              metadata of the logged model.
     """
 
-    from tensorflow.keras.models import Model as KerasModel
-
-    if isinstance(model, KerasModel) and signature is not None:
-        warnings.warn(
-            "The pyfunc inference behavior of Keras models logged "
-            "with signatures differs from the behavior of Keras "
-            "models logged without signatures. Specifically, when a "
-            "signature is present, passing a Pandas DataFrame as "
-            "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`: "
-            "(for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces "
-            "a Pandas DataFrame output in response to a Pandas DataFrame input."
-        )
-
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.tensorflow,
@@ -241,6 +255,14 @@ def _save_keras_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
+_NO_MODEL_SIGNATURE_WARNING = (
+    "You are saving a TensorFlow Core model or Keras model "
+    "without a signature. Inference with mlflow.pyfunc.spark_udf() will not work "
+    "unless the model's pyfunc representation accepts pandas DataFrames as "
+    "inference inputs."
+)
+
+
 def save_model(
     model,
     path,
@@ -259,6 +281,31 @@ def save_model(
     """
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
     the local file system.
+
+    .. note::
+        If you save a Keras or TensorFlow model without a signature, inference with
+        :py:func:`mlflow.pyfunc.spark_udf()` will not work unless the model's pyfunc
+        representation accepts pandas DataFrames as inference inputs.
+        You can infer a model's signature by calling the :py:func:`mlflow.models.infer_signature()`
+        API on features from the model's test dataset. You can also manually create a model
+        signature, for example:
+
+        .. code-block:: python
+            :caption: Example of creating signature for saving TensorFlow and `tf.Keras` models
+
+            from mlflow.types.schema import Schema, TensorSpec
+            from mlflow.models.signature import ModelSignature
+            import numpy as np
+            input_schema = Schema(
+                [
+                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+                ]
+            )
+            # Create the signature for a model that requires 2 inputs:
+            #  - Input with name "field1", shape (-1, 5), type "np.uint64"
+            #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
+            signature = ModelSignature(inputs=input_schema)
 
     :param model: The Keras model or Tensorflow module to be saved.
     :param path: Local path where the MLflow model is to be saved.
@@ -304,6 +351,28 @@ def save_model(
     """
     import tensorflow
     from tensorflow.keras.models import Model as KerasModel
+
+    if signature is None:
+        _logger.warning(_NO_MODEL_SIGNATURE_WARNING)
+    else:
+        num_inputs = len(signature.inputs.inputs)
+        if num_inputs == 0:
+            raise MlflowException(
+                "The model signature's input schema must contain at least one field.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        for field in signature.inputs.inputs:
+            if not isinstance(field, TensorSpec):
+                raise MlflowException(
+                    "All fields in the model signature's input schema must be of type TensorSpec.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if field.shape[0] != -1:
+                raise MlflowException(
+                    "All fields in the model signature's input schema must have a shape "
+                    "in which the first dimension is a variable dimension.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -624,7 +693,7 @@ def _load_pyfunc(path):
     model_type = _infer_model_type(model_meta)
     if model_type == _MODEL_TYPE_KERAS:
         if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
-            with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
+            with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH)) as f:
                 keras_module = importlib.import_module(f.read())
         else:
             import tensorflow.keras
@@ -635,7 +704,7 @@ def _load_pyfunc(path):
         save_format = "h5"
         save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
         if os.path.isfile(save_format_path):
-            with open(save_format_path, "r") as f:
+            with open(save_format_path) as f:
                 save_format = f.read()
 
         # In SavedModel format, if we don't compile the model
@@ -646,7 +715,7 @@ def _load_pyfunc(path):
             m = _load_keras_model(
                 path, keras_module=keras_module, save_format=save_format, compile=should_compile
             )
-            return _KerasModelWrapper(m, None, None)
+            return _KerasModelWrapper(m, model_meta.signature)
         else:
             raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
     if model_type == _MODEL_TYPE_TF1_ESTIMATOR:
@@ -664,7 +733,7 @@ def _load_pyfunc(path):
         flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
         tf_saved_model_dir = os.path.join(path, flavor_conf["saved_model_dir"])
         loaded_model = tensorflow.saved_model.load(tf_saved_model_dir)
-        return _TF2ModuleWrapper(model=loaded_model)
+        return _TF2ModuleWrapper(model=loaded_model, signature=model_meta.signature)
 
     raise MlflowException("Unknown model_type.")
 
@@ -727,8 +796,9 @@ class _TF2Wrapper:
 
 
 class _TF2ModuleWrapper:
-    def __init__(self, model):
+    def __init__(self, model, signature):
         self.model = model
+        self.signature = signature
 
     def predict(self, data):
         import tensorflow
@@ -747,22 +817,30 @@ class _TF2ModuleWrapper:
 
 
 class _KerasModelWrapper:
-    def __init__(self, keras_model, graph, sess):
+    def __init__(self, keras_model, signature):
         self.keras_model = keras_model
-        self._graph = graph
-        self._sess = sess
+        self.signature = signature
 
     def predict(self, data):
-        def _predict(data):
-            if isinstance(data, pandas.DataFrame):
-                predicted = pandas.DataFrame(self.keras_model.predict(data.values))
-                predicted.index = data.index
-            else:
-                predicted = self.keras_model.predict(data)
-            return predicted
+        if isinstance(data, pandas.DataFrame):
+            # This line is for backwards compatibility:
+            # If model signature is not None, when calling
+            # `keras_pyfunc_model.predict(pandas_dataframe)`, `_enforce_schema` will convert
+            # dataframe input into dict input, so in the case `_KerasModelWrapper.predict`
+            # will receive a dict type input.
+            # If model signature is None, `_enforce_schema` can do nothing, and if the input
+            # is dataframe, `_KerasModelWrapper.predict` will receive a dataframe input,
+            # we need to handle this case, to keep backwards compatibility.
+            return pandas.DataFrame(self.keras_model.predict(data.values), index=data.index)
 
-        predicted = _predict(data)
-        return predicted
+        supported_input_types = (np.ndarray, list, tuple, dict)
+        if not isinstance(data, supported_input_types):
+            raise MlflowException(
+                f"Unsupported input data type: {type(data)}. "
+                f"Must be one of: {[x.__name__ for x in supported_input_types]}",
+                INVALID_PARAMETER_VALUE,
+            )
+        return self.keras_model.predict(data)
 
 
 def _assoc_list_to_map(lst):
@@ -1041,8 +1119,6 @@ def autolog(
         from mlflow.tensorflow._autolog import extract_tf_keras_input_example
 
         def _get_tf_keras_input_example_slice():
-            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
             input_training_data = args[0]
             keras_input_example_slice = extract_tf_keras_input_example(input_training_data)
             if keras_input_example_slice is None:

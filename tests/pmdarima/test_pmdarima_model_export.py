@@ -28,6 +28,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 
@@ -264,11 +265,14 @@ def test_pmdarima_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         mlflow.pmdarima.log_model(auto_arima_object_model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -276,7 +280,7 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
             auto_arima_object_model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -286,13 +290,14 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.pmdarima.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -300,7 +305,9 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     req_file.write_text("a")
     with mlflow.start_run():
         mlflow.pmdarima.log_model(auto_arima_model, "model", extra_pip_requirements=str(req_file))
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -308,7 +315,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
             auto_arima_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -318,7 +325,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),
-            requirements=["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            requirements=[expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             constraints=["a"],
             strict=False,
         )

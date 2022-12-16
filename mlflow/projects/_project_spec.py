@@ -164,7 +164,7 @@ class Project:
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
-            command = "%s %s" % (ext_to_cmd[file_extension], quote(entry_point))
+            command = "{} {}".format(ext_to_cmd[file_extension], quote(entry_point))
             if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
@@ -233,7 +233,7 @@ class EntryPoint:
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
         command_with_params = self.command.format(**params)
         command_arr = [command_with_params]
-        command_arr.extend(["--%s %s" % (key, value) for key, value in extra_params.items()])
+        command_arr.extend([f"--{key} {value}" for key, value in extra_params.items()])
         return " ".join(command_arr)
 
     @staticmethod
@@ -256,7 +256,7 @@ class Parameter:
     def _compute_uri_value(self, user_param_value):
         if not data.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter %s but got %s" % (self.name, user_param_value)
+                "Expected URI for parameter {} but got {}".format(self.name, user_param_value)
             )
         return user_param_value
 
@@ -269,7 +269,7 @@ class Parameter:
                     "directory was found." % (user_param_value, self.name)
                 )
             return os.path.abspath(local_path)
-        target_sub_dir = "param_{}".format(key_position)
+        target_sub_dir = f"param_{key_position}"
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
         return artifact_utils._download_artifact_from_uri(

@@ -303,9 +303,7 @@ def gen_autologging_package_version_requirements_doc(integration_name):
     """
     _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
     min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
-    required_pkg_versions = "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
-        min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
-    )
+    required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
         "    .. Note:: Autologging is known to be compatible with the following package versions: "
@@ -349,13 +347,13 @@ def autologging_integration(name):
     def validate_param_spec(param_spec):
         if "disable" not in param_spec or param_spec["disable"].default is not False:
             raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must specify a 'disable' argument with default value 'False'".format(name)
+                f"Invalid `autolog()` function for integration '{name}'. `autolog()` functions"
+                " must specify a 'disable' argument with default value 'False'"
             )
         elif "silent" not in param_spec or param_spec["silent"].default is not False:
             raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must specify a 'silent' argument with default value 'False'".format(name)
+                f"Invalid `autolog()` function for integration '{name}'. `autolog()` functions"
+                " must specify a 'silent' argument with default value 'False'"
             )
 
     def wrapper(_autolog):
@@ -514,16 +512,16 @@ def _get_new_training_session_class():
     class _TrainingSession:
         _session_stack = []
 
-        def __init__(self, clazz, allow_children=True):
+        def __init__(self, estimator, allow_children=True):
             """
             A session manager for nested autologging runs.
 
-            :param clazz: A class object that this session originates from.
+            :param estimator: An estimator that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
             """
             self.allow_children = allow_children
-            self.clazz = clazz
+            self.estimator = estimator
             self._parent = None
 
         def __enter__(self):
@@ -543,16 +541,26 @@ def _get_new_training_session_class():
             Returns True when at least one of the following conditions satisfies:
 
             1. This session is the root session.
-            2. The parent session allows autologging and its class differs from this session's
-               class.
+            2. The parent session allows autologging and its estimator differs from this session's
+               estimator.
             """
-            return (self._parent is None) or (
-                self._parent.allow_children and self._parent.clazz != self.clazz
-            )
+            for training_session in _TrainingSession._session_stack:
+                if training_session is self:
+                    break
+                elif training_session.estimator is self.estimator:
+                    return False
+
+            return self._parent is None or self._parent.allow_children
 
         @staticmethod
         def is_active():
             return len(_TrainingSession._session_stack) != 0
+
+        @staticmethod
+        def get_current_session():
+            if _TrainingSession.is_active():
+                return _TrainingSession._session_stack[-1]
+            return None
 
     return _TrainingSession
 

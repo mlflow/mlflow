@@ -161,8 +161,8 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                         "skip_data_profiling": True,
                         "using": "csv",
                         "location": [
-                            "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
-                            "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-white.csv",
                         ],
                         "loader_method": "load_file_as_dataframe",
                     }
@@ -305,7 +305,7 @@ def test_ingest_throws_for_custom_dataset_when_loader_function_throws_unexpected
         "steps.ingest.load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
     ) as mock_loader:
-        setattr(mock_loader, "__name__", "load_file_as_dataframe")
+        mock_loader.__name__ = "load_file_as_dataframe"
         with pytest.raises(
             MlflowException, match="Unable to load data file at path.*using custom loader method"
         ):
@@ -606,7 +606,7 @@ def test_ingest_produces_expected_step_card(pandas_df, tmp_path):
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")
     assert os.path.exists(expected_step_card_path)
-    with open(expected_step_card_path, "r") as f:
+    with open(expected_step_card_path) as f:
         step_card_html_content = f.read()
 
     assert "Dataset source location" in step_card_html_content
@@ -816,7 +816,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
         ).run(output_directory=tmp_path)
 
     expected_step_card_path = os.path.join(tmp_path, "card.html")
-    with open(expected_step_card_path, "r") as f:
+    with open(expected_step_card_path) as f:
         step_card_html_content = f.read()
     assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()

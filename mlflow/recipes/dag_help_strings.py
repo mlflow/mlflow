@@ -23,6 +23,7 @@ steps:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
     post_split_filter_method: create_dataset_filter
   transform:
+    using: custom
     transformer_method: transformer_fn
   train:
     using: custom
@@ -128,6 +129,7 @@ TRANSFORM_STEP = format_help_string(
 
 steps:
   transform:
+    using: custom
     transformer_method: transformer_fn
 """
 )
@@ -154,6 +156,7 @@ TRAIN_STEP = format_help_string(
 
 steps:
   train:
+    using: custom
     estimator_method: estimator_fn
 
 custom_metrics:

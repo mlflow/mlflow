@@ -218,7 +218,11 @@ def log_model(
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
+    remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
+        remote_model_path = append_to_uri_path(
+            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
+        )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
@@ -269,12 +273,13 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            remote_model_path=remote_model_path,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                "runs:/%s/%s" % (run_id, artifact_path),
+                f"runs:/{run_id}/{artifact_path}",
                 registered_model_name,
                 await_registration_for,
             )
@@ -288,7 +293,7 @@ def _tmp_path(dfs_tmp):
 def _mlflowdbfs_path(run_id, artifact_path):
     if artifact_path.startswith("/"):
         raise MlflowException(
-            "artifact_path should be relative, found: {}".format(artifact_path),
+            f"artifact_path should be relative, found: {artifact_path}",
             INVALID_PARAMETER_VALUE,
         )
     return "{}:///artifacts?run_id={}&path=/{}".format(
@@ -477,11 +482,14 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    remote_model_path=None,
 ):
     """
-    Saves model metadata into the passed-in directory. The persisted metadata assumes that a
-    model can be loaded from a relative path to the metadata file (currently hard-coded to
-    "sparkml").
+    Saves model metadata into the passed-in directory.
+    If mlflowdbfs is not used, the persisted metadata assumes that a model can be
+    loaded from a relative path to the metadata file (currently hard-coded to "sparkml").
+    If mlflowdbfs is used, remote_model_path should be provided, and the model needs to
+    be loaded from the remote_model_path.
     """
     import pyspark
 
@@ -517,10 +525,16 @@ def _save_model_metadata(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            if remote_model_path:
+                _logger.info(
+                    "Inferring pip requirements by reloading the logged model from the databricks "
+                    "artifact repository, which can be time-consuming. To speed up, explicitly "
+                    "specify the conda_env or pip_requirements when calling log_model()."
+                )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                dst_dir,
+                remote_model_path or dst_dir,
                 FLAVOR_NAME,
                 fallback=default_reqs,
             )
@@ -828,30 +842,23 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
-    # NOTE: The getOrCreate() call below may change settings of the active session which we do not
-    # intend to do here. In particular, setting master to local[1] can break distributed clusters.
+    from mlflow.utils._spark_utils import (
+        _create_local_spark_session_for_loading_spark_model,
+        _get_active_spark_session,
+    )
+
+    # NOTE: The `_create_local_spark_session_for_loading_spark_model()` call below may change
+    # settings of the active session which we do not intend to do here.
+    # In particular, setting master to local[1] can break distributed clusters.
     # To avoid this problem, we explicitly check for an active session. This is not ideal but there
     # is no good workaround at the moment.
-    import pyspark
-
-    spark = pyspark.sql.SparkSession._instantiatedSession
+    spark = _get_active_spark_session()
     if spark is None:
         # NB: If there is no existing Spark context, create a new local one.
         # NB: We're disabling caching on the new context since we do not need it and we want to
         # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
         # (e.g. as part of spark_udf).
-        spark = (
-            pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)
-            .config("spark.databricks.io.cache.enabled", False)
-            # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
-            # a SparkSession on the workers
-            .config("spark.executor.allowSparkContext", "true")
-            # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
-            # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
-            .config("spark.driver.bindAddress", "127.0.0.1")
-            .master("local[1]")
-            .getOrCreate()
-        )
+        spark = _create_local_spark_session_for_loading_spark_model()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 

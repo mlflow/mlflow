@@ -20,6 +20,7 @@ concurrency:
 jobs:
   js:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         include:
@@ -38,7 +39,12 @@ jobs:
           submodules: recursive
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: "16"
+      - name: Disable problem matcher
+        if: runner.os == 'Windows'
+        run: |
+          echo "::remove-matcher owner=eslint-compact::"
+          echo "::remove-matcher owner=eslint-stylish::"
       - name: Install dependencies
         run: |
           yarn install

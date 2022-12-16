@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
@@ -525,6 +526,20 @@ public class MlflowClientTest {
     List<RunTag> tags = run.getData().getTagsList();
     Assert.assertEquals(tags.size(), 2);
     assertTag(tags, "user_email", USER_EMAIL);
+  }
+
+  @Test
+  public void getMetricHistoryPagination() {
+    String expId = client.createExperiment("getMetricHistoryPagination");
+    RunInfo run = client.createRun(expId);
+    String runId = run.getRunUuid();
+    List<Long> steps = LongStream.range(0, 26000).boxed().collect(Collectors.toList());
+    for (Long step: steps) {
+      client.logMetric(runId, "random_metric", step, step, step);
+    }
+    List<Metric> metrics = client.getMetricHistory(runId, "random_metric");
+    List<Double> values = steps.stream().mapToDouble(x -> x).boxed().collect(Collectors.toList());
+    assertMetricHistory(metrics, "random_metric", values, steps);
   }
 
   @Test

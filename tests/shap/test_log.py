@@ -1,22 +1,25 @@
-import mlflow
-import shap
 import json
-import numpy as np
-import pandas as pd
-import sklearn
-from sklearn.datasets import load_diabetes
 import pytest
 from unittest import mock
 
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.utils import PYTHON_VERSION
+import numpy as np
+import pandas as pd
+import sklearn
+from sklearn.datasets import load_diabetes, fetch_california_housing
+import shap
+
+import mlflow
 from mlflow import MlflowClient
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 
@@ -28,6 +31,13 @@ def shap_model():
     return shap.Explainer(model.predict, X, algorithm="permutation")
 
 
+def get_housing_data():
+
+    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
+
+    return X[:1000], y[:1000]
+
+
 def test_sklearn_log_explainer():
     """
     Tests mlflow.shap log_explainer with mlflow serialization of the underlying model
@@ -37,7 +47,8 @@ def test_sklearn_log_explainer():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
+        X, y = get_housing_data()
+
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
 
@@ -73,7 +84,8 @@ def test_sklearn_log_explainer_self_serialization():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
+        X, y = get_housing_data()
+
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
 
@@ -112,7 +124,8 @@ def test_sklearn_log_explainer_pyfunc():
 
         run_id = run.info.run_id
 
-        X, y = shap.datasets.boston()
+        X, y = get_housing_data()
+
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
 
@@ -151,7 +164,8 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 def test_load_pyfunc(tmpdir):
 
-    X, y = shap.datasets.boston()
+    X, y = get_housing_data()
+
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
 
@@ -167,10 +181,10 @@ def test_load_pyfunc(tmpdir):
 
 
 def test_merge_environment():
-
+    expected_mlflow_version = _mlflow_major_version_string()
     test_shap_env = {
         "channels": ["conda-forge"],
-        "dependencies": ["python=3.8.5", "pip", {"pip": ["mlflow", "shap==0.38.0"]}],
+        "dependencies": ["python=3.8.5", "pip", {"pip": [expected_mlflow_version, "shap==0.38.0"]}],
     }
 
     test_model_env = {
@@ -178,7 +192,7 @@ def test_merge_environment():
         "dependencies": [
             "python=3.8.5",
             "pip",
-            {"pip": ["mlflow", "scikit-learn==0.24.0", "cloudpickle==1.6.0"]},
+            {"pip": [expected_mlflow_version, "scikit-learn==0.24.0", "cloudpickle==1.6.0"]},
         ],
     }
 
@@ -186,9 +200,16 @@ def test_merge_environment():
         "name": "mlflow-env",
         "channels": ["conda-forge"],
         "dependencies": [
-            "python={}".format(PYTHON_VERSION),
+            f"python={PYTHON_VERSION}",
             "pip",
-            {"pip": ["mlflow", "scikit-learn==0.24.0", "cloudpickle==1.6.0", "shap==0.38.0"]},
+            {
+                "pip": [
+                    expected_mlflow_version,
+                    "scikit-learn==0.24.0",
+                    "cloudpickle==1.6.0",
+                    "shap==0.38.0",
+                ]
+            },
         ],
     }
 
@@ -208,6 +229,7 @@ def test_merge_environment():
 
 
 def test_log_model_with_pip_requirements(shap_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -215,7 +237,9 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
     with mlflow.start_run():
         mlflow.shap.log_explainer(shap_model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs], strict=False
+            mlflow.get_artifact_uri("model"),
+            [expected_mlflow_version, "a", *sklearn_default_reqs],
+            strict=False,
         )
 
     # List of requirements
@@ -225,7 +249,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "a", "b", *sklearn_default_reqs],
+            [expected_mlflow_version, "a", "b", *sklearn_default_reqs],
             strict=False,
         )
 
@@ -236,13 +260,14 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt", *sklearn_default_reqs],
+            [expected_mlflow_version, "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
             strict=False,
         )
 
 
 def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
@@ -253,7 +278,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         mlflow.shap.log_explainer(shap_model, "model", extra_pip_requirements=req_file.strpath)
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "a", *sklearn_default_reqs],
+            [expected_mlflow_version, *shap_default_reqs, "a", *sklearn_default_reqs],
         )
 
     # List of requirements
@@ -263,7 +288,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "a", "b", *sklearn_default_reqs],
+            [expected_mlflow_version, *shap_default_reqs, "a", "b", *sklearn_default_reqs],
         )
 
     # Constraints file
@@ -273,7 +298,13 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *shap_default_reqs, "b", "-c constraints.txt", *sklearn_default_reqs],
+            [
+                expected_mlflow_version,
+                *shap_default_reqs,
+                "b",
+                "-c constraints.txt",
+                *sklearn_default_reqs,
+            ],
             ["a"],
         )
 
@@ -291,7 +322,8 @@ def create_identity_function():
 
 
 def test_pyfunc_serve_and_score():
-    X, y = shap.datasets.boston()
+    X, y = get_housing_data()
+
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
         reg.predict,

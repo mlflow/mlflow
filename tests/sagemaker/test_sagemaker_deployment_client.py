@@ -62,9 +62,17 @@ def sagemaker_deployment_client():
     )
 
 
-def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name, env=None):
+def create_sagemaker_deployment_through_cli(
+    app_name, model_uri, region_name, env=None, config=None
+):
     if env is None:
         env = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
+    if config is not None:
+        _config = []
+        for c in config:
+            _config += ["-C", c]
+    else:
+        _config = []
     result = CliRunner(env=env).invoke(
         cli_commands,
         [
@@ -75,7 +83,8 @@ def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name, en
             app_name,
             "--model-uri",
             model_uri,
-        ],
+        ]
+        + _config,
     )
     assert result.exit_code == 0
 
@@ -199,12 +208,24 @@ def test__apply_custom_config_converts_from_string_to_dict_for_dict_fields(
             "subnet-123456abc",
         ],
     }
-    config = {"vpc_config": None}
-    custom_config = {"vpc_config": json.dumps(vpc_config)}
+    env_config = {
+        "GUNICORN_CMD_ARGS": "--timeout=60",
+    }
+    tags_config = {
+        "tag1": "value1",
+    }
+    config = {"vpc_config": None, "env": None, "tags": None}
+    custom_config = {
+        "vpc_config": json.dumps(vpc_config),
+        "env": json.dumps(env_config),
+        "tags": json.dumps(tags_config),
+    }
 
     sagemaker_deployment_client._apply_custom_config(config, custom_config)
 
     assert config["vpc_config"] == vpc_config
+    assert config["env"] == env_config
+    assert config["tags"] == tags_config
 
 
 def test__apply_custom_config_does_not_change_type_of_string_fields(sagemaker_deployment_client):
@@ -305,6 +326,34 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@mock_sagemaker_aws_services
+def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_tags_from_local(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    expected_tags = [{"Key": "key1", "Value": "value1"}, {"Key": "key2", "Value": "value2"}]
+
+    name = "test-app"
+    with mock.patch.dict(os.environ, {}, clear=True):
+        sagemaker_deployment_client.create_deployment(
+            name=name,
+            model_uri=pretrained_model.model_uri,
+            config=dict(
+                tags={"key1": "value1", "key2": "value2"},
+            ),
+        )
+
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    description = sagemaker_client.describe_model(ModelName=model_name)
+
+    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+
+    # Extra tags exist besides the ones we set, so avoid strict equality
+    assert all(tag in tags["Tags"] for tag in expected_tags)
+
+
 @pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
@@ -313,6 +362,8 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
+        "GUNCORN_CMD_ARGS": '"--timeout 60"',
+        "DISABLE_NGINX": "1",
     }
 
     if proxies_enabled:
@@ -327,6 +378,9 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
             sagemaker_deployment_client.create_deployment(
                 name=name,
                 model_uri=pretrained_model.model_uri,
+                config=dict(
+                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                ),
             )
     else:
         name = "test-app"
@@ -334,6 +388,9 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
             sagemaker_deployment_client.create_deployment(
                 name=name,
                 model_uri=pretrained_model.model_uri,
+                config=dict(
+                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                ),
             )
 
     region_name = sagemaker_client.meta.region_name
@@ -369,9 +426,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 ):
     region_name = sagemaker_client.meta.region_name
     environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
+    override_environment_variables = {"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'}
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
+        "GUNCORN_CMD_ARGS": '"--timeout 60"',
+        "DISABLE_NGINX": "1",
     }
 
     if proxies_enabled:
@@ -387,6 +447,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             pretrained_model.model_uri,
             region_name,
             {**environment_variables, **proxy_variables},
+            config=["env={}".format(json.dumps(override_environment_variables))],
         )
     else:
         proxy_variables = {
@@ -400,6 +461,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             pretrained_model.model_uri,
             region_name,
             {**environment_variables, **proxy_variables},
+            config=["env={}".format(json.dumps(override_environment_variables))],
         )
 
     s3_client = boto3.client("s3", region_name=region_name)
@@ -427,6 +489,34 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     assert model_environment == expected_model_environment
 
 
+@mock_sagemaker_aws_services
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_tags_from_local(
+    pretrained_model, sagemaker_client
+):
+    expected_tags = [{"Key": "key1", "Value": "value1"}, {"Key": "key2", "Value": "value2"}]
+    region_name = sagemaker_client.meta.region_name
+
+    app_name = "test-app"
+    create_sagemaker_deployment_through_cli(
+        app_name,
+        pretrained_model.model_uri,
+        region_name,
+        env=None,
+        config=["tags={}".format(json.dumps({"key1": "value1", "key2": "value2"}))],
+    )
+
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    description = sagemaker_client.describe_model(ModelName=model_name)
+
+    tags = sagemaker_client.list_tags(ResourceArn=description["ModelArn"])
+
+    # Extra tags exist besides the ones we set, so avoid strict equality
+    assert all(tag in tags["Tags"] for tag in expected_tags)
+
+
 @pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
@@ -436,7 +526,7 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path
@@ -501,7 +591,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path

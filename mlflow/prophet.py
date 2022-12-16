@@ -289,7 +289,7 @@ def _load_model(path):
 
     from prophet.serialize import model_from_json
 
-    with open(path, "r") as f:
+    with open(path) as f:
         model = json.load(f)
     return model_from_json(model)
 

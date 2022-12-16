@@ -5,12 +5,12 @@ import sklearn
 from sklearn.linear_model import LinearRegression
 from pathlib import Path
 
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
-import mlflow.utils.requirements_utils
 from mlflow.utils import PYTHON_VERSION
+import mlflow.utils.requirements_utils
 
 from tests.helper_functions import AnyStringWith
-from mlflow.exceptions import MlflowException
 
 
 def test_warn_dependency_requirement_mismatches(tmpdir):
@@ -218,9 +218,7 @@ name: mlflow-env
         )
         mock_warning.assert_called_once_with(
             "The following conda dependencies have been excluded from the environment file: "
-            "python={python_version}, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0.".format(
-                python_version=PYTHON_VERSION
-            )
+            f"python={PYTHON_VERSION}, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
         )
 
     conda_yml_file.write_text(

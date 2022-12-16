@@ -10,6 +10,7 @@ import uuid
 from typing import Any, Dict, Optional, Union, Callable
 
 import mlflow
+from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.file_utils import TempDir
@@ -377,7 +378,27 @@ class Model:
 
     @classmethod
     def load(cls, path):
-        """Load a model from its YAML representation."""
+        """
+        Load a model from its YAML representation.
+
+        :param path: A local filesystem path or URI referring to the MLmodel YAML file
+                     representation of the :py:class:`Model` object or to the directory containing
+                     the MLmodel YAML file representation.
+        :return: An instance of :py:class:`Model`.
+
+
+        .. code-block:: python
+            :caption: example
+
+            from mlflow.models import Model
+
+            # Load the Model object from a local MLmodel file
+            model1 = Model.load("~/path/to/my/MLmodel")
+
+            # Load the Model object from a remote model directory
+            model2 = Model.load("s3://mybucket/path/to/my/model")
+        """
+        path = download_artifacts(artifact_uri=path)
         if os.path.isdir(path):
             path = os.path.join(path, MLMODEL_FILE_NAME)
         with open(path) as f:
@@ -471,7 +492,7 @@ class Model:
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
-                    "runs:/%s/%s" % (run_id, mlflow_model.artifact_path),
+                    "runs:/{}/{}".format(run_id, mlflow_model.artifact_path),
                     registered_model_name,
                     await_registration_for=await_registration_for,
                 )

@@ -244,15 +244,25 @@ class AbstractStore:
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
-        Return a list of metric objects corresponding to all values logged for a given metric.
+        Return a list of metric objects corresponding to all values logged for a given metric
+        within a run.
 
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
+        :param max_results: Maximum number of metric history events (steps) to return per paged
+            query.
+        :param page_token: A Token specifying the next paginated set of results of metric history.
+            This value is obtained as a return value from a paginated call to GetMetricHistory.
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
+
+        # NB: Pagination for this API is not supported in FileStore or SQLAlchemyStore. The
+        # argument `max_results` is used as a pagination activation flag. If the `max_results`
+        # argument is not provided, this API will return a full metric history event collection
+        # without the paged queries to the backend store.
         pass
 
     def search_runs(

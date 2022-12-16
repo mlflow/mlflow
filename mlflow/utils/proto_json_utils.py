@@ -225,13 +225,20 @@ def cast_df_types_according_to_schema(pdf, schema):
             col_type = col_type_spec
         if col_name in actual_cols:
             try:
-                if col_type_spec == DataType.binary:
+                if isinstance(col_type_spec, DataType) and col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
                     pdf[col_name] = pdf[col_name].map(
                         lambda x: base64.decodebytes(bytes(x, "utf8"))
                     )
                 elif col_type == np.dtype(bytes):
                     pdf[col_name] = pdf[col_name].map(lambda x: bytes(x, "utf8"))
+                elif schema.is_tensor_spec() and isinstance(pdf[col_name][0], list):
+                    # For dataframe with multidimensional column, it contains
+                    # list type values, we cannot convert
+                    # its type by `astype`, skip conversion.
+                    # The conversion will be done in `_enforce_schema` while
+                    # `PyFuncModel.predict` being called.
+                    pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -318,7 +325,7 @@ def dataframe_from_raw_json(path_or_str, schema=None, pandas_orient: str = "spli
     :return: pandas.DataFrame.
     """
     if os.path.exists(path_or_str):
-        with open(path_or_str, "r") as f:
+        with open(path_or_str) as f:
             parsed_json = json.load(f)
     else:
         parsed_json = json.loads(path_or_str)
@@ -368,7 +375,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                     raise MlflowException(
                         "Failed to parse input data. This model contains a tensor-based model"
                         " signature with input names, which suggests a dictionary input mapping"
-                        " input name to tensor, but an input of type {0} was found.".format(
+                        " input name to tensor, but an input of type {} was found.".format(
                             type(input_data)
                         )
                     )
@@ -382,7 +389,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                     raise MlflowException(
                         "Failed to parse input data. This model contains an un-named tensor-based"
                         " model signature which expects a single n-dimensional array as input,"
-                        " however, an input of type {0} was found.".format(type(input_data))
+                        " however, an input of type {} was found.".format(type(input_data))
                     )
                 input_data = np.array(input_data, dtype=schema.numpy_types()[0])
         else:

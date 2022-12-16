@@ -38,3 +38,4 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     R-api
     java_api/index
     rest-api
+    docker

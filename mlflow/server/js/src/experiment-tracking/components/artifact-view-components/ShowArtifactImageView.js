@@ -18,7 +18,8 @@ const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesCo
     // Download image contents using XHR so all necessary
     // HTTP headers will be automatically added
     getArtifact(getSrc(path, runUuid)).then((result) => {
-      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)])));
+      const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
+      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
   }, [runUuid, path, getArtifact]);

@@ -383,7 +383,7 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
         run_id = f.read()
 
     assert (train_step_output_dir / "card.html").exists()
-    with open(train_step_output_dir / "card.html", "r") as f:
+    with open(train_step_output_dir / "card.html") as f:
         step_card_content = f.read()
 
     assert f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}>" in step_card_content
@@ -442,7 +442,7 @@ def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
         run_id = f.read()
 
     tags = MlflowClient().get_run(run_id).data.tags
-    assert tags[MLFLOW_SOURCE_TYPE] == "PIPELINE"
+    assert tags[MLFLOW_SOURCE_TYPE] == "RECIPE"
     assert tags[MLFLOW_RECIPE_TEMPLATE_NAME] == "regression/v1"
     assert tags[MLFLOW_RECIPE_STEP_NAME] == "train"
     assert tags[MLFLOW_RECIPE_PROFILE_NAME] == "test_profile"

@@ -37,6 +37,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _mlflow_major_version_string,
 )
 
 
@@ -306,7 +307,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
 def test_model_load_from_remote_uri_succeeds(
     sklearn_knn_model, main_scoped_model_class, tmpdir, mock_s3_bucket, iris_data
 ):
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_root = f"s3://{mock_s3_bucket}"
     artifact_repo = S3ArtifactRepository(artifact_root)
 
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -495,8 +496,8 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         preexec_fn=os.setsid,
     )
     _, stderr = process.communicate()
-    assert process.wait() == 0, "stderr = \n\n{}\n\n".format(stderr)
-    with open(output_json_path, "r") as f:
+    assert process.wait() == 0, f"stderr = \n\n{stderr}\n\n"
+    with open(output_json_path) as f:
         result_df = pd.DataFrame(data=json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
@@ -545,7 +546,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
     )
     stdout, stderr = process.communicate()
     assert process.wait() == 0, f"stdout = \n\n{stdout}\n\n stderr = \n\n{stderr}\n\n"
-    with open(output_json_path, "r") as f:
+    with open(output_json_path) as f:
         result_df = pandas.DataFrame(json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
@@ -577,9 +578,9 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env
 
-    with open(pyfunc_custom_env, "r") as f:
+    with open(pyfunc_custom_env) as f:
         pyfunc_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
@@ -607,6 +608,7 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -615,7 +617,9 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         mlflow.pyfunc.log_model(
             "model", python_model=python_model, pip_requirements=req_file.strpath
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -623,7 +627,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
             "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -633,13 +637,14 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     sklearn_model_path = tmpdir.join("sklearn_model").strpath
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
@@ -656,7 +661,9 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             artifacts={"sk_model": sklearn_model_path},
             extra_pip_requirements=req_file.strpath,
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -667,7 +674,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -680,7 +687,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -718,9 +725,9 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != pyfunc_custom_env
 
-    with open(pyfunc_custom_env, "r") as f:
+    with open(pyfunc_custom_env) as f:
         pyfunc_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
@@ -815,7 +822,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
             if not os.path.exists(expected_file_path):
                 return False
             else:
-                with open(expected_file_path, "r") as f:
+                with open(expected_file_path) as f:
                     return f.read() == nested_file_text
 
     mlflow.pyfunc.save_model(

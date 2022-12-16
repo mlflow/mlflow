@@ -6,9 +6,9 @@ from unittest.mock import PropertyMock
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode("utf-8")
-TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode("utf-8")
-TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode("utf-8")
+TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode()
+TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode()
+TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode()
 
 
 @pytest.fixture()
@@ -76,7 +76,7 @@ class TestDbfsFuseArtifactRepository:
         expected_file_path = os.path.join(artifact_dir, "empty-file")
         with open(expected_file_path, "rb") as handle:
             data = handle.read()
-        assert data == "".encode("utf-8")
+        assert data == b""
 
     @pytest.mark.parametrize(
         "artifact_path",
@@ -94,7 +94,7 @@ class TestDbfsFuseArtifactRepository:
         expected_contents = {
             "subdir/test.txt": TEST_FILE_2_CONTENT,
             "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": "".encode("utf-8"),
+            "empty-file": b"",
         }
         for filename, contents in expected_contents.items():
             with open(os.path.join(artifact_dst_path, filename), "rb") as handle:
@@ -121,7 +121,7 @@ class TestDbfsFuseArtifactRepository:
         expected_contents = {
             "subdir/test.txt": TEST_FILE_2_CONTENT,
             "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": "".encode("utf-8"),
+            "empty-file": b"",
         }
         for filename, contents in expected_contents.items():
             with open(os.path.join(local_download_dir, filename), "rb") as handle:

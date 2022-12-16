@@ -29,6 +29,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -153,9 +154,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 
-    with open(h2o_custom_env, "r") as f:
+    with open(h2o_custom_env) as f:
         h2o_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == h2o_custom_env_text
 
@@ -170,12 +171,15 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_iris_model.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -185,7 +189,7 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
             pip_requirements=[f"-r {req_file.strpath}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
@@ -195,13 +199,14 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
+            [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
         )
 
 
 def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.h2o.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -209,7 +214,9 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_iris_model.model, "model", extra_pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+        )
 
     # List of requirements
     with mlflow.start_run():
@@ -217,7 +224,7 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
             h2o_iris_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
+            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
@@ -227,7 +234,7 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
+            [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
 
@@ -241,7 +248,7 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == conda_env
 
@@ -265,9 +272,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != h2o_custom_env
 
-    with open(h2o_custom_env, "r") as f:
+    with open(h2o_custom_env) as f:
         h2o_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == h2o_custom_env_text
 

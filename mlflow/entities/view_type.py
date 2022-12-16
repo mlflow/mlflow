@@ -38,7 +38,7 @@ class ViewType:
             return service_pb2.DELETED_ONLY
         elif view_type == cls.ALL:
             return service_pb2.ALL
-        raise ValueError("Unexpected view_type: {}".format(view_type))
+        raise ValueError(f"Unexpected view_type: {view_type}")
 
     @classmethod
     def from_proto(cls, proto_view_type):
@@ -48,4 +48,4 @@ class ViewType:
             return cls.DELETED_ONLY
         elif proto_view_type == service_pb2.ALL:
             return cls.ALL
-        raise ValueError("Unexpected proto_view_type: {}".format(proto_view_type))
+        raise ValueError(f"Unexpected proto_view_type: {proto_view_type}")

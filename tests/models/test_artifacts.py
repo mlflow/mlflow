@@ -7,7 +7,9 @@ from mlflow.models.evaluation.artifacts import (
     ParquetEvaluationArtifact,
     TextEvaluationArtifact,
     PickleEvaluationArtifact,
+    _infer_artifact_type_and_ext,
 )
+from mlflow.models.evaluation.default_evaluator import _CustomArtifact
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -15,9 +17,6 @@ import numpy as np
 import json
 import pathlib
 import pytest
-
-from mlflow.models.evaluation.artifacts import _infer_artifact_type_and_ext
-from mlflow.models.evaluation.default_evaluator import _CustomArtifact
 
 
 @pytest.fixture

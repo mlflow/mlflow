@@ -22,7 +22,11 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
 )
-from tests.helper_functions import pyfunc_serve_and_score_model, _is_available_on_pypi
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _is_available_on_pypi,
+    _mlflow_major_version_string,
+)
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
@@ -47,7 +51,7 @@ def random_int(lo=1, hi=1000000000):
 
 
 def _get_list_from_file(path):
-    with open(path, "r") as file:
+    with open(path) as file:
         return file.read().splitlines()
 
 
@@ -256,6 +260,7 @@ def test_log_model_with_non_model_uri():
 
 
 def test_create_pip_requirement(tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     model_name = f"wheels-test-{random_int()}"
     model_uri = f"models:/{model_name}/1"
     conda_env_path = os.path.join(tmp_path, "conda.yaml")
@@ -263,7 +268,7 @@ def test_create_pip_requirement(tmp_path):
 
     wm = WheeledModel(model_uri)
 
-    expected_pip_deps = ["mlflow", "cloudpickle==2.1.0", "psutil==5.8.0"]
+    expected_pip_deps = [expected_mlflow_version, "cloudpickle==2.1.0", "psutil==5.8.0"]
     _mlflow_conda_env(
         path=conda_env_path, additional_pip_deps=expected_pip_deps, install_mlflow=False
     )
@@ -274,10 +279,11 @@ def test_create_pip_requirement(tmp_path):
 
 
 def test_update_conda_env_only_updates_pip_deps(tmp_path):
+    expected_mlflow_version = _mlflow_major_version_string()
     model_name = f"wheels-test-{random_int()}"
     model_uri = f"models:/{model_name}/1"
     conda_env_path = os.path.join(tmp_path, "conda.yaml")
-    pip_deps = ["mlflow", "cloudpickle==2.1.0", "psutil==5.8.0"]
+    pip_deps = [expected_mlflow_version, "cloudpickle==2.1.0", "psutil==5.8.0"]
     new_pip_deps = ["wheels/mlflow", "wheels/cloudpickle", "wheels/psutil"]
 
     wm = WheeledModel(model_uri)

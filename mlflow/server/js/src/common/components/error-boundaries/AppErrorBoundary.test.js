@@ -10,7 +10,7 @@ describe('AppErrorBoundary', () => {
 
   beforeEach(() => {
     minimalProps = {
-      children: 'testChild',
+      children: <div data-testid='child-component'>testChild</div>,
     };
     wrapper = shallow(<AppErrorBoundary {...minimalProps} />).dive();
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -21,7 +21,7 @@ describe('AppErrorBoundary', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    expect(wrapper.text()).toEqual('testChild');
+    expect(wrapper.find('[data-testid="child-component"]')).toHaveLength(1);
     expect(wrapper.find('.error-image').length).toBe(0);
   });
 

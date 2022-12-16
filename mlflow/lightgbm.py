@@ -69,6 +69,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "lightgbm"
 
@@ -491,11 +492,11 @@ def autolog(
             except Exception as e:
                 input_example_info = InputExampleInfo(error_msg=str(e))
 
-            setattr(self, "input_example_info", input_example_info)
+            self.input_example_info = input_example_info
 
         original(self, *args, **kwargs)
 
-    def train(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -528,13 +529,13 @@ def autolog(
             ax.set_yticks(yloc)
             ax.set_yticklabels(features)
             ax.set_xlabel("Importance")
-            ax.set_title("Feature Importance ({})".format(importance_type))
+            ax.set_title(f"Feature Importance ({importance_type})")
             fig.tight_layout()
 
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -631,7 +632,7 @@ def autolog(
             imp = dict(zip(features, importance.tolist()))
             tmpdir = tempfile.mkdtemp()
             try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 mlflow.log_artifact(filepath)
@@ -681,6 +682,13 @@ def autolog(
             early_stopping_logging_operations.await_completion()
 
         return model
+
+    def train(_log_models, original, *args, **kwargs):
+        with _SklearnTrainingSession(estimator=lightgbm.train, allow_children=False) as t:
+            if t.should_log():
+                return train_impl(_log_models, original, *args, **kwargs)
+            else:
+                return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
     safe_patch(

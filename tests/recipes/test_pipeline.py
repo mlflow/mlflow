@@ -127,7 +127,7 @@ def test_recipes_log_to_expected_mlflow_backend_with_expected_run_tags_once_on_r
     artifact_location = str((tmp_path / "mlartifacts").resolve())
 
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
-    with open(profile_path, "r") as f:
+    with open(profile_path) as f:
         profile_contents = yaml.safe_load(f)
 
     profile_contents["experiment"]["name"] = experiment_name
@@ -174,7 +174,7 @@ def test_recipes_run_sets_mlflow_git_tags():
     recipe.run(step="train")
 
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
-    with open(profile_path, "r") as f:
+    with open(profile_path) as f:
         profile_contents = yaml.safe_load(f)
 
     tracking_uri = profile_contents["experiment"]["tracking_uri"]
@@ -201,7 +201,7 @@ def test_recipes_run_sets_mlflow_git_tags():
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails():
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
-    with open(profile_path, "r") as f:
+    with open(profile_path) as f:
         profile_contents = yaml.safe_load(f)
 
     profile_contents["INGEST_CONFIG"] = {"using": "parquet", "location": "a bad location"}
@@ -221,7 +221,7 @@ def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails(
         step_name="ingest",
         relative_path="card.html",
     )
-    with open(step_card_path, "r") as f:
+    with open(step_card_path) as f:
         card_content = f.read()
 
     assert "Ingest" in card_content

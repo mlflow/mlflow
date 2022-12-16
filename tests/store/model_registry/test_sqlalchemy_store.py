@@ -45,7 +45,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows
             os.close(fd)
-            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+            self.db_url = "{}{}".format(DB_URI, self.temp_dbfile)
 
     def setUp(self):
         self._setup_db_uri()
@@ -951,7 +951,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert rms == []
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix}%'")
         assert rms == names
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
@@ -1012,14 +1012,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by run_id
         with pytest.raises(
-            MlflowException, match=r"Invalid attribute name: run_id"
+            MlflowException, match=r"Invalid attribute key 'run_id' specified."
         ) as exception_context:
             self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with pytest.raises(
-            MlflowException, match=r"Invalid attribute name: source_path"
+            MlflowException, match=r"Invalid attribute key 'source_path' specified."
         ) as exception_context:
             self._search_registered_models("source_path = 'A/D'")
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1039,7 +1039,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert self._search_registered_models("name='{}'".format(names[-1])) == ([], None)
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        assert self._search_registered_models("name LIKE '{}%'".format(prefix)) == (
+        assert self._search_registered_models(f"name LIKE '{prefix}%'") == (
             names[0:5],
             None,
         )
@@ -1128,7 +1128,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             )
 
     def test_search_registered_model_pagination(self):
-        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
@@ -1181,7 +1181,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
                 return_value=i,
             ):
-                rms.append(self._rm_maker("RM{:03}".format(i)).name)
+                rms.append(self._rm_maker(f"RM{i:03}").name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
         returned_rms = []

@@ -1,17 +1,18 @@
+import datetime
 import os
+import random
 import sys
 import time
-import random
-import datetime
 from typing import Iterator
 import threading
+from collections import namedtuple
 from unittest import mock
+import pytest
 
 import numpy as np
 import pandas as pd
-import pytest
-
 import pyspark
+from pyspark.sql.functions import pandas_udf, col, struct
 from pyspark.sql.types import (
     ArrayType,
     DoubleType,
@@ -22,6 +23,13 @@ from pyspark.sql.types import (
     BooleanType,
 )
 from pyspark.sql.utils import AnalysisException
+from sklearn import datasets
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.pipeline import Pipeline
+
+import tests
 
 import mlflow
 import mlflow.pyfunc
@@ -30,19 +38,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-
-import tests
 from mlflow.types import Schema, ColSpec
-
-from sklearn import datasets
-from collections import namedtuple
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
-
-from pyspark.sql.functions import pandas_udf
-from pyspark.sql.functions import col, struct
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
@@ -264,6 +260,51 @@ def test_spark_udf_with_single_arg(spark):
         data2 = data1.select(struct("a", "b").alias("ab"))
         result = data2.withColumn("res", udf("ab")).select("res").toPandas()
         assert result.res[0] == "a,b"
+
+
+def test_spark_udf_with_struct_return_type(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return {
+                "r1": [1] * input_len,
+                "r2": [1.5] * input_len,
+                "r3": [[1, 2]] * input_len,
+                "r4": [np.array([1.5, 2.5])] * input_len,
+                "r5": np.vstack([np.array([1.5, 2.5])] * input_len),
+                "r6": [True] * input_len,
+                "r7": ["abc"] * input_len,
+            }
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=(
+                "r1 int, r2 float, r3 array<long>, r4 array<double>, "
+                "r5 array<double>, r6 boolean, r7 string"
+            ),
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result = (
+            data1.withColumn("res", udf("id"))
+            .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5", "res.r6", "res.r7")
+            .toPandas()
+        )
+        assert result.r1.tolist() == [1] * 2
+        np.testing.assert_almost_equal(result.r2.tolist(), [1.5] * 2)
+        assert result.r3.tolist() == [[1, 2]] * 2
+        np.testing.assert_almost_equal(
+            np.vstack(result.r4.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        np.testing.assert_almost_equal(
+            np.vstack(result.r5.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        assert result.r6.tolist() == [True] * 2
+        assert result.r7.tolist() == ["abc"] * 2
 
 
 def test_spark_udf_autofills_no_arguments(spark):
@@ -508,8 +549,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         )
 
         time.sleep(120)
-        for x in it:
-            yield x
+        yield from it
 
     def run_job():
         # Start a spark job with only one UDF task,

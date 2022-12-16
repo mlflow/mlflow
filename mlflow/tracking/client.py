@@ -1563,7 +1563,7 @@ class MlflowClient:
             print("run_id: {}; lifecycle_stage: {}".format(run_id, del_run.info.lifecycle_stage))
             client.restore_run(run_id)
             rest_run = client.get_run(run_id)
-            print("run_id: {}; lifecycle_stage: {}".format(run_id, res_run.info.lifecycle_stage))
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, rest_run.info.lifecycle_stage))
 
         .. code-block:: text
             :caption: Output
@@ -1924,9 +1924,10 @@ class MlflowClient:
             # prefix pattern
             filter_string = "name LIKE 'Boston%'"
             results = client.search_registered_models(filter_string=filter_string)
+            print("-" * 80)
             for res in results:
                 for mv in res.latest_versions:
-                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+                    print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
 
             # Get all registered models and order them by ascending order of the names
             results = client.search_registered_models(order_by=["name ASC"])
@@ -2752,11 +2753,7 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    "Could not find any model version for {} stage".format(
-                        stage,
-                    )
-                )
+                raise MlflowException(f"Could not find any model version for {stage} stage")
             version = latest_versions[0].version
 
         self._get_registry_client().set_model_version_tag(name, version, key, value)
@@ -2831,10 +2828,6 @@ class MlflowClient:
         if stage:
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
-                raise MlflowException(
-                    "Could not find any model version for {} stage".format(
-                        stage,
-                    )
-                )
+                raise MlflowException("Could not find any model version for {stage} stage")
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)

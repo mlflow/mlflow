@@ -76,7 +76,7 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         if not os.path.exists(local_artifact_path):
-            raise IOError("No such file or directory: '{}'".format(local_artifact_path))
+            raise OSError(f"No such file or directory: '{local_artifact_path}'")
         return os.path.abspath(local_artifact_path)
 
     def list_artifacts(self, path=None):

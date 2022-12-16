@@ -2,13 +2,14 @@ import base64
 import json
 
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
 import urllib3
 from contextlib import contextmanager
 from functools import lru_cache
 from packaging.version import Version
-from requests.adapters import HTTPAdapter
+
 from urllib3.util import Retry
-from requests.exceptions import HTTPError
 
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
@@ -134,7 +135,7 @@ def http_request(
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
-        basic_auth_str = ("%s:%s" % (host_creds.username, host_creds.password)).encode("utf-8")
+        basic_auth_str = ("{}:{}".format(host_creds.username, host_creds.password)).encode("utf-8")
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
@@ -161,7 +162,7 @@ def http_request(
         kwargs["auth"] = AWSSigV4("execute-api")
 
     cleaned_hostname = strip_suffix(hostname, "/")
-    url = "%s%s" % (cleaned_hostname, endpoint)
+    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -181,7 +182,7 @@ def http_request(
             " to a larger value."
         )
     except Exception as e:
-        raise MlflowException("API request to %s failed with exception %s" % (url, e))
+        raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
 def _can_parse_as_json_object(string):
@@ -205,12 +206,12 @@ def verify_rest_response(response, endpoint):
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
-            base_msg = "API request to endpoint %s failed with error code %s != 200" % (
+            base_msg = "API request to endpoint {} failed with error code {} != 200".format(
                 endpoint,
                 response.status_code,
             )
             raise MlflowException(
-                "%s. Response body: '%s'" % (base_msg, response.text),
+                "{}. Response body: '{}'".format(base_msg, response.text),
                 error_code=get_error_code(response.status_code),
             )
 
@@ -221,7 +222,7 @@ def verify_rest_response(response, endpoint):
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
         )
-        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+        raise MlflowException("{}. Response body: '{}'".format(base_msg, response.text))
 
     return response
 
@@ -238,7 +239,7 @@ def augmented_raise_for_status(response):
 
 
 def _get_path(path_prefix, endpoint_path):
-    return "{}{}".format(path_prefix, endpoint_path)
+    return f"{path_prefix}{endpoint_path}"
 
 
 def extract_api_info_for_service(service, path_prefix):

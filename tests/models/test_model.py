@@ -10,6 +10,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model, infer_signature, validate_schema
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
@@ -76,6 +77,31 @@ def test_model_save_load():
     assert m == o
     assert m.to_json() == o.to_json()
     assert m.to_yaml() == o.to_yaml()
+
+
+def test_model_load_remote(tmp_path, mock_s3_bucket):
+    model = Model(
+        artifact_path="some/path",
+        run_id="123",
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
+        signature=ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        ),
+        saved_input_example_info={"x": 1, "y": 2},
+    )
+    model_path = tmp_path / "MLmodel"
+    model.save(model_path)
+
+    artifact_root = f"s3://{mock_s3_bucket}"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifact(str(model_path))
+
+    model_reloaded_1 = Model.load(f"{artifact_root}/MLmodel")
+    assert model_reloaded_1 == model
+
+    model_reloaded_2 = Model.load(artifact_root)
+    assert model_reloaded_2 == model
 
 
 class TestFlavor:

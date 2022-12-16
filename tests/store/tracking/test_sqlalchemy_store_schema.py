@@ -35,9 +35,9 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     """
     # Extract "CREATE TABLE" statement chunks from both files, assuming tables are listed in the
     # same order across files
-    with open(generated_schema_file, "r") as generated_schema_handle:
+    with open(generated_schema_file) as generated_schema_handle:
         generated_schema_table_chunks = generated_schema_handle.read().split("\n\n")
-    with open(expected_schema_file, "r") as expected_schema_handle:
+    with open(expected_schema_file) as expected_schema_handle:
         expected_schema_table_chunks = expected_schema_handle.read().split("\n\n")
     # Compare the two files table-by-table. We assume each CREATE TABLE statement is valid and
     # so sort the lines within the statements before comparing them.
@@ -48,14 +48,10 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
         assert generated_lines == expected_lines, (
             "Generated schema did not match expected schema. Generated schema had table "
-            "definition:\n{generated_table}\nExpected schema had table definition:"
-            "\n{expected_table}\nIf you intended to make schema changes, run "
-            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to "
-            "update the schema snapshot.".format(
-                generated_table=generated_schema_table,
-                expected_table=expected_schema_table,
-                expected_file=expected_schema_file,
-            )
+            f"definition:\n{generated_schema_table}\nExpected schema had table definition:"
+            f"\n{expected_schema_table}\nIf you intended to make schema changes, run "
+            f"'python tests/store/dump_schema.py {expected_schema_file}' from your checkout"
+            " of MLflow to update the schema snapshot."
         )
 
 

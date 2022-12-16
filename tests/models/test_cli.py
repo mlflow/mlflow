@@ -18,7 +18,6 @@ from unittest import mock
 from io import StringIO
 
 import mlflow
-from mlflow import pyfunc
 import mlflow.sklearn
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 
@@ -27,11 +26,16 @@ from mlflow.utils.conda import _get_conda_env_name
 import mlflow.models.cli as models_cli
 
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
-from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
+from mlflow.pyfunc.scoring_server import (
+    CONTENT_TYPE_JSON,
+    CONTENT_TYPE_CSV,
+)
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
-from tests.models import test_pyfunc
 from tests.helper_functions import (
     pyfunc_build_image,
     pyfunc_serve_from_docker_image,
@@ -41,12 +45,6 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     PROTOBUF_REQUIREMENT,
     pyfunc_generate_dockerfile,
-)
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
-from mlflow.pyfunc.scoring_server import (
-    CONTENT_TYPE_JSON,
-    CONTENT_TYPE_CSV,
 )
 
 # NB: for now, windows tests do not have conda available.
@@ -73,54 +71,6 @@ def sk_model(iris_data):
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
     return knn_model
-
-
-def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
-    if no_conda:
-        pytest.skip("This test needs conda.")
-    # TODO: Enable this test after 1.0 is out to ensure we do not break the serve / predict
-    # TODO: Also add a test for serve, not just predict.
-    pytest.skip("TODO: enable this after 1.0 release is out.")
-    x, _ = iris_data
-    with TempDir() as tmp:
-        input_records_path = tmp.path("input_records.json")
-        pd.DataFrame(x).to_json(input_records_path, orient="records")
-        output_json_path = tmp.path("output.json")
-        test_model_path = tmp.path("test_model")
-        test_model_conda_path = tmp.path("conda.yml")
-        # create env with old mlflow!
-        _mlflow_conda_env(
-            path=test_model_conda_path,
-            additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)],
-        )
-        pyfunc.save_model(
-            path=test_model_path,
-            loader_module=test_pyfunc.__name__.split(".")[-1],
-            code_path=[test_pyfunc.__file__],
-            conda_env=test_model_conda_path,
-        )
-        # explicit json format with orient records
-        p = subprocess.Popen(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                path_to_local_file_uri(test_model_path),
-                "-i",
-                input_records_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "json",
-            ]
-            + no_conda
-        )
-        assert p.wait() == 0
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
-        assert all(expected == actual)
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -188,7 +138,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
 
     model_uris = [
         "models:/{name}/{stage}".format(name="imlegit", stage="None"),
-        "runs:/{run_id}/model".format(run_id=run_id),
+        f"runs:/{run_id}/model",
     ]
     for model_uri in model_uris:
         with TempDir() as tpm:
@@ -202,14 +152,14 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                     stdout=output_file,
                     extra_args=["-w", "3"],
                 )
-            with open(output_file_path, "r") as output_file:
+            with open(output_file_path) as output_file:
                 stdout = output_file.read()
         actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            ("gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app")
+            "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"
         )
         assert expected_command_pattern.search(stdout) is not None
 
@@ -336,7 +286,7 @@ def test_predict(iris_data, sk_model):
             stderr=sys.stderr,
             env=env_with_tracking_uri,
         )
-        with open(input_json_path, "r") as f:
+        with open(input_json_path) as f:
             stdout, _ = p.communicate(f.read())
         assert p.wait() == 0
         actual = pd.read_json(StringIO(stdout), orient="records")

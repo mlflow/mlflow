@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from unittest import mock
 from packaging.version import Version
 
@@ -54,6 +55,10 @@ def spark_context():
     spark_session.stop()
 
 
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="Docker image resolution for non-linux tests is not supported",
+)
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     mlflow.spark.save_model(
         spark_model_iris.model,

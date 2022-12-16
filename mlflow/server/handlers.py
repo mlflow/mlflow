@@ -115,10 +115,17 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
         super().__init__()
-        # NB: Model Registry does not support file based stores
+        self.register("", self._get_file_store)
+        self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
         self.register_entrypoints()
+
+    @classmethod
+    def _get_file_store(cls, store_uri):
+        from mlflow.store.model_registry.file_store import FileStore
+
+        return FileStore(store_uri)
 
     @classmethod
     def _get_sqlalchemy_store(cls, store_uri):
@@ -1087,7 +1094,7 @@ def _log_model():
 
     if missing_fields:
         raise MlflowException(
-            "Model json is missing mandatory fields: {}".format(missing_fields),
+            f"Model json is missing mandatory fields: {missing_fields}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     _get_tracking_store().record_logged_model(
@@ -1550,7 +1557,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
-    return ["/api/2.0{}".format(base_path), _add_static_prefix("/ajax-api/2.0{}".format(base_path))]
+    return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
 
 
 def get_handler(request_class):

@@ -2,10 +2,9 @@ from collections import defaultdict, namedtuple, OrderedDict
 import logging
 import numpy as np
 import os
-from pkg_resources import resource_filename
 from urllib.parse import urlparse
 import weakref
-
+import sys
 import mlflow
 from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
@@ -85,7 +84,17 @@ def _read_log_model_allowlist():
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
+    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
+    if sys.version_info.major > 2 and sys.version_info.minor > 8:
+        from importlib.resources import as_file, files
+
+        with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
+            builtin_allowlist_file = file.as_posix()
+    else:
+        from importlib.resources import path
+
+        with path(__name__, "log_model_allowlist.txt") as file:
+            builtin_allowlist_file = file.as_posix()
     spark_session = _get_active_spark_session()
     if not spark_session:
         _logger.info(
@@ -1094,7 +1103,7 @@ def autolog(
             log_post_training_metrics
             and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
         )
-        with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
+        with _SparkTrainingSession(estimator=self, allow_children=False) as t:
             if t.should_log():
                 with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                     fit_result = fit_mlflow(original, self, *args, **kwargs)

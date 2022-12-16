@@ -1,37 +1,15 @@
 from unittest import mock
 import pytest
 
-from mlflow import register_model, set_registry_uri, get_registry_uri
+from mlflow import register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
-    FEATURE_DISABLED,
 )
 from mlflow import MlflowClient
-from mlflow.utils.file_utils import TempDir
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
-
-def test_register_model_raises_exception_with_unsupported_registry_store():
-    """
-    This test case ensures that the `register_model` operation fails with an informative error
-    message when the registry store URI refers to a store that does not support Model Registry
-    features (e.g., FileStore).
-    """
-    with TempDir() as tmp:
-        old_registry_uri = get_registry_uri()
-        try:
-            set_registry_uri(tmp.path())
-            with pytest.raises(
-                MlflowException, match="Model Registry features are not supported"
-            ) as exc:
-                register_model(model_uri="runs:/1234/some_model", name="testmodel")
-            assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
-        finally:
-            set_registry_uri(old_registry_uri)
 
 
 def test_register_model_with_runs_uri():

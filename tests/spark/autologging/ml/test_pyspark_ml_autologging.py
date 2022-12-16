@@ -1,24 +1,16 @@
 import importlib
 import json
 import math
-import numpy as np
-import pandas as pd
-import pytest
 from collections import namedtuple
 from packaging.version import Version
-from unittest import mock
 import yaml
 import pathlib
 
-import mlflow
-from mlflow import MlflowClient
-from mlflow.entities import RunStatus
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
-from mlflow.utils import _truncate_dict
-from mlflow.utils.validation import (
-    MAX_PARAM_VAL_LENGTH,
-    MAX_ENTITY_KEY_LENGTH,
-)
+import pytest
+from unittest import mock
+
+import numpy as np
+import pandas as pd
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -37,6 +29,13 @@ from pyspark.ml.classification import (
 )
 from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler, StringIndexer, IndexToString
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
+from pyspark.sql import SparkSession
+
+import mlflow
+from mlflow import MlflowClient
+from mlflow.entities import RunStatus
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
@@ -46,10 +45,14 @@ from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
     _get_tuning_param_maps,
 )
-from pyspark.sql import SparkSession
-from mlflow.models import Model
-from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
+from mlflow.utils import _truncate_dict
+from mlflow.utils.validation import (
+    MAX_PARAM_VAL_LENGTH,
+    MAX_ENTITY_KEY_LENGTH,
+)
+
 from tests.helper_functions import AnyStringWith
 
 
@@ -167,7 +170,7 @@ def get_params_to_log(estimator):
 
 def load_json_artifact(artifact_path):
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         return json.load(f)
 
 
@@ -177,7 +180,7 @@ def load_json_csv(artifact_path):
 
 
 def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
-    return mlflow.spark.load_model("runs:/{}/{}".format(run_id, model_dir))
+    return mlflow.spark.load_model(f"runs:/{run_id}/{model_dir}")
 
 
 def test_basic_estimator(dataset_binomial):
@@ -221,9 +224,9 @@ def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-arg
     non_existent_classes = list(
         filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
     )
-    assert len(non_existent_classes) == 0, "{} in log_model_allowlist don't exist".format(
-        non_existent_classes
-    )
+    assert (
+        len(non_existent_classes) == 0
+    ), f"{non_existent_classes} in log_model_allowlist don't exist"
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
@@ -557,7 +560,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
 
     client = MlflowClient()
     child_runs = client.search_runs(
-        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        run.info.experiment_id, f"tags.`mlflow.parentRunId` = '{run_id}'"
     )
     assert len(child_runs) == len(search_results)
 
@@ -572,9 +575,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
                 for key, value in row_params.items()
             ]
         )
-        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
-            run_id, params_search_clause
-        )
+        search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
         child_run = child_runs[0]
@@ -945,7 +946,7 @@ def _read_model_conf_as_dict(run):
     ml_model_filename = "MLmodel"
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
-    with open(ml_model_path, "r") as f:
+    with open(ml_model_path) as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 

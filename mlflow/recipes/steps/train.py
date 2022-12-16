@@ -530,10 +530,9 @@ class TrainStep(BaseStep):
 
     def _resolve_estimator_plugin(self, plugin_str, X_train, y_train, output_directory):
         plugin_str = plugin_str.replace("/", ".")
-        estimator_fn = getattr(
-            importlib.import_module(f"mlflow.recipes.steps.{plugin_str}"),
-            "get_estimator_and_best_params",
-        )
+        estimator_fn = importlib.import_module(
+            f"mlflow.recipes.steps.{plugin_str}"
+        ).get_estimator_and_best_params
         estimator, best_parameters = estimator_fn(
             X_train,
             y_train,
@@ -646,7 +645,7 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: "{:.6g}".format(x))  # pylint: disable=unnecessary-lambda
+                lambda s: s.map(lambda x: f"{x:.6g}")  # pylint: disable=unnecessary-lambda
                 if s.name in metric_names
                 else s,  # pylint: disable=unnecessary-lambda
                 axis=0,
@@ -751,17 +750,13 @@ class TrainStep(BaseStep):
             from mlflow.types import ColSpec
 
             table = BaseCard.render_table(
-                (
-                    {
-                        "Name": "  " + (spec.name or "-"),
-                        "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
-                    }
-                    for spec in inputs
-                )
+                {
+                    "Name": "  " + (spec.name or "-"),
+                    "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
+                }
+                for spec in inputs
             )
-            return '<div style="margin: 5px"><h2>{title}</h2>{table}</div>'.format(
-                title=title, table=table
-            )
+            return f'<div style="margin: 5px"><h2>{title}</h2>{table}</div>'
 
         schema_tables = [render_schema(model_schema.inputs.inputs, "Inputs")]
         if model_schema.outputs:
@@ -1061,7 +1056,13 @@ class TrainStep(BaseStep):
             "trials": hp_trials,
         }
         if "early_stop_fn" in tuning_params:
-            train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
+            try:
+                train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(
+                    ".", 1
+                )
+            except ValueError:
+                early_stop_fn_name = tuning_params["early_stop_fn"]
+                train_module_name = _USER_DEFINED_TRAIN_STEP_MODULE
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             fmin_kwargs["early_stop_fn"] = early_stop_fn
         best_hp_params = fmin(**fmin_kwargs)
@@ -1113,23 +1114,25 @@ class TrainStep(BaseStep):
         )
         return logged_estimator
 
-    def _write_best_parameters_outputs(  # pylint: disable=dangerous-default-value
+    def _write_best_parameters_outputs(
         self,
         output_directory,
-        best_hp_params={},
-        best_hardcoded_params={},
-        automl_params={},
-        default_params={},
+        best_hp_params=None,
+        best_hardcoded_params=None,
+        automl_params=None,
+        default_params=None,
     ):
         if best_hp_params or best_hardcoded_params or automl_params or default_params:
             best_parameters_path = os.path.join(output_directory, "best_parameters.yaml")
             if os.path.exists(best_parameters_path):
                 os.remove(best_parameters_path)
             with open(best_parameters_path, "a") as file:
-                self._write_one_param_output(automl_params, file, "automl parameters")
-                self._write_one_param_output(best_hp_params, file, "tuned hyperparameters")
-                self._write_one_param_output(best_hardcoded_params, file, "hardcoded parameters")
-                self._write_one_param_output(default_params, file, "default parameters")
+                self._write_one_param_output(automl_params or {}, file, "automl parameters")
+                self._write_one_param_output(best_hp_params or {}, file, "tuned hyperparameters")
+                self._write_one_param_output(
+                    best_hardcoded_params or {}, file, "hardcoded parameters"
+                )
+                self._write_one_param_output(default_params or {}, file, "default parameters")
             mlflow.log_artifact(best_parameters_path, artifact_path="train")
 
     def _write_one_param_output(self, params, file, caption):

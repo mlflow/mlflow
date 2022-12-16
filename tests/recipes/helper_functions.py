@@ -81,7 +81,7 @@ def train_and_log_classification_model(is_dummy=False):
 
 def train_log_and_register_model(model_name, is_dummy=False):
     run_id, _ = train_and_log_model(is_dummy)
-    runs_uri = "runs:/{}/train/model".format(run_id)
+    runs_uri = f"runs:/{run_id}/train/model"
     mv = mlflow.register_model(runs_uri, model_name)
     return f"models:/{mv.name}/{mv.version}"
 

@@ -32,6 +32,7 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     allow_infer_pip_requirements_fallback_if,
     _compare_logged_code_paths,
+    _mlflow_major_version_string,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -187,6 +188,7 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
     req_file = tmpdir.join("requirements.txt")
@@ -194,7 +196,7 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
     mlflow.spacy.save_model(
         spacy_model_with_data.model, tmpdir1.strpath, pip_requirements=req_file.strpath
     )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
@@ -203,7 +205,7 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
         tmpdir2.strpath,
         pip_requirements=[f"-r {req_file.strpath}", "b"],
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -213,11 +215,12 @@ def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
         pip_requirements=[f"-c {req_file.strpath}", "b"],
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
 def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmpdir):
+    expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.spacy.get_default_pip_requirements()
 
     # Path to a requirements file
@@ -227,7 +230,7 @@ def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmpdir):
     mlflow.spacy.save_model(
         spacy_model_with_data.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
     )
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", *default_reqs, "a"])
+    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
@@ -236,7 +239,7 @@ def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmpdir):
         tmpdir2.strpath,
         extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
@@ -246,7 +249,7 @@ def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmpdir):
         extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, ["mlflow", *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
@@ -262,9 +265,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spacy_custom_env
 
-    with open(spacy_custom_env, "r") as f:
+    with open(spacy_custom_env) as f:
         spacy_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == spacy_custom_env_text
 
@@ -280,7 +283,7 @@ def test_model_save_accepts_conda_env_as_dict(spacy_model_with_data, model_path)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
 
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == conda_env
 
@@ -306,9 +309,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spacy_custom_env
 
-    with open(spacy_custom_env, "r") as f:
+    with open(spacy_custom_env) as f:
         spacy_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
+    with open(saved_conda_env_path) as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == spacy_custom_env_text
 

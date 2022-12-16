@@ -53,7 +53,7 @@ def test_entry_point_compute_command():
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
-        assert command == "python greeter.py %s %s" % (quote("hi"), quote(name_value))
+        assert command == "python greeter.py {} {}".format(quote("hi"), quote(name_value))
 
 
 def test_path_parameter():
@@ -97,7 +97,7 @@ def test_path_parameter():
             with TempDir() as tmp:
                 dst_dir = tmp.path()
                 file_to_download = "images.tgz"
-                download_path = "%s/%s" % (dst_dir, file_to_download)
+                download_path = f"{dst_dir}/{file_to_download}"
                 download_uri_mock.return_value = download_path
                 params, _ = entry_point.compute_parameters(
                     user_parameters={"path": os.path.join(prefix, file_to_download)},

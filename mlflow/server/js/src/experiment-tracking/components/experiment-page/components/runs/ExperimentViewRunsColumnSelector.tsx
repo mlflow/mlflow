@@ -3,6 +3,7 @@ import {
   ChevronDownIcon,
   Dropdown,
   Input,
+  ListIcon,
   Search1Icon,
   Tree,
 } from '@databricks/design-system';
@@ -313,6 +314,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
           ref={buttonRef}
           style={{ display: 'flex', alignItems: 'center' }}
           data-testid='column-selection-dropdown'
+          icon={<ListIcon />}
         >
           <FormattedMessage
             defaultMessage='Columns'
