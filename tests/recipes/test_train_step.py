@@ -302,7 +302,7 @@ def test_train_step_classifier_automl(tmp_recipe_root_path, recipe):
                         - lgbm
             """.format(
                 tracking_uri=mlflow.get_tracking_uri(),
-                metric="roc_auc" if recipe == "classification/binary" else "recall_score",
+                metric="roc_auc" if recipe == "classification/binary" else "roc_auc_ovr",
                 positive_class='positive_class: "a"' if recipe == "classification/binary" else "",
             )
         )

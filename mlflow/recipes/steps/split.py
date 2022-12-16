@@ -27,8 +27,8 @@ _INPUT_FILE_NAME = "dataset.parquet"
 _OUTPUT_TRAIN_FILE_NAME = "train.parquet"
 _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
-_MULTI_PROCESS_POOL_SIZE = 8
 _USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
+_MAX_CLASSES_TO_PROFILE = 5
 
 
 def _make_elem_hashable(elem):
@@ -44,27 +44,24 @@ def _make_elem_hashable(elem):
 
 def _run_split(task, input_df, split_ratios, target_col):
     if task == "classification":
-        return _perform_split_per_class(input_df, split_ratios, target_col)
+        return _perform_stratified_split_per_class(input_df, split_ratios, target_col)
     elif task == "regression":
         return _perform_split(input_df, split_ratios)
 
 
-def _perform_split_per_class(input_df, split_ratios, target_col):
+def _perform_stratified_split_per_class(input_df, split_ratios, target_col):
     classes = np.unique(input_df[target_col])
-    if len(classes) > 2:
-        partial_func = partial(
-            _perform_split_for_one_class,
-            input_df=input_df,
-            split_ratios=split_ratios,
-            target_col=target_col,
-        )
+    partial_func = partial(
+        _perform_split_for_one_class,
+        input_df=input_df,
+        split_ratios=split_ratios,
+        target_col=target_col,
+    )
 
-        with ThreadPool(os.cpu_count() or _NUM_DEFAULT_CPUS) as p:
-            zipped_dfs = p.map(partial_func, classes)
-            test_df, train_df, validation_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
-            return test_df, train_df, validation_df
-    else:
-        return _perform_split(input_df, split_ratios)
+    with ThreadPool(os.cpu_count() or _NUM_DEFAULT_CPUS) as p:
+        zipped_dfs = p.map(partial_func, classes)
+        test_df, train_df, validation_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
+        return test_df, train_df, validation_df
 
 
 def _perform_split_for_one_class(
@@ -74,11 +71,11 @@ def _perform_split_for_one_class(
     target_col,
 ):
     filtered_df = input_df[input_df[target_col] == class_value]
-    return _perform_split(filtered_df, split_ratios)
+    return _perform_split(filtered_df, split_ratios, n_jobs=2)
 
 
-def _perform_split(input_df, split_ratios):
-    hash_buckets = _create_hash_buckets(input_df)
+def _perform_split(input_df, split_ratios, n_jobs=-1):
+    hash_buckets = _create_hash_buckets(input_df, n_jobs=n_jobs)
     train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, split_ratios)
     return test_df, train_df, validation_df
 
@@ -109,9 +106,10 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
-def _parallelize(data, func):
-    data_split = np.array_split(data, _MULTI_PROCESS_POOL_SIZE)
-    pool = Pool(_MULTI_PROCESS_POOL_SIZE)
+def _parallelize(data, func, n_jobs=-1):
+    n_jobs = n_jobs if n_jobs > 0 and n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
+    data_split = np.array_split(data, n_jobs)
+    pool = Pool(n_jobs)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
@@ -122,24 +120,23 @@ def _run_on_subset(func, data_subset):
     return data_subset.applymap(func)
 
 
-def _parallelize_on_rows(data, func):
+def _parallelize_on_rows(data, func, n_jobs=-1):
+    return _parallelize(data, partial(_run_on_subset, func), n_jobs=n_jobs)
 
-    return _parallelize(data, partial(_run_on_subset, func))
 
-
-def _hash_pandas_dataframe(input_df):
+def _hash_pandas_dataframe(input_df, n_jobs=-1):
     from pandas.util import hash_pandas_object
 
-    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable)
+    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable, n_jobs=n_jobs)
     return hash_pandas_object(hashed_input_df)
 
 
-def _create_hash_buckets(input_df):
+def _create_hash_buckets(input_df, n_jobs=-1):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
     start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df).map(
+    hash_buckets = _hash_pandas_dataframe(input_df, n_jobs=n_jobs).map(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
@@ -247,6 +244,7 @@ class SplitStep(BaseStep):
                         ("Positive", train_df[mask]),
                         ("Negative", train_df[~mask]),
                     ]
+                    sub_title = "Positive vs Negative"
                 else:
                     classes = np.unique(train_df[self.target_col])
                     class_weights = compute_class_weight(
@@ -256,12 +254,14 @@ class SplitStep(BaseStep):
                     )
                     class_weights = list(zip(classes, class_weights))
                     class_weights = sorted(class_weights, key=lambda x: x[1], reverse=True)
-                    if len(class_weights) > 5:
-                        class_weights = class_weights[:5]
+                    if len(class_weights) > _MAX_CLASSES_TO_PROFILE:
+                        class_weights = class_weights[:_MAX_CLASSES_TO_PROFILE]
                     dfs_for_profiles = [
                         (name, train_df[(train_df[self.target_col] == name)])
                         for name, _ in class_weights
                     ]
+                    sub_title = f"Top {min(5, len(class_weights))} Classes"
+
                 profiles = [
                     [
                         str(p[0]),
@@ -270,13 +270,7 @@ class SplitStep(BaseStep):
                     for p in dfs_for_profiles
                 ]
                 generated_profile = get_pandas_data_profiles(profiles)
-
                 # Tab #4: data profiles positive negative training split.
-                sub_title = (
-                    "Positive vs Negative"
-                    if self.positive_class is not None
-                    else "Different classes"
-                )
                 card.add_tab(
                     f"Compare Training Data ({sub_title})", "{{PROFILE}}"
                 ).add_pandas_profile("PROFILE", generated_profile)

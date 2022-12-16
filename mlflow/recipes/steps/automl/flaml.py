@@ -29,6 +29,7 @@ _MLFLOW_TO_FLAML_METRICS = {
     "roc_auc": "roc_auc",
     "roc_auc_ovr": "roc_auc_ovr",
     "roc_auc_ovo": "roc_auc_ovo",
+    "log_loss": "log_loss",
 }
 
 # metrics that are not supported natively in FLAML

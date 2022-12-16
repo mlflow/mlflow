@@ -56,6 +56,7 @@ BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS = [
     RecipeMetric(name="f1_score_micro", greater_is_better=True),
     RecipeMetric(name="accuracy_score", greater_is_better=True),
     RecipeMetric(name="roc_auc_ovr", greater_is_better=True),
+    RecipeMetric(name="log_loss", greater_is_better=False),
 ]
 
 BUILTIN_REGRESSION_RECIPE_METRICS = [
