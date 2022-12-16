@@ -8,8 +8,8 @@ class Routes {
   }
 
   static searchRunsByUser(experimentId, user_id) {
-    const filter_string = `user_id = '${user_id}'`;
-    return `/experiments/${experimentId}?searchFilter=${encodeURIComponent(filter_string)}`;
+    const filterString = `user_id = '${user_id}'`;
+    return `/experiments/${experimentId}?searchFilter=${encodeURIComponent(filterString)}`;
   }
 
   static searchRunsByLifecycleStage(experimentId, lifecycleStage) {
