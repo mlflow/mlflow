@@ -29,7 +29,6 @@ def get_code_block_line(mod_file, obj_line, lineno_in_docstring):
                 extra_offset = 0
                 while re.search(r"[^\"\s]", lines[offset + extra_offset]) is None:
                     extra_offset += 1
-                # See the function below to understand what each variable represents.
                 return obj_line + offset + extra_offset + lineno_in_docstring
 
 
