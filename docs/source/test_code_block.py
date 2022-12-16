@@ -34,7 +34,7 @@ def get_code_block_line(mod_file, obj_line, lineno_in_docstring):
 
 
 # fmt: off
-# This function describes what each variable represents in `get_code_block_line`.
+# This function helps understand what each variable represents in `get_code_block_line`.
 def _func():           # <- obj_line
     """                  <- obj_line + offset
 
