@@ -52,16 +52,16 @@ Nightly Job Statuses
 
 |examples| |cross-version-tests| |r-devel| |test-requirements| |stale|
 
-.. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
+.. |examples| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/examples.yml?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
     :alt: Examples Action Status
-.. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
+.. |cross-version-tests| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/cross-version-tests.yml?branch=master&event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
-.. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
+.. |r-devel| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/r.yml?branch=master&event=schedule&label=r-devel&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
-.. |test-requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Test%20requirements?event=schedule&label=test%20requirements&logo=github&style=for-the-badge
+.. |test-requirements| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/requirements.yml?branch=master&event=schedule&label=test%20requirements&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
-.. |stale| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Stale?event=schedule&label=stale&logo=github&style=for-the-badge
+.. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/stale.yml?branch=master&event=schedule&label=stale&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
 
 Installing
