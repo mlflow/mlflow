@@ -69,7 +69,7 @@ class TestCodeBlockDirective(CodeBlock):
         content = textwrap.indent("\n".join(self.content), " " * 4)
         code = "\n".join(
             [
-                f"# location: {code_block_location}",
+                f"# Location: {code_block_location}",
                 "import pytest",
                 "",
                 "",
