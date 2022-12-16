@@ -1,33 +1,87 @@
-import hashlib
 import textwrap
+import importlib
+import inspect
+import functools
+import re
 from pathlib import Path
 
 from sphinx.directives.code import CodeBlock
 
 
+def get_obj_and_module(obj_path):
+    splits = obj_path.split(".")
+    for i in reversed(range(1, len(splits) + 1)):
+        try:
+            maybe_module = ".".join(splits[:i])
+            mod = importlib.import_module(maybe_module)
+        except ImportError:
+            continue
+        return mod, functools.reduce(getattr, splits[i:], mod)
+
+    raise Exception("Should not reach here")
+
+
+def get_code_block_line(mod_file, obj_line, lineno_in_docstring):
+    with mod_file.open() as f:
+        lines = f.readlines()[obj_line:]
+        for offset, line in enumerate(lines):
+            if line.lstrip().startswith('"""'):
+                extra_offset = 0
+                while re.search(r"[^\"\s]", lines[offset + extra_offset]) is None:
+                    extra_offset += 1
+                # See the function below to understand what each variable represents.
+                return obj_line + offset + extra_offset + lineno_in_docstring
+
+
+# fmt: off
+# This function describes what each variable represents in `get_code_block_line`.
+def _func():           # <- obj_line
+    """                  <- obj_line + offset
+
+    Docstring            <- obj_line + offset + extra_offset
+
+    .. test-code-block:: <- obj_line + offset + extra_offset + lineno_in_docstring
+        ...
+    """
+    pass
+# fmt: on
+
+
+def get_code_block_location(obj_path, lineno_in_docstring, repo_root):
+    mod, obj = get_obj_and_module(obj_path)
+    abs_mod_file = Path(mod.__file__)
+    rel_mod_file = abs_mod_file.relative_to(repo_root)
+    obj_line = inspect.getsourcelines(obj)[1]
+    code_block_line = get_code_block_line(abs_mod_file, obj_line, lineno_in_docstring)
+    return f"{rel_mod_file}:{code_block_line}"
+
+
 class TestCodeBlockDirective(CodeBlock):
     def _dump_code_block(self):
         docs_dir = Path.cwd()
+        repo_root = docs_dir.parent
         directory = docs_dir.joinpath(".examples")
         directory.mkdir(exist_ok=True)
         source, lineno_in_docstring = self.get_source_info()
-        rel_from_root = Path(source).relative_to(docs_dir.parent)
-        key = (rel_from_root, lineno_in_docstring)
-        suffix = hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:32]
-        filename = "test_code_block_{}.py".format(suffix)
+        obj_path = source.split(":docstring of ")[1]
+        code_block_location = get_code_block_location(obj_path, lineno_in_docstring, repo_root)
+        name = re.sub("[\._]+", "_", obj_path).strip("")
+        filename = "test_{}_{}.py".format(name, lineno_in_docstring)
         content = textwrap.indent("\n".join(self.content), " " * 4)
         code = "\n".join(
             [
-                f"# source: {rel_from_root}",
-                f"# lineno_in_docstring: {lineno_in_docstring}",
+                f"# location: {code_block_location}",
+                "import pytest",
                 "",
                 "",
-                "def test_code_block():",
+                # Show the code block location in the test report.
+                f"@pytest.mark.parametrize('_', [' {code_block_location} '])",
+                "def test(_):",
                 content,
                 "",
                 "",
                 'if __name__ == "__main__":',
-                "    test_code_block()",
+                "    test()",
                 "",
             ]
         )
@@ -42,6 +96,6 @@ def setup(app):
     app.add_directive("test-code-block", TestCodeBlockDirective)
     return {
         "version": "builtin",
-        "parallel_read_safe": True,
-        "parallel_write_safe": True,
+        "parallel_read_safe": False,
+        "parallel_write_safe": False,
     }
