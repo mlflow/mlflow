@@ -57,7 +57,7 @@ def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
-def _load_version_file_as_dict():
+def load_version_file_as_dict():
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
         from importlib.resources import as_file, files
@@ -73,13 +73,10 @@ def _load_version_file_as_dict():
         return yaml.load(f, Loader=yaml.SafeLoader)
 
 
-_module_version_info_dict = _load_version_file_as_dict()
-
-
-def get_min_max_version_and_pip_release(module_key):
-    min_version = _module_version_info_dict[module_key]["autologging"]["minimum"]
-    max_version = _module_version_info_dict[module_key]["autologging"]["maximum"]
-    pip_release = _module_version_info_dict[module_key]["package_info"]["pip_release"]
+def get_min_max_version_and_pip_release(module_key, module_version_info_dict):
+    min_version = module_version_info_dict[module_key]["autologging"]["minimum"]
+    max_version = module_version_info_dict[module_key]["autologging"]["maximum"]
+    pip_release = module_version_info_dict[module_key]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 
 
@@ -88,6 +85,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     :return: True if the specified flavor is supported for the currently-installed versions of its
              associated packages
     """
+    module_version_info_dict=load_version_file_as_dict()
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
 
@@ -97,7 +95,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
-    min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
+    min_version, max_version, _ = get_min_max_version_and_pip_release(module_key, module_version_info_dict)
 
     if module_name == "pyspark" and is_in_databricks_runtime():
         # MLflow 1.25.0 is known to be compatible with PySpark 3.3.0 on Databricks, despite the
