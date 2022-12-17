@@ -181,7 +181,8 @@ class ModelInfo:
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
-                mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-metadata",
+                mlflow.sklearn.log_model(clf, "iris_rf",
+                                         registered_model_name="model-with-metadata",
                                          metadata={"metadata_key": "metadata_value"})
 
             # model uri for the above model
@@ -286,7 +287,8 @@ class Model:
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
-                mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-metadata",
+                mlflow.sklearn.log_model(clf, "iris_rf",
+                                         registered_model_name="model-with-metadata",
                                          metadata={"metadata_key": "metadata_value"})
 
             # model uri for the above model
