@@ -85,7 +85,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     :return: True if the specified flavor is supported for the currently-installed versions of its
              associated packages
     """
-    module_version_info_dict=load_version_file_as_dict()
+    module_version_info_dict = load_version_file_as_dict()
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
 
@@ -95,7 +95,9 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
-    min_version, max_version, _ = get_min_max_version_and_pip_release(module_key, module_version_info_dict)
+    min_version, max_version, _ = get_min_max_version_and_pip_release(
+        module_key, module_version_info_dict
+    )
 
     if module_name == "pyspark" and is_in_databricks_runtime():
         # MLflow 1.25.0 is known to be compatible with PySpark 3.3.0 on Databricks, despite the
