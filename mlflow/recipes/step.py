@@ -117,6 +117,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_config = step_config
         self.recipe_root = recipe_root
         self.recipe_name = get_recipe_name(recipe_root_path=recipe_root)
+        self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         self.step_card = None
 
     @experimental

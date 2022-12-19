@@ -8,7 +8,7 @@ from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
-from mlflow.recipes.utils.step import get_pandas_data_profiles
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df
 from mlflow.recipes.steps.ingest.datasets import (
@@ -57,14 +57,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                     "Missing target_col config in recipe config.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if (
-                "positive_class" not in self.step_config
-                and self.step_config["recipe"] == "classification/v1"
-            ):
-                raise MlflowException(
-                    "`positive_class` must be specified for classification/v1 recipes.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             self.positive_class = self.step_config.get("positive_class")
         for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
@@ -95,12 +87,23 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
                     f"Target column '{self.target_col}' not found in ingested dataset.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if self.positive_class is not None:
+            if self.task == "classification":
+                validate_classification_config(
+                    self.task, self.positive_class, ingested_df, self.target_col
+                )
                 cardinality = ingested_df[self.target_col].nunique()
-                if cardinality != 2:
+                if cardinality > 2 and self.positive_class is not None:
                     raise MlflowException(
                         f"Target column '{self.target_col}' must have a cardinality of 2,"
                         f"found '{cardinality}'.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if self.positive_class is not None and cardinality != 2:
+                    raise MlflowException(
+                        f"`For binary classification problems, "
+                        f"target column '{self.target_col}' must have a cardinality of 2,"
+                        f"found '{cardinality}'. `positive_class` was set, "
+                        f"so we treat this problem as a binary classification problem. ",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
@@ -219,7 +222,7 @@ class IngestStep(BaseIngestStep):
             step_config={
                 **ingest_config,
                 **target_config,
-                **{"recipe": recipe_config.get("recipe")},
+                **{"recipe": recipe_config.get("recipe", "regression/v1")},
             },
             recipe_root=recipe_root,
         )
@@ -249,6 +252,7 @@ class IngestScoringStep(BaseIngestStep):
     @classmethod
     def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str):
         step_config = recipe_config.get("steps", {}).get("ingest_scoring", {})
+        step_config["recipe"] = recipe_config.get("recipe")
         return cls(
             step_config=step_config,
             recipe_root=recipe_root,

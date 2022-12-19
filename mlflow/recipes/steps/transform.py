@@ -12,7 +12,7 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils.step import get_pandas_data_profiles
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.recipes.utils.tracking import get_recipe_tracking_config, TrackingConfig
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
@@ -72,6 +72,7 @@ class TransformStep(BaseStep):
 
     def _validate_and_apply_step_config(self):
         self.target_col = self.step_config.get("target_col")
+        self.positive_class = self.step_config.get("positive_class")
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in recipe config.",
@@ -101,6 +102,7 @@ class TransformStep(BaseStep):
             relative_path="train.parquet",
         )
         train_df = pd.read_parquet(train_data_path)
+        validate_classification_config(self.task, self.positive_class, train_df, self.target_col)
 
         validation_data_path = get_step_output_path(
             recipe_root_path=self.recipe_root,
@@ -131,7 +133,7 @@ class TransformStep(BaseStep):
             )
             transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()
-        transformer.fit(train_df.drop(columns=[self.target_col]))
+        transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
 
         def transform_dataset(dataset):
             features = dataset.drop(columns=[self.target_col])
@@ -225,6 +227,7 @@ class TransformStep(BaseStep):
         if recipe_config.get("steps", {}).get("transform", {}) is not None:
             step_config.update(recipe_config.get("steps", {}).get("transform", {}))
         step_config["target_col"] = recipe_config.get("target_col")
+        step_config["recipe"] = recipe_config.get("recipe", "regression/v1")
         step_config.update(
             get_recipe_tracking_config(
                 recipe_root_path=recipe_root,
