@@ -133,7 +133,7 @@ class TransformStep(BaseStep):
             )
             transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()
-        transformer.fit(train_df.drop(columns=[self.target_col]))
+        transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
 
         def transform_dataset(dataset):
             features = dataset.drop(columns=[self.target_col])
