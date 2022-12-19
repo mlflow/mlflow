@@ -1,7 +1,7 @@
 import logging
 import importlib
 import sys
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.exceptions import MlflowException, BAD_REQUEST
@@ -37,7 +37,7 @@ class RecipeMetric:
         )
 
 
-BUILTIN_CLASSIFICATION_RECIPE_METRICS = [
+BUILTIN_BINARY_CLASSIFICATION_RECIPE_METRICS = [
     RecipeMetric(name="true_negatives", greater_is_better=True),
     RecipeMetric(name="false_positives", greater_is_better=False),
     RecipeMetric(name="false_negatives", greater_is_better=False),
@@ -46,6 +46,17 @@ BUILTIN_CLASSIFICATION_RECIPE_METRICS = [
     RecipeMetric(name="precision_score", greater_is_better=True),
     RecipeMetric(name="f1_score", greater_is_better=True),
     RecipeMetric(name="accuracy_score", greater_is_better=True),
+    RecipeMetric(name="roc_auc", greater_is_better=True),
+]
+
+BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS = [
+    RecipeMetric(name="recall_score", greater_is_better=True),
+    RecipeMetric(name="precision_score", greater_is_better=True),
+    RecipeMetric(name="f1_score_macro", greater_is_better=True),
+    RecipeMetric(name="f1_score_micro", greater_is_better=True),
+    RecipeMetric(name="accuracy_score", greater_is_better=True),
+    RecipeMetric(name="roc_auc_ovr", greater_is_better=True),
+    RecipeMetric(name="log_loss", greater_is_better=False),
 ]
 
 BUILTIN_REGRESSION_RECIPE_METRICS = [
@@ -55,6 +66,12 @@ BUILTIN_REGRESSION_RECIPE_METRICS = [
     RecipeMetric(name="max_error", greater_is_better=False),
     RecipeMetric(name="mean_absolute_percentage_error", greater_is_better=False),
 ]
+
+DEFAULT_METRICS = {
+    "regression": "root_mean_squared_error",
+    "classification/binary": "f1_score",
+    "classification/multiclass": "f1_score_macro",
+}
 
 
 def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
@@ -86,6 +103,25 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
     )
 
 
+def _get_extended_task(recipe: str, positive_class: str) -> str:
+    """
+    :param step_config: Step config
+    :return: Extended type string. Currently supported types are: "regression",
+    "binary_classification", "multiclass_classification"
+    """
+    if "regression" in recipe:
+        return "regression"
+    elif "classification" in recipe:
+        if positive_class is not None:
+            return "classification/binary"
+        else:
+            return "classification/multiclass"
+    raise MlflowException(
+        f"No model type for template kind {recipe}",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
 def _get_model_type_from_template(tmpl: str) -> str:
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
@@ -101,23 +137,37 @@ def _get_model_type_from_template(tmpl: str) -> str:
     )
 
 
-def _get_builtin_metrics(tmpl: str) -> str:
+def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
     :return: The builtin metrics for the mlflow evaluation service for the model type for
     this template.
     """
-    if tmpl == "regression/v1":
+    if ext_task == "regression":
         return BUILTIN_REGRESSION_RECIPE_METRICS
-    elif tmpl == "classification/v1":
-        return BUILTIN_CLASSIFICATION_RECIPE_METRICS
+    elif ext_task == "classification/binary":
+        return BUILTIN_BINARY_CLASSIFICATION_RECIPE_METRICS
+    elif ext_task == "classification/multiclass":
+        return BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS
     raise MlflowException(
-        f"No builtin metrics for template kind {tmpl}",
+        f"No builtin metrics for template kind {ext_task}",
         error_code=INVALID_PARAMETER_VALUE,
     )
 
 
-def _get_custom_metrics(step_config: Dict) -> List[Dict]:
+def transform_multiclass_metric(metric_name: str, ext_task: str) -> str:
+    if ext_task == "classification/multiclass":
+        for m in BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS:
+            if metric_name in m.name:
+                return m.name
+    return metric_name
+
+
+def transform_multiclass_metrics_dict(eval_metrics: Dict[str, Any], ext_task) -> Dict[str, Any]:
+    return {transform_multiclass_metric(k, ext_task): v for k, v in eval_metrics.items()}
+
+
+def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
     """
     :param: Configuration dictionary for the train or evaluate step.
     :return: A list of custom metrics defined in the specified configuration dictionary,
@@ -128,9 +178,7 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
         RecipeMetric.from_custom_metric_dict(metric_dict) for metric_dict in custom_metric_dicts
     ]
     custom_metric_names = {metric.name for metric in custom_metrics}
-    builtin_metric_names = {
-        metric.name for metric in _get_builtin_metrics(step_config.get("recipe"))
-    }
+    builtin_metric_names = {metric.name for metric in _get_builtin_metrics(ext_task)}
     overridden_builtin_metrics = custom_metric_names.intersection(builtin_metric_names)
     if overridden_builtin_metrics:
         _logger.warning(
@@ -163,5 +211,8 @@ def _load_custom_metrics(recipe_root: str, metrics: List[RecipeMetric]) -> List[
         ) from e
 
 
-def _get_primary_metric(step_config):
-    return step_config.get("primary_metric", "root_mean_squared_error")
+def _get_primary_metric(configured_metric: str, ext_task: str):
+    if configured_metric is not None:
+        return configured_metric
+    else:
+        return DEFAULT_METRICS[ext_task]

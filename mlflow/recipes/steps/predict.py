@@ -260,6 +260,7 @@ class PredictStep(BaseStep):
             step_config.update(recipe_config.get("steps", {}).get("predict", {}).get("output", {}))
         step_config["register"] = recipe_config.get("steps", {}).get("register", {})
         step_config["model_registry"] = recipe_config.get("model_registry", {})
+        step_config["recipe"] = recipe_config.get("recipe", "regression/v1")
         if recipe_config.get("model_registry", {}).get("registry_uri") is not None:
             step_config["registry_uri"] = recipe_config.get("model_registry", {}).get(
                 "registry_uri"

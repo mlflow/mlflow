@@ -3,14 +3,20 @@ import os
 import time
 import importlib
 import sys
+from functools import partial
+import numpy as np
+import pandas as pd
+from sklearn.utils import compute_class_weight
+from multiprocessing.pool import ThreadPool, Pool
 
 from mlflow.recipes.artifacts import DataframeArtifact
 from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.step import StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
-from mlflow.recipes.utils.step import get_pandas_data_profiles
+from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.store.artifact.artifact_repo import _NUM_DEFAULT_CPUS
 
 
 _logger = logging.getLogger(__name__)
@@ -21,13 +27,11 @@ _INPUT_FILE_NAME = "dataset.parquet"
 _OUTPUT_TRAIN_FILE_NAME = "train.parquet"
 _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
-_MULTI_PROCESS_POOL_SIZE = 8
 _USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
+_MAX_CLASSES_TO_PROFILE = 5
 
 
 def _make_elem_hashable(elem):
-    import numpy as np
-
     if isinstance(elem, list):
         return tuple(_make_elem_hashable(e) for e in elem)
     elif isinstance(elem, dict):
@@ -36,6 +40,44 @@ def _make_elem_hashable(elem):
         return elem.shape, tuple(elem.flatten(order="C"))
     else:
         return elem
+
+
+def _run_split(task, input_df, split_ratios, target_col):
+    if task == "classification":
+        return _perform_stratified_split_per_class(input_df, split_ratios, target_col)
+    elif task == "regression":
+        return _perform_split(input_df, split_ratios)
+
+
+def _perform_stratified_split_per_class(input_df, split_ratios, target_col):
+    classes = np.unique(input_df[target_col])
+    partial_func = partial(
+        _perform_split_for_one_class,
+        input_df=input_df,
+        split_ratios=split_ratios,
+        target_col=target_col,
+    )
+
+    with ThreadPool(os.cpu_count() or _NUM_DEFAULT_CPUS) as p:
+        zipped_dfs = p.map(partial_func, classes)
+        test_df, train_df, validation_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
+        return test_df, train_df, validation_df
+
+
+def _perform_split_for_one_class(
+    class_value,
+    input_df,
+    split_ratios,
+    target_col,
+):
+    filtered_df = input_df[input_df[target_col] == class_value]
+    return _perform_split(filtered_df, split_ratios, n_jobs=2)
+
+
+def _perform_split(input_df, split_ratios, n_jobs=-1):
+    hash_buckets = _create_hash_buckets(input_df, n_jobs=n_jobs)
+    train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, split_ratios)
+    return test_df, train_df, validation_df
 
 
 def _get_split_df(input_df, hash_buckets, split_ratios):
@@ -64,13 +106,10 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
-def _parallelize(data, func):
-    import numpy as np
-    import pandas as pd
-    from multiprocessing import Pool
-
-    data_split = np.array_split(data, _MULTI_PROCESS_POOL_SIZE)
-    pool = Pool(_MULTI_PROCESS_POOL_SIZE)
+def _parallelize(data, func, n_jobs=-1):
+    n_jobs = n_jobs if n_jobs > 0 and n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
+    data_split = np.array_split(data, n_jobs)
+    pool = Pool(n_jobs)
     data = pd.concat(pool.map(func, data_split))
     pool.close()
     pool.join()
@@ -81,25 +120,23 @@ def _run_on_subset(func, data_subset):
     return data_subset.applymap(func)
 
 
-def _parallelize_on_rows(data, func):
-    from functools import partial
-
-    return _parallelize(data, partial(_run_on_subset, func))
+def _parallelize_on_rows(data, func, n_jobs=-1):
+    return _parallelize(data, partial(_run_on_subset, func), n_jobs=n_jobs)
 
 
-def _hash_pandas_dataframe(input_df):
+def _hash_pandas_dataframe(input_df, n_jobs=-1):
     from pandas.util import hash_pandas_object
 
-    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable)
+    hashed_input_df = _parallelize_on_rows(input_df, _make_elem_hashable, n_jobs=n_jobs)
     return hash_pandas_object(hashed_input_df)
 
 
-def _create_hash_buckets(input_df):
+def _create_hash_buckets(input_df, n_jobs=-1):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
     start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df).map(
+    hash_buckets = _hash_pandas_dataframe(input_df, n_jobs=n_jobs).map(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
@@ -122,8 +159,6 @@ def _validate_user_code_output(post_split, train_df, validation_df, test_df):
             message="Error in cleaning up the data frame post split step."
             " Expected output is a tuple with (train_df, validation_df, test_df)"
         ) from None
-
-    import pandas as pd
 
     for (post_split_df, pre_split_df, split_type) in [
         [post_filter_train_df, train_df, "train"],
@@ -202,29 +237,43 @@ class SplitStep(BaseStep):
                 "PROFILE", data_profile
             )
 
-            if self.positive_class:
-                positive_df, negative_df = (
-                    train_df[(mask := train_df[self.target_col] == self.positive_class)],
-                    train_df[~mask],
-                )
-
-                positive_negative_profile = get_pandas_data_profiles(
-                    [
-                        [
-                            "Positive",
-                            positive_df.drop(columns=[self.target_col]).reset_index(drop=True),
-                        ],
-                        [
-                            "Negative",
-                            negative_df.drop(columns=[self.target_col]).reset_index(drop=True),
-                        ],
+            if self.task == "classification":
+                if self.positive_class is not None:
+                    mask = train_df[self.target_col] == self.positive_class
+                    dfs_for_profiles = [
+                        ("Positive", train_df[mask]),
+                        ("Negative", train_df[~mask]),
                     ]
-                )
+                    sub_title = "Positive vs Negative"
+                else:
+                    classes = np.unique(train_df[self.target_col])
+                    class_weights = compute_class_weight(
+                        class_weight="balanced",
+                        classes=classes,
+                        y=train_df[self.target_col],
+                    )
+                    class_weights = list(zip(classes, class_weights))
+                    class_weights = sorted(class_weights, key=lambda x: x[1], reverse=True)
+                    if len(class_weights) > _MAX_CLASSES_TO_PROFILE:
+                        class_weights = class_weights[:_MAX_CLASSES_TO_PROFILE]
+                    dfs_for_profiles = [
+                        (name, train_df[(train_df[self.target_col] == name)])
+                        for name, _ in class_weights
+                    ]
+                    sub_title = f"Top {min(5, len(class_weights))} Classes"
 
+                profiles = [
+                    [
+                        str(p[0]),
+                        p[1].drop(columns=[self.target_col]).reset_index(drop=True),
+                    ]
+                    for p in dfs_for_profiles
+                ]
+                generated_profile = get_pandas_data_profiles(profiles)
                 # Tab #4: data profiles positive negative training split.
                 card.add_tab(
-                    "Compare Training Data (Positive vs Negative)", "{{PROFILE}}"
-                ).add_pandas_profile("PROFILE", positive_negative_profile)
+                    f"Compare Training Data ({sub_title})", "{{PROFILE}}"
+                ).add_pandas_profile("PROFILE", generated_profile)
 
         # Tab #5: run summary.
         (
@@ -258,8 +307,6 @@ class SplitStep(BaseStep):
         return card
 
     def _run(self, output_directory):
-        import pandas as pd
-
         run_start_time = time.time()
 
         # read ingested dataset
@@ -269,6 +316,7 @@ class SplitStep(BaseStep):
             relative_path=_INPUT_FILE_NAME,
         )
         input_df = pd.read_parquet(ingested_data_path)
+        validate_classification_config(self.task, self.positive_class, input_df, self.target_col)
 
         # drop rows which target value is missing
         raw_input_num_rows = len(input_df)
@@ -282,8 +330,9 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
         # split dataset
-        hash_buckets = _create_hash_buckets(input_df)
-        train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, self.split_ratios)
+        test_df, train_df, validation_df = _run_split(
+            self.task, input_df, self.split_ratios, self.target_col
+        )
         # Import from user function module to process dataframes
         post_split_config = self.step_config.get("post_split_method", None)
         post_split_filter_config = self.step_config.get("post_split_filter_method", None)
@@ -334,6 +383,7 @@ class SplitStep(BaseStep):
             step_config.update(recipe_config.get("steps", {}).get("split", {}))
         step_config["target_col"] = recipe_config.get("target_col")
         step_config["positive_class"] = recipe_config.get("positive_class")
+        step_config["recipe"] = recipe_config.get("recipe", "regression/v1")
         return cls(step_config, recipe_root)
 
     @property
