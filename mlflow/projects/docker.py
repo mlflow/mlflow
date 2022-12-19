@@ -65,7 +65,6 @@ def validate_docker_env(project):
         )
 
 
-@developer_stable
 def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
