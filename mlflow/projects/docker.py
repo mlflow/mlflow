@@ -53,7 +53,6 @@ def validate_docker_installation():
         )
 
 
-@developer_stable
 def validate_docker_env(project):
     if not project.name:
         raise ExecutionException(
