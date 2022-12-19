@@ -7,7 +7,7 @@ import {
   COLUMN_TYPES,
   SORT_DELIMITER_SYMBOL,
 } from '../../../constants';
-import ExperimentViewUtil from '../../ExperimentViewUtil';
+import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
 
 export type ExperimentRunSortOption = {
   label: string;
@@ -51,7 +51,7 @@ export const useRunSortOptions = (
       ColumnSortByOrder.forEach((order) => {
         options.push({
           label: sortLabelKey,
-          value: `${ExperimentViewUtil.makeCanonicalKey(
+          value: `${makeCanonicalSortKey(
             COLUMN_TYPES.METRICS,
             sortLabelKey,
           )}${SORT_DELIMITER_SYMBOL}${order}`,
@@ -65,7 +65,7 @@ export const useRunSortOptions = (
       ColumnSortByOrder.forEach((order) => {
         options.push({
           label: sortLabelKey,
-          value: `${ExperimentViewUtil.makeCanonicalKey(
+          value: `${makeCanonicalSortKey(
             COLUMN_TYPES.PARAMS,
             sortLabelKey,
           )}${SORT_DELIMITER_SYMBOL}${order}`,

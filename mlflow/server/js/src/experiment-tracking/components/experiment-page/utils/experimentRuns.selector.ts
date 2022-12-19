@@ -10,8 +10,6 @@ import {
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 
-type StateWithEntities = { entities: ExperimentStoreEntities };
-
 export type ExperimentRunsSelectorResult = {
   /**
    * Array of run infos
@@ -77,7 +75,7 @@ export type ExperimentRunsSelectorParams = {
  */
 const extractRunInfos = (
   runUuids: string[],
-  state: StateWithEntities,
+  state: { entities: ExperimentStoreEntities },
   {
     lifecycleFilter = LIFECYCLE_FILTER.ACTIVE,
     modelVersionFilter = MODEL_VERSION_FILTER.ALL_RUNS,

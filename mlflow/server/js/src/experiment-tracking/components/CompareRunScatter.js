@@ -118,7 +118,7 @@ export class CompareRunScatterImpl extends Component {
               </label>
               {this.renderSelect('x')}
             </div>
-            <Spacer size='medium' />
+            <Spacer />
             <div>
               {' '}
               <label htmlFor='y-axis-selector'>

@@ -69,8 +69,21 @@ public class MlflowClient implements Serializable, Closeable {
     URIBuilder builder = newURIBuilder("metrics/get-history")
       .setParameter("run_uuid", runId)
       .setParameter("run_id", runId)
-      .setParameter("metric_key", key);
-    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
+      .setParameter("metric_key", key)
+      .setParameter("max_results", "25000");
+
+    GetMetricHistory.Response response = mapper
+            .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
+    List<Metric> metrics = response.getMetricsList();
+    String token = response.getNextPageToken();
+    while (!token.isEmpty()) {
+      URIBuilder bld = builder.setParameter("page_token", token);
+      GetMetricHistory.Response resp = mapper
+              .toGetMetricHistoryResponse(httpCaller.get(bld.toString()));
+      metrics.addAll(resp.getMetricsList());
+      token = resp.getNextPageToken();
+    }
+    return metrics;
   }
 
   /**
@@ -831,6 +844,22 @@ public class MlflowClient implements Serializable, Closeable {
     String json = sendGet(mapper.makeGetModelVersion(modelName, version));
     GetModelVersion.Response response = mapper.toGetModelVersionResponse(json);
     return response.getModelVersion();
+  }
+
+  /**
+   *  Returns a RegisteredModel from the model registry for the given model name.
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+   *       RegisteredModel registeredModel = getRegisteredModel("model");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @return a registered model {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
+   */
+  public RegisteredModel getRegisteredModel(String modelName) {
+    String json = sendGet(mapper.makeGetRegisteredModel(modelName));
+    GetRegisteredModel.Response response = mapper.toGetRegisteredModelResponse(json);
+    return response.getRegisteredModel();
   }
 
   /**

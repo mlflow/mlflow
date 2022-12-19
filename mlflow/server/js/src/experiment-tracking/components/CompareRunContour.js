@@ -246,7 +246,7 @@ export class CompareRunContour extends Component {
               </label>
               {this.renderSelect('xaxis')}
             </div>
-            <Spacer size='medium' />
+            <Spacer />
             <div>
               <label htmlFor='y-axis-selector'>
                 <FormattedMessage
@@ -256,7 +256,7 @@ export class CompareRunContour extends Component {
               </label>
               {this.renderSelect('yaxis')}
             </div>
-            <Spacer size='medium' />
+            <Spacer />
             <div>
               <label htmlFor='z-axis-selector'>
                 <FormattedMessage
@@ -266,7 +266,7 @@ export class CompareRunContour extends Component {
               </label>
               {this.renderSelect('zaxis')}
             </div>
-            <Spacer size='medium' />
+            <Spacer />
             <div className='inline-control'>
               <FormattedMessage
                 defaultMessage='Reverse color:'

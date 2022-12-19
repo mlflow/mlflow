@@ -1855,7 +1855,7 @@ the type and encoding of the input data
   ``data = {"dataframe_split": pandas_df.to_dict(orient='split')``.
 
 * ``dataframe_records`` field with pandas DataFrame in the ``records`` orientation. For example,
-  ``data = {"dataframe_split": pandas_df.to_dict(orient='records')``.*We do not
+  ``data = {"dataframe_records": pandas_df.to_dict(orient='records')``.*We do not
   recommend using this format because it is not guaranteed to preserve column ordering.*
 
 * ``instances`` field with tensor input formatted as described in `TF Serving's API docs
@@ -2317,8 +2317,34 @@ dataframe's column names must match the model signature's column names.
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
+If a model contains a signature with tensor spec inputs,
+you will need to pass a column of array type as a corresponding UDF argument.
+The values in this column must be comprised of one-dimensional arrays. The
+UDF will reshape the array values to the required shape with 'C' order
+(i.e. read / write the elements using C-like index order) and cast the values
+as the required tensor spec type. For example, assuming a model
+requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5). In order to
+perform inference on this data, we need to prepare a Spark DataFrame with column 'a'
+containing arrays of length 6 and column 'b' containing arrays of length 20. We can then
+invoke the UDF like following example code:
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    # Assuming the model requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5)
+    model_path = <path-to-model-requiring-multidimensional-inputs>
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_path)
+    # The `spark_df` has column 'a' containing arrays of length 6 and
+    # column 'b' containing arrays of length 20
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct('a', 'b')))
+
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
-value or an array of values of the same type per observation. By default, we return the first
+value, an array of values, or a struct containing multiple field values
+of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
 argument. The following values are supported:
 
@@ -2338,6 +2364,27 @@ argument. The following values are supported:
 * ArrayType_ ( StringType_ ): Return all columns cast as string.
 * ``'bool'`` or ``'boolean'`` or BooleanType_: The leftmost column cast to ``bool``
   is returned or an exception is raised if the values cannot be coerced.
+* ``'field1 FIELD1_TYPE, field2 FIELD2_TYPE, ...'``: A struct type containing
+  multiple fields separated by comma, each field type must be one of types
+  listed above.
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    # Suppose the PyFunc model `predict` method returns a dict like:
+    # `{'prediction': 1-dim_array, 'probability': 2-dim_array}`
+    # You can supply result_type to be a struct type containing
+    # 2 fields 'prediction' and 'probability' like following.
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark, <path-to-model>,
+        result_type="prediction float, probability: array<float>"
+    )
+    df = spark_df.withColumn("prediction", pyfunc_udf())
+
 
 .. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
 .. _LongType: https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType

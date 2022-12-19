@@ -13,12 +13,6 @@ jest.mock('../../utils/experimentPage.column-utils', () => ({
   useRunsColumnDefinitions: jest.fn().mockImplementation(() => []),
 }));
 
-const mockPrepareRunsGridData = jest.fn();
-jest.mock('../../utils/experimentPage.row-utils', () => ({
-  ...jest.requireActual('../../utils/experimentPage.row-utils'),
-  prepareRunsGridData: (...params: any) => mockPrepareRunsGridData(...params),
-}));
-
 /**
  * Mock all external components for performant mount() usage
  */
@@ -67,11 +61,6 @@ describe('ExperimentViewRunsTable', () => {
     jest.useRealTimers();
   });
 
-  beforeEach(() => {
-    mockPrepareRunsGridData.mockClear();
-    mockPrepareRunsGridData.mockImplementation(() => []);
-  });
-
   const defaultProps: ExperimentViewRunsTableProps = {
     experiments: [EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789']],
     isLoading: false,
@@ -84,6 +73,7 @@ describe('ExperimentViewRunsTable', () => {
       paramsList: [[{ key: 'p1', value: 'pv1' }]],
       metricsList: [[{ key: 'm1', value: 'mv1' }]],
     } as any,
+    rowsData: [{ runUuid: 'experiment123456789_run1' } as any],
     searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
       runsPinned: ['experiment123456789_run1'],
     }),
@@ -108,30 +98,11 @@ describe('ExperimentViewRunsTable', () => {
     );
   });
 
-  test('should properly call getting row data function', () => {
-    createWrapper();
-    expect(mockPrepareRunsGridData).toBeCalledWith(
-      expect.objectContaining({
-        metricKeyList: ['m1', 'm2', 'm3'],
-        paramKeyList: ['p1', 'p2', 'p3'],
-        tagKeyList: mockTagKeys,
-        runsPinned: ['experiment123456789_run1'],
-        referenceTime: new Date(),
-        nestChildren: true,
-      }),
-    );
-  });
-
-  test('should properly react to the new runs data', () => {
+  test('should properly generate new column data on the new runs data', () => {
     const wrapper = createWrapper();
 
-    // Assert that we're not calling for generating columns/rows
+    // Assert that we're not calling for generating columns
     // while having "newparam" parameter
-    expect(mockPrepareRunsGridData).not.toBeCalledWith(
-      expect.objectContaining({
-        paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
-      }),
-    );
     expect(useRunsColumnDefinitions).not.toBeCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
@@ -144,12 +115,7 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert that "newparam" parameter is being included in calls
-    // for new columns and rows
-    expect(mockPrepareRunsGridData).toBeCalledWith(
-      expect.objectContaining({
-        paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
-      }),
-    );
+    // for new columns
     expect(useRunsColumnDefinitions).toBeCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
@@ -157,19 +123,17 @@ describe('ExperimentViewRunsTable', () => {
     );
   });
 
-  test('should hide no data overlay when necessary', () => {
+  test('should display no data overlay when necessary', () => {
     // Prepare a runs grid data with an empty set
-    mockPrepareRunsGridData.mockImplementation(() => []);
-    const emptyExperimentsWrapper = createWrapper();
+    const emptyExperimentsWrapper = createWrapper({ rowsData: [] });
 
     // Assert empty overlay being displayed
     expect(emptyExperimentsWrapper.find('ExperimentRunsTableEmptyOverlay').length).toBe(1);
   });
 
-  test('should display no data overlay when necessary', () => {
+  test('should hide no data overlay when necessary', () => {
     // Prepare a runs grid data with a non-empty set
-    mockPrepareRunsGridData.mockImplementation(() => [{ abc: 123 }]);
-    const containingExperimentsWrapper = createWrapper();
+    const containingExperimentsWrapper = createWrapper({ rowsData: [{} as any] });
 
     // Assert empty overlay being not displayed
     expect(containingExperimentsWrapper.find('ExperimentRunsTableEmptyOverlay').length).toBe(0);

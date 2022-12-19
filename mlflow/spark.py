@@ -213,7 +213,11 @@ def log_model(
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
+    remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
+        remote_model_path = append_to_uri_path(
+            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
+        )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
@@ -263,6 +267,7 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            remote_model_path=remote_model_path,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -471,11 +476,14 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    remote_model_path=None,
 ):
     """
-    Saves model metadata into the passed-in directory. The persisted metadata assumes that a
-    model can be loaded from a relative path to the metadata file (currently hard-coded to
-    "sparkml").
+    Saves model metadata into the passed-in directory.
+    If mlflowdbfs is not used, the persisted metadata assumes that a model can be
+    loaded from a relative path to the metadata file (currently hard-coded to "sparkml").
+    If mlflowdbfs is used, remote_model_path should be provided, and the model needs to
+    be loaded from the remote_model_path.
     """
     import pyspark
 
@@ -511,10 +519,16 @@ def _save_model_metadata(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            if remote_model_path:
+                _logger.info(
+                    "Inferring pip requirements by reloading the logged model from the databricks "
+                    "artifact repository, which can be time-consuming. To speed up, explicitly "
+                    "specify the conda_env or pip_requirements when calling log_model()."
+                )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                dst_dir,
+                remote_model_path or dst_dir,
                 FLAVOR_NAME,
                 fallback=default_reqs,
             )

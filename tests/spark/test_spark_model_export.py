@@ -757,13 +757,23 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         mock_get_dbutils,
     ), mock.patch.object(
         spark_model_iris.model, "save"
-    ) as mock_save:
+    ) as mock_save, mock.patch(
+        "mlflow.models.infer_pip_requirements", return_value=[]
+    ) as mock_infer:
         with mlflow.start_run():
             if db_runtime_version:
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
             sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
             mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
+
+            if expected_uri.startswith("mflowdbfs"):
+                # If mlflowdbfs is used, infer_pip_requirements should load the model from the
+                # remote model path instead of a local tmp path.
+                assert (
+                    mock_infer.call_args[0][0]
+                    == "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
+                )
 
 
 @pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])
