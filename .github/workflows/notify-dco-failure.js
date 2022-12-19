@@ -27,7 +27,7 @@ module.exports = async ({ context, github }) => {
   const { number: issue_number } = context.issue;
   const { sha, label } = context.payload.pull_request.head;
   const { user } = context.payload.pull_request;
-  const messages = [];
+  const messages = [""];
 
   const dcoCheck = await getDcoCheck(github, sha);
   if (dcoCheck.conclusion !== "success") {
