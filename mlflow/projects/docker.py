@@ -139,7 +139,6 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-@developer_stable
 def get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
     env_vars = {}
