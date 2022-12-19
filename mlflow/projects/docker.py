@@ -26,7 +26,6 @@ _MLFLOW_DOCKER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 
-@developer_stable
 def validate_docker_installation():
     """
     Verify if Docker is installed and running on host machine.
