@@ -67,7 +67,6 @@ def _cumulative_gain_curve(y_true, y_score, pos_label=None):
     return percentages, gains
 
 
-@developer_stable
 def plot_lift_curve(
     y_true,
     y_probas,
