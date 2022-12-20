@@ -2,7 +2,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getDcoCheck(github, sha) {
+async function getDcoCheck(github, owner, repo, sha) {
   const backoffs = [0, 2, 4, 6, 8];
   const numAttempts = backoffs.length;
   for (const [index, backoff] of backoffs.entries()) {
@@ -29,7 +29,7 @@ module.exports = async ({ context, github }) => {
   const { user } = context.payload.pull_request;
   const messages = [""];
 
-  const dcoCheck = await getDcoCheck(github, sha);
+  const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck.conclusion !== "success") {
     messages.push(
       "The DCO check failed. " +
