@@ -420,6 +420,8 @@ class PyFuncModel:
         This method is useful for accessing custom model functions, while still being able to
         leverage the MLflow designed workflow through the `predict()` method.
 
+        :return: The underlying wrapped model object
+
         .. test-code-block:: python
             :caption: Example
 
@@ -456,6 +458,7 @@ class PyFuncModel:
 
             # works, but None is needed for context arg
             print(unwrapped_model.predict(None, some_input))
+
         """
         try:
             python_model = self._model_impl.python_model

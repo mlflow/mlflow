@@ -1,6 +1,8 @@
 from abc import abstractmethod, ABCMeta
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class AbstractStore:
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.

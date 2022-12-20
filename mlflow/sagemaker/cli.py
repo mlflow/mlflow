@@ -7,8 +7,8 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
-import mlflow.models.docker_utils
 from mlflow.utils import env_manager as em
+import mlflow.models.docker_utils
 
 
 @click.group("sagemaker")

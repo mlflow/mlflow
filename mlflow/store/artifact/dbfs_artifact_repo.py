@@ -23,6 +23,7 @@ from mlflow.utils.uri import (
 )
 import mlflow.utils.databricks_utils
 
+# The following constants are defined as @developer_stable
 LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024

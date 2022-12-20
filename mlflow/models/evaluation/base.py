@@ -12,6 +12,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -147,6 +148,7 @@ def make_metric(
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
 
 
+@developer_stable
 class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
@@ -600,6 +602,7 @@ class EvaluationDataset:
         )
 
 
+@developer_stable
 class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:

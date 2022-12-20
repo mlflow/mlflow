@@ -12,6 +12,7 @@ import numpy as np
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
+
 # At runtime, we don't need  `pyspark.sql.dataframe`
 if TYPE_CHECKING:
     try:

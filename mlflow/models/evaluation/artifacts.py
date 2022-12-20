@@ -10,9 +10,11 @@ from collections import namedtuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
+@developer_stable
 class ImageEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         self._content.save(output_artifact_path)
@@ -25,6 +27,7 @@ class ImageEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class CsvEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         self._content.to_csv(output_artifact_path, index=False)
@@ -34,6 +37,7 @@ class CsvEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class ParquetEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         self._content.to_parquet(output_artifact_path, compression="brotli")
@@ -43,6 +47,7 @@ class ParquetEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class NumpyEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         np.save(output_artifact_path, self._content, allow_pickle=False)
@@ -52,6 +57,7 @@ class NumpyEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class JsonEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         with open(output_artifact_path, "w") as f:
@@ -63,6 +69,7 @@ class JsonEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class TextEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         with open(output_artifact_path, "w") as f:
@@ -74,6 +81,7 @@ class TextEvaluationArtifact(EvaluationArtifact):
         return self._content
 
 
+@developer_stable
 class PickleEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):
         with open(output_artifact_path, "wb") as f:

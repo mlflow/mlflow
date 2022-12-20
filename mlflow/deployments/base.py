@@ -12,6 +12,7 @@ In particular, a valid deployment plugin module must implement:
 import abc
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import developer_stable
 
 
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
@@ -69,6 +70,7 @@ def target_help():
     )
 
 
+@developer_stable
 class BaseDeploymentClient(abc.ABC):
     """
     Base class exposing Python model deployment APIs.

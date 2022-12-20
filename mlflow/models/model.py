@@ -18,7 +18,7 @@ from mlflow.utils.databricks_utils import get_databricks_runtime
 
 _logger = logging.getLogger(__name__)
 
-
+# NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed, possibly due older "
@@ -29,6 +29,7 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "1.7.0 or above. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
+# NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
 
 

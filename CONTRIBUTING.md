@@ -126,6 +126,12 @@ are unsure of the backwards compatibility implications of a particular
 change, feel free to ask an MLflow committer or community member for
 input.
 
+In addition to public APIs, any Python APIs within MLflow that are designated with the
+annotation `@developer_stable` must remain backwards compatible. Any contribution
+that adds features, modifies behavior, or otherwise changes the functionality within the
+scope of these classes or methods will be closely reviewed by maintainers, and additional
+backwards compatibility testing may be requested.
+
 ### Consider introducing new features as MLflow Plugins
 
 [MLflow Plugins](https://mlflow.org/docs/latest/plugins.html) enable
