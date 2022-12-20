@@ -145,6 +145,47 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+
+    .. code-block:: python
+        :caption: Example
+
+        import os
+        import mlflow
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+
+        # Load iris dataset
+        iris = datasets.load_iris()
+        X = iris.data
+        y = iris.target
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Save LightGBM model to current working directory
+        with mlflow.start_run() as run:
+            mlflow.lightgbm.save_model(model, "model")
+
+        # Load model for inference
+        model_path = "model"
+        model_uri = f"{os.getcwd()}/{model_path}"
+        print(f"Loaded {model_path}:")
+        loaded_model = mlflow.lightgbm.load_model(model_uri)
+        for i in [0, 1, 2, 3]:
+            y_pred = loaded_model.predict(X[[i]])[0]
+            print(f"predict X: {X[i]}, y_pred: {y_pred}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Loaded model:
+        predict X: [5.1 3.5 1.4 0.2], y_pred: 0
+        predict X: [4.9 3.  1.4 0.2], y_pred: 0
+        predict X: [4.7 3.2 1.3 0.2], y_pred: 0
+        predict X: [4.6 3.1 1.5 0.2], y_pred: 0
     """
     import lightgbm as lgb
 
@@ -297,6 +338,46 @@ def log_model(
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+
+        # Load iris dataset
+        iris = datasets.load_iris()
+        X = iris.data
+        y = iris.target
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Log model
+        artifact_path = "model"
+        with mlflow.start_run() as run:
+            mlflow.lightgbm.log_model(model, artifact_path)
+
+        # Fetch the logged model artifacts
+        print(f"run_id: {run.info.run_id}")
+        artifacts = [
+            f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, artifact_path)
+        ]
+        print(f"artifacts: {artifacts}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 9e2032b7f34148cb93cac6d9bb9ce7b7
+        artifacts: ['model/MLmodel',
+                    'model/conda.yaml',
+                    'model/model.pkl',
+                    'model/python_env.yaml',
+                    'model/requirements.txt']
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -372,6 +453,44 @@ def load_model(model_uri, dst_path=None):
 
     :return: A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
              model, depending on the saved model class specification.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+
+        # Load iris dataset
+        iris = datasets.load_iris()
+        X = iris.data
+        y = iris.target
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Log model
+        artifact_path = "model"
+        with mlflow.start_run() as run:
+            mlflow.lightgbm.log_model(model, artifact_path)
+
+        # Inference after loading the logged model
+        model_uri = f"runs:/{run.info.run_id}/model"
+        loaded_model = mlflow.lightgbm.load_model(model_uri)
+        for i in [0, 1, 2, 3]:
+            y_pred = loaded_model.predict(X[[i]])[0]
+            print(f"predict X: {X[i]}, y_pred: {y_pred}")
+
+    .. code-block:: text
+        :caption: Output
+
+        predict X: [5.1 3.5 1.4 0.2], y_pred: 0
+        predict X: [4.9 3.  1.4 0.2], y_pred: 0
+        predict X: [4.7 3.2 1.3 0.2], y_pred: 0
+        predict X: [4.6 3.1 1.5 0.2], y_pred: 0
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
@@ -468,6 +587,72 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+
+
+        def print_auto_logged_info(run):
+
+            tags = {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [
+                f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, "model")
+            ]
+            feature_importances = [
+                f.path
+                for f in mlflow.MlflowClient().list_artifacts(run.info.run_id)
+                if f.path != "model"
+            ]
+            print(f"run_id: {run.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"feature_importances: {feature_importances}")
+            print(f"params: {run.data.params}")
+            print(f"metrics: {run.data.metrics}")
+            print(f"tags: {tags}")
+
+
+        # Load iris dataset
+        iris = datasets.load_iris()
+        X = iris.data
+        y = iris.target
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Auto log all MLflow entities
+        mlflow.lightgbm.autolog()
+
+        # Train the model
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch the auto logged parameters and metrics
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: e08dd59d57a74971b68cf78a724dfaf6
+        artifacts: ['model/MLmodel',
+                    'model/conda.yaml',
+                    'model/model.pkl',
+                    'model/python_env.yaml',
+                    'model/requirements.txt']
+        feature_importances: ['feature_importance_gain.json',
+                              'feature_importance_gain.png',
+                              'feature_importance_split.json',
+                              'feature_importance_split.png']
+        params: {'boosting_type': 'gbdt',
+                 'categorical_feature': 'auto',
+                 'colsample_bytree': '1.0',
+                 ...
+                 'verbose_eval': 'warn'}
+        metrics: {}
+        tags: {}
     """
     import lightgbm
     import numpy as np
