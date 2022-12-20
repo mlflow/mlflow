@@ -2,7 +2,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getDcoCheck(sha) {
+async function getDcoCheck(github, sha) {
   const backoffs = [0, 2, 4, 6, 8];
   const numAttempts = backoffs.length;
   for (const [index, backoff] of backoffs.entries()) {
@@ -27,9 +27,9 @@ module.exports = async ({ context, github }) => {
   const { number: issue_number } = context.issue;
   const { sha, label } = context.payload.pull_request.head;
   const { user } = context.payload.pull_request;
-  const messages = [];
+  const messages = [""];
 
-  const dcoCheck = await getDcoCheck(sha);
+  const dcoCheck = await getDcoCheck(github, sha);
   if (dcoCheck.conclusion !== "success") {
     messages.push(
       "The DCO check failed. " +
@@ -47,7 +47,7 @@ module.exports = async ({ context, github }) => {
     );
   }
 
-  const body = `@${user.login} Thank you for the contribution!\n\n` + messages.join("---\n\n");
+  const body = `@${user.login} Thank you for the contribution!` + messages.join("\n\n---\n\n");
   await github.rest.issues.createComment({
     owner,
     repo,
