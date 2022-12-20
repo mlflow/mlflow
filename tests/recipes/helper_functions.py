@@ -40,7 +40,7 @@ def setup_model_and_evaluate(tmp_recipe_exec_path: Path):
     train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
-    output_model_path = train_step_output_dir.joinpath("model")
+    output_model_path = train_step_output_dir.joinpath("sk_model")
     if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
         shutil.rmtree(output_model_path)
     mlflow.sklearn.save_model(model, output_model_path)

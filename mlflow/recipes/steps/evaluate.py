@@ -176,7 +176,7 @@ class EvaluateStep(BaseStep):
             model_uri = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="train",
-                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+                relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
             )
 
             apply_recipe_tracking_config(self.tracking_config)
