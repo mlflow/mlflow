@@ -47,11 +47,13 @@ module.exports = async ({ context, github }) => {
     );
   }
 
-  const body = `@${user.login} Thank you for the contribution!` + messages.join("\n\n---\n\n");
-  await github.rest.issues.createComment({
-    owner,
-    repo,
-    issue_number,
-    body,
-  });
+  if (messages.length > 1) {
+    const body = `@${user.login} Thank you for the contribution!` + messages.join("\n\n---\n\n");
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number,
+      body,
+    });
+  }
 };
