@@ -49,6 +49,7 @@ class ModelInfo:
         utc_time_created: str,
         mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -60,6 +61,7 @@ class ModelInfo:
         self._signature = signature
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
+        self._metadata = metadata
 
     @property
     def artifact_path(self):
@@ -158,6 +160,44 @@ class ModelInfo:
         """
         return self._mlflow_version
 
+    @property
+    def metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        .. Note::
+            Experimental: This method may change or be removed in a future release without warning.
+
+        User defined metadata added to the model.
+
+        .. code-block:: python
+            :caption: Example
+
+            # Create and log a model with metadata to the Model Registry
+
+            from sklearn import datasets
+            from sklearn.ensemble import RandomForestClassifier
+            import mlflow
+
+            with mlflow.start_run():
+                iris = datasets.load_iris()
+                clf = RandomForestClassifier()
+                clf.fit(iris.data, iris.target)
+                mlflow.sklearn.log_model(clf, "iris_rf",
+                                         registered_model_name="model-with-metadata",
+                                         metadata={"metadata_key": "metadata_value"})
+
+            # model uri for the above model
+            model_uri = "models:/model-with-metadata/1"
+
+            # Load the model and access the custom metadata from its ModelInfo object
+            model = mlflow.pyfunc.load_model(model_uri=model_uri)
+            assert model.metadata.get_model_info().metadata["metadata_key"] == "metadata_value"
+
+            # Load the ModelInfo and access the custom metadata
+            model_info = mlflow.models.get_model_info(model_uri=model_uri)
+            assert model_info.metadata["metadata_key"] == "metadata_value"
+        """
+        return self._metadata
+
 
 class Model:
     """
@@ -175,6 +215,7 @@ class Model:
         saved_input_example_info: Dict[str, Any] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -188,6 +229,7 @@ class Model:
         self.saved_input_example_info = saved_input_example_info
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
+        self.metadata = metadata
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -223,6 +265,45 @@ class Model:
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
         return self
+
+    @property
+    def metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        .. Note::
+            Experimental: This method may change or be removed in a future release without warning.
+
+        Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+        .. code-block:: python
+            :caption: Example
+
+            # Create and log a model with metadata to the Model Registry
+
+            from sklearn import datasets
+            from sklearn.ensemble import RandomForestClassifier
+            import mlflow
+
+            with mlflow.start_run():
+                iris = datasets.load_iris()
+                clf = RandomForestClassifier()
+                clf.fit(iris.data, iris.target)
+                mlflow.sklearn.log_model(clf, "iris_rf",
+                                         registered_model_name="model-with-metadata",
+                                         metadata={"metadata_key": "metadata_value"})
+
+            # model uri for the above model
+            model_uri = "models:/model-with-metadata/1"
+
+            # Load the model and access the custom metadata
+            model = mlflow.pyfunc.load_model(model_uri=model_uri)
+            assert model.metadata.metadata["metadata_key"] == "metadata_value"
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value: Optional[Dict[str, Any]]):
+        # pylint: disable=attribute-defined-outside-init
+        self._metadata = value
 
     @property
     def signature(self):  # -> Optional[ModelSignature]
@@ -262,6 +343,7 @@ class Model:
             signature=self.signature,
             utc_time_created=self.utc_time_created,
             mlflow_version=self.mlflow_version,
+            metadata=self.metadata,
         )
 
     def to_dict(self):
@@ -276,6 +358,8 @@ class Model:
             res["saved_input_example_info"] = self.saved_input_example_info
         if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
             res.pop(_MLFLOW_VERSION_KEY)
+        if self.metadata is not None:
+            res["metadata"] = self.metadata
         return res
 
     def to_yaml(self, stream=None):
@@ -347,6 +431,7 @@ class Model:
         flavor,
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        metadata=None,
         **kwargs,
     ):
         """
@@ -382,6 +467,12 @@ class Model:
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
+        :param metadata: Custom metadata dictionary passed to the model and stored in
+                         the MLmodel file.
+
+                         .. Note:: Experimental: This parameter may change or be removed in a
+                                                 future release without warning.
+
         :param kwargs: Extra args passed to the model flavor.
 
         :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -390,7 +481,7 @@ class Model:
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
+            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
@@ -468,4 +559,5 @@ def get_model_info(model_uri: str) -> ModelInfo:
         signature=model_meta.signature,
         utc_time_created=model_meta.utc_time_created,
         mlflow_version=model_meta.mlflow_version,
+        metadata=model_meta.metadata,
     )

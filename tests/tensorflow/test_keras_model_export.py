@@ -751,3 +751,25 @@ def test_tf_saved_model_model_with_tf_keras_api(tmp_path, monkeypatch):
     mlflow_model = mlflow.pyfunc.load_model(model_uri)
     predictions = mlflow_model.predict({"features": model_data_info.inference_df})
     np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
+
+
+def test_model_save_load_with_metadata(tf_keras_model, model_path):
+    mlflow.tensorflow.save_model(
+        tf_keras_model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_metadata(tf_keras_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_keras_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

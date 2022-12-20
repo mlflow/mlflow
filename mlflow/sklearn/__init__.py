@@ -153,6 +153,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
+    metadata=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -198,6 +199,10 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -245,6 +250,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
@@ -329,6 +336,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
+    metadata=None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -379,6 +387,10 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -416,6 +428,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
+        metadata=metadata,
     )
 
 

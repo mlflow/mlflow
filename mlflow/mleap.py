@@ -37,6 +37,7 @@ def log_model(
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    metadata=None,
 ):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
@@ -75,6 +76,10 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -121,6 +126,7 @@ def log_model(
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
+        metadata=metadata,
     )
 
 
@@ -132,6 +138,7 @@ def save_model(
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    metadata=None,
 ):
     """
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
@@ -186,6 +193,10 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -197,6 +208,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 

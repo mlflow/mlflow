@@ -1,6 +1,7 @@
 package org.mlflow.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
@@ -50,6 +51,9 @@ public class Model {
 
   @JsonProperty("databricks_runtime")
   private String databricksRuntime;
+
+  @JsonProperty("metadata")
+  private JsonNode metadata;
 
   private String rootPath;
 
@@ -109,6 +113,13 @@ public class Model {
    */
   public Optional<String> getDatabricksRuntime() {
     return Optional.ofNullable(this.databricksRuntime);
+  }
+
+  /**
+   * @return The user defined metadata added to the model
+   */
+  public Optional<JsonNode> getMetadata() {
+    return Optional.ofNullable(this.metadata);
   }
 
   /** @return The path to the root directory of the MLflow model */

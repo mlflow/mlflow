@@ -213,3 +213,32 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
         mlflow.spark.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
+
+
+def test_model_save_load_with_metadata(spark_model_iris, model_path):
+    mlflow.mleap.save_model(
+        spark_model=spark_model_iris.model,
+        path=model_path,
+        sample_input=spark_model_iris.spark_df,
+        metadata={"metadata_key": "metadata_value"},
+    )
+
+    reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
+    assert reloaded_model.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_metadata(spark_model_iris):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.mleap.log_model(
+            spark_model=spark_model_iris.model,
+            artifact_path=artifact_path,
+            sample_input=spark_model_iris.spark_df,
+            metadata={"metadata_key": "metadata_value"},
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    reloaded_model = Model.load(os.path.join(model_path, "MLmodel"))
+    assert reloaded_model.metadata["metadata_key"] == "metadata_value"
