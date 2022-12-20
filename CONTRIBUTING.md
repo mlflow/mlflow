@@ -126,14 +126,11 @@ are unsure of the backwards compatibility implications of a particular
 change, feel free to ask an MLflow committer or community member for
 input.
 
-In particular, any Python APIs within MLflow that are designated with the
-annotation `@developer_stable` are **strictly enforced** to be backwards
-compatible. Any contribution that adds features, modifies behavior, or
-otherwise changes the functionality within the scope of these classes,
-functions, or methods will be closely scrutinized by maintainers. A
-request during a PR submission to validate that the change is compatible
-with prior versions of the MLflow client, server or cli may be requested
-as a requirement prior to merging.
+In addition to public APIs, any Python APIs within MLflow that are designated with the
+annotation `@developer_stable` must remain backwards compatible. Any contribution
+that adds features, modifies behavior, or otherwise changes the functionality within the
+scope of these classes or methods will be closely reviewed by maintainers, and additional
+backwards compatibility testing may be requested.
 
 ### Consider introducing new features as MLflow Plugins
 
