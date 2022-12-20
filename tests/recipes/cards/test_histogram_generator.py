@@ -2,7 +2,6 @@
 Unit tests for histogram_generator.py
 """
 import pytest
-import unittest
 
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.recipes.cards import histogram_generator
@@ -29,13 +28,10 @@ def test_invalid_quantiles():
     Tests generate_equal_height_histogram returns None when quantiles is invalid.
     """
     # Empty quantiles is invalid.
-    assert (
-        histogram_generator.generate_equal_height_histogram(quantiles=[], num_buckets=5) is None
-    )
+    assert histogram_generator.generate_equal_height_histogram(quantiles=[], num_buckets=5) is None
     # Quantiles which has less than 3 elements is invalid.
     assert (
-        histogram_generator.generate_equal_height_histogram(quantiles=[1, 2], num_buckets=1)
-        is None
+        histogram_generator.generate_equal_height_histogram(quantiles=[1, 2], num_buckets=1) is None
     )
     # When (len(quantiles) - 1) % num_buckets != 0, quantiles is considered as invalid.
     assert (
