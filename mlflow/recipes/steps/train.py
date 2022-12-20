@@ -473,7 +473,7 @@ class TrainStep(BaseStep):
                     [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
                 )
                 predicted_training_data = raw_train_df.assign(
-                    predicted_data=train_predictions["predicted_label"],
+                    predicted_data=train_predictions[f"{self.predict_prefix}label"],
                     predicted_probability=train_predicted_probs.iloc[0:, 0].values,
                 )
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(

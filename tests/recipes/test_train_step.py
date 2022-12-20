@@ -766,10 +766,69 @@ def test_train_step_with_predict_probability(
 
     import numpy as np
 
-    assert (
-        np.array_equal(
-            output.head(5)["predicted_score"].tolist(),
-            np.max(output[["predicted_score_a", "predicted_score_b"]].head(5).values, axis=1),
-        )
-        == True
+    assert np.array_equal(
+        output.head(5)["predicted_score"].tolist(),
+        np.max(output[["predicted_score_a", "predicted_score_b"]].head(5).values, axis=1),
     )
+
+
+def test_train_step_with_predict_probability_with_custom_prefix(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/binary"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        positive_class: "a"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                predict_prefix: "custom_prefix_"
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+    with mock.patch(
+        "steps.train.estimator_fn",
+        classifier_with_predict_proba_estimator_fn,
+    ):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    model_uri = get_step_output_path(
+        recipe_root_path=tmp_recipe_root_path,
+        step_name="train",
+        relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+    )
+    model = mlflow.pyfunc.load_model(model_uri)
+    transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
+
+    validation_dataset = pd.read_parquet(
+        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+    )
+
+    output = model.predict(validation_dataset)
+
+    assert list(output.columns) == [
+        "custom_prefix_score_a",
+        "custom_prefix_score_b",
+        "custom_prefix_score",
+        "custom_prefix_label",
+    ]
