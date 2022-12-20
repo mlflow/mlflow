@@ -78,7 +78,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
@@ -91,7 +90,6 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
-@developer_stable
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
     def __init__(self):
         super().__init__()
@@ -114,7 +112,6 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
         return SqlAlchemyStore(store_uri, artifact_uri)
 
 
-@developer_stable
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
         super().__init__()
@@ -269,7 +266,6 @@ def _get_model_registry_store(registry_store_uri=None):
     return _model_registry_store
 
 
-@developer_stable
 def initialize_backend_stores(
     backend_store_uri=None, registry_store_uri=None, default_artifact_root=None
 ):
@@ -456,7 +452,6 @@ def _send_artifact(artifact_repository, path):
         return send_file(filename, as_attachment=True)
 
 
-@developer_stable
 def catch_mlflow_exception(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -539,7 +534,6 @@ def _disable_if_artifacts_only(func):
 _os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
-@developer_stable
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
@@ -557,7 +551,6 @@ def validate_path_is_safe(path):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
 
-@developer_stable
 @catch_mlflow_exception
 def get_artifact_handler():
     from querystring_parser import parser
@@ -591,7 +584,6 @@ def _not_implemented():
 # Tracking Server APIs
 
 
-@developer_stable
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_experiment():
@@ -1302,7 +1294,6 @@ def _create_model_version():
     return _wrap_response(response_message)
 
 
-@developer_stable
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_model_version_artifact_handler():
@@ -1569,7 +1560,6 @@ def _get_paths(base_path):
     return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
 
 
-@developer_stable
 def get_handler(request_class):
     """
     :param request_class: The type of protobuf message
@@ -1578,7 +1568,6 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-@developer_stable
 def get_endpoints():
     """
     :return: List of tuples (path, handler, methods)

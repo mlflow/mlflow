@@ -15,7 +15,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -64,7 +63,6 @@ def _cached_get_s3_client(
     )
 
 
-@developer_stable
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 

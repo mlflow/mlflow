@@ -3,7 +3,6 @@ import getpass
 
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.entities import SourceType
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_TYPE,
@@ -39,7 +38,6 @@ def _get_source_type():
     return SourceType.LOCAL
 
 
-@developer_stable
 class DefaultRunContext(RunContextProvider):
     def in_context(self):
         return True

@@ -10,7 +10,6 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking._tracking_service import utils
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
@@ -31,7 +30,6 @@ DOWNLOAD_CHUNK_SIZE = 1024
 USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
 
-@developer_stable
 class DbfsRestArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on DBFS using the DBFS REST API.
@@ -187,7 +185,6 @@ def _get_host_creds_from_default_store():
     return store.get_host_creds
 
 
-@developer_stable
 def dbfs_artifact_repo_factory(artifact_uri):
     """
     Returns an ArtifactRepository subclass for storing artifacts on DBFS.

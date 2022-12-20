@@ -7,7 +7,6 @@ import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 from contextlib import contextmanager
 
 
@@ -37,7 +36,6 @@ class _SftpPool:
         self._connections.append(connection)
 
 
-@developer_stable
 class SFTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 

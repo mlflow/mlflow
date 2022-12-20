@@ -1,7 +1,3 @@
-from mlflow.utils.annotations import developer_stable
-
-
-@developer_stable
 class SourceType:
     """Enum for originating source of a :py:class:`mlflow.entities.Run`."""
 

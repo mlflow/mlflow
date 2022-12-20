@@ -35,10 +35,8 @@ from .evaluation import (
 
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 def build_docker(
     model_uri=None,
     name="mlflow-pyfunc",

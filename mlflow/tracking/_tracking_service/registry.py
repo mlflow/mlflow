@@ -1,6 +1,5 @@
 from functools import lru_cache
 
-from mlflow.utils.annotations import developer_stable
 from mlflow.tracking.registry import StoreRegistry
 
 
@@ -22,7 +21,6 @@ class TrackingStoreRegistry(StoreRegistry):
     def __init__(self):
         super().__init__("mlflow.tracking_store")
 
-    @developer_stable
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri
 

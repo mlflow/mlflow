@@ -10,10 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 def download_artifacts(
     artifact_uri: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -66,7 +64,6 @@ def download_artifacts(
     return artifact_location
 
 
-@developer_stable
 def load_text(artifact_uri: str) -> str:
     """
     Loads the artifact contents as a string.
@@ -98,7 +95,6 @@ def load_text(artifact_uri: str) -> str:
                 raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
-@developer_stable
 def load_dict(artifact_uri: str) -> dict:
     """
     Loads the artifact contents as a dictionary.
@@ -130,7 +126,6 @@ def load_dict(artifact_uri: str) -> dict:
                 raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
-@developer_stable
 def load_image(artifact_uri: str):
     """
     Loads artifact contents as a ``PIL.Image.Image`` object

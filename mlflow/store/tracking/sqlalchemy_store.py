@@ -39,7 +39,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
 )
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
@@ -71,7 +70,6 @@ _logger = logging.getLogger(__name__)
 sqlalchemy.orm.configure_mappers()
 
 
-@developer_stable
 class SqlAlchemyStore(AbstractStore):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow

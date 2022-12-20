@@ -6,10 +6,8 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 class AzureBlobArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Azure Blob Storage.

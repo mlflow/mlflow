@@ -60,7 +60,6 @@ class SubmittedRun:
         pass
 
 
-@developer_stable
 class LocalSubmittedRun(SubmittedRun):
     """
     Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point

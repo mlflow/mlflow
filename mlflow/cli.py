@@ -22,7 +22,6 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
@@ -48,7 +47,6 @@ def cli():
     pass
 
 
-@developer_stable
 @cli.command()
 @click.argument("uri")
 @click.option(
@@ -275,7 +273,6 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     return value
 
 
-@developer_stable
 @cli.command()
 @click.option(
     "--backend-store-uri",
@@ -419,7 +416,6 @@ def server(
         sys.exit(1)
 
 
-@developer_stable
 @cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
 @click.option(
     "--older-than",
@@ -585,7 +581,6 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
             click.echo("Experiment with ID %s has been permanently deleted." % str(experiment_id))
 
 
-@developer_stable
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
 @click.option(
     "--mask-envs",

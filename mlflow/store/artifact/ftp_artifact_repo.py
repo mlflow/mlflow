@@ -8,13 +8,11 @@ import urllib.parse
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.exceptions import MlflowException
 from urllib.parse import unquote
 
 
-@developer_stable
 class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via ftp."""
 

@@ -6,7 +6,6 @@ from mlflow.artifacts import download_artifacts as _download_artifacts
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.annotations import developer_stable
 
 
 _logger = logging.getLogger(__name__)
@@ -23,7 +22,6 @@ def commands():
     pass
 
 
-@developer_stable
 @commands.command("log-artifact")
 @click.option("--local-file", "-l", required=True, help="Local path to artifact to log")
 @click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
@@ -48,7 +46,6 @@ def log_artifact(local_file, run_id, artifact_path):
     )
 
 
-@developer_stable
 @commands.command("log-artifacts")
 @click.option("--local-dir", "-l", required=True, help="Directory of local artifacts to log")
 @click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
@@ -71,7 +68,6 @@ def log_artifacts(local_dir, run_id, artifact_path):
     _logger.info("Logged artifact from local dir %s to artifact_path=%s", local_dir, artifact_path)
 
 
-@developer_stable
 @commands.command("list")
 @click.option("--run-id", "-r", required=True, help="Run ID to be listed")
 @click.option(
@@ -97,7 +93,6 @@ def _file_infos_to_json(file_infos):
     return "[" + ", ".join(json_list) + "]"
 
 
-@developer_stable
 @commands.command("download")
 @click.option("--run-id", "-r", help="Run ID from which to download")
 @click.option(

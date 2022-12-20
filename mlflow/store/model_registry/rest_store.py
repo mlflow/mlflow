@@ -24,7 +24,6 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -40,7 +39,6 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _RE
 _logger = logging.getLogger(__name__)
 
 
-@developer_stable
 class RestStore(AbstractStore):
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.

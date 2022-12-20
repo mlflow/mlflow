@@ -14,11 +14,9 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.uri import get_uri_scheme
 
 
-@developer_stable
 class ArtifactRepositoryRegistry:
     """Scheme-based registry for artifact repository implementations
 
@@ -95,7 +93,6 @@ _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsReposi
 _artifact_repository_registry.register_entrypoints()
 
 
-@developer_stable
 def get_artifact_repository(artifact_uri):
     """Get an artifact repository from the registry based on the scheme of artifact_uri
 

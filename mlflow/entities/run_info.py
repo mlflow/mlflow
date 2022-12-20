@@ -1,4 +1,3 @@
-from mlflow.utils.annotations import developer_stable
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -28,7 +27,6 @@ class orderable_attribute(property):
     pass
 
 
-@developer_stable
 class RunInfo(_MLflowObject):
     """
     Metadata about a run.

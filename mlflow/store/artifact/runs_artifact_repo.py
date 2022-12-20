@@ -2,14 +2,12 @@ import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
 
 
-@developer_stable
 class RunsArtifactRepository(ArtifactRepository):
     """
     Handles artifacts associated with a Run via URIs of the form

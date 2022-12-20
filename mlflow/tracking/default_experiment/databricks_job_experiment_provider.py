@@ -2,7 +2,6 @@ import logging
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import databricks_utils
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
     MLFLOW_EXPERIMENT_SOURCE_TYPE,
@@ -13,7 +12,6 @@ _logger = logging.getLogger(__name__)
 _resolved_job_experiment_id = None
 
 
-@developer_stable
 class DatabricksJobExperimentProvider(DefaultExperimentProvider):
     def in_context(self):
         return (

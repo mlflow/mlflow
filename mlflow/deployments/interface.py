@@ -2,13 +2,11 @@ import inspect
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
-from mlflow.utils.annotations import developer_stable
 
 plugin_store = DeploymentPlugins()
 plugin_store.register("sagemaker", "mlflow.sagemaker")
 
 
-@developer_stable
 def get_deploy_client(target_uri):
     """
     Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard
@@ -49,7 +47,6 @@ def get_deploy_client(target_uri):
                 return obj(target_uri)
 
 
-@developer_stable
 def run_local(target, name, model_uri, flavor=None, config=None):
     """
     Deploys the specified model locally, for testing. Note that models deployed locally cannot

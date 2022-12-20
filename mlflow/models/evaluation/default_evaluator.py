@@ -18,7 +18,6 @@ from mlflow.models.evaluation.artifacts import (
     JsonEvaluationArtifact,
 )
 from mlflow.pyfunc import _ServedPyFuncModel
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time_utils import get_current_time_millis
 
@@ -541,7 +540,6 @@ def _shap_predict_fn(x, predict_fn, feature_names):
     return predict_fn(_get_dataframe_with_renamed_columns(x, feature_names))
 
 
-@developer_stable
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument

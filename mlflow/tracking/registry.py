@@ -4,11 +4,9 @@ import warnings
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.uri import get_uri_scheme
 
 
-@developer_stable
 class UnsupportedModelRegistryStoreURIException(MlflowException):
     """Exception thrown when building a model registry store with an unsupported URI"""
 
@@ -24,7 +22,6 @@ class UnsupportedModelRegistryStoreURIException(MlflowException):
         self.supported_uri_schemes = supported_uri_schemes
 
 
-@developer_stable
 class StoreRegistry:
     """
     Abstract class defining a scheme-based registry for store implementations.

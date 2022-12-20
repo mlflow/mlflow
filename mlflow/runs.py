@@ -6,7 +6,6 @@ import json
 import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.time_utils import conv_longdate_to_str
 from mlflow.utils.string_utils import _create_table
 
@@ -22,7 +21,6 @@ def commands():
     pass
 
 
-@developer_stable
 @commands.command("list")
 @click.option(
     "--experiment-id",
@@ -52,7 +50,6 @@ def list_run(experiment_id, view):
     click.echo(_create_table(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
-@developer_stable
 @commands.command("delete")
 @RUN_ID
 def delete_run(run_id):
@@ -66,7 +63,6 @@ def delete_run(run_id):
     click.echo("Run with ID %s has been deleted." % str(run_id))
 
 
-@developer_stable
 @commands.command("restore")
 @RUN_ID
 def restore_run(run_id):
@@ -79,7 +75,6 @@ def restore_run(run_id):
     click.echo("Run with id %s has been restored." % str(run_id))
 
 
-@developer_stable
 @commands.command("describe")
 @RUN_ID
 def describe_run(run_id):

@@ -26,7 +26,6 @@ from mlflow.projects.utils import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV,
     MLFLOW_PROJECT_BACKEND,
@@ -191,7 +190,6 @@ def _run(
     )
 
 
-@developer_stable
 def run(
     uri,
     entry_point="main",

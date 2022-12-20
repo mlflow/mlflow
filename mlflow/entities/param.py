@@ -2,10 +2,8 @@ import sys
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 class Param(_MLflowObject):
     """
     Parameter object.

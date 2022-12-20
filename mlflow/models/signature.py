@@ -11,7 +11,6 @@ import numpy as np
 
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.annotations import developer_stable
 
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -26,7 +25,6 @@ if TYPE_CHECKING:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 
-@developer_stable
 class ModelSignature:
     """
     ModelSignature specifies schema of model's inputs and outputs.
@@ -98,7 +96,6 @@ class ModelSignature:
         )
 
 
-@developer_stable
 def infer_signature(
     model_input: Any, model_output: "MlflowInferableDataset" = None
 ) -> ModelSignature:

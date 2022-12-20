@@ -5,7 +5,6 @@ import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.environment_variables import (
     MLFLOW_GCS_DEFAULT_TIMEOUT,
@@ -14,7 +13,6 @@ from mlflow.environment_variables import (
 )
 
 
-@developer_stable
 class GCSArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Google Cloud Storage.

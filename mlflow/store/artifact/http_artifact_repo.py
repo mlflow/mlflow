@@ -4,12 +4,10 @@ import posixpath
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 
-@developer_stable
 class HttpArtifactRepository(ArtifactRepository):
     """Stores artifacts in a remote artifact storage using HTTP requests"""
 

@@ -1,5 +1,4 @@
 import click
-from mlflow.utils.annotations import developer_stable
 
 
 @click.group("db")
@@ -10,7 +9,6 @@ def commands():
     pass
 
 
-@developer_stable
 @commands.command()
 @click.argument("url")
 def upgrade(url):

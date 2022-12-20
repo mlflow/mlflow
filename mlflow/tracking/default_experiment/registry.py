@@ -10,7 +10,6 @@ from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider 
 from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
     DatabricksJobExperimentProvider,
 )
-from mlflow.utils.annotations import developer_stable
 
 
 _logger = logging.getLogger(__name__)
@@ -24,7 +23,6 @@ _EXPERIMENT_PROVIDERS = (
 )
 
 
-@developer_stable
 class DefaultExperimentProviderRegistry:
     """Registry for default experiment provider implementations
 
@@ -64,7 +62,6 @@ for exp_provider in _EXPERIMENT_PROVIDERS:
 _default_experiment_provider_registry.register_entrypoints()
 
 
-@developer_stable
 def get_experiment_id():
     """Get an experiment ID for the current context. The experiment ID is fetched by querying
     providers, in the order that they were registered.

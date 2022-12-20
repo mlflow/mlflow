@@ -17,7 +17,6 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
 )
 from mlflow.utils import env, rest_utils
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
@@ -40,7 +39,6 @@ _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 _registry_uri = None
 
 
-@developer_stable
 def set_registry_uri(uri: str) -> None:
     """
     Set the registry server URI. This method is especially useful if you have a registry server
@@ -92,7 +90,6 @@ def _get_registry_uri_from_context():
     return _registry_uri
 
 
-@developer_stable
 def get_registry_uri() -> str:
     """
     Get the current registry URI. If none has been specified, defaults to the tracking URI.
@@ -132,7 +129,6 @@ def _get_sqlalchemy_store(store_uri):
     return SqlAlchemyStore(store_uri)
 
 
-@developer_stable
 def get_default_host_creds(store_uri):
     return rest_utils.MlflowHostCreds(
         host=store_uri,

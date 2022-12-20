@@ -30,7 +30,6 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
@@ -63,7 +62,6 @@ _SERVICE_AND_METHOD_TO_INFO = {
 }
 
 
-@developer_stable
 class DatabricksArtifactRepository(ArtifactRepository):
     """
     Performs storage operations on artifacts in the access-controlled

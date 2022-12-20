@@ -2,10 +2,8 @@ from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMet
 from flask import request
 
 from mlflow.version import VERSION
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 def activate_prometheus_exporter(app):
     def mlflow_version(_: request):
         return VERSION

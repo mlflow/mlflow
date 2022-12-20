@@ -5,10 +5,8 @@ from mlflow.protos.model_registry_pb2 import (
     ModelVersion as ProtoModelVersion,
     ModelVersionTag as ProtoModelVersionTag,
 )
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 class ModelVersion(_ModelRegistryEntity):
     """
     MLflow entity for Model Version.

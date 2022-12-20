@@ -35,7 +35,6 @@ from decimal import Decimal
 _logger = logging.getLogger(__name__)
 
 
-@developer_stable
 class EvaluationMetric:
     """
     A model evaluation metric.
@@ -87,7 +86,6 @@ class EvaluationMetric:
             return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
 
 
-@developer_stable
 def make_metric(
     *,
     eval_fn,
@@ -209,7 +207,6 @@ class EvaluationArtifact(metaclass=ABCMeta):
         return f"{self.__class__.__name__}(uri='{self.uri}')"
 
 
-@developer_stable
 class EvaluationResult:
     """
     Represents the model evaluation outputs of a `mlflow.evaluate()` API call, containing
@@ -365,7 +362,6 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
 
-@developer_stable
 class EvaluationDataset:
     """
     An input dataset for model evaluation. This is intended for use with the
@@ -663,7 +659,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
 
-@developer_stable
 def list_evaluators():
     """
     Return a name list for all available Evaluators.
@@ -971,7 +966,6 @@ def _evaluate(
     return merged_eval_result
 
 
-@developer_stable
 def evaluate(
     model: str,
     data,

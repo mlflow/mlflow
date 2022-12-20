@@ -4,10 +4,8 @@ from mlflow.protos.service_pb2 import (
     Experiment as ProtoExperiment,
     ExperimentTag as ProtoExperimentTag,
 )
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 class Experiment(_MLflowObject):
     """
     Experiment object.

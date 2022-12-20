@@ -1,7 +1,6 @@
 from mlflow.entities import SourceType
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import databricks_utils
-from mlflow.utils.annotations import developer_stable
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
@@ -14,7 +13,6 @@ from mlflow.utils.mlflow_tags import (
 )
 
 
-@developer_stable
 class DatabricksJobRunContext(RunContextProvider):
     def in_context(self):
         return databricks_utils.is_in_databricks_job()

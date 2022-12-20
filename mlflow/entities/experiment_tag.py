@@ -1,9 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
-from mlflow.utils.annotations import developer_stable
 
 
-@developer_stable
 class ExperimentTag(_MLflowObject):
     """Tag object associated with an experiment."""
 

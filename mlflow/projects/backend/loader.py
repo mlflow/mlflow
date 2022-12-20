@@ -2,7 +2,6 @@ import entrypoints
 import logging
 
 from mlflow.projects.backend.local import LocalBackend
-from mlflow.utils.annotations import developer_stable
 
 
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
@@ -16,7 +15,6 @@ MLFLOW_BACKENDS = {
 }
 
 
-@developer_stable
 def load_backend(backend_name):
     # Static backends
     if backend_name in MLFLOW_BACKENDS:

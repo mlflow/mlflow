@@ -1,8 +1,6 @@
-from mlflow.utils.annotations import developer_stable
 from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 
 
-@developer_stable
 class RunStatus:
     """Enum for status of an :py:class:`mlflow.entities.Run`."""
 
