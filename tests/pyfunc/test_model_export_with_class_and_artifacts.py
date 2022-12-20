@@ -1120,3 +1120,33 @@ def test_model_with_code_path_containing_main(tmp_path):
     assert "__main__" in sys.modules
     mlflow.pyfunc.load_model(model_info.model_uri)
     assert "__main__" in sys.modules
+
+
+def test_model_save_load_with_metadata(tmpdir):
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        conda_env=_conda_env(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
+        metadata={"metadata_key": "metadata_value"},
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_metadata():
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=mlflow.pyfunc.model.PythonModel(),
+            metadata={"metadata_key": "metadata_value"},
+        )
+        pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
+        )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

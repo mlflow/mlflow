@@ -105,6 +105,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_format="xgb",
+    metadata=None,
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -139,6 +140,10 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param model_format: File format in which the model is to be saved.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     import xgboost as xgb
 
@@ -154,6 +159,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
     model_data_subpath = f"model.{model_format}"
     model_data_path = os.path.join(path, model_data_subpath)
 
@@ -225,6 +232,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     model_format=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -265,6 +273,10 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param model_format: File format in which the model is to be saved.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -282,6 +294,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         **kwargs,
     )
 
