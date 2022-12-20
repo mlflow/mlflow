@@ -79,6 +79,19 @@ def _create_local_spark_session_for_loading_spark_model():
     )
 
 
+_NFS_PATH_PREFIX = "nfs:"
+
+
+def _get_spark_distributor_nfs_cache_dir():
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir  # avoid circular import
+
+    if (nfs_root_dir := get_nfs_cache_root_dir()) is not None:
+        cache_dir = os.path.join(nfs_root_dir, "mlflow_distributor_cache_dir")
+        os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
+    return None
+
+
 class _SparkDirectoryDistributor:
     """Distribute spark directory from driver to executors."""
 
@@ -97,6 +110,16 @@ class _SparkDirectoryDistributor:
         # NB: We must archive the directory as Spark.addFile does not support non-DFS
         # directories when recursive=True.
         archive_path = shutil.make_archive(archive_basepath, "zip", dir_path)
+
+        if (nfs_cache_dir := _get_spark_distributor_nfs_cache_dir()) is not None:
+            # If NFS directory (shared by all spark nodes) is available, use NFS directory
+            # instead of `SparkContext.addFile` to distribute files.
+            # Because `SparkContext.addFile` is not secure, so it is not allowed to be called
+            # on a shared cluster.
+            dest_path = os.path.join(nfs_cache_dir, os.path.basename(archive_path))
+            shutil.copy(archive_path, dest_path)
+            return _NFS_PATH_PREFIX + dest_path
+
         spark.sparkContext.addFile(archive_path)
         return archive_path
 
@@ -115,8 +138,11 @@ class _SparkDirectoryDistributor:
         # BUG: Despite the documentation of SparkContext.addFile() and SparkFiles.get() in Scala
         # and Python, it turns out that we actually need to use the basename as the input to
         # SparkFiles.get(), as opposed to the (absolute) path.
-        archive_path_basename = os.path.basename(archive_path)
-        local_path = SparkFiles.get(archive_path_basename)
+        if archive_path.startswith(_NFS_PATH_PREFIX):
+            local_path = archive_path[len(_NFS_PATH_PREFIX) :]
+        else:
+            archive_path_basename = os.path.basename(archive_path)
+            local_path = SparkFiles.get(archive_path_basename)
         temp_dir = tempfile.mkdtemp()
         zip_ref = zipfile.ZipFile(local_path, "r")
         zip_ref.extractall(temp_dir)
