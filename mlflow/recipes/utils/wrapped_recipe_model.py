@@ -5,10 +5,10 @@ import numpy as np
 
 
 class WrappedRecipeModel(PythonModel):
-    def __init__(self, predict_scores_for_all_classes=True, prefix="predicted_"):
+    def __init__(self, predict_scores_for_all_classes, predict_prefix):
         super().__init__()
         self.predict_scores_for_all_classes = predict_scores_for_all_classes
-        self.prefix = prefix
+        self.predict_prefix = predict_prefix
 
     def load_context(self, context):
         self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
@@ -26,10 +26,10 @@ class WrappedRecipeModel(PythonModel):
             return predicted_label
 
         classes = self._classifier.classes_
-        score_cols = [f"{self.prefix}score_" + str(c) for c in classes]
+        score_cols = [f"{self.predict_prefix}score_" + str(c) for c in classes]
         probabilities = self._classifier.predict_proba(model_input)
         output = pd.DataFrame(columns=score_cols, data=probabilities)
-        output[f"{self.prefix}score"] = np.max(probabilities, axis=1)
-        output[f"{self.prefix}label"] = predicted_label
+        output[f"{self.predict_prefix}score"] = np.max(probabilities, axis=1)
+        output[f"{self.predict_prefix}label"] = predicted_label
 
         return output

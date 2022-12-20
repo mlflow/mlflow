@@ -443,7 +443,10 @@ class TrainStep(BaseStep):
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
 
             use_predict_proba = isinstance(prediction_result, pd.DataFrame)
-            if use_predict_proba:
+            if use_predict_proba and {
+                f"{self.predict_prefix}label",
+                f"{self.predict_prefix}score",
+            }.issubset(prediction_result.columns):
                 prediction_result_for_error = (
                     prediction_result.drop(
                         [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
@@ -467,7 +470,10 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            if isinstance(train_predictions, pd.DataFrame):
+            if isinstance(train_predictions, pd.DataFrame) and {
+                f"{self.predict_prefix}label",
+                f"{self.predict_prefix}score",
+            }.issubset(train_predictions.columns):
                 train_predicted_result = model.predict(raw_train_df.drop(self.target_col, axis=1))
                 train_predicted_probs = train_predicted_result.drop(
                     [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
@@ -480,7 +486,7 @@ class TrainStep(BaseStep):
                     raw_train_df,
                     train_predicted_probs.iloc[0:, 0].values,
                     error_fn(
-                        train_predicted_probs.iloc[0:].values,
+                        train_predicted_probs.values,
                         raw_train_df[self.target_col].to_numpy(),
                     ),
                     self.target_col,
