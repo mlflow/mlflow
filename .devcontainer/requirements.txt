@@ -37,7 +37,7 @@ botocore==1.29.10
     #   boto3
     #   moto
     #   s3transfer
-certifi==2022.9.24
+certifi==2022.12.7
     # via
     #   msrest
     #   requests
