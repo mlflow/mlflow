@@ -57,7 +57,7 @@ def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
-def _load_version_file_as_dict():
+def load_version_file_as_dict():
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
         from importlib.resources import as_file, files
@@ -85,7 +85,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     :return: True if the specified flavor is supported for the currently-installed versions of its
              associated packages
     """
-    module_version_info_dict = _load_version_file_as_dict()
+    module_version_info_dict = load_version_file_as_dict()
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
 
