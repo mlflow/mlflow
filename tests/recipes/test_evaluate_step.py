@@ -11,6 +11,7 @@ from mlflow.utils.file_utils import read_yaml
 from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.train import TrainStep
 from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
@@ -43,7 +44,9 @@ def evaluation_inputs(request, tmp_recipe_exec_path):
     train_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "train", "outputs")
     train_step_output_dir.mkdir(parents=True)
     train_step_output_dir.joinpath("run_id").write_text(run_id)
-    output_model_path = train_step_output_dir.joinpath("model")
+    output_model_path = train_step_output_dir.joinpath(
+        TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH
+    )
     if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
         shutil.rmtree(output_model_path)
     mlflow.sklearn.save_model(model, output_model_path)
