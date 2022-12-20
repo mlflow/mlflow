@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class RequestHeaderProvider:
     """
     Abstract base class for specifying custom request headers to add to outgoing requests

@@ -15,6 +15,7 @@ from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
 # Extra environment variables which take precedence for setting the basic/bearer

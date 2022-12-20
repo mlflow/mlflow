@@ -14,7 +14,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
-
 from mlflow.utils.uri import get_uri_scheme
 
 
