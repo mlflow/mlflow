@@ -20,6 +20,7 @@ class SparkModelCache:
     def __init__(self):
         pass
 
+    @staticmethod
     def add_local_model(spark, model_path):
         """Given a SparkSession and a model_path which refers to a pyfunc directory locally,
         we will zip the directory up, enable it to be distributed to executors, and return
@@ -27,6 +28,7 @@ class SparkModelCache:
         """
         return _SparkDirectoryDistributor.add_dir(spark, model_path)
 
+    @staticmethod
     def get_or_load(archive_path):
         """Given a path returned by add_local_model(), this method will return a tuple of
         (loaded_model, local_model_path).

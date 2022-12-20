@@ -8,7 +8,6 @@ from mlflow.tracking.request_header.databricks_request_header_provider import (
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
-from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 
