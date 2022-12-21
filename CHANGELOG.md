@@ -6,35 +6,33 @@ MLflow 2.1.0 includes several major features and improvements
 
 Features:
 
-- [Recipes] Adding support for predict and predict_proba in mlflow recipe model (#7474, @sunishsheth2009)
-- [Models] Add custom metadata in the MLmodel file (#7237, @jdonzallaz)
-- [Server-infra / UI] Adding links to searching runs with user_id and life cycle stage (#7462, @jaeday)
-- [Scoring] Support result_type=StructType for mlflow.pyfunc.spark_udf (#7527, @WeichenXu123)
-- [Java / Model Registry] Added getRegisteredModel method to Java MlflowClient (#6602) (#7511, @drod331)
-- [] Update MLflow UI (#7507, @harupy)
-- [R / Tracking] Add support for client pagination in GetMetricHistory to the R API (#7523, @BenWilson2)
-- [Tracking] Add Python client support for automated pagination to GetMetricHistory for REST Store (#7415, @BenWilson2)
-- [Models] Support Model.load() from remote locations (#7517, @dbczumar)
-- [Tracking] Add runs search aliases for run name and start time to correspond to UI column names (#7492, @apurva-koti)
-- [] Allow environment variable and tag specification for models deployed via MLflow SageMaker integration (#7433, @jhallard)
-- [Model Registry] Adding search registered models (#7428, @TSienki)
-- [Docs / Model Registry / R] Set model version tag in R API (#7401, @leeweijie)
-- [Scoring / Tracking] Make TF / keras model spark UDF supports multi dimension input (#7291, @WeichenXu123)
-- [Models] Introduce major version pinning for mlflow requirement in saved models (#7364, @BenWilson2)
-- [Model Registry] Support FileStore for Model Registry (#6605, @serena-ruan)
-- [Docs / Tracking] Added /version endpoint for tracking server (#7273, @joncarter1)
+- [Recipes] Introduce support for multi-class classification (#7458, @mshtelma)
+- [Recipes] Extend the pyfunc representation of classification models to output scores in addition to labels (#7474, @sunishsheth2009)
+- [UI] Add user ID and lifecycle stage quick search links to the Runs page (#7462, @jaeday)
+- [Tracking] Paginate the GetMetricHistory API (#7523, #7415, @BenWilson2)
+- [Tracking] Add runs search aliases for run name and start time that correspond to UI column names (#7492, @apurva-koti)
+- [Tracking] Add a ``/version`` endpoint to ``mlflow server`` for querying the server's MLflow version (#7273, @joncarter1)
+- [Model Registry] Add FileStore support for the Model Registry (#6605, @serena-ruan)
+- [Model Registry] Introduce an ``mlflow.search_registered_models()`` fluent API (#7428, @TSienki)
+- [Model Registry / Java] Add a ``getRegisteredModel()`` method to the Java client (#6602) (#7511, @drod331)
+- [Model Registry / R] Add an ``mlflow_set_model_version_tag()`` method to the R client (#7401, @leeweijie)
+- [Models] Introduce a ``metadata`` field to the MLmodel specification and ``log_model()`` methods (#7237, @jdonzallaz)
+- [Models] Extend ``Model.load()`` to support loading MLmodel specifications from remote locations (#7517, @dbczumar)
+- [Models] Pin the major version of MLflow in Models' ``requirements.txt`` and ``conda.yaml`` files (#7364, @BenWilson2)
+- [Scoring] Extend ``mlflow.pyfunc.spark_udf()`` to support StructType results (#7527, @WeichenXu123)
+- [Scoring] Extend TensorFlow and Keras Models to support multi-dimensional inputs with ``mlflow.pyfunc.spark_udf()``(#7291, @WeichenXu123)
+- [Scoring] Support specifying deployment environment variables and tags when deploying models to SageMaker (#7433, @jhallard)
 
 Bug fixes:
 
-- [] Support multi-class classification (#7458, @mshtelma)
-- [Recipes] Updating early_stop function to support custom function from steps.train (#7538, @sunishsheth2009)
-- [Artifacts] FTP password with spacial url-encoding characters parsing error when using FTP as artifact root (#7479, @HCTsai)
-- [Models] Fix URI handling in mleap; test mleap on Windows (#6966, @dbczumar)
-- [Tracking] Prevent nested xgboost / lightgbm model being autologged (#7404, @WeichenXu123)
-- [Server-infra / Sqlalchemy] Report SQLAlchemy OperationalError as a retryable HTTP error (503) not 400 (#7240, @barrywhart)
-- [Scoring / Tracking] Fix permission issue in `get_nfs_cache_root_dir` (#7427, @WeichenXu123)
-- [Tracking] Change `mlflow.autolog` metrics name to the same as `mlflow.evaluate` (#7418, @wenfeiy-db)
-- [Recipes / Tracking] Fix `_create_local_spark_session_for_recipes` function used in MLflow recipe (#7307, @WeichenXu123)
+- [Recipes] Fix a bug that prevented use of custom ``early_stop`` functions during model tuning (#7538, @sunishsheth2009)
+- [Recipes] Fix a bug in the logic used to create a Spark session during data ingestion (#7307, @WeichenXu123)
+- [Tracking] Make the metric names produced by ``mlflow.autolog()`` consistent with ``mlflow.evaluate()`` (#7418, @wenfeiy-db)
+- [Tracking] Fix an autologging bug that caused nested, redundant information to be logged for XGBoost and LightGBM (#7404, @WeichenXu123)
+- [Tracking] Correctly classify SQLAlchemy OperationalErrors as retryable HTTP errors (#7240, @barrywhart)
+- [Artifacts] Correctly handle special characters in credentials when using FTP artifact storage (#7479, @HCTsai)
+- [Models] Address an issue that prevented MLeap models from being saved on Windows (#6966, @dbczumar)
+- [Scoring] Fix a permissions issue encountered when using NFS during model scoring with ``mlflow.pyfunc.spark_udf()`` (#7427, @WeichenXu123)
 
 Documentation updates:
 
@@ -47,7 +45,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#7571, #7543, #7529, #7435, #7399, @WeichenXu123; #7568, @xiaoye-hua; #7549, #7557, #7509, #7498, #7499, #7485, #7486, #7484, #7391, #7388, #7390, #7381, #7366, #7348, #7346, #7334, #7340, #7323, @BenWilson2; #7561, #7562, #7560, #7553, #7546, #7539, #7544, #7542, #7541, #7533, #7470, #7469, #7467, #7466, #7464, #7453, #7449, #7450, #7440, #7430, #7436, #7429, #7426, #7410, #7406, #7409, #7407, #7405, #7396, #7393, #7395, #7384, #7376, #7379, #7375, #7354, #7353, #7351, #7352, #7350, #7345, #6493, #7343, #7344, @harupy; #7494, @dependabot[bot]; #7526, @tobycheese; #7489, @liangz1; #7534, @Jingnan-Jia; #7496, @danielhstahl; #7504, #7503, #7459, #7454, #7447, @tsugumi-sys; #7461, @wkrt7; #7451, #7414, #7372, #7289, @sunishsheth2009; #7441, @ikrizanic; #7432, @Pochingto; #7386, @jhallard; #7370, #7373, #7371, #7336, #7341, #7342, @dbczumar; #7335, @prithvikannan
+#7571, #7543, #7529, #7435, #7399, @WeichenXu123; #7568, @xiaoye-hua; #7549, #7557, #7509, #7498, #7499, #7485, #7486, #7484, #7391, #7388, #7390, #7381, #7366, #7348, #7346, #7334, #7340, #7323, @BenWilson2; #7561, #7562, #7560, #7553, #7546, #7539, #7544, #7542, #7541, #7533, #7507, #7470, #7469, #7467, #7466, #7464, #7453, #7449, #7450, #7440, #7430, #7436, #7429, #7426, #7410, #7406, #7409, #7407, #7405, #7396, #7393, #7395, #7384, #7376, #7379, #7375, #7354, #7353, #7351, #7352, #7350, #7345, #6493, #7343, #7344, @harupy; #7494, @dependabot[bot]; #7526, @tobycheese; #7489, @liangz1; #7534, @Jingnan-Jia; #7496, @danielhstahl; #7504, #7503, #7459, #7454, #7447, @tsugumi-sys; #7461, @wkrt7; #7451, #7414, #7372, #7289, @sunishsheth2009; #7441, @ikrizanic; #7432, @Pochingto; #7386, @jhallard; #7370, #7373, #7371, #7336, #7341, #7342, @dbczumar; #7335, @prithvikannan
 
 ## 2.0.1 (2022-11-14)
 
