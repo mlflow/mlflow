@@ -99,7 +99,7 @@ def extract_field(d, keys):
     return d
 
 
-def yaml_to_py(yaml_path):
+def generate_ml_package_versions_py(yaml_path):
     yaml_path = Path(yaml_path)
     with Path(yaml_path).open() as f:
         config = {}
@@ -173,7 +173,7 @@ def main(args):
 
     save_file(new_src, yml_path)
 
-    yaml_to_py(args.path)
+    generate_ml_package_versions_py(args.path)
 
 
 if __name__ == "__main__":
