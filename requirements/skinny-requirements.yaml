@@ -47,7 +47,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 21
+  max_major_version: 22
 
 importlib_metadata:
   pip_release: importlib_metadata
