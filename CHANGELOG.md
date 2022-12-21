@@ -28,7 +28,7 @@ Bug fixes:
 - [Recipes] Fix a bug that prevented use of custom ``early_stop`` functions during model tuning (#7538, @sunishsheth2009)
 - [Recipes] Fix a bug in the logic used to create a Spark session during data ingestion (#7307, @WeichenXu123)
 - [Tracking] Make the metric names produced by ``mlflow.autolog()`` consistent with ``mlflow.evaluate()`` (#7418, @wenfeiy-db)
-- [Tracking] Fix an autologging bug that caused nested, redundant information to be logged for XGBoost and LightGBM (#7404, @WeichenXu123)
+- [Tracking] Fix an autologging bug that caused nested, redundant information to be logged for XGBoost and LightGBM models (#7404, @WeichenXu123)
 - [Tracking] Correctly classify SQLAlchemy OperationalErrors as retryable HTTP errors (#7240, @barrywhart)
 - [Artifacts] Correctly handle special characters in credentials when using FTP artifact storage (#7479, @HCTsai)
 - [Models] Address an issue that prevented MLeap models from being saved on Windows (#6966, @dbczumar)
