@@ -100,7 +100,6 @@ def extract_field(d, keys):
 
 
 def generate_ml_package_versions_py(yaml_path):
-    yaml_path = Path(yaml_path)
     with Path(yaml_path).open() as f:
         config = {}
         for name, cfg in yaml.load(f, Loader=yaml.SafeLoader).items():
