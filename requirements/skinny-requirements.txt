@@ -11,6 +11,6 @@ pyyaml<7,>=5.1
 protobuf<5,>=3.12.0
 pytz<2023
 requests<3,>=2.17.3
-packaging<22
+packaging<23
 importlib_metadata<6,>=3.7.0,!=4.7.0
 sqlparse<1,>=0.4.0
