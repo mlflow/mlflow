@@ -10,7 +10,7 @@ Features:
 - [Recipes] Extend the pyfunc representation of classification models to output scores in addition to labels (#7474, @sunishsheth2009)
 - [UI] Add user ID and lifecycle stage quick search links to the Runs page (#7462, @jaeday)
 - [Tracking] Paginate the GetMetricHistory API (#7523, #7415, @BenWilson2)
-- [Tracking] Add runs search aliases for run name and start time that correspond to UI column names (#7492, @apurva-koti)
+- [Tracking] Add Runs search aliases for Run name and start time that correspond to UI column names (#7492, @apurva-koti)
 - [Tracking] Add a ``/version`` endpoint to ``mlflow server`` for querying the server's MLflow version (#7273, @joncarter1)
 - [Model Registry] Add FileStore support for the Model Registry (#6605, @serena-ruan)
 - [Model Registry] Introduce an ``mlflow.search_registered_models()`` fluent API (#7428, @TSienki)
@@ -20,7 +20,7 @@ Features:
 - [Models] Extend ``Model.load()`` to support loading MLmodel specifications from remote locations (#7517, @dbczumar)
 - [Models] Pin the major version of MLflow in Models' ``requirements.txt`` and ``conda.yaml`` files (#7364, @BenWilson2)
 - [Scoring] Extend ``mlflow.pyfunc.spark_udf()`` to support StructType results (#7527, @WeichenXu123)
-- [Scoring] Extend TensorFlow and Keras Models to support multi-dimensional inputs with ``mlflow.pyfunc.spark_udf()``(#7291, @WeichenXu123)
+- [Scoring] Extend TensorFlow and Keras Models to support multi-dimensional inputs with ``mlflow.pyfunc.spark_udf()``(#7531, #7291, @WeichenXu123)
 - [Scoring] Support specifying deployment environment variables and tags when deploying models to SageMaker (#7433, @jhallard)
 
 Bug fixes:
@@ -36,12 +36,11 @@ Bug fixes:
 
 Documentation updates:
 
-- [Docs] fix dataframe_split typo (#7540, @zhouyangyu)
-- [Scoring] Add doc for PyFuncModel and spark_udf supporting multi-dimensional array input (#7531, @WeichenXu123)
-- [Docs] Add more examples to runs search docs page (#7487, @apurva-koti)
-- [Models] Adding Comunity Model Flavors (#7425, @mmerce)
-- [Docs] Add model logging docs for ONNX flavor (#7398, @Rusteam)
-- [Docs] Fix (#7361, @dbczumar)
+- [Docs] Add more examples to the Runs search documentation page (#7487, @apurva-koti)
+- [Docs] Add documentation for Model flavors developed by the community (#7425, @mmerce)
+- [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_split`` format (#7540, @zhouyangyu)
+- [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_records`` format (#7361, @dbczumar)
+- [Docs] Add an example for logging and scoring ONNX Models (#7398, @Rusteam)
 
 Small bug fixes and documentation updates:
 
