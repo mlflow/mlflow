@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2.1.0 (2022-12-21)
+
+MLflow 2.1.0 includes several major features and improvements
+
+Features:
+
+- [Recipes] Introduce support for multi-class classification (#7458, @mshtelma)
+- [Recipes] Extend the pyfunc representation of classification models to output scores in addition to labels (#7474, @sunishsheth2009)
+- [UI] Add user ID and lifecycle stage quick search links to the Runs page (#7462, @jaeday)
+- [Tracking] Paginate the GetMetricHistory API (#7523, #7415, @BenWilson2)
+- [Tracking] Add Runs search aliases for Run name and start time that correspond to UI column names (#7492, @apurva-koti)
+- [Tracking] Add a ``/version`` endpoint to ``mlflow server`` for querying the server's MLflow version (#7273, @joncarter1)
+- [Model Registry] Add FileStore support for the Model Registry (#6605, @serena-ruan)
+- [Model Registry] Introduce an ``mlflow.search_registered_models()`` fluent API (#7428, @TSienki)
+- [Model Registry / Java] Add a ``getRegisteredModel()`` method to the Java client (#6602) (#7511, @drod331)
+- [Model Registry / R] Add an ``mlflow_set_model_version_tag()`` method to the R client (#7401, @leeweijie)
+- [Models] Introduce a ``metadata`` field to the MLmodel specification and ``log_model()`` methods (#7237, @jdonzallaz)
+- [Models] Extend ``Model.load()`` to support loading MLmodel specifications from remote locations (#7517, @dbczumar)
+- [Models] Pin the major version of MLflow in Models' ``requirements.txt`` and ``conda.yaml`` files (#7364, @BenWilson2)
+- [Scoring] Extend ``mlflow.pyfunc.spark_udf()`` to support StructType results (#7527, @WeichenXu123)
+- [Scoring] Extend TensorFlow and Keras Models to support multi-dimensional inputs with ``mlflow.pyfunc.spark_udf()``(#7531, #7291, @WeichenXu123)
+- [Scoring] Support specifying deployment environment variables and tags when deploying models to SageMaker (#7433, @jhallard)
+
+Bug fixes:
+
+- [Recipes] Fix a bug that prevented use of custom ``early_stop`` functions during model tuning (#7538, @sunishsheth2009)
+- [Recipes] Fix a bug in the logic used to create a Spark session during data ingestion (#7307, @WeichenXu123)
+- [Tracking] Make the metric names produced by ``mlflow.autolog()`` consistent with ``mlflow.evaluate()`` (#7418, @wenfeiy-db)
+- [Tracking] Fix an autologging bug that caused nested, redundant information to be logged for XGBoost and LightGBM models (#7404, @WeichenXu123)
+- [Tracking] Correctly classify SQLAlchemy OperationalErrors as retryable HTTP errors (#7240, @barrywhart)
+- [Artifacts] Correctly handle special characters in credentials when using FTP artifact storage (#7479, @HCTsai)
+- [Models] Address an issue that prevented MLeap models from being saved on Windows (#6966, @dbczumar)
+- [Scoring] Fix a permissions issue encountered when using NFS during model scoring with ``mlflow.pyfunc.spark_udf()`` (#7427, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs] Add more examples to the Runs search documentation page (#7487, @apurva-koti)
+- [Docs] Add documentation for Model flavors developed by the community (#7425, @mmerce)
+- [Docs] Add an example for logging and scoring ONNX Models (#7398, @Rusteam)
+- [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_split`` format (#7540, @zhouyangyu)
+- [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_records`` format (#7361, @dbczumar)
+
+Small bug fixes and documentation updates:
+
+#7571, #7543, #7529, #7435, #7399, @WeichenXu123; #7568, @xiaoye-hua; #7549, #7557, #7509, #7498, #7499, #7485, #7486, #7484, #7391, #7388, #7390, #7381, #7366, #7348, #7346, #7334, #7340, #7323, @BenWilson2; #7561, #7562, #7560, #7553, #7546, #7539, #7544, #7542, #7541, #7533, #7507, #7470, #7469, #7467, #7466, #7464, #7453, #7449, #7450, #7440, #7430, #7436, #7429, #7426, #7410, #7406, #7409, #7407, #7405, #7396, #7393, #7395, #7384, #7376, #7379, #7375, #7354, #7353, #7351, #7352, #7350, #7345, #6493, #7343, #7344, @harupy; #7494, @dependabot[bot]; #7526, @tobycheese; #7489, @liangz1; #7534, @Jingnan-Jia; #7496, @danielhstahl; #7504, #7503, #7459, #7454, #7447, @tsugumi-sys; #7461, @wkrt7; #7451, #7414, #7372, #7289, @sunishsheth2009; #7441, @ikrizanic; #7432, @Pochingto; #7386, @jhallard; #7370, #7373, #7371, #7336, #7341, #7342, @dbczumar; #7335, @prithvikannan
+
 ## 2.0.1 (2022-11-14)
 
 The 2.0.1 version of MLflow is a major milestone release that focuses on simplifying the management of end-to-end MLOps workflows, providing new feature-rich functionality, and expanding upon the production-ready MLOps capabilities offered by MLflow.
