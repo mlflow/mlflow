@@ -38,9 +38,9 @@ Documentation updates:
 
 - [Docs] Add more examples to the Runs search documentation page (#7487, @apurva-koti)
 - [Docs] Add documentation for Model flavors developed by the community (#7425, @mmerce)
+- [Docs] Add an example for logging and scoring ONNX Models (#7398, @Rusteam)
 - [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_split`` format (#7540, @zhouyangyu)
 - [Docs] Fix a typo in the model scoring REST API example for inputs with the ``dataframe_records`` format (#7361, @dbczumar)
-- [Docs] Add an example for logging and scoring ONNX Models (#7398, @Rusteam)
 
 Small bug fixes and documentation updates:
 
