@@ -35,3 +35,10 @@ repos:
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+
+      - id: compile-ml-package-versions
+        name: compile-ml-package-versions
+        language: python
+        files: ^mlflow/ml-package-versions\.yml
+        entry: "python dev/compile_ml_package_versions.py"
+        pass_filenames: false
