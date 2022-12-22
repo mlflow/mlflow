@@ -39,6 +39,6 @@ repos:
       - id: compile-ml-package-versions
         name: compile-ml-package-versions
         language: system
-        files: '(^mlflow/ml-package-versions\.yml|^dev/compile_ml_package_versions\.py)'
+        files: '^(mlflow/ml-package-versions\.yml|dev/compile_ml_package_versions\.py|mlflow/ml_package_versions\.py)$'
         entry: "python dev/compile_ml_package_versions.py"
         pass_filenames: false
