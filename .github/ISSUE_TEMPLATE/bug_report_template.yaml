@@ -74,7 +74,6 @@ body:
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
-
         ```
         ```
 
@@ -114,7 +113,6 @@ body:
         - Does not require any modifications to run.
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
-
         ```
         ```
 
@@ -154,7 +152,6 @@ body:
         ```
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
-
         ```
         ```
 
@@ -177,7 +174,6 @@ body:
         ```
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
-
         ```
         ```
 
