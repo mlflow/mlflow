@@ -87,16 +87,19 @@ body:
 
         ### Bad
 
+        - Contains undefined variables.
+        - Requires modifications to run (e.g. adding missing import statements).
+
         ```python
 
         with mlflow.start_run():  # `mlflow` is not imported
             mlflow.sklearn.log_model(model, "model")  # `model` is undefined
         ```
 
-        - Contains undefined variables.
-        - Requires modifications to run (e.g. adding missing import statements).
-
         ### Good
+
+        - Does not contain any undefined variables.
+        - Does not require any modifications to run.
 
         ```python
         from sklearn.datasets import load_iris
@@ -109,8 +112,6 @@ body:
             mlflow.sklearn.log_model(model, "model")
         ```
 
-        - Does not contains any undefined variables.
-        - Does not require any modifications to run.
       value: |
         ```
         < REPLACE ME (DO NOT REMOVE BACKTICKS) >
