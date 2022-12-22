@@ -91,7 +91,6 @@ body:
         - Requires modifications to run (e.g. adding missing import statements).
 
         ```python
-
         with mlflow.start_run():  # `mlflow` is not imported
             mlflow.sklearn.log_model(model, "model")  # `model` is undefined
         ```
