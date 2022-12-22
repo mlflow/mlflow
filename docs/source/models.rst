@@ -614,8 +614,8 @@ For a minimal crate model, an example configuration for the predict function is:
 	# load the logged model and make a prediction
 	model_uri <- paste0(mlflow_get_run()$artifact_uri, "/iris_prediction")
 	mlflow_model <- mlflow_load_model(model_uri = model_uri,
-					 flavor = NULL,
-					 client = mlflow_client())
+					  flavor = NULL,
+					  client = mlflow_client())
 
 	prediction <- mlflow_predict(model = mlflow_model, data = 5)
 	print(prediction)
