@@ -126,7 +126,7 @@ body:
 
         ### Bad
 
-        ```
+        ```python
         TypeError: expected string or bytes-like object
         ```
 
