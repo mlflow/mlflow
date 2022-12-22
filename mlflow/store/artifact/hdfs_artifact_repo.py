@@ -91,12 +91,17 @@ class HdfsArtifactRepository(ArtifactRepository):
             if hdfs.exists(hdfs_base_path):
                 for file_detail in hdfs.ls(hdfs_base_path, detail=True):
                     file_name = file_detail.get("name")
+
+                    # file_name is hdfs_base_path and not a child of that path
+                    if file_name == hdfs_base_path:
+                        continue
+
                     # Strip off anything that comes before the artifact root e.g. hdfs://name
                     offset = file_name.index(self.path)
                     rel_path = _relative_path_remote(self.path, file_name[offset:])
                     is_dir = file_detail.get("kind") == "directory"
                     size = file_detail.get("size")
-                    paths.append(FileInfo(rel_path, is_dir, size))
+                    paths.append(FileInfo(rel_path, is_dir=is_dir, file_size=size))
             return sorted(paths, key=lambda f: paths)
 
     def _walk_path(self, hdfs, hdfs_path):
