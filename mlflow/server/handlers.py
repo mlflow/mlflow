@@ -1002,6 +1002,16 @@ def _get_metric_history():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def get_metric_history_bulk_handler():
+    request_params = request.args.to_dict(flat=False)
+    print("REQUEST PARAMS", request_params)
+    response = Response(mimetype="application/json")
+    response.set_data("{}")
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),
