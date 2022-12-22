@@ -73,8 +73,9 @@ body:
         ```
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
       value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
         ```
-        < REPLACE ME (DO NOT REMOVE BACKTICKS) >
+        REPLACE_ME
         ```
 
     validations:
@@ -110,8 +111,9 @@ body:
         ```
 
       value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
         ```
-        < REPLACE ME (DO NOT REMOVE BACKTICKS) >
+        REPLACE_ME
         ```
 
     validations:
@@ -149,8 +151,9 @@ body:
         TypeError: expected string or bytes-like object
         ```
       value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
         ```
-        < REPLACE ME (DO NOT REMOVE BACKTICKS) >
+        REPLACE_ME
         ```
 
     validations:
@@ -171,8 +174,9 @@ body:
         [2022-08-01 16:03:02 +0900] [222639] [INFO] Booting worker with pid: 222639
         ```
       value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
         ```
-        < REPLACE ME (DO NOT REMOVE BACKTICKS) >
+        REPLACE_ME
         ```
 
     validations:
