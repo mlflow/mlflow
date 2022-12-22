@@ -32,7 +32,7 @@ module.exports = async ({ context, github }) => {
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck.conclusion !== "success") {
     messages.push(
-      "#### DCO check\n\n" +
+      "#### &#x26a0; DCO check\n\n" +
         "The DCO check failed. " +
         `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
         "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
@@ -42,7 +42,7 @@ module.exports = async ({ context, github }) => {
 
   if (label.endsWith(":master")) {
     messages.push(
-      "#### PR branch check\n\n" +
+      "#### &#x26a0; PR branch check\n\n" +
         "This PR was filed from the master branch in your fork, which is not recommended " +
         "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
         "a non-master branch."
