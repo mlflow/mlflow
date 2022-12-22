@@ -72,6 +72,12 @@ body:
         mlflow.doctor()
         ```
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
+      value: |
+        <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
+
+        ```
+        ```
+
     validations:
       required: false
   - type: textarea
@@ -106,7 +112,6 @@ body:
 
         - Does not contains any undefined variables.
         - Does not require any modifications to run.
-
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
 
@@ -147,7 +152,6 @@ body:
             if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         TypeError: expected string or bytes-like object
         ```
-
       value: |
         <!-- PLEASE DO NOT REMOVE CODE BLOCK -->
 
