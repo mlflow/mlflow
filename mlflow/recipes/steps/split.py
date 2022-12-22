@@ -6,6 +6,7 @@ import sys
 from functools import partial
 import numpy as np
 import pandas as pd
+from enum import Enum
 from multiprocessing.pool import ThreadPool, Pool
 
 from mlflow.recipes.artifacts import DataframeArtifact
@@ -28,6 +29,19 @@ _OUTPUT_VALIDATION_FILE_NAME = "validation.parquet"
 _OUTPUT_TEST_FILE_NAME = "test.parquet"
 _USER_DEFINED_SPLIT_STEP_MODULE = "steps.split"
 _MAX_CLASSES_TO_PROFILE = 5
+
+
+class SplitValues(Enum):
+    """
+    Represents the custom split return values.
+    """
+
+    # Indicates that the row is part of test split
+    TEST = "TEST"
+    # Indicates that the row is part of train split
+    TRAIN = "TRAIN"
+    # Indicates that the row is part of validation split
+    VALIDATION = "VALIDATION"
 
 
 def _make_elem_hashable(elem):
@@ -199,14 +213,32 @@ class SplitStep(BaseStep):
             )
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
-        self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
-        if not (
-            isinstance(self.split_ratios, list)
-            and len(self.split_ratios) == 3
-            and all(isinstance(x, (int, float)) and x > 0 for x in self.split_ratios)
-        ):
+        if "using" in self.step_config:
+            if self.step_config["using"] not in ["custom", "split_ratio"]:
+                raise MlflowException(
+                    f"Invalid split step configuration value {self.step_config['using']} for "
+                    f"key 'using'. Supported values are: ['custom', 'split_ratio']",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self.step_config["using"] = "split_ratio"
+
+        if self.step_config["using"] == "split_ratio":
+            self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
+            if not (
+                isinstance(self.split_ratios, list)
+                and len(self.split_ratios) == 3
+                and all(isinstance(x, (int, float)) and x > 0 for x in self.split_ratios)
+            ):
+                raise MlflowException(
+                    "Config split_ratios must be a list containing 3 positive numbers."
+                )
+
+        if "split_method" not in self.step_config and self.step_config["using"] == "custom":
             raise MlflowException(
-                "Config split_ratios must be a list containing 3 positive numbers."
+                "Missing 'split_method' configuration in the split step, "
+                "which is using 'custom'.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
@@ -307,6 +339,40 @@ class SplitStep(BaseStep):
 
         return card
 
+    def _validate_and_execute_custom_split(self, split_fn, input_df):
+        custom_split_mapping_series = split_fn(input_df)
+        if not isinstance(custom_split_mapping_series, pd.Series):
+            raise MlflowException(
+                "Return type of the custom split function should be a pandas series",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        train_df = validation_df = test_df = pd.DataFrame()
+        for index, value in custom_split_mapping_series.items():
+            if value == SplitValues.TRAIN.value:
+                train_df = pd.concat([train_df, input_df.iloc[[index]]], ignore_index=True)
+            elif value == SplitValues.VALIDATION.value:
+                validation_df = pd.concat(
+                    [validation_df, input_df.iloc[[index]]], ignore_index=True
+                )
+            elif value == SplitValues.TEST.value:
+                test_df = pd.concat([test_df, input_df.iloc[[index]]], ignore_index=True)
+            else:
+                raise MlflowException(
+                    f"Returned pandas series from custom split step should only contain "
+                    f"{SplitValues.TRAIN.value}, {SplitValues.VALIDATION.value} or "
+                    f"{SplitValues.TEST.value} as values. Value returned back instead: {value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        return test_df, train_df, validation_df
+
+    def _run_custom_split(self, input_df):
+        split_fn = getattr(
+            importlib.import_module(_USER_DEFINED_SPLIT_STEP_MODULE),
+            self.step_config["split_method"],
+        )
+        return self._validate_and_execute_custom_split(split_fn, input_df)
+
     def _run(self, output_directory):
         run_start_time = time.time()
 
@@ -331,9 +397,12 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = raw_input_num_rows - len(input_df)
 
         # split dataset
-        test_df, train_df, validation_df = _run_split(
-            self.task, input_df, self.split_ratios, self.target_col
-        )
+        if self.step_config["using"] == "custom":
+            test_df, train_df, validation_df = self._run_custom_split(input_df)
+        else:
+            test_df, train_df, validation_df = _run_split(
+                self.task, input_df, self.split_ratios, self.target_col
+            )
         # Import from user function module to process dataframes
         post_split_config = self.step_config.get("post_split_method", None)
         post_split_filter_config = self.step_config.get("post_split_filter_method", None)
