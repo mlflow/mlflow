@@ -843,3 +843,127 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
     assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
+
+
+def test_get_metric_history_bulk_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response_no_run_ids_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"metric_key": "key"},
+    )
+    assert_response(
+        response_no_run_ids_field,
+        "GetMetricHistoryBulk request must specify at least one run_id",
+    )
+
+    response_empty_run_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [], "metric_key": "key"},
+    )
+    assert_response(
+        response_empty_run_ids,
+        "GetMetricHistoryBulk request must specify at least one run_id",
+    )
+
+    response_too_many_run_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [f"id_{i}" for i in range(1000)], "metric_key": "key"},
+    )
+    assert_response(
+        response_too_many_run_ids,
+        "GetMetricHistoryBulk request cannot specify more than",
+    )
+
+    response_no_metric_key_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": ["123"]},
+    )
+    assert_response(
+        response_no_metric_key_field,
+        "GetMetricHistoryBulk request must specify a metric_key",
+    )
+
+
+def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    created_run1 = mlflow_client.create_run(experiment_id)
+    run_id1 = created_run1.info.run_id
+    created_run2 = mlflow_client.create_run(experiment_id)
+    run_id2 = created_run2.info.run_id
+    created_run3 = mlflow_client.create_run(experiment_id)
+    run_id3 = created_run3.info.run_id
+
+    metricA_history = [
+        { "key": "metricA", "timestamp": 1, "step": 2, "value": 10.0 },
+        { "key": "metricA", "timestamp": 1, "step": 3, "value": 11.0 },
+        { "key": "metricA", "timestamp": 1, "step": 3, "value": 12.0 },
+        { "key": "metricA", "timestamp": 2, "step": 3, "value": 12.0 },
+    ]
+    for metric in metricA_history:
+        mlflow_client.log_metric(run_id1, **metric)
+        metric_for_run2 = dict(metric)
+        metric_for_run2["value"] += 1.0
+        mlflow_client.log_metric(run_id2, **metric_for_run2)
+
+    metricB_history = [
+        { "key": "metricB", "timestamp": 7, "step": -2, "value": -100.0 },
+        { "key": "metricB", "timestamp": 8, "step": 0, "value": 0.0 },
+        { "key": "metricB", "timestamp": 8, "step": 0, "value": 1.0 },
+        { "key": "metricB", "timestamp": 9, "step": 1, "value": 12.0 },
+    ]
+    for metric in metricB_history:
+        mlflow_client.log_metric(run_id1, **metric)
+        metric_for_run2 = dict(metric)
+        metric_for_run2["value"] += 1.0
+        mlflow_client.log_metric(run_id2, **metric_for_run2)
+
+    response_run1_metricA = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1], "metric_key": "metricA"},
+    )
+    assert(response_run1_metricA.status_code == 200)
+    assert response_run1_metricA.json().get("metrics") == [
+        {**metric, "run_id": run_id1}
+        for metric in metricA_history
+    ]
+
+    response_run2_metricB = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id2], "metric_key": "metricB"},
+    )
+    assert(response_run2_metricB.status_code == 200)
+    assert response_run2_metricB.json().get("metrics") == [
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+        for metric in metricB_history
+    ]
+
+    response_run1_run2_metricA = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1, run_id2], "metric_key": "metricA"},
+    )
+    assert(response_run1_run2_metricA.status_code == 200)
+    assert response_run1_run2_metricA.json().get("metrics") == sorted([
+        {**metric, "run_id": run_id1}
+        for metric in metricA_history
+    ] + [
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+        for metric in metricA_history
+    ], key=lambda metric: metric["run_id"])
+
+    response_run1_run2_run_3_metricB = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1, run_id2, run_id3], "metric_key": "metricB"},
+    )
+    assert(response_run1_run2_run_3_metricB.status_code == 200)
+    assert response_run1_run2_run_3_metricB.json().get("metrics") == sorted([
+        {**metric, "run_id": run_id1}
+        for metric in metricB_history
+    ] + [
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+        for metric in metricB_history
+    ], key=lambda metric: metric["run_id"])
