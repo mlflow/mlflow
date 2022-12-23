@@ -458,13 +458,9 @@ class TestRestStore:
         creds = MlflowHostCreds("https://hello")
         rest_store = RestStore(lambda: creds)
         empty_metric_response = self._mock_response_with_200_status_code()
-        metric_response = self._mock_response_with_200_status_code()
         empty_metric_response.text = json.dumps({})
-        metric_response.text = json.dumps(
-            {"key": "a_metric", "value": 10, "timestamp": 123456877, "step": 1}
-        )
         with mock.patch(
-            "requests.Session.request", side_effect=[empty_metric_response, metric_response]
+            "requests.Session.request", side_effect=[empty_metric_response]
         ) as mock_request:
             metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
             mock_request.assert_called_once()

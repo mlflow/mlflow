@@ -1027,8 +1027,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         with pytest.raises(
             MlflowException,
-            match="The FileStore backend does not support pagination "
-            "for the `get_metric_history` API.",
+            match="The FileStore backend does not support pagination for the `get_metric_history` "
+            "API.",
         ):
             fs.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 

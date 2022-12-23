@@ -2832,7 +2832,6 @@ def test_get_attribute_name():
 
 def test_get_orderby_clauses():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
-    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
         parsed = [str(x) for x in _get_orderby_clauses([], session)[1]]
