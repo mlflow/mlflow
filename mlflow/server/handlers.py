@@ -1003,11 +1003,52 @@ def _get_metric_history():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_metric_history_bulk_handler():
+    MAX_RUN_IDS_PER_REQUEST = 20
     request_params = request.args.to_dict(flat=False)
-    print("REQUEST PARAMS", request_params)
-    response = Response(mimetype="application/json")
-    response.set_data("{}")
-    return response
+    run_ids = request_params.get("run_id", [])
+    if not run_ids:
+        raise MlflowException(
+            message="GetMetricHistoryBulk request must specify at least one run_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(run_ids) > MAX_RUN_IDS_PER_REQUEST:
+        raise MlflowException(
+            message=(
+                f"GetMetricHistoryBulk request cannot specify more than {MAX_RUN_IDS_PER_REQUEST}"
+                f" run_ids. Received {len(run_ids)} run_ids."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    metric_key = request_params.get("metric_key", [])
+    if not metric_key:
+        raise MlflowException(
+            message="GetMetricHistoryBulk request must specify a metric_key.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    metric_key = metric_key[0]
+
+    store = _get_tracking_store()
+    metrics_with_runids = []
+    for run_id in sorted(run_ids):
+        metrics_for_run = sorted(
+            store.get_metric_history(run_id=run_id, metric_key=metric_key),
+            key=lambda metric: (metric.timestamp, metric.step, metric.value)
+        )
+        metrics_with_runids.extend([
+            {
+                "key": metric.key,
+                "value": metric.value,
+                "timestamp": metric.timestamp,
+                "step": metric.step,
+                "run_id": run_id,
+            }
+            for metric in metrics_for_run
+        ])
+
+    return {
+        "metrics": metrics_with_runids,
+    }
 
 
 @catch_mlflow_exception
