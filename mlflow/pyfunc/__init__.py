@@ -399,8 +399,8 @@ class PyFuncModel:
                      For model signatures with tensor spec inputs
                      (e.g. the Tensorflow core / Keras model), the input data type must be one of
                      `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
-                     `pandas.DataFrame`. If data is of `pandas.DataFrame` type and an input field
-                     requires multidimensional array input, the corresponding column values in
+                     `pandas.DataFrame`. If data is of `pandas.DataFrame` type and a model contains
+                     a signature with tensor spec inputs, the corresponding column values in
                      the pandas DataFrame will be reshaped to the required shape with 'C' order
                      (i.e. read / write the elements using C-like index order), and DataFrame
                      column values will be cast as the required tensor spec type.
@@ -1054,18 +1054,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        # If the spark dataframe input column is array type,
-        # then in spark pandas_udf, the passed in arguments
-        # (`pd.dataframe` instance or `pd.Series`) contains numpy array values.
-        # Converting the numpy array values into list
-        # Because `PyFuncModel.predict` only accepts pandas dataframe
-        # containing column values of scalar type or list type.
-        pdf = pandas.DataFrame(
-            {
-                col: pdf[col].map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-                for col in pdf.columns
-            }
-        )
         result = predict_fn(pdf)
 
         if isinstance(result, dict):

@@ -455,6 +455,12 @@ def _enforce_col_schema(pf_input: PyFuncInput, input_schema: Schema):
 
 
 def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
+    reshape_err_msg = (
+        f"The value in the Input DataFrame column '{name}' could not be converted to the "
+        f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
+        "elements are of uniform length and that the data can be coerced to the tensor "
+        f"type '{tensor_spec.type}'"
+    )
     if tensor_spec.shape[0] != -1 or -1 in tensor_spec.shape[1:]:
         raise MlflowException(
             "For pandas dataframe input, the first dimension of shape must be a variable "
@@ -477,21 +483,23 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         # so do not enforce the shape and type, instead,
         # reshape the array value list to the required shape, and cast value type to
         # required type.
-        err_msg = (
-            f"The value in the Input DataFrame column '{name}' could not be converted to the "
-            f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
-            "elements are of uniform length and that the data can be coerced to the tensor "
-            f"type '{tensor_spec.type}'"
-        )
         try:
             flattened_numpy_arr = np.vstack(pd_series.tolist())
             reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
                 tensor_spec.type
             )
         except ValueError:
-            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         if len(reshaped_numpy_arr) != len(pd_series):
-            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
+        return reshaped_numpy_arr
+    elif isinstance(pd_series[0], np.ndarray):
+        try:
+            reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(tensor_spec.shape)
+        except ValueError:
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
+        if len(reshaped_numpy_arr) != len(pd_series):
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
     else:
         raise MlflowException(
