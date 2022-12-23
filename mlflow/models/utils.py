@@ -500,6 +500,9 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             "array elements are of uniform length and can be reshaped to above expected shape."
         )
         try:
+            # Because numpy array includes precise type information, so we don't convert type
+            # here, so that in following schema validation we can have strict type check on
+            # numpy array column.
             reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(tensor_spec.shape)
         except ValueError:
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
