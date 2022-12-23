@@ -452,11 +452,15 @@ def parse_tf_serving_input(inp_dict, schema=None):
 
 
 # Reference: https://stackoverflow.com/a/12126976
-class _DateTimeEncoder(json.JSONEncoder):
+class _MLflowJsonEncoder(json.JSONEncoder):
     def default(self, o):
         import pandas as pd
+        import numpy as np
 
         if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
             return o.isoformat()
+
+        if isinstance(o, np.ndarray):
+            return o.tolist()
 
         return super().default(o)
