@@ -1194,11 +1194,3 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
-
-
-def test_get_metric_history_on_non_existent_metric_key():
-    with mlflow.start_run() as run:
-        run_id = run.info.run_id
-        client = mlflow.tracking.MlflowClient()
-        metric_history = client.get_metric_history(run_id, "test_accuracy")
-        assert metric_history == []
