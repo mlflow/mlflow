@@ -639,24 +639,28 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
 
 
-def test_spark_udf_with_col_spec_int_type_input(spark):
+def test_spark_udf_with_col_spec_int32_and_float32_type_input(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return model_input + 100
 
     signature = ModelSignature(
-        inputs=Schema([ColSpec("integer", "a")]),
+        inputs=Schema([ColSpec("integer", "a"), ColSpec("float", "b")]),
     )
 
-    data = spark.createDataFrame(pd.DataFrame({"a": [1]}), schema="a int")
+    data = spark.createDataFrame(
+        pd.DataFrame({"a": [1], "b": [1.5]}),
+        schema="a int, b float"
+    )
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
             spark,
             "runs:/{}/model".format(run.info.run_id),
-            result_type="int",
+            result_type="a int, b float",
             env_manager="local",
         )
-        res = data.withColumn("res", udf("a")).select("res").toPandas()
-        assert res["res"].tolist() == [101]
+        res = data.withColumn("res", udf("a", "b")).select("res.a", "res.b").toPandas()
+        assert res.a.tolist() == [101]
+        np.testing.assert_almost_equal(res.b.tolist(), [101.5])
