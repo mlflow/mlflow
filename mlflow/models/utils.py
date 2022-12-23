@@ -455,12 +455,6 @@ def _enforce_col_schema(pf_input: PyFuncInput, input_schema: Schema):
 
 
 def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
-    reshape_err_msg = (
-        f"The value in the Input DataFrame column '{name}' could not be converted to the "
-        f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
-        "elements are of uniform length and that the data can be coerced to the tensor "
-        f"type '{tensor_spec.type}'"
-    )
     if tensor_spec.shape[0] != -1 or -1 in tensor_spec.shape[1:]:
         raise MlflowException(
             "For pandas dataframe input, the first dimension of shape must be a variable "
@@ -483,6 +477,12 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         # so do not enforce the shape and type, instead,
         # reshape the array value list to the required shape, and cast value type to
         # required type.
+        reshape_err_msg = (
+            f"The value in the Input DataFrame column '{name}' could not be converted to the "
+            f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
+            "elements are of uniform length and that the data can be coerced to the tensor "
+            f"type '{tensor_spec.type}'"
+        )
         try:
             flattened_numpy_arr = np.vstack(pd_series.tolist())
             reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
@@ -494,6 +494,11 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
     elif isinstance(pd_series[0], np.ndarray):
+        reshape_err_msg = (
+            f"The value in the Input DataFrame column '{name}' could not be converted to the "
+            f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input numpy "
+            "array elements are of uniform length and can be reshaped to above expected shape."
+        )
         try:
             reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(tensor_spec.shape)
         except ValueError:
@@ -504,8 +509,9 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
     else:
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "
-            "pandas dataframe values should be either scalar value or python list "
-            "containing scalar values, other types are not supported.",
+            "pandas dataframe values should be either scalar value, python list "
+            "containing scalar values or numpy array containing scalar values, "
+            "other types are not supported.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
