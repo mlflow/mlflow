@@ -388,13 +388,19 @@ class TestRestStore:
                 ),
             )
 
+    @staticmethod
+    def _mock_response_with_200_status_code():
+        mock_response = mock.MagicMock()
+        mock_response.status_code = 200
+        return mock_response
+
     @mock.patch("requests.Session.request")
     def test_get_metric_history_paginated(self, request):
         creds = MlflowHostCreds("https://hello")
         store = RestStore(lambda: creds)
 
-        response_1 = mock.MagicMock()
-        response_1.status_code = 200
+        response_1 = self._mock_response_with_200_status_code()
+        response_2 = self._mock_response_with_200_status_code()
         response_payload_1 = {
             "metrics": [
                 {"key": "a_metric", "value": 42, "timestamp": 123456777, "step": 0},
@@ -403,8 +409,6 @@ class TestRestStore:
             "next_page_token": "AcursorForTheRestofTheData",
         }
         response_1.text = json.dumps(response_payload_1)
-        response_2 = mock.MagicMock()
-        response_2.status_code = 200
         response_payload_2 = {
             "metrics": [
                 {"key": "a_metric", "value": 40, "timestamp": 123456877, "step": 2},
@@ -448,6 +452,23 @@ class TestRestStore:
             assert metrics[0] == Metric(key="a_metric", value=40, timestamp=123456877, step=2)
             assert metrics[1] == Metric(key="a_metric", value=56, timestamp=123456897, step=3)
             assert metrics.token is None
+
+    @mock.patch("requests.Session.request")
+    def test_get_metric_history_on_non_existent_metric_key(self, request):
+        creds = MlflowHostCreds("https://hello")
+        rest_store = RestStore(lambda: creds)
+        empty_metric_response = self._mock_response_with_200_status_code()
+        metric_response = self._mock_response_with_200_status_code()
+        empty_metric_response.text = json.dumps({})
+        metric_response.text = json.dumps(
+            {"key": "a_metric", "value": 10, "timestamp": 123456877, "step": 1}
+        )
+        with mock.patch(
+            "requests.Session.request", side_effect=[empty_metric_response, metric_response]
+        ) as mock_request:
+            metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
+            mock_request.assert_called_once()
+            assert metrics == []
 
 
 if __name__ == "__main__":

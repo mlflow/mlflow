@@ -245,8 +245,9 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), None)
         with pytest.raises(
             MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not exist in the tracking server",
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment "
+            f"variable value `{random_id}` does not exist "
+            f"in the tracking server",
         ):
             _get_experiment_id_from_env()
 
@@ -260,8 +261,8 @@ def test_get_experiment_id_from_env():
         HelperEnv.assert_values(str(random_id), name)
         with pytest.raises(
             MlflowException,
-            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment variable value `{random_id}` "
-            "does not match the experiment id",
+            match=f"The provided {_EXPERIMENT_ID_ENV_VAR} environment"
+            f" variable value `{random_id}` does not match the experiment id",
         ):
             _get_experiment_id_from_env()
 
@@ -1194,3 +1195,11 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+def test_get_metric_history_on_non_existent_metric_key():
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+        client = mlflow.tracking.MlflowClient()
+        metric_history = client.get_metric_history(run_id, "test_accuracy")
+        assert metric_history == []

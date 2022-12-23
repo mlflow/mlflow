@@ -2832,6 +2832,7 @@ def test_get_attribute_name():
 
 def test_get_orderby_clauses():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
         parsed = [str(x) for x in _get_orderby_clauses([], session)[1]]
@@ -2867,3 +2868,14 @@ def test_get_orderby_clauses():
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+def test_get_metric_history_on_non_existent_metric_key():
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    experiment_id = store.create_experiment(name="exp1")
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[], run_name="name"
+    )
+    run_id = run.info.run_id
+    metrics = store.get_metric_history(run_id, "test_metric")
+    assert metrics == []

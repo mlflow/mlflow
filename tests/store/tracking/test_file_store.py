@@ -1027,8 +1027,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         with pytest.raises(
             MlflowException,
-            match="The FileStore backend does not support pagination for the `get_metric_history` "
-            "API.",
+            match="The FileStore backend does not support pagination "
+            "for the `get_metric_history` API.",
         ):
             fs.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 
@@ -1781,3 +1781,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = fs.get_run(run_id)
         assert run.info.run_name == "batch name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "batch name"
+
+    def test_get_metric_history_on_non_existent_metric_key(self):
+        file_store = FileStore(self.test_root)
+        run = self._create_run(file_store)
+        run_id = run.info.run_id
+        test_metrics = file_store.get_metric_history(run_id, "test_metric")
+        assert test_metrics == []
