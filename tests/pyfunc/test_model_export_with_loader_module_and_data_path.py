@@ -602,6 +602,14 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     # test dataframe input works for 1d tensor specs and input is converted to dict
     res = pyfunc_model.predict(pdf)
     assert _compare_exact_tensor_dict_input(res, d_inp)
+
+    # test dataframe input works for 1d tensor specs and input is converted to dict
+    pdf_contains_numpy_array = pd.DataFrame(
+        {"a": list(data_a.reshape(-1, 2 * 3)), "b": list(data_b.reshape(-1, 3 * 4))}
+    )
+    res = pyfunc_model.predict(pdf_contains_numpy_array)
+    assert _compare_exact_tensor_dict_input(res, d_inp)
+
     expected_types = dict(zip(input_schema.input_names(), input_schema.input_types()))
     actual_types = {k: v.dtype for k, v in res.items()}
     assert expected_types == actual_types
@@ -617,16 +625,6 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
         pyfunc_model.predict(
             pdf.assign(a=np.array(range(16), dtype=np.uint64).reshape(-1, 8).tolist())
         )
-
-    with pytest.raises(
-        expected_exception=MlflowException,
-        match=re.escape(
-            "Because the model signature requires tensor spec input, the input pandas dataframe "
-            "values should be either scalar value or python list containing scalar values, "
-            "other types are not supported."
-        ),
-    ):
-        pyfunc_model.predict(pdf.assign(a=[np.array([1]), np.array([2])]))
 
     # test that dictionary works too
     res = pyfunc_model.predict(d_inp)
