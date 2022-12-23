@@ -452,7 +452,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
 
 
 # Reference: https://stackoverflow.com/a/12126976
-class _MLflowJsonEncoder(json.JSONEncoder):
+class _CustomJsonEncoder(json.JSONEncoder):
     def default(self, o):
         import pandas as pd
         import numpy as np

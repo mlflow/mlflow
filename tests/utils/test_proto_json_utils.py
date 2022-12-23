@@ -21,7 +21,7 @@ from mlflow.utils.proto_json_utils import (
     _stringify_all_experiment_ids,
     parse_tf_serving_input,
     dataframe_from_raw_json,
-    _MLflowJsonEncoder,
+    _CustomJsonEncoder,
 )
 from tests.protos.test_message_pb2 import TestMessage
 
@@ -568,4 +568,4 @@ def test_dataframe_from_json():
     ],
 )
 def test_datetime_encoder(dt, expected):
-    assert json.dumps(dt, cls=_MLflowJsonEncoder) == expected
+    assert json.dumps(dt, cls=_CustomJsonEncoder) == expected
