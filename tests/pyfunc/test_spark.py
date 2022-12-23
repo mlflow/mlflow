@@ -639,7 +639,7 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
 
 
-def test_spark_udf_with_and_col_spec_int_type_input(spark):
+def test_spark_udf_with_col_spec_int_type_input(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return model_input + 100
