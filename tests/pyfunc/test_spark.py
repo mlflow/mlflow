@@ -637,3 +637,26 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
     result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
+
+
+def test_spark_udf_with_and_col_spec_int_type_input(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return model_input + 100
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("integer", "a")]),
+    )
+
+    data = spark.createDataFrame(pd.DataFrame({"a": [1]}), schema="a int")
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type="int",
+            env_manager="local",
+        )
+        res = data.withColumn("res", udf("a")).select("res").toPandas()
+        assert res["res"].tolist() == [101]
