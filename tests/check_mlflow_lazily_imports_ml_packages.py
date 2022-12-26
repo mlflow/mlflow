@@ -19,6 +19,7 @@ def main():
         "onnx",
         "pytorch_lightning",
         "pyspark",
+        "pyspark.ml",
         "shap",
         "sklearn",
         "spacy",
@@ -33,7 +34,7 @@ def main():
     assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
 
     mlflow.autolog()
-    imoprted = ml_packages.intersection(set(sys.modules)) - {"pyspark"}
+    imoprted = ml_packages.intersection(set(sys.modules)) - {"pyspark", "pyspark.ml"}
     assert imoprted == set(), f"`mlflow.autolog` imports {imoprted} but it should not"
 
     # Ensure that the ML packages are importable
