@@ -1,11 +1,14 @@
+"""
+Tests that mlflow doesn't import ml packages when it's imported
+"""
+
 import sys
+import importlib
+import mlflow  # pylint: disable=unused-import
 
-import pytest
 
-
-@pytest.mark.parametrize(
-    "package",
-    (
+def main():
+    ml_packages = {
         "catboost",
         "fastai",
         "mxnet",
@@ -23,18 +26,25 @@ import pytest
         "tensorflow",
         "torch",
         "xgboost",
-    ),
-)
-def test_mlflow_lazily_imports_ml_packages(package):
-    cached_packages = list(sys.modules.keys())
-    for pkg in cached_packages:
-        if pkg.split(".")[0] == pkg:
-            sys.modules.pop(package, None)
+        "pmdarima",
+        "diviner",
+    }
+    imported = ml_packages.intersection(set(sys.modules))
+    assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
 
-    # Ensure the package is not loaded
-    assert package not in sys.modules
+    # Ensure that the ML packages are importable
+    failed_to_import = []
+    for package in ml_packages:
+        try:
+            importlib.import_module(package)
+        except ImportError:
+            failed_to_import.append(package)
 
-    import mlflow  # pylint: disable=unused-import
+    message = (
+        f"Failed to import {failed_to_import}. Please install packages that provide these modules."
+    )
+    assert failed_to_import == [], message
 
-    # Ensure mlflow didn't load the package
-    assert package not in sys.modules
+
+if __name__ == "__main__":
+    main()
