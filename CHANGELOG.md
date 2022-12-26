@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2.1.1 (2022-12-26)
+
+MLflow 2.1.1 is a patch release containing the following bug fixes:
+
+- [Scoring] Fix ``mlflow.pyfunc.spark_udf()`` type casting error on model with ``ColSpec`` input schema
+and make ``PyFuncModel.predict`` support dataframe with elements of ``numpy.ndarray`` type (#7592 @WeichenXu123)
+- [Scoring] Make ``mlflow.pyfunc.scoring_server.client.ScoringServerClient`` support input dataframe with elements
+of ``numpy.ndarray`` type (#7594 @WeichenXu123)
+- [Tracking] Ensure mlflow imports ML packages lazily (#7597, @harupy)
+
+
 ## 2.1.0 (2022-12-21)
 
 MLflow 2.1.0 includes several major features and improvements
