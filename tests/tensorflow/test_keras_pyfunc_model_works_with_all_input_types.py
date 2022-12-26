@@ -290,6 +290,10 @@ def test_model_multi_multidim_tensor_input(
 def test_single_multidim_input_model_spark_udf(
     env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
+    if not IS_TENSORFLOW_AVAILABLE and env_manager == "virtualenv":
+        pytest.skip(
+            f"Tensorflow {tf.__version__}  is not available on PyPI. Skipping test for virtualenv."
+        )
     model, signature = single_multidim_tensor_input_model
     x, _ = data
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
