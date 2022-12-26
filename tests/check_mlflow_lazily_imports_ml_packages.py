@@ -1,5 +1,5 @@
 """
-Tests that mlflow doesn't import ml packages when it's imported
+Tests that `import mlflow` and `mlflow.autolog()` do not import ML packages.
 """
 
 import sys
@@ -32,9 +32,13 @@ def main():
     imported = ml_packages.intersection(set(sys.modules))
     assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
 
+    mlflow.autolog()
+    imoprted = ml_packages.intersection(set(sys.modules)) - {"pyspark"}
+    assert imoprted == set(), f"`mlflow.autolog` imports {imoprted} but it should not"
+
     # Ensure that the ML packages are importable
     failed_to_import = []
-    for package in ml_packages:
+    for package in sorted(ml_packages):
         try:
             importlib.import_module(package)
         except ImportError:
