@@ -114,6 +114,9 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+      - name: Import check
+        run: |
+          python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source dev/setup-ssh.sh

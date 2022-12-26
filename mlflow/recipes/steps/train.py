@@ -9,7 +9,6 @@ import yaml
 import cloudpickle
 
 import mlflow
-import sklearn
 from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.recipes.artifacts import (
@@ -244,6 +243,7 @@ class TrainStep(BaseStep):
             import pandas as pd
             import numpy as np
             import shutil
+            import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight
             from mlflow.models.signature import infer_signature
