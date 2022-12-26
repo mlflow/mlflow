@@ -287,8 +287,9 @@ def test_model_multi_multidim_tensor_input(
         np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
+@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
 def test_single_multidim_input_model_spark_udf(
-    single_multidim_tensor_input_model, spark_session, data
+    env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
     model, signature = single_multidim_tensor_input_model
     x, _ = data
@@ -300,7 +301,7 @@ def test_single_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
         test_input_spark_df.select(infer_udf("x").alias("prediction"))
         .toPandas()
@@ -309,8 +310,9 @@ def test_single_multidim_input_model_spark_udf(
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
+@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
 def test_multi_multidim_input_model_spark_udf(
-    multi_multidim_tensor_input_model, spark_session, data
+    env_manager, multi_multidim_tensor_input_model, spark_session, data
 ):
     model, signature = multi_multidim_tensor_input_model
     x, _ = data
@@ -333,7 +335,7 @@ def test_multi_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
         test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
         .toPandas()

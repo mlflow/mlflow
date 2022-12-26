@@ -57,12 +57,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
     + `Logistic Regression example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_logistic_regression>`_
 
-  - TensorFlow
-
-    + `TensorFlow 1.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf1>`_
-
-    + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
-
   - RAPIDS
 
     + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_

@@ -423,7 +423,6 @@ def autologging_integration(name):
             wrapped_autolog.__doc__ = (
                 gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
-        return wrapped_autolog
 
     return wrapper
 
