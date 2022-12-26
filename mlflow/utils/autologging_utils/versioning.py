@@ -1,14 +1,12 @@
 import importlib
 import re
-import yaml
-import sys
 from packaging.version import Version, InvalidVersion
 
-import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 
 
-# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
+# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_ML_PACKAGE_VERSIONS)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "fastai": ("fastai", "fastai"),
     "gluon": ("mxnet", "gluon"),
@@ -57,26 +55,10 @@ def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
-def load_version_file_as_dict():
-    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
-    if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files
-
-        with as_file(files(mlflow).joinpath("ml-package-versions.yml")) as file:
-            version_file_path = file.as_posix()
-    else:
-        from importlib.resources import path
-
-        with path(mlflow, "ml-package-versions.yml") as file:
-            version_file_path = file.as_posix()
-    with open(version_file_path) as f:
-        return yaml.load(f, Loader=yaml.SafeLoader)
-
-
-def get_min_max_version_and_pip_release(module_key, module_version_info_dict):
-    min_version = module_version_info_dict[module_key]["autologging"]["minimum"]
-    max_version = module_version_info_dict[module_key]["autologging"]["maximum"]
-    pip_release = module_version_info_dict[module_key]["package_info"]["pip_release"]
+def get_min_max_version_and_pip_release(module_key):
+    min_version = _ML_PACKAGE_VERSIONS[module_key]["autologging"]["minimum"]
+    max_version = _ML_PACKAGE_VERSIONS[module_key]["autologging"]["maximum"]
+    pip_release = _ML_PACKAGE_VERSIONS[module_key]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 
 
@@ -85,7 +67,6 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     :return: True if the specified flavor is supported for the currently-installed versions of its
              associated packages
     """
-    module_version_info_dict = load_version_file_as_dict()
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
 
@@ -95,9 +76,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
-    min_version, max_version, _ = get_min_max_version_and_pip_release(
-        module_key, module_version_info_dict
-    )
+    min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
 
     if module_name == "pyspark" and is_in_databricks_runtime():
         # MLflow 1.25.0 is known to be compatible with PySpark 3.3.0 on Databricks, despite the
