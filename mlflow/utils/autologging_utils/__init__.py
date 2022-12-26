@@ -28,7 +28,6 @@ from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     get_min_max_version_and_pip_release,
     is_flavor_supported_for_associated_package_versions,
-    load_version_file_as_dict,
 )
 
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
@@ -303,10 +302,7 @@ def gen_autologging_package_version_requirements_doc(integration_name):
              integration's associated package versions.
     """
     _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-    module_version_info_dict = load_version_file_as_dict()
-    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(
-        module_key, module_version_info_dict
-    )
+    min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(module_key)
     required_pkg_versions = f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``"
 
     return (
@@ -423,15 +419,9 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        try:
-            if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
-                wrapped_autolog.__doc__ = (
-                    gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
-                )
-        except Exception as e:
-            _logger.warning(
-                "Unable to load configuration for autologging; autologging may fail. %s",
-                "Exception: " + str(e),
+        if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
+            wrapped_autolog.__doc__ = (
+                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
         return wrapped_autolog
 
