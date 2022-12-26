@@ -51,7 +51,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.8.5.post0"
+    maximum: "1.8.6"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -289,7 +289,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -309,7 +309,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.4.0"
+    maximum: "3.3.1"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -335,7 +335,7 @@ mleap:
 
   models:
     minimum: "0.18.0"
-    maximum: "0.21.0"
+    maximum: "0.21.1"
     requirements:
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark"]
