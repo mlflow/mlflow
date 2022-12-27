@@ -8,6 +8,7 @@ import json
 
 import mlflow
 
+import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda
 from tensorflow.keras.optimizers import SGD
@@ -25,10 +26,8 @@ from tests.helper_functions import (
 
 from pyspark.sql.functions import struct
 
-
-EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
-)
+IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
 
 
 @pytest.fixture
@@ -291,6 +290,10 @@ def test_model_multi_multidim_tensor_input(
 def test_single_multidim_input_model_spark_udf(
     env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
+    if not IS_TENSORFLOW_AVAILABLE and env_manager == "virtualenv":
+        pytest.skip(
+            f"Tensorflow {tf.__version__}  is not available on PyPI. Skipping test for virtualenv."
+        )
     model, signature = single_multidim_tensor_input_model
     x, _ = data
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
@@ -314,6 +317,11 @@ def test_single_multidim_input_model_spark_udf(
 def test_multi_multidim_input_model_spark_udf(
     env_manager, multi_multidim_tensor_input_model, spark_session, data
 ):
+    if not IS_TENSORFLOW_AVAILABLE and env_manager == "virtualenv":
+        pytest.skip(
+            f"Tensorflow {tf.__version__}  is not available on PyPI. Skipping test for virtualenv."
+        )
+
     model, signature = multi_multidim_tensor_input_model
     x, _ = data
     input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)

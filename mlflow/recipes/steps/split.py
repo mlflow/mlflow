@@ -6,7 +6,6 @@ import sys
 from functools import partial
 import numpy as np
 import pandas as pd
-from sklearn.utils import compute_class_weight
 from multiprocessing.pool import ThreadPool, Pool
 
 from mlflow.recipes.artifacts import DataframeArtifact
@@ -211,6 +210,8 @@ class SplitStep(BaseStep):
             )
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
+        from sklearn.utils import compute_class_weight
+
         def _set_target_col_as_first(df, target_col):
             columns = list(df.columns)
             col = columns.pop(columns.index(target_col))
