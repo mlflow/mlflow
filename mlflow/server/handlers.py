@@ -1033,18 +1033,20 @@ def get_metric_history_bulk_handler():
     for run_id in sorted(run_ids):
         metrics_for_run = sorted(
             store.get_metric_history(run_id=run_id, metric_key=metric_key),
-            key=lambda metric: (metric.timestamp, metric.step, metric.value)
+            key=lambda metric: (metric.timestamp, metric.step, metric.value),
         )
-        metrics_with_runids.extend([
-            {
-                "key": metric.key,
-                "value": metric.value,
-                "timestamp": metric.timestamp,
-                "step": metric.step,
-                "run_id": run_id,
-            }
-            for metric in metrics_for_run
-        ])
+        metrics_with_runids.extend(
+            [
+                {
+                    "key": metric.key,
+                    "value": metric.value,
+                    "timestamp": metric.timestamp,
+                    "step": metric.step,
+                    "run_id": run_id,
+                }
+                for metric in metrics_for_run
+            ]
+        )
 
     return {
         "metrics": metrics_with_runids,
