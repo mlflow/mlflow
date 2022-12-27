@@ -1781,3 +1781,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = fs.get_run(run_id)
         assert run.info.run_name == "batch name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "batch name"
+
+    def test_get_metric_history_on_non_existent_metric_key(self):
+        file_store = FileStore(self.test_root)
+        run = self._create_run(file_store)
+        run_id = run.info.run_id
+        test_metrics = file_store.get_metric_history(run_id, "test_metric")
+        assert test_metrics == []

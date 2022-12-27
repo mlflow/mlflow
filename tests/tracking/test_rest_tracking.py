@@ -295,6 +295,9 @@ def test_log_metrics_params_tags(mlflow_client):
     assert metric1.timestamp == 321
     assert metric1.step == 0
 
+    metric_history = mlflow_client.get_metric_history(run_id, "a_test_accuracy")
+    assert metric_history == []
+
 
 def test_log_metric_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("metrics validation")
