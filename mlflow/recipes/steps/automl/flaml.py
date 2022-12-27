@@ -138,6 +138,8 @@ def _create_model_automl(
     try:
         if primary_metric in _MLFLOW_TO_FLAML_METRICS and primary_metric in evaluation_metrics:
             metric = _MLFLOW_TO_FLAML_METRICS[primary_metric]
+            if primary_metric == "roc_auc" and extended_task == "classification/multiclass":
+                metric = "roc_auc_ovr"
         elif primary_metric in _SKLEARN_METRICS and primary_metric in evaluation_metrics:
             metric = _create_sklearn_metric_flaml(
                 primary_metric,
