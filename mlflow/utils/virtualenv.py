@@ -238,6 +238,7 @@ def _create_virtualenv(
 
     _logger.info("Does %s exist?: %s", python_bin_path, os.path.exists(python_bin_path))
     _logger.info("Creating a new environment %s", env_dir)
+    _exec_cmd([python_bin_path, "--version"])
     _exec_cmd(
         ["virtualenv", "-vv", "--python", python_bin_path, env_dir],
         capture_output=capture_output,
