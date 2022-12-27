@@ -237,7 +237,10 @@ def _create_virtualenv(
         return activate_cmd
 
     _logger.info("Creating a new environment %s", env_dir)
-    _exec_cmd(["virtualenv", "--python", python_bin_path, env_dir], capture_output=capture_output)
+    _exec_cmd(
+        ["virtualenv", "--verbose", "--python", python_bin_path, env_dir],
+        capture_output=capture_output,
+    )
 
     _logger.info("Installing dependencies")
     for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):

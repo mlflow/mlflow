@@ -119,8 +119,9 @@ jobs:
           python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
-          source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          # source dev/setup-ssh.sh
+          # ./dev/run-python-tests.sh
+          pytest tests/projects/test_virtualenv_projects.py::test_virtualenv_project_execution -s
 
   database:
     runs-on: ubuntu-latest
