@@ -902,10 +902,10 @@ def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlfl
     run_id3 = created_run3.info.run_id
 
     metricA_history = [
-        { "key": "metricA", "timestamp": 1, "step": 2, "value": 10.0 },
-        { "key": "metricA", "timestamp": 1, "step": 3, "value": 11.0 },
-        { "key": "metricA", "timestamp": 1, "step": 3, "value": 12.0 },
-        { "key": "metricA", "timestamp": 2, "step": 3, "value": 12.0 },
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 11.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 12.0},
+        {"key": "metricA", "timestamp": 2, "step": 3, "value": 12.0},
     ]
     for metric in metricA_history:
         mlflow_client.log_metric(run_id1, **metric)
@@ -914,10 +914,10 @@ def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlfl
         mlflow_client.log_metric(run_id2, **metric_for_run2)
 
     metricB_history = [
-        { "key": "metricB", "timestamp": 7, "step": -2, "value": -100.0 },
-        { "key": "metricB", "timestamp": 8, "step": 0, "value": 0.0 },
-        { "key": "metricB", "timestamp": 8, "step": 0, "value": 1.0 },
-        { "key": "metricB", "timestamp": 9, "step": 1, "value": 12.0 },
+        {"key": "metricB", "timestamp": 7, "step": -2, "value": -100.0},
+        {"key": "metricB", "timestamp": 8, "step": 0, "value": 0.0},
+        {"key": "metricB", "timestamp": 8, "step": 0, "value": 1.0},
+        {"key": "metricB", "timestamp": 9, "step": 1, "value": 12.0},
     ]
     for metric in metricB_history:
         mlflow_client.log_metric(run_id1, **metric)
@@ -929,44 +929,44 @@ def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlfl
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
         params={"run_id": [run_id1], "metric_key": "metricA"},
     )
-    assert(response_run1_metricA.status_code == 200)
+    assert response_run1_metricA.status_code == 200
     assert response_run1_metricA.json().get("metrics") == [
-        {**metric, "run_id": run_id1}
-        for metric in metricA_history
+        {**metric, "run_id": run_id1} for metric in metricA_history
     ]
 
     response_run2_metricB = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
         params={"run_id": [run_id2], "metric_key": "metricB"},
     )
-    assert(response_run2_metricB.status_code == 200)
+    assert response_run2_metricB.status_code == 200
     assert response_run2_metricB.json().get("metrics") == [
-        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
-        for metric in metricB_history
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0} for metric in metricB_history
     ]
 
     response_run1_run2_metricA = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
         params={"run_id": [run_id1, run_id2], "metric_key": "metricA"},
     )
-    assert(response_run1_run2_metricA.status_code == 200)
-    assert response_run1_run2_metricA.json().get("metrics") == sorted([
-        {**metric, "run_id": run_id1}
-        for metric in metricA_history
-    ] + [
-        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
-        for metric in metricA_history
-    ], key=lambda metric: metric["run_id"])
+    assert response_run1_run2_metricA.status_code == 200
+    assert response_run1_run2_metricA.json().get("metrics") == sorted(
+        [{**metric, "run_id": run_id1} for metric in metricA_history]
+        + [
+            {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+            for metric in metricA_history
+        ],
+        key=lambda metric: metric["run_id"],
+    )
 
     response_run1_run2_run_3_metricB = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
         params={"run_id": [run_id1, run_id2, run_id3], "metric_key": "metricB"},
     )
-    assert(response_run1_run2_run_3_metricB.status_code == 200)
-    assert response_run1_run2_run_3_metricB.json().get("metrics") == sorted([
-        {**metric, "run_id": run_id1}
-        for metric in metricB_history
-    ] + [
-        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
-        for metric in metricB_history
-    ], key=lambda metric: metric["run_id"])
+    assert response_run1_run2_run_3_metricB.status_code == 200
+    assert response_run1_run2_run_3_metricB.json().get("metrics") == sorted(
+        [{**metric, "run_id": run_id1} for metric in metricB_history]
+        + [
+            {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+            for metric in metricB_history
+        ],
+        key=lambda metric: metric["run_id"],
+    )
