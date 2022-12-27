@@ -606,8 +606,6 @@ For a minimal crate model, an example configuration for the predict function is:
       model = model
     )
 
-    mlflow_client(tracking_uri = NULL)
-
     # log the model
     model_path <- mlflow_log_model(model = crate_model, artifact_path = "iris_prediction")
 
