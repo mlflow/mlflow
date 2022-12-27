@@ -13,6 +13,7 @@ from mlflow.recipes.steps.split import (
     _OUTPUT_TRAIN_FILE_NAME,
     _OUTPUT_VALIDATION_FILE_NAME,
     _OUTPUT_TEST_FILE_NAME,
+    SplitValues,
 )
 from mlflow.recipes.steps.split import (
     _get_split_df,
@@ -250,14 +251,9 @@ def test_validation_split_step_validates_split_correctly():
 def custom_split(df):
     from pandas import Series
 
-    splits = Series()
-    for index, row in df.iterrows():
-        if row["a"] >= 800:
-            splits.at[index] = "TEST"
-        elif row["a"] >= 500:
-            splits.at[index] = "VALIDATION"
-        else:
-            splits.at[index] = "TRAIN"
+    splits = Series(SplitValues.TRAINING.value, index=range(len(df)))
+    splits[df["a"] >= 500] = SplitValues.VALIDATION.value
+    splits[df["a"] >= 800] = SplitValues.TEST.value
 
     return splits
 

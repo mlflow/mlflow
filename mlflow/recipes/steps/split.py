@@ -39,7 +39,7 @@ class SplitValues(Enum):
     # Indicates that the row is part of test split
     TEST = "TEST"
     # Indicates that the row is part of train split
-    TRAIN = "TRAIN"
+    TRAINING = "TRAINING"
     # Indicates that the row is part of validation split
     VALIDATION = "VALIDATION"
 
@@ -73,8 +73,8 @@ def _perform_stratified_split_per_class(input_df, split_ratios, target_col):
 
     with ThreadPool(os.cpu_count() or _NUM_DEFAULT_CPUS) as p:
         zipped_dfs = p.map(partial_func, classes)
-        test_df, train_df, validation_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
-        return test_df, train_df, validation_df
+        train_df, validation_df, test_df = [pd.concat(x) for x in list(zip(*zipped_dfs))]
+        return train_df, validation_df, test_df
 
 
 def _perform_split_for_one_class(
@@ -90,7 +90,7 @@ def _perform_split_for_one_class(
 def _perform_split(input_df, split_ratios, n_jobs=-1):
     hash_buckets = _create_hash_buckets(input_df, n_jobs=n_jobs)
     train_df, validation_df, test_df = _get_split_df(input_df, hash_buckets, split_ratios)
-    return test_df, train_df, validation_df
+    return train_df, validation_df, test_df
 
 
 def _get_split_df(input_df, hash_buckets, split_ratios):
@@ -214,16 +214,16 @@ class SplitStep(BaseStep):
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
         if "using" in self.step_config:
-            if self.step_config["using"] not in ["custom", "split_ratio"]:
+            if self.step_config["using"] not in ["custom", "split_ratios"]:
                 raise MlflowException(
                     f"Invalid split step configuration value {self.step_config['using']} for "
-                    f"key 'using'. Supported values are: ['custom', 'split_ratio']",
+                    f"key 'using'. Supported values are: ['custom', 'split_ratios']",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
-            self.step_config["using"] = "split_ratio"
+            self.step_config["using"] = "split_ratios"
 
-        if self.step_config["using"] == "split_ratio":
+        if self.step_config["using"] == "split_ratios":
             self.split_ratios = self.step_config.get("split_ratios", [0.75, 0.125, 0.125])
             if not (
                 isinstance(self.split_ratios, list)
@@ -348,7 +348,7 @@ class SplitStep(BaseStep):
             )
         train_df = validation_df = test_df = pd.DataFrame()
         for index, value in custom_split_mapping_series.items():
-            if value == SplitValues.TRAIN.value:
+            if value == SplitValues.TRAINING.value:
                 train_df = pd.concat([train_df, input_df.iloc[[index]]], ignore_index=True)
             elif value == SplitValues.VALIDATION.value:
                 validation_df = pd.concat(
@@ -359,12 +359,12 @@ class SplitStep(BaseStep):
             else:
                 raise MlflowException(
                     f"Returned pandas series from custom split step should only contain "
-                    f"{SplitValues.TRAIN.value}, {SplitValues.VALIDATION.value} or "
+                    f"{SplitValues.TRAINING.value}, {SplitValues.VALIDATION.value} or "
                     f"{SplitValues.TEST.value} as values. Value returned back instead: {value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        return test_df, train_df, validation_df
+        return train_df, validation_df, test_df
 
     def _run_custom_split(self, input_df):
         split_fn = getattr(
@@ -398,9 +398,9 @@ class SplitStep(BaseStep):
 
         # split dataset
         if self.step_config["using"] == "custom":
-            test_df, train_df, validation_df = self._run_custom_split(input_df)
+            train_df, validation_df, test_df = self._run_custom_split(input_df)
         else:
-            test_df, train_df, validation_df = _run_split(
+            train_df, validation_df, test_df = _run_split(
                 self.task, input_df, self.split_ratios, self.target_col
             )
         # Import from user function module to process dataframes
