@@ -136,6 +136,12 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         shell=not _IS_UNIX,
         extra_env=extra_env,
     )
+    _exec_cmd(
+        [pyenv_bin_path, "rehash"],
+        capture_output=capture_output,
+        shell=not _IS_UNIX,
+        extra_env=extra_env,
+    )
 
     if _IS_UNIX:
         if pyenv_root is None:
