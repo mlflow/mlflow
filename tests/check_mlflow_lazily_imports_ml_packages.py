@@ -34,7 +34,7 @@ def main():
     assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
 
     mlflow.autolog()
-    imported = ml_packages.intersection(set(sys.modules)) - {"pyspark", "pyspark.ml"}
+    imported = ml_packages.intersection(set(sys.modules))
     assert imported == set(), f"`mlflow.autolog` imports {imported} but it should not"
 
     # Ensure that the ML packages are importable
