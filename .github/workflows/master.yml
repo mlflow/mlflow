@@ -121,7 +121,7 @@ jobs:
         run: |
           # source dev/setup-ssh.sh
           # ./dev/run-python-tests.sh
-          pytest tests/projects/test_virtualenv_projects.py::test_virtualenv_project_execution -s
+          pytest 'tests/projects/test_virtualenv_projects.py::test_virtualenv_project_execution' -s
 
   database:
     runs-on: ubuntu-latest
