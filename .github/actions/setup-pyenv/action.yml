@@ -19,8 +19,8 @@ runs:
       run: |
         git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
         cd $HOME/.pyenv
-        # https://github.com/pyenv/pyenv/commit/773c65416bb1db041fe7862ab04bf47e3fe706de
-        git checkout 773c65416bb1db041fe7862ab04bf47e3fe706de
+        # https://github.com/pyenv/pyenv/commit/cb5da5e831fb50ce0ac44fc13617965b2309a482
+        git checkout cb5da5e831fb50ce0ac44fc13617965b2309a482
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
