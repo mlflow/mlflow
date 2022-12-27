@@ -8,6 +8,7 @@ import json
 
 import mlflow
 
+import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Input, Concatenate, Lambda
 from tensorflow.keras.optimizers import SGD
@@ -25,10 +26,8 @@ from tests.helper_functions import (
 
 from pyspark.sql.functions import struct
 
-
-EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
-)
+IS_TENSORFLOW_AVAILABLE = _is_available_on_pypi("tensorflow")
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-manager", "local"]
 
 
 @pytest.fixture
@@ -287,9 +286,14 @@ def test_model_multi_multidim_tensor_input(
         np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
 
+@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
 def test_single_multidim_input_model_spark_udf(
-    single_multidim_tensor_input_model, spark_session, data
+    env_manager, single_multidim_tensor_input_model, spark_session, data
 ):
+    if not IS_TENSORFLOW_AVAILABLE and env_manager == "virtualenv":
+        pytest.skip(
+            f"Tensorflow {tf.__version__}  is not available on PyPI. Skipping test for virtualenv."
+        )
     model, signature = single_multidim_tensor_input_model
     x, _ = data
     test_input = np.repeat(x.values[:, :, np.newaxis], 3, axis=2)
@@ -300,7 +304,7 @@ def test_single_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
         test_input_spark_df.select(infer_udf("x").alias("prediction"))
         .toPandas()
@@ -309,9 +313,15 @@ def test_single_multidim_input_model_spark_udf(
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
+@pytest.mark.parametrize("env_manager", ["local", "virtualenv"])
 def test_multi_multidim_input_model_spark_udf(
-    multi_multidim_tensor_input_model, spark_session, data
+    env_manager, multi_multidim_tensor_input_model, spark_session, data
 ):
+    if not IS_TENSORFLOW_AVAILABLE and env_manager == "virtualenv":
+        pytest.skip(
+            f"Tensorflow {tf.__version__}  is not available on PyPI. Skipping test for virtualenv."
+        )
+
     model, signature = multi_multidim_tensor_input_model
     x, _ = data
     input_a = np.repeat(x.values[:, :2, np.newaxis], 3, axis=2)
@@ -333,7 +343,7 @@ def test_multi_multidim_input_model_spark_udf(
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
-    infer_udf = spark_udf(spark_session, model_uri, env_manager="local")
+    infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
         test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
         .toPandas()

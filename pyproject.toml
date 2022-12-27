@@ -1,10 +1,11 @@
 [tool.black]
 line-length = 100
-target-version = ['py37']
+target-version = ['py38']
 force-exclude = '''
 /(
-  | mlflow/protos
-  | tests/protos
-  | examples/recipes
-)/
+    mlflow/protos/
+  | mlflow/ml_package_versions\.py$
+  | tests/protos/
+  | examples/recipes/
+)
 '''

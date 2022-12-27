@@ -779,7 +779,7 @@ _module_version_info_dict_patch = {
     ],
 )
 @mock.patch(
-    "mlflow.utils.autologging_utils.versioning._module_version_info_dict",
+    "mlflow.utils.autologging_utils.versioning._ML_PACKAGE_VERSIONS",
     _module_version_info_dict_patch,
 )
 def test_is_autologging_integration_supported(flavor, module_version, expected_result):
@@ -800,7 +800,7 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
     ],
 )
 @mock.patch(
-    "mlflow.utils.autologging_utils.versioning._module_version_info_dict",
+    "mlflow.utils.autologging_utils.versioning._ML_PACKAGE_VERSIONS",
     _module_version_info_dict_patch,
 )
 def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, expected_result):
@@ -819,7 +819,7 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
 
 
 @mock.patch(
-    "mlflow.utils.autologging_utils.versioning._module_version_info_dict",
+    "mlflow.utils.autologging_utils.versioning._ML_PACKAGE_VERSIONS",
     _module_version_info_dict_patch,
 )
 def test_disable_for_unsupported_versions_warning_sklearn_integration():
