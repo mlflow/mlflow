@@ -585,7 +585,7 @@ produce a dataframe, a vector or a list with the predictions as output.
 This flavor requires R to be installed in order to be used.
 
 ``crate`` usage
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 For a minimal crate model, an example configuration for the predict function is:
 
