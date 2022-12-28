@@ -165,19 +165,17 @@ def test_universal_autolog_calls_pyspark_immediately_in_databricks():
             autolog_mock.assert_not_called()
 
 
-@pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
-def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config):
+def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks():
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         autolog_mock.integration_name = "spark"
 
-        mlflow.autolog(**config)
+        mlflow.autolog()
         autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(pyspark)
 
         # assert autolog is called once pyspark is imported
-        assert autolog_mock.call_count == 1
-        assert autolog_mock.call_args_list[0] == config
+        autolog_mock.assert_called_once()
 
 
 def test_universal_autolog_makes_expected_event_logging_calls():
