@@ -197,7 +197,7 @@ def _prune_packages(packages):
     """
     packages = set(packages)
     requires = set(_flatten(map(_get_requires_recursive, packages)))
-    return packages - requires
+    return packages - (requires - {"scikit-learn"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):
