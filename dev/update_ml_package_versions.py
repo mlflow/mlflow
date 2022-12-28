@@ -122,7 +122,7 @@ def main(args):
             versions = set(versions).difference(unsupported)  # exclude unsupported versions
             latest_version = get_latest_version(versions)
 
-            if max_ver == latest_version:
+            if Version(latest_version) <= Version(max_ver):
                 continue
 
             new_src = update_max_version(new_src, flavor_key, latest_version, category)
