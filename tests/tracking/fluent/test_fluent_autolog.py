@@ -170,8 +170,6 @@ def test_universal_autolog_calls_pyspark_immediately_in_databricks(is_in_databri
 def test_universal_autolog_attaches_pyspark_import_hook_in_oss(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         autolog_mock.integration_name = "spark"
-        # simulate pyspark not being installed
-        autolog_mock.side_effect = ImportError("no module named pyspark blahblah")
 
         mlflow.autolog(**config)
         autolog_mock.assert_not_called()
