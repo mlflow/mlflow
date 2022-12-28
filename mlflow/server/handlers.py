@@ -1029,24 +1029,35 @@ def get_metric_history_bulk_handler():
     metric_key = metric_key[0]
 
     store = _get_tracking_store()
-    metrics_with_runids = []
-    for run_id in sorted(run_ids):
-        metrics_for_run = sorted(
-            store.get_metric_history(run_id=run_id, metric_key=metric_key),
-            key=lambda metric: (metric.timestamp, metric.step, metric.value),
-        )
-        metrics_with_runids.extend(
-            [
-                {
-                    "key": metric.key,
-                    "value": metric.value,
-                    "timestamp": metric.timestamp,
-                    "step": metric.step,
-                    "run_id": run_id,
-                }
-                for metric in metrics_for_run
-            ]
-        )
+
+    def _default_history_bulk_impl():
+        metrics_with_runids = []
+        for run_id in sorted(run_ids):
+            metrics_for_run = sorted(
+                store.get_metric_history(run_id=run_id, metric_key=metric_key),
+                key=lambda metric: (metric.timestamp, metric.step, metric.value),
+            )
+            metrics_with_runids.extend(
+                [
+                    {
+                        "key": metric.key,
+                        "value": metric.value,
+                        "timestamp": metric.timestamp,
+                        "step": metric.step,
+                        "run_id": run_id,
+                    }
+                    for metric in metrics_for_run
+                ]
+            )
+        return metrics_with_runids
+
+    if hasattr(store, "get_metric_history_bulk"):
+        metrics_with_runids = [
+            metric.to_dict() for metric in
+            store.get_metric_history_bulk(run_ids=run_ids, metric_key=metric_key)
+        ]
+    else:
+        metrics_with_runids = _default_history_bulk_impl()
 
     return {
         "metrics": metrics_with_runids,
