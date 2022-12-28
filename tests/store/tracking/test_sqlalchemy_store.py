@@ -2730,6 +2730,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             assert tag.key == "k2"
             assert tag.value == "v2"
 
+    def test_get_metric_history_on_non_existent_metric_key(self):
+        experiment_id = self._experiment_factory("test_exp")[0]
+        run = self.store.create_run(
+            experiment_id=experiment_id, user_id="user", start_time=0, tags=[], run_name="name"
+        )
+        run_id = run.info.run_id
+        metrics = self.store.get_metric_history(run_id, "test_metric")
+        assert metrics == []
+
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)

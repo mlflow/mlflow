@@ -773,11 +773,7 @@ class FileStore(AbstractStore):
 
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
-            run_id = run_info.run_id
-            raise MlflowException(
-                f"Metric '{metric_key}' not found under run '{run_id}'",
-                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
-            )
+            return []
         return PagedList(
             [
                 FileStore._get_metric_from_line(metric_key, line)
