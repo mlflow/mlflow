@@ -147,6 +147,24 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         )
 
 
+def test_universal_autolog_calls_pyspark_immediately_in_databricks(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
+    mlflow.autolog()
+    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    mlflow.autolog(disable=True)
+    assert autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    mlflow.autolog(disable=False)
+    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+        # there should be no import hook on pyspark since autologging was already
+        # applied to an active spark session
+        mlflow.utils.import_hooks.notify_module_loaded(pyspark)
+        autolog_mock.assert_not_called()
+
+
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
@@ -162,9 +180,9 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
 
         mlflow.utils.import_hooks.notify_module_loaded(pyspark)
 
-        # assert autolog is called again once pyspark is imported
+        # assert autolog is called once pyspark is imported
         assert autolog_mock.call_count == 1
-        assert autolog_mock.call_args_list[1] == config
+        assert autolog_mock.call_args_list[0] == config
 
 
 def test_universal_autolog_makes_expected_event_logging_calls():
