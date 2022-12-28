@@ -147,35 +147,31 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         )
 
 
-@mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime")
-def test_universal_autolog_calls_pyspark_immediately_in_databricks(is_in_databricks_runtime):
-    is_in_databricks_runtime.return_value = True
-    mlflow.autolog()
-    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+def test_universal_autolog_calls_pyspark_immediately_in_databricks():
+    with mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime", return_value=True):
+        mlflow.autolog()
+        assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
-    mlflow.autolog(disable=True)
-    assert autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+        mlflow.autolog(disable=True)
+        assert autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
-    mlflow.autolog(disable=False)
-    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+        mlflow.autolog(disable=False)
+        assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
-    with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
-        # there should be no import hook on pyspark since autologging was already
-        # applied to an active spark session
-        mlflow.utils.import_hooks.notify_module_loaded(pyspark)
-        autolog_mock.assert_not_called()
+        with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+            # there should be no import hook on pyspark since autologging was already
+            # applied to an active spark session
+            mlflow.utils.import_hooks.notify_module_loaded(pyspark)
+            autolog_mock.assert_not_called()
 
 
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
-def test_universal_autolog_attaches_pyspark_import_hook_in_oss(config):
+def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         autolog_mock.integration_name = "spark"
 
         mlflow.autolog(**config)
         autolog_mock.assert_not_called()
-
-        # now the user installs pyspark
-        autolog_mock.side_effect = None
 
         mlflow.utils.import_hooks.notify_module_loaded(pyspark)
 
