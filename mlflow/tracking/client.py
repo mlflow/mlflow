@@ -19,7 +19,10 @@ from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
-from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+)
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -2623,7 +2626,13 @@ class MlflowClient:
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
-    def search_model_versions(self, filter_string: str) -> PagedList[ModelVersion]:
+    def search_model_versions(
+        self,
+        filter_string: str,
+        max_results: int = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -2684,7 +2693,9 @@ class MlflowClient:
             ------------------------------------------------------------------------------------
             name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
         """
-        return self._get_registry_client().search_model_versions(filter_string)
+        return self._get_registry_client().search_model_versions(
+            filter_string, max_results, order_by, page_token
+        )
 
     def get_model_version_stages(
         self, name: str, version: str  # pylint: disable=unused-argument

@@ -30,6 +30,7 @@ from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.string_utils import is_string_type
@@ -525,7 +526,8 @@ class FileStore(AbstractStore):
                 creation_time = get_current_time_millis()
                 registered_model = self.get_registered_model(name)
                 registered_model.last_updated_timestamp = creation_time
-                version = next_version(name)
+                self._save_registered_model_as_meta_file(registered_model)
+                version = next_version(registered_model)
                 model_version = ModelVersion(
                     name=name,
                     version=version,
@@ -688,29 +690,53 @@ class FileStore(AbstractStore):
             model_versions.append(self._get_model_version_from_dir(directory))
         return model_versions
 
-    def search_model_versions(self, filter_string):
+    def search_model_versions(
+        self, filter_string, max_results=None, order_by=None, page_token=None
+    ):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects that satisfy the search expressions. The pagination token for the next page can be
+                 obtained via the ``token`` attribute of the object.
         """
-        # should we filter name directly if the condition is about name?
-        # do all model versions under the same registered_model have the same name?
+        if not isinstance(max_results, int) or max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if max_results > SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
         registered_model_paths = self._get_all_registered_model_paths()
         model_versions = []
         for path in registered_model_paths:
             model_versions.extend(self._list_model_versions_under_path(path))
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
-        filtered_mvs = sorted(
-            (mv for mv in filtered_mvs if mv.current_stage != STAGE_DELETED_INTERNAL),
-            key=lambda mv: mv.last_updated_timestamp,
-            reverse=True,
-        )
-        return PagedList(filtered_mvs, None)
+
+        sorted_mvs = SearchModelVersionUtils.sort(filtered_mvs, order_by)
+        start_offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        final_offset = start_offset + max_results
+
+        paginated_mvs = sorted_mvs[start_offset:final_offset]
+        next_page_token = None
+        if final_offset < len(sorted_mvs):
+            next_page_token = SearchUtils.create_page_token(final_offset)
+        return PagedList(paginated_mvs, next_page_token)
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
         _validate_model_name(name)

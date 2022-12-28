@@ -1087,11 +1087,18 @@ class SearchModelUtils(SearchUtils):
 
 
 class SearchModelVersionUtils(SearchUtils):
-    NUMERIC_ATTRIBUTES = {"creation_timestamp", "last_updated_timestamp"}
+    NUMERIC_ATTRIBUTES = {"version_number", "creation_timestamp", "last_updated_timestamp"}
     VALID_SEARCH_ATTRIBUTE_KEYS = {
         "name",
+        "version_number",
         "run_id",
         "source_path",  # this is for sql store only
+    }
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = {
+        "name",
+        "version_number",
+        "creation_timestamp",
+        "last_updated_timestamp",
     }
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
 
@@ -1099,10 +1106,11 @@ class SearchModelVersionUtils(SearchUtils):
     def _does_model_version_match_clauses(cls, mv, sed):  # pylint: disable=arguments-renamed
         key_type = sed.get("type")
         key = sed.get("key")
+        if key == "version_number":
+            key = "version"
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
-        # what comparators do we support here?
         if cls.is_string_attribute(key_type, key, comparator):
             if key == "source_path":
                 lhs = getattr(mv, key, getattr(mv, "source"))
@@ -1112,7 +1120,6 @@ class SearchModelVersionUtils(SearchUtils):
             lhs = getattr(mv, key)
             value = int(value)
         elif cls.is_tag(key_type, comparator):
-            # if the filter doesn't apply, do we return False or?
             lhs = mv.tags.get(key, None)
         else:
             raise MlflowException(
@@ -1137,6 +1144,57 @@ class SearchModelVersionUtils(SearchUtils):
             return all(cls._does_model_version_match_clauses(mv, s) for s in parsed)
 
         return [mv for mv in model_versions if model_version_matches(mv)]
+
+    @classmethod
+    def parse_order_by_for_search_model_versions(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        identifier = SearchExperimentsUtils._get_identifier(
+            token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS
+        )
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        order_by = []
+        parsed_order_by = map(cls.parse_order_by_for_search_model_versions, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
+            if type_ == "attribute":
+                # Need to add this mapping because version is a keyword in sql
+                if key == "version_number":
+                    key = "version"
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "name" for key, _ in order_by):
+            order_by.append(("name", True))
+        if not any(key == "version_number" for key, _ in order_by):
+            order_by.append(("version", True))
+
+        # https://stackoverflow.com/a/56842689
+        class _Reversor:
+            def __init__(self, obj):
+                self.obj = obj
+
+            # Only need < and == are needed for use as a key parameter in the sorted function
+            def __eq__(self, other):
+                return other.obj == self.obj
+
+            def __lt__(self, other):
+                return other.obj < self.obj
+
+        def _apply_reversor(model, key, ascending):
+            attr = getattr(model, key)
+            return attr if ascending else _Reversor(attr)
+
+        return lambda model_version: tuple(
+            _apply_reversor(model_version, k, asc) for (k, asc) in order_by
+        )
+
+    @classmethod
+    def sort(cls, model_versions, order_by_list):  # pylint: disable=arguments-renamed
+        return sorted(model_versions, key=cls._get_sort_key(order_by_list))
 
     @classmethod
     def _get_model_version_search_identifier(cls, identifier, valid_attributes):
@@ -1171,8 +1229,55 @@ class SearchModelVersionUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
-        comp["value"] = SearchModelUtils._get_value(comp.get("type"), comp.get("key"), right)
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
+
+    @classmethod
+    def _get_value(cls, identifier_type, key, token):
+        if identifier_type == cls._TAG_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            raise MlflowException(
+                "Expected a quoted string value for "
+                "{identifier_type} (e.g. 'my-value'). Got value "
+                "{value}".format(identifier_type=identifier_type, value=token.value),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                if key != "run_id":
+                    raise MlflowException(
+                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return cls._parse_run_ids(token)
+            elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+                if key not in cls.NUMERIC_ATTRIBUTES:
+                    raise MlflowException(
+                        f"Only the '{cls.NUMERIC_ATTRIBUTES}' attributes support comparison with "
+                        "numeric values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                elif token.ttype == TokenType.Literal.Number.Float:
+                    return float(token.value)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value or a list of quoted string values for "
+                    "attributes. Got value {value}".format(value=token.value),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            # Expected to be either "param" or "metric".
+            raise MlflowException(
+                "Invalid identifier type. Expected one of "
+                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     @classmethod
     def _process_statement(cls, statement):
@@ -1184,7 +1289,6 @@ class SearchModelVersionUtils(SearchUtils):
             )
         return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
 
-    # What should we support here?
     @classmethod
     def _invalid_statement_token_search_model_version(cls, token):
         if isinstance(token, (Comparison, Identifier, Parenthesis)):
