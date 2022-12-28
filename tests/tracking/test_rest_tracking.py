@@ -973,6 +973,7 @@ def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlfl
         key=lambda metric: metric["run_id"],
     )
 
+
 def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
     import mlflow
     from mlflow.server.handlers import get_metric_history_bulk_handler
@@ -981,7 +982,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
     uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
     mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
 
-    flask_app = flask.Flask('test_flask_app')
+    flask_app = flask.Flask("test_flask_app")
 
     class MockRequestArgs:
         def __init__(self, args_dict):
@@ -990,13 +991,16 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         def to_dict(self, flat):
             return self.args_dict
 
-    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_store),\
-        flask_app.test_request_context() as mock_context:
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
         run_ids = [str(i) for i in range(10)]
-        mock_context.request.args = MockRequestArgs({
-            "run_id": run_ids,
-            "metric_key": ["mock_key"],
-        })
+        mock_context.request.args = MockRequestArgs(
+            {
+                "run_id": run_ids,
+                "metric_key": ["mock_key"],
+            }
+        )
 
         get_metric_history_bulk_handler()
 
