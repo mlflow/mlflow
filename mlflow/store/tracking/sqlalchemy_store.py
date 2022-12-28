@@ -774,7 +774,6 @@ class SqlAlchemyStore(AbstractStore):
                 latest_metric_keys_from_db = [
                     record[0] for record in latest_metrics_key_records_from_db
                 ]
-
                 latest_metrics_batch = (
                     session.query(SqlLatestMetric)
                     .filter(
