@@ -905,17 +905,17 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             metrics = (
                 session.query(SqlMetric)
-                    .filter(
-                        SqlMetric.key==metric_key,
-                        SqlMetric.run_uuid.in_(run_ids),
-                    )
-                    .order_by(
-                        SqlMetric.run_uuid,
-                        SqlMetric.timestamp,
-                        SqlMetric.step,
-                        SqlMetric.value,
-                    )
-                    .all()
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                )
+                .order_by(
+                    SqlMetric.run_uuid,
+                    SqlMetric.timestamp,
+                    SqlMetric.step,
+                    SqlMetric.value,
+                )
+                .all()
             )
             return [
                 SqlAlchemyStore.MetricWithRunId(

@@ -1053,8 +1053,8 @@ def get_metric_history_bulk_handler():
 
     if hasattr(store, "get_metric_history_bulk"):
         metrics_with_runids = [
-            metric.to_dict() for metric in
-            store.get_metric_history_bulk(run_ids=run_ids, metric_key=metric_key)
+            metric.to_dict()
+            for metric in store.get_metric_history_bulk(run_ids=run_ids, metric_key=metric_key)
         ]
     else:
         metrics_with_runids = _default_history_bulk_impl()
