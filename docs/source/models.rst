@@ -584,6 +584,40 @@ produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
 
+``crate`` usage
+~~~~~~~~~~~~~~~
+
+For a minimal crate model, an example configuration for the predict function is:
+
+.. code-block:: r
+
+    library(mlflow)
+    library(carrier)
+    # Load iris dataset
+    data("iris")
+
+    # Learn simple linear regression model
+    model <- lm(Sepal.Width~Sepal.Length, data = iris)
+
+    # Define a crate model
+    # call package functions with an explicit :: namespace.
+    crate_model <- crate(
+      function(new_obs)  stats::predict(model, data.frame("Sepal.Length" = new_obs)),
+      model = model
+    )
+
+    # log the model
+    model_path <- mlflow_log_model(model = crate_model, artifact_path = "iris_prediction")
+
+    # load the logged model and make a prediction
+    model_uri <- paste0(mlflow_get_run()$artifact_uri, "/iris_prediction")
+    mlflow_model <- mlflow_load_model(model_uri = model_uri,
+                                      flavor = NULL,
+                                      client = mlflow_client())
+
+    prediction <- mlflow_predict(model = mlflow_model, data = 5)
+    print(prediction)
+
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
