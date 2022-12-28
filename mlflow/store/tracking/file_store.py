@@ -4,6 +4,7 @@ import time
 import os
 import sys
 import shutil
+import pathlib
 
 import uuid
 
@@ -314,8 +315,26 @@ class FileStore(AbstractStore):
         )
         return experiments[0] if len(experiments) > 0 else None
 
+    def _resolve_relative_artifact_uri(self, artifact_uri):
+        """
+        if `artifact_uri` is passed in as a relative path, this method
+        resolves it to absolute path against the `artifact_root_uri`.
+        if `artifact_uri` is already an absolute path or file uri,
+        this method returns it back.
+
+        :param artifact_uri: Relative or absolute path or local file uri
+
+        :return: Absolute path or file uri
+        """
+        if (
+            artifact_uri is not None
+            and not pathlib.Path(local_file_uri_to_path(artifact_uri)).is_absolute()
+        ):
+            return append_to_uri_path(self.artifact_root_uri, artifact_uri)
+        return artifact_uri
+
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
-        artifact_uri = artifact_uri or append_to_uri_path(
+        artifact_uri = self._resolve_relative_artifact_uri(artifact_uri) or append_to_uri_path(
             self.artifact_root_uri, str(experiment_id)
         )
         self._check_root_dir()
