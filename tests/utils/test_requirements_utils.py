@@ -199,7 +199,7 @@ def test_normalize_package_name():
 
 def test_prune_packages():
     assert _prune_packages(["mlflow"]) == {"mlflow"}
-    assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow"}
+    assert _prune_packages(["mlflow", "scikit-learn"]) == {"mlflow", "scikit-learn"}
 
 
 def test_capture_imported_modules():
