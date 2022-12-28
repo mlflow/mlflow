@@ -147,8 +147,9 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         )
 
 
-def test_universal_autolog_calls_pyspark_immediately_in_databricks(monkeypatch):
-    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
+@mock.patch("mlflow.tracking.fluent.is_in_databricks_runtime")
+def test_universal_autolog_calls_pyspark_immediately_in_databricks(is_in_databricks_runtime):
+    is_in_databricks_runtime.return_value = True
     mlflow.autolog()
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
@@ -166,7 +167,7 @@ def test_universal_autolog_calls_pyspark_immediately_in_databricks(monkeypatch):
 
 
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
-def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
+def test_universal_autolog_attaches_pyspark_import_hook_in_oss(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         autolog_mock.integration_name = "spark"
         # simulate pyspark not being installed
