@@ -1163,7 +1163,7 @@ class SklearnModel(mlflow.pyfunc.PythonModel):
         return self.model.predict(model_input)
 
 
-def test_dependency_inference_does_not_drop_sklearn(tmp_path):
+def test_dependency_inference_does_not_exclude_mlflow_dependencies(tmp_path):
     mlflow.pyfunc.save_model(
         path=tmp_path,
         python_model=SklearnModel(),
