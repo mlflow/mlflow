@@ -249,10 +249,11 @@ test_that("experiment setting works", {
 
 test_that("mlflow_set_experiment() creates experiments", {
   mlflow_clear_test_dir("mlruns")
-  experiment_root_dir <- "artifact/location"
-  mlflow_set_experiment(experiment_name = "foo", artifact_location = experiment_root_dir)
+  artifact_relative_path <- "artifact/location"
+  mlflow_set_experiment(experiment_name = "foo", artifact_location = artifact_relative_path)
   experiment <- mlflow_get_experiment()
-  expect_identical(experiment$artifact_location, sprintf("%s/mlruns/%s", getwd(), experiment_root_dir))
+  expected_artifact_location <- sprintf("%s/mlruns/%s", getwd(), artifact_relative_path)
+  expect_identical(experiment$artifact_location, expected_artifact_location)
   expect_identical(experiment$name, "foo")
 })
 

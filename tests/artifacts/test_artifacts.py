@@ -163,7 +163,7 @@ def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run
     assert pathlib.Path(artifact_uri) == expected_artifact_uri
 
 
-def test_relative_artifact_uri_resolves(test_artifact):
+def test_default_relative_artifact_uri_resolves(test_artifact):
     tracking_uri = path_to_local_file_uri(test_artifact.tmp_path.joinpath("mlruns"))
     mlflow.set_tracking_uri(tracking_uri)
     experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
