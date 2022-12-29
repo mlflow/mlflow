@@ -1788,3 +1788,20 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run_id = run.info.run_id
         test_metrics = file_store.get_metric_history(run_id, "test_metric")
         assert test_metrics == []
+
+
+def test_experiment_with_default_root_artifact_uri(tmp_path):
+    file_store_root_uri = f"file://{tmp_path}"
+    file_store = FileStore(file_store_root_uri)
+    experiment_id = file_store.create_experiment(name="test", artifact_location="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    assert experiment_info.artifact_location == f"{file_store_root_uri}/test"
+
+
+def test_experiment_with_root_artifact_uri(tmp_path):
+    file_store_root_uri = f"file://{tmp_path}/experiments"
+    artifacts_root_uri = f"file://{tmp_path}/artifacts"
+    file_store = FileStore(file_store_root_uri, artifacts_root_uri)
+    experiment_id = file_store.create_experiment(name="test", artifact_location="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    assert experiment_info.artifact_location == f"{artifacts_root_uri}/test"
