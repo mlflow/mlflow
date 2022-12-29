@@ -2552,27 +2552,29 @@ Example:
         input_example=df_iris.head(5),
     )
 
-MLflow Sktime
+Sktime
 ^^^^^^^^^^^^^
 
-The ``sktime`` custom model flavor enables logging of `sktime models <https://github.com/sktime/sktime>`_ in MLflow
-format via the `mlflow_sktime.save_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.save_model.html>`_ and
-`mlflow_sktime.log_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.log_model.html>`_ methods.
-These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
+format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
 This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the `mlflow_sktime.load_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.load_model.html>`_ method to load MLflow Models with the ``sktime``
+You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
 model flavor in native sktime formats.
 
-Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing a sktime model loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
+Installing Sktime
+~~~~~~~~~~~~~~~~~~~~
 
-Installation:
+Install sktime with mlflow dependency:
 
 .. code-block:: bash
 
     pip install sktime[mlflow]
 
-Example:
+Usage example
+~~~~~~~~~~~~~~~~~~~~
+
+Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
 
 .. code-block:: python
 
