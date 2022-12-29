@@ -1,9 +1,12 @@
 import pathlib
+import shutil
+import uuid
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.utils.file_utils import path_to_local_file_uri, mkdir
 from collections import namedtuple
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
@@ -136,3 +139,59 @@ def test_load_image_invalid_image(run_with_text_artifact):
         mlflow.exceptions.MlflowException, match="Unable to form a PIL Image object"
     ):
         mlflow.artifacts.load_image(artifact.uri)
+
+
+@pytest.fixture()
+def test_artifact(tmp_path):
+    artifact_name = "test.txt"
+    artifacts_root_tmp = mkdir(tmp_path.joinpath(str(uuid.uuid4())))
+    test_artifact_path = artifacts_root_tmp.joinpath(artifact_name)
+    with open(test_artifact_path, "w") as handle:
+        handle.write("test")
+    artifact_return_type = namedtuple(
+        "artifact_return_type", ["tmp_path", "artifact_path", "artifact_name"]
+    )
+    yield artifact_return_type(artifacts_root_tmp, test_artifact_path, artifact_name)
+    shutil.rmtree(artifacts_root_tmp, ignore_errors=True)
+
+
+def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
+    mlflow.log_artifact(test_artifact.artifact_path)
+    artifact_uri = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path=test_artifact.artifact_name, tracking_uri=tracking_uri
+    )
+    assert pathlib.Path(artifact_uri) == expected_artifact_uri
+
+
+def test_relative_artifact_uri_resolves(test_artifact):
+    tracking_uri = path_to_local_file_uri(test_artifact.tmp_path.joinpath("mlruns"))
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            test_artifact.tmp_path.joinpath(
+                "mlruns",
+                "test_artifacts_root",
+                run.info.run_id,
+                "artifacts",
+                test_artifact.artifact_name,
+            ),
+            test_artifact,
+            run.info.run_id,
+        )
+
+
+def test_custom_relative_artifact_uri_resolves(test_artifact):
+    tracking_uri = path_to_local_file_uri(test_artifact.tmp_path.joinpath("tracking"))
+    artifacts_root_path = test_artifact.tmp_path.joinpath("test_artifacts")
+    artifacts_root_uri = path_to_local_file_uri(artifacts_root_path)
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment_id = mlflow.create_experiment("test_exp_b", artifacts_root_uri)
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            artifacts_root_path.joinpath(run.info.run_id, "artifacts", test_artifact.artifact_name),
+            test_artifact,
+            run.info.run_id,
+        )
