@@ -319,17 +319,31 @@ def test_get_model_version_download_uri(store, creds):
         GetModelVersionDownloadUri(name=name, version=version),
     )
 
-
-def test_search_model_versions(store, creds):
-    with mock_http_request_200() as mock_http:
-        store.search_model_versions(filter_string="name='model_12'")
-    _verify_requests(
-        mock_http,
-        creds,
-        "model-versions/search",
-        "GET",
-        SearchModelVersions(filter="name='model_12'"),
-    )
+    @mock_http_request
+    def test_search_model_versions(self, mock_http):
+        names = ["model_" + i for i in ["1", "2", "3", "3", "1"]]
+        for name in set(names):
+            self.store.create_registered_model(name)
+        for name in names:
+            self.store.create_model_version(name, "path/to/source")
+        self.store.search_model_versions()
+        self._verify_requests(mock_http, "model-versions/search", "GET", SearchModelVersions())
+        params_list = [
+            {"filter_string": "name = 'model_12'"},
+            {"max_results": 400},
+            {"order_by": ["version DESC", "creation_time DESC"]},
+            {"page_token": "blah"},
+        ]
+        # test all combination of params
+        for sz in range(5):
+            for combination in combinations(params_list, sz):
+                params = {k: v for d in combination for k, v in d.items()}
+                self.store.search_model_versions(**params)
+                if "filter_string" in params:
+                    params["filter"] = params.pop("filter_string")
+                self._verify_requests(
+                    mock_http, "model-versions/search", "GET", SearchModelVersions(**params)
+                )
 
 
 def test_set_model_version_tag(store, creds):

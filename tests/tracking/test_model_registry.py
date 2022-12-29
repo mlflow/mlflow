@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 import pytest
 
-from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.time_utils import get_current_time_millis
@@ -501,3 +501,69 @@ def test_set_model_version_tag_with_empty_string_as_value(client):
     client.create_model_version(name, "path/to/model", "run_id_1")
     client.set_model_version_tag(name, "1", "tag_key", "")
     assert {"tag_key": ""}.items() <= client.get_model_version(name, "1").tags.items()
+
+
+@pytest.mark.parametrize("max_results", [1, 8, 100])
+@pytest.mark.parametrize(
+    ("filter_string", "filter_func", "order_by", "order_by_key", "order_by_desc"),
+    [
+        (None, lambda mv: True, None, None, False),
+        ("", lambda mv: True, "name DESC", lambda mv: mv.name, True),
+        (
+            "name LIKE '%2'",
+            lambda mv: mv.name.endswith("2"),
+            "version DESC",
+            lambda mv: mv.version,
+            True,
+        ),
+        ("name ILIKE '%rm%00%'", lambda mv: "00" in mv.name, None, None, False),
+        ("name LIKE '%rm%00%'", lambda mv: False, None, None, False),
+        ("name = 'badname'", lambda mv: False, None, None, False),
+        ("name = 'CreateRMsearch03'", lambda mv: mv.name == "CreateRMsearch03", None, None, False),
+    ],
+)
+def test_search_model_versions_flow_paginated(
+    mlflow_client,
+    backend_store_uri,
+    max_results,
+    filter_string,
+    filter_func,
+    order_by,
+    order_by_key,
+    order_by_desc,
+):
+    names = [f"CreateRMsearch{i:03}" for i in range(29)]
+    for name in names:
+        mlflow_client.create_registered_model(name)
+    mvs = [mlflow_client.create_model_version(name) for name in names + names[:10]]
+    for mv in mvs:
+        assert isinstance(mv, ModelVersion)
+
+    def verify_pagination(mv_getter_with_token, expected_mvs):
+        result_mvs = []
+        result = mv_getter_with_token(None)
+        result_mvs.extend(result)
+        while result.token:
+            result = mv_getter_with_token(result.token)
+            result_mvs.extend(result)
+        assert [mv.name for mv in expected_mvs] == [mv.name for mv in result_mvs]
+        assert [mv.version for mv in expected_mvs] == [mv.version for mv in result_mvs]
+
+    try:
+        if order_by_key:
+            expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
+        verify_pagination(
+            lambda tok: mlflow_client.search_model_versions(
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=tok,
+            ),
+            expected_mvs,
+        )
+    except Exception as e:
+        raise e
+    finally:
+        # clean up test
+        for name in names:
+            mlflow_client.delete_registered_model(name)

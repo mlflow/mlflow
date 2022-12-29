@@ -529,8 +529,8 @@ message SearchModelVersions {
   // with string values wrapped in single quotes.
   optional string filter = 1;
 
-  // Maximum number of models desired. Max threshold is 200K.
-  optional int64 max_results = 2 [default = 200000];
+  // Maximum number of models desired. Default is 100. Max threshold is 1000.
+  optional int64 max_results = 2 [default = 100];
 
   // List of columns to be ordered by including model name, version, stage with an
   // optional "DESC" or "ASC" annotation, where "ASC" is the default.

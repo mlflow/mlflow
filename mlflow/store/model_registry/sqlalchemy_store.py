@@ -845,7 +845,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_model_versions(
         self,
-        filter_string,
+        filter_string=None,
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,

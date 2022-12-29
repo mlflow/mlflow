@@ -2628,7 +2628,7 @@ class MlflowClient:
 
     def search_model_versions(
         self,
-        filter_string: str,
+        filter_string: str = None,
         max_results: int = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
@@ -2658,7 +2658,14 @@ class MlflowClient:
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects that satisfy the search expressions. The pagination token for the next page can be
+                 obtained via the ``token`` attribute of the object.
 
         .. code-block:: python
             :caption: Example
