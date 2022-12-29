@@ -17,6 +17,10 @@ from mlflow.utils.autologging_utils import (
 
 logging.basicConfig(level=logging.ERROR)
 
+# indicates that lightning is active, so no low level tensorboard patching
+# is required.
+IN_FIT = False
+
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
 # 1. MlflowLogger doesn't provide a mechanism to store an entire model into mlflow.
@@ -343,6 +347,9 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
+    global IN_FIT
+
+    IN_FIT = True
     run_id = mlflow.active_run().info.run_id
     tracking_uri = mlflow.get_tracking_uri()
     client = MlflowAutologgingQueueingClient(tracking_uri)
@@ -406,4 +413,5 @@ def patched_fit(original, self, *args, **kwargs):
 
     client.flush(synchronous=True)
 
+    IN_FIT = False
     return result
