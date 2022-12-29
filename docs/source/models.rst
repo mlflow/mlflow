@@ -16,7 +16,7 @@ that can be understood by different downstream tools.
 .. _model-storage-format:
 
 Storage Format
---------------l
+--------------
 
 Each MLflow Model is a directory containing arbitrary files, together with an ``MLmodel``
 file in the root of the directory that can define multiple *flavors* that the model can be viewed
