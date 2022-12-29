@@ -661,6 +661,7 @@ def test_delete_model_version(store):
 
         # search using version
         assert set(search_versions("version_number=2")) == {2}
+        assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
     # search using run_id_1 should return version 1
     assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
@@ -735,16 +736,24 @@ def test_delete_model_version(store):
         search_versions("run_id IN (,)")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-    with pytest.raises(
-        MlflowException,
-        match=(
-            r"While parsing a list in the query, "
-            r"expected a non-empty list of string values, "
-            r"but got ill-formed list"
-        ),
-    ) as exception_context:
-        search_versions("run_id IN ('runid1',,'runid2')")
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"While parsing a list in the query, "
+                r"expected a non-empty list of string values, "
+                r"but got ill-formed list"
+            ),
+        ) as exception_context:
+            search_versions("run_id IN ('runid1',,'runid2')")
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # search using source_path "A/D" should return version 3 and 4
+        assert set(search_versions("source_path = 'A/D'")) == {3, 4}
+
+        # search using source_path "A" should not return anything
+        assert len(search_versions("source_path = 'A'")) == 0
+        assert len(search_versions("source_path = 'A/'")) == 0
+        assert len(search_versions("source_path = ''")) == 0
 
     # delete mv4. search should not return version 4
     store.delete_model_version(name=mv4.name, version=mv4.version)
@@ -790,25 +799,25 @@ def test_delete_model_version(store):
         assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
 
         # order by name DESC
-        mvs = self._search_model_versions(fs, order_by=["name DESC"]).to_list()
+        mvs = self._search_model_versions(fs, order_by=["name DESC"])
         assert [mv.name for mv in mvs] == sorted(names)[::-1]
         assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
 
         # order by version DESC
-        mvs = self._search_model_versions(fs, order_by=["version_number DESC"]).to_list()
+        mvs = self._search_model_versions(fs, order_by=["version_number DESC"])
         assert [mv.name for mv in mvs] == [
             prefix + name for name in ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
         ]
         assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by creation_timestamp DESC
-        mvs = self._search_model_versions(fs, order_by=["creation_timestamp DESC"]).to_list()
+        mvs = self._search_model_versions(fs, order_by=["creation_timestamp DESC"])
         assert [mv.name for mv in mvs] == names[::-1]
         assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by last_updated_timestamp ASC
         fs.update_model_version(names[0], 1, "latest updated")
-        mvs = self._search_model_versions(fs, order_by=["last_updated_timestamp ASC"]).to_list()
+        mvs = self._search_model_versions(fs, order_by=["last_updated_timestamp ASC"])
         assert mvs[-1].name == names[0]
         assert mvs[-1].version == 1
 

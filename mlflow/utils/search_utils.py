@@ -1106,17 +1106,14 @@ class SearchModelVersionUtils(SearchUtils):
     def _does_model_version_match_clauses(cls, mv, sed):  # pylint: disable=arguments-renamed
         key_type = sed.get("type")
         key = sed.get("key")
-        if key == "version_number":
-            key = "version"
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
         if cls.is_string_attribute(key_type, key, comparator):
-            if key == "source_path":
-                lhs = getattr(mv, key, getattr(mv, "source"))
-            else:
-                lhs = getattr(mv, key)
+            lhs = getattr(mv, "source" if key == "source_path" else key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
+            if key == "version_number":
+                key = "version"
             lhs = getattr(mv, key)
             value = int(value)
         elif cls.is_tag(key_type, comparator):
