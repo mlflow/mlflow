@@ -16,7 +16,7 @@ that can be understood by different downstream tools.
 .. _model-storage-format:
 
 Storage Format
---------------
+--------------l
 
 Each MLflow Model is a directory containing arbitrary files, together with an ``MLmodel``
 file in the root of the directory that can define multiple *flavors* that the model can be viewed
@@ -2551,3 +2551,56 @@ Example:
         style="vegalite",
         input_example=df_iris.head(5),
     )
+
+MLflow Sktime
+^^^^^^^^^^^^^
+
+The ``sktime`` custom model flavor enables logging of `sktime models <https://github.com/sktime/sktime>`_ in MLflow
+format via the `mlflow_sktime.save_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.save_model.html>`_ and
+`mlflow_sktime.log_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.log_model.html>`_ methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the `mlflow_sktime.load_model()  <https://www.sktime.org/en/latest/api_reference/auto_generated/sktime.utils.mlflow_sktime.load_model.html>`_ method to load MLflow Models with the ``sktime``
+model flavor in native sktime formats.
+
+Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing a sktime model loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
+
+Installation:
+
+.. code-block:: bash
+
+    pip install sktime[mlflow]
+
+Example:
+
+.. code-block:: python
+
+    import pandas as pd
+
+    from sktime.datasets import load_airline
+    from sktime.forecasting.arima import AutoARIMA
+    from sktime.utils import mlflow_sktime
+
+    airline = load_airline()
+    model_path = "model"
+
+
+    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
+        airline, fh=[1, 2, 3]
+    )
+
+    mlflow_sktime.save_model(
+        sktime_model=auto_arima_model,
+        path=model_path,
+    )
+
+    loaded_model = mlflow_sktime.load_model(
+        model_uri=model_path,
+    )
+    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
+        model_uri=model_path,
+    )
+
+    print(loaded_model.predict())
+    print(loaded_pyfunc.predict(pd.DataFrame()))
