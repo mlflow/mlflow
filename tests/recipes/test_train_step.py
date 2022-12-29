@@ -282,7 +282,7 @@ def test_train_step_classifier_automl(
         """
         recipe: "classification/v1"
         target_col: "y"
-        primary_metric: {metric}
+        primary_metric: "roc_auc"
         profile: "test_profile"
         {positive_class}
         run_args:
@@ -300,7 +300,6 @@ def test_train_step_classifier_automl(
                     - lgbm
         """.format(
             tracking_uri=mlflow.get_tracking_uri(),
-            metric="roc_auc" if recipe == "classification/binary" else "roc_auc_ovr",
             positive_class='positive_class: "a"' if recipe == "classification/binary" else "",
         )
     )
