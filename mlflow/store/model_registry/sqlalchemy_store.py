@@ -862,8 +862,8 @@ class SqlAlchemyStore(AbstractStore):
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_model_versions`` call.
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects that satisfy the search expressions. The pagination token for the next page can be
-                 obtained via the ``token`` attribute of the object.
+                 objects that satisfy the search expressions. The pagination token for the next
+                 page can be obtained via the ``token`` attribute of the object.
         """
         if not isinstance(max_results, int) or max_results < 1:
             raise MlflowException(
@@ -910,7 +910,8 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _parse_search_model_versions_order_by(cls, order_by_list):
         """Sorts a set of model versions based on their natural ordering and an overriding set
-        of order_bys. Model versions are naturally ordered first by name ascending, then by version ascending.
+        of order_bys. Model versions are naturally ordered first by name ascending, then by
+        version ascending.
         """
         clauses = []
         observed_order_by_clauses = set()

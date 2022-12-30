@@ -321,8 +321,8 @@ class RestStore(AbstractStore):
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_model_versions`` call.
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects that satisfy the search expressions. The pagination token for the next page can be
-                 obtained via the ``token`` attribute of the object.
+                 objects that satisfy the search expressions. The pagination token for the next
+                 page can be obtained via the ``token`` attribute of the object.
         """
         req_body = message_to_json(
             SearchModelVersions(
