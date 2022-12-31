@@ -1047,6 +1047,45 @@ class MlflowClient:
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
+    def log_code_to_artifact(
+        self, run_id, local_dir=os.path.abspath("."), file_extension=".py", artifact_path="code"
+    ) -> None:
+        """
+        Write a directory of code to the remote ``artifact_uri``.
+
+        :param local_dir: Path to the directory of code.
+        :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import json
+            from mlflow import MlflowClient
+
+            features = ["rooms, zipcode, median_price, school_rating, transport"]
+            with open("features.py", 'w') as f:
+                f.write(features)
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+
+            # log and fetch the artifact
+            client.log_code_to_artifact(run.info.run_id, os.path.abspath("features.py"))
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: code/features.py
+        """
+        self._tracking_client.log_code_to_artifact(run_id, local_dir, file_extension, artifact_path)
+
     @contextlib.contextmanager
     def _log_artifact_helper(self, run_id, artifact_file):
         """
