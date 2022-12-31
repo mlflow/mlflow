@@ -30,6 +30,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.time_utils import get_current_time_millis
 from collections import OrderedDict
+from typing import Iterator, Tuple
 
 
 class TrackingServiceClient:
@@ -488,6 +489,29 @@ class TrackingServiceClient:
             end_time=end_time,
             run_name=None,
         )
+
+    @staticmethod
+    def _filter_based_on_file_extension(path: str, file_extension: str) -> bool:
+        return path.endswith(file_extension)
+
+    def _get_code_files(self, local_dir: str, file_extension: str) -> Iterator[Tuple[str, str]]:
+        for directory_path, _, file_names in os.walk(local_dir):
+            for file_name in file_names:
+                file_path = os.path.join(directory_path, file_name)
+                if self._filter_based_on_file_extension(path=file_path, file_extension=file_extension):
+                    yield file_path, directory_path
+
+    def log_code_to_artifact(self, run_id, local_dir=os.path.abspath("."), file_extension=".py", artifact_path="code"):
+        """
+        Write directory containing code to artifacts
+        """
+        artifact_repo = self._get_artifact_repo(run_id)
+        for file_name, directory_name in self._get_code_files(local_dir=local_dir, file_extension=file_extension):
+            file_relative_path = os.path.relpath(file_name, local_dir)
+            directory_relative_path = os.path.relpath(directory_name, local_dir)
+            artifact_repo.log_artifact(
+                file_relative_path, artifact_path=os.path.join(artifact_path, directory_relative_path)
+            )
 
     def delete_run(self, run_id):
         """
