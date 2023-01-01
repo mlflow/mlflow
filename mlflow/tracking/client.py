@@ -2334,7 +2334,7 @@ class MlflowClient:
         )
 
     def transition_model_version_stage(
-        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
+        self, name: str, version: str, stage: str, archive_existing_versions: bool = True
     ) -> ModelVersion:
         """
         Update model version stage.
