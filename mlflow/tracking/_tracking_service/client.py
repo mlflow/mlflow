@@ -491,17 +491,17 @@ class TrackingServiceClient:
         )
 
     @staticmethod
-    def _filter_based_on_file_extension(path: str, file_extension: str) -> bool:
+    def _filter_based_on_file_extension(path: str, file_extension: Tuple[str]) -> bool:
         return path.endswith(file_extension)
 
-    def _get_code_files(self, local_dir: str, file_extension: str) -> Iterator[Tuple[str, str]]:
+    def _get_code_files(self, local_dir: str, file_extension: Tuple[str]) -> Iterator[Tuple[str, str]]:
         for directory_path, _, file_names in os.walk(local_dir):
             for file_name in file_names:
                 file_path = os.path.join(directory_path, file_name)
                 if self._filter_based_on_file_extension(path=file_path, file_extension=file_extension):
                     yield file_path, directory_path
 
-    def log_code_to_artifact(self, run_id, local_dir=os.path.abspath("."), file_extension=".py", artifact_path="code"):
+    def log_code_to_artifact(self, run_id, local_dir=os.path.abspath("."), file_extension=(".py"), artifact_path="code"):
         """
         Write directory containing code to artifacts
         """
