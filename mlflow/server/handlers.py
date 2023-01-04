@@ -1053,7 +1053,7 @@ def get_metric_history_bulk_handler():
         )
 
     return {
-        "metrics": metrics_with_runids,
+        "metrics": metrics_with_runids[:max_results],
     }
 
 
