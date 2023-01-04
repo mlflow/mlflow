@@ -427,7 +427,7 @@ yarn lint:fix
 
 If contributing to MLflow's R APIs, install
 [R](https://cloud.r-project.org/) and make sure that you have satisfied
-all the [Common prerequisites and dependencies](#environment-setup-and-python-configuration).
+all the [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 
 For changes to R documentation, also install
 [pandoc](https://pandoc.org/installing.html) 2.2.1 or above, verifying
@@ -503,7 +503,7 @@ and the Model Scoring Server for Java-based models like MLeap
 
 Other Java functionality (like artifact storage) depends on the Python
 package, so first install the Python package in a conda environment as
-described in [Common prerequisites and dependencies](#environment-setup-and-python-configuration).
+described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 [Install](https://www.oracle.com/technetwork/java/javase/downloads/index.html)
 the Java 8 JDK (or above), and
 [download](https://maven.apache.org/download.cgi) and
@@ -522,7 +522,7 @@ the updated docs to your PR branch.
 ### Python
 
 If you are contributing in Python, make sure that you have satisfied all
-the [Common prerequisites and dependencies](#environment-setup-and-python-configuration), including installing
+the [Environment Setup and Python configuration](#environment-setup-and-python-configuration), including installing
 `pytest`, as you will need it for the sections described below.
 
 #### Writing Python Tests
@@ -785,8 +785,7 @@ python setup.py bdist_wheel
 
 ### Writing Docs
 
-First, install dependencies for building docs as described in [Common
-prerequisites and dependencies](#environment-setup-and-python-configuration).
+First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 
 To generate a live preview of Python & other rst documentation, run the
 following snippet. Note that R & Java API docs must be regenerated
