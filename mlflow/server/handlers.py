@@ -1002,6 +1002,61 @@ def _get_metric_history():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def get_metric_history_bulk_handler():
+    MAX_HISTORY_RESULTS = 25000
+    MAX_RUN_IDS_PER_REQUEST = 20
+    run_ids = request.args.to_dict(flat=False).get("run_id", [])
+    if not run_ids:
+        raise MlflowException(
+            message="GetMetricHistoryBulk request must specify at least one run_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(run_ids) > MAX_RUN_IDS_PER_REQUEST:
+        raise MlflowException(
+            message=(
+                f"GetMetricHistoryBulk request cannot specify more than {MAX_RUN_IDS_PER_REQUEST}"
+                f" run_ids. Received {len(run_ids)} run_ids."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    metric_key = request.args.get("metric_key")
+    if metric_key is None:
+        raise MlflowException(
+            message="GetMetricHistoryBulk request must specify a metric_key.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    max_results = int(request.args.get("max_results", MAX_HISTORY_RESULTS))
+    max_results = min(max_results, MAX_HISTORY_RESULTS)
+
+    store = _get_tracking_store()
+    metrics_with_run_ids = []
+    for run_id in sorted(run_ids):
+        metrics_for_run = sorted(
+            store.get_metric_history(run_id=run_id, metric_key=metric_key, max_results=max_results),
+            key=lambda metric: (metric.timestamp, metric.step, metric.value),
+        )
+        metrics_with_run_ids.extend(
+            [
+                {
+                    "key": metric.key,
+                    "value": metric.value,
+                    "timestamp": metric.timestamp,
+                    "step": metric.step,
+                    "run_id": run_id,
+                }
+                for metric in metrics_for_run
+            ]
+        )
+
+    return {
+        "metrics": metrics_with_run_ids[:max_results],
+    }
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),
