@@ -697,7 +697,7 @@ MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
 
 The ``mleap`` model flavor supports saving Spark models in MLflow format using the
-`MLeap <http://mleap-docs.combust.ml/>`_ persistence mechanism. MLeap is an inference-optimized
+`MLeap <https://combust.github.io/mleap-docs/>`_ persistence mechanism. MLeap is an inference-optimized
 format and execution engine for Spark models that does not depend on
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
 to evaluate inputs.
@@ -718,7 +718,7 @@ A companion module for loading MLflow Models with the MLeap flavor is available 
 ``mlflow/java`` package.
 
 For more information, see :py:mod:`mlflow.spark`, :py:mod:`mlflow.mleap`, and the
-`MLeap documentation <http://mleap-docs.combust.ml/>`_.
+`MLeap documentation <https://combust.github.io/mleap-docs/>`_.
 
 PyTorch (``pytorch``)
 ^^^^^^^^^^^^^^^^^^^^^
