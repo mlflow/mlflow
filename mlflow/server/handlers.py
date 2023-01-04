@@ -1029,7 +1029,7 @@ def get_metric_history_bulk_handler():
         )
     metric_key = metric_key[0]
 
-    max_results = request_params.get("max_results", MAX_HISTORY_RESULTS)
+    max_results = int(request_params.get("max_results", [MAX_HISTORY_RESULTS])[0])
     max_results = min(max_results, MAX_HISTORY_RESULTS)
 
     store = _get_tracking_store()
