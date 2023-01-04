@@ -1032,5 +1032,3 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
             metric_key="mock_key",
             max_results=25000,
         )
-
-
