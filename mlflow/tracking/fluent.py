@@ -40,6 +40,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 if TYPE_CHECKING:
@@ -1776,25 +1777,15 @@ def autolog(
     for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
-    # for pyspark, we activate autologging immediately, without waiting for a module import.
-    # this is because on Databricks a SparkSession already exists and the user can directly
-    #   interact with it, and this activity should be logged.
-    try:
+    if is_in_databricks_runtime():
+        # for pyspark, we activate autologging immediately, without waiting for a module import.
+        # this is because on Databricks a SparkSession already exists and the user can directly
+        #   interact with it, and this activity should be logged.
         import pyspark as pyspark_module
         import pyspark.ml as pyspark_ml_module
 
         setup_autologging(pyspark_module)
         setup_autologging(pyspark_ml_module)
-    except ImportError as ie:
-        # if pyspark isn't installed, a user could potentially install it in the middle
-        #   of their session so we want to enable autologging once they do
-        if "pyspark" in str(ie):
-            register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-            register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
-    except Exception as e:
-        if is_testing():
-            # Raise unexpected exceptions in test mode in order to detect
-            # errors within dependent autologging integrations
-            raise
-        else:
-            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+    else:
+        register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
+        register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)

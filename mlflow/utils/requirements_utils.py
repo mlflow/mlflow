@@ -156,15 +156,7 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
-def _get_requires_recursive(pkg_name, top_pkg_name=None) -> set:
-    """
-    Recursively yields both direct and transitive dependencies of the specified
-    package.
-    The `top_pkg_name` argument will track what's the top-level dependency for
-    which we want to list all sub-dependencies.
-    This ensures that we don't fall into recursive loops for packages with are
-    dependant on each other.
-    """
+def _get_requires(pkg_name, top_pkg_name=None):
     if top_pkg_name is None:
         # Assume the top package
         top_pkg_name = pkg_name
@@ -187,7 +179,20 @@ def _get_requires_recursive(pkg_name, top_pkg_name=None) -> set:
             continue
 
         yield req_name
-        yield from _get_requires_recursive(req.name, top_pkg_name)
+
+
+def _get_requires_recursive(pkg_name, top_pkg_name=None) -> set:
+    """
+    Recursively yields both direct and transitive dependencies of the specified
+    package.
+    The `top_pkg_name` argument will track what's the top-level dependency for
+    which we want to list all sub-dependencies.
+    This ensures that we don't fall into recursive loops for packages with are
+    dependant on each other.
+    """
+    for req in _get_requires(pkg_name, top_pkg_name):
+        yield req
+        yield from _get_requires_recursive(req, top_pkg_name)
 
 
 def _prune_packages(packages):
@@ -197,7 +202,8 @@ def _prune_packages(packages):
     """
     packages = set(packages)
     requires = set(_flatten(map(_get_requires_recursive, packages)))
-    return packages - requires
+    # Do not exclude mlflow's dependencies
+    return packages - (requires - set(_get_requires("mlflow")))
 
 
 def _run_command(cmd, timeout_seconds, env=None):
