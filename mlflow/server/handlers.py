@@ -1038,7 +1038,11 @@ def get_metric_history_bulk_handler():
         metrics_with_runids = []
         for run_id in sorted(run_ids):
             metrics_for_run = sorted(
-                store.get_metric_history(run_id=run_id, metric_key=metric_key, max_results=max_results),
+                store.get_metric_history(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    max_results=max_results,
+                ),
                 key=lambda metric: (metric.timestamp, metric.step, metric.value),
             )
             metrics_with_runids.extend(
@@ -1058,7 +1062,11 @@ def get_metric_history_bulk_handler():
     if hasattr(store, "get_metric_history_bulk"):
         metrics_with_runids = [
             metric.to_dict()
-            for metric in store.get_metric_history_bulk(run_ids=run_ids, metric_key=metric_key)
+            for metric in store.get_metric_history_bulk(
+                run_ids=run_ids,
+                metric_key=metric_key,
+                max_results=max_results,
+            )
         ]
     else:
         metrics_with_runids = _default_history_bulk_impl()

@@ -885,13 +885,14 @@ class SqlAlchemyStore(AbstractStore):
                 "run_id": self.run_id,
             }
 
-    def get_metric_history_bulk(self, run_ids, metric_key):
+    def get_metric_history_bulk(self, run_ids, metric_key, max_results):
         """
         Return all logged values for a given metric.
 
         :param run_ids: Unique identifiers of the runs from which to fetch the metric histories for
                         the specified key.
         :param metric_key: Metric name within the runs.
+        :param max_results: The maximum number of results to return.
 
         :return: A List of :py:class:`SqlAlchemyStore.MetricWithRunId` objects if ``metric_key``
             values have been logged to one or more of the specified ``run_ids``, else an empty
@@ -914,6 +915,7 @@ class SqlAlchemyStore(AbstractStore):
                     SqlMetric.step,
                     SqlMetric.value,
                 )
+                .limit(max_results)
                 .all()
             )
             return [
