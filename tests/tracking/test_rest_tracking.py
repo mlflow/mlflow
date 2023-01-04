@@ -999,7 +999,6 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
 
 
 def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
-    import mlflow
     from mlflow.server.handlers import get_metric_history_bulk_handler
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
