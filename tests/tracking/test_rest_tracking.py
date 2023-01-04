@@ -1008,3 +1008,27 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
             run_ids=run_ids,
             metric_key="mock_key",
         )
+
+
+def test_get_metric_history_bulk_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    run_id = mlflow_client.create_run(experiment_id).info.run_id
+    max_results = 2
+
+    metricA_history = [
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 11.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 12.0},
+        {"key": "metricA", "timestamp": 2, "step": 3, "value": 12.0},
+    ]
+    for metric in metricA_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    response_limited = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id], "metric_key": "metricA", "max_results": max_results},
+    )
+    assert response_limited.status_code == 200
+    assert response_limited.json().get("metrics") == [
+        {**metric, "run_id": run_id} for metric in metricA_history[:max_results]
+    ]
