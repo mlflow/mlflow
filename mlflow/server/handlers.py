@@ -1005,8 +1005,7 @@ def _get_metric_history():
 def get_metric_history_bulk_handler():
     MAX_HISTORY_RESULTS = 25000
     MAX_RUN_IDS_PER_REQUEST = 20
-    request_params = request.args.to_dict(flat=False)
-    run_ids = request_params.get("run_id", [])
+    run_ids = request.args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
             message="GetMetricHistoryBulk request must specify at least one run_id.",
@@ -1021,25 +1020,24 @@ def get_metric_history_bulk_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    metric_key = request_params.get("metric_key", [])
-    if not metric_key:
+    metric_key = request.args.get("metric_key")
+    if metric_key is None:
         raise MlflowException(
             message="GetMetricHistoryBulk request must specify a metric_key.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    metric_key = metric_key[0]
 
-    max_results = int(request_params.get("max_results", [MAX_HISTORY_RESULTS])[0])
+    max_results = int(request.args.get("max_results", MAX_HISTORY_RESULTS))
     max_results = min(max_results, MAX_HISTORY_RESULTS)
 
     store = _get_tracking_store()
-    metrics_with_runids = []
+    metrics_with_run_ids = []
     for run_id in sorted(run_ids):
         metrics_for_run = sorted(
             store.get_metric_history(run_id=run_id, metric_key=metric_key, max_results=max_results),
             key=lambda metric: (metric.timestamp, metric.step, metric.value),
         )
-        metrics_with_runids.extend(
+        metrics_with_run_ids.extend(
             [
                 {
                     "key": metric.key,
@@ -1053,7 +1051,7 @@ def get_metric_history_bulk_handler():
         )
 
     return {
-        "metrics": metrics_with_runids[:max_results],
+        "metrics": metrics_with_run_ids[:max_results],
     }
 
 
