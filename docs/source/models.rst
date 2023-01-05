@@ -702,9 +702,13 @@ format and execution engine for Spark models that does not depend on
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
 to evaluate inputs.
 
-You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
-``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
-:py:func:`mlflow.spark.log_model()` method (recommended). The :py:mod:`mlflow.mleap` module also
+.. note::
+
+    You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
+    ``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
+    :py:func:`mlflow.spark.log_model()` method (recommended). For more details see :ref:`Spark MLlib <model-spark>`.
+
+The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
@@ -820,6 +824,8 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
     predictions = sklearn_pyfunc.predict(data)
 
 For more information, see :py:mod:`mlflow.sklearn`.
+
+.. _model-spark:
 
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
