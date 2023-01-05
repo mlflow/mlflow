@@ -391,9 +391,20 @@ class TrainStep(BaseStep):
                 model = mlflow.pyfunc.load_model(model_uri)
                 # Adding a sklearn flavor to the pyfunc model so models could be loaded easily
                 # using mlflow.sklearn.load_model
-                model_info = Model.load(model_uri)
+                tmp_model_info = Model.load(model_uri)
                 model_data_subpath = os.path.join(
                     "artifacts", TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH, "model.pkl"
+                )
+                model_info = Model(
+                    artifact_path="train/model",
+                    run_id=run.info.run_id,
+                    utc_time_created=tmp_model_info.utc_time_created,
+                    flavors=tmp_model_info.flavors,
+                    signature=tmp_model_info.signature,  # ModelSignature
+                    saved_input_example_info=tmp_model_info.saved_input_example_info,
+                    model_uuid=tmp_model_info.model_uuid,
+                    mlflow_version=tmp_model_info.mlflow_version,
+                    metadata=tmp_model_info.metadata,
                 )
                 model_info.add_flavor(
                     mlflow.sklearn.FLAVOR_NAME,
