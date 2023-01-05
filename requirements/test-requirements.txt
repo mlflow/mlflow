@@ -20,4 +20,4 @@ hyperopt
 # Required by recipes tests
 ipython
 # Required by automl tests
-flaml
+flaml@https://github.com/thinkall/FLAML@fix-issue-871
