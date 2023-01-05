@@ -247,9 +247,12 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
             if os.path.isdir(local_dataset_path):
                 # NB: Sort the file names alphanumerically to ensure a consistent
                 # ordering across invocations
-                dataset_file_paths = sorted(
-                    pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}")
-                )
+                if self.dataset_format == "custom":
+                    dataset_file_paths = sorted(pathlib.Path(local_dataset_path).glob("*"))
+                else:
+                    dataset_file_paths = sorted(
+                        pathlib.Path(local_dataset_path).glob(f"*.{self.dataset_format}")
+                    )
                 if len(dataset_file_paths) == 0:
                     raise MlflowException(
                         message=(
@@ -261,7 +264,9 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
-                if not local_dataset_path.endswith(f".{self.dataset_format}"):
+                if self.dataset_format != "custom" and not local_dataset_path.endswith(
+                    f".{self.dataset_format}"
+                ):
                     raise MlflowException(
                         message=(
                             f"Resolved data file with path '{local_dataset_path}' does not have the"
