@@ -23,4 +23,7 @@ RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     yarn install && \
     yarn build
 
+# The "nobody" user, represented numerically for optimal compatibility with Kubernetes security policies
+USER 65534
+
 CMD ["bash"]
