@@ -117,7 +117,7 @@ future==0.18.2
     # via hyperopt
 gitdb==4.0.9
     # via gitpython
-gitpython==3.1.29
+gitpython==3.1.30
     # via -r skinny-requirements.txt
 greenlet==2.0.1
     # via sqlalchemy
