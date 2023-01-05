@@ -843,7 +843,7 @@ pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by 
 
 .. note::
     Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
-    ``save_model()``, the Spark model is automatically saved with using the ``mleap`` flavor
+    ``save_model()``, the Spark model is automatically saved as an ``mleap`` flavor
     by invoking :py:func:`mlflow.mleap.add_to_model()<mlflow.mleap.add_to_model>`.
     
     For example, the follow code block:
