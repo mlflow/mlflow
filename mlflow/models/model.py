@@ -72,7 +72,6 @@ class ModelInfo:
         Run relative path identifying the logged model.
 
         :getter: Retrieves the relative path of the logged model.
-        :setter: Sets the relative path to a logged model.
         :type: str
 
         """
@@ -86,8 +85,6 @@ class ModelInfo:
 
         :getter: Gets the mapping for the logged model's flavor that defines parameters used in
             serving of the model
-        :setter: Sets the mapping for the logged model's flavor that defines parameters used in
-            serving
         :type: Dict(str, str)
 
         .. code-block:: python
@@ -117,7 +114,6 @@ class ModelInfo:
 
         :getter: Gets the uri path of the logged model from the uri `runs:/<run_id>` path
             encapsulation
-        :setter: Sets the run_id-centric uri path for the model
         :type: str
         """
         return self._model_uri
@@ -129,7 +125,6 @@ class ModelInfo:
         e.g., ``'39ca11813cfc46b09ab83972740b80ca'``.
 
         :getter: [Legacy] Gets the model_uuid (run_id) of a logged model
-        :setter: [Legacy] Sets the model_uuid (run_id) of a model
         :type: str
         """
         return self._model_uuid
@@ -141,7 +136,6 @@ class ModelInfo:
         e.g., ``'8ede7df408dd42ed9fc39019ef7df309'``
 
         :getter: Gets the run_id identifier for the logged model
-        :setter: Set the run_id associated with a logged model
         :type: str
         """
         return self._run_id
@@ -153,7 +147,6 @@ class ModelInfo:
         ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
 
         :getter: [Optional] Gets the input example if specified during model logging
-        :setter: Sets the input example for a model
         :type: Dict(str, str)
         """
         return self._saved_input_example_info
@@ -165,7 +158,6 @@ class ModelInfo:
         :py:meth:`ModelSignature.to_dict() <mlflow.models.ModelSignature.to_dict>`.
 
         :getter: Gets the model signature as a dictionary
-        :setter: Sets the dictionary representation of a ModelSignature object
         :type: Dict(str, Any)
         """
         warnings.warn(
@@ -182,7 +174,6 @@ class ModelInfo:
         model input and output.
 
         :getter: Gets the model signature if it is defined
-        :setter: Sets the model signature
         :type: ModelSignature
         """
         return self._signature
@@ -193,7 +184,6 @@ class ModelInfo:
         The UTC time that the logged model is created, e.g., ``'2022-01-12 05:17:31.634689'``.
 
         :getter: Gets the UTC formatted timestamp for when the model was logged
-        :setter: Sets the model logged timestamp in UTC format
         :type: str
         """
         return self._utc_time_created
@@ -204,7 +194,6 @@ class ModelInfo:
         Version of MLflow used to log the model
 
         :getter: Gets the version of Mlflow that was installed when a model was logged
-        :setter: Sets the version of MLflow that was used when logging a model
         :type: str
         """
         return self._mlflow_version
@@ -216,7 +205,6 @@ class ModelInfo:
         User defined metadata added to the model.
 
         :getter: Gets the user-defined metadata about a model
-        :setter: Sets user-defined metadata about a model
         :type: Dict(str, Any)
 
         .. code-block:: python
@@ -329,6 +317,10 @@ class Model:
         """
         Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
+        :getter: Retrieves custom metadata that have been applied to a model instance.
+        :setter: Sets a dictionary of custom keys and values to be included with the model instance
+        :type: Optional(Dict(str, Any))
+
         :return: A Dictionary of user-defined metadata iff defined.
 
         .. code-block:: python
@@ -367,8 +359,14 @@ class Model:
     @property
     def signature(self):  # -> Optional[ModelSignature]
         """
-        Gets the signature of the Model iff the model was saved with a signature definition.
+        An optional definition of the expected inputs to and outputs from a model object, defined
+        with both field names and data types. Signatures support both column-based and tensor-based
+        inputs and outputs.
 
+        :getter: Retrieves the signature of a model instance iff the model was saved with a
+            signature definition.
+        :setter: Sets a signature to a model instance.
+        :type: Optional(ModelSignature)
         :return: Optional[ModelSignature]
         """
         return self._signature
