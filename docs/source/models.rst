@@ -2572,7 +2572,7 @@ Install sktime with mlflow dependency:
     pip install sktime[mlflow]
 
 Usage example
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
 
