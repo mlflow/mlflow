@@ -2563,7 +2563,7 @@ You can also use the ``load_model()`` method to load MLflow Models with the ``sk
 model flavor in native sktime formats.
 
 Installing Sktime
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 Install sktime with mlflow dependency:
 
