@@ -321,6 +321,7 @@ class TrainStep(BaseStep):
 
             best_estimator_params = None
             mlflow.autolog(log_models=False, silent=True)
+            mlflow.spark.autolog(disable=True)
             with mlflow.start_run(tags=tags) as run:
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
