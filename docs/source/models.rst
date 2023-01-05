@@ -2553,7 +2553,7 @@ Example:
     )
 
 Sktime
-^^^^^^^^^^^^^
+^^^^^^
 
 The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
 format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
