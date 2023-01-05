@@ -863,7 +863,7 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
     class MetricWithRunId(Metric):
-        def __init__(self, run_id, metric: Metric):
+        def __init__(self, metric: Metric, run_id):
             super().__init__(
                 key=metric.key,
                 value=metric.value,
