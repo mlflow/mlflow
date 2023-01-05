@@ -1014,6 +1014,9 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         def to_dict(self, flat):
             return self.args_dict
 
+        def get(self, key):
+            return self.args_dict.get(key)
+
     with mock.patch(
         "mlflow.server.handlers._get_tracking_store", return_value=mock_store
     ), flask_app.test_request_context() as mock_context:
@@ -1021,7 +1024,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         mock_context.request.args = MockRequestArgs(
             {
                 "run_id": run_ids,
-                "metric_key": ["mock_key"],
+                "metric_key": "mock_key",
             }
         )
 
