@@ -702,9 +702,13 @@ format and execution engine for Spark models that does not depend on
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
 to evaluate inputs.
 
-You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
-``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
-:py:func:`mlflow.spark.log_model()` method (recommended). The :py:mod:`mlflow.mleap` module also
+.. note::
+
+    You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
+    ``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
+    :py:func:`mlflow.spark.log_model()` method (recommended). For more details see :ref:`Spark MLlib <model-spark>`.
+
+The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
@@ -821,6 +825,8 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 
 For more information, see :py:mod:`mlflow.sklearn`.
 
+.. _model-spark:
+
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -840,6 +846,45 @@ is not ideal for high-performance use cases, it enables you to easily deploy any
 `MLlib PipelineModel <http://spark.apache.org/docs/latest/api/python/pyspark.ml.html?highlight=
 pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by MLflow
 (SageMaker, AzureML, etc).
+
+.. note::
+    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
+    ``save_model()``, the Spark model is automatically saved as an ``mleap`` flavor
+    by invoking :py:func:`mlflow.mleap.add_to_model()<mlflow.mleap.add_to_model>`.
+    
+    For example, the follow code block:
+
+    .. code-block:: py 
+
+        training_df = spark.createDataFrame([
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+
+        tokenizer = Tokenizer(inputCol="text", outputCol="words")
+        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+        lr = LogisticRegression(maxIter=10, regParam=0.001)
+        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+        model = pipeline.fit(training_df)
+        
+        mlflow.spark.log_model(model, "spark-model", sample_input=training_df)
+
+    results in the following directory structure logged to the MLflow Experiment: 
+
+    ::
+
+        # Directory written by with the addition of mlflow.mleap.add_to_model(model, "spark-model", training_df)
+        # Note the addition of the mleap directory 
+        spark-model/
+        ├── mleap
+        ├── sparkml
+        ├── MLmodel
+        ├── conda.yaml
+        ├── python_env.yaml
+        └── requirements.txt
+
+    For more information, see :py:func:`mlflow.mleap<mlflow.mleap>`.
 
 Finally, the :py:func:`mlflow.spark.load_model()` method is used to load MLflow Models with
 the ``spark`` flavor as Spark MLlib pipelines.
