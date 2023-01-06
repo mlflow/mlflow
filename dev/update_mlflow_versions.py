@@ -6,7 +6,7 @@ import click
 from packaging.version import Version
 
 
-def get_current_version() -> str:
+def get_current_py_version() -> str:
     text = Path("mlflow", "version.py").read_text()
     ver = Version(re.search(r'VERSION = "(.+)"', text).group(1))
     return f"{ver.major}.{ver.minor}.{ver.micro}"
@@ -23,7 +23,7 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
 
 
 def update_versions(new_version: str, add_dev_suffix: bool) -> None:
-    current_version = re.escape(get_current_version())
+    current_version = re.escape(get_current_py_version())
     # Java
     suffix = "-SNAPSHOT" if add_dev_suffix else ""
     for java_extension in ["xml", "java"]:
@@ -67,7 +67,7 @@ def validate_new_version(
     ctx: click.Context, param: click.Parameter, value: str  # pylint: disable=unused-argument
 ) -> str:
     new = Version(value)
-    current = Version(get_current_version())
+    current = Version(get_current_py_version())
     if new < current:
         raise click.BadParameter(
             f"New version {new} is not greater than or equal to current version {current}"
@@ -112,6 +112,10 @@ python dev/update_mlflow_versions.py post-release --new-version 1.29.0
     help="New version that was released",
 )
 def post_release(new_version: str):
+    current_version = Version(get_current_py_version())
+    assert (
+        current_version.is_devrelease
+    ), f"{current_version} is not a dev version. This script must be run on master branch."
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
     update_versions(next_new_version, add_dev_suffix=True)
