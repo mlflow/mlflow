@@ -23,6 +23,7 @@ from mlflow.entities import (
     RunData,
     ExperimentTag,
 )
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
@@ -1787,4 +1788,5 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = self._create_run(file_store)
         run_id = run.info.run_id
         test_metrics = file_store.get_metric_history(run_id, "test_metric")
+        assert isinstance(test_metrics, PagedList)
         assert test_metrics == []
