@@ -113,7 +113,9 @@ python dev/update_mlflow_versions.py post-release --new-version 1.29.0
 )
 def post_release(new_version: str):
     current_version = Version(get_current_py_version())
-    assert current_version.is_devrelease, f"{current_version} is not a dev version"
+    assert (
+        current_version.is_devrelease
+    ), f"{current_version} is not a dev version. This script must be run on master branch."
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
     update_versions(next_new_version, add_dev_suffix=True)
