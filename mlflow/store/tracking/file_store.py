@@ -773,7 +773,7 @@ class FileStore(AbstractStore):
 
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
-            return []
+            return PagedList([], None)
         return PagedList(
             [
                 FileStore._get_metric_from_line(metric_key, line)
