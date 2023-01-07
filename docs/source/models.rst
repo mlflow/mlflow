@@ -1477,6 +1477,8 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
+.. _model-evaluation:
+
 Model Evaluation
 ----------------
 After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
@@ -2591,5 +2593,3 @@ with the ``bigmlflow`` model flavor as a BigML
 For more information, see the
 `BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
 and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
-
-.. _model-evaluation:
