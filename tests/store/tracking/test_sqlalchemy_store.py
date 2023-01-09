@@ -1,4 +1,5 @@
 import os
+import pathlib
 import shutil
 import tempfile
 import unittest
@@ -568,12 +569,15 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
-            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            (
+                "file:path/to/local/folder?param=value",
+                "{cwd}/file:path/to/local/folder?param=value/{e}",
+            ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
@@ -609,7 +613,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     )
                     exp_id = store.create_experiment(name="exp")
                     exp = store.get_experiment(exp_id)
-                    assert exp.artifact_location == expected_artifact_uri_format.format(e=exp_id)
+                    assert exp.artifact_location == expected_artifact_uri_format.format(
+                        e=exp_id, cwd=str(pathlib.Path.cwd())
+                    )
 
     def test_create_experiment_with_tags_works_correctly(self):
         experiment_id = self.store.create_experiment(
@@ -624,14 +630,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}/{r}/artifacts"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:path/to/local/folder?param=value",
-                "file:path/to/local/folder/{e}/{r}/artifacts?param=value",
+                "{cwd}/file:path/to/local/folder?param=value/{e}/{r}/artifacts",
             ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
@@ -673,7 +679,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                     )
                     assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                        e=exp_id, r=run.info.run_id
+                        e=exp_id, r=run.info.run_id, cwd=str(pathlib.Path.cwd())
                     )
 
     def test_run_tag_model(self):
@@ -1901,7 +1907,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1}/{r1}/artifacts'"
+        filter_string = (
+            f"attr.artifact_uri = '{pathlib.Path.cwd()}/{ARTIFACT_URI}/{e1}/{r1}/artifacts'"
+        )
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(

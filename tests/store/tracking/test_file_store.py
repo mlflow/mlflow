@@ -534,12 +534,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
-            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            (
+                "file:path/to/local/folder?param=value",
+                "{cwd}/file:path/to/local/folder?param=value/{e}",
+            ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
@@ -569,7 +572,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
                 exp = fs.get_experiment(exp_id)
-                assert exp.artifact_location == expected_artifact_uri_format.format(e=exp_id)
+                assert exp.artifact_location == expected_artifact_uri_format.format(
+                    e=exp_id, cwd=str(Path.cwd())
+                )
 
     def test_create_experiment_with_tags_works_correctly(self):
         fs = FileStore(self.test_root)
@@ -727,14 +732,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}/{r}/artifacts"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:path/to/local/folder?param=value",
-                "file:path/to/local/folder/{e}/{r}/artifacts?param=value",
+                "{cwd}/file:path/to/local/folder?param=value/{e}/{r}/artifacts",
             ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
@@ -770,7 +775,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                 )
                 assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                    e=exp_id, r=run.info.run_id
+                    e=exp_id, r=run.info.run_id, cwd=str(Path.cwd())
                 )
 
     def test_create_run_in_deleted_experiment(self):
