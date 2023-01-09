@@ -12,7 +12,7 @@ test_that("mlflow_create/get_experiment() basic functionality (fluent)", {
   experiment_1b <- mlflow_get_experiment(name = "exp_name")
 
   expect_identical(experiment_1a, experiment_1b)
-  expected_artifact_location <- sprintf("%s/mlruns/%s", getwd(), artifact_relative_path)
+  expected_artifact_location <- sprintf("%s/%s/%s", getwd(), artifact_relative_path, experiment_1_id)
   expect_identical(experiment_1a$artifact_location, expected_artifact_location)
   expect_identical(experiment_1a$name, "exp_name")
 })
@@ -32,7 +32,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
   experiment_1b <- mlflow_get_experiment(client = client, name = "exp_name")
 
   expect_identical(experiment_1a, experiment_1b)
-  expected_artifact_location <- sprintf("%s/mlruns/%s", getwd(), artifact_relative_path)
+  expected_artifact_location <- sprintf("%s/%s/%s", getwd(), artifact_relative_path, experiment_1_id)
   expect_identical(experiment_1a$artifact_location, expected_artifact_location)
   expect_identical(experiment_1a$name, "exp_name")
 
@@ -72,9 +72,9 @@ test_that("mlflow_search_experiments() works properly", {
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
   default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc1"),
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc2"),
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc3")))
+                                                      sprintf("%s/%s/%s", getwd(), "art_loc1", ex1),
+                                                      sprintf("%s/%s/%s", getwd(), "art_loc2", ex2),
+                                                      sprintf("%s/%s/%s", getwd(), "art_loc3", ex3)))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
@@ -115,9 +115,12 @@ test_that("mlflow_search_experiments() works properly", {
 test_that("mlflow_search_experiments() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  ex1 <- mlflow_create_experiment(client = client, "foo1", "art_loc1")
-  ex2 <- mlflow_create_experiment(client = client, "foo2", "art_loc2")
-  ex3 <- mlflow_create_experiment(client = client, "foo3", "art_loc3")
+  art_loc_1 <- "art_loc1"
+  art_loc_2 <- "art_loc2"
+  art_loc_3 <- "art_loc3"
+  ex1 <- mlflow_create_experiment(client = client, "foo1", art_loc_1)
+  ex2 <- mlflow_create_experiment(client = client, "foo2", art_loc_2)
+  ex3 <- mlflow_create_experiment(client = client, "foo3", art_loc_3)
 
   mlflow_set_experiment_tag("expgroup", "group1", experiment_id = ex1)
   mlflow_set_experiment_tag("expgroup", "group1", experiment_id = ex3)
@@ -128,9 +131,9 @@ test_that("mlflow_search_experiments() works properly", {
   expect_setequal(allexperiments$name, c("Default", "foo1", "foo2", "foo3"))
   default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(allexperiments$artifact_location, c(default_artifact_loc,
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc1"),
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc2"),
-                                                      sprintf("%s/mlruns/%s", getwd(), "art_loc3")))
+                                                      sprintf("%s/%s/%s", getwd(), art_loc_1, ex1),
+                                                      sprintf("%s/%s/%s", getwd(), art_loc_2, ex2),
+                                                      sprintf("%s/%s/%s", getwd(), art_loc_3, ex3)))
   expect_null(allexperiments_result$next_page_token)
 
   ex1_result = mlflow_search_experiments(filter = "attribute.name = 'foo1'")
@@ -222,7 +225,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
   experiment <- mlflow_get_experiment(client = client, name = "exp")
   expect_identical(experiment_id, experiment$experiment_id)
   expect_identical(experiment$name, "exp")
-  expect_identical(experiment$artifact_location, sprintf("%s/mlruns/%s", getwd(), artifact_relative_path))
+  expect_identical(experiment$artifact_location, sprintf("%s/%s/%s", getwd(), artifact_relative_path, experiment_id))
 })
 
 test_that("infer experiment id works properly", {
@@ -255,7 +258,7 @@ test_that("mlflow_set_experiment() creates experiments", {
   artifact_relative_path <- "artifact/location"
   mlflow_set_experiment(experiment_name = "foo", artifact_location = artifact_relative_path)
   experiment <- mlflow_get_experiment()
-  expected_artifact_location <- sprintf("%s/mlruns/%s", getwd(), artifact_relative_path)
+  expected_artifact_location <- sprintf("%s/%s/%s", getwd(), artifact_relative_path, experiment$experiment_id)
   expect_identical(experiment$artifact_location, expected_artifact_location)
   expect_identical(experiment$name, "foo")
 })
