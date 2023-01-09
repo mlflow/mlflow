@@ -37,7 +37,6 @@ _MLFLOW_VERSION_KEY = "mlflow_version"
 class ModelInfo:
     """
     The metadata of a logged MLflow Model.
-
     """
 
     def __init__(
@@ -73,7 +72,6 @@ class ModelInfo:
 
         :getter: Retrieves the relative path of the logged model.
         :type: str
-
         """
         return self._artifact_path
 
@@ -85,7 +83,7 @@ class ModelInfo:
 
         :getter: Gets the mapping for the logged model's flavor that defines parameters used in
             serving of the model
-        :type: Dict(str, str)
+        :type: Dict[str, str]
 
         .. code-block:: python
             :caption: Example flavor mapping for a scikit-learn logged model
@@ -146,8 +144,8 @@ class ModelInfo:
         A dictionary that contains the metadata of the saved input example, e.g.,
         ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
 
-        :getter: [Optional] Gets the input example if specified during model logging
-        :type: Dict(str, str)
+        :getter: Gets the input example if specified during model logging
+        :type: Optional[Dict[str, str]]
         """
         return self._saved_input_example_info
 
@@ -158,7 +156,7 @@ class ModelInfo:
         :py:meth:`ModelSignature.to_dict() <mlflow.models.ModelSignature.to_dict>`.
 
         :getter: Gets the model signature as a dictionary
-        :type: Dict(str, Any)
+        :type: Optional[Dict[str, Any]]
         """
         warnings.warn(
             "Field signature_dict is deprecated since v1.28.1. Use signature instead.",
@@ -174,7 +172,7 @@ class ModelInfo:
         model input and output.
 
         :getter: Gets the model signature if it is defined
-        :type: ModelSignature
+        :type: Optional[ModelSignature]
         """
         return self._signature
 
@@ -205,7 +203,7 @@ class ModelInfo:
         User defined metadata added to the model.
 
         :getter: Gets the user-defined metadata about a model
-        :type: Dict(str, Any)
+        :type: Optional[Dict[str, Any]]
 
         .. code-block:: python
             :caption: Example usage of Model Metadata
@@ -319,7 +317,7 @@ class Model:
 
         :getter: Retrieves custom metadata that have been applied to a model instance.
         :setter: Sets a dictionary of custom keys and values to be included with the model instance
-        :type: Optional(Dict(str, Any))
+        :type: Optional[Dict[str, Any]]
 
         :return: A Dictionary of user-defined metadata iff defined.
 
@@ -366,8 +364,7 @@ class Model:
         :getter: Retrieves the signature of a model instance iff the model was saved with a
             signature definition.
         :setter: Sets a signature to a model instance.
-        :type: Optional(ModelSignature)
-        :return: Optional[ModelSignature]
+        :type: Optional[ModelSignature]
         """
         return self._signature
 
