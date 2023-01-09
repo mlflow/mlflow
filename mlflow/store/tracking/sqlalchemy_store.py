@@ -40,7 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
 )
 from mlflow.utils.name_utils import _generate_random_name
-from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
+from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri, resolve_local_uri_if_relative
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
@@ -113,7 +113,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.artifact_root_uri = default_artifact_root
+        self.artifact_root_uri = resolve_local_uri_if_relative(default_artifact_root)
         # Quick check to see if the respective SQLAlchemy database engine has already been created.
         if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
             with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
@@ -242,14 +242,14 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
-
+        resolved_artifact_location = resolve_local_uri_if_relative(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
                 experiment = SqlExperiment(
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
-                    artifact_location=artifact_location,
+                    artifact_location=resolved_artifact_location,
                     creation_time=creation_time,
                     last_update_time=creation_time,
                 )
@@ -257,7 +257,7 @@ class SqlAlchemyStore(AbstractStore):
                     [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
                 )
                 session.add(experiment)
-                if not artifact_location:
+                if not resolved_artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)

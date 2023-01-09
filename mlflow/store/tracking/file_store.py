@@ -76,7 +76,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.uri import append_to_uri_path, resolve_local_uri_if_relative
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -147,7 +147,10 @@ class FileStore(AbstractStore):
         """
         super().__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
-        self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
+        if artifact_root_uri is None:
+            self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
+        else:
+            self.artifact_root_uri = resolve_local_uri_if_relative(artifact_root_uri)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
@@ -315,16 +318,18 @@ class FileStore(AbstractStore):
         return experiments[0] if len(experiments) > 0 else None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
-        artifact_uri = artifact_uri or append_to_uri_path(
-            self.artifact_root_uri, str(experiment_id)
-        )
+        if artifact_uri is None:
+            artifact_root_uri = self.artifact_root_uri
+        else:
+            artifact_root_uri = resolve_local_uri_if_relative(artifact_uri)
+        resolved_artifact_uri = append_to_uri_path(artifact_root_uri, str(experiment_id))
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         creation_time = get_current_time_millis()
         experiment = Experiment(
             experiment_id,
             name,
-            artifact_uri,
+            resolved_artifact_uri,
             LifecycleStage.ACTIVE,
             creation_time=creation_time,
             last_update_time=creation_time,

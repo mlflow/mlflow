@@ -28,6 +28,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import get_current_time_millis
@@ -1790,3 +1791,22 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         test_metrics = file_store.get_metric_history(run_id, "test_metric")
         assert isinstance(test_metrics, PagedList)
         assert test_metrics == []
+
+
+def test_experiment_with_default_root_artifact_uri(tmp_path):
+    file_store_root_uri = path_to_local_file_uri(tmp_path)
+    file_store = FileStore(file_store_root_uri)
+    experiment_id = file_store.create_experiment(name="test", artifact_location="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    assert experiment_info.artifact_location == str(Path.cwd().joinpath("test", experiment_id))
+
+
+def test_experiment_with_relative_artifact_uri(tmp_path):
+    file_store_root_uri = append_to_uri_path(path_to_local_file_uri(tmp_path), "experiments")
+    artifacts_root_uri = append_to_uri_path(path_to_local_file_uri(tmp_path), "artifacts")
+    file_store = FileStore(file_store_root_uri, artifacts_root_uri)
+    experiment_id = file_store.create_experiment(name="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    assert experiment_info.artifact_location == append_to_uri_path(
+        artifacts_root_uri, experiment_id
+    )

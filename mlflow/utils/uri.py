@@ -1,3 +1,4 @@
+import pathlib
 import posixpath
 import urllib.parse
 
@@ -281,3 +282,21 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
+
+
+def resolve_local_uri_if_relative(local_uri):
+    """
+    if `local_uri` is passed in as a relative local path, this function
+    resolves it to absolute path relative to current working directory.
+
+    :param local_uri: Relative or absolute path or local file uri
+
+    :return: a fully-formed absolute uri path
+    """
+    from mlflow.utils.file_utils import local_file_uri_to_path
+
+    if local_uri is not None and is_local_uri(local_uri):
+        artifact_path = local_file_uri_to_path(local_uri)
+        if not pathlib.Path(artifact_path).is_absolute():
+            return str(pathlib.Path.cwd().joinpath(local_uri))
+    return local_uri
