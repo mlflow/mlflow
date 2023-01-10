@@ -793,21 +793,19 @@ def test_delete_model_version(store):
             self._create_model_version(fs, name=names[i], source=sources[i], run_id=run_ids[i])
             time.sleep(0.001)  # sleep for windows fs timestamp precision issues
 
-        # by default order by name ASC and version ASC
+        # by default order by last_updated_timestamp DESC
         mvs = self._search_model_versions(fs).to_list()
-        assert [mv.name for mv in mvs] == sorted(names)
-        assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
+        assert [mv.name for mv in mvs] == names[::-1]
+        assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by name DESC
         mvs = self._search_model_versions(fs, order_by=["name DESC"])
         assert [mv.name for mv in mvs] == sorted(names)[::-1]
-        assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
+        assert [mv.version for mv in mvs] == [2, 1, 1, 1, 2, 1]
 
         # order by version DESC
         mvs = self._search_model_versions(fs, order_by=["version_number DESC"])
-        assert [mv.name for mv in mvs] == [
-            prefix + name for name in ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
-        ]
+        assert [mv.name for mv in mvs] == names[::-1]
         assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by creation_timestamp DESC
@@ -831,7 +829,7 @@ def test_delete_model_version(store):
         fs = self.get_store()
         name = "test_for_search_MV_pagination"
         fs.create_registered_model(name)
-        mvs = [self._create_model_version(fs, name) for _ in range(50)]
+        mvs = [self._create_model_version(fs, name) for _ in range(50)][::-1]
 
         # test flow with fixed max_results
         returned_mvs = []

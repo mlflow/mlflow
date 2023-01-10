@@ -338,22 +338,28 @@ def test_get_model_version_download_uri(mock_store):
 
 def test_search_model_versions(mock_store):
     mvs = [
-        ModelVersion(name="Model 1", version="1", creation_timestamp=123),
-        ModelVersion(name="Model 1", version="2", creation_timestamp=124),
-        ModelVersion(name="Model 2", version="1", creation_timestamp=125),
+        ModelVersion(
+            name="Model 1", version="1", creation_timestamp=123, last_updated_timestamp=123
+        ),
+        ModelVersion(
+            name="Model 1", version="2", creation_timestamp=124, last_updated_timestamp=124
+        ),
+        ModelVersion(
+            name="Model 2", version="1", creation_timestamp=125, last_updated_timestamp=125
+        ),
     ]
-    mock_store.search_model_versions.return_value = PagedList(mvs[:2], "")
+    mock_store.search_model_versions.return_value = PagedList(mvs[:2][::-1], "")
     result = newModelRegistryClient().search_model_versions("name=Model 1")
     mock_store.search_model_versions.assert_called_with("name=Model 1", 100, None, None)
-    assert result == mvs[:2]
+    assert result == mvs[:2][::-1]
     assert result.token == ""
 
-    mock_store.search_model_versions.return_value = PagedList(mvs[:2][::-1], "")
+    mock_store.search_model_versions.return_value = PagedList([mvs[1], mvs[2], mvs[0]], "")
     result = newModelRegistryClient().search_model_versions(
         "version <= 2", max_results=2, order_by="version DESC", page_token="next"
     )
     mock_store.search_model_versions.assert_called_with("version <= 2", 2, "version DESC", "next")
-    assert result == mvs[:2][::-1]
+    assert result == [mvs[1], mvs[2], mvs[0]]
     assert result.token == ""
 
 

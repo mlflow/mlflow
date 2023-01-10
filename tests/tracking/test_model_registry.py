@@ -532,12 +532,16 @@ def test_search_model_versions_flow_paginated(
     order_by_key,
     order_by_desc,
 ):
-    names = [f"CreateRMsearch{i:03}" for i in range(29)]
+    names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         mlflow_client.create_registered_model(name)
-    mvs = [mlflow_client.create_model_version(name) for name in names + names[:10]]
+    mvs = [
+        mlflow_client.create_model_version(name, "path/to/model", "run_id")
+        for name in names + names[:10]
+    ]
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
+    mvs = mvs[::-1]
 
     def verify_pagination(mv_getter_with_token, expected_mvs):
         result_mvs = []

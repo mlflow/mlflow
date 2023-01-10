@@ -949,10 +949,8 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     clauses.append(field.desc())
 
-        if SqlModelVersion.name.key not in observed_order_by_clauses:
-            clauses.append(SqlModelVersion.name.asc())
-        if "version_number" not in observed_order_by_clauses:
-            clauses.append(SqlModelVersion.version.asc())
+        if "last_updated_timestamp" not in observed_order_by_clauses:
+            clauses.append(SqlModelVersion.last_updated_time.desc())
         return clauses
 
     @classmethod

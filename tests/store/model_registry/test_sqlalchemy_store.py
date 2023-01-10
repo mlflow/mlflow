@@ -899,21 +899,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for i in range(6):
             self._mv_maker(name=names[i], source=sources[i], run_id=run_ids[i])
 
-        # by default order by name ASC and version ASC
+        # by default order by last_updated_timestamp DESC
         mvs = self.store.search_model_versions(filter_string=None)
-        assert [mv.name for mv in mvs] == sorted(names)
-        assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
+        assert [mv.name for mv in mvs] == names[::-1]
+        assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by name DESC
         mvs = self.store.search_model_versions(filter_string=None, order_by=["name DESC"])
         assert [mv.name for mv in mvs] == sorted(names)[::-1]
-        assert [mv.version for mv in mvs] == [1, 2, 1, 1, 1, 2]
+        assert [mv.version for mv in mvs] == [2, 1, 1, 1, 2, 1]
 
         # order by version DESC
         mvs = self.store.search_model_versions(filter_string=None, order_by=["version_number DESC"])
-        assert [mv.name for mv in mvs] == [
-            prefix + name for name in ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
-        ]
+        assert [mv.name for mv in mvs] == names[::-1]
         assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by creation_timestamp DESC
@@ -940,7 +938,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         name = "test_for_search_MV_pagination"
         self._rm_maker(name)
-        mvs = [self._mv_maker(name) for _ in range(50)]
+        mvs = [self._mv_maker(name) for _ in range(50)][::-1]
 
         # test flow with fixed max_results
         returned_mvs = []

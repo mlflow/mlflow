@@ -1164,10 +1164,8 @@ class SearchModelVersionUtils(SearchUtils):
                 raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
         # Add a tie-breaker
-        if not any(key == "name" for key, _ in order_by):
-            order_by.append(("name", True))
-        if not any(key == "version_number" for key, _ in order_by):
-            order_by.append(("version", True))
+        if not any(key == "last_updated_timestamp" for key, _ in order_by):
+            order_by.append(("last_updated_timestamp", False))
 
         # https://stackoverflow.com/a/56842689
         class _Reversor:
