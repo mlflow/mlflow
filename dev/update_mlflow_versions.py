@@ -8,8 +8,11 @@ from packaging.version import Version
 
 def get_current_py_version() -> str:
     text = Path("mlflow", "version.py").read_text()
-    ver = Version(re.search(r'VERSION = "(.+)"', text).group(1))
-    return f"{ver.major}.{ver.minor}.{ver.micro}"
+    return re.search(r'VERSION = "(.+)"', text).group(1)
+
+
+def replace_dev_suffix_with(version, repl):
+    return re.sub(r"\.dev0$", repl, version)
 
 
 def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
@@ -22,25 +25,21 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
         f.write_text(new_text)
 
 
-def update_versions(new_version: str, add_dev_suffix: bool) -> None:
-    current_version = re.escape(get_current_py_version())
-    # Java
-    suffix = "-SNAPSHOT" if add_dev_suffix else ""
-    for java_extension in ["xml", "java"]:
-        replace_occurrences(
-            files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
-            pattern=rf"{current_version}(-SNAPSHOT)?",
-            repl=new_version + suffix,
-        )
+def update_versions(new_py_version: str) -> None:
+    """
+    `new_py_version` is either a release version (e.g. "2.1.0") or a dev version
+    (e.g. "2.1.0.dev0").
+    """
+    current_py_version = get_current_py_version()
+    current_py_version_without_suffix = replace_dev_suffix_with(current_py_version, "")
+
     # Python
-    suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
         files=[Path("mlflow", "version.py")],
-        pattern=rf"{current_version}(\.dev0)?",
-        repl=new_version + suffix,
+        pattern=re.escape(current_py_version),
+        repl=new_py_version,
     )
     # JS
-    suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
         files=[
             Path(
@@ -52,14 +51,23 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
                 "constants.js",
             )
         ],
-        pattern=rf"{current_version}(\.dev0)?",
-        repl=new_version + suffix,
+        pattern=re.escape(current_py_version),
+        repl=new_py_version,
     )
+
+    # Java
+    for java_extension in ["xml", "java"]:
+        replace_occurrences(
+            files=Path("mlflow", "java").rglob(f"*.{java_extension}"),
+            pattern=rf"{re.escape(current_py_version_without_suffix)}(-SNAPSHOT)?",
+            repl=replace_dev_suffix_with(new_py_version, "-SNAPSHOT"),
+        )
+
     # R
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
-        pattern=f"Version: {current_version}",
-        repl=f"Version: {new_version}",
+        pattern=f"Version: {re.escape(current_py_version_without_suffix)}",
+        repl=f"Version: {current_py_version_without_suffix}",
     )
 
 
@@ -93,7 +101,7 @@ python dev/update_mlflow_versions.py pre-release --new-version 1.29.0
     "--new-version", callback=validate_new_version, required=True, help="New version to release"
 )
 def pre_release(new_version: str):
-    update_versions(new_version, add_dev_suffix=False)
+    update_versions(new_py_version=new_version)
 
 
 @update_mlflow_versions.command(
@@ -113,12 +121,16 @@ python dev/update_mlflow_versions.py post-release --new-version 1.29.0
 )
 def post_release(new_version: str):
     current_version = Version(get_current_py_version())
-    assert (
-        current_version.is_devrelease
-    ), f"{current_version} is not a dev version. This script must be run on master branch."
+    msg = (
+        "It appears you ran this command on a release branch because the current version "
+        f"({current_version}) is not a dev version. Please re-run this command on the master "
+        "branch."
+    )
+    assert current_version.is_devrelease, msg
     new_version = Version(new_version)
-    next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
-    update_versions(next_new_version, add_dev_suffix=True)
+    # Increment the patch version and append ".dev0"
+    new_py_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}.dev0"
+    update_versions(new_py_version=new_py_version)
 
 
 if __name__ == "__main__":
