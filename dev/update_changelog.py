@@ -102,8 +102,15 @@ def is_shallow():
 )
 def main(prev_branch, curr_branch, release_version, remote):
     if is_shallow():
-        # To ensure that `git log` works correctly, unshallow the repository if it's shallow.
+        print("Unshallowing repository to ensure `git log` works correctly")
         subprocess.check_call(["git", "fetch", "--unshallow"])
+        print("Modifying .git/config to fetch remote branches")
+        subprocess.check_call(
+            ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"]
+        )
+    subprocess.check_call(["git", "fetch", remote, prev_branch])
+    subprocess.check_call(["git", "fetch", remote, curr_branch])
+    subprocess.check_call(["git", "branch", "-r"])
     git_log_output = subprocess.check_output(
         [
             "git",
