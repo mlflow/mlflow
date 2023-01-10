@@ -37,7 +37,7 @@ def _generate_string(sep, integer_scale):
 def _generate_random_name(sep="-", integer_scale=3, max_length=20):
     """Helper function for generating a random predicate, noun, and integer combination
 
-    :param sep: String seperator for word spacing
+    :param sep: String separator for word spacing
     :param integer_scale: dictates the maximum scale range for random integer sampling (power of 10)
     :param max_length: maximum allowable string length
 

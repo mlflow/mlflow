@@ -2593,3 +2593,58 @@ with the ``bigmlflow`` model flavor as a BigML
 For more information, see the
 `BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
 and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
+
+Sktime
+^^^^^^
+
+The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
+format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
+model flavor in native sktime formats.
+
+Installing Sktime
+~~~~~~~~~~~~~~~~~
+
+Install sktime with mlflow dependency:
+
+.. code-block:: bash
+
+    pip install sktime[mlflow]
+
+Usage example
+~~~~~~~~~~~~~
+
+Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    from sktime.datasets import load_airline
+    from sktime.forecasting.arima import AutoARIMA
+    from sktime.utils import mlflow_sktime
+
+    airline = load_airline()
+    model_path = "model"
+
+
+    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
+        airline, fh=[1, 2, 3]
+    )
+
+    mlflow_sktime.save_model(
+        sktime_model=auto_arima_model,
+        path=model_path,
+    )
+
+    loaded_model = mlflow_sktime.load_model(
+        model_uri=model_path,
+    )
+    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
+        model_uri=model_path,
+    )
+
+    print(loaded_model.predict())
+    print(loaded_pyfunc.predict(pd.DataFrame()))
