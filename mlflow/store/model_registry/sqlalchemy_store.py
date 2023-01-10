@@ -949,7 +949,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     clauses.append(field.desc())
 
-        if "last_updated_timestamp" not in observed_order_by_clauses:
+        if SqlModelVersion.last_updated_time.key not in observed_order_by_clauses:
             clauses.append(SqlModelVersion.last_updated_time.desc())
         return clauses
 
