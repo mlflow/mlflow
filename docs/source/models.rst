@@ -1477,79 +1477,6 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
-Community Model Flavors
------------------------
-
-Other useful MLflow flavors are developed and maintained by the
-MLflow community, enabling you to use MLflow Models with an
-even broader ecosystem of machine learning libraries. For more information,
-check out the description of each community-developed flavor below.
-
-.. contents::
-  :local:
-  :depth: 1
-
-
-BigML (``bigmlflow``)
-^^^^^^^^^^^^^^^^^^^^^
-
-The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
-the ``bigml`` model flavor. It enables using
-`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
-
-Installing bigmlflow
-~~~~~~~~~~~~~~~~~~~~
-
-BigMLFlow can be installed from PyPI as follows:
-
-
-.. code-block:: bash
-
-    pip install bigmlflow
-
-BigMLFlow usage
-~~~~~~~~~~~~~~~
-
-The ``bigmlflow`` module defines the flavor that implements the
-``save_model()`` and ``log_model()`` methods. They can be used
-to save BigML models and their related information in MLflow Model format.
-
-.. code-block:: py
-
-    import json
-    import mlflow
-    import bigmlflow
-
-    MODEL_FILE = "logistic_regression.json"
-    with mlflow.start_run():
-        with open(MODEL_FILE) as handler:
-            model = json.load(handler)
-            bigmlflow.log_model(model,
-                                artifact_path="model",
-                                registered_model_name="my_model")
-
-These methods also add the ``python_function`` flavor to the MLflow Models
-that they produce, allowing the models to be interpreted as generic Python
-functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame inputs.
-
-.. code-block:: py
-
-    # saving the model
-    save_model(model, path=model_path)
-    # retrieving model
-    pyfunc_model = pyfunc.load_model(model_path)
-    pyfunc_predictions = pyfunc_model.predict(dataframe)
-
-You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
-with the ``bigmlflow`` model flavor as a BigML
-`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
-
-For more information, see the
-`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
-and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
-
 .. _model-evaluation:
 
 Model Evaluation
@@ -2558,6 +2485,16 @@ For more info, see:
 Community Model Flavors
 -----------------------
 
+Other useful MLflow flavors are developed and maintained by the
+MLflow community, enabling you to use MLflow Models with an
+even broader ecosystem of machine learning libraries. For more information,
+check out the description of each community-developed flavor below.
+
+.. contents::
+  :local:
+  :depth: 1
+
+
 MLflow VizMod
 ^^^^^^^^^^^^^
 
@@ -2596,6 +2533,66 @@ Example:
         style="vegalite",
         input_example=df_iris.head(5),
     )
+
+BigML (``bigmlflow``)
+^^^^^^^^^^^^^^^^^^^^^
+
+The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
+the ``bigml`` model flavor. It enables using
+`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
+and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
+
+Installing bigmlflow
+~~~~~~~~~~~~~~~~~~~~
+
+BigMLFlow can be installed from PyPI as follows:
+
+
+.. code-block:: bash
+
+    pip install bigmlflow
+
+BigMLFlow usage
+~~~~~~~~~~~~~~~
+
+The ``bigmlflow`` module defines the flavor that implements the
+``save_model()`` and ``log_model()`` methods. They can be used
+to save BigML models and their related information in MLflow Model format.
+
+.. code-block:: py
+
+    import json
+    import mlflow
+    import bigmlflow
+
+    MODEL_FILE = "logistic_regression.json"
+    with mlflow.start_run():
+        with open(MODEL_FILE) as handler:
+            model = json.load(handler)
+            bigmlflow.log_model(model,
+                                artifact_path="model",
+                                registered_model_name="my_model")
+
+These methods also add the ``python_function`` flavor to the MLflow Models
+that they produce, allowing the models to be interpreted as generic Python
+functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame inputs.
+
+.. code-block:: py
+
+    # saving the model
+    save_model(model, path=model_path)
+    # retrieving model
+    pyfunc_model = pyfunc.load_model(model_path)
+    pyfunc_predictions = pyfunc_model.predict(dataframe)
+
+You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
+with the ``bigmlflow`` model flavor as a BigML
+`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
+
+For more information, see the
+`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
+and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
 
 Sktime
 ^^^^^^
