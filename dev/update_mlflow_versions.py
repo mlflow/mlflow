@@ -26,8 +26,10 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
 
 
 def update_versions(new_py_version: str) -> None:
-    # `new_py_version` is either a release version (e.g. "2.1.0") or a dev version
-    # (e.g. "2.1.0.dev0")
+    """
+    `new_py_version` is either a release version (e.g. "2.1.0") or a dev version
+    (e.g. "2.1.0.dev0").
+    """
     current_py_version = get_current_py_version()
     current_py_version_without_suffix = replace_dev_suffix_with(current_py_version, "")
 
