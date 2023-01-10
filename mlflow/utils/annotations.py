@@ -1,4 +1,5 @@
 import inspect
+import types
 import warnings
 from functools import wraps
 from typing import Any, Union
@@ -8,7 +9,7 @@ def experimental(api_or_type: Union[callable, str]):
     """
     Decorator / decorator creator for marking APIs experimental in the docstring.
 
-    :param api: An API to mark, or an API typestring for which to generate a decorator.
+    :param api_or_type: An API to mark, or an API typestring for which to generate a decorator.
     :return: Decorated API (if a ``api_or_type`` is an API) or a function that decorates
              the specified API type (if ``api_or_type`` is a typestring).
     """
@@ -16,8 +17,12 @@ def experimental(api_or_type: Union[callable, str]):
         return lambda api: _experimental(api=api, api_type=api_or_type)
     elif inspect.isclass(api_or_type):
         return _experimental(api=api_or_type, api_type="class")
+    elif inspect.isfunction(api_or_type):
+        return _experimental(api=api_or_type, api_type="function")
+    elif isinstance(api_or_type, (property, types.MethodType)):
+        return _experimental(api=api_or_type, api_type="property")
     else:
-        return _experimental(api=api_or_type, api_type="method")
+        return _experimental(api=api_or_type, api_type=str(type(api_or_type)))
 
 
 def _experimental(api: Any, api_type: str):
@@ -25,15 +30,51 @@ def _experimental(api: Any, api_type: str):
         f"    .. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
-    api.__doc__ = notice + api.__doc__
+    if api_type == "property":
+        api.__doc__ = api.__doc__ + "\n\n" + notice
+    else:
+        api.__doc__ = notice + api.__doc__
     return api
+
+
+def developer_stable(func):
+    """
+    The API marked here as `@developer_stable` has certain protections associated with future
+    development work.
+    Classes marked with this decorator implicitly apply this status to all methods contained within
+    them.
+
+    APIs that are annotated with this decorator are guaranteed (except in cases of notes below) to:
+    - maintain backwards compatibility such that earlier versions of any MLflow client, cli, or
+      server will not have issues with any changes being made to them from an interface perspective.
+    - maintain a consistent contract with respect to existing named arguments such that
+      modifications will not alter or remove an existing named argument.
+    - maintain implied or declared types of arguments within its signature.
+    - maintain consistent behavior with respect to return types.
+
+    Note: Should an API marked as `@developer_stable` require a modification for enhanced feature
+      functionality, a deprecation warning will be added to the API well in advance of its
+      modification.
+
+    Note: Should an API marked as `@developer_stable` require patching for any security reason,
+      advanced notice is not guaranteed and the labeling of such API as stable will be ignored
+      for the sake of such a security patch.
+
+    """
+    return func
 
 
 def deprecated(alternative=None, since=None, impact=None):
     """
-    Decorator for marking APIs deprecated in the docstring.
-    :param func: A function to mark
-    :returns Decorated function.
+    Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
+    called.
+    :param alternative: (Optional string) The name of a superseded replacement function, method,
+                        or class to use in place of the deprecated one.
+    :param since: (Optional string) A version designator defining during which release the function,
+                  method, or class was marked as deprecated.
+    :param impact: (Optional boolean) Indication of whether the method, function, or class will be
+                   removed in a future release.
+    :return: Decorated function.
     """
 
     def deprecated_decorator(func):

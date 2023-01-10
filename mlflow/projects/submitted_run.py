@@ -5,10 +5,13 @@ import signal
 import logging
 
 from mlflow.entities import RunStatus
+from mlflow.utils.annotations import developer_stable
+
 
 _logger = logging.getLogger(__name__)
 
 
+@developer_stable
 class SubmittedRun:
     """
     Wrapper around an MLflow project run (e.g. a subprocess running an entry point

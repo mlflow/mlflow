@@ -1,6 +1,8 @@
 from abc import abstractmethod, ABCMeta
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class AbstractBackend:
     """
     Abstract plugin class defining the interface needed to execute MLflow projects. You can define

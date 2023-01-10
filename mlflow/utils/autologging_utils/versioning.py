@@ -1,14 +1,12 @@
 import importlib
 import re
-import yaml
-import sys
 from packaging.version import Version, InvalidVersion
 
-import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 
 
-# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
+# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_ML_PACKAGE_VERSIONS)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "fastai": ("fastai", "fastai"),
     "gluon": ("mxnet", "gluon"),
@@ -57,29 +55,10 @@ def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
-def _load_version_file_as_dict():
-    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
-    if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files
-
-        with as_file(files(mlflow).joinpath("ml-package-versions.yml")) as file:
-            version_file_path = file.as_posix()
-    else:
-        from importlib.resources import path
-
-        with path(mlflow, "ml-package-versions.yml") as file:
-            version_file_path = file.as_posix()
-    with open(version_file_path) as f:
-        return yaml.load(f, Loader=yaml.SafeLoader)
-
-
-_module_version_info_dict = _load_version_file_as_dict()
-
-
 def get_min_max_version_and_pip_release(module_key):
-    min_version = _module_version_info_dict[module_key]["autologging"]["minimum"]
-    max_version = _module_version_info_dict[module_key]["autologging"]["maximum"]
-    pip_release = _module_version_info_dict[module_key]["package_info"]["pip_release"]
+    min_version = _ML_PACKAGE_VERSIONS[module_key]["autologging"]["minimum"]
+    max_version = _ML_PACKAGE_VERSIONS[module_key]["autologging"]["maximum"]
+    pip_release = _ML_PACKAGE_VERSIONS[module_key]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 
 

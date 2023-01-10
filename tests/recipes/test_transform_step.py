@@ -84,15 +84,17 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_
     assert os.path.exists(transform_step_output_dir / "transformer.pkl")
 
 
-def test_transform_steps_work_without_step_config(tmp_recipe_root_path):
+@pytest.mark.parametrize("recipe", ["regression/v1", "classification/v1"])
+def test_transform_steps_work_without_step_config(tmp_recipe_root_path, recipe):
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     experiment_name = "demo"
     MlflowClient().create_experiment(experiment_name)
 
     recipe_yaml.write_text(
         """
-        recipe: "regression/v1"
+        recipe: {recipe}
         target_col: "y"
+        {positive_class}
         experiment:
           name: {experiment_name}
           tracking_uri: {tracking_uri}
@@ -102,10 +104,13 @@ def test_transform_steps_work_without_step_config(tmp_recipe_root_path):
         """.format(
             tracking_uri=mlflow.get_tracking_uri(),
             experiment_name=experiment_name,
+            recipe=recipe,
+            positive_class='positive_class: "a"' if recipe == "regression/v1" else "",
         )
     )
     recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-    TransformStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    transform_step = TransformStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    transform_step._validate_and_apply_step_config()
 
 
 def test_transform_empty_step(tmp_recipe_root_path):

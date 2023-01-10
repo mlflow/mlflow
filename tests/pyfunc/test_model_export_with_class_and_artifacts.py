@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import pytest
+import sklearn
 import sklearn.datasets
 import sklearn.linear_model
 import sklearn.neighbors
@@ -1150,3 +1151,22 @@ def test_model_log_with_metadata():
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+class SklearnModel(mlflow.pyfunc.PythonModel):
+    def __init__(self) -> None:
+        from sklearn.linear_model import LinearRegression
+
+        self.model = LinearRegression()
+
+    def predict(self, context, model_input):
+        return self.model.predict(model_input)
+
+
+def test_dependency_inference_does_not_exclude_mlflow_dependencies(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path,
+        python_model=SklearnModel(),
+    )
+    requiments = tmp_path.joinpath("requirements.txt").read_text()
+    assert f"scikit-learn=={sklearn.__version__}" in requiments

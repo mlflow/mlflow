@@ -72,6 +72,12 @@ body:
         mlflow.doctor()
         ```
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
+      value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
+        ```shell
+        REPLACE_ME
+        ```
+
     validations:
       required: false
   - type: textarea
@@ -79,19 +85,21 @@ body:
       label: Code to reproduce issue
       description: |
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
-      placeholder: |
-        ```python
-        ##### Bad Example #####
-        # - contains undefined variables.
-        # - requires modifications to run (e.g. adding missing import statements).
 
+        ### Bad
+
+        Requires modifications (e.g., adding missing import statements) to run.
+
+        ```python
         with mlflow.start_run():  # `mlflow` is not imported
             mlflow.sklearn.log_model(model, "model")  # `model` is undefined
+        ```
 
-        ##### Good Example #####
-        # - does not contain any undefined variables.
-        # - does not require any modifications to run.
+        ### Good
 
+        Does not require any modifications to run.
+
+        ```python
         from sklearn.datasets import load_iris
         from sklearn.linear_model import LogisticRegression
         import mlflow
@@ -101,6 +109,13 @@ body:
         with mlflow.start_run():
             mlflow.sklearn.log_model(model, "model")
         ```
+
+      value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
+        ```
+        REPLACE_ME
+        ```
+
     validations:
       required: true
   - type: textarea
@@ -108,18 +123,39 @@ body:
       label: Stack trace
       description: |
         Provide a **full** stack trace.
-      placeholder: |
-        ```python
-        # Good: full stack trace
-        Traceback (most recent call last):
-          File "example.py", line 1, in <module>
-            raise Exception("something went wrong")
-        Exception: something went wrong
 
-        # Bad: truncated stack trace
-        ...
-        Exception: something went wrong
+        ### Bad
+
+        ```python
+        TypeError: expected string or bytes-like object
         ```
+
+        ### Good
+
+        ```python
+        Traceback (most recent call last):
+          File "a.py", line 3, in <module>
+            mlflow.log_param(1, 2)
+          File "/home/user/mlflow/mlflow/tracking/fluent.py", line 541, in log_param
+            return MlflowClient().log_param(run_id, key, value)
+          File "/home/user/mlflow/mlflow/tracking/client.py", line 742, in log_param
+            self._tracking_client.log_param(run_id, key, value)
+          File "/home/user/mlflow/mlflow/tracking/_tracking_service/client.py", line 295, in log_param
+            self.store.log_param(run_id, param)
+          File "/home/user/mlflow/mlflow/store/tracking/file_store.py", line 917, in log_param
+            _validate_param(param.key, param.value)
+          File "/home/user/mlflow/mlflow/utils/validation.py", line 150, in _validate_param
+            _validate_param_name(key)
+          File "/home/user/mlflow/mlflow/utils/validation.py", line 217, in _validate_param_name
+            if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        TypeError: expected string or bytes-like object
+        ```
+      value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
+        ```
+        REPLACE_ME
+        ```
+
     validations:
       required: true
   - type: textarea
@@ -127,7 +163,9 @@ body:
       label: Other info / logs
       description: |
         Include any logs or source code that would be helpful to diagnose the problem. Large logs and files should be attached.
-      placeholder: |
+
+        ### Example
+
         ```
         # Tracking server logs
         [2022-08-01 16:03:02 +0900] [222636] [INFO] Starting gunicorn 20.1.0
@@ -135,6 +173,12 @@ body:
         [2022-08-01 16:03:02 +0900] [222636] [INFO] Using worker: sync
         [2022-08-01 16:03:02 +0900] [222639] [INFO] Booting worker with pid: 222639
         ```
+      value: |
+        <!-- PLEASE KEEP BACKTICKS AND CHECK PREVIEW -->
+        ```
+        REPLACE_ME
+        ```
+
     validations:
       required: false
   - type: checkboxes

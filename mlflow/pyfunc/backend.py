@@ -21,9 +21,12 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver, _extract_conda_env
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
+from mlflow.utils.file_utils import (
+    path_to_local_file_uri,
+    get_or_create_tmp_dir,
+    get_or_create_nfs_tmp_dir,
+)
 from mlflow.utils.environment import Environment
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,

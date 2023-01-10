@@ -87,6 +87,8 @@ class Section(NamedTuple):
     "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
 )
 def main(prev_branch, curr_branch, release_version, remote):
+    subprocess.check_call(["git", "fetch", remote, curr_branch])
+    subprocess.check_call(["git", "fetch", remote, prev_branch])
     git_log_output = subprocess.check_output(
         [
             "git",

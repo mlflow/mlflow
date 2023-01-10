@@ -15,7 +15,7 @@ import sklearn.compose
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import read_yaml
 from mlflow.recipes.utils.execution import (
-    _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR,
+    get_step_output_path,
     _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
 )
 from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
@@ -29,7 +29,7 @@ from mlflow.utils.mlflow_tags import (
 )
 
 # pylint: disable=unused-import
-from tests.recipes.helper_functions import tmp_recipe_root_path
+from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
 
 
 # pylint: enable=unused-import
@@ -185,40 +185,38 @@ def setup_train_step_with_tuning(
     return train_step
 
 
-def test_train_step(tmp_recipe_root_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
-        recipe_yaml.write_text(
-            """
-            recipe: "regression/v1"
-            target_col: "y"
-            profile: "test_profile"
-            run_args:
-                step: "train"
-            experiment:
-                name: "demo"
-                tracking_uri: {tracking_uri}
-            steps:
-                train:
-                    using: custom
-                    estimator_method: estimator_fn
-                    tuning:
-                        enabled: false
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri()
-            )
+def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "regression/v1"
+        target_col: "y"
+        profile: "test_profile"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
         )
+    )
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
 
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-
-        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-            train_step.run(str(train_step_output_dir))
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
 
     run_id = train_step_output_dir.joinpath("run_id").read_text()
     metrics = MlflowClient().get_run(run_id).data.metrics
@@ -227,42 +225,41 @@ def test_train_step(tmp_recipe_root_path):
 
 
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
-def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(
-            tmp_recipe_root_path, recipe="classification/multiclass"
+def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, capsys):
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/multiclass"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        positive_class: "a"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
         )
-        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
-        recipe_yaml.write_text(
-            """
-            recipe: "classification/v1"
-            target_col: "y"
-            primary_metric: "f1_score"
-            profile: "test_profile"
-            positive_class: "a"
-            run_args:
-                step: "train"
-            experiment:
-                name: "demo"
-                tracking_uri: {tracking_uri}
-            steps:
-                train:
-                    using: custom
-                    estimator_method: estimator_fn
-                    tuning:
-                        enabled: false
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri()
-            )
-        )
-        m_train = Mock()
-        m_train.estimator_fn = classifier_estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-            train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-            train_step.run(str(train_step_output_dir))
+    )
+    m_train = Mock()
+    m_train.estimator_fn = classifier_estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
 
     # captured = capsys.readouterr()
     # assert "Detected class imbalance" in captured.err
@@ -274,41 +271,41 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path, capsys):
 
 
 @pytest.mark.parametrize("recipe", ["classification/binary", "classification/multiclass"])
-def test_train_step_classifier_automl(tmp_recipe_root_path, recipe):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path, recipe=recipe)
-        recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
-        recipe_yaml.write_text(
-            """
-            recipe: "classification/v1"
-            target_col: "y"
-            primary_metric: {metric}
-            profile: "test_profile"
-            {positive_class}
-            run_args:
-                step: "train"
-            experiment:
-                name: "demo"
-                tracking_uri: {tracking_uri}
-            steps:
-                train:
-                    using: automl/flaml
-                    time_budget_secs: 5
-                    flaml_params:
-                        estimator_list:
-                        - rf
-                        - lgbm
-            """.format(
-                tracking_uri=mlflow.get_tracking_uri(),
-                metric="roc_auc" if recipe == "classification/binary" else "roc_auc_ovr",
-                positive_class='positive_class: "a"' if recipe == "classification/binary" else "",
-            )
+def test_train_step_classifier_automl(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, recipe
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path, recipe=recipe)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "roc_auc"
+        profile: "test_profile"
+        {positive_class}
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: automl/flaml
+                time_budget_secs: 5
+                flaml_params:
+                    estimator_list:
+                    - rf
+                    - lgbm
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri(),
+            positive_class='positive_class: "a"' if recipe == "classification/binary" else "",
         )
-        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
-        train_step.run(str(train_step_output_dir))
+    )
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    train_step.run(str(train_step_output_dir))
 
     run_id = train_step_output_dir.joinpath("run_id").read_text()
     metrics = MlflowClient().get_run(run_id).data.metrics
@@ -368,30 +365,37 @@ def classifier_estimator_fn(estimator_params=None):
     return SGDClassifier(random_state=42, **(estimator_params or {}))
 
 
+def classifier_with_predict_proba_estimator_fn(estimator_params=None):
+    from sklearn.linear_model import LogisticRegression
+
+    return LogisticRegression()
+
+
 def early_stop_fn(trial, count=0):  # pylint: disable=unused-argument
     return count + 1 <= 2, [count + 1]
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_writes_model_pkl_and_card(tmp_recipe_root_path, use_tuning):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+def test_train_steps_writes_model_pkl_and_card(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
 
-    assert (train_step_output_dir / "model/model.pkl").exists()
+    assert (train_step_output_dir / "model/python_model.pkl").exists()
     assert (train_step_output_dir / "card.html").exists()
     assert (train_step_output_dir / "predicted_training_data.parquet").exists()
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
-    monkeypatch, tmp_recipe_root_path, use_tuning
+    monkeypatch, tmp_recipe_exec_path: Path, tmp_recipe_root_path: Path, use_tuning
 ):
     workspace_host = "https://dev.databricks.com"
     workspace_id = 123456
@@ -399,9 +403,10 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_HOST", workspace_host)
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
 
-    train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
     m_train = Mock()
     m_train.estimator_fn = estimator_fn
@@ -423,16 +428,15 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_autologs(tmp_recipe_root_path, use_tuning):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+def test_train_steps_autologs(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
 
@@ -447,15 +451,18 @@ def test_train_steps_autologs(tmp_recipe_root_path, use_tuning):
 
 
 @pytest.mark.parametrize("use_tuning", [True, False])
-def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
+def test_train_steps_with_correct_tags(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning
+):
     with mock.patch.dict(
         os.environ,
         {
-            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
             _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+        recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+        recipe_steps_dir.mkdir(parents=True)
         train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
         m_train = Mock()
         m_train.estimator_fn = estimator_fn
@@ -475,16 +482,18 @@ def test_train_steps_with_correct_tags(tmp_recipe_root_path, use_tuning):
     assert tags[MLFLOW_RECIPE_PROFILE_NAME] == "test_profile"
 
 
-def test_train_step_with_tuning_best_parameters(tmp_recipe_root_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+def test_train_step_with_tuning_best_parameters(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
+
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
     best_params_yaml = read_yaml(train_step_output_dir, "best_parameters.yaml")
@@ -504,23 +513,23 @@ def test_train_step_with_tuning_best_parameters(tmp_recipe_root_path):
     [(True, 3, 1, 3), (False, 3, 0, 2)],
 )
 def test_train_step_with_tuning_output_yaml_correct(
-    tmp_recipe_root_path,
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
     with_hardcoded_params,
     expected_num_tuned,
     expected_num_hardcoded,
     num_sections,
 ):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        train_step = setup_train_step_with_tuning(
-            tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
-        )
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(
+        tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
+    )
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
     with open(os.path.join(train_step_output_dir, "best_parameters.yaml")) as f:
@@ -536,16 +545,17 @@ def test_train_step_with_tuning_output_yaml_correct(
         assert len(lines) == 19 + num_sections * 2
 
 
-def test_train_step_with_tuning_child_runs_and_early_stop(tmp_recipe_root_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
-        train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-        m_train = Mock()
-        m_train.estimator_fn = estimator_fn
-        with mock.patch.dict("sys.modules", {"steps.train": m_train}):
-            train_step.run(str(train_step_output_dir))
+def test_train_step_with_tuning_child_runs_and_early_stop(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
+    m_train = Mock()
+    m_train.estimator_fn = estimator_fn
+    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+        train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
         run_id = f.read()
@@ -591,15 +601,22 @@ def test_tuning_param_equal(tuning_param, logged_param):
         (True, "weighted_mean_squared_error", True),
     ],
 )
-def test_automl(tmp_recipe_root_path, automl, primary_metric, generate_custom_metrics):
+def test_automl(
+    tmp_recipe_root_path: Path,
+    tmp_recipe_exec_path: Path,
+    automl,
+    primary_metric,
+    generate_custom_metrics,
+):
     with mock.patch.dict(
         os.environ,
         {
-            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
             _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
-        train_step_output_dir = setup_train_dataset(tmp_recipe_root_path)
+        train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
+        recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+        recipe_steps_dir.mkdir(parents=True)
         if generate_custom_metrics:
             recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
             recipe_steps_dir.joinpath("custom_metrics.py").write_text(
@@ -639,17 +656,18 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
         assert f"training_{primary_metric}" in metrics
 
 
-def test_tuning_multiclass(tmp_recipe_root_path):
+def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     with mock.patch.dict(
         os.environ,
         {
-            _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path),
             _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR: "train",
         },
     ):
         train_step_output_dir = setup_train_dataset(
-            tmp_recipe_root_path, recipe="classification/multiclass"
+            tmp_recipe_exec_path, recipe="classification/multiclass"
         )
+        recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+        recipe_steps_dir.mkdir(parents=True)
 
         train_step = setup_train_step_with_tuning(
             tmp_recipe_root_path,
@@ -677,3 +695,139 @@ def test_tuning_multiclass(tmp_recipe_root_path):
 
         metrics = MlflowClient().get_run(run_id).data.metrics
         assert "training_f1_score" in metrics
+
+
+def test_train_step_with_predict_probability(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/binary"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        positive_class: "a"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+    with mock.patch(
+        "steps.train.estimator_fn",
+        classifier_with_predict_proba_estimator_fn,
+    ):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    model_uri = get_step_output_path(
+        recipe_root_path=tmp_recipe_root_path,
+        step_name="train",
+        relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+    )
+    sk_model_uri = get_step_output_path(
+        recipe_root_path=tmp_recipe_root_path,
+        step_name="train",
+        relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
+    )
+    mlflow.sklearn.load_model(sk_model_uri)
+    model = mlflow.pyfunc.load_model(model_uri)
+    transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
+
+    validation_dataset = pd.read_parquet(
+        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+    )
+
+    output = model.predict(validation_dataset)
+
+    assert list(output.columns) == [
+        "predicted_score_a",
+        "predicted_score_b",
+        "predicted_score",
+        "predicted_label",
+    ]
+
+    import numpy as np
+
+    assert np.array_equal(
+        output.head(5)["predicted_score"].tolist(),
+        np.max(output[["predicted_score_a", "predicted_score_b"]].head(5).values, axis=1),
+    )
+
+
+def test_train_step_with_predict_probability_with_custom_prefix(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/binary"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        positive_class: "a"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                predict_prefix: "custom_prefix_"
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+    with mock.patch(
+        "steps.train.estimator_fn",
+        classifier_with_predict_proba_estimator_fn,
+    ):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    model_uri = get_step_output_path(
+        recipe_root_path=tmp_recipe_root_path,
+        step_name="train",
+        relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+    )
+    model = mlflow.pyfunc.load_model(model_uri)
+    transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
+
+    validation_dataset = pd.read_parquet(
+        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+    )
+
+    output = model.predict(validation_dataset)
+
+    assert list(output.columns) == [
+        "custom_prefix_score_a",
+        "custom_prefix_score_b",
+        "custom_prefix_score",
+        "custom_prefix_label",
+    ]
