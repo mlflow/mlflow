@@ -146,7 +146,7 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    .. test-code-block:: python
+    .. code-block:: python
         :caption: Example
 
         from pathlib import Path
