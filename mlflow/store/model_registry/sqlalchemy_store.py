@@ -933,14 +933,13 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 else:
                     if key == "version_number":
-                        key_name = "version"
+                        field = SqlModelVersion.version
                     elif key == "creation_timestamp":
-                        key_name = "creation_time"
+                        field = SqlModelVersion.creation_time
                     elif key == "last_updated_timestamp":
-                        key_name = "last_updated_time"
+                        field = SqlModelVersion.last_updated_time
                     else:
-                        key_name = key
-                    field = getattr(SqlModelVersion, key_name)
+                        field = getattr(SqlModelVersion, key)
                 if field.key in observed_order_by_clauses:
                     raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
                 observed_order_by_clauses.add(field.key)
