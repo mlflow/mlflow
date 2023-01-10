@@ -146,18 +146,16 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    .. code-block:: python
+    .. test-code-block:: python
         :caption: Example
 
-        import os
-        import mlflow
+        from pathlib import Path
         from lightgbm import LGBMClassifier
         from sklearn import datasets
+        import mlflow
 
         # Load iris dataset
-        iris = datasets.load_iris()
-        X = iris.data
-        y = iris.target
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 
         # Initialize our model
         model = LGBMClassifier(objective="multiclass", random_state=42)
@@ -165,27 +163,18 @@ def save_model(
         # Train the model
         model.fit(X, y)
 
-        # Save LightGBM model to current working directory
-        with mlflow.start_run() as run:
-            mlflow.lightgbm.save_model(model, "model")
+        # Save the model
+        path = "model"
+        mlflow.lightgbm.save_model(model, path)
 
         # Load model for inference
-        model_path = "model"
-        model_uri = f"{os.getcwd()}/{model_path}"
-        print(f"Loaded {model_path}:")
-        loaded_model = mlflow.lightgbm.load_model(model_uri)
-        for i in [0, 1, 2, 3]:
-            y_pred = loaded_model.predict(X[[i]])[0]
-            print(f"predict X: {X[i]}, y_pred: {y_pred}")
+        loaded_model = mlflow.lightgbm.load_model(Path.cwd() / path)
+        print(loaded_model.predict(X[:5]))
 
     .. code-block:: text
         :caption: Output
 
-        Loaded model:
-        predict X: [5.1 3.5 1.4 0.2], y_pred: 0
-        predict X: [4.9 3.  1.4 0.2], y_pred: 0
-        predict X: [4.7 3.2 1.3 0.2], y_pred: 0
-        predict X: [4.6 3.1 1.5 0.2], y_pred: 0
+        [0 0 0 0 0]
     """
     import lightgbm as lgb
 
@@ -342,14 +331,12 @@ def log_model(
     .. code-block:: python
         :caption: Example
 
-        import mlflow
         from lightgbm import LGBMClassifier
         from sklearn import datasets
+        import mlflow
 
         # Load iris dataset
-        iris = datasets.load_iris()
-        X = iris.data
-        y = iris.target
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 
         # Initialize our model
         model = LGBMClassifier(objective="multiclass", random_state=42)
@@ -357,22 +344,22 @@ def log_model(
         # Train the model
         model.fit(X, y)
 
-        # Log model
+        # Log the model
         artifact_path = "model"
-        with mlflow.start_run() as run:
-            mlflow.lightgbm.log_model(model, artifact_path)
+        with mlflow.start_run():
+            model_info = mlflow.lightgbm.log_model(model, artifact_path)
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
+        client = mlflow.MlflowClient()
         artifacts = [
-            f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, artifact_path)
+            f.path for f in client.list_artifacts(run.info.run_id, artifact_path)
         ]
         print(f"artifacts: {artifacts}")
 
     .. code-block:: text
         :caption: Output
 
-        run_id: 9e2032b7f34148cb93cac6d9bb9ce7b7
         artifacts: ['model/MLmodel',
                     'model/conda.yaml',
                     'model/model.pkl',
@@ -457,14 +444,12 @@ def load_model(model_uri, dst_path=None):
     .. code-block:: python
         :caption: Example
 
-        import mlflow
         from lightgbm import LGBMClassifier
         from sklearn import datasets
+        import mlflow
 
         # Load iris dataset
-        iris = datasets.load_iris()
-        X = iris.data
-        y = iris.target
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 
         # Initialize our model
         model = LGBMClassifier(objective="multiclass", random_state=42)
@@ -472,25 +457,18 @@ def load_model(model_uri, dst_path=None):
         # Train the model
         model.fit(X, y)
 
-        # Log model
-        artifact_path = "model"
-        with mlflow.start_run() as run:
-            mlflow.lightgbm.log_model(model, artifact_path)
+        # Log the model
+        with mlflow.start_run():
+            model_info = mlflow.lightgbm.log_model(model, artifact_path="model")
 
-        # Inference after loading the logged model
-        model_uri = f"runs:/{run.info.run_id}/model"
-        loaded_model = mlflow.lightgbm.load_model(model_uri)
-        for i in [0, 1, 2, 3]:
-            y_pred = loaded_model.predict(X[[i]])[0]
-            print(f"predict X: {X[i]}, y_pred: {y_pred}")
+        # Load model for inference
+        loaded_model = mlflow.lightgbm.load_model(model_info.model_uri)
+        print(loaded_model.predict(X[:5]))
 
     .. code-block:: text
         :caption: Output
 
-        predict X: [5.1 3.5 1.4 0.2], y_pred: 0
-        predict X: [4.9 3.  1.4 0.2], y_pred: 0
-        predict X: [4.7 3.2 1.3 0.2], y_pred: 0
-        predict X: [4.6 3.1 1.5 0.2], y_pred: 0
+        [0 0 0 0 0]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
@@ -595,7 +573,6 @@ def autolog(
         from lightgbm import LGBMClassifier
         from sklearn import datasets
 
-
         def print_auto_logged_info(run):
 
             tags = {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")}
@@ -616,9 +593,7 @@ def autolog(
 
 
         # Load iris dataset
-        iris = datasets.load_iris()
-        X = iris.data
-        y = iris.target
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 
         # Initialize our model
         model = LGBMClassifier(objective="multiclass", random_state=42)
