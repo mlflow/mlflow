@@ -71,6 +71,20 @@ class Section(NamedTuple):
         )
 
 
+def is_shallow():
+    return (
+        subprocess.check_output(
+            [
+                "git",
+                "rev-parse",
+                "--is-shallow-repository",
+            ],
+            text=True,
+        ).strip()
+        == "true"
+    )
+
+
 @click.command(help="Update CHANGELOG.md")
 @click.option(
     "--prev-branch",
@@ -87,8 +101,9 @@ class Section(NamedTuple):
     "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
 )
 def main(prev_branch, curr_branch, release_version, remote):
-    subprocess.check_call(["git", "fetch", remote, curr_branch])
-    subprocess.check_call(["git", "fetch", remote, prev_branch])
+    if is_shallow():
+        # To ensure that `git log` works correctly, unshallow the repository if it's shallow.
+        subprocess.check_call(["git", "fetch", "--unshallow"])
     git_log_output = subprocess.check_output(
         [
             "git",
