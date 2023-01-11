@@ -13,12 +13,8 @@ RUN apt-get update && \
     # install required python packages
     pip install -r requirements/dev-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
-    pip install --no-cache-dir -e . 
-    
-    # && \
-    # useradd -u 10001 -g 10001 -m -d /home/mlflow mlflow
-
-RUN  groupadd -g 10001 mlflow && \
+    pip install --no-cache-dir -e . && \
+    groupadd -g 10001 mlflow && \
     useradd -u 10001 -g 10001 -m -d /home/mlflow mlflow
 
 # Build MLflow UI
