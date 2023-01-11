@@ -45,6 +45,9 @@ pytorch:
 torch:
   package_info:
     pip_release: "torch"
+    install_dev: |
+      export PACKAGE_NAME=pytorch
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
   autologging:
     minimum: "1.4"
     maximum: "1.14"
