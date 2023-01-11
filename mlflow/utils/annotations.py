@@ -1,4 +1,5 @@
 import inspect
+import types
 import warnings
 from functools import wraps
 from typing import Any, Union
@@ -18,8 +19,10 @@ def experimental(api_or_type: Union[callable, str]):
         return _experimental(api=api_or_type, api_type="class")
     elif inspect.isfunction(api_or_type):
         return _experimental(api=api_or_type, api_type="function")
+    elif isinstance(api_or_type, (property, types.MethodType)):
+        return _experimental(api=api_or_type, api_type="property")
     else:
-        return _experimental(api=api_or_type, api_type="method")
+        return _experimental(api=api_or_type, api_type=str(type(api_or_type)))
 
 
 def _experimental(api: Any, api_type: str):
@@ -27,7 +30,10 @@ def _experimental(api: Any, api_type: str):
         f"    .. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
-    api.__doc__ = notice + api.__doc__
+    if api_type == "property":
+        api.__doc__ = api.__doc__ + "\n\n" + notice
+    else:
+        api.__doc__ = notice + api.__doc__
     return api
 
 

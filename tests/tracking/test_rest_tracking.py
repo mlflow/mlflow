@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import flask
 import json
 import os
 import sys
@@ -11,6 +12,7 @@ import tempfile
 import time
 import urllib.parse
 import requests
+from unittest import mock
 
 import pytest
 
@@ -21,9 +23,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.models import Model
 import mlflow.pyfunc
+from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.handlers import validate_path_is_safe
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
@@ -994,3 +996,42 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
     assert response_limited.json().get("metrics") == [
         {**metric, "run_id": run_id} for metric in metricA_history[:max_results]
     ]
+
+
+def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
+    from mlflow.server.handlers import get_metric_history_bulk_handler
+
+    path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
+
+    flask_app = flask.Flask("test_flask_app")
+
+    class MockRequestArgs:
+        def __init__(self, args_dict):
+            self.args_dict = args_dict
+
+        def to_dict(self, flat):
+            return self.args_dict
+
+        def get(self, key, default=None):
+            return self.args_dict.get(key, default)
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        mock_context.request.args = MockRequestArgs(
+            {
+                "run_id": run_ids,
+                "metric_key": "mock_key",
+            }
+        )
+
+        get_metric_history_bulk_handler()
+
+        mock_store.get_metric_history_bulk.assert_called_once_with(
+            run_ids=run_ids,
+            metric_key="mock_key",
+            max_results=25000,
+        )

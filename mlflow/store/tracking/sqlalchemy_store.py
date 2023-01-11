@@ -12,7 +12,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import sql
 from sqlalchemy.future import select
 
-from mlflow.entities import RunTag
+from mlflow.entities import RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -861,6 +861,70 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
+
+    class MetricWithRunId(Metric):
+        def __init__(self, metric: Metric, run_id):
+            super().__init__(
+                key=metric.key,
+                value=metric.value,
+                timestamp=metric.timestamp,
+                step=metric.step,
+            )
+            self._run_id = run_id
+
+        @property
+        def run_id(self):
+            return self._run_id
+
+        def to_dict(self):
+            return {
+                "key": self.key,
+                "value": self.value,
+                "timestamp": self.timestamp,
+                "step": self.step,
+                "run_id": self.run_id,
+            }
+
+    def get_metric_history_bulk(self, run_ids, metric_key, max_results):
+        """
+        Return all logged values for a given metric.
+
+        :param run_ids: Unique identifiers of the runs from which to fetch the metric histories for
+                        the specified key.
+        :param metric_key: Metric name within the runs.
+        :param max_results: The maximum number of results to return.
+
+        :return: A List of :py:class:`SqlAlchemyStore.MetricWithRunId` objects if ``metric_key``
+            values have been logged to one or more of the specified ``run_ids``, else an empty
+            list. Results are sorted by run ID in lexicographically ascending order, followed by
+            timestamp, step, and value in numerically ascending order.
+        """
+        # NB: The SQLAlchemyStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        with self.ManagedSessionMaker() as session:
+            metrics = (
+                session.query(SqlMetric)
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                )
+                .order_by(
+                    SqlMetric.run_uuid,
+                    SqlMetric.timestamp,
+                    SqlMetric.step,
+                    SqlMetric.value,
+                )
+                .limit(max_results)
+                .all()
+            )
+            return [
+                SqlAlchemyStore.MetricWithRunId(
+                    run_id=metric.run_uuid,
+                    metric=metric.to_mlflow_entity(),
+                )
+                for metric in metrics
+            ]
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)

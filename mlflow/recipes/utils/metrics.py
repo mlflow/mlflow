@@ -84,17 +84,22 @@ def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Opti
         return lambda predictions, targets: predictions - targets
     if tmpl == "classification/v1":
         if use_probability:
-            import numpy as np
-
-            def logloss(true_label, predicted_proba, eps=1e-15):
-                p = np.clip(predicted_proba, eps, 1 - eps)
+            # It computes error rate for binary classification since
+            # positive class only exists in binary classification.
+            def error_rate(true_label, predicted_positive_class_proba):
                 if true_label == positive_class:
-                    return -np.log(p)
+                    # if true_label == positive_class then the probability is
+                    # predicted_positive_class_proba but the error rate is
+                    # 1 - predicted_positive_class_proba
+                    return 1 - predicted_positive_class_proba
                 else:
-                    return -np.log(1 - p)
+                    # if true_label != positive_class then the probability is
+                    # 1 - predicted_positive_class_proba but the error rate is
+                    # predicted_positive_class_proba
+                    return predicted_positive_class_proba
 
             return lambda predictions, targets: [
-                logloss(x, y) for (x, y) in zip(targets, predictions[:, 0])
+                error_rate(x, y) for (x, y) in zip(targets, predictions)
             ]
         else:
             return lambda predictions, targets: predictions != targets

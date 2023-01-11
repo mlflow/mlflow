@@ -3,6 +3,7 @@ import pathlib
 import time
 from datetime import datetime
 from unittest import mock
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -11,9 +12,12 @@ from pyspark.sql import SparkSession
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.steps.ingest import IngestStep
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.utils.file_utils import read_yaml
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.recipes.helper_functions import (
+    tmp_recipe_root_path,
     enter_recipe_example_directory,
     enter_test_recipe_directory,
 )
@@ -93,6 +97,46 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
+
+
+def custom_load_csv(file_path, file_format):  # pylint: disable=unused-argument
+    return pd.read_csv(file_path, index_col=0)
+
+
+def test_ingests_custom_format(pandas_df, tmp_recipe_root_path, tmp_path):
+    dataset_path = tmp_path / "dataset"
+    dataset_path.mkdir()
+    pandas_df_part1 = pandas_df[:1]
+    pandas_df_part2 = pandas_df[1:]
+    pandas_df_part1.to_csv(dataset_path / "df1.csv")
+    pandas_df_part2.to_csv(dataset_path / "df2.csv")
+    dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        f"""
+        recipe: "regression/v1"
+        target_col: "C"
+        steps:
+            ingest:
+                skip_data_profiling: True
+                using: custom
+                location: {dataset_path}
+                loader_method: load_file_as_dataframe
+        """
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+
+    m_ingest = Mock()
+    m_ingest.load_file_as_dataframe = custom_load_csv
+    with mock.patch.dict("sys.modules", {"steps.ingest": m_ingest}):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        ingest_step = IngestStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        ingest_step.run(output_directory=tmp_path)
+
+        reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        pd.testing.assert_frame_equal(reloaded_df, pandas_df)
 
 
 @pytest.mark.parametrize("use_relative_path", [False, True])

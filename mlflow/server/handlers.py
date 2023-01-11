@@ -1031,24 +1031,43 @@ def get_metric_history_bulk_handler():
     max_results = min(max_results, MAX_HISTORY_RESULTS)
 
     store = _get_tracking_store()
-    metrics_with_run_ids = []
-    for run_id in sorted(run_ids):
-        metrics_for_run = sorted(
-            store.get_metric_history(run_id=run_id, metric_key=metric_key, max_results=max_results),
-            key=lambda metric: (metric.timestamp, metric.step, metric.value),
-        )
-        metrics_with_run_ids.extend(
-            [
-                {
-                    "key": metric.key,
-                    "value": metric.value,
-                    "timestamp": metric.timestamp,
-                    "step": metric.step,
-                    "run_id": run_id,
-                }
-                for metric in metrics_for_run
-            ]
-        )
+
+    def _default_history_bulk_impl():
+        metrics_with_run_ids = []
+        for run_id in sorted(run_ids):
+            metrics_for_run = sorted(
+                store.get_metric_history(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    max_results=max_results,
+                ),
+                key=lambda metric: (metric.timestamp, metric.step, metric.value),
+            )
+            metrics_with_run_ids.extend(
+                [
+                    {
+                        "key": metric.key,
+                        "value": metric.value,
+                        "timestamp": metric.timestamp,
+                        "step": metric.step,
+                        "run_id": run_id,
+                    }
+                    for metric in metrics_for_run
+                ]
+            )
+        return metrics_with_run_ids
+
+    if hasattr(store, "get_metric_history_bulk"):
+        metrics_with_run_ids = [
+            metric.to_dict()
+            for metric in store.get_metric_history_bulk(
+                run_ids=run_ids,
+                metric_key=metric_key,
+                max_results=max_results,
+            )
+        ]
+    else:
+        metrics_with_run_ids = _default_history_bulk_impl()
 
     return {
         "metrics": metrics_with_run_ids[:max_results],
