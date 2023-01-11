@@ -4,6 +4,9 @@ WORKDIR /app
 
 ADD . /app
 
+RUN groupadd --gid 10001 mlflow \
+  && useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
+
 ENV DEBIAN_FRONTEND=noninteractive
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     # install prequired modules to support install of mlflow and related components
@@ -13,9 +16,8 @@ RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     # install required python packages
     pip install --no-cache-dir -r requirements/dev-requirements.txt && \
     # install mlflow in editable form
-    pip install --no-cache-dir -e . && \
-    groupadd -g 10001 mlflow && \
-    useradd -u 10001 -g 10001 -m -d /home/mlflow mlflow
+    pip install --no-cache-dir -e .
+
 
 # Build MLflow UI
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
