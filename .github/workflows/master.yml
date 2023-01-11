@@ -317,8 +317,7 @@ jobs:
       - name: Test CMD
         shell: cmd
         run: |
-          # Comment
-          echo "comment"
+          make hello
       - name: Run python tests
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
