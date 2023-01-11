@@ -151,8 +151,7 @@ def text_artifact(tmp_path):
     artifact_return_type = namedtuple(
         "artifact_return_type", ["tmp_path", "artifact_path", "artifact_name"]
     )
-    yield artifact_return_type(artifacts_root_tmp, test_artifact_path, artifact_name)
-    shutil.rmtree(artifacts_root_tmp, ignore_errors=True)
+    return artifact_return_type(artifacts_root_tmp, test_artifact_path, artifact_name)
 
 
 def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
