@@ -28,6 +28,9 @@ except ImportError:
         Callback = object
         __version__ = "0.0.0"
 
+    def rank_zero_only(f):
+        return f
+
 
 # indicates that lightning is active, so no low level tensorboard patching
 # is required.
