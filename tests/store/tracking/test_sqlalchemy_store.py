@@ -614,7 +614,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     exp_id = store.create_experiment(name="exp")
                     exp = store.get_experiment(exp_id)
                     assert exp.artifact_location == expected_artifact_uri_format.format(
-                        e=exp_id, cwd=str(pathlib.Path.cwd())
+                        e=exp_id, cwd=pathlib.Path.cwd()
                     )
 
     def test_create_experiment_with_tags_works_correctly(self):
