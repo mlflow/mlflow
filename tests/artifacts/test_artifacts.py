@@ -173,7 +173,6 @@ def test_default_relative_artifact_uri_resolves(text_artifact):
             str(
                 pathlib.Path.cwd().joinpath(
                     "test_artifacts_root",
-                    experiment_id,
                     run.info.run_id,
                     "artifacts",
                     text_artifact.artifact_name,
@@ -195,7 +194,7 @@ def test_custom_relative_artifact_uri_resolves(text_artifact):
             tracking_uri,
             str(
                 artifacts_root_path.joinpath(
-                    experiment_id, run.info.run_id, "artifacts", text_artifact.artifact_name
+                    run.info.run_id, "artifacts", text_artifact.artifact_name
                 )
             ),
             text_artifact,
