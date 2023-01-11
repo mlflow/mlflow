@@ -573,7 +573,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 exp_id = fs.create_experiment("exp")
                 exp = fs.get_experiment(exp_id)
                 assert exp.artifact_location == expected_artifact_uri_format.format(
-                    e=exp_id, cwd=str(Path.cwd())
+                    e=exp_id, cwd=Path.cwd()
                 )
 
     def test_create_experiment_with_tags_works_correctly(self):
