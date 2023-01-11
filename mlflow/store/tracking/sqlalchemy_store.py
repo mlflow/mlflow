@@ -242,15 +242,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
-        if artifact_location is not None and bool(artifact_location):
-            resolved_artifact_location = resolve_uri_if_local(artifact_location)
+        if artifact_location:
+            artifact_location = resolve_uri_if_local(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
                 experiment = SqlExperiment(
                     name=name,
                     lifecycle_stage=LifecycleStage.ACTIVE,
-                    artifact_location=resolved_artifact_location,
+                    artifact_location=artifact_location,
                     creation_time=creation_time,
                     last_update_time=creation_time,
                 )
@@ -258,7 +258,7 @@ class SqlAlchemyStore(AbstractStore):
                     [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
                 )
                 session.add(experiment)
-                if not resolved_artifact_location:
+                if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
