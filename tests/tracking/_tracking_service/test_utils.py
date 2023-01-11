@@ -26,6 +26,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_URI_ENV_VAR,
     _TRACKING_USERNAME_ENV_VAR,
 )
+from mlflow.utils.file_utils import path_to_local_file_uri
 
 # pylint: disable=unused-argument
 
@@ -145,7 +146,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == "./mlruns"
+        assert store.artifact_root_uri == f"{Path.cwd().joinpath('mlruns')}"
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
@@ -169,7 +170,9 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == artifact_uri
+        assert store.artifact_root_uri == path_to_local_file_uri(
+            Path.cwd().joinpath("artifact", "path")
+        )
 
     mock_create_engine.assert_not_called()
 
