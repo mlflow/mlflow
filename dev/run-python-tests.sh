@@ -8,4 +8,9 @@ export MLFLOW_HOME=$(pwd)
 
 pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes
 
+LIGHTNING_VERSION=`python -c "import pytorch_lightning as pl; print(pl.__version__)"`
+pip uninstall pytorch_lightning
+pytest tests/pytorch/test_tensorboard_autolog.py
+pip install pytorch_lightning==$LIGHTNING_VERSION
+
 test $err = 0
