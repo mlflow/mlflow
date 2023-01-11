@@ -775,7 +775,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                 )
                 assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                    e=exp_id, r=run.info.run_id, cwd=str(Path.cwd())
+                    e=exp_id, r=run.info.run_id, cwd=Path.cwd()
                 )
 
     def test_create_run_in_deleted_experiment(self):
