@@ -317,7 +317,7 @@ jobs:
       - name: Test CMD
         shell: cmd
         run: |
-          make hello
+          python -c "import subprocess; subprocess.check_call(['make', 'hello'])"
       - name: Run python tests
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
