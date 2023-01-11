@@ -453,24 +453,29 @@ class TrainStep(BaseStep):
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
 
-            use_predict_proba = isinstance(prediction_result, pd.DataFrame)
-            if use_predict_proba and {
+            use_probability_for_error_rate = False
+            if isinstance(prediction_result, pd.DataFrame) and {
                 f"{self.predict_prefix}label",
                 f"{self.predict_prefix}score",
             }.issubset(prediction_result.columns):
-                prediction_result_for_error = (
-                    prediction_result.drop(
-                        [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
-                    )
-                    .iloc[0:]
-                    .values
-                )
+                if self.positive_class:
+                    prediction_result_for_error = prediction_result[
+                        f"{self.predict_prefix}score_{self.positive_class}"
+                    ].values
+                    # use_probability_for_error_rate to true to compute error function
+                    # based on positive class
+                    use_probability_for_error_rate = True
+                else:
+                    prediction_result_for_error = prediction_result[
+                        f"{self.predict_prefix}score"
+                    ].values
+
                 prediction_result = prediction_result[f"{self.predict_prefix}label"].values
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.recipe,
-                use_probability=use_predict_proba,
+                use_probability=use_probability_for_error_rate,
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
@@ -485,23 +490,26 @@ class TrainStep(BaseStep):
                 f"{self.predict_prefix}label",
                 f"{self.predict_prefix}score",
             }.issubset(train_predictions.columns):
-                train_predicted_result = model.predict(raw_train_df.drop(self.target_col, axis=1))
-                train_predicted_probs = train_predicted_result.drop(
-                    [f"{self.predict_prefix}label", f"{self.predict_prefix}score"], axis=1
-                )
                 predicted_training_data = raw_train_df.assign(
                     predicted_data=train_predictions[f"{self.predict_prefix}label"],
-                    predicted_probability=train_predicted_probs.iloc[0:, 0].values,
+                    predicted_score=train_predictions[f"{self.predict_prefix}score"].values,
                 )
-                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                    raw_train_df,
-                    train_predicted_probs.iloc[0:, 0].values,
-                    error_fn(
-                        train_predicted_probs.values,
-                        raw_train_df[self.target_col].to_numpy(),
-                    ),
-                    self.target_col,
-                )
+                if self.positive_class:
+                    worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                        raw_train_df,
+                        train_predictions[f"{self.predict_prefix}label"].values,
+                        error_fn(
+                            train_predictions[
+                                f"{self.predict_prefix}score_{self.positive_class}"
+                            ].values,
+                            raw_train_df[self.target_col].to_numpy(),
+                        ),
+                        self.target_col,
+                    )
+                else:
+                    # compute worst examples data_frame only if positive class exists
+                    worst_examples_df = pd.DataFrame()
+
             else:
                 predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
@@ -843,11 +851,12 @@ class TrainStep(BaseStep):
         )
 
         # Tab 5: Examples with Largest Prediction Error
-        (
-            card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
-                "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+        if not worst_examples_df.empty:
+            (
+                card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
+                    "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+                )
             )
-        )
 
         # Tab 6: Worst predictions profile vs train profile.
         if not self.skip_data_profiling:
