@@ -146,8 +146,7 @@ def text_artifact(tmp_path):
     artifact_name = "test.txt"
     artifacts_root_tmp = mkdir(tmp_path.joinpath(str(uuid.uuid4())))
     test_artifact_path = artifacts_root_tmp.joinpath(artifact_name)
-    with open(test_artifact_path, "w") as handle:
-        handle.write("test")
+    test_artifact_path.write_text("test")
     artifact_return_type = namedtuple(
         "artifact_return_type", ["tmp_path", "artifact_path", "artifact_name"]
     )
