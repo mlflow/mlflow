@@ -572,11 +572,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
-            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}"),
+            ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
             (
                 "file:path/to/local/folder?param=value",
-                "{cwd}/file:path/to/local/folder?param=value/{e}",
+                "file://{cwd}/path/to/local/folder/{e}?param=value",
             ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
             (
@@ -633,11 +633,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
-            ("file:path/to/local/folder", "{cwd}/file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:path/to/local/folder?param=value",
-                "{cwd}/file:path/to/local/folder?param=value/{e}/{r}/artifacts",
+                "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
             ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
