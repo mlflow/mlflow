@@ -315,6 +315,7 @@ jobs:
         run: |
           git clone https://github.com/cdarlint/winutils
       - name: Test CMD
+        shell: cmd
         run: |
           # Comment
           echo "comment"
