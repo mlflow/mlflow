@@ -1,3 +1,4 @@
+import time
 import mlflow
 import mlflow.pytorch
 
@@ -11,9 +12,13 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
     mlflow.pytorch.autolog(log_every_n_step=1)
     writer = SummaryWriter(str(tmpdir))
 
+    timestamps = []
     with mlflow.start_run():
         for i in range(NUM_EPOCHS):
+            t0 = time.time()
             writer.add_scalar("loss", 42.0 + i + START_STEP, global_step=START_STEP + i)
+            t1 = time.time()
+            timestamps.append((int(t0 * 1000), int(t1 * 1000)))
 
         writer.add_hparams(dict(hparam1=42, hparam2="foo"), dict(final_loss=8))
         writer.close()
@@ -24,9 +29,10 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
     client.set_terminated(run_id)
     metric_history = client.get_metric_history(run_id, "loss")
     assert len(metric_history) == NUM_EPOCHS
-    for i, m in enumerate(metric_history, START_STEP):
+    for i, (m, (t0, t1)) in enumerate(zip(metric_history, timestamps), START_STEP):
         assert m.step == i
         assert m.value == 42.0 + i
+        assert t0 <= m.timestamp <= t1
 
     run = client.get_run(run_id)
     assert run.data.params == dict(hparam1="42", hparam2="foo")
