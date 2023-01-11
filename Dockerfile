@@ -13,7 +13,13 @@ RUN apt-get update && \
     # install required python packages
     pip install -r requirements/dev-requirements.txt --no-cache-dir && \
     # install mlflow in editable form
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir -e . 
+    
+    # && \
+    # useradd -u 10001 -g 10001 -m -d /home/mlflow mlflow
+
+RUN  groupadd -g 10001 mlflow && \
+    useradd -u 10001 -g 10001 -m -d /home/mlflow mlflow
 
 # Build MLflow UI
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
@@ -23,7 +29,7 @@ RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     yarn install && \
     yarn build
 
-# The "nobody" user, represented numerically for optimal compatibility with Kubernetes security policies
-USER 65534
+# The "mlflow" user created above, represented numerically for optimal compatibility with Kubernetes security policies
+USER 10001
 
 CMD ["bash"]
