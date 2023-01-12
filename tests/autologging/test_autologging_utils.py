@@ -714,7 +714,7 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pytorch-lightning"},
         "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
     },
-    "torch": {
+    "pytorch": {
         "package_info": {"pip_release": "torch"},
         "autologging": {"minimum": "1.6.0", "maximum": "1.13.1"},
     },
