@@ -1066,7 +1066,9 @@ class MlflowClient:
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
+    def log_text(
+        self, run_id: str, text: Union[List[str], str], artifact_file: Union[List[str], str]
+        ) -> None:
         """
         Log text as an artifact.
 
@@ -1091,10 +1093,22 @@ class MlflowClient:
 
             # Log HTML text
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+
+            # Log multiple files
+            client.log_text(run.info.run_id,
+                            ["text1", "text2", "<h1>header</h1>"],
+                            ["file1.txt", "dir/file2.txt", "index.html"]
+                            )
+
         """
-        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                f.write(text)
+        if isinstance(text, str) and isinstance(artifact_file, str):
+            text = [text]
+            artifact_file = [artifact_file]
+        for text, artifact_file in zip(text, artifact_file):
+            with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(text)
+                    _logger.debug(f"File saved to {artifact_file}")
 
     def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
