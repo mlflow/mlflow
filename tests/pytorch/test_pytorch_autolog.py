@@ -16,7 +16,7 @@ from mlflow import MlflowClient
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
-from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
+from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 
 NUM_EPOCHS = 20
 
