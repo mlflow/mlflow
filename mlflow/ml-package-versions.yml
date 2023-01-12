@@ -46,8 +46,10 @@ torch:
   package_info:
     pip_release: "torch"
     install_dev: |
-      export PACKAGE_NAME=pytorch
+      export PACKAGE_NAME=pytorch-lightning
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      export PACKAGE_NAME=torch
+      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
   autologging:
     minimum: "1.4.0"
     maximum: "1.13.1"
