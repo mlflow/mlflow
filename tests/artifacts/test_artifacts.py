@@ -84,6 +84,21 @@ def run_with_text_artifact():
 
 
 @pytest.fixture()
+def run_with_multiple_text_artifacts():
+    artifact_paths = ["test/file1.txt", "test/file2.txt"]
+    artifact_contents = [
+        "This is content of file1", "This is content of file2"
+        ]
+    artifacts = []
+    with mlflow.start_run() as run:
+        mlflow.log_text(text=artifact_contents, artifact_file=artifact_paths)
+    for artifact_path, artifact_content in zip(artifact_paths, artifact_contents):
+        artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+        artifacts.append(Artifact(artifact_uri, artifact_content))
+    return artifacts
+
+
+@pytest.fixture()
 def run_with_json_artifact():
     artifact_path = "test/config.json"
     artifact_content = {"mlflow-version": "0.28", "n_cores": "10"}
@@ -110,6 +125,12 @@ def run_with_image_artifact():
 def test_load_text(run_with_text_artifact):
     artifact = run_with_text_artifact
     assert mlflow.artifacts.load_text(artifact.uri) == artifact.content
+
+
+def test_run_with_multiple_text_artifacts(run_with_multiple_text_artifacts):
+    artifacts = run_with_multiple_text_artifacts
+    for artifact in artifacts:
+        assert mlflow.artifacts.load_text(artifact.uri) == artifact.content
 
 
 def test_load_dict(run_with_json_artifact):

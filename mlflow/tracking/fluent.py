@@ -811,7 +811,9 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def log_text(text: str, artifact_file: str) -> None:
+def log_text(
+    text: Union[List[str], str], artifact_file: Union[List[str], str]
+    ) -> None:
     """
     Log text as an artifact.
 
@@ -833,6 +835,12 @@ def log_text(text: str, artifact_file: str) -> None:
 
             # Log HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
+
+            # Log multiple files
+            mlflow.log_text(run.info.run_id,
+                            ["text1", "text2", "<h1>header</h1>"],
+                            ["file1.txt", "dir/file2.txt", "index.html"]
+                            )
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)
