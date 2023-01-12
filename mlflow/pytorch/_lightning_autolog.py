@@ -7,6 +7,7 @@ import sys
 import tempfile
 import warnings
 
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
@@ -23,6 +24,9 @@ try:
 
     HAVE_LIGHTNING = True
 
+    MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+    MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
+
 except ImportError:
     HAVE_LIGHTNING = False
 
@@ -32,6 +36,9 @@ except ImportError:
 
     def rank_zero_only(f):
         return f
+
+    MIN_REQ_VERSION = Version("0.0.0")
+    MAX_REQ_VERSION = Version("0.0.0")
 
 
 # indicates that lightning is active, so no low level tensorboard patching
@@ -370,7 +377,6 @@ def patched_fit(original, self, *args, **kwargs):
     global IN_FIT
 
     import torch
-    from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 
     def _get_version(pkg_name):
         if sys.version_info < (3, 8):
@@ -381,16 +387,14 @@ def patched_fit(original, self, *args, **kwargs):
 
         return Version(version(pkg_name))
 
-    min_req_version = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
-    max_req_version = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
-    if not min_req_version <= _pl_version <= max_req_version:
+    if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             (
                 "Autologging known to be compatible with pytorch-lightning versions between "
                 "%s and %s and may not succeed with packages "
                 "outside this range."
             )
-            % (min_req_version, max_req_version)
+            % (MIN_REQ_VERSION, MAX_REQ_VERSION)
         )
 
     if _pl_version < Version("1.2.0") and Version(torch.__version__) >= Version("1.11.0"):
@@ -401,7 +405,7 @@ def patched_fit(original, self, *args, **kwargs):
             )
         )
 
-    if _get_version("protobuf") >= (4, 0, 0):
+    if _get_version("protobuf") >= Version("4.0.0"):
         warnings.warn(
             (
                 "Autologging for lightning is only supported with protobuf version < 4.0.0 "

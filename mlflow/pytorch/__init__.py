@@ -15,8 +15,8 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from packaging.version import Version
 from functools import partial
+from packaging.version import Version
 import posixpath
 
 import mlflow
@@ -54,6 +54,12 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.pytorch._lightning_autolog import (
+    patched_fit,
+    HAVE_LIGHTNING,
+    MIN_REQ_VERSION,
+    MAX_REQ_VERSION,
+)
 
 FLAVOR_NAME = "pytorch"
 
@@ -909,13 +915,19 @@ def autolog(
     <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
     an expansive example with implementation of additional lightening steps.
 
-    **Note**: Autologging is only supported for PyTorch Lightning models,
+    **Note**: Full autologging is only supported for PyTorch Lightning models,
     i.e., models that subclass
     `pytorch_lightning.LightningModule \
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla PyTorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
-    is not yet available.
+    Autologging support for vanilla PyTorch (ie models that only subclass
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_)
+    only autologs calls to
+    `torch.utils.tensorboard.SummaryWriter <https://pytorch.org/docs/stable/tensorboard.html>`_'s
+    ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
+    no notion of an "epoch".
+
+    Only pytorch-lightning modules between versions MIN_REQ_VERSION and
+    MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
@@ -1042,7 +1054,6 @@ def autolog(
         PyTorch autologged MLflow entities
     """
     import atexit
-    from mlflow.pytorch._lightning_autolog import patched_fit, HAVE_LIGHTNING
     from mlflow.pytorch._pytorch_autolog import (
         patched_add_event,
         patched_add_hparams,
@@ -1071,3 +1082,8 @@ def autolog(
     )
 
     atexit.register(_flush_queue)
+
+
+autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
+    "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
+)
