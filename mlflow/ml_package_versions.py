@@ -16,7 +16,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "torch"
         },
         "autologging": {
-            "minimum": "1.4.0",
+            "minimum": "1.6.0",
             "maximum": "1.13.1"
         }
     },

@@ -51,8 +51,10 @@ torch:
       export PACKAGE_NAME=torch
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
   autologging:
-    minimum: "1.4.0"
+    minimum: "1.6.0"
     maximum: "1.13.1"
+    requirements::
+      ">= 0.0.0": ["tensorboard"]
     run: pytest tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:

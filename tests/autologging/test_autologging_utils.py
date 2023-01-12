@@ -716,7 +716,7 @@ _module_version_info_dict_patch = {
     },
     "torch": {
         "package_info": {"pip_release": "torch"},
-        "autologging": {"minimum": "1.4.0", "maximum": "1.13.1"},
+        "autologging": {"minimum": "1.6.0", "maximum": "1.13.1"},
     },
     "tensorflow": {
         "package_info": {"pip_release": "tensorflow"},
