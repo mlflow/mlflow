@@ -51,7 +51,7 @@ torch:
   autologging:
     minimum: "1.4"
     maximum: "1.14"
-  run: pytest tests/pytorch/test_tensorboard_autolog.py
+    run: pytest tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:
   package_info:
