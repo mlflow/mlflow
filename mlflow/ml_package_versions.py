@@ -11,15 +11,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.2.0"
         }
     },
-    "torch": {
-        "package_info": {
-            "pip_release": "torch"
-        },
-        "autologging": {
-            "minimum": "1.6.0",
-            "maximum": "1.13.1"
-        }
-    },
     "pytorch-lightning": {
         "package_info": {
             "pip_release": "pytorch-lightning"

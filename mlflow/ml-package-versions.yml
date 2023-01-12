@@ -38,24 +38,9 @@ pytorch:
     minimum: "1.6.0"
     maximum: "1.13.1"
     requirements::
-      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
+      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers", "tensorboard"]
     run: |
-      pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
-
-torch:
-  package_info:
-    pip_release: "torch"
-    install_dev: |
-      export PACKAGE_NAME=pytorch-lightning
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
-      export PACKAGE_NAME=torch
-      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-  autologging:
-    minimum: "1.6.0"
-    maximum: "1.13.1"
-    requirements::
-      ">= 0.0.0": ["tensorboard"]
-    run: pytest tests/pytorch/test_tensorboard_autolog.py
+      pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:
   package_info:
