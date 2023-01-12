@@ -17,6 +17,8 @@ from mlflow.utils.autologging_utils import (
 )
 
 logging.basicConfig(level=logging.ERROR)
+MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 try:
     import pytorch_lightning as pl
@@ -24,8 +26,6 @@ try:
 
     HAVE_LIGHTNING = True
 
-    MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
-    MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 except ImportError:
     HAVE_LIGHTNING = False
@@ -36,9 +36,6 @@ except ImportError:
 
     def rank_zero_only(f):
         return f
-
-    MIN_REQ_VERSION = Version("0.0.0")
-    MAX_REQ_VERSION = Version("0.0.0")
 
 
 # indicates that lightning is active, so no low level tensorboard patching

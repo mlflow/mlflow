@@ -23,6 +23,7 @@ import mlflow
 import shutil
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -54,12 +55,6 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-from mlflow.pytorch._lightning_autolog import (
-    patched_fit,
-    HAVE_LIGHTNING,
-    MIN_REQ_VERSION,
-    MAX_REQ_VERSION,
-)
 
 FLAVOR_NAME = "pytorch"
 
@@ -70,6 +65,9 @@ _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
+
+MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -1054,6 +1052,10 @@ def autolog(
         PyTorch autologged MLflow entities
     """
     import atexit
+    from mlflow.pytorch._lightning_autolog import (
+        patched_fit,
+        HAVE_LIGHTNING,
+    )
     from mlflow.pytorch._pytorch_autolog import (
         patched_add_event,
         patched_add_hparams,
