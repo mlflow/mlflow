@@ -49,8 +49,8 @@ torch:
       export PACKAGE_NAME=pytorch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
   autologging:
-    minimum: "1.4"
-    maximum: "1.14"
+    minimum: "1.4.0"
+    maximum: "1.13.1"
     run: pytest tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:
