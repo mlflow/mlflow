@@ -3,7 +3,9 @@ import logging
 import mlflow.pytorch
 import os
 import shutil
+import sys
 import tempfile
+import warnings
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
@@ -366,6 +368,46 @@ def patched_fit(original, self, *args, **kwargs):
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
     global IN_FIT
+
+    import torch
+    from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+
+    def _get_version(pkg_name):
+        if sys.version_info < (3, 8):
+            import pkg_resources
+
+            return Version(pkg_resources.get_distribution(pkg_name).version)
+        from importlib.metadata import version
+
+        return Version(version(pkg_name))
+
+    min_req_version = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+    max_req_version = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
+    if not min_req_version <= _pl_version <= max_req_version:
+        warnings.warn(
+            (
+                "Autologging known to be compatible with pytorch-lightning versions between "
+                "%s and %s and may not succeed with packages "
+                "outside this range."
+            )
+            % (min_req_version, max_req_version)
+        )
+
+    if _pl_version < Version("1.2.0") and Version(torch.__version__) >= Version("1.11.0"):
+        warnings.warn(
+            (
+                "Autologging for lightning versions <1.2.0 is only known to work with pytorch "
+                "versions <1.11.0 and may not succeed with packages outside this range."
+            )
+        )
+
+    if _get_version("protobuf") >= (4, 0, 0):
+        warnings.warn(
+            (
+                "Autologging for lightning is only supported with protobuf version < 4.0.0 "
+                "and may not succeed with packages outside this range."
+            )
+        )
 
     IN_FIT = True
     run_id = mlflow.active_run().info.run_id
