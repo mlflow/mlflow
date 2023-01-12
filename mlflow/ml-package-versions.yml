@@ -38,9 +38,17 @@ pytorch:
     minimum: "1.6.0"
     maximum: "1.13.1"
     requirements::
-      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers", "tensorboard"]
+      ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
-      pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py tests/pytorch/test_tensorboard_autolog.py
+      pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
+
+  autologging:
+    minimum: "1.6.0"
+    maximum: "1.13.1"
+    requirements::
+      ">= 0.0.0": ["tensorboard"]
+    run: |
+      pytest tests/pytorch/test_tensorboard_autolog.py
 
 pytorch-lightning:
   package_info:
