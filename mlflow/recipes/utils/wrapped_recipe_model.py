@@ -5,10 +5,11 @@ import numpy as np
 
 
 class WrappedRecipeModel(PythonModel):
-    def __init__(self, predict_scores_for_all_classes, predict_prefix):
+    def __init__(self, predict_scores_for_all_classes, predict_prefix, post_predict_fn=None):
         super().__init__()
         self.predict_scores_for_all_classes = predict_scores_for_all_classes
         self.predict_prefix = predict_prefix
+        self.post_predict_fn = post_predict_fn
 
     def load_context(self, context):
         self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
@@ -23,7 +24,7 @@ class WrappedRecipeModel(PythonModel):
             or not hasattr(self._classifier, "predict_proba")
             or not self.predict_scores_for_all_classes
         ):
-            return predicted_label
+            return self.post_predict_fn(predicted_label)
 
         classes = self._classifier.classes_
         score_cols = [f"{self.predict_prefix}score_" + str(c) for c in classes]
@@ -32,4 +33,4 @@ class WrappedRecipeModel(PythonModel):
         output[f"{self.predict_prefix}score"] = np.max(probabilities, axis=1)
         output[f"{self.predict_prefix}label"] = predicted_label
 
-        return output
+        return self.post_predict_fn(output[f"{self.predict_prefix}label"])
