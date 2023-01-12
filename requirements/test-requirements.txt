@@ -15,6 +15,7 @@ plotly
 kaleido
 # Required by mlflow.tensorflow / mlflow.pytorch tests.
 transformers
+tensorboard
 # Required by tuning tests
 hyperopt
 # Required by recipes tests
