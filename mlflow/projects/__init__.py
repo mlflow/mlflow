@@ -23,6 +23,7 @@ from mlflow.projects.utils import (
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
     PROJECT_BUILD_IMAGE,
+    PROJECT_DOCKER_AUTH,
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
@@ -84,6 +85,7 @@ def _run(
     synchronous,
     run_name,
     build_image,
+    docker_auth,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -95,6 +97,7 @@ def _run(
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
     backend_config[PROJECT_BUILD_IMAGE] = build_image
+    backend_config[PROJECT_DOCKER_AUTH] = docker_auth
     # TODO: remove this check once kubernetes execution has been refactored
     if backend_name not in {"databricks", "kubernetes"}:
         backend = loader.load_backend(backend_name)
@@ -164,6 +167,7 @@ def _run(
             base_image=project.docker_env.get("image"),
             run_id=active_run.info.run_id,
             build_image=build_image,
+            docker_auth=docker_auth,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
         tracking.MlflowClient().set_tag(
@@ -206,6 +210,7 @@ def run(
     run_name=None,
     env_manager=None,
     build_image=False,
+    docker_auth=None,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -272,6 +277,7 @@ def run(
                         ``python_env.yaml`` is present, virtualenv will be used.
     :param build_image: Whether to build a new docker image of the project or to reuse an existing
                         image. Default: False (reuse an existing image)
+    :param docker_auth: A parameter (dictionary) for docker login Python API.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -340,6 +346,7 @@ def run(
         synchronous=synchronous,
         run_name=run_name,
         build_image=build_image,
+        docker_auth=docker_auth,
     )
     if synchronous:
         _wait_for(submitted_run_obj)
