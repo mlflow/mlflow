@@ -22,8 +22,9 @@ import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.models.signature import infer_signature, ModelSignature
 from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -31,7 +32,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.types.schema import Schema, ColSpec
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
     _compare_conda_env_requirements,
@@ -53,7 +54,9 @@ def spark_custom_env(tmpdir):
 
 
 SparkModelWithData = namedtuple(
-    "SparkModelWithData", ["model", "spark_df", "pandas_df", "predictions"]
+    "SparkModelWithData",
+    ["model", "spark_df", "pandas_df", "predictions", "signature"],
+    defaults=[None],
 )
 
 
@@ -122,6 +125,39 @@ def spark_model_iris(iris_df):
     preds = [x.prediction for x in preds_df.select("prediction").collect()]
     return SparkModelWithData(
         model=model, spark_df=iris_spark_df, pandas_df=iris_pandas_df, predictions=preds
+    )
+
+
+@pytest.fixture(
+    scope="module",
+    params=[[], [("0", "double")], [("1", "double"), ("2", "double")]],
+    ids=["no-outputs", "single-output", "multiple-outputs"],
+)
+def spark_model_iris_signatures(iris_df, request):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
+    assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
+    lr = LogisticRegression(
+        maxIter=50,
+        regParam=0.1,
+        elasticNetParam=0.8,
+    )
+    pipeline = Pipeline(stages=[assembler, lr])
+    # Fit the model
+    model = pipeline.fit(iris_spark_df)
+    preds_df = model.transform(iris_spark_df)
+    input_schema = Schema([ColSpec("double", f) for f in feature_names])
+    output_schema = Schema([ColSpec(f[1], f[0]) for f in request.param]) if request.param else None
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+    if request.param:
+        preds = [[x[c[0]] for c in request.param] for x in preds_df.collect()]
+    else:
+        preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    return SparkModelWithData(
+        model=model,
+        spark_df=iris_spark_df,
+        pandas_df=iris_pandas_df,
+        predictions=preds,
+        signature=signature,
     )
 
 
@@ -215,6 +251,20 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(MLFLOW_DFS_TMP.get())
+
+
+def test_model_predict_with_signature(spark_model_iris_signatures):
+    # test predictions from a model stored with a signature
+    with TempDir() as tmp:
+        path = tmp.path("model")
+        sparkm.save_model(
+            spark_model_iris_signatures.model,
+            path=path,
+            signature=spark_model_iris_signatures.signature,
+        )
+        m = pyfunc.load_model(str(path))
+        preds = m.predict(spark_model_iris_signatures.pandas_df)
+        assert preds == spark_model_iris_signatures.predictions
 
 
 def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):

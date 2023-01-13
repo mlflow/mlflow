@@ -56,6 +56,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir, write_to
+from mlflow.utils.model_utils import _get_sig_configuration
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -167,14 +168,33 @@ def log_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+                      the training dataset). The output schema defined in a signature will filter
+                      the model prediction return fields to return only those defined in the
+                      signature. For example:
 
-                      .. code-block:: python
+    .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
+        from mlflow.models.signature import infer_signature
+        train = df.drop("target_label")
+        predictions = ... # compute model predictions
+        signature = infer_signature(train, predictions)
+
+        # define the output signature for returned predictions from a `predict()` transformation
+        mlflow.spark.log_model(model, "model", signature=signature, registered_model_name="mymodel")
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m models:/mymodel/1 -p 5000
+
+        # model predictions columns will correspond to the signature output
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
+        {"predictions": [[0.15919603407382965, 1304.4000244140625],
+                         [0.13691310584545135, 466.3999938964844]]
+        }
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -640,14 +660,34 @@ def save_model(
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+                      the training dataset). The output schema defined in a signature will filter
+                      the model prediction return fields to return only those defined in the
+                      signature. For example:
 
-                      .. code-block:: python
+    .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
-                        signature = infer_signature(train, predictions)
+        from mlflow.models.signature import infer_signature
+        train = df.drop("target_label")
+        predictions = ... # compute model predictions
+        signature = infer_signature(train, predictions)
+
+        # define the output signature for returned predictions from a `predict()` transformation
+        mlflow.spark.save_model(model, path, signature=signature)
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m $path -p 5000
+
+        # model predictions columns will correspond to the signature output
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
+        {"predictions": [[0.15919603407382965, 1304.4000244140625],
+                         [0.13691310584545135, 466.3999938964844]]
+        }
+
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -842,6 +882,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
+    import pyspark
     from mlflow.utils._spark_utils import (
         _create_local_spark_session_for_loading_spark_model,
         _get_active_spark_session,
@@ -853,13 +894,16 @@ def _load_pyfunc(path):
     # To avoid this problem, we explicitly check for an active session. This is not ideal but there
     # is no good workaround at the moment.
     spark = _get_active_spark_session()
+    signature = _get_sig_configuration(model_path=os.path.join(path, os.pardir))
+
+    spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
         # NB: If there is no existing Spark context, create a new local one.
         # NB: We're disabling caching on the new context since we do not need it and we want to
         # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
         # (e.g. as part of spark_udf).
         spark = _create_local_spark_session_for_loading_spark_model()
-    return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
+    return _PyFuncModelWrapper(spark, _load_model(model_uri=path), signature=signature)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
@@ -917,13 +961,20 @@ class _PyFuncModelWrapper:
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
 
-    def __init__(self, spark, spark_model):
+    def __init__(self, spark, spark_model, signature=None):
         self.spark = spark
         self.spark_model = spark_model
+        self.signature = signature
 
     def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
+        If the Spark model has been saved with a signature, the output column names defined during
+         signature creation will be included in the output schema from a `predict()` transformation.
+        If no signature is present or if the model's output would otherwise produce only an output
+        column named 'prediction', the output from this method will contain only a 'prediction'
+        field as predictions. If no such signature, a "prediction" column will be stored as a
+        prediction.
 
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
@@ -933,24 +984,38 @@ class _PyFuncModelWrapper:
         spark_df = _find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
-        prediction_column = "prediction"
-        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
-            "outputCol"
+        if (
+            self.signature is not None
+            and self.signature.outputs is not None
+            and self.signature.outputs.has_input_names()
         ):
-            from pyspark.sql import SparkSession
+            prediction_columns = self.signature.outputs.input_names()
+            return [
+                [x[field] for field in prediction_columns]
+                for x in self.spark_model.transform(spark_df).select(*prediction_columns).collect()
+            ]
+        else:
+            prediction_column = "prediction"
+            if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
+                "outputCol"
+            ):
+                from pyspark.sql import SparkSession
 
-            spark = SparkSession.builder.getOrCreate()
-            # do a transform with an empty input DataFrame
-            # to get the schema of the transformed DataFrame
-            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
-            # Ensure prediction column doesn't already exist
-            if prediction_column not in transformed_df.columns:
-                # make sure predict work by default for Transformers
-                self.spark_model.stages[-1].setOutputCol(prediction_column)
-        return [
-            x.prediction
-            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
-        ]
+                spark = SparkSession.builder.getOrCreate()
+                # do a transform with an empty input DataFrame
+                # to get the schema of the transformed DataFrame
+                transformed_df = self.spark_model.transform(
+                    spark.createDataFrame([], spark_df.schema)
+                )
+                # Ensure prediction column doesn't already exist
+                if prediction_column not in transformed_df.columns:
+                    # make sure predict work by default for Transformers
+                    self.spark_model.stages[-1].setOutputCol(prediction_column)
+
+            return [
+                x[prediction_column]
+                for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
+            ]
 
 
 @autologging_integration(FLAVOR_NAME)
