@@ -1,3 +1,4 @@
+import pathlib
 import posixpath
 import pytest
 
@@ -18,6 +19,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     dbfs_hdfs_uri_to_fuse_path,
+    resolve_uri_if_local,
 )
 
 
@@ -84,6 +86,8 @@ def test_uri_types():
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
     assert is_local_uri("file:foo/mlruns")
+
+    assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
@@ -521,3 +525,18 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
     with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
         dbfs_hdfs_uri_to_fuse_path(path)
+
+
+def test_resolve_uri_if_local():
+    cwd = pathlib.Path.cwd()
+    input_and_expected_uris = {
+        "file://myhostname/my/path": "file://myhostname/my/path",
+        "file:///my/path": "file:///my/path",
+        "file:my/path": f"file://{cwd}/my/path",
+        "my/path": f"{cwd}/my/path",
+        "/home/my/path": "/home/my/path",
+        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
+        "s3://host/my/path": "s3://host/my/path",
+    }
+    for input_uri, expected_uri in input_and_expected_uris.items():
+        assert resolve_uri_if_local(input_uri) == expected_uri

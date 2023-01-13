@@ -76,7 +76,11 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.uri import append_to_uri_path, resolve_uri_if_local
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    resolve_uri_if_local,
+    append_to_uri_or_filesystem_path,
+)
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -319,7 +323,9 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         if not artifact_uri:
-            resolved_artifact_uri = append_to_uri_path(self.artifact_root_uri, str(experiment_id))
+            resolved_artifact_uri = append_to_uri_or_filesystem_path(
+                self.artifact_root_uri, str(experiment_id)
+            )
         else:
             resolved_artifact_uri = resolve_uri_if_local(artifact_uri)
         meta_dir = mkdir(self.root_directory, str(experiment_id))

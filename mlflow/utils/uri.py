@@ -18,8 +18,9 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return uri != "databricks" and (scheme == "" or scheme == "file")
+    parsed_uri = urllib.parse.urlparse(uri)
+    scheme = parsed_uri.scheme
+    return uri != "databricks" and (scheme == "" or scheme == "file") and not parsed_uri.hostname
 
 
 def is_http_uri(uri):
@@ -177,11 +178,18 @@ def extract_and_normalize_path(uri):
     return normalized_path.lstrip("/")
 
 
+def append_to_uri_or_filesystem_path(uri, *paths):
+    parsed_uri = urllib.parse.urlparse(uri)
+    if not parsed_uri.hostname:
+        return pathlib.Path(uri).as_posix()
+    return append_to_uri_path(uri, paths)
+
+
 def append_to_uri_path(uri, *paths):
     """
     Appends the specified POSIX `paths` to the path component of the specified `uri`.
 
-    :param uri: The input URI, represented as a string.
+    :param uri: The input URI" represented as a string.
     :param paths: The POSIX paths to append to the specified `uri`'s path component.
     :return: A new URI with a path component consisting of the specified `paths` appended to
              the path component of the specified `uri`.
@@ -291,7 +299,7 @@ def resolve_uri_if_local(local_uri):
 
     :param local_uri: Relative or absolute path or local file uri
 
-    :return: a fully-formed absolute uri path
+    :return: a fully-formed absolute uri path or an absolute filesystem path
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
