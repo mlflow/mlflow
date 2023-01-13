@@ -170,10 +170,9 @@ gluon:
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
-      # TODO: Remove this line once http://azure.archive.ubuntu.com stabilizes
-      sudo sed -i 's/azure\.//' /etc/apt/sources.list
-      sudo apt-get update -y
-      sudo apt-get install libopenblas-dev -y
+      # TODO: Remove `--option="APT::Acquire::Retries=3"` once http://azure.archive.ubuntu.com stabilizes
+      sudo apt-get update --option="APT::Acquire::Retries=3" -y
+      sudo apt-get install --option="APT::Acquire::Retries=3" -y libopenblas-dev
       pytest tests/gluon/test_gluon_model_export.py
 
   autologging:

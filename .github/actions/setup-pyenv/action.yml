@@ -10,10 +10,9 @@ runs:
       # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
       run: |
         # Workaround for https://github.com/actions/runner-images/issues/6894
-        # TODO: Remove this line once http://azure.archive.ubuntu.com stabilizes
-        sudo sed -i 's/azure\.//' /etc/apt/sources.list
-        sudo apt-get update -y
-        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
+        # TODO: Remove `--option="APT::Acquire::Retries=3"` once http://azure.archive.ubuntu.com stabilizes
+        sudo apt-get update --option="APT::Acquire::Retries=3" -y
+        sudo apt-get install --option="APT::Acquire::Retries=3" -y make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
         libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
     - name: Install pyenv
