@@ -33,4 +33,4 @@ class WrappedRecipeModel(PythonModel):
         output[f"{self.predict_prefix}score"] = np.max(probabilities, axis=1)
         output[f"{self.predict_prefix}label"] = predicted_label
 
-        return self.post_predict_fn(output[f"{self.predict_prefix}label"])
+        return self.post_predict_fn(output)
