@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
 import 'react-virtualized/styles.css';
 import { List as VList, AutoSizer, InfiniteLoader } from 'react-virtualized';
 import { List } from 'antd';
@@ -80,7 +81,7 @@ export class ExperimentListView extends Component {
       // Dispatch twice to totally clear it
       this.props.dispatchSearchInput(event.target.value);
       // Need another page token for ''
-      this.props.dispatchLoadMoreExperiemntsApi({});
+      this.props.dispatchSearchExperimentsApi({});
       this.infiteLoader.resetLoadMoreRowsCache();
     }
     this.props.dispatchSearchInput(event.target.value);
@@ -94,6 +95,7 @@ export class ExperimentListView extends Component {
     if (currentInput !== '') {
       params = { ...params, filter: `name LIKE '%${currentInput}%'` };
     }
+
     // Use a next page if the input was not altered to get more.
     if (currentInput === previousInput) {
       params = { ...params, pageToken: this.props.nextPageToken };
@@ -191,7 +193,6 @@ export class ExperimentListView extends Component {
   };
 
   // Avoid calling emotion for every list item
-  theme = this.props.theme;
   activeExperimentListItem = classNames.getExperimentListItemContainer(
     true,
     this.props.designSystemThemeApi.theme,
@@ -259,10 +260,6 @@ export class ExperimentListView extends Component {
 
   isRowLoaded = ({ index }) => {
     return !!this.props.experiments[index];
-  };
-
-  noRowsRenderer = () => {
-    return <Typography.Text>No experiments match search input</Typography.Text>;
   };
 
   showExperimentList = () => this.setState({ hidden: false });
@@ -352,7 +349,6 @@ export class ExperimentListView extends Component {
                     rowRenderer={this.renderListItem}
                     data={this.state.checkedKeys}
                     onRowsRendered={onRowsRendered}
-                    noRowsRenderer={this.noRowsRenderer}
                     ref={this.bindListRef}
                     rowHeight={32}
                     overscanRowCount={10}

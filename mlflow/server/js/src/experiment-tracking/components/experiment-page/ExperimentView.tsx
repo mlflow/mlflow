@@ -9,21 +9,23 @@ import { ExperimentViewOnboarding } from './components/ExperimentViewOnboarding'
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
+import { useExperimentIdsNotInState } from './hooks/useExperimentIdsNotInState';
 import { useExperimentIds } from './hooks/useExperimentIds';
 import { useExperiments } from './hooks/useExperiments';
 import { useFetchExperiments } from './hooks/useFetchExperiments';
 
 export const ExperimentView = () => {
   const experimentIds = useExperimentIds();
-  const experiments = useExperiments(experimentIds);
-
-  const [firstExperiment] = experiments;
 
   const { fetchExperiments, isLoadingExperiment, requestError } = useFetchExperiments();
+  const experiments = useExperiments(experimentIds);
+  // Need to fetch ids that aren't local if state is cleared
+  const idsNotInState = useExperimentIdsNotInState(experimentIds);
+  const [firstExperiment] = experiments;
 
   useEffect(() => {
-    fetchExperiments(experimentIds);
-  }, [fetchExperiments, experimentIds]);
+    fetchExperiments(idsNotInState);
+  }, [fetchExperiments, experimentIds, idsNotInState]);
 
   const isComparingExperiments = experimentIds.length > 1;
 
