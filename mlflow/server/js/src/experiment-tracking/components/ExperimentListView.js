@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
 import 'react-virtualized/styles.css';
-
 import { List as VList, AutoSizer, InfiniteLoader } from 'react-virtualized';
 import { List } from 'antd';
 import {
@@ -15,6 +13,7 @@ import {
   SearchIcon,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
+import { css } from '@emotion/react';
 import { Link, withRouter } from 'react-router-dom';
 import {
   experimentListSearchInput,
@@ -66,6 +65,10 @@ export class ExperimentListView extends Component {
     this.list = ref;
   };
 
+  infiniteLoaderRef = (ref) => {
+    this.infiteLoader = ref;
+  };
+
   componentDidUpdate = () => {
     if (this.list) {
       this.list.forceUpdateGrid();
@@ -73,6 +76,13 @@ export class ExperimentListView extends Component {
   };
 
   handleSearchInputChange = (event) => {
+    if (event.target.value === '') {
+      // Dispatch twice to totally clear it
+      this.props.dispatchSearchInput(event.target.value);
+      // Need another page token for ''
+      this.props.dispatchLoadMoreExperiemntsApi({});
+      this.infiteLoader.resetLoadMoreRowsCache();
+    }
     this.props.dispatchSearchInput(event.target.value);
   };
 
@@ -87,16 +97,18 @@ export class ExperimentListView extends Component {
     // Use a next page if the input was not altered to get more.
     if (currentInput === previousInput) {
       params = { ...params, pageToken: this.props.nextPageToken };
-      this.props.dispatchLoadMoreExperiemntsApi(params);
     } else {
-      // Need to dispatch both to make the prior and current match on
-      // the next round through.
-      this.props.dispatchSearchInput(currentInput);
-      this.props.dispatchLoadMoreExperiemntsApi(params);
+      // Needed if the input has changed.
+      this.infiteLoader.resetLoadMoreRowsCache();
     }
+
+    // Need to dispatch both to make the prior and current match on
+    // the next round through.
+    this.props.dispatchSearchInput(currentInput);
+    this.props.dispatchLoadMoreExperiemntsApi(params);
   };
 
-  onScroll = ({ stopIndex }) => {
+  onScroll = ({ startIndex, stopIndex }) => {
     const isScrolledToLastItem = stopIndex >= this.props.experiments.length;
     if (!isScrolledToLastItem) {
       return;
@@ -178,11 +190,21 @@ export class ExperimentListView extends Component {
     }, this.pushExperimentRoute);
   };
 
-  renderListItem = ({ index, key, style }) => {
+  // Avoid calling emotion for every list item
+  theme = this.props.theme;
+  activeExperimentListItem = classNames.getExperimentListItemContainer(
+    true,
+    this.props.designSystemThemeApi.theme,
+  );
+  inactiveExperimentListItem = classNames.getExperimentListItemContainer(
+    false,
+    this.props.designSystemThemeApi.theme,
+  );
+
+  renderListItem = ({ index, key, style, isScrolling }) => {
     const item = this.props.experiments[index];
-    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { activeExperimentIds } = this.props;
     const { checkedKeys } = this.state;
-    const { theme } = designSystemThemeApi;
     const isActive = activeExperimentIds.includes(item.experiment_id);
     const isChecked = checkedKeys.includes(item.experiment_id);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
@@ -190,7 +212,7 @@ export class ExperimentListView extends Component {
     // as not active.
     return (
       <div
-        css={classNames.getExperimentListItemContainer(isActive, theme)}
+        css={isActive ? this.activeExperimentListItem : this.inactiveExperimentListItem}
         data-test-id={dataTestId}
         key={key}
         style={style}
@@ -211,9 +233,7 @@ export class ExperimentListView extends Component {
             <Link
               className={'experiment-link'}
               to={Routes.getExperimentPageRoute(item.experiment_id)}
-              onClick={(e) => {
-                this.setState({ checkedKeys: [item.experiment_id] });
-              }}
+              onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
               title={item.name}
               data-test-id='experiment-list-item-link'
             >
@@ -237,6 +257,17 @@ export class ExperimentListView extends Component {
     );
   };
 
+  isRowLoaded = ({ index }) => {
+    return !!this.props.experiments[index];
+  };
+
+  noRowsRenderer = () => {
+    return <Typography.Text>No experiments match search input</Typography.Text>;
+  };
+
+  showExperimentList = () => this.setState({ hidden: false });
+  hideExperimentList = () => this.setState({ hidden: true });
+
   render() {
     const { activeExperimentIds, experiments, searchInput } = this.props;
     const { hidden } = this.state;
@@ -245,7 +276,7 @@ export class ExperimentListView extends Component {
       return (
         <CaretDownSquareIcon
           rotate={-90}
-          onClick={() => this.setState({ hidden: false })}
+          onClick={this.showExperimentList}
           css={{ fontSize: '24px' }}
           title='Show experiment list'
         />
@@ -285,7 +316,7 @@ export class ExperimentListView extends Component {
             data-test-id='create-experiment-button'
           />
           <CaretDownSquareIcon
-            onClick={() => this.setState({ hidden: true })}
+            onClick={this.hideExperimentList}
             rotate={90}
             css={{ fontSize: '24px' }}
             title='Hide experiment list'
@@ -311,15 +342,17 @@ export class ExperimentListView extends Component {
           <AutoSizer>
             {({ width, height }) => (
               <InfiniteLoader
-                isRowLoaded={({ index }) => !!experiments[index]}
+                isRowLoaded={this.isRowLoaded}
                 loadMoreRows={this.onScroll}
                 rowCount={Number.MAX_SAFE_INTEGER} // arbitrarily high value
+                ref={this.infiniteLoaderRef}
               >
                 {({ onRowsRendered, registerChild }) => (
                   <VList
                     rowRenderer={this.renderListItem}
                     data={this.state.checkedKeys}
                     onRowsRendered={onRowsRendered}
+                    noRowsRenderer={this.noRowsRenderer}
                     ref={this.bindListRef}
                     rowHeight={32}
                     overscanRowCount={10}
@@ -338,7 +371,7 @@ export class ExperimentListView extends Component {
 }
 
 const classNames = {
-  experimentListOuterContainer: {
+  experimentListOuterContainer: css({
     boxSizing: 'border-box',
     marginTop: '24px',
     marginLeft: '24px',
@@ -351,7 +384,7 @@ const classNames = {
     maxWidth: '20vw',
     display: 'grid',
     gridTemplateRows: 'auto auto 1fr',
-  },
+  }),
   experimentTitleContainer: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -379,15 +412,16 @@ const classNames = {
   experimentListContainer: {
     marginTop: '12px',
   },
-  getExperimentListItemContainer: (isActive, theme) => ({
-    display: 'flex',
-    marginRight: '8px',
-    paddingRight: '5px',
-    borderLeft: isActive ? `solid ${theme.colors.primary}` : 'solid transparent',
-    borderLeftWidth: 4,
-    backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-  }),
-  experimentListItem: {
+  getExperimentListItemContainer: (isActive, theme) =>
+    css({
+      display: 'flex',
+      marginRight: '8px',
+      paddingRight: '5px',
+      borderLeft: isActive ? `solid ${theme.colors.primary}` : 'solid transparent',
+      borderLeftWidth: 4,
+      backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : 'transparent',
+    }),
+  experimentListItem: css({
     display: 'grid',
     // Make the items line up
     width: '100%',
@@ -407,7 +441,7 @@ const classNames = {
         fontSize: '13px',
       },
     },
-  },
+  }),
   renameExperiment: {
     justifySelf: 'end',
   },

@@ -20,6 +20,9 @@ describe('HomePage', () => {
     minimalProps = {
       history: {},
       dispatchLoadMoreExperimentsApi: jest.fn(),
+      dispatchGetExperimentApi: jest.fn(),
+      // Will be an empty array from state
+      allExperimentIds: [],
     };
     minimalStore = mockStore({
       entities: {},

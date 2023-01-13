@@ -32,7 +32,7 @@ class HomeView extends Component {
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     const hasExperiments = experimentIds?.length > 0;
 
-    if (experimentIds === undefined) {
+    if (typeof experimentIds === 'undefined' || experimentIds.length === 0) {
       const firstExp = getFirstActiveExperiment(experiments);
       if (firstExp) {
         return <Redirect to={Routes.getExperimentPageRoute(firstExp.experiment_id)} />;
