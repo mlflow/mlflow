@@ -172,6 +172,7 @@ gluon:
       # Install libopenblas-dev for mxnet 1.8.0.post0
       # TODO: Remove this line once http://azure.archive.ubuntu.com stabilizes
       sudo sed -i 's/azure\.//' /etc/apt/sources.list
+      sudo apt-get update -y
       sudo apt-get install libopenblas-dev -y
       pytest tests/gluon/test_gluon_model_export.py
 
