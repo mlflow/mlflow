@@ -9,6 +9,9 @@ runs:
       shell: bash
       # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
       run: |
+        # Workaround for https://github.com/actions/runner-images/issues/6894
+        # TODO: Remove this line once http://azure.archive.ubuntu.com stabilizes
+        sudo sed -i 's/azure\.//' /etc/apt/sources.list
         sudo apt-get update -y
         sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
