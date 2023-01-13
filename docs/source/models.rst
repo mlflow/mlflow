@@ -697,14 +697,18 @@ MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
 
 The ``mleap`` model flavor supports saving Spark models in MLflow format using the
-`MLeap <http://mleap-docs.combust.ml/>`_ persistence mechanism. MLeap is an inference-optimized
+`MLeap <https://combust.github.io/mleap-docs/>`_ persistence mechanism. MLeap is an inference-optimized
 format and execution engine for Spark models that does not depend on
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
 to evaluate inputs.
 
-You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
-``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
-:py:func:`mlflow.spark.log_model()` method (recommended). The :py:mod:`mlflow.mleap` module also
+.. note::
+
+    You can save Spark models in MLflow format with the ``mleap`` flavor by specifying the
+    ``sample_input`` argument of the :py:func:`mlflow.spark.save_model()` or
+    :py:func:`mlflow.spark.log_model()` method (recommended). For more details see :ref:`Spark MLlib <model-spark>`.
+
+The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
@@ -718,7 +722,7 @@ A companion module for loading MLflow Models with the MLeap flavor is available 
 ``mlflow/java`` package.
 
 For more information, see :py:mod:`mlflow.spark`, :py:mod:`mlflow.mleap`, and the
-`MLeap documentation <http://mleap-docs.combust.ml/>`_.
+`MLeap documentation <https://combust.github.io/mleap-docs/>`_.
 
 PyTorch (``pytorch``)
 ^^^^^^^^^^^^^^^^^^^^^
@@ -821,6 +825,8 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 
 For more information, see :py:mod:`mlflow.sklearn`.
 
+.. _model-spark:
+
 Spark MLlib (``spark``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -840,6 +846,45 @@ is not ideal for high-performance use cases, it enables you to easily deploy any
 `MLlib PipelineModel <http://spark.apache.org/docs/latest/api/python/pyspark.ml.html?highlight=
 pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by MLflow
 (SageMaker, AzureML, etc).
+
+.. note::
+    Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
+    ``save_model()``, the Spark model is automatically saved as an ``mleap`` flavor
+    by invoking :py:func:`mlflow.mleap.add_to_model()<mlflow.mleap.add_to_model>`.
+    
+    For example, the follow code block:
+
+    .. code-block:: py 
+
+        training_df = spark.createDataFrame([
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+
+        tokenizer = Tokenizer(inputCol="text", outputCol="words")
+        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+        lr = LogisticRegression(maxIter=10, regParam=0.001)
+        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+        model = pipeline.fit(training_df)
+        
+        mlflow.spark.log_model(model, "spark-model", sample_input=training_df)
+
+    results in the following directory structure logged to the MLflow Experiment: 
+
+    ::
+
+        # Directory written by with the addition of mlflow.mleap.add_to_model(model, "spark-model", training_df)
+        # Note the addition of the mleap directory 
+        spark-model/
+        ├── mleap
+        ├── sparkml
+        ├── MLmodel
+        ├── conda.yaml
+        ├── python_env.yaml
+        └── requirements.txt
+
+    For more information, see :py:func:`mlflow.mleap<mlflow.mleap>`.
 
 Finally, the :py:func:`mlflow.spark.load_model()` method is used to load MLflow Models with
 the ``spark`` flavor as Spark MLlib pipelines.
@@ -1481,79 +1526,6 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * The value of ``n_periods`` or ``horizon`` is not an integer.
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
-
-Community Model Flavors
------------------------
-
-Other useful MLflow flavors are developed and maintained by the
-MLflow community, enabling you to use MLflow Models with an
-even broader ecosystem of machine learning libraries. For more information,
-check out the description of each community-developed flavor below.
-
-.. contents::
-  :local:
-  :depth: 1
-
-
-BigML (``bigmlflow``)
-^^^^^^^^^^^^^^^^^^^^^
-
-The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
-the ``bigml`` model flavor. It enables using
-`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
-
-Installing bigmlflow
-~~~~~~~~~~~~~~~~~~~~
-
-BigMLFlow can be installed from PyPI as follows:
-
-
-.. code-block:: bash
-
-    pip install bigmlflow
-
-BigMLFlow usage
-~~~~~~~~~~~~~~~
-
-The ``bigmlflow`` module defines the flavor that implements the
-``save_model()`` and ``log_model()`` methods. They can be used
-to save BigML models and their related information in MLflow Model format.
-
-.. code-block:: py
-
-    import json
-    import mlflow
-    import bigmlflow
-
-    MODEL_FILE = "logistic_regression.json"
-    with mlflow.start_run():
-        with open(MODEL_FILE) as handler:
-            model = json.load(handler)
-            bigmlflow.log_model(model,
-                                artifact_path="model",
-                                registered_model_name="my_model")
-
-These methods also add the ``python_function`` flavor to the MLflow Models
-that they produce, allowing the models to be interpreted as generic Python
-functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame inputs.
-
-.. code-block:: py
-
-    # saving the model
-    save_model(model, path=model_path)
-    # retrieving model
-    pyfunc_model = pyfunc.load_model(model_path)
-    pyfunc_predictions = pyfunc_model.predict(dataframe)
-
-You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
-with the ``bigmlflow`` model flavor as a BigML
-`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
-
-For more information, see the
-`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
-and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
 
 .. _model-evaluation:
 
@@ -2563,6 +2535,16 @@ For more info, see:
 Community Model Flavors
 -----------------------
 
+Other useful MLflow flavors are developed and maintained by the
+MLflow community, enabling you to use MLflow Models with an
+even broader ecosystem of machine learning libraries. For more information,
+check out the description of each community-developed flavor below.
+
+.. contents::
+  :local:
+  :depth: 1
+
+
 MLflow VizMod
 ^^^^^^^^^^^^^
 
@@ -2601,3 +2583,118 @@ Example:
         style="vegalite",
         input_example=df_iris.head(5),
     )
+
+BigML (``bigmlflow``)
+^^^^^^^^^^^^^^^^^^^^^
+
+The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
+the ``bigml`` model flavor. It enables using
+`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
+and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
+
+Installing bigmlflow
+~~~~~~~~~~~~~~~~~~~~
+
+BigMLFlow can be installed from PyPI as follows:
+
+
+.. code-block:: bash
+
+    pip install bigmlflow
+
+BigMLFlow usage
+~~~~~~~~~~~~~~~
+
+The ``bigmlflow`` module defines the flavor that implements the
+``save_model()`` and ``log_model()`` methods. They can be used
+to save BigML models and their related information in MLflow Model format.
+
+.. code-block:: py
+
+    import json
+    import mlflow
+    import bigmlflow
+
+    MODEL_FILE = "logistic_regression.json"
+    with mlflow.start_run():
+        with open(MODEL_FILE) as handler:
+            model = json.load(handler)
+            bigmlflow.log_model(model,
+                                artifact_path="model",
+                                registered_model_name="my_model")
+
+These methods also add the ``python_function`` flavor to the MLflow Models
+that they produce, allowing the models to be interpreted as generic Python
+functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame inputs.
+
+.. code-block:: py
+
+    # saving the model
+    save_model(model, path=model_path)
+    # retrieving model
+    pyfunc_model = pyfunc.load_model(model_path)
+    pyfunc_predictions = pyfunc_model.predict(dataframe)
+
+You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
+with the ``bigmlflow`` model flavor as a BigML
+`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
+
+For more information, see the
+`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
+and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
+
+Sktime
+^^^^^^
+
+The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
+format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
+model flavor in native sktime formats.
+
+Installing Sktime
+~~~~~~~~~~~~~~~~~
+
+Install sktime with mlflow dependency:
+
+.. code-block:: bash
+
+    pip install sktime[mlflow]
+
+Usage example
+~~~~~~~~~~~~~
+
+Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    from sktime.datasets import load_airline
+    from sktime.forecasting.arima import AutoARIMA
+    from sktime.utils import mlflow_sktime
+
+    airline = load_airline()
+    model_path = "model"
+
+
+    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
+        airline, fh=[1, 2, 3]
+    )
+
+    mlflow_sktime.save_model(
+        sktime_model=auto_arima_model,
+        path=model_path,
+    )
+
+    loaded_model = mlflow_sktime.load_model(
+        model_uri=model_path,
+    )
+    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
+        model_uri=model_path,
+    )
+
+    print(loaded_model.predict())
+    print(loaded_pyfunc.predict(pd.DataFrame()))

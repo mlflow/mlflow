@@ -20,4 +20,5 @@ hyperopt
 # Required by recipes tests
 ipython
 # Required by automl tests
-flaml
+# 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
+flaml!=1.1.0

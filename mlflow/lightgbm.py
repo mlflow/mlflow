@@ -145,6 +145,36 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+
+    .. code-block:: python
+        :caption: Example
+
+        from pathlib import Path
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+        import mlflow
+
+        # Load iris dataset
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Save the model
+        path = "model"
+        mlflow.lightgbm.save_model(model, path)
+
+        # Load model for inference
+        loaded_model = mlflow.lightgbm.load_model(Path.cwd() / path)
+        print(loaded_model.predict(X[:5]))
+
+    .. code-block:: text
+        :caption: Output
+
+        [0 0 0 0 0]
     """
     import lightgbm as lgb
 
@@ -297,6 +327,44 @@ def log_model(
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+        import mlflow
+
+        # Load iris dataset
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Log the model
+        artifact_path = "model"
+        with mlflow.start_run():
+            model_info = mlflow.lightgbm.log_model(model, artifact_path)
+
+        # Fetch the logged model artifacts
+        print(f"run_id: {run.info.run_id}")
+        client = mlflow.MlflowClient()
+        artifacts = [
+            f.path for f in client.list_artifacts(run.info.run_id, artifact_path)
+        ]
+        print(f"artifacts: {artifacts}")
+
+    .. code-block:: text
+        :caption: Output
+
+        artifacts: ['model/MLmodel',
+                    'model/conda.yaml',
+                    'model/model.pkl',
+                    'model/python_env.yaml',
+                    'model/requirements.txt']
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -372,6 +440,35 @@ def load_model(model_uri, dst_path=None):
 
     :return: A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
              model, depending on the saved model class specification.
+
+    .. code-block:: python
+        :caption: Example
+
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+        import mlflow
+
+        # Load iris dataset
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Train the model
+        model.fit(X, y)
+
+        # Log the model
+        with mlflow.start_run():
+            model_info = mlflow.lightgbm.log_model(model, artifact_path="model")
+
+        # Load model for inference
+        loaded_model = mlflow.lightgbm.load_model(model_info.model_uri)
+        print(loaded_model.predict(X[:5]))
+
+    .. code-block:: text
+        :caption: Output
+
+        [0 0 0 0 0]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
@@ -468,6 +565,69 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from lightgbm import LGBMClassifier
+        from sklearn import datasets
+
+        def print_auto_logged_info(run):
+
+            tags = {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [
+                f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, "model")
+            ]
+            feature_importances = [
+                f.path
+                for f in mlflow.MlflowClient().list_artifacts(run.info.run_id)
+                if f.path != "model"
+            ]
+            print(f"run_id: {run.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"feature_importances: {feature_importances}")
+            print(f"params: {run.data.params}")
+            print(f"metrics: {run.data.metrics}")
+            print(f"tags: {tags}")
+
+
+        # Load iris dataset
+        X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+
+        # Initialize our model
+        model = LGBMClassifier(objective="multiclass", random_state=42)
+
+        # Auto log all MLflow entities
+        mlflow.lightgbm.autolog()
+
+        # Train the model
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch the auto logged parameters and metrics
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: e08dd59d57a74971b68cf78a724dfaf6
+        artifacts: ['model/MLmodel',
+                    'model/conda.yaml',
+                    'model/model.pkl',
+                    'model/python_env.yaml',
+                    'model/requirements.txt']
+        feature_importances: ['feature_importance_gain.json',
+                              'feature_importance_gain.png',
+                              'feature_importance_split.json',
+                              'feature_importance_split.png']
+        params: {'boosting_type': 'gbdt',
+                 'categorical_feature': 'auto',
+                 'colsample_bytree': '1.0',
+                 ...
+                 'verbose_eval': 'warn'}
+        metrics: {}
+        tags: {}
     """
     import lightgbm
     import numpy as np

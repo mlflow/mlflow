@@ -361,7 +361,7 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
 
 @pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
-    split = "# Run MLFlow Recipe step: split"
+    split = 'echo "Run MLFlow Recipe step: split"'
     tokens = _MAKEFILE_FORMAT_STRING.split(split)
     assert len(tokens) == 2
     tokens[1] = "\n\tnon-existing-cmd" + tokens[1]

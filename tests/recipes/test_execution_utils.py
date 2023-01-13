@@ -567,13 +567,15 @@ def test_execution_plan():
     plan = _ExecutionPlan(
         "transform",
         [
-            "# Run MLFlow Recipe step: ingest\n",
-            "# Run MLFlow Recipe step: split\n",
-            "# Run MLFlow Recipe step: transform\n",
+            'echo "Run MLFlow Recipe step: ingest"\n',
+            'echo "Run MLFlow Recipe step: split"\n',
+            'echo "Run MLFlow Recipe step: transform"\n',
         ],
         train_subgraph,
     )
     assert plan.steps_cached == []
 
-    plan = _ExecutionPlan("transform", ["# Run MLFlow Recipe step: transform\n"], train_subgraph)
+    plan = _ExecutionPlan(
+        "transform", ['echo "Run MLFlow Recipe step: transform"\n'], train_subgraph
+    )
     assert plan.steps_cached == ["ingest", "split"]

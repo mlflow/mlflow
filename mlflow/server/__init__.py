@@ -8,6 +8,7 @@ from flask import Flask, send_from_directory, Response
 from mlflow.server import handlers
 from mlflow.server.handlers import (
     get_artifact_handler,
+    get_metric_history_bulk_handler,
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     get_model_version_artifact_handler,
@@ -65,6 +66,12 @@ def serve_artifacts():
 @app.route(_add_static_prefix("/model-versions/get-artifact"))
 def serve_model_version_artifact():
     return get_model_version_artifact_handler()
+
+
+# Serve the "metrics/get-history-bulk" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk"))
+def serve_get_metric_history_bulk():
+    return get_metric_history_bulk_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
