@@ -7,7 +7,6 @@ ADD . /app
 RUN groupadd --gid 10001 mlflow \
   && useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     # install prequired modules to support install of mlflow and related components
     apt-get install -y --no-install-recommends nodejs build-essential openjdk-11-jre-headless \
