@@ -917,8 +917,10 @@ class Utils {
         registeredModelCreationTimestamp: model.creation_timestamp,
       };
     });
-    const loggedModelsWithNormalizedPath = loggedModels.map((model) => {
-      return { ...model, artifactPath: Utils.normalize(model.artifactPath) };
+    const loggedModelsWithNormalizedPath = loggedModels.flatMap((model) => {
+      return model.artifactPath
+        ? [{ ...model, artifactPath: Utils.normalize(model.artifactPath) }]
+        : [];
     });
     const models = Utils.concatAndGroupArraysById(
       loggedModelsWithNormalizedPath,
