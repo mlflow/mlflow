@@ -113,7 +113,7 @@ flask==2.2.2
     # via -r core-requirements.txt
 fonttools==4.38.0
     # via matplotlib
-future==0.18.2
+future==0.18.3
     # via hyperopt
 gitdb==4.0.9
     # via gitpython
