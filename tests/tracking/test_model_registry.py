@@ -512,7 +512,7 @@ def test_set_model_version_tag_with_empty_string_as_value(client):
         (
             "name LIKE '%2'",
             lambda mv: mv.name.endswith("2"),
-            "version DESC",
+            "version_number DESC",
             lambda mv: mv.version,
             True,
         ),
@@ -555,7 +555,8 @@ def test_search_model_versions_flow_paginated(
 
     try:
         if order_by_key:
-            expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
+            filtered_mvs = filter(filter_func, mvs)
+            expected_mvs = sorted(filtered_mvs, key=order_by_key, reverse=order_by_desc)
         else:
             expected_mvs = sorted(
                 filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
