@@ -165,11 +165,23 @@ def extract_db_type_from_uri(db_uri):
 
 
 def get_uri_scheme(uri_or_path):
-    scheme = urllib.parse.urlparse(uri_or_path).scheme
+    import platform
+    import string
+
+    parsed_uri = urllib.parse.urlparse(uri_or_path)
+    scheme = parsed_uri.scheme
+    if (
+        platform.system().lower() == "windows"
+        and not parsed_uri.netloc
+        and uri_or_path[1] in string.ascii_letters
+        and uri_or_path[1] == scheme
+        # and uri_or_path[1:3] == ":\\"
+    ):
+        return ""
+
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
-    else:
-        return scheme
+    return scheme
 
 
 def extract_and_normalize_path(uri):
@@ -179,10 +191,23 @@ def extract_and_normalize_path(uri):
 
 
 def append_to_uri_or_filesystem_path(uri, *paths):
+    import platform
+    import string
+    from functools import reduce
+
     parsed_uri = urllib.parse.urlparse(uri)
-    if not parsed_uri.hostname:
-        return pathlib.Path(uri).as_posix()
-    return append_to_uri_path(uri, paths)
+    if (
+        platform.system().lower() == "windows"
+        and not parsed_uri.netloc
+        and uri[1] in string.ascii_letters
+        and uri[1] == parsed_uri.scheme
+        # and uri_or_path[1:3] == ":\\"
+    ):
+
+        return reduce(
+            lambda base_uri, sub_path: str(base_uri.joinpath(sub_path).resolve()), paths, uri
+        )
+    return append_to_uri_path(uri, *paths)
 
 
 def append_to_uri_path(uri, *paths):
