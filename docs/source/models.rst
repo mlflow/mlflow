@@ -1066,11 +1066,6 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
         2.43,
         14.6,
         127.0,
-        2.8,
-        3.06,
-        0.30,
-        2.29,
-        5.64,
     ]
     predictions = catboost_pyfunc.predict(new_data)
 
