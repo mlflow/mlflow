@@ -1634,6 +1634,29 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
+.. note:: Differences in the computation of Area under Curve Precision Recall score (metric name
+    ``precision_recall_auc``) between multi and binary classifiers:
+
+    Multiclass classifier models, when evaluated, utilize the standard scoring metric from sklearn:
+    ``sk_metrics.roc_auc_score`` to calculate the area under the precision recall curve. This
+    algorithm performs a linear interpolation calculation utilizing the trapezoidal rule to estimate
+    the area under the precision recall curve. It is well-suited for use in evaluating multi-class
+    classification models to provide a single numeric value of the quality of fit.
+
+    Binary classifier models, on the other hand, use the ``sk_metrics.average_precision_score`` to
+    avoid the shortcomings of the ``roc_auc_score`` implementation when applied to heavily
+    imbalanced classes in binary classification. Usage of the ``roc_auc_score`` for imbalanced
+    datasets can give a misleading result (optimistically better than the model's actual ability
+    to accurately predict the minority class membership).
+
+    For additional information on the topic of why different algorithms are employed for this, as
+    well as links to the papers that informed the implementation of these metrics within the
+    ``sk_metrics`` library, refer to
+    `the documentation <https://scikit-learn.org/stable/modules/model_evaluation.html#precision-recall-f-measure-metrics>`_.
+
+    For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
+    or binary classification) are unified in the single metric: ``precision_recall_auc``.
+
 Model Customization
 -------------------
 
