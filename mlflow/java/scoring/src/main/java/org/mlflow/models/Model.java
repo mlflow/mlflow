@@ -1,20 +1,30 @@
 package org.mlflow.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.mlflow.Flavor;
 import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
 /**
- * Represents an MLFlow model. This class includes utility functions for parsing a serialized MLFlow
+ * Represents an MLflow model. This class includes utility functions for parsing a serialized MLflow
  * model configuration (`MLModel`) as a {@link Model} object.
  */
 public class Model {
+
+  public static class Signature {
+    @JsonProperty("inputs")
+    private String inputsSchemaJson;
+    @JsonProperty("outputs")
+    private String outputSchemaJson;
+  }
+
   @JsonProperty("artifact_path")
   private String artifactPath;
 
@@ -27,12 +37,30 @@ public class Model {
   @JsonProperty("flavors")
   private Map<String, Object> flavors;
 
+  @JsonProperty("signature")
+  Signature signature;
+
+  @JsonProperty("input_example")
+  private Map<String, Object> input_example;
+
+  @JsonProperty("model_uuid")
+  private String modelUuid;
+
+  @JsonProperty("mlflow_version")
+  private String mlflowVersion;
+
+  @JsonProperty("databricks_runtime")
+  private String databricksRuntime;
+
+  @JsonProperty("metadata")
+  private JsonNode metadata;
+
   private String rootPath;
 
   /**
-   * Loads the configuration of an MLFlow model and parses it as a {@link Model} object.
+   * Loads the configuration of an MLflow model and parses it as a {@link Model} object.
    *
-   * @param modelRootPath The path to the root directory of the MLFlow model
+   * @param modelRootPath The path to the root directory of the MLflow model
    */
   public static Model fromRootPath(String modelRootPath) throws IOException {
     String configPath = FileUtils.join(modelRootPath, "MLmodel");
@@ -40,7 +68,7 @@ public class Model {
   }
 
   /**
-   * Loads the configuration of an MLFlow model and parses it as a {@link Model} object.
+   * Loads the configuration of an MLflow model and parses it as a {@link Model} object.
    *
    * @param configPath The path to the `MLModel` configuration file
    */
@@ -53,22 +81,48 @@ public class Model {
     return model;
   }
 
-  /** @return The MLFlow model's artifact path */
+  /** @return The MLflow model's artifact path */
   public Optional<String> getArtifactPath() {
     return Optional.ofNullable(this.artifactPath);
   }
 
-  /** @return The MLFlow model's time of creation */
+  /** @return The MLflow model's time of creation */
   public Optional<String> getUtcTimeCreated() {
     return Optional.ofNullable(this.utcTimeCreated);
   }
 
-  /** @return The MLFlow model's run id */
+  /** @return The MLflow model's run id */
   public Optional<String> getRunId() {
     return Optional.ofNullable(this.runId);
   }
 
-  /** @return The path to the root directory of the MLFlow model */
+    /** @return The MLflow model's uuid */
+  public Optional<String> getModelUuid() {
+    return Optional.ofNullable(this.modelUuid);
+  }
+
+
+  /** @return The version of MLflow with which the model was saved */
+  public Optional<String> getMlflowVersion() {
+    return Optional.ofNullable(this.mlflowVersion);
+  }
+
+  /**
+   * @return If the model was trained on Databricks, the version the Databricks Runtime
+   * that was used to train the model
+   */
+  public Optional<String> getDatabricksRuntime() {
+    return Optional.ofNullable(this.databricksRuntime);
+  }
+
+  /**
+   * @return The user defined metadata added to the model
+   */
+  public Optional<JsonNode> getMetadata() {
+    return Optional.ofNullable(this.metadata);
+  }
+
+  /** @return The path to the root directory of the MLflow model */
   public Optional<String> getRootPath() {
     return Optional.ofNullable(this.rootPath);
   }

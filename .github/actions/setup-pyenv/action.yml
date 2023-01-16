@@ -1,0 +1,61 @@
+name: "setup-pyenv"
+description: "Setup pyenv"
+runs:
+  using: "composite"
+  steps:
+    ########## Ubuntu ##########
+    - name: Install python build tools
+      if: runner.os == 'Linux'
+      shell: bash
+      # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
+        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+    - name: Install pyenv
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        cd $HOME/.pyenv
+        # Checkout cb5da5e831fb50ce0ac44fc13617965b2309a482 to avoid https://github.com/pyenv/pyenv/commit/ca1593c80eae0b84349ca163699b71b04ea8b9fa that broke tests for virtualenv project execution
+        git checkout cb5da5e831fb50ce0ac44fc13617965b2309a482
+    - name: Setup environment variables
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        PYENV_ROOT="$HOME/.pyenv"
+        PYENV_BIN="$PYENV_ROOT/bin"
+        echo "$PYENV_BIN" >> $GITHUB_PATH
+        echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
+    - name: Check pyenv version
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        pyenv --version
+
+    ########## Windows ##########
+    - name: Install pyenv
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        pip install pyenv-win --target $HOME\\.pyenv
+    - name: Setup environment variables
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "PYENV_ROOT=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> $GITHUB_PATH
+    - name: Check pyenv version
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        pyenv --version
+
+    - name: Install virtualenv
+      shell: bash
+      run: |
+        pip install virtualenv

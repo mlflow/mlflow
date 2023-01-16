@@ -1,0 +1,117 @@
+name: UI Bug Report
+description: Create a report to help us reproduce and correct the UI bug
+labels: ["bug", "area/uiux"]
+title: "[BUG]"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
+        #### Please fill in this UI bug report template to ensure a timely and thorough response.
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      description: The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
+      options:
+        - Yes. I can contribute a fix for this bug independently.
+        - Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
+        - No. I cannot contribute a bug fix at this time.
+    validations:
+      required: true
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: MLflow version
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: System information
+      description: |
+        Describe the system where you encountered the bug.
+      value: |
+        - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
+        - **Python version**:
+        - **yarn version, if running the dev UI**:
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Describe the problem
+      description: |
+        Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Steps to reproduce the bug
+      description: |
+        **Record steps to reproduce the bug as a video or GIF** (to eliminate ambiguity) and attach it here.
+
+  - type: textarea
+    attributes:
+      label: Code to generate data required to reproduce the bug
+      description: |
+        Please provide code to generate data required to reproduce the bug.
+      placeholder: |
+        ```python
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.log_param("p", 0)
+            mlflow.log_metric("m", 1)
+        ```
+
+  - type: textarea
+    attributes:
+      label: Is the console panel in DevTools showing errors relevant to the bug?
+      description: |
+        If the console panel in your browser's DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
+
+        #### Instructions on how to use DevTools:
+        - Chrome: [Chrome DevTools](https://developer.chrome.com/docs/devtools/)
+        - Firefox: [Firefox DevTools User Docs](https://firefox-source-docs.mozilla.org/devtools-user/index.html)
+        - Edge: [Overview of DevTools](https://docs.microsoft.com/en-us/microsoft-edge/devtools-guide-chromium/overview)
+
+        ![console-panel](https://github.com/mlflow/mlflow/blob/master/.github/ISSUE_TEMPLATE/images/console-panel.png?raw=true)
+        <p align="center">Console panel on Chrome</P>
+      placeholder: |
+        ```
+        TypeError: Cannot read properties of undefined (reading 'x')
+          at n.value (HomeView.js:33:22)
+          at za (react-dom.production.min.js:187:188)
+          at Za (react-dom.production.min.js:186:173)
+          at qs (react-dom.production.min.js:269:427)
+          at Tl (react-dom.production.min.js:250:347)
+        ```
+
+  - type: textarea
+    attributes:
+      label: Does the network panel in DevTools contain failed requests relevant to the bug?
+      description: |
+        If the network panel in your browser's DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
+
+        ![network-panel](https://github.com/mlflow/mlflow/blob/master/.github/ISSUE_TEMPLATE/images/network-panel.png?raw=true)
+        <p align="center">Network panel on Chrome</P>
+      placeholder: |
+        ```
+        # Request URL
+        http://localhost:5000/ajax-api/2.0/preview/mlflow/xxx/yyy
+
+        # Status Code
+        400
+
+        # Payload
+        {"a": 0}
+
+        # Response
+        {"b": 1}
+        ```

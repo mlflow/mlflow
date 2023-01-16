@@ -1,0 +1,160 @@
+name: Test package build
+
+on:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: ["full", "skinny"]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - name: Set environment variable for skinny client build
+        if: ${{ matrix.type == 'skinny' }}
+        run: |
+          echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
+
+      - name: Create dummy MLflow UI
+        run: |
+          mkdir -p mlflow/server/js/build
+          echo '
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>MLflow</title>
+            </head>
+          <body>
+            MLflow
+          </body>
+          </html>
+          ' > mlflow/server/js/build/index.html
+
+      - name: Check dependencies consistency
+        run: |
+          pip install pyyaml
+          ./dev/validate-requirements-consistency.sh
+
+      - name: Install dependencies
+        run: |
+          pip install wheel twine
+
+      - name: Build distribution files
+        id: build-dist
+        run: |
+          # Build distribution files
+          python setup.py sdist bdist_wheel
+
+          # List distribution files and check their file sizes
+          ls -lh dist
+
+          # Set step outputs
+          sdist_path=$(find dist -type f -name "*.tar.gz")
+          wheel_path=$(find dist -type f -name "*.whl")
+          wheel_name=$(basename $wheel_path)
+          wheel_size=$(stat -c %s $wheel_path)
+          echo "sdist-path=${sdist_path}" >> $GITHUB_OUTPUT
+          echo "wheel-path=${wheel_path}" >> $GITHUB_OUTPUT
+          echo "wheel-name=${wheel_name}" >> $GITHUB_OUTPUT
+          echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
+
+      - name: Run twine check
+        run: |
+          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Test installation from tarball
+        run: |
+          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+
+      - name: Test installation from wheel
+        run: |
+          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+
+      # Anyone with read access can download the uploaded wheel on GitHub.
+      - name: Store wheel
+        uses: actions/upload-artifact@v3
+        if: github.event_name == 'push'
+        with:
+          name: ${{ steps.build-dist.outputs.wheel-name }}
+          path: ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Remove old wheels
+        uses: actions/github-script@v6
+        if: github.event_name == 'push'
+        env:
+          WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+
+            // For some reason, the newly-uploaded wheel in the previous step is not included.
+            const artifactsResp = await github.rest.actions.listArtifactsForRepo({
+              owner,
+              repo,
+            });
+            const wheels = artifactsResp.data.artifacts.filter(({ name }) => name.endsWith(".whl"));
+
+            // The storage usage limit for a free github account is up to 500 MB. See the page below for details:
+            // https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
+            MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
+
+            let index = 0;
+            let sum = parseInt(process.env.WHEEL_SIZE);  // include the newly-uploaded wheel
+            for (const [idx, { size_in_bytes }] of wheels.entries()) {
+              index = idx;
+              sum += size_in_bytes;
+              if (sum > MAX_SIZE_IN_BYTES) {
+                break;
+              }
+            }
+
+            if (sum <= MAX_SIZE_IN_BYTES) {
+              return;
+            }
+
+            // Delete old wheels
+            const promises = wheels.slice(index).map(({ id: artifact_id }) =>
+              github.rest.actions.deleteArtifact({
+                owner,
+                repo,
+                artifact_id,
+              })
+            );
+            Promise.all(promises).then(data => console.log(data));

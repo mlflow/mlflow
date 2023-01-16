@@ -1,0 +1,21 @@
+name: Preview docs
+
+on:
+  pull_request_target:
+jobs:
+  main:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          pip install requests
+      - name: Create preview link
+        env:
+          GITHUB_TOKEN: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+        run: |
+          python dev/preview_docs.py \
+            --commit-sha ${{ github.event.pull_request.head.sha }} \
+            --pull-number ${{ github.event.pull_request.number }} \
+            --workflow-run-id ${{ github.run_id }}

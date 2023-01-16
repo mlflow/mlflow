@@ -1,0 +1,18 @@
+@import '~font-awesome/css/font-awesome.css';
+
+/**
+ * After downgrading FontAwesome v5 to v4, there is only
+ * ".fa" class set in the dependency-imported CSS. We need to
+ * set ".fas" and ".far" classes to the same attributes as ".fa"
+ * here. The other way would be to manually change all ".far"/".fas"
+ * occurrences to ".fa" which implies a bug risk.
+ */
+.fas,
+.far {
+  display: inline-block;
+  font: normal normal normal 14px/1 FontAwesome;
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

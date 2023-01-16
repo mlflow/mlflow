@@ -1,5 +1,6 @@
 """Tests verifying that the SQLAlchemyStore generates the expected database schema"""
 import os
+import sqlite3
 
 import pytest
 from alembic import command
@@ -12,10 +13,16 @@ import mlflow.db
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
+
 # pylint: disable=unused-import
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlModelVersion
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from tests.resources.db.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 
@@ -28,31 +35,32 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     """
     # Extract "CREATE TABLE" statement chunks from both files, assuming tables are listed in the
     # same order across files
-    with open(generated_schema_file, "r") as generated_schema_handle:
+    with open(generated_schema_file) as generated_schema_handle:
         generated_schema_table_chunks = generated_schema_handle.read().split("\n\n")
-    with open(expected_schema_file, "r") as expected_schema_handle:
+    with open(expected_schema_file) as expected_schema_handle:
         expected_schema_table_chunks = expected_schema_handle.read().split("\n\n")
     # Compare the two files table-by-table. We assume each CREATE TABLE statement is valid and
     # so sort the lines within the statements before comparing them.
-    for generated_schema_table, expected_schema_table \
-            in zip(generated_schema_table_chunks, expected_schema_table_chunks):
+    for generated_schema_table, expected_schema_table in zip(
+        generated_schema_table_chunks, expected_schema_table_chunks
+    ):
         generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
         expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
-        assert generated_lines == expected_lines,\
-            "Generated schema did not match expected schema. Generated schema had table " \
-            "definition:\n{generated_table}\nExpected schema had table definition:" \
-            "\n{expected_table}\nIf you intended to make schema changes, run " \
-            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to " \
-            "update the schema snapshot.".format(
-                generated_table=generated_schema_table, expected_table=expected_schema_table,
-                expected_file=expected_schema_file)
+        assert generated_lines == expected_lines, (
+            "Generated schema did not match expected schema. Generated schema had table "
+            f"definition:\n{generated_schema_table}\nExpected schema had table definition:"
+            f"\n{expected_schema_table}\nIf you intended to make schema changes, run "
+            f"'python tests/store/dump_schema.py {expected_schema_file}' from your checkout"
+            " of MLflow to update the schema snapshot."
+        )
 
 
 @pytest.fixture()
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     yield os.path.normpath(
-        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql"))
+        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql")
+    )
 
 
 @pytest.fixture()
@@ -61,7 +69,8 @@ def db_url(tmpdir):
 
 
 def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
-        tmpdir, db_url, expected_schema_file):
+    tmpdir, db_url, expected_schema_file
+):
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     # Repeatedly initialize a SQLAlchemyStore against the same DB URL. Initialization should
     # succeed and the schema should be the same.
@@ -75,18 +84,18 @@ def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_fi
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
-    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
 def test_sqlalchemy_store_detects_schema_mismatch(
-        tmpdir, db_url):  # pylint: disable=unused-argument
+    tmpdir, db_url
+):  # pylint: disable=unused-argument
     def _assert_invalid_schema(engine):
-        with pytest.raises(MlflowException) as ex:
+        with pytest.raises(MlflowException, match="Detected out-of-date database schema."):
             _verify_schema(engine)
-            assert ex.message.contains("Detected out-of-date database schema.")
 
     # Initialize an empty database & verify that we detect a schema mismatch
     engine = sqlalchemy.create_engine(db_url)
@@ -103,7 +112,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         command.upgrade(config, rev.revision)
         _assert_invalid_schema(engine)
     # Run migrations, schema verification should now pass
-    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     _verify_schema(engine)
 
 
@@ -114,4 +123,24 @@ def test_store_generated_schema_matches_base(tmpdir, db_url):
     engine = sqlalchemy.create_engine(db_url)
     mc = MigrationContext.configure(engine.connect())
     diff = compare_metadata(mc, Base.metadata)
+    # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
+    # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes
+    # as tested in `test_create_index_on_run_uuid`.
+    diff = [d for d in diff if d[0] != "remove_index"]
     assert len(diff) == 0
+
+
+def test_create_index_on_run_uuid(tmpdir, db_url):
+    # Test for mlflow/store/db_migrations/versions/bd07f7e963c5_create_index_on_run_uuid.py
+    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        run_uuid_index_names = {
+            "index_params_run_uuid",
+            "index_metrics_run_uuid",
+            "index_latest_metrics_run_uuid",
+            "index_tags_run_uuid",
+        }
+        assert run_uuid_index_names.issubset(all_index_names)

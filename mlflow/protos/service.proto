@@ -47,31 +47,25 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/experiments/create"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/create"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Create Experiment",
     };
   }
 
-  // Get a list of all experiments.
-  //
-  rpc listExperiments (ListExperiments) returns (ListExperiments.Response) {
+  rpc searchExperiments (SearchExperiments) returns (SearchExperiments.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
-        path: "/mlflow/experiments/list"
+        method: "POST",
+        path: "/mlflow/experiments/search"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/experiments/list"
+        path: "/mlflow/experiments/search"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
-      rpc_doc_title: "List Experiments",
+      rpc_doc_title: "Search Experiments",
     };
   }
 
@@ -81,10 +75,6 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/experiments/get"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/experiments/get"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -100,10 +90,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/delete"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -123,10 +109,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/restore"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Restore Experiment",
@@ -140,10 +122,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/update"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -161,10 +139,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/create"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/create"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -180,10 +154,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/update"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/update"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -198,10 +168,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/delete"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/delete"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Run",
@@ -214,10 +180,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/restore"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -234,10 +196,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/log-metric"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }],
 
@@ -256,10 +214,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-parameter"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -274,10 +228,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/experiments/set-experiment-tag"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/experiments/set-experiment-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -295,10 +245,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/set-tag"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -314,10 +260,6 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/runs/delete-tag"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/delete-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -335,10 +277,6 @@ service MlflowService {
         method: "GET",
         path: "/mlflow/runs/get"
         since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/runs/get"
-        since { major: 2, minor: 0 },
       }],
 
       visibility: PUBLIC,
@@ -355,14 +293,6 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/search"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/search"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/runs/search"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Search Runs",
@@ -378,10 +308,6 @@ service MlflowService {
         method: "GET",
         path: "/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/artifacts/list"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Artifacts",
@@ -395,10 +321,6 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/metrics/get-history"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/preview/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -462,13 +384,23 @@ service MlflowService {
         method: "POST",
         path: "/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
-      }, {
-        method: "POST",
-        path: "/preview/mlflow/runs/log-batch"
-        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Log Batch",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logModel (LogModel) returns (LogModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-model"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Model",
     };
   }
 }
@@ -589,6 +521,9 @@ message RunInfo {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
+  // The name of the run.
+  optional string run_name = 3;
+
   // The experiment ID.
   optional string experiment_id = 2;
 
@@ -651,22 +586,61 @@ message CreateExperiment {
   // If not provided, the remote server will select an appropriate default.
   optional string artifact_location = 2;
 
+  // A collection of tags to set on the experiment. Maximum tag size and number of tags per request
+  // depends on the storage backend. All storage backends are guaranteed to support tag keys up
+  // to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+  // guaranteed to support up to 20 tags per request.
+  repeated ExperimentTag tags = 3;
+
   message Response {
     // Unique identifier for the experiment.
     optional string experiment_id = 1;
   }
 }
 
-message ListExperiments {
+message SearchExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Maximum number of experiments desired.
+  // Servers may select a desired default `max_results` value. All servers are
+  // guaranteed to support a `max_results` threshold of at least 1,000 but may
+  // support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
+  optional int64 max_results = 1;
+
+  // Token indicating the page of experiments to fetch
+  optional string page_token = 2;
+
+  // A filter expression over experiment attributes and tags that allows returning a subset of
+  // experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+  // between an attribute or tag, and a constant.
+  //
+  // Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+  //
+  // You can select columns with special characters (hyphen, space, period, etc.) by using
+  // double quotes or backticks.
+  //
+  // Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+  //
+  // Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
+  optional string filter = 3;
+
+  // List of columns for ordering search results, which can include experiment name and id
+  // with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by experiment id DESC.
+  repeated string order_by = 4;
 
   // Qualifier for type of experiments to be returned.
   // If unspecified, return only active experiments.
-  optional ViewType view_type = 1;
+  optional ViewType view_type = 5;
 
   message Response {
-    // All experiments.
+    // Experiments that match the search criteria
     repeated Experiment experiments = 1;
+
+    // Token that can be used to retrieve the next page of experiments.
+    // An empty token means that no more experiments are available for retrieval.
+    optional string next_page_token = 2;
   }
 }
 
@@ -680,12 +654,13 @@ message GetExperiment {
     // Experiment details.
     optional Experiment experiment = 1;
 
-    // A collection of active runs in the experiment. Note: this may not contain
-    // all of the experiment's active runs.
+    // Reserved for runs field, which was removed in MLflow 2.0
     //
-    // This field is deprecated. Please use the "Search Runs" API to fetch
-    // runs within an experiment.
-    repeated RunInfo runs = 2 [deprecated=true];
+    // NB: We cannot use the reserved keyword for compatibility with
+    // documentation generation tooling, so we comment out the line
+    // below
+    //
+    // reserved 2;
   }
 }
 
@@ -733,6 +708,9 @@ message CreateRun {
   // MLflow release. Use 'mlflow.user' tag instead.
   optional string user_id = 2;
 
+  // Name of the run.
+  optional string run_name = 3;
+
   // Unix timestamp in milliseconds of when the run started.
   optional int64 start_time = 7;
 
@@ -760,6 +738,9 @@ message UpdateRun {
 
   //Unix timestamp in milliseconds of when the run ended.
   optional int64 end_time = 3;
+
+  // Updated name of the run.
+  optional string run_name = 5;
 
   message Response {
     // Updated metadata of the run.
@@ -922,7 +903,10 @@ message SearchRuns {
   // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
-  // Maximum number of runs desired. Max threshold is 50000
+  // Maximum number of runs desired. If unspecified, defaults to 1000.
+  // All servers are guaranteed to support a `max_results` threshold of at least 50,000
+  // but may support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
   optional int32 max_results = 5 [default = 1000];
 
   // List of columns to be ordered by, including attributes, params, metrics, and tags with an
@@ -954,12 +938,18 @@ message ListArtifacts {
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
 
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 4;
+
   message Response {
     // Root artifact directory for the run.
     optional string root_uri = 1;
 
     // File location and metadata for artifacts.
     repeated FileInfo files = 2;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 3;
   }
 }
 
@@ -988,9 +978,22 @@ message GetMetricHistory {
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];
 
+  // Token indicating the page of metric history to fetch
+  optional string page_token = 4;
+
+  // Maximum number of logged instances of a metric for a run to return per call.
+  // Backend servers may restrict the value of `max_results` depending on performance requirements.
+  // Requests that do not specify this value will behave as non-paginated queries where all
+  // metric history values for a given metric within a run are returned in a single response.
+  optional int32 max_results = 5;
+
   message Response {
     // All logged values for this metric.
     repeated Metric metrics = 1;
+
+    // Token that can be used to issue a query for the next page of metric history values.
+    // A missing token indicates that no additional metrics are available to fetch.
+    optional string next_page_token = 2;
   }
 }
 
@@ -1007,6 +1010,18 @@ message LogBatch {
   // Tags to log. A single request can contain up to 100 tags, and up to 1000
   // metrics, params, and tags in total.
   repeated RunTag tags = 4;
+  message Response {
+  }
+}
+
+message LogModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+
+  // MLmodel file in json format.
+  optional string model_json = 2;
+
   message Response {
   }
 }

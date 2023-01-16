@@ -1,0 +1,128 @@
+name: Examples
+
+on:
+  pull_request:
+  schedule:
+    # Run this action daily at 13:00 UTC
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
+      - name: Increase available disk space
+        run: |
+          # Increase available disk space by removing unnecessary tool chains:
+          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
+      - name: Check diff
+        id: check-diff
+        run: |
+          if [ ! "$(git branch --show-current)" == "master" ]; then
+            git fetch origin master:master
+          fi
+
+          REGEXP="tests/examples\|examples"
+          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
+
+          echo -e "CHANGED_FILES:\nCHANGED_FILES"
+          echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
+          echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
+
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+
+      - name: Install dependencies
+        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        run: |
+          source ./dev/install-common-deps.sh --ml
+
+      - name: Run example tests
+        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        env:
+          SPARK_LOCAL_IP: localhost
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/examples --durations=30
+
+      - name: Remove conda environments
+        run: |
+          conda remove --all --yes --name test-environment
+          ./dev/remove-conda-envs.sh
+
+      - name: Show disk usage
+        run: |
+          df -h
+
+  docker:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
+      - name: Increase available disk space
+        run: |
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
+      - name: Check diff
+        id: check-diff
+        run: |
+          if [ ! "$(git branch --show-current)" == "master" ]; then
+            git fetch origin master:master
+          fi
+
+          REGEXP="Dockerfile\|\.dockerignore"
+          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
+
+          echo -e "CHANGED_FILES:\nCHANGED_FILES"
+          echo "DOCKER_CHANGED: $DOCKER_CHANGED"
+          echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Run docker tests
+        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
+        run: |
+          docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
+
+      - name: Show disk usage
+        run: |
+          df -h

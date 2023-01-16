@@ -1,0 +1,84 @@
+name: Test requirements
+
+on:
+  pull_request:
+    paths:
+      - requirements/core-requirements.yaml
+      - requirements/skinny-requirements.yaml
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PYTHON_VERSION: "3.8"
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  skinny:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --skinny
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --ml
+      - name: Run tests
+        run: |
+          source dev/setup-ssh.sh
+          ./dev/run-python-tests.sh

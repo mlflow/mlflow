@@ -7,7 +7,7 @@ import org.mlflow.tracking.utils.DatabricksContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DatabricksDynamicHostCredsProvider implements MlflowHostCredsProvider {
+public class DatabricksDynamicHostCredsProvider extends DatabricksHostCredsProvider {
   private static final Logger logger = LoggerFactory.getLogger(
     DatabricksDynamicHostCredsProvider.class);
 
@@ -32,8 +32,8 @@ public class DatabricksDynamicHostCredsProvider implements MlflowHostCredsProvid
   }
 
   @Override
-  public MlflowHostCreds getHostCreds() {
-    return new BasicMlflowHostCreds(
+  public DatabricksMlflowHostCreds getHostCreds() {
+    return new DatabricksMlflowHostCreds(
       configProvider.get("host"),
       configProvider.get("username"),
       configProvider.get("password"),

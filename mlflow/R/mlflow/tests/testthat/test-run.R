@@ -1,5 +1,9 @@
 context("Run")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
+
 test_that("mlflow can run and save model", {
   mlflow_clear_test_dir("mlruns")
 
@@ -45,4 +49,41 @@ test_that("mlflow run uses active experiment if not specified", {
         mlflow_run("project", experiment_name = "name")
       })
   })
+})
+
+
+test_that("mlflow_run passes all numbers as non-scientific", {
+  # we can only be sure conversion is actively avoided
+  # if default formatting turns into scientific.
+  expect_equal(as.character(10e4), "1e+05")
+  with_mock(.env = "mlflow", mlflow_cli = function(...){
+    args <- c(...)
+    expect_equal(sum("scientific=100000" == args), 1)
+    expect_equal(sum("non_scientific=30000" == args), 1)
+    list(stderr = "=== Run (ID '48734e7e2e8f44228a11c0c2cbcdc8b0') succeeded ===")
+  }, {
+    mlflow_run("project", parameters = c(scientific = 10e4, non_scientific = 30000))
+  })
+})
+
+test_that("active experiment is set when starting a run with experiment specified", {
+  mlflow_clear_test_dir("mlruns")
+  id <- mlflow_create_experiment("one-more")
+  mlflow_start_run(experiment_id = id)
+  expect_equal(
+    mlflow_get_experiment()$experiment_id,
+    id
+  )
+  mlflow_end_run()
+})
+
+test_that("active experiment is set when starting a run without experiment specified", {
+  mlflow_clear_test_dir("mlruns")
+  id <- mlflow_create_experiment("second-exp")
+  mlflow_start_run()
+  expect_equal(
+    mlflow_get_experiment()$experiment_id,
+    "0"
+  )
+  mlflow_end_run()
 })

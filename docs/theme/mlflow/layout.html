@@ -22,7 +22,7 @@
   <title>{{ title|striptags|e }}{{ titlesuffix }}</title>
   {% endblock %}
   {# CANONICAL #} 
-  <link rel="canonical" href="https://www.mlflow.org/docs/latest/{{ pagename }}.html">
+  <link rel="canonical" href="https://mlflow.org/docs/latest/{{ pagename }}.html">
   {# FAVICON #}
   {% if favicon %}
     <link rel="shortcut icon" href="{{ pathto('_static/' + favicon, 1) }}"/>
@@ -33,21 +33,15 @@
     {% endif %}
 
   {# Google Tag Manager #}
-    {% if target_cloud == 'azure' %}
+    {% if gtm_id %}
         <!-- Google Tag Manager -->
         <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
         new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
         j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-NS6KJ62');</script>
+        })(window,document,'script','dataLayer',"{{gtm_id}}");</script>
         <!-- End Google Tag Manager -->
-      {% else %}
-        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-WXWDBL');</script>
-      {% endif %}
+    {% endif %}
 
   {# CSS #}
 
@@ -67,8 +61,6 @@
     {% if target_cloud == 'azure' %}
       <link rel="stylesheet" href="{{ pathto('_static/css/custom-azure.css', 1) }}" type="text/css" />
     {% endif %}
-    <link rel="stylesheet" href="{{ pathto('_static/css/algolia.css', 1) }}" type="text/css" />
-    
   {% endif %}
 
   {%- block linktags %}
@@ -104,9 +96,18 @@
 
 </head>
 
+{%- for scriptfile in script_files %}
+<script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
+{%- endfor %}
+
 <body class="wy-body-for-nav" role="document">
 
-  {# Google Tag Manager #}
+  {% if gtm_id %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{gtm_id}}"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+  {% endif %}
 
   {# Header. Includes toggle for sidebar when on thin screen #}
   <nav class="wy-nav-top header" role="navigation" aria-label="top navigation">
@@ -145,17 +146,16 @@
       VERSION:'{{ release|e }}',
       COLLAPSE_INDEX:false,
       FILE_SUFFIX:'{{ '' if no_search_suffix else file_suffix }}',
+      LINK_SUFFIX: '.html',
       HAS_SOURCE:  {{ has_source|lower }}
     };
   </script>
 
-  {%- for scriptfile in script_files %}
-  <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
-  {%- endfor %}
   {% endif %}
 
   <script type="text/javascript" src="{{ pathto('_static/js/clipboard.min.js', 1) }}"></script>
   <script type="text/javascript" src="{{ pathto('_static/js/jquery.waypoints.min.js', 1) }}"></script>
+  {%- block scripts %} {%- endblock %}
 
   {# RTD hosts this file, so just load on non RTD builds #}
   {% if not READTHEDOCS %}
@@ -176,18 +176,5 @@
 
 
   {%- block footer %} {% endblock %}
-
-  {% if use_algolia == '1' %}
-    <!-- Algolia Search -->
-    <script type="text/javascript">
-      var algoliaConfigs = {
-        key: 'b6d79a1058f2b3c1ee03bf659ade5a4b',
-        index: 'mlflow',
-      };
-    </script>
-    <div id="algolia-wrapper"></div>
-    <script src="{{ pathto('_static/js/tether.min.js', 1) }}"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
-  {% endif %}
 </body>
 </html>

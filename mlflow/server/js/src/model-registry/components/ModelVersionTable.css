@@ -9,3 +9,7 @@
 .model-version-table .model-version-status-icon {
     font-size: 13px;
 }
+
+.model-version-table .ant-table-thead > tr > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
+    display: none;
+}

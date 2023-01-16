@@ -1,14 +1,13 @@
 import React, { Component } from 'react';
-import { Alert, Button, Icon, Tooltip } from 'antd';
+import { Alert, Button, Tooltip } from '@databricks/design-system';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { getConverter, sanitizeConvertedHtml } from '../../utils/MarkdownUtils';
+import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
+import './EditableNote.css';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
-const PROMPT_MESSAGE =
-  "Are you sure you want to navigate away? Your pending text changes will be lost.";
-
-export class EditableNote extends Component {
+export class EditableNoteImpl extends Component {
   static propTypes = {
     defaultMarkdown: PropTypes.string,
     defaultSelectedTab: PropTypes.string,
@@ -16,13 +15,34 @@ export class EditableNote extends Component {
     onSubmit: PropTypes.func,
     onCancel: PropTypes.func,
     showEditor: PropTypes.bool,
+    saveText: PropTypes.object,
+    // React-MDE props
+    toolbarCommands: PropTypes.array,
+    maxEditorHeight: PropTypes.number,
+    minEditorHeight: PropTypes.number,
+    childProps: PropTypes.object,
+    intl: PropTypes.any,
   };
 
   static defaultProps = {
     defaultMarkdown: '',
     defaultSelectedTab: 'write',
     showEditor: false,
+    saveText: (
+      <FormattedMessage
+        defaultMessage='Save'
+        description='Default text for save button on editable notes in MLflow'
+      />
+    ),
     confirmLoading: false,
+    toolbarCommands: [
+      ['header', 'bold', 'italic', 'strikethrough'],
+      ['link', 'quote', 'code', 'image'],
+      ['unordered-list', 'ordered-list', 'checked-list'],
+    ],
+    maxEditorHeight: 500,
+    minEditorHeight: 200,
+    childProps: {},
   };
 
   state = {
@@ -39,31 +59,39 @@ export class EditableNote extends Component {
 
   handleTabChange = (selectedTab) => {
     this.setState({ selectedTab });
-  }
+  };
 
   handleSubmitClick = () => {
     const { onSubmit } = this.props;
     const { markdown } = this.state;
     this.setState({ confirmLoading: true });
     if (onSubmit) {
-      Promise.resolve(onSubmit(markdown))
+      return Promise.resolve(onSubmit(markdown))
         .then(() => {
           this.setState({ confirmLoading: false, error: null });
         })
         .catch((e) => {
           this.setState({
             confirmLoading: false,
-            error: e.getMessageField ? e.getMessageField() : 'Failed to submit'
+            error:
+              e && e.getMessageField
+                ? e.getMessageField()
+                : this.props.intl.formatMessage({
+                    defaultMessage: 'Failed to submit',
+                    description:
+                      'Message text for failing to save changes in editable note in MLflow',
+                  }),
           });
         });
     }
+    return null;
   };
 
   handleCancelClick = () => {
     // Reset to the last defaultMarkdown passed in as props.
     this.setState({
       markdown: this.props.defaultMarkdown,
-      selectedTab: this.props.defaultSelectedTab
+      selectedTab: this.props.defaultSelectedTab,
     });
     const { onCancel } = this.props;
     if (onCancel) {
@@ -81,15 +109,24 @@ export class EditableNote extends Component {
       <div className='editable-note-actions'>
         <div>
           <Button
-            htmlType='button'
             type='primary'
+            className='editable-note-save-button'
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
+            loading={confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} Save
+            {this.props.saveText}
           </Button>
-          <Button htmlType='button' onClick={this.handleCancelClick} disabled={confirmLoading}>
-            Cancel
+          <Button
+            htmlType='button'
+            className='editable-note-cancel-button'
+            onClick={this.handleCancelClick}
+            disabled={confirmLoading}
+          >
+            <FormattedMessage
+              defaultMessage='Cancel'
+              description='Text for the cancel button in an editable note in MLflow'
+            />
           </Button>
         </div>
       </div>
@@ -98,9 +135,11 @@ export class EditableNote extends Component {
 
   getSanitizedHtmlContent() {
     const { markdown } = this.state;
-    return markdown
-      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
-      : null;
+    if (markdown) {
+      const sanitized = sanitizeConvertedHtml(this.converter.makeHtml(markdown));
+      return forceAnchorTagNewTab(sanitized);
+    }
+    return null;
   }
 
   render() {
@@ -114,28 +153,43 @@ export class EditableNote extends Component {
             <div className='note-view-text-area'>
               <ReactMde
                 value={markdown}
+                minEditorHeight={this.props.minEditorHeight}
+                maxEditorHeight={this.props.maxEditorHeight}
+                minPreviewHeight={50}
+                childProps={this.props.childProps}
+                toolbarCommands={this.props.toolbarCommands}
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(md) =>
-                  Promise.resolve(this.getSanitizedHtmlContent(md))
-                }
+                generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
                 getIcon={(name) => <TooltipIcon name={name} />}
               />
             </div>
             {error && (
               <Alert
                 type='error'
-                message='There was an error submitting your note.'
+                message={this.props.intl.formatMessage({
+                  defaultMessage: 'There was an error submitting your note.',
+                  description: 'Error message text when saving an editable note in MLflow',
+                })}
                 description={error}
                 closable
               />
             )}
             {this.renderActions()}
-            <Prompt when={this.contentHasChanged()} message={PROMPT_MESSAGE} />
+            <Prompt
+              when={this.contentHasChanged()}
+              message={this.props.intl.formatMessage({
+                defaultMessage:
+                  'Are you sure you want to navigate away? Your pending text changes will be lost.',
+                description:
+                  'Prompt text for navigating away before saving changes in editable note in' +
+                  ' MLflow',
+              })}
+            />
           </React.Fragment>
         ) : (
-          <HTMLNoteContent content={htmlContent}/>
+          <HTMLNoteContent content={htmlContent} />
         )}
       </div>
     );
@@ -145,7 +199,7 @@ export class EditableNote extends Component {
 function TooltipIcon(props) {
   const { name } = props;
   return (
-    <Tooltip position="top" title={name}>
+    <Tooltip position='top' title={name}>
       <span>
         <SvgIcon icon={name} />
       </span>
@@ -156,20 +210,28 @@ function TooltipIcon(props) {
 function HTMLNoteContent(props) {
   const { content } = props;
   return content ? (
-    <div className="note-view-outer-container">
-      <div className="note-view-text-area">
-        <div className="note-view-preview note-editor-preview">
-          <div className="note-editor-preview-content"
+    <div className='note-view-outer-container'>
+      <div className='note-view-text-area'>
+        <div className='note-view-preview note-editor-preview'>
+          <div
+            className='note-editor-preview-content'
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: props.content }}>
-          </div>
+            dangerouslySetInnerHTML={{ __html: props.content }}
+          ></div>
         </div>
       </div>
     </div>
   ) : (
-    <div>None</div>
+    <div>
+      <FormattedMessage
+        defaultMessage='None'
+        description='Default text for no content in an editable note in MLflow'
+      />
+    </div>
   );
 }
 
 TooltipIcon.propTypes = { name: PropTypes.string };
 HTMLNoteContent.propTypes = { content: PropTypes.string };
+
+export const EditableNote = injectIntl(EditableNoteImpl);

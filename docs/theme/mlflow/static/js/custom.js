@@ -86,8 +86,6 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                 });
                 link.prepend(expand);
             });
-
-            setupSearch();
         };
 
         nav.reset = function () {
@@ -227,30 +225,6 @@ clippy.on("success", function(e) {
     }, 1000);
 });
 
-function setupSearch() {
-    docsearch({
-      apiKey: algoliaConfigs.key,
-      indexName: algoliaConfigs.index,
-      inputSelector: '#algolia-search',
-      debug: false,
-      autocompleteOptions: {
-        appendTo: '#algolia-wrapper',
-        hint: false
-      }
-    });
-    new Tether({
-        element: '#algolia-wrapper',
-        target: '#algolia-search',
-        attachment: 'bottom left',
-        targetAttachment: 'top left',
-        targetOffset: '20px 0',
-        constraints: [{
-            to: 'window',
-            attachment: 'together'
-        }]
-    });
-}
-
 // Affix the sidebar to the side if we scroll past the header,
 // which is 55px. This ensures the sidebar is always visible,
 // but makes room for the header if and only if the header is
@@ -265,3 +239,62 @@ $(window).scroll(function() {
         $('.wy-nav-side').removeClass("relative");
     }
 });
+
+fetch('https://pypi.org/pypi/mlflow/json')
+  .then((response) => response.json())
+  .then((data) => {
+    var versions = Object.keys(data.releases)
+      // Drop dev/pre/rc/post versions and versions older than 1.0
+      .filter(function (version) {
+        return /^[1-9]+(\.\d+){0,3}$/.test(version);
+      })
+      // Sort versions
+      // https://stackoverflow.com/a/40201629
+      .map((a) =>
+        a
+          .split('.')
+          .map((n) => +n + 100000)
+          .join('.'),
+      )
+      .sort()
+      .map((a) =>
+        a
+          .split('.')
+          .map((n) => +n - 100000)
+          .join('.'),
+      )
+      .reverse();
+
+    var seenMinorVersions = [];
+    var latestMicroVersions = [];
+    versions.forEach(function (version) {
+      var minor = version.split('.').slice(0, 2).join('.');
+      if (!seenMinorVersions.includes(minor)) {
+        seenMinorVersions.push(minor);
+        latestMicroVersions.push(version);
+      }
+    });
+
+    var latestVersion = latestMicroVersions[0];
+    var docRegex = /\/docs\/(?<version>[^/]+)\//;
+    var currentVersion = docRegex.exec(window.location.pathname).groups.version;
+    var dropDown = document.createElement('select');
+    dropDown.style = "margin-left: 5px";
+    dropDown.onchange = function () {
+      var newUrl = window.location.href.replace(docRegex, `/docs/${this.value}/`);
+      window.location.assign(newUrl);
+    };
+    latestMicroVersions.forEach(function (version) {
+      var option = document.createElement('option');
+      option.value = version;
+      option.selected = version === currentVersion;
+      option.text = version === latestVersion ? `${version} (latest)` : version;
+      dropDown.appendChild(option);
+    });
+
+    var versionTag = document.querySelector('span.version');
+    versionTag.parentNode.replaceChild(dropDown, versionTag);
+  })
+  .catch((error) => {
+    console.error('Failed to fetch package metadata from PyPI:', error);
+  });

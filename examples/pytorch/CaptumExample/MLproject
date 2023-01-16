@@ -1,0 +1,14 @@
+name: Titanic-Captum-Example
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      max_epochs: {type: int, default: 50}
+      lr: {type: float, default: 0.1}
+
+    command: |
+          python Titanic_Captum_Interpret.py \
+            --max_epochs {max_epochs} \
+            --lr {lr}

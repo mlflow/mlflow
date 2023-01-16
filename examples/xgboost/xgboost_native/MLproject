@@ -1,0 +1,13 @@
+name: xgboost-example
+python_env: python_env.yaml
+entry_points:
+  main:
+    parameters:
+      learning_rate: {type: float, default: 0.3}
+      colsample_bytree: {type: float, default: 1.0}
+      subsample: {type: float, default: 1.0}
+    command: |
+        python train.py \
+          --learning-rate={learning_rate} \
+          --colsample-bytree={colsample_bytree} \
+          --subsample={subsample}

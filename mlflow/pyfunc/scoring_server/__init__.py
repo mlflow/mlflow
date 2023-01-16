@@ -3,129 +3,166 @@ Scoring server for python model format.
 The passed int model is expected to have function:
    predict(pandas.Dataframe) -> pandas.DataFrame
 
-Input, expected intext/csv or application/json format,
+Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
-Defines two endpoints:
+Defines four endpoints:
     /ping used for health check
+    /health (same as /ping)
+    /version used for getting the mlflow version
     /invocations used for scoring
 """
-from __future__ import print_function
-
-from collections import OrderedDict
+from typing import Tuple, Dict
 import flask
 import json
-from json import JSONEncoder
 import logging
-import numpy as np
-import pandas as pd
-from six import reraise
+import os
 import sys
 import traceback
+
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
 # mlflow in the model's conda environment (inside) can differ. We should therefore keep mlflow
 # dependencies to the minimum here.
-# ALl of the mlfow dependencies below need to be backwards compatible.
+# ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.types import Schema
+from mlflow.utils import reraise
+from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.proto_json_utils import (
+    NumpyEncoder,
+    dataframe_from_parsed_json,
+    _get_jsonable_obj,
+    parse_tf_serving_input,
+)
+from mlflow.version import VERSION
 
 try:
-    from mlflow.pyfunc import load_model
+    from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
-CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_NUMPY
 ]
 
 _logger = logging.getLogger(__name__)
 
+DF_RECORDS = "dataframe_records"
+DF_SPLIT = "dataframe_split"
+INSTANCES = "instances"
+INPUTS = "inputs"
 
-def parse_json_input(json_input, orient="split"):
+SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
+
+REQUIRED_INPUT_FORMAT = (
+    f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
+)
+SCORING_PROTOCOL_CHANGE_INFO = (
+    "IMPORTANT: The MLflow Model scoring protocol has changed in MLflow version 2.0. If you are"
+    " seeing this error, you are likely using an outdated scoring request format. To resolve the"
+    " error, either update your request format or adjust your MLflow Model's requirements file to"
+    " specify an older version of MLflow (for example, change the 'mlflow' requirement specifier"
+    " to 'mlflow==1.30.0'). If you are making a request using the MLflow client"
+    " (e.g. via `mlflow.pyfunc.spark_udf()`), upgrade your MLflow client to a version >= 2.0 in"
+    " order to use the new request format. For more information about the updated MLflow"
+    " Model scoring protocol in MLflow 2.0, see"
+    " https://mlflow.org/docs/latest/models.html#deploy-mlflow-models."
+)
+
+
+def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
-    :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
-                       containing such a string representation.
-    :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
-                   or 'records'.
+    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                       DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
     """
-    # pylint: disable=broad-except
-    try:
-        return pd.read_json(json_input, orient=orient, dtype=False)
-    except Exception:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                " method.".format(orient=orient)),
-            error_code=MALFORMED_REQUEST)
+    if isinstance(json_input, dict):
+        decoded_input = json_input
+    else:
+        try:
+            decoded_input = json.loads(json_input)
+        except json.decoder.JSONDecodeError as ex:
+            raise MlflowException(
+                message=(
+                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
+                ),
+                error_code=BAD_REQUEST,
+            )
+    if isinstance(decoded_input, dict):
+        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
+        if len(format_keys) != 1:
+            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
+            raise MlflowException(
+                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+                error_code=BAD_REQUEST,
+            )
+        input_format = format_keys.pop()
+        if input_format in (INSTANCES, INPUTS):
+            return parse_tf_serving_input(decoded_input, schema=schema)
+
+        elif input_format in (DF_SPLIT, DF_RECORDS):
+            # NB: skip the dataframe_ prefix
+            pandas_orient = input_format[10:]
+            return dataframe_from_parsed_json(
+                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
+            )
+    elif isinstance(decoded_input, list):
+        message = "Received a list"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+            error_code=BAD_REQUEST,
+        )
+    else:
+        message = f"Received unexpected input type '{type(decoded_input)}'"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+        )
 
 
-def parse_csv_input(csv_input):
+def parse_csv_input(csv_input, schema: Schema = None):
     """
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
     """
-    # pylint: disable=broad-except
+    import pandas as pd
+
     try:
-        return pd.read_csv(csv_input)
+        if schema is None:
+            return pd.read_csv(csv_input)
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            return pd.read_csv(csv_input, dtype=dtypes)
     except Exception:
         _handle_serving_error(
             error_message=(
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid CSV-formatted Pandas DataFrame produced using the"
-                " `pandas.DataFrame.to_csv()` method."),
-            error_code=MALFORMED_REQUEST)
-
-
-def parse_split_oriented_json_input_to_numpy(json_input):
-    """
-    :param json_input: A JSON-formatted string representation of a Pandas DataFrame with split
-                       orient, or a stream containing such a string representation.
-    """
-    # pylint: disable=broad-except
-    try:
-        json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
-        return pd.DataFrame(index=json_input_list['index'],
-                            data=np.array(json_input_list['data'], dtype=object),
-                            columns=json_input_list['columns']).infer_objects()
-    except Exception:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Numpy. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the split orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
-                " method."
+                " `pandas.DataFrame.to_csv()` method."
             ),
-            error_code=MALFORMED_REQUEST)
+            error_code=BAD_REQUEST,
+        )
 
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
-    json.dump(predictions, output, cls=NumpyEncoder)
+    return json.dump({"predictions": predictions}, output, cls=NumpyEncoder)
 
 
-def _handle_serving_error(error_message, error_code):
+def _handle_serving_error(error_message, error_code, include_traceback=True):
     """
     Logs information about an exception thrown by model inference code that is currently being
     handled and reraises it with the specified error message. The exception stack trace
@@ -134,23 +171,28 @@ def _handle_serving_error(error_message, error_code):
     :param error_message: A message for the reraised exception.
     :param error_code: An appropriate error code for the reraised exception. This should be one of
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
+    :param include_traceback: Whether to include the current traceback in the returned error.
     """
-    traceback_buf = StringIO()
-    traceback.print_exc(file=traceback_buf)
-    reraise(MlflowException,
-            MlflowException(
-                message=error_message,
-                error_code=error_code,
-                stack_trace=traceback_buf.getvalue()))
+    if include_traceback:
+        traceback_buf = StringIO()
+        traceback.print_exc(file=traceback_buf)
+        traceback_str = traceback_buf.getvalue()
+        e = MlflowException(message=error_message, error_code=error_code, stack_trace=traceback_str)
+    else:
+        e = MlflowException(message=error_message, error_code=error_code)
+    reraise(MlflowException, e)
 
 
-def init(model):
+def init(model: PyFuncModel):
+
     """
     Initialize the server. Loads pyfunc model from the path.
     """
     app = flask.Flask(__name__)
+    input_schema = model.metadata.get_input_schema()
 
-    @app.route('/ping', methods=['GET'])
+    @app.route("/ping", methods=["GET"])
+    @app.route("/health", methods=["GET"])
     def ping():  # pylint: disable=unused-variable
         """
         Determine if the container is working and healthy.
@@ -158,9 +200,16 @@ def init(model):
         """
         health = model is not None
         status = 200 if health else 404
-        return flask.Response(response='\n', status=status, mimetype='application/json')
+        return flask.Response(response="\n", status=status, mimetype="application/json")
 
-    @app.route('/invocations', methods=['POST'])
+    @app.route("/version", methods=["GET"])
+    def version():  # pylint: disable=unused-variable
+        """
+        Returns the current mlflow version.
+        """
+        return flask.Response(response=VERSION, status=200, mimetype="application/json")
+
+    @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
     def transformation():  # pylint: disable=unused-variable
         """
@@ -168,57 +217,96 @@ def init(model):
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
         """
+
+        # Content-Type can include other attributes like CHARSET
+        # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
+        # TODO: Suport ";" in quoted parameter values
+        type_parts = flask.request.content_type.split(";")
+        type_parts = list(map(str.strip, type_parts))
+        mime_type = type_parts[0]
+        parameter_value_pairs = type_parts[1:]
+        parameter_values = {}
+        for parameter_value_pair in parameter_value_pairs:
+            (key, _, value) = parameter_value_pair.partition("=")
+            parameter_values[key] = value
+
+        charset = parameter_values.get("charset", "utf-8").lower()
+        if charset != "utf-8":
+            return flask.Response(
+                response="The scoring server only supports UTF-8",
+                status=415,
+                mimetype="text/plain",
+            )
+
+        unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
+        if unexpected_content_parameters:
+            return flask.Response(
+                response=(
+                    f"Unrecognized content type parameters: "
+                    f"{', '.join(unexpected_content_parameters)}. "
+                    f"{SCORING_PROTOCOL_CHANGE_INFO}"
+                ),
+                status=415,
+                mimetype="text/plain",
+            )
         # Convert from CSV to pandas
-        if flask.request.content_type == CONTENT_TYPE_CSV:
-            data = flask.request.data.decode('utf-8')
+        if mime_type == CONTENT_TYPE_CSV:
+            data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
-            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
+            data = parse_csv_input(csv_input=csv_input, schema=input_schema)
+        elif mime_type == CONTENT_TYPE_JSON:
+            json_str = flask.request.data.decode("utf-8")
+            data = infer_and_parse_json_input(json_str, input_schema)
         else:
             return flask.Response(
-                response=("This predictor only supports the following content types,"
-                          " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                response=(
+                    "This predictor only supports the following content types:"
+                    f" Types: {CONTENT_TYPES}."
+                    f" Got '{flask.request.content_type}'."
+                ),
                 status=415,
-                mimetype='text/plain')
+                mimetype="text/plain",
+            )
 
         # Do the prediction
-        # pylint: disable=broad-except
         try:
             raw_predictions = model.predict(data)
+        except MlflowException as e:
+            raise e
         except Exception:
-            _handle_serving_error(
-                error_message=(
+            raise MlflowException(
+                message=(
                     "Encountered an unexpected error while evaluating the model. Verify"
                     " that the serialized input Dataframe is compatible with the model for"
-                    " inference."),
-                error_code=BAD_REQUEST)
+                    " inference."
+                ),
+                error_code=BAD_REQUEST,
+                stack_trace=traceback.format_exc(),
+            )
         result = StringIO()
         predictions_to_json(raw_predictions, result)
-        return flask.Response(response=result.getvalue(), status=200, mimetype='application/json')
+        return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
 
     return app
 
 
-def _predict(model_uri, input_path, output_path, content_type, json_format):
+def _predict(model_uri, input_path, output_path, content_type):
     pyfunc_model = load_model(model_uri)
-    if input_path is None:
-        input_path = sys.stdin
 
     if content_type == "json":
-        df = parse_json_input(input_path, orient=json_format)
+        if input_path is None:
+            input_str = sys.stdin.read()
+        else:
+            with open(input_path) as f:
+                input_str = f.read()
+        df = infer_and_parse_json_input(input_str)
     elif content_type == "csv":
-        df = parse_csv_input(input_path)
+        if input_path is not None:
+            df = parse_csv_input(input_path)
+        else:
+            df = parse_csv_input(sys.stdin)
     else:
-        raise Exception("Unknown content type '{}'".format(content_type))
+        raise Exception(f"Unknown content type '{content_type}'")
 
     if output_path is None:
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)
@@ -232,33 +320,41 @@ def _serve(model_uri, port, host):
     init(pyfunc_model).run(port=port, host=host)
 
 
-class NumpyEncoder(JSONEncoder):
-    """ Special json encoder for numpy types.
-    Note that some numpy types doesn't have native python equivalence,
-    hence json.dumps will raise TypeError.
-    In this case, you'll need to convert your numpy types into its closest python equivalence.
-    """
+def get_cmd(
+    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
+) -> Tuple[str, Dict[str, str]]:
+    local_uri = path_to_local_file_uri(model_uri)
+    timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
+    # platform compatibility.
+    if os.name != "nt":
+        args = [f"--timeout={timeout}"]
+        if port and host:
+            args.append(f"-b {host}:{port}")
+        elif host:
+            args.append(f"-b {host}")
 
-    def default(self, o):  # pylint: disable=E0202
-        if isinstance(o, np.generic):
-            return np.asscalar(o)
-        return JSONEncoder.default(self, o)
+        if nworkers:
+            args.append(f"-w {nworkers}")
 
+        command = (
+            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
+            " -- mlflow.pyfunc.scoring_server.wsgi:app"
+        )
+    else:
+        args = []
+        if host:
+            args.append(f"--host={host}")
 
-def _get_jsonable_obj(data, pandas_orient="records"):
-    """Attempt to make the data json-able via standard library.
-    Look for some commonly used types that are not jsonable and convert them into json-able ones.
-    Unknown data types are returned as is.
+        if port:
+            args.append(f"--port={port}")
 
-    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
-    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
-                          dictionary using this Pandas serialization orientation.
-    """
-    if isinstance(data, np.ndarray):
-        return data.tolist()
-    if isinstance(data, pd.DataFrame):
-        return data.to_dict(orient=pandas_orient)
-    if isinstance(data, pd.Series):
-        return pd.DataFrame(data).to_dict(orient=pandas_orient)
-    else:  # by default just return whatever this is and hope for the best
-        return data
+        command = (
+            f"waitress-serve {' '.join(args)} "
+            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
+        )
+
+    command_env = os.environ.copy()
+    command_env[_SERVER_MODEL_PATH] = local_uri
+
+    return command, command_env

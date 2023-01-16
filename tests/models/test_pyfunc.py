@@ -7,6 +7,7 @@ class PyFuncTestModel:
 
     def predict(self, df):
         from mlflow.version import VERSION
+
         if self._check_version:
             assert VERSION == MLFLOW_VERSION
         mu = df.mean().mean()

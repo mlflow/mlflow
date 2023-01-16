@@ -24,14 +24,13 @@ def eval_metrics(actual, pred):
     return rmse, mae, r2
 
 
-
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--alpha')
-    parser.add_argument('--l1-ratio')
+    parser.add_argument("--alpha")
+    parser.add_argument("--l1-ratio")
     args = parser.parse_args()
 
     # Read the wine-quality csv file (make sure you're running this from the root of MLflow!)
@@ -58,7 +57,7 @@ if __name__ == "__main__":
 
         (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+        print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
         print("  RMSE: %s" % rmse)
         print("  MAE: %s" % mae)
         print("  R2: %s" % r2)

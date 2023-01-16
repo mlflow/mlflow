@@ -1,30 +1,37 @@
 import filecmp
 import os
-import docker
-from docker.errors import BuildError, APIError
 
 
 import pytest
+import logging
 
-import mlflow
 from mlflow.utils.file_utils import TempDir, _copy_project
 
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_project")
+TEST_VIRTUALENV_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_virtualenv_project")
+TEST_VIRTUALENV_CONDA_PROJECT_DIR = os.path.join(
+    TEST_DIR, "resources", "example_virtualenv_conda_project"
+)
+TEST_VIRTUALENV_NO_PYTHON_ENV = os.path.join(
+    TEST_DIR, "resources", "example_virtualenv_no_python_env"
+)
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+GIT_PROJECT_BRANCH = "test-branch"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+
+_logger = logging.getLogger(__name__)
 
 
 def load_project():
-    """ Loads an example project for use in tests, returning an in-memory `Project` object. """
+    """Loads an example project for use in tests, returning an in-memory `Project` object."""
     return _project_spec.load_project(TEST_PROJECT_DIR)
 
 
@@ -40,40 +47,38 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="package")
 def docker_example_base_image():
+    import docker
+    from docker.errors import BuildError, APIError
+
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:
-        raise Exception("MLFLOW_HOME environment variable is not set. Please set the variable to "
-                        "point to your mlflow dev root.")
+        raise Exception(
+            "MLFLOW_HOME environment variable is not set. Please set the variable to "
+            "point to your mlflow dev root."
+        )
     with TempDir() as tmp:
         cwd = tmp.path()
-        mlflow_dir = _copy_project(
-            src_path=mlflow_home, dst_path=cwd)
+        mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=cwd)
         import shutil
+
         shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
         with open(tmp.path("Dockerfile"), "a") as f:
-            f.write(("COPY {mlflow_dir} /opt/mlflow\n"
-                     "RUN pip install -U -e /opt/mlflow\n").format(
-                mlflow_dir=mlflow_dir))
+            f.write(f"COPY {mlflow_dir} /opt/mlflow\nRUN pip install -U -e /opt/mlflow\n")
 
         client = docker.from_env()
         try:
-            client.images.build(tag='mlflow-docker-example', forcerm=True, nocache=True,
-                                dockerfile='Dockerfile', path=cwd)
+            client.images.build(
+                tag="mlflow-docker-example",
+                forcerm=True,
+                nocache=True,
+                dockerfile="Dockerfile",
+                path=cwd,
+            )
         except BuildError as build_error:
             for chunk in build_error.build_log:
-                print(chunk)
+                _logger.info(chunk)
             raise build_error
         except APIError as api_error:
-            print(api_error.explanation)
             raise api_error
-
-
-@pytest.fixture()
-def tracking_uri_mock(tmpdir):
-    try:
-        mlflow.set_tracking_uri(path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, 'mlruns')))
-        yield tmpdir
-    finally:
-        mlflow.set_tracking_uri(None)

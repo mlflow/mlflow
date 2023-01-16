@@ -7,10 +7,12 @@
     "coefficients": {
       "double": [0.02529720751742089, 0.02832921139151439],
       "shape": {
-        "dimensions": [{
-          "size": 2,
-          "name": ""
-        }]
+        "dimensions": [
+          {
+            "size": 2,
+            "name": ""
+          }
+        ]
       },
       "type": "tensor"
     },

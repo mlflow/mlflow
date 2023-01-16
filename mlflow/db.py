@@ -1,7 +1,5 @@
 import click
 
-import mlflow.store.db.utils
-
 
 @click.group("db")
 def commands():
@@ -20,10 +18,11 @@ def upgrade(url):
     **IMPORTANT**: Schema migrations can be slow and are not guaranteed to be transactional -
     **always take a backup of your database before running migrations**. The migrations README,
     which is located at
-    https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README, describes
+    https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README.md, describes
     large migrations and includes information about how to estimate their performance and
     recover from failures.
     """
-    if mlflow.store.db.utils._is_initialized_before_mlflow_1(url):
-        mlflow.store.db.utils._upgrade_db_initialized_before_mlflow_1(url)
-    mlflow.store.db.utils._upgrade_db(url)
+    import mlflow.store.db.utils
+
+    engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+    mlflow.store.db.utils._upgrade_db(engine)

@@ -1,26 +1,31 @@
 package org.mlflow.tracking;
 
+import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
-
-import org.mlflow.api.proto.Service.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
+import org.mlflow.artifacts.CliBasedArtifactRepository;
+import org.mlflow.api.proto.ModelRegistry.*;
+import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Client to an MLflow Tracking Sever.
  */
-public class MlflowClient {
+public class MlflowClient implements Serializable, Closeable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
+  private static final String DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME = "models";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -64,8 +69,21 @@ public class MlflowClient {
     URIBuilder builder = newURIBuilder("metrics/get-history")
       .setParameter("run_uuid", runId)
       .setParameter("run_id", runId)
-      .setParameter("metric_key", key);
-    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
+      .setParameter("metric_key", key)
+      .setParameter("max_results", "25000");
+
+    GetMetricHistory.Response response = mapper
+            .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
+    List<Metric> metrics = response.getMetricsList();
+    String token = response.getNextPageToken();
+    while (!token.isEmpty()) {
+      URIBuilder bld = builder.setParameter("page_token", token);
+      GetMetricHistory.Response resp = mapper
+              .toGetMetricHistoryResponse(httpCaller.get(bld.toString()));
+      metrics.addAll(resp.getMetricsList());
+      token = resp.getNextPageToken();
+    }
+    return metrics;
   }
 
   /**
@@ -126,7 +144,7 @@ public class MlflowClient {
    * Return RunInfos from provided list of experiments that satisfy the search query.
    * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
-   * 
+   *
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
@@ -142,7 +160,7 @@ public class MlflowClient {
 
   /**
    * Return RunInfos from provided list of experiments that satisfy the search query.
-   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or 
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
@@ -252,23 +270,121 @@ public class MlflowClient {
       searchFilter, runViewType, maxResults, orderBy, this);
   }
 
-  /** @return  A list of all experiments. */
-  public List<Experiment> listExperiments() {
-    return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
-      .getExperimentsList();
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy) {
+    return searchExperiments(searchFilter, experimentViewType, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return up to 1000 active experiments.
+   *
+   * @return A page of active experiments with up to 1000 items.
+   */
+  public ExperimentsPage searchExperiments() {
+    return searchExperiments("", null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to the first 1000 active experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of up to active 1000 experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter) {
+    return searchExperiments(searchFilter, null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchExperiments(String)}.
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy,
+                                           String pageToken) {
+    SearchExperiments.Builder builder = SearchExperiments.newBuilder()
+            .addAllOrderBy(orderBy)
+            .setMaxResults(maxResults);
+
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (experimentViewType != null) {
+      builder.setViewType(experimentViewType);
+    } else {
+      builder.setViewType(ViewType.ACTIVE_ONLY);
+    }
+    if (pageToken != null) {
+      builder.setPageToken(pageToken);
+    }
+    SearchExperiments request = builder.build();
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/search", ijson);
+    SearchExperiments.Response response = mapper.toSearchExperimentsResponse(ojson);
+    return new ExperimentsPage(response.getExperimentsList(), response.getNextPageToken(),
+      searchFilter, experimentViewType, maxResults, orderBy, this);
   }
 
   /** @return  An experiment with the given ID. */
-  public GetExperiment.Response getExperiment(String experimentId) {
+  public Experiment getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", experimentId);
-    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
+    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString())).getExperiment();
   }
 
   /** @return  The experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
-    return listExperiments().stream().filter(e -> e.getName()
-      .equals(experimentName)).findFirst();
+    URIBuilder builder = newURIBuilder("experiments/get-by-name")
+      .setParameter("experiment_name", experimentName);
+    try {
+      return Optional.of(
+          mapper.toGetExperimentByNameResponse(httpCaller.get(builder.toString())).getExperiment()
+      );
+    } catch (MlflowHttpException e) {
+      if (e.getStatusCode() == 404) {
+        return Optional.<Experiment>empty();
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -279,6 +395,27 @@ public class MlflowClient {
   public String createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
+    return mapper.toCreateExperimentResponse(ojson).getExperimentId();
+  }
+
+  /**
+   * Create a new experiment. This method allows providing all possible
+   * fields of CreateExperiment, and can be invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateExperiment;
+   *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
+   *   request.setName(name);
+   *   request.setArtifactLocation(artifactLocation);
+   *   request.addTags(experimentTag);
+   *   createExperiment(request.build());
+   *   </pre>
+   *
+   * @return ID of the experiment created by the server.
+   */
+  public String createExperiment(CreateExperiment request) {
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/create", ijson);
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
@@ -408,10 +545,6 @@ public class MlflowClient {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
@@ -421,16 +554,16 @@ public class MlflowClient {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
    */
   public String sendPost(String path, String json) {
     return httpCaller.post(path, json);
+  }
+
+  public String sendPatch(String path, String json) {
+    return httpCaller.patch(path, json);
   }
 
   /**
@@ -635,5 +768,171 @@ public class MlflowClient {
   private ArtifactRepository getArtifactRepository(String runId) {
     URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
     return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri, runId);
+  }
+
+
+  // ********************
+  // * Model Registry *
+  // ********************
+
+  /**
+   * Return the latest model version for each stage.
+   * The current available stages are: [None, Staging, Production, Archived].
+   *
+   *    <pre>
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList = getLatestVersions("model");
+   *
+   *        for (ModelVersion details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public List<ModelVersion> getLatestVersions(String modelName) {
+      return getLatestVersions(modelName, Collections.emptyList());
+  }
+
+  /**
+   * Return the latest model version for each stage requested.
+   * The current available stages are: [None, Staging, Production, Archived].
+   *
+   *    <pre>
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList =
+   *          getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
+   *
+   *        for (ModelVersion details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param stages A list of stages
+   * @return The latest model version
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public List<ModelVersion> getLatestVersions(String modelName, Iterable<String> stages) {
+    String json = sendGet(mapper.makeGetLatestVersion(modelName, stages));
+    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
+    return response.getModelVersionsList();
+  }
+
+  /**
+   *
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *       ModelVersion modelVersion = getModelVersion("model", "version");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @param version Version number as a string of the model version.
+   * @return a single model version
+   *        {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public ModelVersion getModelVersion(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersion(modelName, version));
+    GetModelVersion.Response response = mapper.toGetModelVersionResponse(json);
+    return response.getModelVersion();
+  }
+
+  /**
+   *  Returns a RegisteredModel from the model registry for the given model name.
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+   *       RegisteredModel registeredModel = getRegisteredModel("model");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @return a registered model {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
+   */
+  public RegisteredModel getRegisteredModel(String modelName) {
+    String json = sendGet(mapper.makeGetRegisteredModel(modelName));
+    GetRegisteredModel.Response response = mapper.toGetRegisteredModelResponse(json);
+    return response.getRegisteredModel();
+  }
+
+  /**
+   * Return the model URI containing for the given model version. The model URI can be used
+   * to download the model version artifacts.
+   *
+   *    <pre>
+   *        String modelUri = getModelVersionDownloadUri("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param version The version number of the model
+   * @return The specified model version's URI.
+   */
+  public String getModelVersionDownloadUri(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersionDownloadUri(modelName, version));
+    return mapper.toGetModelVersionDownloadUriResponse(json);
+  }
+
+  /**
+   * Returns a directory containing all artifacts within the given registered model
+   * version. The method will download the model version artifacts to the local file system. Note
+   * that this method will not work if the `download_uri` refers to a single file (and not a
+   * directory) due to the way many ArtifactRepository's `download_artifacts` handle empty subpaths.
+   *
+   *    <pre>
+   *        File modelVersionDir = downloadModelVersion("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param version The version number of the model
+   * @return A directory ({@link java.io.File}) containing model artifacts
+   */
+  public File downloadModelVersion(String modelName, String version) {
+    String path = modelName + "/" + version;
+    URIBuilder downloadUriBuilder = new URIBuilder()
+            .setScheme(DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME).setPath(path);
+    CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
+            hostCredsProvider);
+    return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
+  }
+
+  /**
+   * Returns a directory containing all artifacts within the latest registered
+   * model version in the given stage. The method will download the model version artifacts
+   * to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionDir = downloadLatestModelVersion("model", "Staging");
+   *    </pre>
+   *
+   * (i.e., the contents of the local directory are now available).
+   *
+   * @param modelName The name of the model
+   * @param stage The name of the stage
+   * @return A directory ({@link java.io.File}) containing model artifacts
+   */
+  public File downloadLatestModelVersion(String modelName, String stage) {
+      List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
+
+      if (versions.size() < 1) {
+        throw new MlflowClientException("No model version found for " + modelName +
+                "and stage " + stage);
+      }
+
+      ModelVersion details = versions.get(0);
+      return downloadModelVersion(modelName, details.getVersion());
+  }
+
+  /**
+   * Closes the MlflowClient and releases any associated resources.
+   */
+  public void close() {
+    this.httpCaller.close();
   }
 }

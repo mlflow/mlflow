@@ -5,5 +5,5 @@ url_bases = [
 ]
 
 url_paths = {
-    '{0}/$': SageMakerResponse.dispatch,
+    "{0}/$": SageMakerResponse.dispatch,
 }

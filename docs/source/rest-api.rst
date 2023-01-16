@@ -9,7 +9,10 @@ REST API
 The MLflow REST API allows you to create, list, and get experiments and runs, and log parameters, metrics, and artifacts.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to list
 experiments on a tracking server hosted at ``http://localhost:5000``, access
-``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
+``http://localhost:5000/api/2.0/mlflow/experiments/list``.
+
+MLflow also provides a health check endpoint at the ``/health`` route, which responds with a 200 response code and
+``OK`` in the response body.
 
 .. contents:: Table of Contents
     :local:
@@ -272,7 +275,8 @@ Delete Experiment
 
 Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
 If the experiment uses FileStore, artifacts associated with experiment are also deleted.
-
+This deletion is not a permanent deletion of the experiment, but instead a soft-delete from the database.
+Experiment names can not be reused, unless the deleted experiment is permanently deleted by a database admin.
 
 
 
@@ -1191,14 +1195,12 @@ Create RegisteredModel
 ======================
 
 
-+-------------------------------------------------+-------------+
-|                    Endpoint                     | HTTP Method |
-+=================================================+=============+
-| ``2.0/preview/mlflow/registered-models/create`` | ``POST``    |
-+-------------------------------------------------+-------------+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/registered-models/create`` | ``POST``    |
++-----------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
 
@@ -1249,14 +1251,12 @@ Get RegisteredModel Details
 ===========================
 
 
-+------------------------------------------------------+-------------+
-|                       Endpoint                       | HTTP Method |
-+======================================================+=============+
-| ``2.0/preview/mlflow/registered-models/get-details`` | ``POST``    |
-+------------------------------------------------------+-------------+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/mlflow/registered-models/get-details`` | ``POST``    |
++----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1305,14 +1305,12 @@ Update RegisteredModel
 ======================
 
 
-+-------------------------------------------------+-------------+
-|                    Endpoint                     | HTTP Method |
-+=================================================+=============+
-| ``2.0/preview/mlflow/registered-models/update`` | ``PATCH``   |
-+-------------------------------------------------+-------------+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/registered-models/update`` | ``PATCH``   |
++-----------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1365,14 +1363,12 @@ Delete RegisteredModel
 ======================
 
 
-+-------------------------------------------------+-------------+
-|                    Endpoint                     | HTTP Method |
-+=================================================+=============+
-| ``2.0/preview/mlflow/registered-models/delete`` | ``DELETE``  |
-+-------------------------------------------------+-------------+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``2.0/mlflow/registered-models/delete`` | ``DELETE``  |
++-----------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1405,14 +1401,12 @@ List RegisteredModels
 =====================
 
 
-+-----------------------------------------------+-------------+
-|                   Endpoint                    | HTTP Method |
-+===============================================+=============+
-| ``2.0/preview/mlflow/registered-models/list`` | ``GET``     |
-+-----------------------------------------------+-------------+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``2.0/mlflow/registered-models/list`` | ``GET``     |
++---------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1443,14 +1437,12 @@ Get Latest ModelVersions
 ========================
 
 
-+--------------------------------------------------------------+-------------+
-|                           Endpoint                           | HTTP Method |
-+==============================================================+=============+
-| ``2.0/preview/mlflow/registered-models/get-latest-versions`` | ``POST``    |
-+--------------------------------------------------------------+-------------+
++------------------------------------------------------+-------------+
+|                       Endpoint                       | HTTP Method |
++======================================================+=============+
+| ``2.0/mlflow/registered-models/get-latest-versions`` | ``POST``    |
++------------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1502,14 +1494,12 @@ Create ModelVersion
 ===================
 
 
-+----------------------------------------------+-------------+
-|                   Endpoint                   | HTTP Method |
-+==============================================+=============+
-| ``2.0/preview/mlflow/model-versions/create`` | ``POST``    |
-+----------------------------------------------+-------------+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/model-versions/create`` | ``POST``    |
++--------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1565,14 +1555,12 @@ Get ModelVersion Details
 ========================
 
 
-+---------------------------------------------------+-------------+
-|                     Endpoint                      | HTTP Method |
-+===================================================+=============+
-| ``2.0/preview/mlflow/model-versions/get-details`` | ``POST``    |
-+---------------------------------------------------+-------------+
++-------------------------------------------+-------------+
+|                 Endpoint                  | HTTP Method |
++===========================================+=============+
+| ``2.0/mlflow/model-versions/get-details`` | ``POST``    |
++-------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1621,14 +1609,12 @@ Update ModelVersion
 ===================
 
 
-+----------------------------------------------+-------------+
-|                   Endpoint                   | HTTP Method |
-+==============================================+=============+
-| ``2.0/preview/mlflow/model-versions/update`` | ``PATCH``   |
-+----------------------------------------------+-------------+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/model-versions/update`` | ``PATCH``   |
++--------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1665,14 +1651,12 @@ Delete ModelVersion
 ===================
 
 
-+----------------------------------------------+-------------+
-|                   Endpoint                   | HTTP Method |
-+==============================================+=============+
-| ``2.0/preview/mlflow/model-versions/delete`` | ``DELETE``  |
-+----------------------------------------------+-------------+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/model-versions/delete`` | ``DELETE``  |
++--------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1705,14 +1689,12 @@ Search ModelVersions
 ====================
 
 
-+----------------------------------------------+-------------+
-|                   Endpoint                   | HTTP Method |
-+==============================================+=============+
-| ``2.0/preview/mlflow/model-versions/search`` | ``GET``     |
-+----------------------------------------------+-------------+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/model-versions/search`` | ``GET``     |
++--------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1771,14 +1753,12 @@ Get Download URI For ModelVersion Artifacts
 ===========================================
 
 
-+--------------------------------------------------------+-------------+
-|                        Endpoint                        | HTTP Method |
-+========================================================+=============+
-| ``2.0/preview/mlflow/model-versions/get-download-uri`` | ``POST``    |
-+--------------------------------------------------------+-------------+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``2.0/mlflow/model-versions/get-download-uri`` | ``POST``    |
++------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1919,11 +1899,6 @@ ModelVersion
 ------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------------+------------------------------+-------------------------+
 |    Field Name    |             Type             |       Description       |
 +==================+==============================+=========================+
@@ -1936,11 +1911,6 @@ ModelVersion
 
 ModelVersionDetailed
 --------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
@@ -1992,11 +1962,6 @@ RegisteredModel
 ---------------
 
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
-
-
 +------------+------------+----------------------------+
 | Field Name |    Type    |        Description         |
 +============+============+============================+
@@ -2007,11 +1972,6 @@ RegisteredModel
 
 RegisteredModelDetailed
 -----------------------
-
-
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 
 +------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
@@ -2130,9 +2090,6 @@ Tag for a run.
 ModelVersionStatus
 ------------------
 
-
-.. note::
-    Experimental: This entity may change or be removed in a future release without warning.
 
 +----------------------+---------------------------------------------------------------------------------------------+
 |         Name         |                                         Description                                         |

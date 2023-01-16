@@ -5,8 +5,17 @@ apidocs
 mlflow.Rcheck
 outputs
 examples
-travis
+
+dev
+# required for Docker build
+!requirements/test-requirements.txt
+!requirements/lint-requirements.txt
+!requirements/extra-ml-requirements.txt
+
 tests
+# required for Docker build
+!tests/resources/mlflow-test-plugin/
+
 node_modules
 coverage
 build
@@ -18,5 +27,3 @@ __pycache__
 ~*
 *.swp
 *.pyc
-
-

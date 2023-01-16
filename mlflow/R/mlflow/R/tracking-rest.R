@@ -1,7 +1,7 @@
 mlflow_rest_path <- function(version) {
   switch(
     version,
-    "2.0" = "api/2.0/preview/mlflow"
+    "2.0" = "api/2.0/mlflow"
   )
 }
 
@@ -70,6 +70,24 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
             mlflow_rest_timeout(),
             config = rest_config$config,
             req_headers
+      )
+    },
+    PATCH = function(){
+      httr::PATCH( api_url,
+            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            encode = "json",
+            mlflow_rest_timeout(),
+            config = rest_config$config,
+            req_headers
+      )
+    },
+    DELETE = function() {
+      httr::DELETE(api_url,
+              body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+              encode = "json",
+              mlflow_rest_timeout(),
+              config = rest_config$config,
+              req_headers
       )
     },
     stop("Verb '", verb, "' is unsupported.", call. = FALSE)

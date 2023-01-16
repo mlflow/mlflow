@@ -1,19 +1,25 @@
 import {
-  LIST_REGISTRED_MODELS,
+  SEARCH_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
-  GET_REGISTERED_MODEL_DETAILS,
-  GET_MODEL_VERSION_DETAILS,
+  GET_REGISTERED_MODEL,
+  GET_MODEL_VERSION,
   DELETE_MODEL_VERSION,
   DELETE_REGISTERED_MODEL,
+  SET_REGISTERED_MODEL_TAG,
+  DELETE_REGISTERED_MODEL_TAG,
+  SET_MODEL_VERSION_TAG,
+  DELETE_MODEL_VERSION_TAG,
+  PARSE_MLMODEL_FILE,
 } from './actions';
-import { fulfilled } from '../Actions';
+import { getProtoField } from './utils';
 import _ from 'lodash';
+import { fulfilled, rejected } from '../common/utils/ActionUtils';
+import { RegisteredModelTag, ModelVersionTag } from './sdk/ModelRegistryMessages';
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(LIST_REGISTRED_MODELS): {
-      const detailedModels = action.payload.registered_models_detailed;
-      const models = detailedModels && detailedModels.map(inlineModel);
+    case fulfilled(SEARCH_REGISTERED_MODELS): {
+      const models = action.payload[getProtoField('registered_models')];
       const nameToModelMap = {};
       if (models) {
         models.forEach((model) => (nameToModelMap[model.name] = model));
@@ -22,14 +28,19 @@ const modelByName = (state = {}, action) => {
         ...nameToModelMap,
       };
     }
-    case fulfilled(GET_REGISTERED_MODEL_DETAILS): {
-      const detailedModel = action.payload.registered_model_detailed;
-      const inlinedModel = detailedModel && inlineModel(detailedModel);
+    case rejected(SEARCH_REGISTERED_MODELS): {
+      return {};
+    }
+    case fulfilled(GET_REGISTERED_MODEL): {
+      const detailedModel = action.payload[getProtoField('registered_model')];
       const { modelName } = action.meta;
       const modelWithUpdatedMetadata = {
         ...state[modelName],
-        ...inlinedModel,
+        ...detailedModel,
       };
+      if (_.isEqual(modelWithUpdatedMetadata, state[modelName])) {
+        return state;
+      }
       return {
         ...state,
         ...{ [modelName]: modelWithUpdatedMetadata },
@@ -47,45 +58,52 @@ const modelByName = (state = {}, action) => {
 // 2-levels lookup for model version indexed by (modelName, version)
 const modelVersionsByModel = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(GET_MODEL_VERSION_DETAILS): {
-      const modelVersion = action.payload.model_version_detailed;
-      const inlinedModelVersion = inlineModelVersion(modelVersion);
+    case fulfilled(GET_MODEL_VERSION): {
+      const modelVersion = action.payload[getProtoField('model_version')];
       const { modelName } = action.meta;
       const updatedMap = {
         ...state[modelName],
-        [inlinedModelVersion.version]: inlinedModelVersion,
+        [modelVersion.version]: modelVersion,
       };
+      if (_.isEqual(state[modelName], updatedMap)) {
+        return state;
+      }
       return {
         ...state,
         [modelName]: updatedMap,
       };
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      const modelVersions = action.payload.model_versions_detailed;
+      const modelVersions = action.payload[getProtoField('model_versions')];
       if (!modelVersions) {
         return state;
       }
-      const inlinedModelVersions = modelVersions.map(inlineModelVersion);
-
       // Merge all modelVersions into the store
-      return inlinedModelVersions.reduce((newState, modelVersion) => {
-        const modelName = modelVersion.model_version.registered_model.name;
-        const { version } = modelVersion.model_version;
-        return {
-          ...newState,
-          [modelName]: {
-            ...newState[modelName],
-            [version]: modelVersion,
-          },
-        };
-      }, { ...state });
+      const newModelVersions = modelVersions.reduce(
+        (newState, modelVersion) => {
+          const { name, version } = modelVersion;
+          return {
+            ...newState,
+            [name]: {
+              ...newState[name],
+              [version]: modelVersion,
+            },
+          };
+        },
+        { ...state },
+      );
+
+      if (_.isEqual(state, newModelVersions)) {
+        return state;
+      }
+      return newModelVersions;
     }
     case fulfilled(DELETE_MODEL_VERSION): {
-      const { modelVersion } = action.meta;
-      const { name } = modelVersion.registered_model;
-      const modelVersionByVersion = state[name];
+      const { modelName, version } = action.meta;
+      const modelVersionByVersion = state[modelName];
       return {
-        [name]: _.omit(modelVersionByVersion, modelVersion.version),
+        ...state,
+        [modelName]: _.omit(modelVersionByVersion, version),
       };
     }
     case fulfilled(DELETE_REGISTERED_MODEL): {
@@ -95,6 +113,55 @@ const modelVersionsByModel = (state = {}, action) => {
     default:
       return state;
   }
+};
+
+const mlModelArtifactByModelVersion = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(PARSE_MLMODEL_FILE): {
+      const artifact = action.payload;
+      const { modelName, version } = action.meta;
+      return {
+        ...state,
+        [modelName]: {
+          ...state[modelName],
+          [version]: artifact,
+        },
+      };
+    }
+    default:
+      return state;
+  }
+};
+
+export const getModelVersionSchemas = (state, modelName, version) => {
+  const schemaMap = {};
+  schemaMap['inputs'] = [];
+  schemaMap['outputs'] = [];
+  if (
+    state.entities.mlModelArtifactByModelVersion[modelName] &&
+    state.entities.mlModelArtifactByModelVersion[modelName][version]
+  ) {
+    const artifact = state.entities.mlModelArtifactByModelVersion[modelName][version];
+    if (artifact.signature) {
+      if (artifact.signature.inputs) {
+        try {
+          schemaMap['inputs'] = JSON.parse(artifact.signature.inputs.replace(/(\r\n|\n|\r)/gm, ''));
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      if (artifact.signature.outputs) {
+        try {
+          schemaMap['outputs'] = JSON.parse(
+            artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''),
+          );
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+  }
+  return schemaMap;
 };
 
 export const getModelVersion = (state, modelName, version) => {
@@ -108,29 +175,144 @@ export const getModelVersions = (state, modelName) => {
 };
 
 export const getAllModelVersions = (state) => {
-  return _.flatMap(
-    Object.values(state.entities.modelVersionsByModel),
-    (modelVersionByVersion) => Object.values(modelVersionByVersion),
+  return _.flatMap(Object.values(state.entities.modelVersionsByModel), (modelVersionByVersion) =>
+    Object.values(modelVersionByVersion),
   );
 };
 
-// Inline the `name` field nested inside `registered_model` and `version` in `model_version`
-const inlineModel = (model) => {
-  const { registered_model, latest_versions } = model;
-  return {
-    ...model,
-    name: registered_model.name,
-    latest_versions: latest_versions && latest_versions.map(inlineModelVersion),
+const tagsByRegisteredModel = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = RegisteredModelTag.fromJs(tag)));
+    return tagObj;
   };
+  switch (action.type) {
+    case fulfilled(GET_REGISTERED_MODEL): {
+      const detailedModel = action.payload[getProtoField('registered_model')];
+      const { modelName } = action.meta;
+      if (detailedModel.tags && detailedModel.tags.length > 0) {
+        const { tags } = detailedModel;
+        const newState = { ...state };
+        newState[modelName] = tagArrToObject(tags);
+        return _.isEqual(newState, state) ? state : newState;
+      } else {
+        return state;
+      }
+    }
+    case fulfilled(SET_REGISTERED_MODEL_TAG): {
+      const { modelName, key, value } = action.meta;
+      const tag = RegisteredModelTag.fromJs({
+        key: key,
+        value: value,
+      });
+      let newState = { ...state };
+      const oldTags = newState[modelName] || {};
+      newState = {
+        ...newState,
+        [modelName]: {
+          ...oldTags,
+          [tag.getKey()]: tag,
+        },
+      };
+      return newState;
+    }
+    case fulfilled(DELETE_REGISTERED_MODEL_TAG): {
+      const { modelName, key } = action.meta;
+      const oldTags = state[modelName] || {};
+      const newTags = _.omit(oldTags, key);
+      if (Object.keys(newTags).length === 0) {
+        return _.omit({ ...state }, modelName);
+      } else {
+        return { ...state, [modelName]: newTags };
+      }
+    }
+    default:
+      return state;
+  }
 };
 
-// Inline the `version` field nested inside `model_version`
-const inlineModelVersion = (modelVersion) => ({
-  ...modelVersion,
-  version: modelVersion.model_version.version,
-});
+export const getRegisteredModelTags = (modelName, state) =>
+  state.entities.tagsByRegisteredModel[modelName] || {};
 
-export default {
+const tagsByModelVersion = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = ModelVersionTag.fromJs(tag)));
+    return tagObj;
+  };
+  switch (action.type) {
+    case fulfilled(GET_MODEL_VERSION): {
+      const modelVersion = action.payload[getProtoField('model_version')];
+      const { modelName, version } = action.meta;
+      if (modelVersion.tags && modelVersion.tags.length > 0) {
+        const { tags } = modelVersion;
+        const newState = { ...state };
+        newState[modelName] = newState[modelName] || {};
+        newState[modelName][version] = tagArrToObject(tags);
+        return newState;
+      } else {
+        return state;
+      }
+    }
+    case fulfilled(SET_MODEL_VERSION_TAG): {
+      const { modelName, version, key, value } = action.meta;
+      const tag = ModelVersionTag.fromJs({
+        key: key,
+        value: value,
+      });
+      const newState = { ...state };
+      newState[modelName] = newState[modelName] || {};
+      const oldTags = newState[modelName][version] || {};
+      return {
+        ...newState,
+        [modelName]: {
+          [version]: {
+            ...oldTags,
+            [tag.getKey()]: tag,
+          },
+        },
+      };
+    }
+    case fulfilled(DELETE_MODEL_VERSION_TAG): {
+      const { modelName, version, key } = action.meta;
+      const oldTags = state[modelName] ? state[modelName][version] || {} : {};
+      const newState = { ...state };
+      const newTags = _.omit(oldTags, key);
+      if (Object.keys(newTags).length === 0) {
+        newState[modelName] = _.omit({ ...state[modelName] }, version);
+        if (_.isEmpty(newState[modelName])) {
+          return _.omit({ ...state }, modelName);
+        } else {
+          return newState;
+        }
+      } else {
+        return {
+          ...newState,
+          [modelName]: {
+            [version]: newTags,
+          },
+        };
+      }
+    }
+    default:
+      return state;
+  }
+};
+
+export const getModelVersionTags = (modelName, version, state) => {
+  if (state.entities.tagsByModelVersion[modelName]) {
+    return state.entities.tagsByModelVersion[modelName][version] || {};
+  } else {
+    return {};
+  }
+};
+
+const reducers = {
   modelByName,
   modelVersionsByModel,
+  tagsByRegisteredModel,
+  tagsByModelVersion,
+  mlModelArtifactByModelVersion,
 };
+
+export default reducers;

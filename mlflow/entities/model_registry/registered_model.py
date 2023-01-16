@@ -1,38 +1,122 @@
+from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
-from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
+from mlflow.protos.model_registry_pb2 import (
+    RegisteredModel as ProtoRegisteredModel,
+    RegisteredModelTag as ProtoRegisteredModelTag,
+)
 
 
 class RegisteredModel(_ModelRegistryEntity):
     """
-    .. note::
-        Experimental: This entity may change or be removed in a future release without warning.
-
     MLflow entity for Registered Model.
-    A registered model entity is uniquely identified by its name.
     """
 
-    def __init__(self, name):
-        """
-        Construct a :py:class:`mlflow.entities.model_registry.RegisteredModel`
-        :param name: Unique string name.
-        """
-        super(RegisteredModel, self).__init__()
+    def __init__(
+        self,
+        name,
+        creation_timestamp=None,
+        last_updated_timestamp=None,
+        description=None,
+        latest_versions=None,
+        tags=None,
+    ):
+        # Constructor is called only from within the system by various backend stores.
+        super().__init__()
         self._name = name
+        self._creation_time = creation_timestamp
+        self._last_updated_timestamp = last_updated_timestamp
+        self._description = description
+        self._latest_version = latest_versions
+        self._tags = {tag.key: tag.value for tag in (tags or [])}
 
     @property
     def name(self):
-        """String. Unique name for this registered model within Model Registry."""
+        """String. Registered model name."""
         return self._name
+
+    @name.setter
+    def name(self, new_name):
+        self._name = new_name
+
+    @property
+    def creation_timestamp(self):
+        """Integer. Model version creation timestamp (milliseconds since the Unix epoch)."""
+        return self._creation_time
+
+    @property
+    def last_updated_timestamp(self):
+        """Integer. Timestamp of last update for this model version (milliseconds since the Unix
+        epoch)."""
+        return self._last_updated_timestamp
+
+    @last_updated_timestamp.setter
+    def last_updated_timestamp(self, updated_timestamp):
+        self._last_updated_timestamp = updated_timestamp
+
+    @property
+    def description(self):
+        """String. Description"""
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        self._description = description
+
+    @property
+    def latest_versions(self):
+        """List of the latest :py:class:`mlflow.entities.model_registry.ModelVersion` instances
+        for each stage"""
+        return self._latest_version
+
+    @latest_versions.setter
+    def latest_versions(self, latest_versions):
+        self._latest_version = latest_versions
+
+    @property
+    def tags(self):
+        """Dictionary of tag key (string) -> tag value for the current registered model."""
+        return self._tags
+
+    @classmethod
+    def _properties(cls):
+        # aggregate with base class properties since cls.__dict__ does not do it automatically
+        return sorted(cls._get_properties_helper())
+
+    def _add_tag(self, tag):
+        self._tags[tag.key] = tag.value
 
     # proto mappers
     @classmethod
     def from_proto(cls, proto):
         # input: mlflow.protos.model_registry_pb2.RegisteredModel
-        # returns: RegisteredModel entity
-        return cls(proto.name)
+        # returns RegisteredModel entity
+        registered_model = cls(
+            proto.name,
+            proto.creation_timestamp,
+            proto.last_updated_timestamp,
+            proto.description,
+            [ModelVersion.from_proto(mvd) for mvd in proto.latest_versions],
+        )
+        for tag in proto.tags:
+            registered_model._add_tag(RegisteredModelTag.from_proto(tag))
+        return registered_model
 
     def to_proto(self):
         # returns mlflow.protos.model_registry_pb2.RegisteredModel
-        registered_model = ProtoRegisteredModel()
-        registered_model.name = self.name
-        return registered_model
+        rmd = ProtoRegisteredModel()
+        rmd.name = self.name
+        if self.creation_timestamp is not None:
+            rmd.creation_timestamp = self.creation_timestamp
+        if self.last_updated_timestamp:
+            rmd.last_updated_timestamp = self.last_updated_timestamp
+        if self.description:
+            rmd.description = self.description
+        if self.latest_versions is not None:
+            rmd.latest_versions.extend(
+                [model_version.to_proto() for model_version in self.latest_versions]
+            )
+        rmd.tags.extend(
+            [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
+        )
+        return rmd

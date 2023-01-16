@@ -1,12 +1,21 @@
 import entrypoints
 import warnings
+import logging
 
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
+from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
+from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
+from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+from mlflow.tracking.context.system_environment_context import SystemEnvironmentContext
 
 
-class RunContextProviderRegistry(object):
+_logger = logging.getLogger(__name__)
+
+
+class RunContextProviderRegistry:
     """Registry for run context provider implementations
 
     This class allows the registration of a run context provider which can be used to infer meta
@@ -34,7 +43,7 @@ class RunContextProviderRegistry(object):
                     'Failure attempting to register context provider "{}": {}'.format(
                         entrypoint.name, str(exc)
                     ),
-                    stacklevel=2
+                    stacklevel=2,
                 )
 
     def __iter__(self):
@@ -45,6 +54,11 @@ _run_context_provider_registry = RunContextProviderRegistry()
 _run_context_provider_registry.register(DefaultRunContext)
 _run_context_provider_registry.register(GitRunContext)
 _run_context_provider_registry.register(DatabricksNotebookRunContext)
+_run_context_provider_registry.register(DatabricksJobRunContext)
+_run_context_provider_registry.register(DatabricksClusterRunContext)
+_run_context_provider_registry.register(DatabricksCommandRunContext)
+_run_context_provider_registry.register(DatabricksRepoRunContext)
+_run_context_provider_registry.register(SystemEnvironmentContext)
 
 _run_context_provider_registry.register_entrypoints()
 
@@ -59,14 +73,16 @@ def resolve_tags(tags=None):
 
     :param tags: A dictionary of tags to override. If specified, tags passed in this argument will
                  override those inferred from the context.
-    :return: A dicitonary of resolved tags.
+    :return: A dictionary of resolved tags.
     """
 
     all_tags = {}
     for provider in _run_context_provider_registry:
-        if provider.in_context():
-            # TODO: Error out gracefully if provider's tags are not valid or have wrong types.
-            all_tags.update(provider.tags())
+        try:
+            if provider.in_context():
+                all_tags.update(provider.tags())
+        except Exception as e:
+            _logger.warning("Encountered unexpected error during resolving tags: %s", e)
 
     if tags is not None:
         all_tags.update(tags)

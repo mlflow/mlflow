@@ -13,10 +13,10 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{purrr}{\code{\link[purrr]{\%>\%}}}
+  \item{purrr}{\code{\link[purrr:pipe]{\%>\%}}}
 
-  \item{rlang}{\code{\link[rlang]{\%||\%}}}
+  \item{rlang}{\code{\link[rlang:op-null-default]{\%||\%}}}
 
-  \item{zeallot}{\code{\link[zeallot]{\%<-\%}}}
+  \item{zeallot}{\code{\link[zeallot:operator]{\%<-\%}}}
 }}
 

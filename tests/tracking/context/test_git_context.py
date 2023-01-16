@@ -1,6 +1,6 @@
-import mock
 import pytest
 import git
+from unittest import mock
 
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT
 from mlflow.tracking.context.git_context import GitRunContext
@@ -38,9 +38,7 @@ def test_git_run_context_in_context_false(patch_script_name):
 
 
 def test_git_run_context_tags(patch_script_name, patch_git_repo):
-    assert GitRunContext().tags() == {
-        MLFLOW_GIT_COMMIT: MOCK_COMMIT_HASH
-    }
+    assert GitRunContext().tags() == {MLFLOW_GIT_COMMIT: MOCK_COMMIT_HASH}
 
 
 def test_git_run_context_caching(patch_script_name):

@@ -4,8 +4,14 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(run_id = NULL, experiment_id = NULL,
-  start_time = NULL, tags = NULL, client = NULL)
+mlflow_start_run(
+  run_id = NULL,
+  experiment_id = NULL,
+  start_time = NULL,
+  tags = NULL,
+  client = NULL,
+  nested = FALSE
+)
 }
 \arguments{
 \item{run_id}{If specified, get the run with the specified UUID and log metrics
@@ -24,6 +30,8 @@ a new experiment with a randomly generated name.}
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
+
+\item{nested}{Controls whether the run to be started is nested in a parent run. `TRUE` creates a nest run.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as

@@ -1,0 +1,196 @@
+body {
+  font-size: 13px;
+}
+
+textarea {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+::placeholder {
+  opacity: 0.6;
+}
+
+button, .btn {
+  background-color: #f5f5f5;
+  border-color: #cccccc;
+}
+
+button:hover, .btn:hover {
+  border-color: #c0c0c0;
+}
+
+.App-header {
+  background-color: #0b3574;
+  height: 60px;
+  color: #e7f1fb;
+  display: block;
+}
+
+.App-header-text {
+  position: relative;
+  top: 40%;
+}
+
+.App-experiments {
+  width: 200px;
+}
+
+div.mlflow-logo {
+  display: flex;
+  float: left;
+  align-items: flex-end;
+}
+
+img.mlflow-logo {
+  height: 40px;
+  margin-left: 24px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+span.mlflow-version {
+  font-size: 12px;
+  margin-left: 5px;
+  margin-bottom: 13px;
+}
+
+div.github {
+  color: #e7f1fb;
+}
+
+div.docs {
+  color: #e7f1fb;
+}
+
+.header-nav-link {
+  height: 40px;
+}
+
+.header-nav-link:link {
+  text-decoration: none;
+}
+
+div.experiments, div.models {
+  color: #e7f1fb;
+}
+
+div.header-links {
+  display: flex;
+  float: right;
+  padding-top: 20px;
+  font-size: 16px;
+}
+
+div.header-route-links {
+  display: flex;
+  float: left;
+  padding-top: 20px;
+  margin-left: 24px;
+  font-size: 16px;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+h1 a, h1 a:hover, h1 a:active, h1 a:visited {
+  color: #333;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: normal;
+  color: #333;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: normal;
+  color: #333;
+}
+
+label {
+  font-size: 13px;
+  font-weight: normal;
+  color: #333;
+  margin: 0;
+}
+
+span.metadata {
+  font-size: 13px;
+  font-weight: normal;
+  white-space: nowrap;
+  margin-right: 100px;
+}
+
+span.metadata-header {
+  font-size: 13px;
+  font-weight: normal;
+  color: #888;
+  margin-right: 4px;
+}
+
+table th {
+  background-color: #fafafa;
+  color: #888888;
+  font-weight: 500;
+}
+
+/* Overrides for bootstrap modal */
+.modal-body {
+  padding: 16px;
+  padding-bottom: 8px;
+}
+
+.modal-footer {
+  border-top: 0px;
+  padding-top: 0px;
+}
+
+.modal-footer .btn+.btn {
+  margin-left: 16px;
+}
+
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.single-line {
+  height: 1.3em;
+}
+
+.unselectable {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+img.center {
+  display: block;
+  margin: 0 auto;
+}
+
+.plotly-notifier, .plotly-notifier.notifier-note {
+  font-family: inherit !important;
+  font-size: 13px !important;
+}
+
+/* AntD v4 Overrides */
+.ant-btn,
+.ant-selection,
+.ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  border-radius: 4px;
+}
+
+/* Bootstrap CSS */
+pre {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}

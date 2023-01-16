@@ -6,10 +6,11 @@
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param model_spec MLflow model config this model flavor is being added to.
 #' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(model, path, ...) {
+mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
@@ -28,8 +29,29 @@ mlflow_save_model <- function(model, path, ...) {
 #' @export
 mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(model, path = temp_path, ...)
-  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+    utc_time_created = mlflow_timestamp(),
+    run_id = mlflow_get_active_run_id_or_start_run(),
+    artifact_path = artifact_path,
+    flavors = list()
+  ), ...)
+  res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
+    warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
+                  "server version. The model artifacts have been logged successfully.",
+                  "In addition to exporting model artifacts, MLflow clients 1.7.0 and above",
+                  "attempt to record model metadata to the  tracking store. If logging to a",
+                  "mlflow server via REST, consider  upgrading the server version to MLflow",
+                  "1.7.0 or above.", sep=" "))
+  })
+  res
+}
+
+mlflow_write_model_spec <- function(path, content) {
+  write_yaml(
+    purrr::compact(content),
+    file.path(path, "MLmodel")
+  )
 }
 
 mlflow_timestamp <- function() {
@@ -37,18 +59,8 @@ mlflow_timestamp <- function() {
     c(digits.secs = 2),
     format(
       as.POSIXlt(Sys.time(), tz = "GMT"),
-      "%y-%m-%dT%H:%M:%S.%OS"
+      "%Y-%m-%d %H:%M:%OS6"
     )
-  )
-}
-
-mlflow_write_model_spec <- function(path, content) {
-  content$utc_time_created <- mlflow_timestamp()
-  content$run_id <- mlflow_get_active_run_id()
-
-  write_yaml(
-    purrr::compact(content),
-    file.path(path, "MLmodel")
   )
 }
 
@@ -86,8 +98,6 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
       stop("Model does not contain requested flavor. ",
            paste("Available flavors:", paste(available_flavors, collapse = ", ")))
     }
-
-    flavor <- flavor
   } else {
     if (length(available_flavors) > 1) {
       warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
@@ -96,12 +106,15 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     flavor <- available_flavors[[1]]
   }
 
-  flavor <- mlflow_flavor(flavor)
+  flavor <- mlflow_flavor(flavor, spec$flavors[[flavor]])
   mlflow_load_flavor(flavor, model_path)
 }
 
-new_mlflow_flavor <- function(flavor, class = character(0)) {
-  structure(character(0), class = c(class, "mlflow_flavor"))
+new_mlflow_flavor <- function(class = character(0), spec = NULL) {
+  flavor <- structure(character(0), class = c(class, "mlflow_flavor"))
+  attributes(flavor)$spec <- spec
+
+  flavor
 }
 
 # Create an MLflow Flavor Object
@@ -111,8 +124,8 @@ new_mlflow_flavor <- function(flavor, class = character(0)) {
 #
 # @param flavor The name of the flavor.
 # @keywords internal
-mlflow_flavor <- function(flavor) {
-  new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
+mlflow_flavor <- function(flavor, spec) {
+  new_mlflow_flavor(class = paste0("mlflow_flavor_", flavor), spec = spec)
 }
 
 #' Load MLflow Model Flavor
@@ -158,14 +171,14 @@ mlflow_predict <- function(model, data, ...) {
 #                     data is written out to stdout.
 
 mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NULL,
-                                 content_type = NULL, json_format = NULL) {
+                                 content_type = NULL) {
   model <- mlflow_load_model(model_path)
   input_path <- input_path %||% "stdin"
   output_path <- output_path %||% stdout()
 
   data <- switch(
     content_type %||% "json",
-    json = parse_json(input_path, json_format %||% "split"),
+    json = parse_json(input_path),
     csv = utils::read.csv(input_path),
     stop("Unsupported input file format.")
   )
@@ -180,23 +193,39 @@ supported_model_flavors <- function() {
              ~ gsub("mlflow_load_flavor\\.mlflow_flavor_", "", .x))
 }
 
-# Helper function to parse data frame from json based on given the json_fomat.
-# The default behavior is to parse the data in the Pandas "split" orient.
-parse_json <- function(input_path, json_format="split") {
-  switch(json_format,
-    split = {
-      json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
-      elms <- names(json)
+# Helper function to parse data frame from json.
+parse_json <- function(input_path) {
+  json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
+  data_fields <- intersect(names(json), c("dataframe_split", "dataframe_records"))
+  if (length(data_fields) != 1) {
+    stop(paste(
+      "Invalid input. The input must contain 'dataframe_split' or 'dataframe_records' but not both.",
+      "Got input fields", names(json))
+    )
+  }
+  switch(data_fields[[1]],
+    dataframe_split = {
+      elms <- names(json$dataframe_split)
       if (length(setdiff(elms, c("columns", "index", "data"))) != 0
-      || length(setdiff(c("columns", "data"), elms) != 0)) {
+      || length(setdiff(c("data"), elms) != 0)) {
         stop(paste("Invalid input. Make sure the input json data is in 'split' format.", elms))
       }
-      df <- data.frame(json$data, row.names = json$index)
-      names(df) <- json$columns
+      data <- if (any(class(json$dataframe_split$data) == "list")) {
+        max_len <- max(sapply(json$dataframe_split$data, length))
+        fill_nas <- function(row) {
+          append(row, rep(NA, max_len - length(row)))
+        }
+        rows <- lapply(json$dataframe_split$data, fill_nas)
+        Reduce(rbind, rows)
+      } else {
+        json$dataframe_split$data
+      }
+
+      df <- data.frame(data, row.names=json$dataframe_split$index)
+      names(df) <- json$dataframe_split$columns
       df
     },
-    records = jsonlite::fromJSON(input_path, simplifyVector = TRUE),
-    stop(paste("Unsupported JSON format", json_format,
-               ". Supported formats are 'split' or 'records'"))
+    dataframe_records = json$dataframe_records,
+    stop(paste("Unsupported JSON format"))
   )
 }

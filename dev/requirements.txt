@@ -1,0 +1,8 @@
+# Dev script dependencies
+click
+ruamel.yaml.clib!=0.2.7
+ruamel.yaml
+requests
+packaging
+pydantic
+pyyaml

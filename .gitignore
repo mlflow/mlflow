@@ -1,6 +1,8 @@
 # Mlflow
 mlruns/
+mlartifacts/
 outputs/
+mlruns.db
 
 # Mac
 .DS_Store
@@ -79,6 +81,7 @@ venv.bak/
 *.idea
 *.vscode
 *.iml
+*~
 
 # mkdocs documentation
 /site
@@ -95,3 +98,11 @@ example/tutorial/R/*.nb.html
 
 # travis_wait command logs
 travis_wait*.log
+
+# Pytorch logs
+lightning_logs
+
+a.py
+
+# Log file created by pre-commit hook for black
+.black.log

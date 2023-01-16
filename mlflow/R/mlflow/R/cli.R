@@ -5,8 +5,8 @@
 #   Defaults to \code{FALSE}.
 # @param echo Print the standard output and error to the screen? Defaults to
 #   \code{TRUE}, does not apply to background tasks.
-# @param stderr_callback NULL, or a function to call for every chunk of the standard error.
-#   Defaults to a function that prints chunks to standard error.
+# @param stderr_callback \code{NULL} (the default), or a function to call for 
+#   every chunk of the standard error, passed to \code{\link[=processx:run]{processx::run()}}.
 # @param client Mlflow client to provide environment for the cli process.
 #
 # @return A \code{processx} task.
@@ -25,15 +25,13 @@ mlflow_cli <- function(...,
   mlflow_bin <- python_mlflow_bin()
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
-    MLFLOW_CONDA_HOME = python_conda_home(),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri(),
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)
-  if (is.null(stderr_callback)) {
-    stderr_callback <- function(x, p) {
-      cat(x, file = stderr())
-    }
+  MLFLOW_CONDA_HOME <- Sys.getenv("MLFLOW_CONDA_HOME", NA)
+  if (!is.na(MLFLOW_CONDA_HOME)) {
+    env$MLFLOW_CONDA_HOME <- MLFLOW_CONDA_HOME
   }
   with_envvar(env, {
     if (background) {

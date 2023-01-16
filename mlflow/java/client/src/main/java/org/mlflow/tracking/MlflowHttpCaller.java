@@ -1,5 +1,7 @@
 package org.mlflow.tracking;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -9,14 +11,16 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
@@ -29,38 +33,56 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 class MlflowHttpCaller {
   private static final Logger logger = LoggerFactory.getLogger(MlflowHttpCaller.class);
-  private static final String BASE_API_PATH = "api/2.0/preview/mlflow";
-  protected HttpClient httpClient;
+  private static final String BASE_API_PATH = "api/2.0/mlflow";
+  protected CloseableHttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
   private final int maxRateLimitIntervalMillis;
   private final int rateLimitRetrySleepInitMillis;
+  private final int maxRetryAttempts;
 
+  /**
+   * Construct a new MlflowHttpCaller with a default configuration for request retries.
+   */
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
-    this(hostCredsProvider, 60000);
+    this(hostCredsProvider, 60000, 1000, 3);
   }
 
-  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider, int maxRateLimitIntervalSeconds) {
-    this(hostCredsProvider, maxRateLimitIntervalSeconds, 1000);
-  }
-
+  /**
+   * Construct a new MlflowHttpCaller.
+   *
+   * @param maxRateLimitIntervalMs The maximum amount of time, in milliseconds, to spend retrying a
+   *                               single request in response to rate limiting (error code 429).
+   * @param rateLimitRetrySleepInitMs The initial backoff delay, in milliseconds, when retrying a
+   *                                  request in response to rate limiting (error code 429). The
+   *                                  delay is increased exponentially after each rate limiting
+   *                                  response until the total delay incurred across all retries for
+   *                                  the request exceeds the specified maxRateLimitIntervalSeconds.
+   * @param maxRetryAttempts The maximum number of times to retry a request, excluding rate limit
+   *                         retries.
+   */
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
-                   int rateLimitRetrySleepInitMs) {
-    this.hostCredsProvider = hostCredsProvider;
-    this.maxRateLimitIntervalMillis = maxRateLimitIntervalSeconds;
-    this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
-  }
-
-  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
+                   int maxRateLimitIntervalMs,
                    int rateLimitRetrySleepInitMs,
-                   HttpClient client) {
-    this(hostCredsProvider, maxRateLimitIntervalSeconds, rateLimitRetrySleepInitMs);
+                   int maxRetryAttempts) {
+    this.hostCredsProvider = hostCredsProvider;
+    this.maxRateLimitIntervalMillis = maxRateLimitIntervalMs;
+    this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
+    this.maxRetryAttempts = maxRetryAttempts;
+  }
+
+  @VisibleForTesting
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
+                   int maxRateLimitIntervalMs,
+                   int rateLimitRetrySleepInitMs,
+                   int maxRetryAttempts,
+                   CloseableHttpClient client) {
+    this(
+      hostCredsProvider, maxRateLimitIntervalMs, rateLimitRetrySleepInitMs, maxRetryAttempts);
     this.httpClient = client;
   }
 
-
-  HttpResponse executeRequest(HttpRequestBase request) throws IOException {
+  private HttpResponse executeRequestWithRateLimitRetries(HttpRequestBase request)
+      throws IOException {
     int timeLeft = maxRateLimitIntervalMillis;
     int sleepFor = rateLimitRetrySleepInitMillis;
     HttpResponse response = httpClient.execute(request);
@@ -83,15 +105,39 @@ class MlflowHttpCaller {
     return response;
   }
 
+  private HttpResponse executeRequest(HttpRequestBase request) throws IOException {
+    HttpResponse response = null;
+    int attemptsRemaining = this.maxRetryAttempts;
+    while (attemptsRemaining > 0) {
+      attemptsRemaining -= 1;
+      try {
+        response = executeRequestWithRateLimitRetries(request);
+        break;
+      } catch (MlflowHttpException e) {
+        if (attemptsRemaining > 0 && e.getStatusCode() != 429) {
+          logger.warn("Request returned with status code {} (Rate limit exceeded)."
+                      + " Retrying up to {} more times. Response body: {}",
+                      e.getStatusCode(),
+                      attemptsRemaining,
+                      e.getBodyMessage());
+          continue;
+        } else {
+          throw e;
+        }
+      }
+    }
+    return response;
+  }
+
   String get(String path) {
     logger.debug("Sending GET " + path);
     HttpGet request = new HttpGet();
     fillRequestSettings(request, path);
     try {
       HttpResponse response = executeRequest(request);
-      String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-      logger.debug("Response: " + responseJosn);
-      return responseJosn;
+      String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+      logger.debug("Response: " + responseJson);
+      return responseJson;
     } catch (IOException e) {
       throw new MlflowClientException(e);
     }
@@ -115,6 +161,16 @@ class MlflowHttpCaller {
   String post(String path, String json) {
     logger.debug("Sending POST " + path + ": " + json);
     HttpPost request = new HttpPost();
+    return send(request, path, json);
+  }
+
+  String patch(String path, String json) {
+    logger.debug("Sending PATCH " + path + ": " + json);
+    HttpPatch request = new HttpPatch();
+    return send(request, path, json);
+  }
+
+  private String send(HttpEntityEnclosingRequestBase request, String path, String json) {
     fillRequestSettings(request, path);
     request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
     request.setHeader("Content-Type", "application/json");
@@ -190,5 +246,15 @@ class MlflowHttpCaller {
     }
 
     this.httpClient = builder.build();
+  }
+
+  void close() {
+    if (httpClient != null) {
+      try {
+	  httpClient.close();
+      } catch(IOException e){
+	  logger.warn("Unable to close connection to mlflow backend", e);
+      }
+    }
   }
 }

@@ -38,7 +38,7 @@ y = diabetes.target
 # Create pandas DataFrame for sklearn ElasticNet linear_model
 Y = np.array([y]).transpose()
 d = np.concatenate((X, Y), axis=1)
-cols = diabetes.feature_names + ['progression']
+cols = diabetes.feature_names + ["progression"]
 data = pd.DataFrame(d, columns=cols)
 
 
@@ -53,7 +53,6 @@ def eval_metrics(actual, pred):
     mae = mean_absolute_error(actual, pred)
     r2 = r2_score(actual, pred)
     return rmse, mae, r2
-
 
 
 if __name__ == "__main__":
@@ -79,7 +78,7 @@ if __name__ == "__main__":
     (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
     # Print out ElasticNet model metrics
-    print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+    print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
     print("  RMSE: %s" % rmse)
     print("  MAE: %s" % mae)
     print("  R2: %s" % r2)
@@ -92,28 +91,26 @@ if __name__ == "__main__":
     mlflow.log_metric("mae", mae)
     mlflow.sklearn.log_model(lr, "model")
 
-
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
 
     print("Computing regularization path using the elastic net.")
-    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio, fit_intercept=False)
+    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio)
 
     # Display results
     fig = plt.figure(1)
     ax = plt.gca()
 
-    colors = cycle(['b', 'r', 'g', 'c', 'k'])
+    colors = cycle(["b", "r", "g", "c", "k"])
     neg_log_alphas_enet = -np.log10(alphas_enet)
     for coef_e, c in zip(coefs_enet, colors):
-        l2 = plt.plot(neg_log_alphas_enet, coef_e, linestyle='--', c=c)
+        l2 = plt.plot(neg_log_alphas_enet, coef_e, linestyle="--", c=c)
 
-    plt.xlabel('-Log(alpha)')
-    plt.ylabel('coefficients')
-    title = 'ElasticNet Path by alpha for l1_ratio = ' + str(l1_ratio)
+    plt.xlabel("-Log(alpha)")
+    plt.ylabel("coefficients")
+    title = "ElasticNet Path by alpha for l1_ratio = " + str(l1_ratio)
     plt.title(title)
-    plt.axis('tight')
-
+    plt.axis("tight")
 
     # Save figures
     fig.savefig("ElasticNet-paths.png")

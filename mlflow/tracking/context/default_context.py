@@ -46,5 +46,5 @@ class DefaultRunContext(RunContextProvider):
         return {
             MLFLOW_USER: _get_user(),
             MLFLOW_SOURCE_NAME: _get_source_name(),
-            MLFLOW_SOURCE_TYPE: SourceType.to_string(_get_source_type())
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(_get_source_type()),
         }

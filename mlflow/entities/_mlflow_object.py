@@ -2,7 +2,7 @@ from abc import abstractmethod
 import pprint
 
 
-class _MLflowObject(object):
+class _MLflowObject:
     def __iter__(self):
         # Iterate through list of properties and yield as key -> value
         for prop in self._properties():
@@ -38,16 +38,15 @@ def get_classname(obj):
     return type(obj).__name__
 
 
-class _MLflowObjectPrinter(object):
-
+class _MLflowObjectPrinter:
     def __init__(self):
-        super(_MLflowObjectPrinter, self).__init__()
+        super().__init__()
         self.printer = pprint.PrettyPrinter()
 
     def to_string(self, obj):
         if isinstance(obj, _MLflowObject):
-            return "<%s: %s>" % (get_classname(obj), self._entity_to_string(obj))
+            return "<{}: {}>".format(get_classname(obj), self._entity_to_string(obj))
         return self.printer.pformat(obj)
 
     def _entity_to_string(self, entity):
-        return ", ".join(["%s=%s" % (key, self.to_string(value)) for key, value in entity])
+        return ", ".join(["{}={}".format(key, self.to_string(value)) for key, value in entity])

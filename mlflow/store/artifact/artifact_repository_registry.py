@@ -12,7 +12,8 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
-
+from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.uri import get_uri_scheme
 
 
@@ -46,15 +47,15 @@ class ArtifactRepositoryRegistry:
                     'Failure attempting to register artifact repository for scheme "{}": {}'.format(
                         entrypoint.name, str(exc)
                     ),
-                    stacklevel=2
+                    stacklevel=2,
                 )
 
     def get_artifact_repository(self, artifact_uri):
         """Get an artifact repository from the registry based on the scheme of artifact_uri
 
-        :param store_uri: The store URI. This URI is used to select which artifact repository
-                          implementation to instantiate and is passed to the
-                          constructor of the implementation.
+        :param artifact_uri: The artifact store URI. This URI is used to select which artifact
+                             repository implementation to instantiate and is passed to the
+                             constructor of the implementation.
 
         :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
                  requirements.
@@ -73,18 +74,21 @@ class ArtifactRepositoryRegistry:
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
-_artifact_repository_registry.register('', LocalArtifactRepository)
-_artifact_repository_registry.register('file', LocalArtifactRepository)
-_artifact_repository_registry.register('s3', S3ArtifactRepository)
-_artifact_repository_registry.register('gs', GCSArtifactRepository)
-_artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)
-_artifact_repository_registry.register('ftp', FTPArtifactRepository)
-_artifact_repository_registry.register('sftp', SFTPArtifactRepository)
-_artifact_repository_registry.register('dbfs', dbfs_artifact_repo_factory)
-_artifact_repository_registry.register('hdfs', HdfsArtifactRepository)
-_artifact_repository_registry.register('viewfs', HdfsArtifactRepository)
-_artifact_repository_registry.register('runs', RunsArtifactRepository)
-_artifact_repository_registry.register('models', ModelsArtifactRepository)
+_artifact_repository_registry.register("", LocalArtifactRepository)
+_artifact_repository_registry.register("file", LocalArtifactRepository)
+_artifact_repository_registry.register("s3", S3ArtifactRepository)
+_artifact_repository_registry.register("gs", GCSArtifactRepository)
+_artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
+_artifact_repository_registry.register("ftp", FTPArtifactRepository)
+_artifact_repository_registry.register("sftp", SFTPArtifactRepository)
+_artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
+_artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
+_artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
+_artifact_repository_registry.register("runs", RunsArtifactRepository)
+_artifact_repository_registry.register("models", ModelsArtifactRepository)
+for scheme in ["http", "https"]:
+    _artifact_repository_registry.register(scheme, HttpArtifactRepository)
+_artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
 
 _artifact_repository_registry.register_entrypoints()
 
@@ -92,9 +96,9 @@ _artifact_repository_registry.register_entrypoints()
 def get_artifact_repository(artifact_uri):
     """Get an artifact repository from the registry based on the scheme of artifact_uri
 
-    :param store_uri: The store URI. This URI is used to select which artifact repository
-                      implementation to instantiate and is passed to the
-                      constructor of the implementation.
+    :param artifact_uri: The artifact store URI. This URI is used to select which artifact
+                         repository implementation to instantiate and is passed to the
+                         constructor of the implementation.
 
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.

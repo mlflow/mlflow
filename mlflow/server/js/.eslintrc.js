@@ -1,71 +1,70 @@
 module.exports = {
-  'extends': [
-    'airbnb-base',
-    'react-app',
-  ],
-  'parser': 'babel-eslint',
-  'plugins': [
-    'react',
-  ],
-  'parserOptions': {
-    'sourceType': 'module',
-    'ecmaVersion': 7,
-    'ecmaFeatures': {
-      'jsx': true,
+  extends: ['airbnb-base', 'react-app', 'prettier'],
+  plugins: ['prettier', 'react', 'no-only-tests'],
+  parser: '@babel/eslint-parser',
+  parserOptions: {
+    sourceType: 'module',
+    ecmaVersion: 7,
+    ecmaFeatures: {
+      jsx: true,
+    },
+    babelOptions: {
+      presets: ['@babel/preset-react'],
     },
   },
-  'env': {
-    'es6': true,
-    'browser': true,
-    'jest': true,
+  env: {
+    es6: true,
+    browser: true,
+    jest: true,
   },
-  'globals': {
-    'GridStackUI': true,
-    'jQuery': true,
-    'MG': true,
+  globals: {
+    GridStackUI: true,
+    jQuery: true,
+    MG: true,
   },
-  'settings': {
+  settings: {
     'import/resolver': {
-      'webpack': {
-        'config': {
-          'resolve': {
+      webpack: {
+        config: {
+          resolve: {
             // eslint-disable-next-line no-process-env
-            'modules': ['node_modules', process.env.NODE_MODULES_PATH],
-            'extensions': ['.js', '.jsx', '.ts', '.tsx'],
+            modules: ['node_modules', process.env.NODE_MODULES_PATH],
+            extensions: ['.js', '.jsx', '.ts', '.tsx'],
           },
         },
       },
     },
-    'react': {
-      'version': 'detect',
+    react: {
+      version: 'detect',
     },
   },
-  'rules': {
+  rules: {
+    'prettier/prettier': 'error',
     'accessor-pairs': 2,
     'array-bracket-spacing': 2,
     'array-callback-return': 2,
-    'arrow-body-style': "off",
-    'arrow-parens': "off",
+    'arrow-body-style': 'off',
+    'arrow-parens': 'off',
     'arrow-spacing': 2,
     'block-scoped-var': 2,
     'block-spacing': 2,
-    'brace-style': [2, "1tbs", { "allowSingleLine": false }],
+    'brace-style': [2, '1tbs', { allowSingleLine: false }],
     'callback-return': 2,
-    'camelcase': "off",
+    camelcase: 'off',
     'class-methods-use-this': 0,
-    'comma-dangle': "off",
+    'comma-dangle': [2, 'always-multiline'],
     'comma-spacing': 2,
     'comma-style': 2,
     'computed-property-spacing': 2,
     'consistent-return': 2,
     'consistent-this': 0,
     'constructor-super': 2,
-    'curly': 2,
+    curly: 2,
     'default-case': 2,
     'dot-location': 2,
-    'dot-notation': "off",
+    'dot-notation': 'off',
     'eol-last': 2,
-    'eqeqeq': 2,
+    eqeqeq: 2,
     'func-call-spacing': 2,
     'func-names': 2,
     'func-style': 0,
@@ -78,12 +77,16 @@ module.exports = {
     'id-match': 2,
     'import/default': 0,
     'import/export': 2,
-    'import/extensions': ['error', 'always', {
-      'js': 'never',
-      'jsx': 'never',
-      'ts': 'never',
-      'tsx': 'never',
-    }],
+    'import/extensions': [
+      'error',
+      'ignorePackages',
+      {
+        js: 'never',
+        jsx: 'never',
+        ts: 'never',
+        tsx: 'never',
+      },
+    ],
     'import/first': 0,
     'import/max-dependencies': 0,
     'import/named': 0,
@@ -95,7 +98,7 @@ module.exports = {
     'import/no-deprecated': 1,
     'import/no-duplicates': 2,
     'import/no-dynamic-require': 0,
-    'import/no-extraneous-dependencies': [2, { 'devDependencies': true }],
+    'import/no-extraneous-dependencies': [2, { devDependencies: true }],
     'import/no-internal-modules': 0,
     'import/no-mutable-exports': 2,
     'import/no-named-as-default': 0,
@@ -109,27 +112,31 @@ module.exports = {
     'import/order': 0,
     'import/prefer-default-export': 0,
     'import/unambiguous': 0,
-    'indent': 0,
-    'indent-legacy': ['error', 2, {
-      'SwitchCase': 1,
-    }],
+    indent: 0,
+    'indent-legacy': 0,
     'init-declarations': 0,
-    'jsx-quotes': "off",
+    'jsx-quotes': 'off',
     'key-spacing': 2,
     'keyword-spacing': 2,
     'linebreak-style': 2,
     'lines-around-comment': 0,
     'max-depth': [2, 4],
-    'max-len': ['error', 100, 2, {
-      'ignoreUrls': false,
-      'ignoreComments': false,
-      'ignoreRegExpLiterals': true,
-      'ignoreStrings': false,
-      'ignoreTemplateLiterals': false,
-    }],
-    'max-lines': [2, 1000],
+    'max-len': [
+      'error',
+      100,
+      2,
+      {
+        ignoreUrls: false,
+        ignoreComments: false,
+        ignoreRegExpLiterals: true,
+        ignoreStrings: false,
+        ignoreTemplateLiterals: false,
+        ignorePattern: "^import\\s.+\\sfrom\\s'.+';", // ignore import statements
+      },
+    ],
+    'max-lines': [2, 1500],
     'max-nested-callbacks': 2,
-    'max-params': [2, 8],
+    'max-params': [2, 12],
     'max-statements': 0,
     'max-statements-per-line': 2,
     'multiline-ternary': 0,
@@ -137,17 +144,17 @@ module.exports = {
     'new-parens': 2,
     'newline-after-var': 0,
     'newline-before-return': 0,
-    'newline-per-chained-call': "off",
+    'newline-per-chained-call': 'off',
     'no-alert': 2,
     'no-array-constructor': 2,
     'no-bitwise': 2,
     'no-caller': 2,
     'no-case-declarations': 2,
-    'no-catch-shadow': "off",
+    'no-catch-shadow': 'off',
     'no-class-assign': 2,
     'no-cond-assign': 2,
-    'no-confusing-arrow': [2, { 'allowParens': true }],
-    'no-console': 0,
+    'no-confusing-arrow': 0,
+    'no-console': [2, { allow: ['warn', 'error'] }],
     'no-const-assign': 2,
     'no-constant-condition': 2,
     'no-continue': 0,
@@ -159,8 +166,7 @@ module.exports = {
     'no-dupe-class-members': 2,
     'no-dupe-keys': 2,
     'no-duplicate-case': 2,
-    'no-duplicate-imports': 2,
-    'no-else-return': "off",
+    'no-else-return': 'off',
     'no-empty': 2,
     'no-empty-character-class': 2,
     'no-empty-function': 2,
@@ -193,14 +199,14 @@ module.exports = {
     'no-lonely-if': 2,
     'no-loop-func': 2,
     'no-magic-numbers': 0,
-    'no-mixed-operators': [2, { 'allowSamePrecedence': true }],
+    'no-mixed-operators': 2,
     'no-mixed-requires': 0,
     'no-mixed-spaces-and-tabs': 2,
-    'no-multi-spaces': ['error', { 'ignoreEOLComments': true }],
+    'no-multi-spaces': ['error', { ignoreEOLComments: true }],
     'no-multi-str': 2,
     'no-multiple-empty-lines': 2,
     'no-negated-condition': 0,
-    'no-nested-ternary': "off",
+    'no-nested-ternary': 'off',
     'no-new': 0,
     'no-new-func': 2,
     'no-new-object': 2,
@@ -219,7 +225,19 @@ module.exports = {
     'no-prototype-builtins': 0,
     'no-redeclare': 2,
     'no-regex-spaces': 2,
-    'no-restricted-imports': 2,
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'emotion',
+            message:
+              // eslint-disable-next-line max-len
+              "Importing emotion is obsolete - please use css={...} prop in JSX elements now. For class names, you can import { ClassNames } from '@emotion/react' package.",
+          },
+        ],
+      },
+    ],
     'no-restricted-modules': 2,
     'no-restricted-syntax': 0,
     'no-return-assign': 0,
@@ -238,7 +256,7 @@ module.exports = {
     'no-throw-literal': 2,
     'no-trailing-spaces': 2,
     'no-undef': 2,
-    'no-undef-init': "off",
+    'no-undef-init': 'off',
     'no-undefined': 0,
     'no-underscore-dangle': 0,
     'no-unexpected-multiline': 2,
@@ -263,23 +281,25 @@ module.exports = {
     'no-whitespace-before-property': 2,
     'no-with': 2,
     'object-curly-newline': 0,
-    'object-curly-spacing': "off",
+    'object-curly-spacing': 'off',
     'object-property-newline': 0,
     'object-shorthand': [2, 'methods'],
     'one-var': 0,
     'one-var-declaration-per-line': 2,
     'operator-assignment': 2,
     'operator-linebreak': 0,
-    'padded-blocks': [2, 'never'],
+    'padded-blocks': 0,
     'prefer-arrow-callback': 0,
     'prefer-const': 2,
     'prefer-reflect': 0,
     'prefer-rest-params': 2,
     'prefer-spread': 2,
     'prefer-template': 0,
+    // eslint-disable-next-line no-dupe-keys
+    'prettier/prettier': 'error',
     'quote-props': 0,
-    'quotes': "off",
-    'radix': 2,
+    quotes: 'off',
+    radix: 2,
     'react/display-name': 0,
     'react/forbid-component-props': 0,
     'react/forbid-prop-types': 0,
@@ -294,7 +314,7 @@ module.exports = {
     'react/jsx-indent-props': 0,
     'react/jsx-key': 0,
     'react/jsx-max-props-per-line': 0,
-    'react/jsx-no-bind': [0, { 'ignoreRefs': true }],
+    'react/jsx-no-bind': [0, { ignoreRefs: true }],
     'react/jsx-no-comment-textnodes': 2,
     'react/jsx-no-duplicate-props': 2,
     'react/jsx-no-literals': 0,
@@ -335,18 +355,25 @@ module.exports = {
     'require-jsdoc': 0,
     'require-yield': 2,
     'rest-spread-spacing': 2,
-    'semi': 2,
+    semi: 2,
     'semi-spacing': 2,
     'sort-imports': 0,
     'sort-keys': 0,
     'sort-vars': 0,
     'space-before-blocks': 2,
-    'space-before-function-paren': [2, 'never'],
+    'space-before-function-paren': [
+      2,
+      {
+        anonymous: 'always',
+        named: 'never',
+        asyncArrow: 'always',
+      },
+    ],
     'space-in-parens': 2,
     'space-infix-ops': 2,
     'space-unary-ops': 0,
-    'spaced-comment': [2, 'always', { 'exceptions': ['/'], 'markers': ['/'] }],
-    'strict': 2,
+    'spaced-comment': [2, 'always', { exceptions: ['/'], markers: ['/'] }],
+    strict: 2,
     'symbol-description': 2,
     'template-curly-spacing': 2,
     'unicode-bom': 2,
@@ -355,14 +382,14 @@ module.exports = {
     'valid-typeof': 2,
     'vars-on-top': 0,
     'wrap-iife': 2,
-    'wrap-regex': 2,
+    'wrap-regex': 0,
     'yield-star-spacing': 2,
-    'yoda': 2,
+    yoda: 2,
     'function-paren-newline': 'off',
-    'complexity': ['error', 20],
+    complexity: ['error', 20],
     'no-multi-assign': 'off',
     'no-useless-return': 'off',
-    'prefer-destructuring': 'off',
+    'prefer-destructuring': 2,
     'no-restricted-globals': [
       2,
       'addEventListener',
@@ -419,37 +446,118 @@ module.exports = {
       'statusbar',
       'stop',
       'toolbar',
-      'top'
+      'top',
     ],
+
+    // Rules specific to "no-only-tests" plugin:
+    'no-only-tests/no-only-tests': 2,
   },
-  'overrides': [
+  overrides: [
     {
-      'files': ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
-      'plugins': [
-        'chai-expect',
-        'chai-friendly',
+      // We're enabling '@typescript-eslint/parser' and its rules only for the *.ts(x) files
+      files: ['*.ts', '*.tsx'],
+      extends: [
+        'react-app',
+        'prettier',
+        'plugin:jsx-a11y/recommended',
+        'plugin:@typescript-eslint/recommended',
       ],
-      'env': {
-        'mocha': true,
+      plugins: ['prettier', 'react', '@typescript-eslint', '@emotion'],
+      parser: '@typescript-eslint/parser',
+
+      rules: {
+        // Do not require functions (especially react components) to have explicit returns
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        // Do not require to type every import from a JS file to speed up development
+        '@typescript-eslint/no-explicit-any': 'off',
+        // Do not complain about useless contructors in declaration files
+        'no-useless-constructor': 'off',
+        '@typescript-eslint/no-empty-function': 'off',
+        '@typescript-eslint/no-useless-constructor': 'error',
+        // Many API fields and generated types use camelcase
+        '@typescript-eslint/naming-convention': 'off',
+
+        // TODO(thielium): This should be re-enabled (REDASH-796)
+        '@typescript-eslint/explicit-module-boundary-types': 'off',
+
+        // ts-migrate introduces a lot of ts-expect-error. turning into warning until we finalize the migration
+        '@typescript-eslint/ban-ts-comment': 'warn',
+
+        // Use @typescript-eslint's no-shadow, regular one fails to parse TS enums
+        // https://github.com/typescript-eslint/typescript-eslint/issues/2483
+        'no-shadow': 'off',
+        '@typescript-eslint/no-shadow': 'error',
+
+        // Please leave this rule as the last item in the array, as it's quite large
+        '@typescript-eslint/ban-types': [
+          'error',
+          {
+            types: {
+              Function: {
+                message:
+                  'The `Function` type accepts any function-like value. It provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.',
+                fixWith: '(...args: unknown[]) => unknown',
+              },
+              '{}': {
+                message:
+                  '`{}` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
+                fixWith: 'Record<string, never>',
+              },
+              Object: {
+                message:
+                  '`Object` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
+                fixWith: 'Record<string, unknown>',
+              },
+              object: {
+                message:
+                  "Don't use `object` as a type. The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys.",
+                fixWith: 'Record<string, unknown>',
+              },
+            },
+          },
+        ],
+        // By using "auto" JSX runtime in TS, we have react automatically injected and
+        // adding "React" manually results in TS(6133) error
+        'react/react-in-jsx-scope': 'off',
+
+        '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^oss_' }],
       },
-      'globals': {
-        'sinon': true,
-        'chai': true,
-        'expect': true,
-        'assert': true,
-        'testSuite': true,
+    },
+    {
+      files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
+      plugins: ['chai-expect', 'chai-friendly'],
+      env: {
+        mocha: true,
       },
-      'rules': {
+      globals: {
+        sinon: true,
+        chai: true,
+        expect: true,
+        assert: true,
+        testSuite: true,
+      },
+      rules: {
         'func-names': 0,
-        'max-len': ['error', 100, 2, {
-          'ignoreStrings': true,
-          'ignoreTemplateLiterals': true,
-        }],
+        'max-len': [
+          'error',
+          100,
+          2,
+          {
+            ignoreStrings: true,
+            ignoreTemplateLiterals: true,
+          },
+        ],
         'max-lines': 0,
         'chai-expect/missing-assertion': 2,
         'no-unused-expressions': 0,
         'chai-friendly/no-unused-expressions': 2,
-      }
-    }
-  ]
+      },
+    },
+    {
+      files: ['src/**/*.stories.*'],
+      rules: {
+        'import/no-anonymous-default-export': 'off',
+      },
+    },
+  ],
 };

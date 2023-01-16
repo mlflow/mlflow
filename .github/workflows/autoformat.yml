@@ -1,0 +1,158 @@
+# See .github/workflows/autoformat.md for instructions on how to test this workflow.
+
+name: Autoformat
+on:
+  issue_comment:
+    types: [created, edited]
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  check-comment:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    outputs:
+      should_autoformat: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
+      repository: ${{ fromJSON(steps.judge.outputs.result).repository }}
+      head_ref: ${{ fromJSON(steps.judge.outputs.result).head_ref }}
+      head_sha: ${{ fromJSON(steps.judge.outputs.result).head_sha }}
+      base_ref: ${{ fromJSON(steps.judge.outputs.result).base_ref }}
+      base_sha: ${{ fromJSON(steps.judge.outputs.result).base_sha }}
+      pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: judge
+        id: judge
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            core.debug(JSON.stringify(context, null, 2));
+            const autoformat = require('./.github/workflows/autoformat.js');
+            const { comment } = context.payload;
+            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association);
+            if (!isMaintainer) {
+              core.setFailed("Only MLflow maintainers can trigger this workflow.");
+            }
+            const shouldAutoformat = autoformat.shouldAutoformat(comment);
+            if (shouldAutoformat) {
+              await autoformat.createReaction(context, github);
+              await autoformat.createStatus(context, github, core);
+            }
+            const pullInfo = await autoformat.getPullInformation(context, github);
+            return { ...pullInfo, shouldAutoformat };
+
+  format:
+    runs-on: ubuntu-latest
+    needs: check-comment
+    if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.head_ref }}
+          # Set fetch-depth to merge the base branch
+          fetch-depth: 300
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+      - name: Check diff
+        id: diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
+          protos=$([[ -z $(echo "$changed_files" | grep '^mlflow/protos') ]] && echo "false" || echo "true")
+          python=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
+          js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
+          r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
+          echo "protos=$protos" >> $GITHUB_OUTPUT
+          echo "python=$python" >> $GITHUB_OUTPUT
+          echo "js=$js" >> $GITHUB_OUTPUT
+          echo "r=$r" >> $GITHUB_OUTPUT
+      # Merge the base branch (which is usually master) to for the PR code using the latest configurations.
+      - name: Merge base branch
+        run: |
+          git config user.name 'mlflow-automation'
+          git config user.email 'mlflow-automation@users.noreply.github.com'
+          git fetch origin ${{ needs.check-comment.outputs.base_ref }}
+          git merge origin/${{ needs.check-comment.outputs.base_ref }}
+      # ************************************************************************
+      # Prettier
+      # ************************************************************************
+      - run: |
+          pre-commit run prettier --all-files --color=always || true
+      # ************************************************************************
+      # protos
+      # ************************************************************************
+      - if: steps.diff.outputs.protos == 'true'
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker build -t gen-protos -f dev/Dockerfile.protos .
+      - if: steps.diff.outputs.protos == 'true'
+        run: |
+          docker run --rm -w /mlflow -v $(pwd):/mlflow gen-protos ./dev/generate-protos.sh
+      # ************************************************************************
+      # python
+      # ************************************************************************
+      - if: steps.diff.outputs.python == 'true'
+        uses: ./.github/actions/setup-python
+      - if: steps.diff.outputs.python == 'true'
+        run: |
+          pip install -r requirements/lint-requirements.txt
+      - if: steps.diff.outputs.python == 'true'
+        run: |
+          black .
+      # ************************************************************************
+      # js
+      # ************************************************************************
+      - if: steps.diff.outputs.js == 'true'
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+      - if: steps.diff.outputs.js == 'true'
+        working-directory: mlflow/server/js
+        run: |
+          yarn install
+      - if: steps.diff.outputs.js == 'true'
+        working-directory: mlflow/server/js
+        run: |
+          yarn run lint:fix
+      - if: steps.diff.outputs.js == 'true'
+        working-directory: mlflow/server/js
+        run: |
+          yarn run extract-i18n
+      # ************************************************************************
+      # R
+      # ************************************************************************
+      - if: steps.diff.outputs.r == 'true'
+        working-directory: docs
+        run: |
+          ./build-rdoc.sh
+      # ************************************************************************
+      # Push changes
+      # ************************************************************************
+      - name: Push changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -s -m "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git push
+          fi
+
+  update-status:
+    runs-on: ubuntu-latest
+    needs: [check-comment, format]
+    if: always() && needs.check-comment.outputs.should_autoformat == 'true'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update status
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const needs = ${{ toJson(needs) }};
+            const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
+            const autoformat = require('./.github/workflows/autoformat.js');
+            await autoformat.updateStatus(context, github, head_sha, needs);

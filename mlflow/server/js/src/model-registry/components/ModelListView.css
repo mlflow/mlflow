@@ -1,0 +1,35 @@
+.pagination-section {
+  padding-bottom: 30px;
+}
+
+.pagination-dropdown .ant-dropdown-menu-item {
+  text-align: center;
+}
+
+.ant-alert-info .ant-alert-icon {
+  color: #00b379;
+}
+
+.table-tag-container {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 100%;
+}
+
+.ModelListView-filter-dropdown {
+  margin-top: 0;
+  min-width: 800px;
+  margin-bottom: 24px;
+}
+
+.search-input-tooltip .du-bois-light-popover-inner .du-bois-light-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
+}
+
+.search-input-tooltip .du-bois-light-popover-arrow-content {
+  background-color: rgba(0, 0, 0, 0.75);
+}

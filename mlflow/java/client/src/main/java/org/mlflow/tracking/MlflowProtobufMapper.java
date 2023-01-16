@@ -5,7 +5,10 @@ import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
+import java.net.URISyntaxException;
 
+import org.apache.http.client.utils.URIBuilder;
+import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
 class MlflowProtobufMapper {
@@ -118,6 +121,80 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeGetLatestVersion(String modelName, Iterable<String> stages) {
+    try {
+      URIBuilder builder = new URIBuilder("registered-models/get-latest-versions")
+              .addParameter("name", modelName);
+      if (stages != null) {
+        for( String stage: stages) {
+          builder.addParameter("stages", stage);
+        }
+      }
+      return builder.build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get latest versions.",
+              e);
+    }
+  }
+
+  String makeUpdateModelVersion(String modelName, String version) {
+    return print(UpdateModelVersion.newBuilder().setName(modelName).setVersion(version));
+  }
+
+  String makeTransitionModelVersionStage(String modelName, String version, String stage) {
+    return print(TransitionModelVersionStage.newBuilder()
+            .setName(modelName).setVersion(version).setStage(stage));
+  }
+
+  String makeCreateModel(String modelName) {
+    CreateRegisteredModel.Builder builder = CreateRegisteredModel.newBuilder()
+            .setName(modelName);
+    return print(builder);
+  }
+
+  String makeCreateModelVersion(String modelName, String runId, String source) {
+    CreateModelVersion.Builder builder = CreateModelVersion.newBuilder()
+            .setName(modelName)
+            .setRunId(runId)
+            .setSource(source);
+    return print(builder);
+  }
+
+  String makeGetRegisteredModel(String modelName) {
+    try {
+      return new URIBuilder("registered-models/get")
+          .addParameter("name", modelName)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
+  }
+
+  String makeGetModelVersion(String modelName, String modelVersion) {
+    try {
+      return new URIBuilder("model-versions/get")
+          .addParameter("name", modelName)
+          .addParameter("version", modelVersion)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
+  }
+
+  String makeGetModelVersionDownloadUri(String modelName, String modelVersion) {
+    try {
+      return new URIBuilder("model-versions/get-download-uri")
+              .addParameter("name", modelName)
+              .addParameter("version", modelVersion).build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException(
+              "Failed to construct request URI for get version download uri.",
+              e);
+    }
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
@@ -128,8 +205,14 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
-  ListExperiments.Response toListExperimentsResponse(String json) {
-    ListExperiments.Response.Builder builder = ListExperiments.Response.newBuilder();
+  GetExperimentByName.Response toGetExperimentByNameResponse(String json) {
+    GetExperimentByName.Response.Builder builder = GetExperimentByName.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  SearchExperiments.Response toSearchExperimentsResponse(String json) {
+    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
@@ -162,6 +245,31 @@ class MlflowProtobufMapper {
     SearchRuns.Response.Builder builder = SearchRuns.Response.newBuilder();
     merge(json, builder);
     return builder.build();
+  }
+
+  GetLatestVersions.Response toGetLatestVersionsResponse(String json) {
+    GetLatestVersions.Response.Builder builder = GetLatestVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetModelVersion.Response toGetModelVersionResponse(String json) {
+    GetModelVersion.Response.Builder builder = GetModelVersion.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetRegisteredModel.Response toGetRegisteredModelResponse(String json) {
+    GetRegisteredModel.Response.Builder builder = GetRegisteredModel.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  String toGetModelVersionDownloadUriResponse(String json) {
+    GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response
+            .newBuilder();
+    merge(json, builder);
+    return builder.getArtifactUri();
   }
 
   private String print(MessageOrBuilder message) {

@@ -1,0 +1,4 @@
+pylint==2.14.4
+rstcheck==6.1.1
+black[jupyter]==22.3.0
+pre-commit==2.20.0

@@ -5,45 +5,74 @@
 #' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
+#' @param tags Experiment tags to set on the experiment upon experiment creation.
 #' @template roxlate-client
 #' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
+mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL, tags = NULL) {
   client <- resolve_client(client)
   name <- forge::cast_string(name)
+
+  tags <- if (!is.null(tags)) tags %>%
+    purrr::imap(~ list(key = .y, value = .x)) %>%
+    unname()
+
   response <- mlflow_rest(
     "experiments", "create",
     client = client, verb = "POST",
     data = list(
       name = name,
-      artifact_location = artifact_location
+      artifact_location = artifact_location,
+      tags = tags
     )
   )
   response$experiment_id
 }
 
-#' List Experiments
+#' Search Experiments
 #'
-#' Gets a list of all experiments.
+#' Search for experiments that satisfy specified criteria.
 #'
-#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
+#' @param filter A filter expression used to identify specific experiments.
+#'   The syntax is a subset of SQL which allows only ANDing together binary operations.
+#'   Examples: "attribute.name = 'MyExperiment'", "tags.problem_type = 'iris_regression'"
+#' @param experiment_view_type Experiment view type. Only experiments matching this view type are
+#'   returned.
+#' @param order_by List of properties to order by. Example: "attribute.name".
+#' @param max_results Maximum number of experiments to retrieve.
+#' @param page_token Pagination token to go to the next page based on a
+#'   previous query.
 #' @template roxlate-client
 #' @export
-mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_search_experiments <- function(filter = NULL,
+                                      experiment_view_type = c(
+                                        "ACTIVE_ONLY", "DELETED_ONLY", "ALL"
+                                      ),
+                                      max_results = 1000,
+                                      order_by = list(),
+                                      page_token = NULL,
+                                      client = NULL) {
   client <- resolve_client(client)
-  view_type <- match.arg(view_type)
-  response <-   mlflow_rest(
-    "experiments", "list",
-    client = client, verb = "GET",
-    query = list(view_type = view_type)
-  )
+  experiment_view_type <- match.arg(experiment_view_type)
+  response <- mlflow_rest("experiments", "search", client = client, verb = "POST", data = list(
+    filter = filter,
+    view_type = experiment_view_type,
+    max_results = max_results,
+    order_by = cast_string_list(order_by),
+    page_token = page_token
+  ))
 
   # Return `NULL` if no experiments
   if (!length(response)) return(NULL)
+  experiments <- purrr::map(response$experiments, function(x) {
+    x$tags <- parse_run_data(x$tags)
+    tibble::as_tibble(x)
+  }) %>%
+    do.call(rbind, .)
 
-  response$experiments %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    tibble::as_tibble()
+  return(list(
+    experiments=experiments,
+    next_page_token = response$next_page_token
+  ))
 }
 
 #' Set Experiment Tag
@@ -86,32 +115,21 @@ mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NU
   if (!is.null(name) && !is.null(experiment_id)) {
     stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
   }
-
   client <- resolve_client(client)
-
-  if (!is.null(name)) return(mlflow_get_experiment_by_name(client = client, name = name))
-
-  experiment_id <- resolve_experiment_id(experiment_id)
-  experiment_id <- cast_string(experiment_id)
-  response <- mlflow_rest(
-    "experiments", "get",
-    client = client, query = list(experiment_id = experiment_id)
-  )
+  response <- if (!is.null(name)) {
+    mlflow_rest("experiments", "get-by-name",client = client,
+                query = list(experiment_name = name))
+  } else {
+    experiment_id <- resolve_experiment_id(experiment_id)
+    experiment_id <- cast_string(experiment_id)
+    response <- mlflow_rest(
+      "experiments", "get",
+      client = client, query = list(experiment_id = experiment_id)
+    )
+  }
+  response$experiment$tags <- parse_run_data(response$experiment$tags)
   response$experiment %>%
     new_mlflow_experiment()
-}
-
-mlflow_get_experiment_by_name <- function(name, client = NULL) {
-  client <- resolve_client(client)
-  exps <- mlflow_list_experiments(client = client)
-  if (is.null(exps)) stop("No experiments found.", call. = FALSE)
-
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) {
-    new_mlflow_experiment(experiment)
-  } else {
-    stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
-  }
 }
 
 #' Delete Experiment
@@ -165,7 +183,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 #'
 #' @template roxlate-client
 #' @param experiment_id ID of the associated experiment. This field is required.
-#' @param new_name The experiment’s name will be changed to this. The new name must be unique.
+#' @param new_name The experiment's name will be changed to this. The new name must be unique.
 #' @export
 mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NULL) {
   experiment_id <- resolve_experiment_id(experiment_id)
@@ -211,13 +229,20 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
     tryCatch(
       mlflow_id(mlflow_get_experiment(client = client, name = experiment_name)),
       error = function(e) {
-        message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
-        mlflow_create_experiment(client = client, name = experiment_name, artifact_location = artifact_location)
+        if (grepl(
+              fixed = TRUE,
+              x = e$message,
+              pattern = paste(
+                "Could not find experiment with name '", experiment_name, "'", sep=""))) {
+          message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
+          mlflow_create_experiment(client = client, name = experiment_name, artifact_location = artifact_location)
+        } else {
+          stop(e)
+        }
       }
     )
   } else {
     experiment_id
   }
-
   invisible(mlflow_set_active_experiment_id(final_experiment_id))
 }

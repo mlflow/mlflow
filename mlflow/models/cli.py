@@ -1,14 +1,11 @@
 import logging
 import click
-import os
-import posixpath
 
-from mlflow.models import Model
+from mlflow.models import build_docker as build_docker_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
+from mlflow.utils import env_manager as _EnvManager
+
 
 _logger = logging.getLogger(__name__)
 
@@ -28,16 +25,44 @@ def commands():
 @cli_args.MODEL_URI
 @cli_args.PORT
 @cli_args.HOST
+@cli_args.TIMEOUT
 @cli_args.WORKERS
+@cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
+@cli_args.ENABLE_MLSERVER
+def serve(
+    model_uri,
+    port,
+    host,
+    timeout,
+    workers,
+    env_manager=None,
+    no_conda=False,
+    install_mlflow=False,
+    enable_mlserver=False,
+):
     """
-    Serve a model saved with MLflow by launching a webserver on the specified host and port. For
-    information about the input data formats accepted by the webserver, see the following
+    Serve a model saved with MLflow by launching a webserver on the specified host and port.
+    The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.
+    For information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
-    You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
+    .. warning::
+
+        Models built using MLflow 1.x will require adjustments to the endpoint request payload
+        if executed in an environment that has MLflow 2.x installed. In 1.x, a request payload
+        was in the format: ``{'columns': [str], 'data': [[...]]}``. 2.x models require
+        payloads that are defined by the structural-defining keys of either ``dataframe_split``,
+        ``instances``, ``inputs`` or ``dataframe_records``. See the examples below for
+        demonstrations of the changes to the invocation API endpoint in 2.0.
+
+    .. note::
+
+        Requests made in pandas DataFrame structures can be made in either `split` or `records`
+        oriented formats.
+        See https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_json.html for
+        detailed information on orientation formats for converting a pandas DataFrame to json.
 
     Example:
 
@@ -45,91 +70,190 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
 
         $ mlflow models serve -m runs:/my-run-id/model-path &
 
+        # records orientation input format for serializing a pandas DataFrame
         $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
-            "columns": ["a", "b", "c"],
-            "data": [[1, 2, 3], [4, 5, 6]]
+            "dataframe_records": [{"a":1, "b":2}, {"a":3, "b":4}, {"a":5, "b":6}]
         }'
+
+        # split orientation input format for serializing a pandas DataFrame
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "dataframe_split": {"columns": ["a", "b"],
+                                "index": [0, 1, 2],
+                                "data": [[1, 2], [3, 4], [5, 6]]}
+        }'
+
+        # inputs format for List submission of array, tensor, or DataFrame data
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "inputs": [[1, 2], [3, 4], [5, 6]]
+        }'
+
+        # instances format for submission of Tensor data
+        curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "instances": [
+                {"a": "t1", "b": [1, 2, 3]},
+                {"a": "t2", "b": [4, 5, 6]},
+                {"a": "t3", "b": [7, 8, 9]}
+            ]
+        }'
+
     """
-    return _get_flavor_backend(model_uri,
-                               no_conda=no_conda,
-                               workers=workers,
-                               install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
-                                                                    host=host)
+    if no_conda:
+        env_manager = _EnvManager.LOCAL
+    else:
+        env_manager = env_manager or _EnvManager.VIRTUALENV
+
+    return get_flavor_backend(
+        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
+    ).serve(
+        model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
+    )
 
 
 @commands.command("predict")
 @cli_args.MODEL_URI
-@click.option("--input-path", "-i", default=None,
-              help="CSV containing pandas DataFrame to predict against.")
-@click.option("--output-path", "-o", default=None,
-              help="File to output results to as json file. If not provided, output to stdout.")
-@click.option("--content-type", "-t", default="json",
-              help="Content type of the input file. Can be one of {'json', 'csv'}.")
-@click.option("--json-format", "-j", default="split",
-              help="Only applies if the content type is 'json'. Specify how the data is encoded.  "
-                   "Can be one of {'split', 'records'} mirroring the behavior of Pandas orient "
-                   "attribute. The default is 'split' which expects dict like data: "
-                   "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, "
-                   "where index  is optional. For more information see "
-                   "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
-                   ".html")
-@cli_args.NO_CONDA
+@click.option(
+    "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against."
+)
+@click.option(
+    "--output-path",
+    "-o",
+    default=None,
+    help="File to output results to as json file. If not provided, output to stdout.",
+)
+@click.option(
+    "--content-type",
+    "-t",
+    default="json",
+    help="Content type of the input file. Can be one of {'json', 'csv'}.",
+)
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def predict(model_uri, input_path, output_path, content_type, json_format, no_conda,
-            install_mlflow):
+def predict(
+    model_uri,
+    input_path,
+    output_path,
+    content_type,
+    env_manager,
+    install_mlflow,
+):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    if content_type == "json" and json_format not in ("split", "records"):
-        raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
-                               install_mlflow=install_mlflow).predict(model_uri=model_uri,
-                                                                      input_path=input_path,
-                                                                      output_path=output_path,
-                                                                      content_type=content_type,
-                                                                      json_format=json_format)
+    env_manager = env_manager or _EnvManager.VIRTUALENV
+    return get_flavor_backend(
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+    ).predict(
+        model_uri=model_uri,
+        input_path=input_path,
+        output_path=output_path,
+        content_type=content_type,
+    )
 
 
 @commands.command("prepare-env")
 @cli_args.MODEL_URI
-@cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def prepare_env(model_uri, no_conda, install_mlflow):
+def prepare_env(
+    model_uri,
+    env_manager,
+    install_mlflow,
+):
     """
-    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
+    Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
-
-    This method is experimental and may be removed in a future release without warning.
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
-                               install_mlflow=install_mlflow).prepare_env(model_uri=model_uri)
+    env_manager = env_manager or _EnvManager.VIRTUALENV
+    return get_flavor_backend(
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+    ).prepare_env(model_uri=model_uri)
+
+
+@commands.command("generate-dockerfile")
+@cli_args.MODEL_URI_BUILD_DOCKER
+@click.option(
+    "--output-directory",
+    "-d",
+    default="mlflow-dockerfile",
+    help="Output directory where the generated Dockerfile is stored.",
+)
+@cli_args.ENV_MANAGER
+@cli_args.MLFLOW_HOME
+@cli_args.INSTALL_MLFLOW
+@cli_args.ENABLE_MLSERVER
+def generate_dockerfile(
+    model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver
+):
+    """
+    Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
+    8080 using the python_function flavor. The generated Dockerfile is written to the specified
+    output directory, along with the model (if specified). This Dockerfile defines an image that
+    is equivalent to the one produced by ``mlflow models build-docker``.
+    """
+    if model_uri:
+        _logger.info("Generating Dockerfile for model %s", model_uri)
+    else:
+        _logger.info("Generating Dockerfile")
+    env_manager = env_manager or _EnvManager.CONDA
+    backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
+    if backend.can_build_image():
+        backend.generate_dockerfile(
+            model_uri,
+            output_directory,
+            mlflow_home=mlflow_home,
+            install_mlflow=install_mlflow,
+            enable_mlserver=enable_mlserver,
+        )
+        _logger.info("Generated Dockerfile in directory %s", output_directory)
+    else:
+        _logger.error(
+            "Cannot build docker image for selected backend",
+            extra={"backend": backend.__class__.__name__},
+        )
+        raise NotImplementedError("Cannot build docker image for selected backend")
 
 
 @commands.command("build-docker")
-@cli_args.MODEL_URI
-@click.option("--name", "-n", default="mlflow-pyfunc-servable",
-              help="Name to use for built image")
+@cli_args.MODEL_URI_BUILD_DOCKER
+@click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
+@cli_args.ENV_MANAGER
+@cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
-def build_docker(model_uri, name, install_mlflow):
+@cli_args.ENABLE_MLSERVER
+def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
-    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
-    model at port 8080 within the container, using the 'python_function' flavor.
+    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
+    python_function flavor. The container serves the model referenced by ``--model-uri``, if
+    specified when ``build-docker`` is called. If ``--model-uri`` is not specified when build_docker
+    is called, an MLflow Model directory must be mounted as a volume into the /opt/ml/model
+    directory in the container.
 
-    For example, the following command builds a docker image named 'my-image-name' that serves the
-    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
-
-    .. code:: bash
-
-        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
-
-    We can then serve the model, exposing it at port 5001 on the host via:
+    Building a Docker image with ``--model-uri``:
 
     .. code:: bash
 
+        # Build a Docker image named 'my-image-name' that serves the model from run 'some-run-uuid'
+        # at run-relative artifact path 'my-model'
+        mlflow models build-docker --model-uri "runs:/some-run-uuid/my-model" --name "my-image-name"
+        # Serve the model
         docker run -p 5001:8080 "my-image-name"
+
+    Building a Docker image without ``--model-uri``:
+
+    .. code:: bash
+
+        # Build a generic Docker image named 'my-image-name'
+        mlflow models build-docker --name "my-image-name"
+        # Mount the model stored in '/local/path/to/artifacts/model' and serve it
+        docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
+
+    .. warning::
+
+        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
+        MLeap model server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -139,31 +263,15 @@ def build_docker(model_uri, name, install_mlflow):
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
 
-
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
-
-    This command is experimental (may be changed or removed in a future release without warning)
-    and does not guarantee that the arguments nor format of the Docker container will remain the
-    same.
     """
-    mlflow_home = os.environ.get("MLFLOW_HOME", None)
-    _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name,
-                                                                  mlflow_home=mlflow_home,
-                                                                  install_mlflow=install_mlflow)
-
-
-def _get_flavor_backend(model_uri, **kwargs):
-    with TempDir() as tmp:
-        if ModelsArtifactRepository.is_models_uri(model_uri):
-            underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        else:
-            underlying_model_uri = model_uri
-        local_path = _download_artifact_from_uri(posixpath.join(underlying_model_uri, "MLmodel"),
-                                                 output_path=tmp.path())
-        model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
-    if flavor_backend is None:
-        raise Exception("No suitable flavor backend was found for the model.")
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
-    return flavor_backend
+    env_manager = env_manager or _EnvManager.VIRTUALENV
+    build_docker_api(
+        model_uri,
+        name,
+        env_manager=env_manager,
+        mlflow_home=mlflow_home,
+        install_mlflow=install_mlflow,
+        enable_mlserver=enable_mlserver,
+    )

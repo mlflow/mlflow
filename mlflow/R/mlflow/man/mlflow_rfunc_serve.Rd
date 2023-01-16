@@ -4,8 +4,14 @@
 \alias{mlflow_rfunc_serve}
 \title{Serve an RFunc MLflow Model}
 \usage{
-mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-  daemonized = FALSE, browse = !daemonized, ...)
+mlflow_rfunc_serve(
+  model_uri,
+  host = "127.0.0.1",
+  port = 8090,
+  daemonized = FALSE,
+  browse = !daemonized,
+  ...
+)
 }
 \arguments{
 \item{model_uri}{The location, in URI format, of the MLflow model.}
@@ -39,6 +45,8 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
                  - ``file:relative/path/to/local/model``
                  - ``s3://my_bucket/path/to/model``
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                 - ``models:/<model_name>/<model_version>``
+                 - ``models:/<model_name>/<stage>``
 
  For more information about supported URI schemes, see the Artifacts Documentation at
  https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.

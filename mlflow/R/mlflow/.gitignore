@@ -17,3 +17,7 @@ packrat.lock
 r-dependencies.txt
 Reference_Manual_mlflow.md
 *.Rcheck/
+depends.Rds
+R-version
+*.tar.gz
+crate.bin

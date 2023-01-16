@@ -1,16 +1,13 @@
 """
 CLI for runs
 """
-from __future__ import print_function
-
 import click
 import json
 import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
-from tabulate import tabulate
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
+from mlflow.utils.string_utils import _create_table
 
 RUN_ID = click.option("--run-id", type=click.STRING, required=True)
 
@@ -25,11 +22,20 @@ def commands():
 
 
 @commands.command("list")
-@click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
-              help="Specify the experiment ID for list of runs.", required=True)
-@click.option("--view", "-v", default="active_only",
-              help="Select view type for list experiments. Valid view types are "
-                   "'active_only' (default), 'deleted_only', and 'all'.")
+@click.option(
+    "--experiment-id",
+    envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR,
+    type=click.STRING,
+    help="Specify the experiment ID for list of runs.",
+    required=True,
+)
+@click.option(
+    "--view",
+    "-v",
+    default="active_only",
+    help="Select view type for list experiments. Valid view types are "
+    "'active_only' (default), 'deleted_only', and 'all'.",
+)
 def list_run(experiment_id, view):
     """
     List all runs of the specified experiment in the configured tracking server.
@@ -39,10 +45,9 @@ def list_run(experiment_id, view):
     runs = store.search_runs([experiment_id], None, view_type)
     table = []
     for run in runs:
-        tags = {k: v for k, v in run.data.tags.items()}
-        run_name = tags.get(MLFLOW_RUN_NAME, "")
+        run_name = run.info.run_name or ""
         table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
-    print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
+    click.echo(_create_table(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
 @commands.command("delete")
@@ -55,7 +60,7 @@ def delete_run(run_id):
     """
     store = _get_store()
     store.delete_run(run_id)
-    print("Run with ID %s has been deleted." % str(run_id))
+    click.echo("Run with ID %s has been deleted." % str(run_id))
 
 
 @commands.command("restore")
@@ -67,10 +72,10 @@ def restore_run(run_id):
     """
     store = _get_store()
     store.restore_run(run_id)
-    print("Run with id %s has been restored." % str(run_id))
+    click.echo("Run with id %s has been restored." % str(run_id))
 
 
-@commands.command('describe')
+@commands.command("describe")
 @RUN_ID
 def describe_run(run_id):
     """
@@ -79,4 +84,4 @@ def describe_run(run_id):
     store = _get_store()
     run = store.get_run(run_id)
     json_run = json.dumps(run.to_dictionary(), indent=4)
-    print(json_run)
+    click.echo(json_run)

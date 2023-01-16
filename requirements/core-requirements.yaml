@@ -1,0 +1,85 @@
+# These are the core requirements for the complete MLflow platform, which augments
+# the skinny client functionality with support for running the MLflow Tracking
+# Server & UI. It also adds project backends such as Docker and Kubernetes among
+# other capabilities.
+
+alembic:
+  pip_release: alembic
+  max_major_version: 1
+
+docker:
+  pip_release: docker
+  minimum: "4.0.0"
+  max_major_version: 6
+
+flask:
+  pip_release: Flask
+  max_major_version: 2
+
+numpy:
+  pip_release: numpy
+  max_major_version: 1
+
+scipy:
+  pip_release: scipy
+  max_major_version: 1
+
+pandas:
+  pip_release: pandas
+  max_major_version: 1
+
+querystring_parser:
+  pip_release: querystring_parser
+  max_major_version: 1
+
+sqlalchemy:
+  pip_release: sqlalchemy
+  minimum: "1.4.0"
+  max_major_version: 1
+
+gunicorn:
+  pip_release: gunicorn
+  max_major_version: 20
+  markers: "platform_system != 'Windows'"
+
+waitress:
+  pip_release: waitress
+  max_major_version: 2
+  markers: "platform_system == 'Windows'"
+
+scikit-learn:
+  pip_release: scikit-learn
+  max_major_version: 1
+
+pyarrow:
+  pip_release: pyarrow
+  minimum: "4.0.0"
+  max_major_version: 10
+
+shap:
+  pip_release: shap
+  minimum: "0.40"
+  max_major_version: 0
+
+markdown:
+  pip_release: markdown
+  minimum: "3.3"
+  max_major_version: 3
+
+Jinja2-non-windows:
+  pip_release: Jinja2
+  minimum: "2.11"
+  max_major_version: 3
+  markers: "platform_system != 'Windows'"
+
+Jinja2-windows:
+  pip_release: Jinja2
+  # `mlflow.pyfunc.spark_udf` doesn't work properly with Jinja2==2.11 on Windows.
+  # See https://github.com/mlflow/mlflow/pull/6931 for more information.
+  minimum: "3.0"
+  max_major_version: 3
+  markers: "platform_system == 'Windows'"
+
+matplotlib:
+  pip_release: matplotlib
+  max_major_version: 3

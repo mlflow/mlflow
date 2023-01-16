@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.2
+  - pip
+  - pip:
+      - mlflow
+      - torchvision>=0.9.1
+      - torch>=1.9.0
+      - pytorch-lightning==1.7.6
+      - protobuf<4.0.0

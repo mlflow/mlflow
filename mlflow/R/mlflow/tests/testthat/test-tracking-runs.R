@@ -1,12 +1,17 @@
 context("Tracking")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+  options(MLflowObservers = NULL)
+})
+
 test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run <- mlflow_get_run(client = client, run$run_uuid)
@@ -18,10 +23,26 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
-        list(key = "mlflow.user", value = "user1")
+        list(key = "mlflow.user", value = "user1"),
+        list(key = "mlflow.runName", value = run$run_name)
       )
     )
   )
+})
+
+test_that("a run can be started properly if MLFLOW_RUN_ID is set", {
+  mlflow_clear_test_dir("mlruns")
+  # Typical use case: Invoke an R script that interacts with the MLflow API from
+  # outside of R, e.g. MLproject, Python, CLI
+  start_get_id_stop <- function() {
+    tryCatch(mlflow_id(mlflow_start_run()), finally = {
+      mlflow_end_run()
+    })
+  }
+  id <- start_get_id_stop()
+  withr::with_envvar(list(MLFLOW_RUN_ID = id), {
+    expect_equal(start_get_id_stop(), id)
+  })
 })
 
 test_that("mlflow_end_run() works properly", {
@@ -38,11 +59,63 @@ test_that("mlflow_end_run() works properly", {
 
   # Verify that only expected run field names are present and that all run info fields are set
   # (not NA).
-  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  run_info_names <- c("run_uuid", "experiment_id", "user_id", "run_name", "status", "start_time",
   "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   run_data_names <- c("metrics", "params", "tags")
   expect_setequal(c(run_info_names, run_data_names), names(run))
   expect_true(!anyNA(run[run_info_names]))
+})
+
+test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs", {
+  mlflow_clear_test_dir("mlruns")
+  runs <- list(
+    mlflow_start_run(),
+    mlflow_start_run(nested = TRUE),
+    mlflow_start_run(nested = TRUE)
+  )
+  client <- mlflow_client()
+  for (i in seq(3, 1, -1)) {
+    expect_equal(mlflow:::mlflow_get_active_run_id(), runs[[i]]$run_uuid)
+    run <- mlflow_end_run(client = client, run_id = runs[[i]]$run_uuid)
+    expect_identical(run$run_uuid, runs[[i]]$run_uuid)
+    if (i > 1) {
+      tags <- run$tags[[1]]
+      expect_equal(
+        tags[tags$key == "mlflow.parentRunId", ]$value,
+        runs[[i - 1]]$run_uuid
+      )
+    }
+  }
+  expect_null(mlflow:::mlflow_get_active_run_id())
+})
+
+test_that("mlflow_restore_run() work properly", {
+  mlflow_clear_test_dir("mlruns")
+  client <- mlflow_client()
+  run1 <- mlflow_start_run(
+    client = client,
+    experiment_id = "0",
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
+  )
+
+  run2 <- mlflow_get_run(client = client, run1$run_uuid)
+  mlflow_delete_run(client = client, run_id = run1$run_uuid)
+  run3 <- mlflow_restore_run(client = client, run_id = run1$run_uuid)
+
+  for (run in list(run1, run2, run3)) {
+    expect_identical(run$user_id, "user1")
+
+    expect_true(
+      all(purrr::transpose(run$tags[[1]]) %in%
+        list(
+          list(key = "foz", value = "baz"),
+          list(key = "foo", value = "bar"),
+          list(key = "mlflow.user", value = "user1"),
+          list(key = "mlflow.runName", value = run$run_name)
+        )
+      )
+    )
+  }
 })
 
 test_that("mlflow_set_tag() should return NULL invisibly", {
@@ -65,6 +138,8 @@ test_that("logging functionality", {
 
   mlflow_set_tag("tag_key", "tag_value")
   mlflow_log_param("param_key", "param_value")
+  mlflow_log_param("na", NA)
+  mlflow_log_param("nan", NaN)
 
   run <- mlflow_get_run()
   metrics <- run$metrics[[1]]
@@ -77,8 +152,8 @@ test_that("logging functionality", {
   run_id <- run$run_uuid
   tags <- run$tags[[1]]
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])
-  expect_identical(run$params[[1]]$key, "param_key")
-  expect_identical(run$params[[1]]$value, "param_value")
+  expect_setequal(run$params[[1]]$key, c("na", "nan", "param_key"))
+  expect_setequal(run$params[[1]]$value, c("NA", "NaN", "param_value"))
 
   mlflow_delete_tag("tag_key", run_id)
   run <- mlflow_get_run()
@@ -289,17 +364,24 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     expect_equal(nrow(empty_artifact_list), 0)
     source_dir <- file.path(tempdir(), "temp-directory")
     dir.create(source_dir)
-    file_path <- file.path(source_dir, "my-file")
+    ## file 1
+    file_path1 <- file.path(source_dir, "a-my-file")
     contents <- "File contents\n"
-    cat(contents, file = file_path, sep = "")
+    cat(contents, file = file_path1, sep = "")
+    ## file 2
+    file_path2 <- file.path(source_dir, "a-my-file-2")
+    contents <- "File contents\n"
+    cat(contents, file = file_path2, sep = "")
+
     # Log file, file with path, directory with path argument
-    mlflow_log_artifact(file_path)
-    mlflow_log_artifact(file_path, "directory_for_file")
+    mlflow_log_artifact(file_path1)
+    mlflow_log_artifact(file_path2)
+    mlflow_log_artifact(file_path1, "directory_for_file")
     mlflow_log_artifact(source_dir, "artifact_subdirectory")
     # Verify logged files
     artifact_list0 <- mlflow_list_artifacts()
-    expect_equal(nrow(artifact_list0), 3)
-    logged_file0 <- artifact_list0[artifact_list0$path == "my-file", ]
+    expect_equal(nrow(artifact_list0), 4)
+    logged_file0 <- artifact_list0[artifact_list0$path == "a-my-file", ]
     expect_equal(nrow(logged_file0), 1)
     expect_equal(logged_file0$is_dir, FALSE)
     logged_file1 <- artifact_list0[artifact_list0$path == "directory_for_file", ]
@@ -310,9 +392,9 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     expect_equal(logged_dir0$is_dir, TRUE)
     # Verify contents of logged directory
     artifact_list1 <- mlflow_list_artifacts("artifact_subdirectory")
-    expect_equal(nrow(artifact_list1), 1)
+    expect_equal(nrow(artifact_list1), 2)
     logged_file2 <- artifact_list1[artifact_list1$path ==
-      paste("artifact_subdirectory", "my-file", sep = "/"), ]
+      paste("artifact_subdirectory", "a-my-file", sep = "/"), ]
     expect_equal(nrow(logged_file2), 1)
     expect_equal(logged_file2$is_dir, FALSE)
     expect_equal(strtoi(logged_file2$file_size), nchar(contents))
@@ -320,26 +402,11 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     artifact_list2 <- mlflow_list_artifacts("directory_for_file")
     expect_equal(nrow(artifact_list2), 1)
     logged_file3 <- artifact_list2[artifact_list2$path ==
-    paste("directory_for_file", "my-file", sep = "/"), ]
+    paste("directory_for_file", "a-my-file", sep = "/"), ]
     expect_equal(nrow(logged_file3), 1)
     expect_equal(logged_file3$is_dir, FALSE)
     expect_equal(strtoi(logged_file3$file_size), nchar(contents))
   })
-})
-
-test_that("mlflow_list_run_infos() works", {
-  mlflow_clear_test_dir("mlruns")
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("test", 10)
-  })
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 1)
-  mlflow_set_experiment("new-experiment")
-  expect_equal(nrow(mlflow_list_run_infos()), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("new_experiment_metric", 20)
-  })
-  expect_equal(nrow(mlflow_list_run_infos()), 1)
 })
 
 test_that("mlflow_log_batch() works", {
@@ -565,4 +632,84 @@ test_that("mlflow_log_batch() throws for missing entries", {
     ),
     regexp = error_text_regexp
   )
+})
+
+test_that("mlflow observers receive tracking event callbacks", {
+  num_observers <- 3L
+  tracking_events <- rep(list(list()), num_observers)
+  lapply(
+    seq_along(tracking_events),
+    function(idx) {
+      observer <- structure(list(
+        register_tracking_event = function(event_name, data) {
+          tracking_events[[idx]][[event_name]] <<- append(
+            tracking_events[[idx]][[event_name]], list(data)
+          )
+        }
+      ))
+      mlflow_register_external_observer(observer)
+    }
+  )
+  client <- mlflow_client()
+  experiment_id <- "0"
+  run <- mlflow_start_run(client = client, experiment_id = experiment_id)
+  mlflow_set_experiment(experiment_id = experiment_id)
+  expect_equal(length(tracking_events), num_observers)
+  for (idx in seq(num_observers)) {
+    expect_equal(
+      tracking_events[[idx]]$create_run[[1]]$run_id,
+      run$run_id
+    )
+    expect_equal(
+      tracking_events[[idx]]$create_run[[1]]$experiment_id,
+      experiment_id
+    )
+    expect_equal(
+      tracking_events[[idx]]$active_experiment_id[[1]]$experiment_id,
+      experiment_id
+    )
+  }
+
+  mlflow_end_run(client = client, run_id = run$run_uuid)
+  expect_equal(length(tracking_events), num_observers)
+  for (idx in seq(num_observers)) {
+    expect_equal(
+      tracking_events[[idx]]$set_terminated[[1]]$run_uuid, run$run_uuid
+    )
+  }
+})
+
+test_that("mlflow get metric history performs pagination", {
+  mlflow_clear_test_dir("mlruns")
+  run <- mlflow_start_run()
+
+  batch_size <- 1000
+  for (x in 0:25) {
+    # 0th index entries for timestamp will not work due to pagination filter default logic
+    # add a `+1` to the start and end values
+    start <- (batch_size * x) + 1
+    end <- (batch_size * (x + 1))
+    metrics <- data.frame(key = rep(c("m1"), batch_size),
+                        value = seq.int(from = start, to = end, by = 1),
+                        timestamp = seq.int(from = start, to = end, by = 1),
+                        step = seq.int(from = start, to = end, by = 1)
+                       )
+    mlflow_log_batch(metrics = metrics)
+  }
+  logged <- mlflow_get_metric_history(metric_key = "m1", run_id = run$run_id)
+
+  expect_equal(nrow(logged), 26000)
+
+  first_entry <- head(logged, n = 1)
+  expect_equal(first_entry$key, "m1")
+  expect_equal(first_entry$value, 1)
+  expect_equal(first_entry$step, 1)
+  expect_equal(first_entry$timestamp, purrr::map(c(1), mlflow:::milliseconds_to_date)[[1]])
+
+  last_entry <- tail(logged, n = 1)
+  expect_equal(last_entry$key, "m1")
+  expect_equal(last_entry$value, 26000)
+  expect_equal(last_entry$step, 26000)
+  expect_equal(last_entry$timestamp, purrr::map(c(26000), mlflow:::milliseconds_to_date)[[1]])
+  mlflow_end_run()
 })

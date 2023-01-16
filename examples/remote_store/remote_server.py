@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import shutil
 import sys
@@ -7,8 +5,16 @@ import random
 import tempfile
 
 import mlflow
-from mlflow import log_metric, log_param, log_artifacts, get_artifact_uri, active_run,\
-    get_tracking_uri, log_artifact
+from mlflow import (
+    log_metric,
+    log_param,
+    log_artifacts,
+    get_artifact_uri,
+    active_run,
+    get_tracking_uri,
+    log_artifact,
+    MlflowClient,
+)
 
 if __name__ == "__main__":
     print("Running {} with tracking URI {}".format(sys.argv[0], get_tracking_uri()))
@@ -19,12 +25,14 @@ if __name__ == "__main__":
     log_metric("random_int", random.randint(0, 100))
     run_id = active_run().info.run_id
     # Get run metadata & data from the tracking server
-    service = mlflow.tracking.MlflowClient()
+    service = MlflowClient()
     run = service.get_run(run_id)
-    print("Metadata & data for run with UUID %s: %s" % (run_id, run))
+    print("Metadata & data for run with UUID {}: {}".format(run_id, run))
     local_dir = tempfile.mkdtemp()
-    message = "test artifact written during run %s within artifact URI %s\n" \
-              % (active_run().info.run_id, get_artifact_uri())
+    message = "test artifact written during run {} within artifact URI {}\n".format(
+        active_run().info.run_id,
+        get_artifact_uri(),
+    )
     try:
         file_path = os.path.join(local_dir, "some_output_file.txt")
         with open(file_path, "w") as handle:

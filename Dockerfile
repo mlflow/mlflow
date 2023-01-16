@@ -1,17 +1,32 @@
-FROM continuumio/miniconda
+FROM python:3.8
 
 WORKDIR /app
 
 ADD . /app
 
-RUN apt-get update && apt-get install -y default-libmysqlclient-dev build-essential &&  \
-    pip install -r dev-requirements.txt && \
-    pip install -r test-requirements.txt && \
-    pip install -e . && \
-    apt-get install -y gnupg && \
-    apt-get install -y openjdk-8-jre-headless && \
-    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
-    apt-get update && apt-get install -y nodejs && \
+RUN groupadd --gid 10001 mlflow \
+  && useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
+
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
+    # install prequired modules to support install of mlflow and related components
+    apt-get install -y --no-install-recommends nodejs build-essential openjdk-11-jre-headless \
+    # cmake and protobuf-compiler required for onnx install
+    cmake protobuf-compiler && \
+    # install required python packages
+    pip install --no-cache-dir -r requirements/dev-requirements.txt && \
+    # install mlflow in editable form
+    pip install --no-cache-dir -e . && \
+    # build MLflow UI
+    npm install --global yarn && \
     cd mlflow/server/js && \
-    npm install && \
-    npm run build
+    yarn install && \
+    yarn build && \
+    # clean cache
+    apt-get autoremove -yqq --purge && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    npm cache clean --force && \
+    yarn cache clean --all
+
+# The "mlflow" user created above, represented numerically for optimal compatibility with Kubernetes security policies
+USER 10001
+
+CMD ["bash"]

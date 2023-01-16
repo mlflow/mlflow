@@ -1,11 +1,13 @@
+#' @include tracking-globals.R
+NULL
 
 # Translate metric to value to safe format for REST.
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)
-  } else if (value == Inf) {
+  } else if (is.infinite(value) && value > 0) {
     "Infinity"
-  } else if (value == -Inf) {
+  } else if (is.infinite(value) && value < 0) {
     "-Infinity"
   } else {
     as.character(value)
@@ -37,14 +39,17 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
   timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- round(timestamp %||% current_time())
   step <- round(cast_nullable_scalar_double(step) %||% 0)
-  mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
+  data <- list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value,
     timestamp = timestamp,
     step = step
-  ))
+  )
+  mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("log_metric", data)
+
   invisible(value)
 }
 
@@ -61,18 +66,20 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
 
   start_time <- start_time %||% current_time()
 
-  response <- mlflow_rest(
-    "runs", "create",
-    client = client, verb = "POST",
-    data = list(
-      experiment_id = experiment_id,
-      user_id = user_id,
-      start_time = start_time,
-      tags = tags
-    )
+  data <- list(
+    experiment_id = experiment_id,
+    user_id = user_id,
+    start_time = start_time,
+    tags = tags
   )
+  response <- mlflow_rest(
+    "runs", "create", client = client, verb = "POST", data = data
+  )
+  run_id <- response$run$info$run_uuid
+  data$run_id <- run_id
+  mlflow_register_tracking_event("create_run", data)
 
-  mlflow_get_run(run_id = response$run$info$run_uuid, client = client)
+  mlflow_get_run(run_id = run_id, client = client)
 }
 
 #' Delete a Run
@@ -86,9 +93,9 @@ mlflow_delete_run <- function(run_id, client = NULL) {
   if (identical(run_id, mlflow_get_active_run_id()))
     stop("Cannot delete an active run.", call. = FALSE)
   client <- resolve_client(client)
-  mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
-    run_id = run_id
-  ))
+  data <- list(run_id = run_id)
+  mlflow_rest("runs", "delete", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("delete_run", data)
   invisible(NULL)
 }
 
@@ -101,10 +108,11 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 mlflow_restore_run <- function(run_id, client = NULL) {
   run_id <- cast_string(run_id)
   client <- resolve_client(client)
-  mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
-    run_id = run_id
-  ))
-  mlflow_get_run(run_id)
+  data <- list(run_id = run_id)
+  mlflow_rest("runs", "restore", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("restore_run", data)
+
+  mlflow_get_run(run_id, client = client)
 }
 
 #' Get Run
@@ -149,12 +157,15 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id 
 
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
-  mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
+  data <- list(
     run_id = run_id,
     metrics = metrics,
     params = params,
     tags = tags
-  ))
+  )
+  mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("log_batch", data)
+
   invisible(NULL)
 }
 
@@ -198,12 +209,14 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
   key <- cast_string(key)
   value <- cast_string(value)
 
-  mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
+  data <- list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value
-  ))
+  )
+  mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("set_tag", data)
 
   invisible(NULL)
 }
@@ -222,10 +235,9 @@ mlflow_delete_tag <- function(key, run_id = NULL, client = NULL) {
 
   key <- cast_string(key)
 
-  mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = list(
-    run_id = run_id,
-    key = key
-  ))
+  data <- list(run_id = run_id, key = key)
+  mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("delete_tag", data)
 
   invisible(NULL)
 }
@@ -246,16 +258,41 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   key <- cast_string(key)
-  value <- cast_string(value)
+  value <- cast_string(value, allow_na = TRUE)
+  value <- ifelse(is.na(value), "NA", value)
 
-  mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
+  data <- list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
-    value = cast_string(value)
-  ))
+    value = value
+  )
+  mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = data)
+  mlflow_register_tracking_event("log_param", data)
 
   invisible(value)
+}
+
+paged_metric_history_request <- function(client, run_id, metric_key, page_token = NULL) {
+  response <- mlflow_rest(
+    "metrics", "get-history",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id,
+                 run_id = run_id,
+                 metric_key = metric_key,
+                 max_results = 25000,
+                 page_token = page_token)
+  )
+  response
+}
+
+paged_metric_history_to_dataframe <- function(metrics) {
+  metrics %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
+    tibble::as_tibble()
 }
 
 #' Get Metric History
@@ -272,19 +309,21 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
   client <- resolve_client(client)
 
   metric_key <- cast_string(metric_key)
+  response <- paged_metric_history_request(client, run_id, metric_key)
+  history <- paged_metric_history_to_dataframe(response$metrics)
+  next_token <- response$next_page_token
 
-  response <- mlflow_rest(
-    "metrics", "get-history",
-    client = client, verb = "GET",
-    query = list(run_uuid = run_id, run_id = run_id, metric_key = metric_key)
-  )
-
-  response$metrics %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    purrr::map_at("timestamp", milliseconds_to_date) %>%
-    purrr::map_at("step", as.double) %>%
-    tibble::as_tibble()
+  # Handle client-side pagination if a next_page_token is returned
+  while (!is.null(next_token)) {
+    next_page <- paged_metric_history_request(
+      client, run_id,
+      metric_key, next_token
+    )
+    next_token <- next_page$next_page_token
+    next_page_metrics <- paged_metric_history_to_dataframe(next_page$metrics)
+    history <- rbind(history, next_page_metrics)
+  }
+  history
 }
 
 #' Search Runs
@@ -294,8 +333,9 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @template roxlate-client
 #' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
 #' over. Attempts to use active experiment if not specified.
-#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
-#'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
+#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset
+#'   of runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+#'   between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
 #' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
@@ -355,6 +395,12 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
   message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
   files_list <- if (!is.null(response$files)) response$files else list()
+  files_list <- purrr::map(files_list, function(file_info) {
+    if (is.null(file_info$file_size)) {
+      file_info$file_size <- NA
+    }
+    file_info
+  })
   files_list %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
@@ -362,13 +408,15 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
 }
 
 mlflow_set_terminated <- function(status, end_time, run_id, client) {
-
-  response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = list(
+  data <- list(
     run_uuid = run_id,
     run_id = run_id,
     status = status,
     end_time = end_time
-  ))
+  )
+  response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = data)
+  mlflow_register_tracking_event("set_terminated", data)
+
   mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
 }
 
@@ -405,36 +453,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
-  gsub("\n", "", result$stdout)
-}
-
-#' List Run Infos
-#'
-#' Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the
-#' specified experiment.
-#'
-#' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
-#' @param run_view_type Run view type.
-#' @template roxlate-client
-#' @export
-mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
-                                  experiment_id = NULL, client = NULL) {
-  experiment_id <- resolve_experiment_id(experiment_id)
-  client <- resolve_client(client)
-
-  run_view_type <- match.arg(run_view_type)
-  experiment_ids <- cast_string_list(experiment_id)
-
-  response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
-    experiment_ids = experiment_ids,
-    filter = NULL,
-    run_view_type = run_view_type
-  ))
-
-  run_infos_list <- response$runs %>%
-    purrr::map("info") %>%
-    purrr::map(parse_run_info)
-  do.call("rbind", run_infos_list) %||% data.frame()
+  trimws(result$stdout)
 }
 
 #' Log Artifact
@@ -483,6 +502,15 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   invisible(mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client))
 }
 
+# Record logged model metadata with the tracking server.
+mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+  mlflow_rest("runs", "log-model", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    model_json = jsonlite::toJSON(model_spec, auto_unbox = TRUE)
+  ))
+}
+
 #' Start Run
 #'
 #' Starts a new run. If `client` is not provided, this function infers contextual information such as
@@ -497,6 +525,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #'   a new experiment with a randomly generated name.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
+#' @param nested Controls whether the run to be started is nested in a parent run. `TRUE` creates a nest run.
 #' @template roxlate-client
 #'
 #' @examples
@@ -507,12 +536,15 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL,
+                             start_time = NULL, tags = NULL,
+                             client = NULL, nested = FALSE) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
-    if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
+    if (!is.null(run_id))
+        stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
     run <- mlflow_create_run(client = client, start_time = start_time,
                              tags = tags, experiment_id = experiment_id)
     return(run)
@@ -520,12 +552,16 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
 
   # Fluent mode, check to see if extraneous params passed.
 
-  if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
-  if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(start_time))
+    stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(tags))
+    stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
   active_run_id <- mlflow_get_active_run_id()
-  if (!is.null(active_run_id)) {
-    stop("Run with UUID ", active_run_id, " is already active.",
+  if (!is.null(active_run_id) && !nested) {
+    stop("Run with UUID ",
+         active_run_id,
+         " is already active. To start a nested run, Call `mlflow_start_run()` with `nested = TRUE`.",
          call. = FALSE
     )
   }
@@ -550,7 +586,8 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
     )
     do.call(mlflow_create_run, args)
   }
-  mlflow_set_active_run_id(mlflow_id(run))
+  mlflow_push_active_run_id(mlflow_id(run))
+  mlflow_set_experiment(experiment_id = run$experiment_id)
   run
 }
 
@@ -564,6 +601,12 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL
+  parent_run_id <- mlflow_get_active_run_id()
+  if (!is.null(parent_run_id)) {
+    # create a tag containing the parent run ID so that MLflow UI can display
+    # nested runs properly
+    tags[[MLFLOW_TAGS$MLFLOW_PARENT_RUN_ID]] <- parent_run_id
+  }
   list(
     client = client,
     tags = tags,
@@ -606,7 +649,7 @@ mlflow_end_run <- function(status = c("FINISHED", "FAILED", "KILLED"),
                           end_time = end_time)
   }
 
-  if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
+  if (identical(run_id, active_run_id)) mlflow_pop_active_run_id()
   run
 }
 
@@ -614,5 +657,6 @@ MLFLOW_TAGS <- list(
   MLFLOW_USER = "mlflow.user",
   MLFLOW_SOURCE_NAME = "mlflow.source.name",
   MLFLOW_SOURCE_VERSION = "mlflow.source.version",
-  MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+  MLFLOW_SOURCE_TYPE = "mlflow.source.type",
+  MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 )

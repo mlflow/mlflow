@@ -6,150 +6,105 @@ The built-in flavors are:
 
 - :py:mod:`mlflow.pyfunc`
 - :py:mod:`mlflow.h2o`
-- :py:mod:`mlflow.keras`
+- :py:mod:`mlflow.lightgbm`
 - :py:mod:`mlflow.pytorch`
 - :py:mod:`mlflow.sklearn`
 - :py:mod:`mlflow.spark`
+- :py:mod:`mlflow.statsmodels`
 - :py:mod:`mlflow.tensorflow`
+- :py:mod:`mlflow.xgboost`
+- :py:mod:`mlflow.spacy`
+- :py:mod:`mlflow.fastai`
+- :py:mod:`mlflow.paddle`
 
 For details, see `MLflow Models <../models.html>`_.
 """
 
-from abc import abstractmethod, ABCMeta
-from datetime import datetime
+from .model import Model, get_model_info
+from .flavor_backend import FlavorBackend
+from ..utils.environment import infer_pip_requirements
+from .evaluation import (
+    evaluate,
+    make_metric,
+    EvaluationMetric,
+    EvaluationArtifact,
+    EvaluationResult,
+    list_evaluators,
+    MetricThreshold,
+)
 
-import yaml
-
-import mlflow
-from mlflow.utils.file_utils import TempDir
+from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.utils import env_manager as _EnvManager
 
 
-class Model(object):
+def build_docker(
+    model_uri=None,
+    name="mlflow-pyfunc",
+    env_manager=_EnvManager.VIRTUALENV,
+    mlflow_home=None,
+    install_mlflow=False,
+    enable_mlserver=False,
+):
     """
-    An MLflow Model that can support multiple model flavors. Provides APIs for implementing
-    new Model flavors.
+    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
+    python_function flavor. The container serves the model referenced by ``model_uri``, if
+    specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
+    volume into the /opt/ml/model directory in the container.
+
+    .. warning::
+
+        If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
+        the RFunc or Java MLeap model servers.
+
+    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    nginx process to be started (for instance if you deploy your container to Google Cloud Run),
+    you can disable it via the DISABLE_NGINX environment variable:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
+
+    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
+    'python_function' flavor.
     """
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
-        # store model id instead of run_id and path to avoid confusion when model gets exported
-        if run_id:
-            self.run_id = run_id
-            self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
-        self.flavors = flavors if flavors is not None else {}
-
-    def add_flavor(self, name, **params):
-        """Add an entry for how to serve the model in a given format."""
-        self.flavors[name] = params
-        return self
-
-    def to_yaml(self, stream=None):
-        return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
-
-    def save(self, path):
-        """Write the model as a local YAML file."""
-        with open(path, 'w') as out:
-            self.to_yaml(out)
-
-    @classmethod
-    def load(cls, path):
-        """Load a model from its YAML representation."""
-        import os
-        if os.path.isdir(path):
-            path = os.path.join(path, "MLmodel")
-        with open(path) as f:
-            return cls(**yaml.safe_load(f.read()))
-
-    @classmethod
-    def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
-        """
-        Log model using supplied flavor module.
-
-        :param artifact_path: Run relative path identifying the model.
-        :param flavor: Flavor module to save the model with. The module must have
-                       the ``save_model`` function that will persist the model as a valid
-                       MLflow model.
-        :param registered_model_name: Note:: Experimental: This argument may change or be removed
-                                      in a future release without warning. If given, create a model
-                                      version under ``registered_model_name``, also creating a
-                                      registered model if one with the given name does not exist.
-        :param kwargs: Extra args passed to the model flavor.
-        """
-        with TempDir() as tmp:
-            local_path = tmp.path("model")
-            run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-            mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
-            if registered_model_name is not None:
-                run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),
-                                      registered_model_name)
+    get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
+        model_uri,
+        name,
+        mlflow_home=mlflow_home,
+        install_mlflow=install_mlflow,
+        enable_mlserver=enable_mlserver,
+    )
 
 
-class FlavorBackend(object):
-    """
-        Abstract class for Flavor Backend.
-        This class defines the API interface for local model deployment of MLflow model flavors.
-    """
+__all__ = [
+    "Model",
+    "FlavorBackend",
+    "infer_pip_requirements",
+    "evaluate",
+    "make_metric",
+    "EvaluationMetric",
+    "EvaluationArtifact",
+    "EvaluationResult",
+    "get_model_info",
+    "list_evaluators",
+    "MetricThreshold",
+    "build_docker",
+]
 
-    __metaclass__ = ABCMeta
 
-    def __init__(self, config, **kwargs):  # pylint: disable=unused-argument
-        self._config = config
+# Under skinny-mlflow requirements, the following packages cannot be imported
+# because of lack of numpy/pandas library, so wrap them with try...except block
+try:
+    from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
+    from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
+    from .utils import add_libraries_to_model  # pylint: disable=unused-import
 
-    @abstractmethod
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
-        """
-        Generate predictions using a saved MLflow model referenced by the given URI.
-        Input and output are read from and written to a file or stdin / stdout.
-
-        :param model_uri: URI pointing to the MLflow model to be used for scoring.
-        :param input_path: Path to the file with input data. If not specified, data is read from
-                           stdin.
-        :param output_path: Path to the file with output predictions. If not specified, data is
-                            written to stdout.
-        :param content_type: Specifies the input format. Can be one of {``json``, ``csv``}
-        :param json_format: Only applies if ``content_type == json``. Specifies how is the input
-                            data encoded in json. Can be one of {``split``, ``records``} mirroring
-                            the behavior of Pandas orient attribute. The default is ``split`` which
-                            expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
-                            'data' -> [values]}``, where index is optional.
-                            For more information see
-                            https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
-        """
-        pass
-
-    @abstractmethod
-    def serve(self, model_uri, port, host):
-        """
-        Serve the specified MLflow model locally.
-
-        :param model_uri: URI pointing to the MLflow model to be used for scoring.
-        :param port: Port to use for the model deployment.
-        :param host: Host to use for the model deployment. Defaults to ``localhost``.
-        """
-        pass
-
-    def prepare_env(self, model_uri):
-        """
-        Performs any preparation necessary to predict or serve the model, for example
-        downloading dependencies or initializing a conda environment. After preparation,
-        calling predict or serve should be fast.
-        """
-        pass
-
-    @abstractmethod
-    def can_score_model(self):
-        """
-        Check whether this flavor backend can be deployed in the current environment.
-
-        :return: True if this flavor backend can be applied int he current environment.
-        """
-        pass
-
-    def can_build_image(self):
-        """
-        :return: True if this flavor has a `build_image` method defined for building a docker
-                 container capable of serving the model, False otherwise.
-        """
-        return callable(getattr(self.__class__, 'build_image', None))
+    __all__ += [
+        "ModelSignature",
+        "ModelInputExample",
+        "infer_signature",
+        "validate_schema",
+        "add_libraries_to_model",
+    ]
+except ImportError:
+    pass

@@ -6,3 +6,5 @@ mlflow.models
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: mlflow.models.model.ModelInfo
+    :members:

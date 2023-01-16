@@ -28,3 +28,7 @@ entry_points:
     parameters:
       conda_env_name: string
     command: "python check_conda_env.py {conda_env_name}"
+  test_artifact_path:
+    parameters:
+      model: {type: path}
+    command: "echo success"

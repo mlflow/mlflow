@@ -1,4 +1,5 @@
 import codecs
+import errno
 import gzip
 import os
 import posixpath
@@ -6,15 +7,29 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import stat
+import pathlib
 
-from six.moves.urllib.request import pathname2url
-from six.moves.urllib.parse import unquote
-from six.moves import urllib
+import urllib.parse
+import urllib.request
+from urllib.parse import unquote
+from urllib.request import pathname2url
+
+import atexit
 
 import yaml
 
+try:
+    from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
+except ImportError:
+    from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
+
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.process import cache_return_value_per_process
+from mlflow.utils import merge_dicts
+from mlflow.utils.databricks_utils import _get_dbutils
 
 ENCODING = "utf-8"
 
@@ -88,7 +103,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
@@ -99,11 +114,11 @@ def mkdir(root, name=None):  # noqa
     """
     target = os.path.join(root, name) if name is not None else root
     try:
-        if not exists(target):
-            os.makedirs(target)
-            return target
+        os.makedirs(target)
     except OSError as e:
-        raise e
+        if e.errno != errno.EEXIST or not os.path.isdir(target):
+            raise e
+    return target
 
 
 def make_containing_dirs(path):
@@ -116,7 +131,7 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
     """
     Write dictionary data in yaml format.
 
@@ -132,13 +147,51 @@ def write_yaml(root, file_name, data, overwrite=False):
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
-        raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
+        raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
 
     try:
-        with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
-            yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+        with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
+            yaml.dump(
+                data,
+                yaml_file,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=sort_keys,
+                Dumper=YamlSafeDumper,
+            )
     except Exception as e:
         raise e
+
+
+def overwrite_yaml(root, file_name, data):
+    """
+    Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
+    corrupted if the write fails. This is achieved by writing contents to a temporary file
+    and moving the temporary file to replace the preexisting file, rather than opening the
+    preexisting file for a direct write.
+
+    :param root: Directory name.
+    :param file_name: File name. Expects to have '.yaml' extension.
+    :param data: The data to write, represented as a dictionary.
+    """
+    tmp_file_path = None
+    try:
+        tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
+        os.close(tmp_file_fd)
+        write_yaml(
+            root=get_parent_dir(tmp_file_path),
+            file_name=os.path.basename(tmp_file_path),
+            data=data,
+            overwrite=True,
+            sort_keys=True,
+        )
+        shutil.move(
+            tmp_file_path,
+            os.path.join(root, file_name),
+        )
+    finally:
+        if tmp_file_path is not None and os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
 
 
 def read_yaml(root, file_name):
@@ -152,19 +205,104 @@ def read_yaml(root, file_name):
     """
     if not exists(root):
         raise MissingConfigException(
-            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
+            f"Cannot read '{file_name}'. Parent dir '{root}' does not exist."
+        )
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
     try:
-        with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
-            return yaml.safe_load(yaml_file)
+        with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
+            return yaml.load(yaml_file, Loader=YamlSafeLoader)
     except Exception as e:
         raise e
 
 
-class TempDir(object):
+class UniqueKeyLoader(YamlSafeLoader):
+    def construct_mapping(self, node, deep=False):
+        mapping = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(f"Duplicate '{key}' key found in YAML.")
+            mapping.add(key)
+        return super().construct_mapping(node, deep)
+
+
+def render_and_merge_yaml(root, template_name, context_name):
+    """
+    Renders a Jinja2-templated YAML file based on a YAML context file, merge them, and return
+    result as a dictionary.
+
+    :param root: Root directory of the YAML files
+    :param template_name: Name of the template file
+    :param context_name: Name of the context file
+    :return: Data in yaml file as dictionary
+    """
+    import jinja2
+
+    template_path = os.path.join(root, template_name)
+    context_path = os.path.join(root, context_name)
+
+    for path in (template_path, context_path):
+        if not pathlib.Path(path).is_file():
+            raise MissingConfigException("Yaml file '%s' does not exist." % path)
+
+    j2_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(root, encoding=ENCODING),
+        undefined=jinja2.StrictUndefined,
+        line_comment_prefix="#",
+    )
+
+    def from_json(input_var):
+        import json
+
+        with open(input_var, encoding="utf-8") as f:
+            return json.load(f)
+
+    j2_env.filters["from_json"] = from_json
+    # Compute final source of context file (e.g. my-profile.yml), applying Jinja filters
+    # like from_json as needed to load context information from files, then load into a dict
+    context_source = j2_env.get_template(context_name).render({})
+    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader) or {}
+
+    # Substitute parameters from context dict into template
+    source = j2_env.get_template(template_name).render(context_dict)
+    rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
+    return merge_dicts(rendered_template_dict, context_dict)
+
+
+def read_parquet_as_pandas_df(data_parquet_path: str):
+    """
+    Deserialize and load the specified parquet file as a Pandas DataFrame.
+
+    :param data_parquet_path: String, path object (implementing os.PathLike[str]),
+    or file-like object implementing a binary read() function. The string
+    could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+    For file URLs, a host is expected. A local file could
+    be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+    directory that contains multiple partitioned parquet files. Pyarrow
+    support paths to directories as well as file URLs. A directory
+    path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+    :return: pandas dataframe
+    """
+    import pandas as pd
+
+    return pd.read_parquet(data_parquet_path, engine="pyarrow")
+
+
+def write_pandas_df_as_parquet(df, data_parquet_path: str):
+    """
+    Write a DataFrame to the binary parquet format.
+
+    :param df: pandas data frame.
+    :param data_parquet_path: String, path object (implementing os.PathLike[str]),
+    or file-like object implementing a binary write() function.
+    """
+    df.to_parquet(data_parquet_path, engine="pyarrow")
+
+
+class TempDir:
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
         self._path = None
@@ -203,7 +341,7 @@ def read_file_lines(parent_path, file_name):
     :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.readlines()
 
 
@@ -217,7 +355,7 @@ def read_file(parent_path, file_name):
     :return: The contents of the file.
     """
     file_path = os.path.join(parent_path, file_name)
-    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.read()
 
 
@@ -245,7 +383,7 @@ def get_relative_path(root_path, target_path):
     :return: Path relative to root_path
     """
     if len(root_path) > len(target_path):
-        raise Exception("Root path '%s' longer than target path '%s'" % (root_path, target_path))
+        raise Exception(f"Root path '{root_path}' longer than target path '{target_path}'")
     common_prefix = os.path.commonprefix([root_path, target_path])
     return os.path.relpath(target_path, common_prefix)
 
@@ -270,17 +408,18 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         tar_info.mtime = 0
         return tar_info if custom_filter is None else custom_filter(tar_info)
 
-    unzipped_filename = tempfile.mktemp()
+    unzipped_file_handle, unzipped_filename = tempfile.mkstemp()
     try:
         with tarfile.open(unzipped_filename, "w") as tar:
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0) \
-                as gzipped_tar, open(unzipped_filename, 'rb') as tar:
+        with gzip.GzipFile(
+            filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
+        ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
             gzipped_tar.write(tar.read())
     finally:
-        os.remove(unzipped_filename)
+        os.close(unzipped_file_handle)
 
 
 def _copy_project(src_path, dst_path=""):
@@ -296,14 +435,15 @@ def _copy_project(src_path, dst_path=""):
     """
 
     def _docker_ignore(mlflow_root):
-        docker_ignore = os.path.join(mlflow_root, '.dockerignore')
+        docker_ignore = os.path.join(mlflow_root, ".dockerignore")
         patterns = []
         if os.path.exists(docker_ignore):
-            with open(docker_ignore, "r") as f:
+            with open(docker_ignore) as f:
                 patterns = [x.strip() for x in f.readlines()]
 
         def ignore(_, names):
             import fnmatch
+
             res = set()
             for p in patterns:
                 res.update(set(fnmatch.filter(names, p)))
@@ -314,9 +454,9 @@ def _copy_project(src_path, dst_path=""):
     mlflow_dir = "mlflow-project"
     # check if we have project root
     assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py")))
-    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
-                    ignore=_docker_ignore(src_path))
+        os.path.abspath(os.path.join(src_path, "setup.py"))
+    )
+    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir
 
 
@@ -334,8 +474,31 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
             os.makedirs(dst_dirpath)
         shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=dst_path)
+        shutil.copytree(src=src, dst=dst_path, ignore=shutil.ignore_patterns("__pycache__"))
     return dst_subpath
+
+
+def _get_local_project_dir_size(project_path):
+    """
+    Internal function for reporting the size of a local project directory before copying to
+    destination for cli logging reporting to stdout.
+    :param project_path: local path of the project directory
+    :return: directory file sizes in KB, rounded to single decimal point for legibility
+    """
+
+    total_size = 0
+    for root, _, files in os.walk(project_path):
+        for f in files:
+            path = os.path.join(root, f)
+            total_size += os.path.getsize(path)
+    return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
 
 
 def get_parent_dir(path):
@@ -354,11 +517,7 @@ def path_to_local_file_uri(path):
     """
     Convert local filesystem path to local file uri.
     """
-    path = pathname2url(path)
-    if path == posixpath.abspath(path):
-        return "file://{path}".format(path=path)
-    else:
-        return "file:{path}".format(path=path)
+    return pathlib.Path(os.path.abspath(path)).as_uri()
 
 
 def path_to_local_sqlite_uri(path):
@@ -388,3 +547,140 @@ def get_local_path_or_none(path_or_uri):
         return local_file_uri_to_path(path_or_uri)
     else:
         return None
+
+
+def yield_file_in_chunks(file, chunk_size=100000000):
+    """
+    Generator to chunk-ify the inputted file based on the chunk-size.
+    """
+    with open(file, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if chunk:
+                yield chunk
+            else:
+                break
+
+
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    """
+    if headers is None:
+        headers = {}
+    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
+        augmented_raise_for_status(response)
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)
+
+
+def _handle_readonly_on_windows(func, path, exc_info):
+    """
+    This function should not be called directly but should be passed to `onerror` of
+    `shutil.rmtree` in order to reattempt the removal of a read-only file after making
+    it writable on Windows.
+
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
+    """
+    exc_type, exc_value = exc_info[:2]
+    should_reattempt = (
+        os.name == "nt"
+        and func in (os.unlink, os.rmdir)
+        and issubclass(exc_type, PermissionError)
+        and exc_value.winerror == 5
+    )
+    if not should_reattempt:
+        raise exc_value
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@cache_return_value_per_process
+def get_or_create_tmp_dir():
+    """
+    Get or create a temporary directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: For python process attached to databricks notebook, atexit does not work.
+        # The directory returned by `dbutils.entry_point.getReplLocalTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        try:
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+
+        tmp_dir = os.path.join(repl_local_tmp_dir, "mlflow")
+        os.makedirs(tmp_dir, exist_ok=True)
+    else:
+        tmp_dir = tempfile.mkdtemp()
+        # mkdtemp creates a directory with permission 0o700
+        # change it to be 0o777 to ensure it can be seen in spark UDF
+        os.chmod(tmp_dir, 0o777)
+        atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+
+    return tmp_dir
+
+
+@cache_return_value_per_process
+def get_or_create_nfs_tmp_dir():
+    """
+    Get or create a temporary NFS directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+
+    nfs_root_dir = get_nfs_cache_root_dir()
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: In databricks, atexit hook does not work.
+        # The directory returned by `dbutils.entry_point.getReplNFSTempDir()`
+        # will be removed once databricks notebook detaches.
+        # The temp directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        try:
+            repl_nfs_tmp_dir = _get_dbutils().entry_point.getReplNFSTempDir()
+        except Exception:
+            repl_nfs_tmp_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+
+        tmp_nfs_dir = os.path.join(repl_nfs_tmp_dir, "mlflow")
+        os.makedirs(tmp_nfs_dir, exist_ok=True)
+    else:
+        tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+        # mkdtemp creates a directory with permission 0o700
+        # change it to be 0o777 to ensure it can be seen in spark UDF
+        os.chmod(tmp_nfs_dir, 0o777)
+        atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
+
+    return tmp_nfs_dir
+
+
+def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
+    """
+    Write spark dataframe in parquet format to local disk.
+
+    :param spark_df: Spark dataframe
+    :param output_path: path to write the data to
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
+    import uuid
+
+    if is_in_databricks_runtime():
+        dbfs_path = os.path.join(".mlflow", "cache", str(uuid.uuid4()))
+        spark_df.coalesce(1).write.format("parquet").save(dbfs_path)
+        shutil.copytree("/dbfs/" + dbfs_path, output_path)
+        shutil.rmtree("/dbfs/" + dbfs_path)
+    else:
+        spark_df.coalesce(1).write.format("parquet").save(output_path)

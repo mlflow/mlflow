@@ -41,13 +41,31 @@ R API
 
 The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
+Prerequisites
+=============
+
+To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_.
+
+.. code-block:: bash
+
+    pip install mlflow
+
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
+
+.. code-block:: bash
+
+    export MLFLOW_PYTHON_BIN=/path/to/bin/python
+    export MLFLOW_BIN=/path/to/bin/mlflow
+
+You can use the R API to start the `user interface <mlflow_ui>`_, `create experiment <mlflow_create_experiment>`_ and `search experiments <mlflow_search_experiments>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
     :depth: 1
 "
 rst_doc <- readLines("../../../docs/source/R-api.rst")
+# Convert non-breaking spaces inserted by pandoc to regular spaces
+rst_doc <- gsub("\302\240", " ", rst_doc)
 rst_doc <- c(rst_header, rst_doc)
 writeLines(rst_doc, "../../../docs/source/R-api.rst")
 

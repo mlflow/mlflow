@@ -1,0 +1,24 @@
+## Dependencies required to run tests
+# Required for testing utilities for parsing pip requirements
+pip>=20.1
+## Test-only dependencies
+pytest
+pytest-cov
+pytest-localserver==0.5.0
+moto!=2.0.7
+azure-storage-blob>=12.0.0
+azure-identity>=1.6.1
+databricks-cli@git+https://github.com/databricks/databricks-cli.git
+pillow
+shap>=0.40
+plotly
+kaleido
+# Required by mlflow.tensorflow / mlflow.pytorch tests.
+transformers
+# Required by tuning tests
+hyperopt
+# Required by recipes tests
+ipython
+# Required by automl tests
+# 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
+flaml!=1.1.0
