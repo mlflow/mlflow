@@ -1055,7 +1055,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 	model.fit(train_data, train_labels)
 
 	# log the model into a mlflow run
-	with mlflow.start_run() as run:
+	with mlflow.start_run():
 		model_info = mlflow.catboost.log_model(model, "model")
 
 	# load the logged model and make a prediction
