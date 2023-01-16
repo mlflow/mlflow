@@ -188,18 +188,20 @@ def test_list_registered_model_paginated_errors(store):
     ) == set(rms[1:])
 
 
-def _create_model_version(
-    fs,
-    name,
-    source="path/to/source",
-    run_id=uuid.uuid4().hex,
-    tags=None,
-    run_link=None,
-    description=None,
-):
-    return fs.create_model_version(
-        name, source, run_id, tags, run_link=run_link, description=description
-    )
+    def _create_model_version(
+        self,
+        fs,
+        name,
+        source="path/to/source",
+        run_id=uuid.uuid4().hex,
+        tags=None,
+        run_link=None,
+        description=None,
+    ):
+        time.sleep(0.001)
+        return fs.create_model_version(
+            name, source, run_id, tags, run_link=run_link, description=description
+        )
 
 
 def _stage_to_version_map(latest_versions):

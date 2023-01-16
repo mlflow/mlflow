@@ -556,6 +556,10 @@ def test_search_model_versions_flow_paginated(
     try:
         if order_by_key:
             expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
+        else:
+            expected_mvs = sorted(
+                filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
+            )
         verify_pagination(
             lambda tok: mlflow_client.search_model_versions(
                 filter_string=filter_string,
