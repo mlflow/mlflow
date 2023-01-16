@@ -1034,45 +1034,45 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 
 .. code-block:: py
 
-	import mlflow
-	from catboost import CatBoostClassifier, Pool
-	from sklearn import datasets
+    import mlflow
+    from catboost import CatBoostClassifier, Pool
+    from sklearn import datasets
 
-	# prepare data
-	wine_dataset = datasets.load_wine(as_frame=False)
-	train_data = wine_dataset["data"]
-	train_labels = wine_dataset["target"]
-	catboost_pool = Pool(data=train_data, label=train_labels)
+    # prepare data
+    wine_dataset = datasets.load_wine(as_frame=False)
+    train_data = wine_dataset["data"]
+    train_labels = wine_dataset["target"]
+    catboost_pool = Pool(data=train_data, label=train_labels)
 
-	# train the model
-	model = CatBoostClassifier(
-		iterations=2,
-		depth=2,
-		learning_rate=1,
-		loss_function="MultiClass",
-		verbose=False,
-	)
-	model.fit(train_data, train_labels)
+    # train the model
+    model = CatBoostClassifier(
+        iterations=2,
+        depth=2,
+        learning_rate=1,
+        loss_function="MultiClass",
+        verbose=False,
+    )
+    model.fit(train_data, train_labels)
 
-	# log the model into a mlflow run
-	with mlflow.start_run():
-		model_info = mlflow.catboost.log_model(model, "model")
+    # log the model into a mlflow run
+    with mlflow.start_run():
+        model_info = mlflow.catboost.log_model(model, "model")
 
-	# load the logged model and make a prediction
-	catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
-	new_data = [
-		16.23,
-		1.71,
-		2.43,
-		14.6,
-		127.0,
-		2.8,
-		3.06,
-		0.30,
-		2.29,
-		5.64,
-	]
-	predictions = catboost_pyfunc.predict(new_data)
+    # load the logged model and make a prediction
+    catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    new_data = [
+        16.23,
+        1.71,
+        2.43,
+        14.6,
+        127.0,
+        2.8,
+        3.06,
+        0.30,
+        2.29,
+        5.64,
+    ]
+    predictions = catboost_pyfunc.predict(new_data)
 
 Spacy(``spaCy``)
 ^^^^^^^^^^^^^^^^^^^^
