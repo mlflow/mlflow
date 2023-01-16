@@ -1028,7 +1028,7 @@ method to load MLflow Models with the ``catboost`` model flavor in native CatBoo
 For more information, see :py:mod:`mlflow.catboost`.
 
 ``CatBoost`` pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For a CatBoost Classifier model, an example configuration for the pyfunc predict() method is:
 
