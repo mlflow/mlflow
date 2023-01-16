@@ -575,6 +575,7 @@ class Environment:
         capture_output=False,
         stdout=None,
         stderr=None,
+        stdin=None,
         synchronous=True,
     ):
         if command_env is None:
@@ -603,4 +604,5 @@ class Environment:
             close_fds=True,
             stdout=stdout,
             stderr=stderr,
+            stdin=stdin,
         )

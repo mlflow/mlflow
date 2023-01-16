@@ -3,12 +3,36 @@ import time
 import json
 import numpy as np
 import pandas as pd
+import uuid
+import tempfile
+from pathlib import Path
 
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.proto_json_utils import _CustomJsonEncoder
 from mlflow.deployments import PredictionsResponse
+
+
+def dump_data(data):
+    def get_jsonable_input(name, data):
+        if isinstance(data, np.ndarray):
+            return data.tolist()
+        else:
+            raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
+
+    if isinstance(data, pd.DataFrame):
+        post_data = {"dataframe_split": data.to_dict(orient="split")}
+    elif isinstance(data, dict):
+        post_data = {"inputs": {k: get_jsonable_input(k, v) for k, v in data}}
+    elif isinstance(data, np.ndarray):
+        post_data = {"inputs": data.tolist()}
+    else:
+        post_data = data
+    if not isinstance(post_data, str):
+        post_data = json.dumps(post_data, cls=_CustomJsonEncoder)
+
+    return post_data
 
 
 class ScoringServerClient:
@@ -49,31 +73,49 @@ class ScoringServerClient:
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
         """
-        content_type = scoring_server.CONTENT_TYPE_JSON
-
-        def get_jsonable_input(name, data):
-            if isinstance(data, np.ndarray):
-                return data.tolist()
-            else:
-                raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
-
-        if isinstance(data, pd.DataFrame):
-            post_data = {"dataframe_split": data.to_dict(orient="split")}
-        elif isinstance(data, dict):
-            post_data = {"inputs": {k: get_jsonable_input(k, v) for k, v in data}}
-        elif isinstance(data, np.ndarray):
-            post_data = ({"inputs": data.tolist()},)
-        else:
-            post_data = data
-        if not isinstance(post_data, str):
-            post_data = json.dumps(post_data, cls=_CustomJsonEncoder)
         response = requests.post(
             url=self.url_prefix + "/invocations",
-            data=post_data,
-            headers={"Content-Type": content_type},
+            data=dump_data(data),
+            headers={"Content-Type": scoring_server.CONTENT_TYPE_JSON},
         )
         if response.status_code != 200:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
         return PredictionsResponse.from_json(response.text)
+
+
+class StdinScoringServerClient:
+    def __init__(self, process):
+        self.process = process
+
+    def wait_until_file_exists(self, f):
+        begin_time = time.time()
+        while True:
+            if f.exists():
+                return
+            time.sleep(1)
+            if time.time() - begin_time > 30:
+                raise RuntimeError("Timeout")
+
+    def invoke(self, data):
+        """
+        Invoke inference on input data. The input data must be pandas dataframe or numpy array or
+        a dict of numpy arrays.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            output_file = tmpdir.joinpath(f"{uuid.uuid4()}.json")
+            request = {
+                "data": dump_data(data),
+                "output_file": str(output_file),
+            }
+            self.process.stdin.write(json.dumps(request) + "\n")
+            done_file = output_file.with_suffix(".DONE")
+            self.wait_until_file_exists(done_file)
+            with output_file.open() as f:
+                return PredictionsResponse.from_json(f.read())
+
+    def cleanup(self):
+        self.tmpdir.cleanup()
+        self.process.kill()

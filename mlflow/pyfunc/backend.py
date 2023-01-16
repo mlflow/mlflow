@@ -5,6 +5,7 @@ import subprocess
 import posixpath
 import sys
 import warnings
+from pathlib import Path
 
 
 from mlflow.models import FlavorBackend
@@ -39,6 +40,7 @@ from mlflow.version import VERSION
 _logger = logging.getLogger(__name__)
 
 _IS_UNIX = os.name != "nt"
+_STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 
 class PyFuncBackend(FlavorBackend):
@@ -257,6 +259,14 @@ class PyFuncBackend(FlavorBackend):
                 return 0
             else:
                 return child_proc
+
+    def serve_stdin(self, model_uri):
+        local_path = _download_artifact_from_uri(model_uri)
+        return self.prepare_env(local_path).execute(
+            command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
+            stdin=subprocess.PIPE,
+            synchronous=False,
+        )
 
     def can_score_model(self):
         if self._env_manager == _EnvManager.LOCAL:

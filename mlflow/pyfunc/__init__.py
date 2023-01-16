@@ -282,6 +282,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
+from mlflow.environment_variables import MLFLOW_USE_STDIN_SERVER
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -614,7 +615,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     :param env_manager: The environment manager to load the model.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
         return load_model(model_uri)
@@ -634,23 +635,27 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
     pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-    server_port = find_free_port()
-    scoring_server_proc = pyfunc_backend.serve(
-        model_uri=local_path,
-        port=server_port,
-        host="127.0.0.1",
-        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-        enable_mlserver=False,
-        synchronous=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
-    client = ScoringServerClient("127.0.0.1", server_port)
-    try:
-        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-    except Exception:
-        raise MlflowException("MLflow model server failed to launch")
+    if MLFLOW_USE_STDIN_SERVER.get():
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
+        client = StdinScoringServerClient(scoring_server_proc)
+    else:
+        server_port = find_free_port()
+        scoring_server_proc = pyfunc_backend.serve(
+            model_uri=local_path,
+            port=server_port,
+            host="127.0.0.1",
+            timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+            enable_mlserver=False,
+            synchronous=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        client = ScoringServerClient("127.0.0.1", server_port)
+        _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+        try:
+            client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+        except Exception:
+            raise MlflowException("MLflow model server failed to launch")
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
