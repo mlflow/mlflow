@@ -277,7 +277,10 @@ def run(
                         ``python_env.yaml`` is present, virtualenv will be used.
     :param build_image: Whether to build a new docker image of the project or to reuse an existing
                         image. Default: False (reuse an existing image)
-    :param docker_auth: A dictionary representing information to authenticate with a Docker registry. See `docker.client.DockerClient.login <https://docker-py.readthedocs.io/en/stable/client.html#docker.client.DockerClient.login>`_ for available options.
+    :param docker_auth: A dictionary representing information to authenticate with a Docker
+                        registry. See `docker.client.DockerClient.login
+                        <https://docker-py.readthedocs.io/en/stable/client.html#docker.client.DockerClient.login>`_
+                        for available options.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
