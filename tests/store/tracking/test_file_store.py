@@ -533,20 +533,22 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp2.last_update_time == exp1.last_update_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+        import platform
+
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             (
                 "file:path/to/local/folder?param=value",
                 "file://{cwd}/path/to/local/folder/{e}?param=value",
             ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}?param=value#fragment",
+                "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
             ),
             ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
             (
@@ -572,8 +574,19 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
                 exp = fs.get_experiment(exp_id)
+                cwd = Path.cwd().as_posix()
+                drive = Path.cwd().drive
+                if (
+                    platform.system().lower() == "windows"
+                    and expected_artifact_uri_format.startswith("file:")
+                ):
+                    # In order to be parsed by urllib, posix representation of windows path
+                    # needs to be prefixed with posix separator
+                    cwd = "/" + cwd
+                    drive = drive + "/"
+
                 assert exp.artifact_location == expected_artifact_uri_format.format(
-                    e=exp_id, cwd=Path.cwd()
+                    e=exp_id, cwd=cwd, drive=drive
                 )
 
     def test_create_experiment_with_tags_works_correctly(self):

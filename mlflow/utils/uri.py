@@ -1,6 +1,8 @@
 import pathlib
 import posixpath
 import urllib.parse
+import platform
+import string
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -164,19 +166,40 @@ def extract_db_type_from_uri(db_uri):
     return db_type
 
 
-def get_uri_scheme(uri_or_path):
-    import platform
-    import string
+def _is_local_windows_path(uri_or_path):
 
     parsed_uri = urllib.parse.urlparse(uri_or_path)
     scheme = parsed_uri.scheme
+    return (
+        platform.system().lower() == "windows"
+        and not parsed_uri.netloc
+        and uri_or_path[0] in string.ascii_letters
+        and uri_or_path[0].lower() == scheme.lower()
+    )
+
+
+def _strip_leading_slash_if_windows_path(uri_or_path):
+
+    parsed_uri = urllib.parse.urlparse(uri_or_path)
     if (
         platform.system().lower() == "windows"
         and not parsed_uri.netloc
+        and uri_or_path[0] == "/"
         and uri_or_path[1] in string.ascii_letters
-        and uri_or_path[1] == scheme
-        # and uri_or_path[1:3] == ":\\"
+        and uri_or_path[2:4] in [":", ":/", "://"]
     ):
+        final_path = uri_or_path[1:]
+        if _is_local_windows_path(final_path):
+            return uri_or_path[1:]
+    return uri_or_path
+
+
+def get_uri_scheme(uri_or_path):
+
+    parsed_uri = urllib.parse.urlparse(uri_or_path)
+    scheme = parsed_uri.scheme
+
+    if _is_local_windows_path(uri_or_path):
         return ""
 
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
@@ -188,26 +211,6 @@ def extract_and_normalize_path(uri):
     parsed_uri_path = urllib.parse.urlparse(uri).path
     normalized_path = posixpath.normpath(parsed_uri_path)
     return normalized_path.lstrip("/")
-
-
-def append_to_uri_or_filesystem_path(uri, *paths):
-    import platform
-    import string
-    from functools import reduce
-
-    parsed_uri = urllib.parse.urlparse(uri)
-    if (
-        platform.system().lower() == "windows"
-        and not parsed_uri.netloc
-        and uri[1] in string.ascii_letters
-        and uri[1] == parsed_uri.scheme
-        # and uri_or_path[1:3] == ":\\"
-    ):
-
-        return reduce(
-            lambda base_uri, sub_path: str(base_uri.joinpath(sub_path).resolve()), paths, uri
-        )
-    return append_to_uri_path(uri, *paths)
 
 
 def append_to_uri_path(uri, *paths):
@@ -226,6 +229,18 @@ def append_to_uri_path(uri, *paths):
     >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
     >>> assert uri2 == "a/posixpath/some/subpath"
     """
+
+    from functools import reduce
+
+    if _is_local_windows_path(uri):
+        return reduce(
+            lambda base_uri, sub_path: str(
+                pathlib.Path(base_uri).joinpath(sub_path).resolve().as_posix()
+            ),
+            paths,
+            uri,
+        )
+
     path = ""
     for subpath in paths:
         path = _join_posixpaths_and_append_absolute_suffixes(path, subpath)
@@ -264,14 +279,17 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
+
     if len(prefix_path) == 0:
         return suffix_path
+
+    prefix_path = _strip_leading_slash_if_windows_path(pathlib.Path(prefix_path).as_posix())
 
     # If the specified prefix path is non-empty, we must relativize the suffix path by removing
     # the leading slash, if present. Otherwise, posixpath.join() would omit the prefix from the
     # joined path
     suffix_path = suffix_path.lstrip(posixpath.sep)
-    return posixpath.join(prefix_path, suffix_path)
+    return pathlib.Path(prefix_path).joinpath(suffix_path).as_posix()
 
 
 def is_databricks_acled_artifacts_uri(artifact_uri):

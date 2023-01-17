@@ -44,7 +44,7 @@ from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri, resolve_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import append_to_uri_path, append_to_uri_or_filesystem_path
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_batch_log_data,
@@ -238,7 +238,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return append_to_uri_or_filesystem_path(self.artifact_root_uri, str(experiment_id))
+        return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
