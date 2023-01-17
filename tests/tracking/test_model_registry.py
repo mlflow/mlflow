@@ -508,18 +508,24 @@ def test_set_model_version_tag_with_empty_string_as_value(client):
     ("filter_string", "filter_func", "order_by", "order_by_key", "order_by_desc"),
     [
         (None, lambda mv: True, None, None, False),
-        ("", lambda mv: True, "name DESC", lambda mv: mv.name, True),
+        ("", lambda mv: True, ["name DESC"], lambda mv: mv.name, True),
         (
             "name LIKE '%2'",
             lambda mv: mv.name.endswith("2"),
-            "version_number DESC",
+            ["version_number DESC"],
             lambda mv: mv.version,
             True,
         ),
         ("name ILIKE '%rm%00%'", lambda mv: "00" in mv.name, None, None, False),
         ("name LIKE '%rm%00%'", lambda mv: False, None, None, False),
         ("name = 'badname'", lambda mv: False, None, None, False),
-        ("name = 'CreateRMsearch03'", lambda mv: mv.name == "CreateRMsearch03", None, None, False),
+        (
+            "name = 'CreateRMsearchForMV03'",
+            lambda mv: mv.name == "CreateRMsearchForMV03",
+            None,
+            None,
+            False,
+        ),
     ],
 )
 def test_search_model_versions_flow_paginated(
@@ -555,8 +561,7 @@ def test_search_model_versions_flow_paginated(
 
     try:
         if order_by_key:
-            filtered_mvs = filter(filter_func, mvs)
-            expected_mvs = sorted(filtered_mvs, key=order_by_key, reverse=order_by_desc)
+            expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
         else:
             expected_mvs = sorted(
                 filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
