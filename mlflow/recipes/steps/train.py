@@ -331,7 +331,7 @@ class TrainStep(BaseStep):
 
                 def inverse_label_encoder(predicted_output):
                     if not label_encoder:
-                        return
+                        return predicted_output
 
                     import numpy as np
 
@@ -362,19 +362,6 @@ class TrainStep(BaseStep):
                 estimator.fit(X_train, y_train)
 
                 logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
-                eval_artifacts = {"model_path": logged_estimator.model_uri}
-
-                wrapped_logged_estimator = WrappedRecipeModel(
-                    False,
-                    self.predict_prefix,
-                    post_predict_fn=inverse_label_encoder,
-                )
-
-                mlflow.pyfunc.save_model(
-                    path=logged_estimator.model_uri,
-                    python_model=wrapped_logged_estimator,
-                    artifacts=eval_artifacts,
-                )
 
                 # Create a recipe consisting of the transformer+model for test data evaluation
                 with open(transformer_path, "rb") as f:
@@ -483,7 +470,8 @@ class TrainStep(BaseStep):
                     if self.positive_class is not None:
                         eval_config["pos_label"] = self.positive_class
 
-                    dataset[self.target_col] = label_encoder.transform(dataset[self.target_col])
+                    if label_encoder:
+                        dataset[self.target_col] = label_encoder.transform(dataset[self.target_col])
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
                         data=dataset,
@@ -1250,7 +1238,6 @@ class TrainStep(BaseStep):
             f"{self.name}/estimator",
             signature=estimator_schema,
             code_paths=self.code_paths,
-            pyfunc_predict_fn="predict",
         )
         return logged_estimator
 
