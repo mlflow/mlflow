@@ -1,12 +1,11 @@
 syntax = "proto2";
 
-package ucmodelregistry;
+package mlflow;
 
 import "scalapb/scalapb.proto";
 import "databricks.proto";
-import "compliance/taxonomy/taxonomy.proto";
 
-option java_package = "com.databricks.api.proto.ucmodelregistry";
+option java_package = "com.databricks.api.proto.mlflow";
 option java_generate_equals_and_hash = true;
 option (scalapb.options) = {
   flat_package: true,
@@ -244,15 +243,4 @@ message SearchModelVersionsResponse {
   optional string next_page_token = 2;
 }
 
-// Simple Proto message for testing
-message GetTestResultRequest {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[GetTestResultResponse]";
-  optional string key = 1 [(compliance.data_label) = DATA_LABEL_SYSTEM_NOT_SENSITIVE];
-
-  optional string value = 2 [(compliance.data_label) = DATA_LABEL_SYSTEM_NOT_SENSITIVE];
-}
-
-message GetTestResultResponse {
-  optional string result = 1 [(compliance.data_label) = DATA_LABEL_SYSTEM_NOT_SENSITIVE];
-}
 

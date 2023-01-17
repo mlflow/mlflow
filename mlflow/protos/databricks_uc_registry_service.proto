@@ -1,20 +1,19 @@
 syntax = "proto2";
 
-package ucmodelregistry;
+package mlflow;
 
 import "databricks.proto";
-import "uc-model-registry/api/proto/messages.proto";
+import "databricks_uc_registry_messages.proto";
 import "scalapb/scalapb.proto";
 import "compliance/taxonomy/taxonomy.proto";
 
-option java_package = "com.databricks.api.proto.ucmodelregistry";
+option java_package = "com.databricks.api.proto.mlflow";
 option java_generate_equals_and_hash = true;
 option (scalapb.options) = {
   flat_package: true,
 };
 
-// Check Databricks Protobuf Style Guide (https://docs.google.com/document/d/1ukom2tCkQbNCAmjk3vHONaXp1n-I741tQjOMTipLbO4/edit?usp=sharing)
-// about recommended Protobuf practices.
+
 service UcModelRegistryService {
   rpc CreateRegisteredModel (CreateRegisteredModelRequest) returns (CreateRegisteredModelResponse) {
     option (rpc) = {
