@@ -4,6 +4,8 @@ import shutil
 import tempfile
 import unittest
 import re
+from pathlib import Path
+import platform
 
 import math
 import pytest
@@ -570,18 +572,18 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             (
                 "file:path/to/local/folder?param=value",
                 "file://{cwd}/path/to/local/folder/{e}?param=value",
             ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}?param=value#fragment",
+                "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
             ),
             ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
             (
@@ -613,8 +615,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     )
                     exp_id = store.create_experiment(name="exp")
                     exp = store.get_experiment(exp_id)
+                    cwd = Path.cwd().as_posix()
+                    drive = Path.cwd().drive
+                    if (
+                        platform.system().lower() == "windows"
+                        and expected_artifact_uri_format.startswith("file:")
+                    ):
+                        cwd = "/" + cwd
+                        drive = drive + "/"
                     assert exp.artifact_location == expected_artifact_uri_format.format(
-                        e=exp_id, cwd=pathlib.Path.cwd()
+                        e=exp_id, cwd=cwd, drive=drive
                     )
 
     def test_create_experiment_with_tags_works_correctly(self):
@@ -631,18 +641,24 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+            ),
             (
                 "file:path/to/local/folder?param=value",
                 "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
             ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+            ),
             (
                 "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
             ),
             ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
             (
@@ -678,8 +694,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     run = store.create_run(
                         experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                     )
+                    cwd = Path.cwd().as_posix()
+                    drive = Path.cwd().drive
+                    if (
+                        platform.system().lower() == "windows"
+                        and expected_artifact_uri_format.startswith("file:")
+                    ):
+                        cwd = "/" + cwd
+                        drive = drive + "/"
                     assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                        e=exp_id, r=run.info.run_id, cwd=str(pathlib.Path.cwd())
+                        e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
                     )
 
     def test_run_tag_model(self):

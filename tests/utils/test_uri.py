@@ -20,6 +20,8 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
     dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
+    _is_local_windows_path,
+    _strip_leading_slash_if_windows_path,
 )
 
 
@@ -540,3 +542,42 @@ def test_resolve_uri_if_local():
     }
     for input_uri, expected_uri in input_and_expected_uris.items():
         assert resolve_uri_if_local(input_uri) == expected_uri
+
+
+def test_is_local_windows_path():
+    from unittest import mock
+
+    with mock.patch(
+        "platform.system",
+        return_value="windows",
+    ):
+        assert _is_local_windows_path("C:\\a\\b\\c")
+        assert not _is_local_windows_path("\\a\\b\\c")
+        assert not _is_local_windows_path("file://myhostname/my/path")
+        assert not _is_local_windows_path("/home/my/path")
+        assert not _is_local_windows_path("my/path")
+        assert not _is_local_windows_path("dbfs://databricks/a/b")
+        assert not _is_local_windows_path("s3://host/my/path")
+        assert not _is_local_windows_path("\\a\\b\\c")
+
+
+def test_strip_leading_slash_if_windows_path():
+    from unittest import mock
+
+    with mock.patch(
+        "platform.system",
+        return_value="windows",
+    ):
+        assert _strip_leading_slash_if_windows_path("/C:/a/b/c") == "C:/a/b/c"
+        assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
+        assert (
+            _strip_leading_slash_if_windows_path("file://myhostname/my/path")
+            == "file://myhostname/my/path"
+        )
+        assert _strip_leading_slash_if_windows_path("/home/my/path") == "/home/my/path"
+        assert _strip_leading_slash_if_windows_path("my/path") == "my/path"
+        assert (
+            _strip_leading_slash_if_windows_path("dbfs://databricks/a/b") == "dbfs://databricks/a/b"
+        )
+        assert _strip_leading_slash_if_windows_path("s3://host/my/path") == "s3://host/my/path"
+        assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"

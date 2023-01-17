@@ -9,6 +9,7 @@ import unittest
 import uuid
 from pathlib import Path
 import re
+import platform
 
 import pytest
 from unittest import mock
@@ -533,7 +534,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp2.last_update_time == exp1.last_update_time
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
-        import platform
 
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
@@ -580,8 +580,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     platform.system().lower() == "windows"
                     and expected_artifact_uri_format.startswith("file:")
                 ):
-                    # In order to be parsed by urllib, posix representation of windows path
-                    # needs to be prefixed with posix separator
                     cwd = "/" + cwd
                     drive = drive + "/"
 
@@ -746,18 +744,24 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+            ),
             (
                 "file:path/to/local/folder?param=value",
                 "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
             ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+            ),
             (
                 "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
             ),
             ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
             (
@@ -787,8 +791,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 run = fs.create_run(
                     experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
                 )
+                cwd = Path.cwd().as_posix()
+                drive = Path.cwd().drive
+                if (
+                    platform.system().lower() == "windows"
+                    and expected_artifact_uri_format.startswith("file:")
+                ):
+                    cwd = "/" + cwd
+                    drive = drive + "/"
                 assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                    e=exp_id, r=run.info.run_id, cwd=Path.cwd()
+                    e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
                 )
 
     def test_create_run_in_deleted_experiment(self):
