@@ -1931,9 +1931,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        filter_string = (
-            f"attr.artifact_uri = '{pathlib.Path.cwd()}/{ARTIFACT_URI}/{e1}/{r1}/artifacts'"
+        expected_artifact_uri = (
+            pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_posix()
         )
+        filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(

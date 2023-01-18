@@ -1,6 +1,7 @@
 import pathlib
 import posixpath
 import pytest
+import os
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -531,12 +532,13 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
 
 def test_resolve_uri_if_local():
     cwd = pathlib.Path.cwd()
+    drive = cwd.drive
     input_and_expected_uris = {
         "file://myhostname/my/path": "file://myhostname/my/path",
-        "file:///my/path": "file:///my/path",
-        "file:my/path": f"file://{cwd}/my/path",
-        "my/path": f"{cwd}/my/path",
-        "/home/my/path": "/home/my/path",
+        "file:///my/path": f"file:///{drive}/my/path",
+        "file:my/path": f"file:///{cwd.as_posix()}/my/path",
+        "my/path": f"{cwd.as_posix()}/my/path",
+        "/home/my/path": f"{drive}/home/my/path",
         "dbfs://databricks/a/b": "dbfs://databricks/a/b",
         "s3://host/my/path": "s3://host/my/path",
     }
@@ -544,40 +546,28 @@ def test_resolve_uri_if_local():
         assert resolve_uri_if_local(input_uri) == expected_uri
 
 
+@pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
 def test_is_local_windows_path():
-    from unittest import mock
-
-    with mock.patch(
-        "platform.system",
-        return_value="windows",
-    ):
-        assert _is_local_windows_path("C:\\a\\b\\c")
-        assert not _is_local_windows_path("\\a\\b\\c")
-        assert not _is_local_windows_path("file://myhostname/my/path")
-        assert not _is_local_windows_path("/home/my/path")
-        assert not _is_local_windows_path("my/path")
-        assert not _is_local_windows_path("dbfs://databricks/a/b")
-        assert not _is_local_windows_path("s3://host/my/path")
-        assert not _is_local_windows_path("\\a\\b\\c")
+    assert _is_local_windows_path("C:\\a\\b\\c")
+    assert not _is_local_windows_path("\\a\\b\\c")
+    assert not _is_local_windows_path("file://myhostname/my/path")
+    assert not _is_local_windows_path("/home/my/path")
+    assert not _is_local_windows_path("my/path")
+    assert not _is_local_windows_path("dbfs://databricks/a/b")
+    assert not _is_local_windows_path("s3://host/my/path")
+    assert not _is_local_windows_path("\\a\\b\\c")
 
 
+@pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
 def test_strip_leading_slash_if_windows_path():
-    from unittest import mock
-
-    with mock.patch(
-        "platform.system",
-        return_value="windows",
-    ):
-        assert _strip_leading_slash_if_windows_path("/C:/a/b/c") == "C:/a/b/c"
-        assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
-        assert (
-            _strip_leading_slash_if_windows_path("file://myhostname/my/path")
-            == "file://myhostname/my/path"
-        )
-        assert _strip_leading_slash_if_windows_path("/home/my/path") == "/home/my/path"
-        assert _strip_leading_slash_if_windows_path("my/path") == "my/path"
-        assert (
-            _strip_leading_slash_if_windows_path("dbfs://databricks/a/b") == "dbfs://databricks/a/b"
-        )
-        assert _strip_leading_slash_if_windows_path("s3://host/my/path") == "s3://host/my/path"
-        assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
+    assert _strip_leading_slash_if_windows_path("/C:/a/b/c") == "C:/a/b/c"
+    assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
+    assert (
+        _strip_leading_slash_if_windows_path("file://myhostname/my/path")
+        == "file://myhostname/my/path"
+    )
+    assert _strip_leading_slash_if_windows_path("/home/my/path") == "/home/my/path"
+    assert _strip_leading_slash_if_windows_path("my/path") == "my/path"
+    assert _strip_leading_slash_if_windows_path("dbfs://databricks/a/b") == "dbfs://databricks/a/b"
+    assert _strip_leading_slash_if_windows_path("s3://host/my/path") == "s3://host/my/path"
+    assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"

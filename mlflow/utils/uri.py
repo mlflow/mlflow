@@ -200,6 +200,7 @@ def _strip_leading_slash_if_windows_path(local_path):
     if (
         platform.system().lower() == "windows"
         and not parsed_uri.netloc
+        and len(local_parsed_path) > 3
         and local_parsed_path[0] == "/"
         and local_parsed_path[1] in string.ascii_letters
         and local_parsed_path[2:4] in [":", ":/", "://"]
@@ -215,6 +216,9 @@ def get_uri_scheme(uri_or_path):
     parsed_uri = urllib.parse.urlparse(uri_or_path)
     scheme = parsed_uri.scheme
 
+    # This checks if `uri_or_path` is a windows path (and platform is windows)
+    # without netloc and forces scheme to be empty so that it windows path can
+    # work with local artifact repo
     if _is_local_windows_path(uri_or_path):
         return ""
 
@@ -251,7 +255,7 @@ def append_to_uri_path(uri, *paths):
     if _is_local_windows_path(uri):
         return reduce(
             lambda base_uri, sub_path: str(
-                pathlib.Path(base_uri).joinpath(sub_path).resolve().as_posix()
+                pathlib.Path(base_uri).joinpath(sub_path.lstrip(posixpath.sep)).resolve().as_posix()
             ),
             paths,
             uri,
@@ -370,13 +374,13 @@ def resolve_uri_if_local(local_uri):
         local_path = local_file_uri_to_path(local_uri)
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
-                return str(cwd.joinpath(local_path))
+                return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
             resolved_absolute_uri = urllib.parse.urlunsplit(
                 (
                     local_uri_split.scheme,
                     None,
-                    str(cwd.joinpath(local_path)),
+                    cwd.joinpath(local_path).as_posix(),
                     local_uri_split.query,
                     local_uri_split.fragment,
                 )
