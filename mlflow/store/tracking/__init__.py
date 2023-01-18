@@ -5,11 +5,12 @@ artifacts like models, plots, images, etc.
 
 Several constants are used by multiple backend store implementations.
 """
+import os
 
 # Path to default location for backend when using local FileStore or ArtifactStore.
 # Also used as default location for artifacts, when not provided, in non local file based backends
 # (eg MySQL)
-DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = "./mlruns"
+DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = os.path.abspath("./mlruns")
 # Used for defining the artifacts uri (`--default-artifact-root`) for the tracking server when
 # configuring the server to use the option `--serve-artifacts` mode. This default can be
 # overridden by specifying an override to `--default-artifact-root` for the MLflow tracking server.
