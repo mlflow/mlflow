@@ -87,7 +87,8 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        self._initialize_tables()
+        if mlflow.store.db.utils._all_tables_exist(self.engine):
+            mlflow.store.db.utils._initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
         Base.metadata.bind = self.engine
@@ -101,17 +102,6 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_dialect(self):
         return self.engine.dialect.name
-
-    def _initialize_tables(self):
-        expected_tables = [
-            SqlRegisteredModel.__tablename__,
-            SqlModelVersion.__tablename__,
-            SqlRegisteredModelTag.__tablename__,
-            SqlModelVersionTag.__tablename__,
-        ]
-        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any(table not in inspected_tables for table in expected_tables):
-            mlflow.store.db.utils._initialize_tables(self.engine)
 
     @staticmethod
     def _verify_registry_tables_exist(engine):
