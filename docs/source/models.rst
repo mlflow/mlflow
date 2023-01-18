@@ -832,9 +832,62 @@ Spark MLlib (``spark``)
 
 The ``spark`` model flavor enables exporting Spark MLlib models as MLflow Models.
 
-The :py:mod:`mlflow.spark` module defines :py:func:`save_model() <mlflow.spark.save_model>` and
-:py:func:`log_model() <mlflow.spark.log_model>` methods that save Spark MLlib pipelines in MLflow
-model format. MLflow Models produced by these functions contain the ``python_function`` flavor,
+The :py:mod:`mlflow.spark` module defines
+
+* :py:func:`save_model() <mlflow.spark.save_model>`
+* :py:func:`log_model() <mlflow.spark.log_model>` methods that save Spark MLlib pipelines in MLflow model format.
+* :py:func:`mlflow.spark.load_model()` method load MLflow Models with the ``spark`` flavor as Spark MLlib pipelines.
+
+Spark MLlib pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: py
+
+    from pyspark.ml.classification import LogisticRegression
+    from pyspark.ml.linalg import Vectors
+    from pyspark.sql import SparkSession
+    import mlflow
+
+    # Prepare training data from a list of (label, features) tuples.
+    spark = SparkSession.builder.appName("LogisticRegressionExample").getOrCreate()
+    training = spark.createDataFrame(
+        [
+            (1.0, Vectors.dense([0.0, 1.1, 0.1])),
+            (0.0, Vectors.dense([2.0, 1.0, -1.0])),
+            (0.0, Vectors.dense([2.0, 1.3, 1.0])),
+            (1.0, Vectors.dense([0.0, 1.2, -0.5]))
+        ],
+        ["label", "features"]
+    )
+
+    # Create and fit a LogisticRegression instance
+    lr = LogisticRegression(maxIter=10, regParam=0.01)
+    lr_model = lr.fit(training)
+
+    # Serialize the Model
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(lr_model, "spark-model")
+
+    # Load saved model
+    lr_model_saved = mlflow.spark.load_model(model_info.model_uri, "spark-model")
+
+    # Make predictions on test dat
+    test = spark.createDataFrame(
+        [
+            (1.0, Vectors.dense([-1.0, 1.5, 1.3])),
+            (0.0, Vectors.dense([3.0, 2.0, -0.1])),
+            (1.0, Vectors.dense([0.0, 2.2, -1.5]))
+        ],
+        ["label", "features"]
+    )
+    prediction = lr_model_saved.transform(test)
+    result = prediction.select("features", "label", "prediction").collect()
+
+    for row in result:
+        print("features=%s, label=%s -> prediction=%s" % (row.features, row.label, row.prediction))
+
+
+MLflow Models produced by these functions contain the ``python_function`` flavor,
 allowing you to load them as generic Python functions via :py:func:`mlflow.pyfunc.load_model()`.
 This loaded PyFunc model can only be scored with DataFrame input.
 When a model with the ``spark`` flavor is loaded as a Python function via
@@ -885,9 +938,6 @@ pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by 
         └── requirements.txt
 
     For more information, see :py:func:`mlflow.mleap<mlflow.mleap>`.
-
-Finally, the :py:func:`mlflow.spark.load_model()` method is used to load MLflow Models with
-the ``spark`` flavor as Spark MLlib pipelines.
 
 For more information, see :py:mod:`mlflow.spark`.
 
