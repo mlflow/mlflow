@@ -25,6 +25,7 @@ from mlflow.projects.utils import (
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
     PROJECT_BUILD_IMAGE,
+    PROJECT_DOCKER_AUTH,
 )
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_or_create_conda_env
@@ -90,7 +91,7 @@ class LocalBackend(AbstractBackend):
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
         build_image = backend_config[PROJECT_BUILD_IMAGE]
-
+        docker_auth = backend_config[PROJECT_DOCKER_AUTH]
         # Select an appropriate env manager for the project env type
         if env_manager is None:
             env_manager = _env_type_to_env_manager(project.env_type)
@@ -119,6 +120,7 @@ class LocalBackend(AbstractBackend):
                 base_image=project.docker_env.get("image"),
                 run_id=active_run.info.run_id,
                 build_image=build_image,
+                docker_auth=docker_auth,
             )
             command_args += _get_docker_command(
                 image=image,

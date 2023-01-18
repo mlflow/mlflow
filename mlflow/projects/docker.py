@@ -64,12 +64,15 @@ def validate_docker_env(project):
         )
 
 
-def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image):
+def build_docker_image(work_dir, repository_uri, base_image, run_id, build_image, docker_auth):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     client = docker.from_env()
+    if docker_auth is not None:
+        client.login(**docker_auth)
+
     if not build_image:
         if not client.images.list(name=base_image):
             _logger.info(f"Pulling {base_image}")
