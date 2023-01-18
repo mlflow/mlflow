@@ -834,9 +834,22 @@ The ``spark`` model flavor enables exporting Spark MLlib models as MLflow Models
 
 The :py:mod:`mlflow.spark` module defines
 
-* :py:func:`save_model() <mlflow.spark.save_model>`
-* :py:func:`log_model() <mlflow.spark.log_model>` methods that save Spark MLlib pipelines in MLflow model format.
-* :py:func:`mlflow.spark.load_model()` method load MLflow Models with the ``spark`` flavor as Spark MLlib pipelines.
+* :py:func:`save_model() <mlflow.spark.save_model>` to save a Spark MLlib model to a DBFS path.
+* :py:func:`log_model() <mlflow.spark.log_model>` to upload a Spark MLlib model to the tracking server.
+* :py:func:`mlflow.spark.load_model()` to load MLflow Models with the ``spark`` flavor as Spark MLlib pipelines.
+
+MLflow Models produced by these functions contain the ``python_function`` flavor,
+allowing you to load them as generic Python functions via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame input.
+When a model with the ``spark`` flavor is loaded as a Python function via
+:py:func:`mlflow.pyfunc.load_model()`, a new
+`SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
+is created for model inference; additionally, the function converts all Pandas DataFrame inputs to
+Spark DataFrames before scoring. While this initialization overhead and format translation latency
+is not ideal for high-performance use cases, it enables you to easily deploy any
+`MLlib PipelineModel <http://spark.apache.org/docs/latest/api/python/pyspark.ml.html?highlight=
+pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by MLflow
+(SageMaker, AzureML, etc).
 
 Spark MLlib pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -869,9 +882,10 @@ Spark MLlib pyfunc usage
         model_info = mlflow.spark.log_model(lr_model, "spark-model")
 
     # Load saved model
-    lr_model_saved = mlflow.spark.load_model(model_info.model_uri, "spark-model")
+    lr_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    # Make predictions on test dat
+    # Make predictions on test data.
+    # The DataFrame used in the predict method must be a Pandas DataFrame
     test = spark.createDataFrame(
         [
             (1.0, Vectors.dense([-1.0, 1.5, 1.3])),
@@ -879,26 +893,9 @@ Spark MLlib pyfunc usage
             (1.0, Vectors.dense([0.0, 2.2, -1.5]))
         ],
         ["label", "features"]
-    )
-    prediction = lr_model_saved.transform(test)
-    result = prediction.select("features", "label", "prediction").collect()
+    ).toPandas()
 
-    for row in result:
-        print("features=%s, label=%s -> prediction=%s" % (row.features, row.label, row.prediction))
-
-
-MLflow Models produced by these functions contain the ``python_function`` flavor,
-allowing you to load them as generic Python functions via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame input.
-When a model with the ``spark`` flavor is loaded as a Python function via
-:py:func:`mlflow.pyfunc.load_model()`, a new
-`SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
-is created for model inference; additionally, the function converts all Pandas DataFrame inputs to
-Spark DataFrames before scoring. While this initialization overhead and format translation latency
-is not ideal for high-performance use cases, it enables you to easily deploy any
-`MLlib PipelineModel <http://spark.apache.org/docs/latest/api/python/pyspark.ml.html?highlight=
-pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by MLflow
-(SageMaker, AzureML, etc).
+    prediction = lr_model_saved.predict(test)
 
 .. note::
     Note that when the ``sample_input`` parameter is provided to ``log_model()`` or 
