@@ -84,6 +84,8 @@ def test_get_store_sqlalchemy_store(db_type):
     env = {_TRACKING_URI_ENV_VAR: uri}
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+        "mlflow.store.db.utils._initialize_tables"
+    ), mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
         "_verify_registry_tables_exist"
     ):
