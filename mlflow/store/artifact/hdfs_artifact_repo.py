@@ -14,11 +14,7 @@ from mlflow.environment_variables import (
     MLFLOW_KERBEROS_USER,
     MLFLOW_PYARROW_EXTRA_CONF,
 )
-from concurrent.futures import ThreadPoolExecutor
 
-_NUM_MAX_THREADS = 8
-_NUM_MAX_THREADS_PER_CPU = 2
-_NUM_DEFAULT_CPUS = _NUM_MAX_THREADS // _NUM_MAX_THREADS_PER_CPU
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -74,20 +70,19 @@ class HdfsArtifactRepository(ArtifactRepository):
                 if not hdfs.exists(hdfs_subdir_path):
                     hdfs.mkdir(hdfs_subdir_path)
 
-                num_of_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
-                with ThreadPoolExecutor(max_workers=num_of_cpus) as executor:
-                    for each_file in files:
-                        executor.submit(
-                            HdfsArtifactRepository._upload_dir_files_to_hdfs,
-                            hdfs=hdfs, 
-                            subdir_path=subdir_path, 
-                            hdfs_subdir_path=hdfs_subdir_path,
-                            each_file=each_file
-                        )
+                for each_file in files:
+                    source = os.path.join(subdir_path, each_file)
+                    destination = posixpath.join(hdfs_subdir_path, each_file)
+                    self.thread_pool.submit(
+                        HdfsArtifactRepository._upload_dir_files_to_hdfs,
+                        hdfs=hdfs, 
+                        source=source, 
+                        destination=destination,
+                    ).result()
+                    
 
-    def _upload_dir_files_to_hdfs(self, hdfs, subdir_path, hdfs_subdir_path, each_file):
-        source = os.path.join(subdir_path, each_file)
-        destination = posixpath.join(hdfs_subdir_path, each_file)
+    @staticmethod
+    def _upload_dir_files_to_hdfs(hdfs, source, destination):
         with open(source, "rb") as f:
             hdfs.upload(destination, f)
 
