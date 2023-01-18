@@ -24,7 +24,7 @@ class WrappedRecipeModel(PythonModel):
             or not hasattr(self._classifier, "predict_proba")
             or not self.predict_scores_for_all_classes
         ):
-            return self.post_predict_fn(predicted_label)
+            return predicted_label
 
         classes = self._classifier.classes_
         score_cols = [f"{self.predict_prefix}score_" + str(c) for c in classes]
@@ -33,4 +33,4 @@ class WrappedRecipeModel(PythonModel):
         output[f"{self.predict_prefix}score"] = np.max(probabilities, axis=1)
         output[f"{self.predict_prefix}label"] = predicted_label
 
-        return self.post_predict_fn(output)
+        return output

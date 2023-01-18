@@ -213,6 +213,15 @@ class EvaluateStep(BaseStep):
                 ):
                     if self.extended_task == "classification/binary":
                         evaluator_config["pos_label"] = self.positive_class
+
+                    if dataset_name == "test":
+                        sunish_model = mlflow.sklearn.load_model(model_uri)
+
+                        print(
+                            "Predicted data last step",
+                            sunish_model.predict_proba(dataset.drop(columns=[self.target_col])),
+                        )
+
                     eval_result = mlflow.evaluate(
                         model=model_uri,
                         data=dataset,
