@@ -31,6 +31,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
+)
+from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlModelVersion,
     SqlRegisteredModelTag,
