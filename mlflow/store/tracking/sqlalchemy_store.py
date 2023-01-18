@@ -130,18 +130,7 @@ class SqlAlchemyStore(AbstractStore):
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
-        expected_tables = [
-            SqlExperiment.__tablename__,
-            SqlRun.__tablename__,
-            SqlMetric.__tablename__,
-            SqlParam.__tablename__,
-            SqlTag.__tablename__,
-            SqlExperimentTag.__tablename__,
-            SqlLatestMetric.__tablename__,
-        ]
-        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any(table not in inspected_tables for table in expected_tables):
-            mlflow.store.db.utils._initialize_tables(self.engine)
+        self._initialize_tables()
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
@@ -155,6 +144,20 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.search_experiments(view_type=ViewType.ALL)) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    def _initialize_tables(self):
+        expected_tables = [
+            SqlExperiment.__tablename__,
+            SqlRun.__tablename__,
+            SqlMetric.__tablename__,
+            SqlParam.__tablename__,
+            SqlTag.__tablename__,
+            SqlExperimentTag.__tablename__,
+            SqlLatestMetric.__tablename__,
+        ]
+        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
+        if any(table not in inspected_tables for table in expected_tables):
+            mlflow.store.db.utils._initialize_tables(self.engine)
 
     def _get_dialect(self):
         return self.engine.dialect.name
