@@ -179,6 +179,7 @@ def _is_local_windows_path(uri_or_path):
     return (
         platform.system().lower() == "windows"
         and not parsed_uri.netloc
+        and len(uri_or_path) > 3
         and uri_or_path[0] in string.ascii_letters
         and uri_or_path[0].lower() == scheme.lower()
         and uri_or_path[1:3] in [":", ":/", "://", ":\\"]

@@ -621,8 +621,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         platform.system().lower() == "windows"
                         and expected_artifact_uri_format.startswith("file:")
                     ):
-                        cwd = "/" + cwd
-                        drive = drive + "/"
+                        cwd = f"/{cwd}"
+                        drive = f"{drive}/"
                     assert exp.artifact_location == expected_artifact_uri_format.format(
                         e=exp_id, cwd=cwd, drive=drive
                     )
@@ -700,8 +700,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         platform.system().lower() == "windows"
                         and expected_artifact_uri_format.startswith("file:")
                     ):
-                        cwd = "/" + cwd
-                        drive = drive + "/"
+                        cwd = f"/{cwd}"
+                        drive = f"{drive}/"
                     assert run.info.artifact_uri == expected_artifact_uri_format.format(
                         e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
                     )

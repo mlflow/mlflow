@@ -2,6 +2,7 @@ import pathlib
 import posixpath
 import pytest
 import os
+import platform
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -531,19 +532,22 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
 
 
 def test_resolve_uri_if_local():
-    cwd = pathlib.Path.cwd()
-    drive = cwd.drive
+    cwd = pathlib.Path.cwd().as_posix()
+    drive = pathlib.Path.cwd().drive
     input_and_expected_uris = {
         "file://myhostname/my/path": "file://myhostname/my/path",
-        "file:///my/path": f"file:///{drive}/my/path",
-        "file:my/path": f"file:///{cwd.as_posix()}/my/path",
-        "my/path": f"{cwd.as_posix()}/my/path",
-        "/home/my/path": f"{drive}/home/my/path",
+        "file:///my/path": "file:///{drive}my/path",
+        "file:my/path": "file://{cwd}/my/path",
+        "my/path": "{cwd}/my/path",
+        "/home/my/path": "{drive}/home/my/path",
         "dbfs://databricks/a/b": "dbfs://databricks/a/b",
         "s3://host/my/path": "s3://host/my/path",
     }
     for input_uri, expected_uri in input_and_expected_uris.items():
-        assert resolve_uri_if_local(input_uri) == expected_uri
+        if platform.system().lower() == "windows" and expected_uri.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
