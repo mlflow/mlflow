@@ -9,7 +9,13 @@ from mlflow.tensorflow import (
     _thread_pool,
     _MAX_METRIC_QUEUE_SIZE,
 )
-import mlflow.pytorch._lightning_autolog as pl_autolog
+
+try:
+    import mlflow.pytorch._lightning_autolog as pl_autolog
+except ImportError:
+
+    class pl_autolog:
+        IN_FIT = False
 
 
 def _add_to_queue(key, value, step, time, run_id):

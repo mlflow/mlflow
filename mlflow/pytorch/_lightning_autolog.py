@@ -20,23 +20,8 @@ logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
-try:
-    import pytorch_lightning as pl
-    from pytorch_lightning.utilities import rank_zero_only
-
-    HAVE_LIGHTNING = True
-
-
-except ImportError:
-    HAVE_LIGHTNING = False
-
-    class pl:
-        Callback = object
-        __version__ = "0.0.0"
-
-    def rank_zero_only(f):
-        return f
-
+import pytorch_lightning as pl
+from pytorch_lightning.utilities import rank_zero_only
 
 # indicates that lightning is active, so no low level tensorboard patching
 # is required.
@@ -55,16 +40,13 @@ IN_FIT = False
 # once the above mentioned issues have been addressed
 
 
-if HAVE_LIGHTNING:
-    _pl_version = Version(pl.__version__)
-    if _pl_version < Version("1.5.0"):
-        # pylint: disable-next=ungrouped-imports
-        from pytorch_lightning.core.memory import ModelSummary
-    else:
-        # pylint: disable-next=ungrouped-imports
-        from pytorch_lightning.utilities.model_summary import ModelSummary
+_pl_version = Version(pl.__version__)
+if _pl_version < Version("1.5.0"):
+    # pylint: disable-next=ungrouped-imports
+    from pytorch_lightning.core.memory import ModelSummary
 else:
-    _pl_version = Version("0.0.0")
+    # pylint: disable-next=ungrouped-imports
+    from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
 def _get_optimizer_name(optimizer):

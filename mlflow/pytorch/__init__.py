@@ -1052,21 +1052,21 @@ def autolog(
         PyTorch autologged MLflow entities
     """
     import atexit
-    from mlflow.pytorch._lightning_autolog import (
-        patched_fit,
-        HAVE_LIGHTNING,
-    )
+
+    try:
+        import pytorch_lightning as pl
+        from mlflow.pytorch._lightning_autolog import patched_fit
+
+        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    except ImportError:
+        pass
+
     from mlflow.pytorch._pytorch_autolog import (
         patched_add_event,
         patched_add_hparams,
         patched_add_summary,
         _flush_queue,
     )
-
-    if HAVE_LIGHTNING:
-        import pytorch_lightning as pl
-
-        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
 
     import torch.utils.tensorboard.writer
 
