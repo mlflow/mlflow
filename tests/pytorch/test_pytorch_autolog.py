@@ -325,6 +325,8 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+    # this is logged through SummaryWriter
+    assert "plain_loss" not in data.metrics
 
 
 def test_get_optimizer_name():
