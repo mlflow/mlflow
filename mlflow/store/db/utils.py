@@ -23,6 +23,21 @@ from sqlalchemy.pool import (
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
+    SqlRun,
+    SqlMetric,
+    SqlParam,
+    SqlTag,
+    SqlExperimentTag,
+    SqlLatestMetric,
+)
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
 from mlflow.environment_variables import (
@@ -42,6 +57,23 @@ def _get_package_dir():
     """Returns directory containing MLflow python package."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(os.path.join(current_dir, os.pardir, os.pardir))
+
+
+def _all_tables_exist(engine):
+    expected_tables = {
+        SqlExperiment.__tablename__,
+        SqlRun.__tablename__,
+        SqlMetric.__tablename__,
+        SqlParam.__tablename__,
+        SqlTag.__tablename__,
+        SqlExperimentTag.__tablename__,
+        SqlLatestMetric.__tablename__,
+        SqlRegisteredModel.__tablename__,
+        SqlModelVersion.__tablename__,
+        SqlRegisteredModelTag.__tablename__,
+        SqlModelVersionTag.__tablename__,
+    }
+    return set(sqlalchemy.inspect(engine).get_table_names()) == expected_tables
 
 
 def _initialize_tables(engine):
