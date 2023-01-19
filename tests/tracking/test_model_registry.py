@@ -5,6 +5,9 @@ and ensures we can use the tracking API to communicate with it.
 import sys
 import pytest
 import logging
+import shutil
+import tempfile
+from pathlib import Path
 
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
@@ -19,23 +22,43 @@ from tests.tracking.integration_test_utils import _await_server_down_or_die, _in
 _logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(params=["file", "sqlalchemy"])
-def mlflow_client(request, tmp_path):
+@pytest.fixture(scope="module")
+def module_scoped_tmp_dir():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+
+@pytest.fixture(scope="module", params=["file", "sqlalchemy"])
+def backend_uri(request, module_scoped_tmp_dir):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if request.param == "file":
-        uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
-        FileStore(uri)
+        return path_to_local_file_uri(str(module_scoped_tmp_dir.joinpath("file")))
     elif request.param == "sqlalchemy":
-        path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
-        uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
-        SqlAlchemyStore(uri)
+        path = path_to_local_file_uri(str(module_scoped_tmp_dir.joinpath("sqlalchemy.db")))
+        return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
 
-    root_artifact_uri = str(tmp_path)
+
+@pytest.fixture(autouse=True)
+def reset_backend(backend_uri, module_scoped_tmp_dir):
+    for child in module_scoped_tmp_dir.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+    if backend_uri.startswith("file"):
+        FileStore(backend_uri)
+    elif backend_uri.startswith("sqlite"):
+        SqlAlchemyStore(backend_uri)
+
+
+@pytest.fixture(scope="module")
+def mlflow_client(backend_uri, module_scoped_tmp_dir):
     _logger.info("Launching server...")
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=root_artifact_uri)
-
+    url, process = _init_server(
+        backend_uri=backend_uri, root_artifact_uri=module_scoped_tmp_dir.as_uri()
+    )
     yield MlflowClient(url)
-
     _logger.info(f"Terminating server at {url}...")
     process.terminate()
     _await_server_down_or_die(process)
