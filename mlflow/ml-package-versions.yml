@@ -45,7 +45,7 @@ pytorch:
   autologging:
     minimum: "1.6.0"
     maximum: "1.13.1"
-    requirements::
+    requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
