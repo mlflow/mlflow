@@ -17,6 +17,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
     STAGE_ARCHIVED,
     STAGE_NONE,
+    STAGE_DELETED_INTERNAL,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -160,9 +161,7 @@ class FileStore(AbstractStore):
             latest_versions=latest_versions,
             tags=tags,
         )
-        self._save_registered_model_as_meta_file(
-            registered_model, meta_dir=meta_dir, overwrite=False
-        )
+        self._save_registered_model_as_meta_file(registered_model)
         if tags is not None:
             for tag in tags:
                 self.set_registered_model_tag(name, tag)
@@ -206,7 +205,7 @@ class FileStore(AbstractStore):
         model_path = self._get_registered_model_path(name)
         if not exists(model_path):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         registered_model = self._get_registered_model_from_path(model_path)
@@ -239,6 +238,8 @@ class FileStore(AbstractStore):
                 RESOURCE_ALREADY_EXISTS,
             )
 
+        return registered_model
+
     def delete_registered_model(self, name):
         """
         Delete the registered model.
@@ -250,7 +251,7 @@ class FileStore(AbstractStore):
         meta_dir = self._get_registered_model_path(name)
         if not exists(meta_dir):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         shutil.rmtree(meta_dir)
@@ -327,7 +328,7 @@ class FileStore(AbstractStore):
         model_path = self._get_registered_model_path(name)
         if not exists(model_path):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         return self._get_registered_model_from_path(model_path)
@@ -345,7 +346,7 @@ class FileStore(AbstractStore):
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         model_versions = self._list_model_versions_under_path(registered_model_path)
@@ -370,7 +371,7 @@ class FileStore(AbstractStore):
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         return os.path.join(registered_model_path, FileStore.TAGS_FOLDER_NAME, tag_name)
@@ -462,7 +463,7 @@ class FileStore(AbstractStore):
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
-                f"Could not find registered model with name {name}",
+                f"Registered Model with name={name} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         return join(registered_model_path, f"version-{version}")
@@ -509,9 +510,11 @@ class FileStore(AbstractStore):
                  created in the backend.
         """
 
-        def next_version(registered_model):
-            if registered_model.latest_versions:
-                return max([mv.version for mv in registered_model.latest_versions]) + 1
+        def next_version(registered_model_name):
+            path = self._get_registered_model_path(registered_model_name)
+            model_versions = self._list_model_versions_under_path(path)
+            if model_versions:
+                return max(mv.version for mv in model_versions) + 1
             else:
                 return 1
 
@@ -523,7 +526,7 @@ class FileStore(AbstractStore):
                 creation_time = now()
                 registered_model = self.get_registered_model(name)
                 registered_model.last_updated_timestamp = creation_time
-                version = next_version(registered_model)
+                version = next_version(name)
                 model_version = ModelVersion(
                     name=name,
                     version=version,
@@ -541,6 +544,7 @@ class FileStore(AbstractStore):
                 self._save_model_version_as_meta_file(
                     model_version, meta_dir=model_version_dir, overwrite=False
                 )
+                self._save_registered_model_as_meta_file(registered_model)
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
@@ -573,7 +577,6 @@ class FileStore(AbstractStore):
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
         self._save_model_version_as_meta_file(model_version)
-        self._update_registered_model_last_updated_time(name, updated_time)
         return model_version
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -623,14 +626,11 @@ class FileStore(AbstractStore):
         :param version: Registered model version.
         :return: None
         """
-        meta_dir = self._get_model_version_dir(name, version)
-        if not exists(meta_dir):
-            raise MlflowException(
-                f"Model Version (name={name}, version={version}) not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        shutil.rmtree(meta_dir)
+        model_version = self.get_model_version(name=name, version=version)
+        model_version.current_stage = STAGE_DELETED_INTERNAL
         updated_time = now()
+        model_version.last_updated_timestamp = updated_time
+        self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, updated_time)
 
     def get_model_version(self, name, version):
@@ -650,6 +650,11 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         model_version = self._get_model_version_from_dir(registered_model_version_dir)
+        if model_version.current_stage == STAGE_DELETED_INTERNAL:
+            raise MlflowException(
+                f"Model Version (name={name}, version={version}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
         return model_version
 
     def get_model_version_download_uri(self, name, version):
@@ -701,6 +706,7 @@ class FileStore(AbstractStore):
         for path in registered_model_paths:
             model_versions.extend(self._list_model_versions_under_path(path))
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
+        filtered_mvs = [mv for mv in filtered_mvs if mv.current_stage != STAGE_DELETED_INTERNAL]
         return PagedList(filtered_mvs, None)
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
@@ -709,6 +715,12 @@ class FileStore(AbstractStore):
         _validate_tag_name(tag_name)
         registered_model_version_path = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_path):
+            raise MlflowException(
+                f"Model Version (name={name}, version={version}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        model_version = self._get_model_version_from_dir(registered_model_version_path)
+        if model_version.current_stage == STAGE_DELETED_INTERNAL:
             raise MlflowException(
                 f"Model Version (name={name}, version={version}) not found",
                 RESOURCE_DOES_NOT_EXIST,

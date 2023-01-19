@@ -2,15 +2,12 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-
-from unittest import mock
-import os
 import sys
 import pytest
 import logging
-import shutil
-import tempfile
 
+from mlflow.store.model_registry.file_store import FileStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
@@ -18,73 +15,30 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
-# pylint: disable=unused-argument
-
-# Root directory for all stores (backend or artifact stores) created during this suite
-SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
-# Root directory for all artifact stores created during this suite
-SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
 
 _logger = logging.getLogger(__name__)
 
 
-def _get_sqlite_uri():
-    path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
-    path = path[len("file://") :]
-
-    # NB: It looks like windows and posix have different requirements on number of slashes for
-    # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
-    # sqlite://///path/to/my/file
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
-    return prefix + path
-
-
-# Backend store URIs to test against
-BACKEND_URIS = [
-    _get_sqlite_uri(),  # SqlAlchemy
-]
-
-# Map of backend URI to tuple (server URL, Process). We populate this map by constructing
-# a server per backend URI
-BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
-    for uri in BACKEND_URIS
-}
-
-
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
-    list of backend store URIs.
-    """
-    if "backend_store_uri" in metafunc.fixturenames:
-        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def server_urls():
-    """
-    Clean up all servers created for testing in `pytest_generate_tests`
-    """
-    yield
-    for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
-        _logger.info(f"Terminating server at {server_url}...")
-        _logger.info(f"type = {type(process)}")
-        process.terminate()
-        _await_server_down_or_die(process)
-    shutil.rmtree(SUITE_ROOT_DIR)
-
-
-@pytest.fixture()
-def tracking_server_uri(backend_store_uri):
-    url, _ = BACKEND_URI_TO_SERVER_URL_AND_PROC[backend_store_uri]
-    return url
-
-
-@pytest.fixture()
-def mlflow_client(tracking_server_uri):
+@pytest.fixture(params=["file", "sqlalchemy"])
+def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    return mock.Mock(wraps=MlflowClient(tracking_server_uri))
+    if request.param == "file":
+        uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
+        FileStore(uri)
+    elif request.param == "sqlalchemy":
+        path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+        uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        SqlAlchemyStore(uri)
+
+    root_artifact_uri = str(tmp_path)
+    _logger.info("Launching server...")
+    url, process = _init_server(backend_uri=uri, root_artifact_uri=root_artifact_uri)
+
+    yield MlflowClient(url)
+
+    _logger.info(f"Terminating server at {url}...")
+    process.terminate()
+    _await_server_down_or_die(process)
 
 
 def assert_is_between(start_time, end_time, expected_time):
@@ -92,7 +46,7 @@ def assert_is_between(start_time, end_time, expected_time):
     assert expected_time <= end_time
 
 
-def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri):
+def test_create_and_query_registered_model_flow(mlflow_client):
     name = "CreateRMTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
     start_time = get_current_time_millis()
@@ -129,8 +83,6 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
         for rm in mlflow_client.search_registered_models("name = 'CreateRMTest'")
         if rm.name == name
     ] == [name]
-    # clean up test
-    mlflow_client.delete_registered_model(name)
 
 
 def _verify_pagination(rm_getter_with_token, expected_rms):
@@ -159,7 +111,7 @@ def _verify_pagination(rm_getter_with_token, expected_rms):
     ],
 )
 def test_search_registered_model_flow_paginated(
-    mlflow_client, backend_store_uri, max_results, filter_string, filter_func
+    mlflow_client, max_results, filter_string, filter_func
 ):
     names = [f"CreateRMsearch{i:03}" for i in range(29)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
@@ -175,22 +127,15 @@ def test_search_registered_model_flow_paginated(
             result_rms.extend(result)
         assert [rm.name for rm in expected_rms] == [rm.name for rm in result_rms]
 
-    try:
-        verify_pagination(
-            lambda tok: mlflow_client.search_registered_models(
-                filter_string=filter_string, max_results=max_results, page_token=tok
-            ),
-            filter(filter_func, rms),
-        )
-    except Exception as e:
-        raise e
-    finally:
-        # clean up test
-        for name in names:
-            mlflow_client.delete_registered_model(name)
+    verify_pagination(
+        lambda tok: mlflow_client.search_registered_models(
+            filter_string=filter_string, max_results=max_results, page_token=tok
+        ),
+        filter(filter_func, rms),
+    )
 
 
-def test_update_registered_model_flow(mlflow_client, backend_store_uri):
+def test_update_registered_model_flow(mlflow_client):
     name = "UpdateRMTest"
     start_time_1 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
@@ -262,7 +207,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
             mlflow_client.get_registered_model(old_name)
 
 
-def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
+def test_delete_registered_model_flow(mlflow_client):
     name = "DeleteRMTest"
     start_time_1 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
@@ -303,7 +248,7 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert [rm.name for rm in mlflow_client.search_registered_models() if rm.name == name] == [name]
 
 
-def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
+def test_set_delete_registered_model_tag_flow(mlflow_client):
     name = "SetDeleteRMTagTest"
     mlflow_client.create_registered_model(name)
     registered_model_detailed = mlflow_client.get_registered_model(name)
@@ -325,7 +270,7 @@ def test_set_registered_model_tag_with_empty_string_as_value(mlflow_client):
     assert {"tag_key": ""}.items() <= mlflow_client.get_registered_model(name).tags.items()
 
 
-def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
+def test_create_and_query_model_version_flow(mlflow_client):
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
     mlflow_client.create_registered_model(name)
@@ -361,7 +306,7 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     assert mlflow_client.get_model_version_download_uri(name, "1") == "path/to/model"
 
 
-def test_get_model_version(mlflow_client, backend_store_uri):
+def test_get_model_version(mlflow_client):
     name = "GetModelVersionTest"
     mlflow_client.create_registered_model(name)
     mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
@@ -375,7 +320,7 @@ def test_get_model_version(mlflow_client, backend_store_uri):
         mlflow_client.get_model_version(name=name, version="something not correct")
 
 
-def test_update_model_version_flow(mlflow_client, backend_store_uri):
+def test_update_model_version_flow(mlflow_client):
     name = "UpdateMVTest"
     start_time_0 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
@@ -445,7 +390,7 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, rmd4.last_updated_timestamp)
 
 
-def test_latest_models(mlflow_client, backend_store_uri):
+def test_latest_models(mlflow_client):
     version_stage_mapping = (
         ("1", "Archived"),
         ("2", "Production"),
@@ -477,7 +422,7 @@ def test_latest_models(mlflow_client, backend_store_uri):
     assert get_latest([]) == {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"}
 
 
-def test_delete_model_version_flow(mlflow_client, backend_store_uri):
+def test_delete_model_version_flow(mlflow_client):
     name = "DeleteMVTest"
     start_time_0 = get_current_time_millis()
     mlflow_client.create_registered_model(name)
@@ -552,7 +497,7 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     }
 
 
-def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
+def test_set_delete_model_version_tag_flow(mlflow_client):
     name = "SetDeleteMVTagTest"
     mlflow_client.create_registered_model(name)
     mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
