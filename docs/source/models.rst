@@ -1247,6 +1247,61 @@ models to be interpreted as generic Python functions for inference via
 You can also use the :py:func:`mlflow.prophet.load_model()`
 method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
 
+Prophet pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+
+This example uses the `example_wp_log_peyton_manning.csv <https://github.com/facebook/prophet/blob/main/examples/example_wp_log_peyton_manning.csv>` _
+from Prophet's GitHub repository. The dataset looks like this:
+
+============= =================
+ds            y
+============= =================
+2007-12-10    9.59076113897809
+2007-12-11    8.51959031601596
+2007-12-12	  8.18367658262066
+2007-12-13    8.07246736935477
+============= =================
+
+.. code-block:: py
+
+    import pandas as pd
+    from prophet import Prophet
+    import mlflow
+
+    train_df = pd.read_csv("https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv")
+    # starts on 2007-12-10, ends on 2016-01-20
+    print(f"Training data start: {train_df.ds.iloc[0]}")
+    print(f"Training data end: {train_df.ds.iloc[-1]}")
+    reg_model = Prophet()
+    reg_model.fit(train_df)
+
+    # Serialize the Model
+    with mlflow.start_run():
+        model_info = mlflow.prophet.log_model(reg_model, "prophet-model")
+
+    # Load saved model
+    reg_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Create a test DataFrame with the "ds" column containing 10 days after the end date in train_df
+    test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
+    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+
+    # Predicted values are in the "yhat" column
+    predictions = reg_model_saved.predict(test_df)
+    print(predictions.loc[:, ["ds", "yhat"]].head())
+
+Output (``Pandas DataFrame``):
+
+============  =========
+ds            yhat
+============  =========
+0 2016-01-21  8.561085
+1 2016-01-22  8.577087
+2 2016-01-23  8.345801
+3 2016-01-24  8.713813
+4 2016-01-25  9.022529
+============  =========
+
 For more information, see :py:mod:`mlflow.prophet`.
 
 Pmdarima (``pmdarima``)
