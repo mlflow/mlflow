@@ -706,7 +706,11 @@ class FileStore(AbstractStore):
         for path in registered_model_paths:
             model_versions.extend(self._list_model_versions_under_path(path))
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
-        filtered_mvs = [mv for mv in filtered_mvs if mv.current_stage != STAGE_DELETED_INTERNAL]
+        filtered_mvs = sorted(
+            (mv for mv in filtered_mvs if mv.current_stage != STAGE_DELETED_INTERNAL),
+            key=lambda mv: mv.last_updated_timestamp,
+            reverse=True,
+        )
         return PagedList(filtered_mvs, None)
 
     def _get_registered_model_version_tag_path(self, name, version, tag_name):
