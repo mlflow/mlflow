@@ -6,8 +6,9 @@ import shutil
 import tempfile
 import warnings
 
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.exceptions import MlflowException
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.pytorch import _pytorch_autolog
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     BatchMetricsLogger,
@@ -21,10 +22,6 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
-
-# indicates that lightning is active, so no low level tensorboard patching
-# is required.
-IN_FIT = False
 
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
@@ -352,8 +349,6 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
-    global IN_FIT
-
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             (
@@ -364,7 +359,8 @@ def patched_fit(original, self, *args, **kwargs):
             % (MIN_REQ_VERSION, MAX_REQ_VERSION)
         )
 
-    IN_FIT = True
+    old_plain_autolog_value = _pytorch_autolog.ENABLED
+    _pytorch_autolog.ENABLED = False  # disable plain tensorboard autologging
     run_id = mlflow.active_run().info.run_id
     tracking_uri = mlflow.get_tracking_uri()
     client = MlflowAutologgingQueueingClient(tracking_uri)
@@ -428,5 +424,5 @@ def patched_fit(original, self, *args, **kwargs):
 
     client.flush(synchronous=True)
 
-    IN_FIT = False
+    _pytorch_autolog.ENABLED = old_plain_autolog_value
     return result

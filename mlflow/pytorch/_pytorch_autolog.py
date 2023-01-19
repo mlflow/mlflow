@@ -10,12 +10,8 @@ from mlflow.tensorflow import (
     _MAX_METRIC_QUEUE_SIZE,
 )
 
-try:
-    import mlflow.pytorch._lightning_autolog as pl_autolog
-except ImportError:
 
-    class pl_autolog:
-        IN_FIT = False
+ENABLED = True  # set to False while inside lightning's patched_fit()
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -30,16 +26,12 @@ def _add_to_queue(key, value, step, time, run_id):
             _thread_pool.submit(_flush_queue)
 
 
-FAILED = object()
-autolog_run = None
-
-
 def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwargs):
     """use a synchronous call here since this is going to get called very infrequently."""
 
     run = mlflow.active_run()
 
-    if not pl_autolog.IN_FIT and run is not None and hparam_dict:
+    if not ENABLED and run is not None and hparam_dict:
         run_id = run.info.run_id
         # str() is required by mlflow :(
         params_arr = [Param(key, str(value)) for key, value in hparam_dict.items()]
@@ -54,7 +46,7 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
 def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **kwargs):
     run = mlflow.active_run()
     if (
-        not pl_autolog.IN_FIT
+        not ENABLED
         and run is not None
         and event.WhichOneof("what") == "summary"
         and mlflow_log_every_n_step
