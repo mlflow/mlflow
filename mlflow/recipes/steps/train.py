@@ -225,6 +225,36 @@ class TrainStep(BaseStep):
         else:
             return tuning_param == logged_param
 
+    def _label_encoded_fitted_estimator(self, estimator, X_train, y_train):
+        from sklearn.preprocessing import LabelEncoder
+
+        label_encoder = None
+        label_classes = None
+        encoded_y_train = y_train
+        if "classification" in self.recipe:
+            label_encoder = LabelEncoder()
+            label_encoder.fit(y_train)
+            label_classes = label_encoder.classes_
+            import pandas as pd
+
+            encoded_y_train = pd.Series(label_encoder.transform(y_train))
+
+        def inverse_label_encoder(predicted_output):
+            if not label_encoder:
+                return predicted_output
+
+            return label_encoder.inverse_transform(predicted_output)
+
+        estimator.fit(X_train, encoded_y_train)
+        original_predict = estimator.predict
+
+        def wrapped_predict(*args, **kwargs):
+            return inverse_label_encoder(original_predict(*args, **kwargs))
+
+        estimator.predict = wrapped_predict
+
+        return estimator, label_classes
+
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -245,7 +275,6 @@ class TrainStep(BaseStep):
             import shutil
             import sklearn
             from sklearn.pipeline import make_pipeline
-            from sklearn.preprocessing import LabelEncoder
             from sklearn.utils.class_weight import compute_class_weight
             from mlflow.models.signature import infer_signature
 
@@ -323,33 +352,13 @@ class TrainStep(BaseStep):
             best_estimator_params = None
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(tags=tags) as run:
-                label_encoder = None
-                label_classes = None
-                if "classification" in self.recipe:
-                    label_encoder = LabelEncoder()
-                    label_encoder.fit(y_train)
-                    label_classes = label_encoder.classes_
-                    import pandas as pd
-
-                    y_train = pd.Series(label_encoder.transform(y_train))
-
-                def inverse_label_encoder(predicted_output):
-                    if not label_encoder:
-                        return predicted_output
-
-                    return label_encoder.inverse_transform(predicted_output)
-
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
-                estimator.fit(X_train, y_train)
-                original_predict = estimator.predict
-
-                def wrapped_predict(*args, **kwargs):
-                    return inverse_label_encoder(original_predict(*args, **kwargs))
-
-                estimator.predict = wrapped_predict
-                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+                fitted_estimator, label_classes = self._label_encoded_fitted_estimator(
+                    estimator, X_train, y_train
+                )
+                logged_estimator = self._log_estimator_to_mlflow(fitted_estimator, X_train)
 
                 # Create a recipe consisting of the transformer+model for test data evaluation
                 with open(transformer_path, "rb") as f:
@@ -358,7 +367,7 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
 
-                trained_pipeline = make_pipeline(transformer, estimator)
+                trained_pipeline = make_pipeline(transformer, fitted_estimator)
                 # Creating a wrapped recipe model which exposes a single predict function
                 # so it can output both predict and predict_proba(for a classification problem)
                 # at the same time.
@@ -1085,10 +1094,12 @@ class TrainStep(BaseStep):
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                 y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
-                estimator.fit(X_train_sampled, y_train_sampled)
+                fitted_estimator, _ = self._label_encoded_fitted_estimator(
+                    estimator, X_train_sampled, y_train_sampled
+                )
 
                 logged_estimator = self._log_estimator_to_mlflow(
-                    estimator, X_train_sampled, on_worker=on_worker
+                    fitted_estimator, X_train_sampled, on_worker=on_worker
                 )
 
                 eval_result = mlflow.evaluate(
