@@ -98,6 +98,12 @@ def test_event_logging_stream_flushes_properly():
     assert stream.flush_count > 0
 
 
+def test_ignore_logging_if_stderr_is_none():
+    sys.stderr = None
+
+    eprint("foo", flush=True)
+
+
 def test_debug_logs_emitted_correctly_when_configured():
     stream = TestStream()
     sys.stderr = stream

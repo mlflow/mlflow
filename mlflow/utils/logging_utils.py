@@ -21,11 +21,11 @@ class MlflowLoggingStream:
         self._enabled = True
 
     def write(self, text):
-        if self._enabled:
+        if self._enabled and sys.stderr:
             sys.stderr.write(text)
 
     def flush(self):
-        if self._enabled:
+        if self._enabled and sys.stderr:
             sys.stderr.flush()
 
     @property
