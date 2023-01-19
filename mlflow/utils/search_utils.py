@@ -898,6 +898,24 @@ class SearchExperimentsUtils(SearchUtils):
         return sorted(experiments, key=cls._get_sort_key(order_by_list))
 
 
+# https://stackoverflow.com/a/56842689
+class _Reversor:
+    def __init__(self, obj):
+        self.obj = obj
+
+    # Only need < and == are needed for use as a key parameter in the sorted function
+    def __eq__(self, other):
+        return other.obj == self.obj
+
+    def __lt__(self, other):
+        return other.obj < self.obj
+
+
+def _apply_reversor(model, key, ascending):
+    attr = getattr(model, key)
+    return attr if ascending else _Reversor(attr)
+
+
 class SearchModelUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"creation_timestamp", "last_updated_timestamp"}
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name"}
@@ -965,22 +983,6 @@ class SearchModelUtils(SearchUtils):
         # Add a tie-breaker
         if not any(key == "name" for key, _ in order_by):
             order_by.append(("name", True))
-
-        # https://stackoverflow.com/a/56842689
-        class _Reversor:
-            def __init__(self, obj):
-                self.obj = obj
-
-            # Only need < and == are needed for use as a key parameter in the sorted function
-            def __eq__(self, other):
-                return other.obj == self.obj
-
-            def __lt__(self, other):
-                return other.obj < self.obj
-
-        def _apply_reversor(model, key, ascending):
-            attr = getattr(model, key)
-            return attr if ascending else _Reversor(attr)
 
         return lambda model: tuple(_apply_reversor(model, k, asc) for (k, asc) in order_by)
 
