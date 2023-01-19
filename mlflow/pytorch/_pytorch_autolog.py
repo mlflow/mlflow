@@ -34,25 +34,10 @@ FAILED = object()
 autolog_run = None
 
 
-def _get_run():
-    global autolog_run
-    if autolog_run is None:
-        autolog_run = mlflow.active_run()
-    if autolog_run is None:
-        try:
-            autolog_run = mlflow.start_run()
-        except Exception:
-            # don't try again.
-            autolog_run = FAILED
-    if autolog_run not in (None, FAILED):
-        return autolog_run
-    return None
-
-
 def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwargs):
     """use a synchronous call here since this is going to get called very infrequently."""
 
-    run = _get_run()
+    run = mlflow.active_run()
 
     if not pl_autolog.IN_FIT and run is not None and hparam_dict:
         run_id = run.info.run_id
@@ -67,7 +52,7 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
 
 
 def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **kwargs):
-    run = _get_run()
+    run = mlflow.active_run()
     if (
         not pl_autolog.IN_FIT
         and run is not None
