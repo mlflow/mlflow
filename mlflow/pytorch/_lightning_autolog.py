@@ -3,7 +3,6 @@ import logging
 import mlflow.pytorch
 import os
 import shutil
-import sys
 import tempfile
 import warnings
 
@@ -355,9 +354,6 @@ def patched_fit(original, self, *args, **kwargs):
     """
     global IN_FIT
 
-    import torch
-
-
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             (
@@ -367,7 +363,6 @@ def patched_fit(original, self, *args, **kwargs):
             )
             % (MIN_REQ_VERSION, MAX_REQ_VERSION)
         )
-
 
     IN_FIT = True
     run_id = mlflow.active_run().info.run_id
