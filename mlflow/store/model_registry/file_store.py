@@ -161,7 +161,9 @@ class FileStore(AbstractStore):
             latest_versions=latest_versions,
             tags=tags,
         )
-        self._save_registered_model_as_meta_file(registered_model)
+        self._save_registered_model_as_meta_file(
+            registered_model, meta_dir=meta_dir, overwrite=False
+        )
         if tags is not None:
             for tag in tags:
                 self.set_registered_model_tag(name, tag)
