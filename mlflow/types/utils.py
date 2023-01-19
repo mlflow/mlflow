@@ -146,7 +146,7 @@ def _infer_schema(data: Any) -> Schema:
             "- pyspark.sql.DataFrame\n",
             "- scipy.sparse.csr_matrix\n"
             "- scipy.sparse.csc_matrix\n"
-            "but got '{}'".format(type(data))
+            "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(
         t in (DataType.integer, DataType.long) for t in schema.input_types()
