@@ -13,7 +13,7 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
     writer = SummaryWriter(str(tmpdir))
 
     timestamps = []
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         for i in range(NUM_EPOCHS):
             t0 = time.time()
             writer.add_scalar("loss", 42.0 + i + START_STEP, global_step=START_STEP + i)
@@ -25,15 +25,13 @@ def test_pytorch_autolog_logs_expected_data(tmpdir):
 
     # Checking if metrics are logged.
     client = mlflow.tracking.MlflowClient()
-    run_id = client.search_runs("0")[0].info.run_id
-    client.set_terminated(run_id)
-    metric_history = client.get_metric_history(run_id, "loss")
+    metric_history = client.get_metric_history(run.info.run_id, "loss")
     assert len(metric_history) == NUM_EPOCHS
     for i, (m, (t0, t1)) in enumerate(zip(metric_history, timestamps), START_STEP):
         assert m.step == i
         assert m.value == 42.0 + i
         assert t0 <= m.timestamp <= t1
 
-    run = client.get_run(run_id)
+    run = client.get_run(run.info.run_id)
     assert run.data.params == dict(hparam1="42", hparam2="foo")
     assert run.data.metrics == dict(loss=64.0, final_loss=8)
