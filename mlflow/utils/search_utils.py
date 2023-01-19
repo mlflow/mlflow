@@ -41,6 +41,24 @@ def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
+def _or_condition(x, y):
+    if isinstance(x, (list, tuple)):
+        x = any(x)
+
+    if isinstance(y, (list, tuple)):
+        y = any(y)
+    return x or y
+
+
+def _and_condition(x, y):
+    if isinstance(x, (list, tuple)):
+        x = all(x)
+
+    if isinstance(y, (list, tuple)):
+        y = all(y)
+    return x and y
+
+
 class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
@@ -51,6 +69,7 @@ class SearchUtils:
     VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
+    VALID_CONDITIONAL_COMPARATORS = {"AND", "OR"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
@@ -73,6 +92,8 @@ class SearchUtils:
     _TAG_IDENTIFIER = "tag"
     _ALTERNATE_TAG_IDENTIFIERS = {"tags"}
     _ATTRIBUTE_IDENTIFIER = "attribute"
+    _CONDITIONAL_IDENTIFIER = "CONDITION"
+    _GROUP_IDENTIFIER = "GROUP"
     _ALTERNATE_ATTRIBUTE_IDENTIFIERS = {"attr", "attributes", "run"}
     _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
     _VALID_IDENTIFIERS = set(
@@ -112,6 +133,10 @@ class SearchUtils:
             "ILIKE": _ilike,
             "IN": lambda x, y: x in y,
             "NOT IN": lambda x, y: x not in y,
+            "AND": _and_condition,
+            "OR": _or_condition,
+            # return reduced group result by running aand with true. True and x = x
+            SearchUtils._GROUP_IDENTIFIER: lambda x, _: _and_condition(x, True),
         }[comparator]
 
     @staticmethod
@@ -339,14 +364,41 @@ class SearchUtils:
 
     @classmethod
     def _invalid_statement_token_search_runs(cls, token):
-        if isinstance(token, Comparison):
+        if isinstance(token, (Comparison, Parenthesis)):
             return False
         elif token.is_whitespace:
             return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
+        elif token.match(ttype=TokenType.Keyword, values=["AND", "OR", "(", ")"]):
             return False
         else:
             return True
+
+    @classmethod
+    def _process_tokens(cls, tokens):
+        comps = []
+        for i, tok in enumerate(tokens):
+            if tok.is_whitespace or tok.value in ("(", ")"):
+                continue
+            if isinstance(tok, sqlparse.sql.Comparison):
+                comps.append(cls._get_comparison(tok))
+            elif isinstance(tok, sqlparse.sql.Parenthesis):
+                comps.append(
+                    {
+                        "type": cls._GROUP_IDENTIFIER,
+                        "comparator": cls._GROUP_IDENTIFIER,
+                        "value": cls._process_tokens(tok.tokens),
+                    }
+                )
+            elif tok.value.upper() in ("AND", "OR"):
+                comps.extend(cls._process_tokens(tokens[i + 1 :]))
+                return [
+                    {
+                        "type": cls._CONDITIONAL_IDENTIFIER,
+                        "comparator": tok.value.upper(),
+                        "value": comps,
+                    }
+                ]
+        return comps
 
     @classmethod
     def _process_statement(cls, statement):
@@ -358,7 +410,7 @@ class SearchUtils:
                 "Invalid clause(s) in filter string: %s" % invalid_clauses,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
+        return cls._process_tokens(statement.tokens)
 
     @classmethod
     def parse_search_filter(cls, filter_string):
@@ -430,6 +482,17 @@ class SearchUtils:
         return False
 
     @classmethod
+    def is_condition(cls, key_type, comparator):
+        return (
+            key_type == cls._CONDITIONAL_IDENTIFIER
+            and comparator in cls.VALID_CONDITIONAL_COMPARATORS
+        )
+
+    @classmethod
+    def is_group(cls, key_type):
+        return key_type == cls._GROUP_IDENTIFIER
+
+    @classmethod
     def is_numeric_attribute(cls, key_type, key_name, comparator):
         if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.NUMERIC_ATTRIBUTES:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
@@ -461,6 +524,16 @@ class SearchUtils:
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
             value = int(value)
+        elif cls.is_condition(key_type, comparator):
+            # hacky?
+            lhs = cls._does_run_match_clause(run, value[0])
+            # recursively reduce condition comparator
+            value = [cls._does_run_match_clause(run, v) for v in value[1:]]
+        elif cls.is_group(key_type):
+            # even more hacky?
+            # recursively reduce group to single value
+            lhs = [cls._does_run_match_clause(run, v) for v in value]
+            value = None
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE

@@ -45,8 +45,19 @@ from mlflow.utils.search_utils import SearchUtils
         (
             "metrics.rmse < 1 and params.model_class = 'LR'",
             [
-                {"comparator": "<", "key": "rmse", "type": "metric", "value": "1"},
-                {"comparator": "=", "key": "model_class", "type": "parameter", "value": "LR"},
+                {
+                    "type": SearchUtils._CONDITIONAL_IDENTIFIER,
+                    "comparator": "AND",
+                    "value": [
+                        {"comparator": "<", "key": "rmse", "type": "metric", "value": "1"},
+                        {
+                            "comparator": "=",
+                            "key": "model_class",
+                            "type": "parameter",
+                            "value": "LR",
+                        },
+                    ],
+                }
             ],
         ),
         ("", []),
@@ -120,9 +131,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attri.x != 1", "Invalid entity type"),
         ("a.x != 1", "Invalid entity type"),
         ("model >= 'LR'", "Invalid attribute key"),
-        ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
         ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
-        ("metrics.A > 0.1 AND (params.B = 'LR')", "Invalid clause(s) in filter string"),
         ("`metrics.A > 0.1", "Invalid clause(s) in filter string"),
         ("param`.A > 0.1", "Invalid clause(s) in filter string"),
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
@@ -238,6 +247,9 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("tags.tag1 = 'D'", [2]),
         ("tags.tag1 != 'D'", [1]),
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
+        ("attributes.run_id = 'hi' OR attributes.run_id = 'hi3'", [0, 2]),
+        ("attributes.run_id = 'hi' OR attributes.run_id = 'hi3' OR metrics.key1 = 123", [0, 1, 2]),
+        ("attributes.run_id = 'hi' OR (attributes.run_id = 'hi3' AND metrics.key1 = 125)", [0, 2]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):
