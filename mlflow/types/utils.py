@@ -138,8 +138,14 @@ def _infer_schema(data: Any) -> Schema:
         )
     else:
         raise TypeError(
-            "Expected one of (pandas.DataFrame, numpy array, "
-            "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
+            "Expected one of the following types:\n"
+            "- pandas.DataFrame\n"
+            "- pandas.Series\n"
+            "- numpy.ndarray\n"
+            "- dictionary of (name -> numpy.ndarray)\n"
+            "- pyspark.sql.DataFrame\n",
+            "- scipy.sparse.csr_matrix\n"
+            "- scipy.sparse.csc_matrix\n"
             "but got '{}'".format(type(data))
         )
     if not schema.is_tensor_spec() and any(
