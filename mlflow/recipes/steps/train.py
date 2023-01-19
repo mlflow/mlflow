@@ -229,12 +229,12 @@ class TrainStep(BaseStep):
         from sklearn.preprocessing import LabelEncoder
 
         label_encoder = None
-        label_classes = None
+        target_column_class_labels = None
         encoded_y_train = y_train
         if "classification" in self.recipe:
             label_encoder = LabelEncoder()
             label_encoder.fit(y_train)
-            label_classes = label_encoder.classes_
+            target_column_class_labels = label_encoder.classes_
             import pandas as pd
 
             encoded_y_train = pd.Series(label_encoder.transform(y_train))
@@ -253,7 +253,7 @@ class TrainStep(BaseStep):
 
         estimator.predict = wrapped_predict
 
-        return estimator, label_classes
+        return estimator, target_column_class_labels
 
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
@@ -355,7 +355,7 @@ class TrainStep(BaseStep):
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
-                fitted_estimator, label_classes = self._label_encoded_fitted_estimator(
+                fitted_estimator, target_column_class_labels = self._label_encoded_fitted_estimator(
                     estimator, X_train, y_train
                 )
                 logged_estimator = self._log_estimator_to_mlflow(fitted_estimator, X_train)
@@ -374,7 +374,7 @@ class TrainStep(BaseStep):
                 wrapped_model = WrappedRecipeModel(
                     self.predict_scores_for_all_classes,
                     self.predict_prefix,
-                    predict_classes=label_classes,
+                    target_column_class_labels=target_column_class_labels,
                 )
 
                 model_uri = get_step_output_path(
