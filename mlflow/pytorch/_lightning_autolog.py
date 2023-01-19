@@ -376,21 +376,6 @@ def patched_fit(original, self, *args, **kwargs):
             % (MIN_REQ_VERSION, MAX_REQ_VERSION)
         )
 
-    if _pl_version < Version("1.2.0") and Version(torch.__version__) >= Version("1.11.0"):
-        warnings.warn(
-            (
-                "Autologging for lightning versions <1.2.0 is only known to work with pytorch "
-                "versions <1.11.0 and may not succeed with packages outside this range."
-            )
-        )
-
-    if _get_version("protobuf") >= Version("4.0.0"):
-        warnings.warn(
-            (
-                "Autologging for lightning is only supported with protobuf version < 4.0.0 "
-                "and may not succeed with packages outside this range."
-            )
-        )
 
     IN_FIT = True
     run_id = mlflow.active_run().info.run_id
