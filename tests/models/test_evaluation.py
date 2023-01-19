@@ -1110,3 +1110,24 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         )
         assert os_mock.call_count == 2
         os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
+
+
+def test_evaluate_stdin_scoring_server(monkeypatch):
+    X, y = sklearn.datasets.load_iris(return_X_y=True)
+    X = X[::5]
+    y = y[::5]
+    model = sklearn.linear_model.LogisticRegression()
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(model, "model")
+
+    monkeypatch.setenv("MLFLOW_USE_STDIN_SERVER", "true")
+    mlflow.evaluate(
+        model_info.model_uri,
+        X,
+        targets=y,
+        model_type="classifier",
+        evaluators=["default"],
+        env_manager="virtualenv",
+    )

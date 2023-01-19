@@ -85,18 +85,19 @@ class ScoringServerClient:
         return PredictionsResponse.from_json(response.text)
 
 
+def wait_until_file_exists(f: Path, timeout: int = 30) -> None:
+    begin_time = time.time()
+    while True:
+        if f.exists():
+            return
+        time.sleep(1)
+        if time.time() - begin_time > timeout:
+            raise MlflowException(f"Waiting for file {f} timeout")
+
+
 class StdinScoringServerClient:
     def __init__(self, process):
         self.process = process
-
-    def wait_until_file_exists(self, f):
-        begin_time = time.time()
-        while True:
-            if f.exists():
-                return
-            time.sleep(1)
-            if time.time() - begin_time > 30:
-                raise RuntimeError("Timeout")
 
     def invoke(self, data):
         """
@@ -111,11 +112,11 @@ class StdinScoringServerClient:
                 "output_file": str(output_file),
             }
             self.process.stdin.write(json.dumps(request) + "\n")
+            self.process.stdin.flush()
             done_file = output_file.with_suffix(".DONE")
-            self.wait_until_file_exists(done_file)
+            wait_until_file_exists(done_file)
             with output_file.open() as f:
                 return PredictionsResponse.from_json(f.read())
 
     def cleanup(self):
-        self.tmpdir.cleanup()
-        self.process.kill()
+        self.process.terminate()

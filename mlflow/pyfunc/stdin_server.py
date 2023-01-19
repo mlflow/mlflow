@@ -1,10 +1,11 @@
-import sys
 import argparse
+import sys
 import json
-import mlflow
-from mlflow.pyfunc import scoring_server
 import logging
 from pathlib import Path
+
+import mlflow
+from mlflow.pyfunc import scoring_server
 
 _logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
