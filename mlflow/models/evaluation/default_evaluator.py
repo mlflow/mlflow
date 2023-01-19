@@ -160,8 +160,6 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
 def _get_common_classifier_metrics(
     *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
 ):
-    # print("Y_true_data", y_true)
-    # print("Y_pred_data", y_pred)
     metrics = {
         "example_count": len(y_true),
         "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
@@ -188,10 +186,6 @@ def _get_common_classifier_metrics(
         ),
     }
     if y_proba is not None:
-        print("Y_true_data", y_true)
-        print("Y_proba_data", y_proba)
-        print("labels", labels)
-
         metrics["log_loss"] = sk_metrics.log_loss(
             y_true, y_proba, labels=labels, sample_weight=sample_weights
         )

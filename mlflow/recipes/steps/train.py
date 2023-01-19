@@ -58,7 +58,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
-from mlflow.recipes.utils.wrapped_recipe_estimator import WrappedRecipeEstimator
 from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 
@@ -325,68 +324,32 @@ class TrainStep(BaseStep):
             mlflow.autolog(log_models=False, silent=True)
             with mlflow.start_run(tags=tags) as run:
                 label_encoder = None
+                label_classes = None
                 if "classification" in self.recipe:
                     label_encoder = LabelEncoder()
                     label_encoder.fit(y_train)
-                    y_train = label_encoder.transform(y_train)
+                    label_classes = label_encoder.classes_
+                    import pandas as pd
+
+                    y_train = pd.Series(label_encoder.transform(y_train))
 
                 def inverse_label_encoder(predicted_output):
                     if not label_encoder:
                         return predicted_output
 
-                    import numpy as np
-
-                    # print("predicted_output", predicted_output)
-
-                    if hasattr(predicted_output, "columns") and {
-                        f"{self.predict_prefix}label"
-                    }.issubset(predicted_output.columns):
-                        predicted_label = predicted_output[f"{self.predict_prefix}label"]
-                    else:
-                        predicted_label = predicted_output
-
-                    if len(predicted_label.shape) > 1:
-                        # turns softprob into softmax
-                        column_indexes = np.argmax(predicted_label, axis=1)
-                    else:
-                        # turns soft logit into class label
-                        column_indexes = predicted_label.astype(int)
-
-                    predicted_label_decoded = label_encoder.inverse_transform(column_indexes)
-                    # print("predicted_label_decoded", predicted_label_decoded)
-
-                    if hasattr(predicted_output, "columns") and {
-                        f"{self.predict_prefix}label"
-                    }.issubset(predicted_output.columns):
-                        predicted_output[f"{self.predict_prefix}label"] = predicted_label_decoded
-                    else:
-                        predicted_output = predicted_label_decoded
-
-                    return predicted_output
+                    return label_encoder.inverse_transform(predicted_output)
 
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
                 estimator.fit(X_train, y_train)
-                # wrapped_estimator = WrappedRecipeEstimator(estimator, inverse_label_encoder)
-                currentPredict = estimator.predict
+                original_predict = estimator.predict
 
                 def wrapped_predict(*args, **kwargs):
-                    return inverse_label_encoder(currentPredict(*args, **kwargs))
+                    return inverse_label_encoder(original_predict(*args, **kwargs))
 
                 estimator.predict = wrapped_predict
-                wrapped_estimator = estimator
-                logged_estimator = self._log_estimator_to_mlflow(wrapped_estimator, X_train)
-
-                # artifacts = {"model_path": logged_estimator.model_uri}
-                # wrapped_estimator = WrappedRecipeModel(
-                #     False, self.predict_prefix, post_predict_fn=inverse_label_encoder
-                # )
-                # mlflow.pyfunc.save_model(
-                #     path=logged_estimator.model_uri,
-                #     python_model=wrapped_estimator,
-                #     artifacts=artifacts,
-                # )
+                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
 
                 # Create a recipe consisting of the transformer+model for test data evaluation
                 with open(transformer_path, "rb") as f:
@@ -395,14 +358,14 @@ class TrainStep(BaseStep):
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
 
-                trained_pipeline = make_pipeline(transformer, wrapped_estimator)
+                trained_pipeline = make_pipeline(transformer, estimator)
                 # Creating a wrapped recipe model which exposes a single predict function
                 # so it can output both predict and predict_proba(for a classification problem)
                 # at the same time.
                 wrapped_model = WrappedRecipeModel(
                     self.predict_scores_for_all_classes,
                     self.predict_prefix,
-                    post_predict_fn=inverse_label_encoder,
+                    predict_classes=label_classes,
                 )
 
                 model_uri = get_step_output_path(
@@ -494,17 +457,6 @@ class TrainStep(BaseStep):
                     }
                     if self.positive_class is not None:
                         eval_config["pos_label"] = self.positive_class
-
-                    sunish_model = mlflow.sklearn.load_model(logged_estimator.model_uri)
-
-                    print("HELLLOOO is me")
-                    print(
-                        "Predicted data last step",
-                        sunish_model.predict_proba(dataset.drop(columns=[self.target_col])),
-                    )
-
-                    # if label_encoder:
-                    #     dataset[self.target_col] = label_encoder.transform(dataset[self.target_col])
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
                         data=dataset,
