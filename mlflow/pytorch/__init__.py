@@ -1075,12 +1075,13 @@ def autolog(
         torch.utils.tensorboard.writer.FileWriter,
         "add_event",
         partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
+        manage_run=True
     )
     safe_patch(
-        FLAVOR_NAME, torch.utils.tensorboard.writer.FileWriter, "add_summary", patched_add_summary
+        FLAVOR_NAME, torch.utils.tensorboard.writer.FileWriter, "add_summary", patched_add_summary, manage_run=True
     )
     safe_patch(
-        FLAVOR_NAME, torch.utils.tensorboard.SummaryWriter, "add_hparams", patched_add_hparams
+        FLAVOR_NAME, torch.utils.tensorboard.SummaryWriter, "add_hparams", patched_add_hparams, manage_run=True
     )
 
     atexit.register(_flush_queue)
