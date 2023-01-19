@@ -357,14 +357,6 @@ def patched_fit(original, self, *args, **kwargs):
 
     import torch
 
-    def _get_version(pkg_name):
-        if sys.version_info < (3, 8):
-            import pkg_resources
-
-            return Version(pkg_resources.get_distribution(pkg_name).version)
-        from importlib.metadata import version
-
-        return Version(version(pkg_name))
 
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
