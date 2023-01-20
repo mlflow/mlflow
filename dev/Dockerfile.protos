@@ -3,10 +3,11 @@
 # $ docker run --rm -w /app -v $(pwd):/app gen-protos ./dev/generate-protos.sh
 
 FROM ubuntu:20.04
-
-RUN apt-get update --yes
-RUN apt-get install curl unzip --yes
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip
-RUN unzip protoc-3.19.4-linux-x86_64.zip -d /root/protoc
 ENV PATH="/root/protoc/bin:${PATH}"
-RUN protoc --version
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+    && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip \
+    && unzip protoc-3.19.4-linux-x86_64.zip -d /root/protoc \
+    && apt-get remove -y curl unzip \
+    && apt-get autoremove -yqq --purge && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && protoc --version
