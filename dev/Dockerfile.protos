@@ -4,7 +4,7 @@
 
 FROM ubuntu:20.04
 ENV PATH="/root/protoc/bin:${PATH}"
-RUN apt-get update --yes \
+RUN apt-get update \
     && apt-get install -y --no-install-recommends curl unzip ca-certificates \
     && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip \
     && unzip protoc-3.19.4-linux-x86_64.zip -d /root/protoc \
