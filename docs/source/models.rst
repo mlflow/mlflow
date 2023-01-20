@@ -1266,6 +1266,7 @@ ds            y
 .. code-block:: py
 
     import pandas as pd
+    import numpy as np
     from prophet import Prophet
     import mlflow
 
@@ -1275,6 +1276,10 @@ ds            y
     # Serialize the Model
     with mlflow.start_run():
         prophet_model.fit(train_df)
+
+        # extract and log parameters such as changepoint_prior_scale in the mlflow run
+        model_params = {k: v for k, v in vars(prophet_model).items() if np.isscalar(v)}
+        mlflow.log_params(model_params)
         model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
 
     # Load saved model
