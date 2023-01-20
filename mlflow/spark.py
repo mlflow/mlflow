@@ -172,8 +172,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -198,11 +199,16 @@ def log_model(
         from pyspark.ml import Pipeline
         from pyspark.ml.classification import LogisticRegression
         from pyspark.ml.feature import HashingTF, Tokenizer
-        training = spark.createDataFrame([
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+
+        training = spark.createDataFrame(
+            [
+                (0, "a b c d e spark", 1.0),
+                (1, "b d", 0.0),
+                (2, "spark f g h", 1.0),
+                (3, "hadoop mapreduce", 0.0),
+            ],
+            ["id", "text", "label"],
+        )
         tokenizer = Tokenizer(inputCol="text", outputCol="words")
         hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
         lr = LogisticRegression(maxIter=10, regParam=0.001)
@@ -645,8 +651,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -664,7 +671,7 @@ def save_model(
         :caption: Example
 
         from mlflow import spark
-        from pyspark.ml.pipeline.PipelineModel
+        from pyspark.ml.pipeline import PipelineModel
 
         # your pyspark.ml.pipeline.PipelineModel type
         model = ...
@@ -788,13 +795,13 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         :caption: Example
 
         from mlflow import spark
+
         model = mlflow.spark.load_model("spark-model")
         # Prepare test documents, which are unlabeled (id, text) tuples.
-        test = spark.createDataFrame([
-            (4, "spark i j k"),
-            (5, "l m n"),
-            (6, "spark hadoop spark"),
-            (7, "apache hadoop")], ["id", "text"])
+        test = spark.createDataFrame(
+            [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+            ["id", "text"],
+        )
         # Make predictions on test documents
         prediction = model.transform(test)
     """
@@ -983,26 +990,29 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         import os
         import shutil
         from pyspark.sql import SparkSession
+
         # Create and persist some dummy data
         # Note: On environments like Databricks with pre-created SparkSessions,
         # ensure the org.mlflow:mlflow-spark:1.11.0 is attached as a library to
         # your cluster
-        spark = (SparkSession.builder
-                    .config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
-                    .master("local[*]")
-                    .getOrCreate())
-        df = spark.createDataFrame([
-                (4, "spark i j k"),
-                (5, "l m n"),
-                (6, "spark hadoop spark"),
-                (7, "apache hadoop")], ["id", "text"])
+        spark = (
+            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
+            .master("local[*]")
+            .getOrCreate()
+        )
+        df = spark.createDataFrame(
+            [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+            ["id", "text"],
+        )
         import tempfile
+
         tempdir = tempfile.mkdtemp()
         df.write.csv(os.path.join(tempdir, "my-data-path"), header=True)
         # Enable Spark datasource autologging.
         mlflow.spark.autolog()
-        loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"),
-                        header=True, inferSchema=True)
+        loaded_df = spark.read.csv(
+            os.path.join(tempdir, "my-data-path"), header=True, inferSchema=True
+        )
         # Call toPandas() to trigger a read of the Spark datasource. Datasource info
         # (path and format) is logged to the current active run, or the
         # next-created MLflow run if no run is currently active
