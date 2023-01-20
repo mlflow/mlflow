@@ -109,7 +109,7 @@ def save_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
 
-                      .. code-block:: py
+                      .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
 
@@ -288,7 +288,7 @@ def log_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
 
-                      .. code-block:: py
+                      .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
 

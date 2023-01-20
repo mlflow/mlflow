@@ -144,7 +144,7 @@ requirements.txt
 
 The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
 
-.. code-block:: py
+.. code-block:: python
 
     conda_env = {
         "channels": ["conda-forge"],
@@ -662,7 +662,7 @@ Keras pyfunc usage
 
 For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow
     import numpy as np
@@ -754,7 +754,7 @@ PyTorch pyfunc usage
 
 For a minimal PyTorch model, an example configuration for the pyfunc predict() method is:
 
-.. code-block:: py
+.. code-block:: python
 
     import numpy as np
     import mlflow
@@ -808,7 +808,7 @@ Scikit-learn pyfunc usage
 
 For a Scikit-learn LogisticRegression model, an example configuration for the pyfunc predict() method is:
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow
     import numpy as np
@@ -859,7 +859,7 @@ pipelinemodel#pyspark.ml.Pipeline>`_ to any production environment supported by 
 Spark MLlib pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.ml.classification import LogisticRegression
     from pyspark.ml.linalg import Vectors
@@ -977,7 +977,7 @@ ONNX pyfunc usage example
 For an ONNX model, an example configuration that uses pytorch to train a dummy model,
 converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict() method is:
 
-.. code-block:: py
+.. code-block:: python
 
     import numpy as np
     import mlflow
@@ -1107,7 +1107,7 @@ This example runs the `fastai tabular tutorial <https://docs.fast.ai/tutorial.ta
 logs the experiments, saves the model in ``fastai`` format and loads the model to get predictions
 using a ``fastai`` data loader:
 
-.. code-block:: py
+.. code-block:: python
 
     from fastai.data.external import URLs, untar_data
     from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
@@ -1214,7 +1214,7 @@ Index  Probability of first class Probability of second class
 
 Alternatively, when using the ``python_function`` flavor, get predictions from a DataFrame.
 
-.. code-block:: py
+.. code-block:: python
 
     from fastai.data.external import URLs, untar_data
     from fastai.tabular.core import Categorify, FillMissing, Normalize, TabularPandas
@@ -1328,7 +1328,7 @@ Index  n_periods return_conf_int
 
 Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals calculated:
 
-.. code-block:: py
+.. code-block:: python
 
     import pmdarima
     import mlflow
@@ -1409,13 +1409,13 @@ MX      MexicoCity 2022-03-01 00:02:00 19444.0
 
 If we were to ``fit`` a model on this data, supplying the grouping keys as:
 
-.. code-block:: py
+.. code-block:: python
 
     grouping_keys = ["country", "city"]
 
 We will have a model generated for each of the grouping keys that have been supplied:
 
-.. code-block:: py
+.. code-block:: python
 
     [("US", "NewYork"), ("US", "Boston"), ("CA", "Toronto"), ("MX", "MexicoCity")]
 
@@ -1443,7 +1443,7 @@ There are two recommended means of logging the metrics and parameters from a ``d
 * Writing the DataFrames to local storage and using :py:func:`mlflow.log_artifacts`
 
 
-.. code-block:: py
+.. code-block:: python
 
     import os
     import mlflow
@@ -1472,7 +1472,7 @@ There are two recommended means of logging the metrics and parameters from a ``d
     The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using the
     ``pd.DataFrame.to_dict()`` approach due to the inability of this method to serialize objects.
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow
 
@@ -1511,7 +1511,7 @@ attempts to coerce arguments to the types expected by the underlying model.
 
 For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``predict()`` method is:
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow
     import pandas as pd
@@ -1577,7 +1577,7 @@ on the `UCI Adult Data Set <https://archive.ics.uci.edu/ml/datasets/adult>`_, lo
 comprehensive collection of MLflow Metrics and Artifacts that provide insight into model performance
 and behavior:
 
-.. code-block:: py
+.. code-block:: python
 
     import xgboost
     import shap
@@ -1651,7 +1651,7 @@ as absolute and relative gains your model must have in comparison to a specified
 ``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()`
 will throw a ``ModelValidationFailedException`` detailing the validation failure.
 
-.. code-block:: py
+.. code-block:: python
 
     import xgboost
     import shap
@@ -1787,7 +1787,7 @@ columns of a Pandas DataFrame input. Then, it uses the :py:mod:`mlflow.pyfunc` A
 instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads the model in
 ``python_function`` format and uses it to evaluate a sample input.
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow.pyfunc
 
@@ -1825,7 +1825,7 @@ the saved XGBoost model to construct an MLflow Model that performs inference usi
 boosted tree. Finally, it loads the MLflow Model in ``python_function`` format and uses it to
 evaluate test data.
 
-.. code-block:: py
+.. code-block:: python
 
     # Load training and test datasets
     from sys import version_info
@@ -2234,7 +2234,7 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
 
 .. rubric:: Example: Workflow using the Python API
 
-.. code-block:: py
+.. code-block:: python
 
     import json
     from mlflow.deployments import get_deploy_client
@@ -2522,7 +2522,7 @@ argument. The following values are supported:
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
@@ -2542,7 +2542,7 @@ set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
@@ -2677,7 +2677,7 @@ The ``bigmlflow`` module defines the flavor that implements the
 ``save_model()`` and ``log_model()`` methods. They can be used
 to save BigML models and their related information in MLflow Model format.
 
-.. code-block:: py
+.. code-block:: python
 
     import json
     import mlflow
@@ -2696,7 +2696,7 @@ that they produce, allowing the models to be interpreted as generic Python
 functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
 This loaded PyFunc model can only be scored with DataFrame inputs.
 
-.. code-block:: py
+.. code-block:: python
 
     # saving the model
     save_model(model, path=model_path)
