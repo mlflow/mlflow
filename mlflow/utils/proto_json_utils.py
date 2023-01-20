@@ -464,3 +464,31 @@ class _CustomJsonEncoder(json.JSONEncoder):
             return o.tolist()
 
         return super().default(o)
+
+
+def get_jsonable_input(name, data):
+    import numpy as np
+
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    else:
+        raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
+
+
+def dump_input_data(data):
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(data, pd.DataFrame):
+        post_data = {"dataframe_split": data.to_dict(orient="split")}
+    elif isinstance(data, dict):
+        post_data = {"inputs": {k: get_jsonable_input(k, v) for k, v in data}}
+    elif isinstance(data, np.ndarray):
+        post_data = {"inputs": data.tolist()}
+    else:
+        post_data = data
+
+    if not isinstance(post_data, str):
+        post_data = json.dumps(post_data, cls=_CustomJsonEncoder)
+
+    return post_data

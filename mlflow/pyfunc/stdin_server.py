@@ -23,6 +23,7 @@ _logger.info("Waiting for request")
 for line in sys.stdin:
     _logger.info("Received request")
     request = json.loads(line)
+    request_id = request["id"]
     data = request["data"]
     output_file = Path(request["output_file"])
 
@@ -33,9 +34,8 @@ for line in sys.stdin:
     preds = model.predict(data)
 
     _logger.info("Writing predictions to %s", output_file)
-    with Path(output_file).open("w") as f:
+    with Path(output_file).open("a") as f:
         scoring_server.predictions_to_json(preds, f)
 
     _logger.info("Done")
-    done_file = output_file.with_suffix(".DONE")
-    done_file.write_text("")
+    output_file.parent.joinpath(f"{request_id}.DONE").touch()
