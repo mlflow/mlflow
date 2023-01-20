@@ -1104,7 +1104,10 @@ class SearchModelVersionUtils(SearchUtils):
 
         # what comparators do we support here?
         if cls.is_string_attribute(key_type, key, comparator):
-            lhs = getattr(mv, key)
+            if key == "source_path":
+                lhs = getattr(mv, key, getattr(mv, "source"))
+            else:
+                lhs = getattr(mv, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(mv, key)
             value = int(value)

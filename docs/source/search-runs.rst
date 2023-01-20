@@ -222,11 +222,11 @@ For example, if you'd like to identify the best `active` run from experiment ID 
   from mlflow.entities import ViewType
 
   run = MlflowClient().search_runs(
-    experiment_ids="0",
-    filter_string="",
-    run_view_type=ViewType.ACTIVE_ONLY,
-    max_results=1,
-    order_by=["metrics.accuracy DESC"]
+      experiment_ids="0",
+      filter_string="",
+      run_view_type=ViewType.ACTIVE_ONLY,
+      max_results=1,
+      order_by=["metrics.accuracy DESC"],
   )[0]
 
 
@@ -239,7 +239,11 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
   from mlflow.entities import ViewType
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.`prediction accuracy` >= 0.945"
-  runs = MlflowClient().search_runs(experiment_ids=["3", "4", "17"], filter_string=query, run_view_type=ViewType.ACTIVE_ONLY)
+  runs = MlflowClient().search_runs(
+      experiment_ids=["3", "4", "17"],
+      filter_string=query,
+      run_view_type=ViewType.ACTIVE_ONLY,
+  )
 
 To search all known experiments for any MLflow runs created using the Inception model architecture:
 
@@ -249,7 +253,11 @@ To search all known experiments for any MLflow runs created using the Inception 
   from mlflow.entities import ViewType
 
   all_experiments = [exp.experiment_id for exp in mlflow.search_experiments()]
-  runs = mlflow.search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
+  runs = mlflow.search_runs(
+      experiment_ids=all_experiments,
+      filter_string="params.model = 'Inception'",
+      run_view_type=ViewType.ALL,
+  )
 
 To get all runs from the experiment named "Social NLP Experiments", use:
 

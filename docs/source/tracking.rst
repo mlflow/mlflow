@@ -422,7 +422,7 @@ Python
 
     with mlflow.start_run():
         for epoch in range(0, 3):
-            mlflow.log_metric(key="quality", value=2*epoch, step=epoch)
+            mlflow.log_metric(key="quality", value=2 * epoch, step=epoch)
 
 Java and Scala
   .. code-block:: java
@@ -488,7 +488,7 @@ You can access the most recent autolog run through the :py:func:`mlflow.last_act
     X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
     # Create and train models.
-    rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+    rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
     rf.fit(X_train, y_train)
 
     # Use the model to make predictions on the test dataset.
@@ -756,10 +756,13 @@ add tags to a run, and more.
 
 .. code-block:: py
 
-    from  mlflow.tracking import MlflowClient
+    from mlflow.tracking import MlflowClient
+
     client = MlflowClient()
-    experiments = client.search_experiments() # returns a list of mlflow.entities.Experiment
-    run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
+    experiments = (
+        client.search_experiments()
+    )  # returns a list of mlflow.entities.Experiment
+    run = client.create_run(experiments[0].experiment_id)  # returns mlflow.entities.Run
     client.log_param(run.info.run_id, "hello", "world")
     client.set_terminated(run.info.run_id)
 
@@ -1170,6 +1173,7 @@ See the following example of a client REST call in Python attempting to list exp
 .. code-block:: python
 
     import requests
+
     response = requests.get("http://0.0.0.0:8885/api/2.0/mlflow/experiments/list")
 
 Output
@@ -1200,7 +1204,8 @@ then make API requests to your remote tracking server.
     .. code-block:: python
 
         import mlflow
-        remote_server_uri = "..." # set to your server URI
+
+        remote_server_uri = "..."  # set to your server URI
         mlflow.set_tracking_uri(remote_server_uri)
         # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
         # valid path in the workspace
@@ -1263,7 +1268,7 @@ For example:
     import mlflow
 
     response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
-    assert response.text == mlflow.__version__ # Checking for a strict version match
+    assert response.text == mlflow.__version__  # Checking for a strict version match
 
 
 .. _system_tags:
