@@ -131,8 +131,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -307,8 +308,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -352,9 +354,7 @@ def log_model(
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
         client = mlflow.MlflowClient()
-        artifacts = [
-            f.path for f in client.list_artifacts(run.info.run_id, artifact_path)
-        ]
+        artifacts = [f.path for f in client.list_artifacts(run.info.run_id, artifact_path)]
         print(f"artifacts: {artifacts}")
 
     .. code-block:: text
@@ -572,6 +572,7 @@ def autolog(
         import mlflow
         from lightgbm import LGBMClassifier
         from sklearn import datasets
+
 
         def print_auto_logged_info(run):
 

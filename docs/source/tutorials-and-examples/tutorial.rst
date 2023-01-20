@@ -74,14 +74,14 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     You can run the example with default hyperparameters as follows:
 
-    .. code-block:: py
+    .. code-block:: shell
 
         # Make sure the current working directory is 'examples'
         python sklearn_elasticnet_wine/train.py
 
     Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
-    .. code-block:: py
+    .. code-block:: shell
 
         # Make sure the current working directory is 'examples'
         python sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
@@ -130,7 +130,7 @@ Next, use the MLflow UI to compare the models that you have produced. In the sam
 as the one that contains the ``mlruns`` run:
 
 .. code-section::
-    .. code-block:: python
+    .. code-block:: shell
 
         mlflow ui
     .. code-block:: R

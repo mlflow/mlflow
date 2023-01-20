@@ -175,22 +175,20 @@ The general model development workflow for using MLflow Recipes is as follows:
     .. code-section::
 
         .. code-block:: python
-          :caption: Example API and CLI workflows for running the :ref:`Regression Recipe
-                    <mlflow-regression-recipe>` and inspecting results. Note that recipes
-                    must be run from within their corresponding git repositories.
+            :caption: Example API and CLI workflows for running the :ref:`Regression Recipe <mlflow-regression-recipe>` and inspecting results. Note that recipes must be run from within their corresponding git repositories.
 
-          import os
-          from mlflow.recipes import Recipe
-          from mlflow.pyfunc import PyFuncModel
+            import os
+            from mlflow.recipes import Recipe
+            from mlflow.pyfunc import PyFuncModel
 
-          os.chdir("~/recipes-regression-template")
-          regression_recipe = Recipe(profile="local")
-          # Run the full recipe
-          regression_recipe.run()
-          # Inspect the model training results
-          regression_recipe.inspect(step="train")
-          # Load the trained model
-          regression_model_recipe: PyFuncModel = regression_recipe.get_artifact("model")
+            os.chdir("~/recipes-regression-template")
+            regression_recipe = Recipe(profile="local")
+            # Run the full recipe
+            regression_recipe.run()
+            # Inspect the model training results
+            regression_recipe.inspect(step="train")
+            # Load the trained model
+            regression_model_recipe: PyFuncModel = regression_recipe.get_artifact("model")
 
         .. code-block:: sh
 
@@ -438,7 +436,7 @@ recipe or inspecting its results, the desired profile is specified as an API or 
 
     .. code-block:: python
       :caption: Example API and CLI workflows for running recipes with different profile
-                customizations
+      customizations
 
       import os
       from mlflow.recipes import Recipe

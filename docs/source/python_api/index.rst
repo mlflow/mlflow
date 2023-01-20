@@ -25,6 +25,7 @@ log levels at the
 .. code-block:: py
 
     import logging
+
     logger = logging.getLogger("mlflow")
 
     # Set log level to debugging

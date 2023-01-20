@@ -184,8 +184,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -241,6 +242,7 @@ def log_model(
         import torch
         import mlflow.pytorch
 
+
         class LinearNNModel(torch.nn.Module):
             def __init__(self):
                 super().__init__()
@@ -250,6 +252,7 @@ def log_model(
                 y_pred = self.linear(x)
                 return y_pred
 
+
         def gen_data():
             # Example linear model modified to use y = 2x
             # from https://github.com/hunkim/PyTorchZeroToAll
@@ -257,6 +260,7 @@ def log_model(
             X = torch.arange(1.0, 25.0).view(-1, 1)
             y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
             return X, y
+
 
         # Define model, loss, and optimizer
         model = LinearNNModel()
@@ -289,8 +293,9 @@ def log_model(
         # Fetch the logged model artifacts
         print("run_id: {}".format(run.info.run_id))
         for artifact_path in ["model/data", "scripted_model/data"]:
-            artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
-                        artifact_path)]
+            artifacts = [
+                f.path for f in MlflowClient().list_artifacts(run.info.run_id, artifact_path)
+            ]
             print("artifacts: {}".format(artifacts))
 
     .. code-block:: text
@@ -383,8 +388,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -438,6 +444,7 @@ def save_model(
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
+
 
         # Initialize our model, criterion and optimizer
         ...
@@ -695,6 +702,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
+
 
         # Initialize our model, criterion and optimizer
         ...
@@ -962,6 +970,7 @@ def autolog(
         # loop step, (no validation, no testing). It illustrates how you can use MLflow
         # to auto log parameters, metrics, and models.
 
+
         class MNISTModel(pl.LightningModule):
             def __init__(self):
                 super().__init__()
@@ -985,6 +994,7 @@ def autolog(
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
 
+
         def print_auto_logged_info(r):
 
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
@@ -995,12 +1005,14 @@ def autolog(
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
 
+
         # Initialize our model
         mnist_model = MNISTModel()
 
         # Initialize DataLoader from MNIST Dataset
-        train_ds = MNIST(os.getcwd(), train=True,
-            download=True, transform=transforms.ToTensor())
+        train_ds = MNIST(
+            os.getcwd(), train=True, download=True, transform=transforms.ToTensor()
+        )
         train_loader = DataLoader(train_ds, batch_size=32)
 
         # Initialize a trainer
