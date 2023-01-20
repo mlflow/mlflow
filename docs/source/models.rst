@@ -1251,7 +1251,7 @@ Prophet pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~
 
 This example uses the `example_wp_log_peyton_manning.csv <https://github.com/facebook/prophet/blob/main/examples/example_wp_log_peyton_manning.csv>` _
-from Prophet's GitHub repository. The dataset looks like this:
+from Prophet's GitHub repository. A sample of the dataset is as follows:
 
 ============= =================
 ds            y
@@ -1269,14 +1269,11 @@ ds            y
     import mlflow
 
     train_df = pd.read_csv("https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv")
-    # starts on 2007-12-10, ends on 2016-01-20
-    print(f"Training data start: {train_df.ds.iloc[0]}")
-    print(f"Training data end: {train_df.ds.iloc[-1]}")
-    reg_model = Prophet()
-    reg_model.fit(train_df)
+    reg_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
     # Serialize the Model
     with mlflow.start_run():
+        reg_model.fit(train_df)
         model_info = mlflow.prophet.log_model(reg_model, "prophet-model")
 
     # Load saved model
@@ -1288,7 +1285,6 @@ ds            y
 
     # Predicted values are in the "yhat" column
     predictions = reg_model_saved.predict(test_df)
-    print(predictions.loc[:, ["ds", "yhat"]].head())
 
 Output (``Pandas DataFrame``):
 
