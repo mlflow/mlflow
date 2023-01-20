@@ -1250,8 +1250,9 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 Prophet pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~
 
-This example uses the `example_wp_log_peyton_manning.csv <https://github.com/facebook/prophet/blob/main/examples/example_wp_log_peyton_manning.csv>` _
-from Prophet's GitHub repository. A sample of the dataset is as follows:
+This example uses `a dataset <https://github.com/facebook/prophet/blob/main/examples/example_wp_log_peyton_manning.csv>` _
+from Prophet's GitHub repository, containing log number of daily views to Peyton Manning’s Wikipedia page for several years.
+A sample of the dataset is as follows:
 
 ============= =================
 ds            y
