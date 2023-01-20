@@ -1269,12 +1269,12 @@ ds            y
     import mlflow
 
     train_df = pd.read_csv("https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv")
-    reg_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
+    prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
     # Serialize the Model
     with mlflow.start_run():
-        reg_model.fit(train_df)
-        model_info = mlflow.prophet.log_model(reg_model, "prophet-model")
+        prophet_model.fit(train_df)
+        model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
 
     # Load saved model
     reg_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
