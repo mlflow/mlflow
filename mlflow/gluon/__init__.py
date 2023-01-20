@@ -173,8 +173,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -198,6 +199,7 @@ def save_model(
         from mxnet.gluon.nn import HybridSequential
         from mxnet.metric import Accuracy
         import mlflow
+
         # Build, compile, and train your model
         gluon_model_path = ...
         net = HybridSequential()
@@ -207,7 +209,9 @@ def save_model(
         net.collect_params().initialize()
         softmax_loss = SoftmaxCrossEntropyLoss()
         trainer = Trainer(net.collect_params())
-        est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
+        est = estimator.Estimator(
+            net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer
+        )
         est.fit(train_data=train_data, epochs=100, val_data=validation_data)
         # Save the model as an MLflow Model
         mlflow.gluon.save_model(net, gluon_model_path)
@@ -329,8 +333,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -356,6 +361,7 @@ def log_model(
         from mxnet.gluon.nn import HybridSequential
         from mxnet.metric import Accuracy
         import mlflow
+
         # Build, compile, and train your model
         net = HybridSequential()
         with net.name_scope():
@@ -364,7 +370,9 @@ def log_model(
         net.collect_params().initialize()
         softmax_loss = SoftmaxCrossEntropyLoss()
         trainer = Trainer(net.collect_params())
-        est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
+        est = estimator.Estimator(
+            net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer
+        )
         # Log metrics and log the model
         with mlflow.start_run():
             est.fit(train_data=train_data, epochs=100, val_data=validation_data)

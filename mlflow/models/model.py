@@ -218,9 +218,12 @@ class ModelInfo:
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
-                mlflow.sklearn.log_model(clf, "iris_rf",
-                                         registered_model_name="model-with-metadata",
-                                         metadata={"metadata_key": "metadata_value"})
+                mlflow.sklearn.log_model(
+                    clf,
+                    "iris_rf",
+                    registered_model_name="model-with-metadata",
+                    metadata={"metadata_key": "metadata_value"},
+                )
 
             # model uri for the above model
             model_uri = "models:/model-with-metadata/1"
@@ -334,9 +337,12 @@ class Model:
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
-                mlflow.sklearn.log_model(clf, "iris_rf",
-                                         registered_model_name="model-with-metadata",
-                                         metadata={"metadata_key": "metadata_value"})
+                mlflow.sklearn.log_model(
+                    clf,
+                    "iris_rf",
+                    registered_model_name="model-with-metadata",
+                    metadata={"metadata_key": "metadata_value"},
+                )
 
             # model uri for the above model
             model_uri = "models:/model-with-metadata/1"
@@ -513,6 +519,7 @@ class Model:
                           .. code-block:: python
 
                             from mlflow.models.signature import infer_signature
+
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))
 

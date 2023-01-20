@@ -68,8 +68,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -94,18 +95,22 @@ def log_model(
         from pyspark.ml import Pipeline
         from pyspark.ml.classification import LogisticRegression
         from pyspark.ml.feature import HashingTF, Tokenizer
+
         # training DataFrame
-        training = spark.createDataFrame([
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+        training = spark.createDataFrame(
+            [
+                (0, "a b c d e spark", 1.0),
+                (1, "b d", 0.0),
+                (2, "spark f g h", 1.0),
+                (3, "hadoop mapreduce", 0.0),
+            ],
+            ["id", "text", "label"],
+        )
         # testing DataFrame
-        test_df = spark.createDataFrame([
-            (4, "spark i j k"),
-            (5, "l m n"),
-            (6, "spark hadoop spark"),
-            (7, "apache hadoop")], ["id", "text"])
+        test_df = spark.createDataFrame(
+            [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+            ["id", "text"],
+        )
         # Create an MLlib pipeline
         tokenizer = Tokenizer(inputCol="text", outputCol="words")
         hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
@@ -116,7 +121,9 @@ def log_model(
         mlflow.log_param("max_iter", 10)
         mlflow.log_param("reg_param", 0.001)
         # log the Spark MLlib model in MLeap format
-        mlflow.mleap.log_model(spark_model=model, sample_input=test_df, artifact_path="mleap-model")
+        mlflow.mleap.log_model(
+            spark_model=model, sample_input=test_df, artifact_path="mleap-model"
+        )
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -167,6 +174,7 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
                         signature = infer_signature(train, model.predict(train))
     :param input_example: Input example provides one or several instances of valid
@@ -185,8 +193,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the

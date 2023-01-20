@@ -2555,11 +2555,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
           from mlflow import MlflowClient
 
           mlflow.set_tracking_uri(
-              "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+              "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql"
+          )
           client = MlflowClient()
           summary_metrics = {
-              run.info.run_id: run.data.metrics for run
-              in client.search_runs(experiment_ids="0")
+              run.info.run_id: run.data.metrics for run in client.search_runs(experiment_ids="0")
           }
           with open("dump.json", "w") as dump_file:
               json.dump(summary_metrics, dump_file, indent=4)

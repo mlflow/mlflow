@@ -1428,28 +1428,38 @@ def search_runs(
             exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
     elif no_ids_or_names:
-        experiment_ids = _get_experiment_id()
+        experiment_ids = [_get_experiment_id()]
     elif not no_names:
-        experiments = [get_experiment_by_name(n) for n in experiment_names if n is not None]
+        experiments = []
+        for n in experiment_names:
+            if n is not None:
+                experiment_by_name = get_experiment_by_name(n)
+                if experiment_by_name:
+                    experiments.append(experiment_by_name)
+                else:
+                    _logger.warning("Cannot retrieve experiment by name %s", n)
         experiment_ids = [e.experiment_id for e in experiments if e is not None]
 
-    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
-    # full thing is a mess
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().search_runs(
-            experiment_ids,
-            filter_string,
-            run_view_type,
-            number_to_get,
-            order_by,
-            next_page_token,
-        )
+    if len(experiment_ids) == 0:
+        runs = []
+    else:
+        # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+        # full thing is a mess
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return MlflowClient().search_runs(
+                experiment_ids,
+                filter_string,
+                run_view_type,
+                number_to_get,
+                order_by,
+                next_page_token,
+            )
 
-    runs = get_results_from_paginated_fn(
-        pagination_wrapper_func,
-        NUM_RUNS_PER_PAGE_PANDAS,
-        max_results,
-    )
+        runs = get_results_from_paginated_fn(
+            pagination_wrapper_func,
+            NUM_RUNS_PER_PAGE_PANDAS,
+            max_results,
+        )
 
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]

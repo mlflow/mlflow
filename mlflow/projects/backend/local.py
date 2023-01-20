@@ -25,6 +25,7 @@ from mlflow.projects.utils import (
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
     PROJECT_BUILD_IMAGE,
+    PROJECT_DOCKER_AUTH,
 )
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_or_create_conda_env
@@ -33,6 +34,9 @@ from mlflow.utils.virtualenv import (
     _create_virtualenv,
     _get_virtualenv_name,
     _get_mlflow_virtualenv_root,
+    _get_virtualenv_extra_env_vars,
+    _VIRTUALENV_ENVS_DIR,
+    _PYENV_ROOT_DIR,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -44,6 +48,8 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 from mlflow.projects import env_type
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import get_or_create_nfs_tmp_dir
 
 from mlflow.environment_variables import (
     MLFLOW_KERBEROS_TICKET_CACHE,
@@ -90,7 +96,7 @@ class LocalBackend(AbstractBackend):
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
         build_image = backend_config[PROJECT_BUILD_IMAGE]
-
+        docker_auth = backend_config[PROJECT_DOCKER_AUTH]
         # Select an appropriate env manager for the project env type
         if env_manager is None:
             env_manager = _env_type_to_env_manager(project.env_type)
@@ -119,6 +125,7 @@ class LocalBackend(AbstractBackend):
                 base_image=project.docker_env.get("image"),
                 run_id=active_run.info.run_id,
                 build_image=build_image,
+                docker_auth=docker_auth,
             )
             command_args += _get_docker_command(
                 image=image,
@@ -142,12 +149,24 @@ class LocalBackend(AbstractBackend):
                     if project.env_config_path
                     else _PythonEnv()
                 )
-            python_bin_path = _install_python(python_env.python)
-            env_root = _get_mlflow_virtualenv_root()
+
+            if is_in_databricks_runtime():
+                nfs_tmp_dir = get_or_create_nfs_tmp_dir()
+                env_root = Path(nfs_tmp_dir) / "envs"
+                pyenv_root = env_root / _PYENV_ROOT_DIR
+                virtualenv_root = env_root / _VIRTUALENV_ENVS_DIR
+                env_vars = _get_virtualenv_extra_env_vars(str(env_root))
+            else:
+                pyenv_root = None
+                virtualenv_root = Path(_get_mlflow_virtualenv_root())
+                env_vars = None
+            python_bin_path = _install_python(python_env.python, pyenv_root=pyenv_root)
             work_dir_path = Path(work_dir)
             env_name = _get_virtualenv_name(python_env, work_dir_path)
-            env_dir = Path(env_root).joinpath(env_name)
-            activate_cmd = _create_virtualenv(work_dir_path, python_bin_path, env_dir, python_env)
+            env_dir = virtualenv_root / env_name
+            activate_cmd = _create_virtualenv(
+                work_dir_path, python_bin_path, env_dir, python_env, extra_env=env_vars
+            )
             command_args += [activate_cmd]
         elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
