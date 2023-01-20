@@ -112,7 +112,9 @@ For example:
 
 .. code-block:: py
 
-  mlflow.pytorch.log_model("runs:/<mlflow_run_id>/run-relative/path/to/model", registered_model_name="mymodel")
+  mlflow.pytorch.log_model(
+      "runs:/<mlflow_run_id>/run-relative/path/to/model", registered_model_name="mymodel"
+  )
 
 .. code-block:: py
 

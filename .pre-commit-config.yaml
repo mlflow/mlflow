@@ -15,6 +15,13 @@ repos:
         stages: [commit]
         log_file: .black.log
 
+      - id: blacken-docs
+        name: blacken-docs
+        entry: blacken-docs
+        language: system
+        types_or: [python, rst]
+        stages: [commit]
+
       - id: pylint
         name: pylint
         entry: pylint

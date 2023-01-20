@@ -10,7 +10,7 @@ You install MLflow by running:
 
 .. code-section::
 
-    .. code-block:: python
+    .. code-block:: shell
 
         # Install MLflow
         pip install mlflow
@@ -115,7 +115,7 @@ By default, wherever you run your program, the tracking API writes data into fil
 
 .. code-section::
 
-    .. code-block:: python
+    .. code-block:: shell
 
         mlflow ui
 
@@ -230,6 +230,7 @@ by adding the following to the start of your program:
     .. code-block:: python
 
         import mlflow
+
         mlflow.set_tracking_uri("http://YOUR-SERVER:4040")
         mlflow.set_experiment("my-experiment")
 
@@ -258,6 +259,7 @@ to "databricks", or add the following to the start of your program:
     .. code-block:: python
 
         import mlflow
+
         mlflow.set_tracking_uri("databricks")
         # Note: on Databricks, the experiment name passed to set_experiment must be a valid path
         # in the workspace, like '/Users/<your-username>/my-experiment'. See

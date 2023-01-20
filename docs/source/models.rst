@@ -147,16 +147,10 @@ The following shows an example of saving a model with a manually specified conda
 .. code-block:: py
 
     conda_env = {
-        'channels': ['conda-forge'],
-        'dependencies': [
-            'python=3.8.8',
-            'pip'],
-        'pip': [
-            'mlflow',
-            'scikit-learn==0.23.2',
-            'cloudpickle==1.6.0'
-        ],
-        'name': 'mlflow-env'
+        "channels": ["conda-forge"],
+        "dependencies": ["python=3.8.8", "pip"],
+        "pip": ["mlflow", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
+        "name": "mlflow-env",
     }
     mlflow.sklearn.log_model(model, "my_model", conda_env=conda_env)
 
@@ -364,12 +358,14 @@ The same signature can be created explicitly as follows:
     from mlflow.models.signature import ModelSignature
     from mlflow.types.schema import Schema, ColSpec
 
-    input_schema = Schema([
-      ColSpec("double", "sepal length (cm)"),
-      ColSpec("double", "sepal width (cm)"),
-      ColSpec("double", "petal length (cm)"),
-      ColSpec("double", "petal width (cm)"),
-    ])
+    input_schema = Schema(
+        [
+            ColSpec("double", "sepal length (cm)"),
+            ColSpec("double", "sepal width (cm)"),
+            ColSpec("double", "petal length (cm)"),
+            ColSpec("double", "petal width (cm)"),
+        ]
+    )
     output_schema = Schema([ColSpec("long")])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
@@ -395,13 +391,21 @@ on the ``MNIST dataset``:
     testY = to_categorical(test_Y)
 
     model = Sequential()
-    model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', input_shape=(28, 28, 1)))
+    model.add(
+        Conv2D(
+            32,
+            (3, 3),
+            activation="relu",
+            kernel_initializer="he_uniform",
+            input_shape=(28, 28, 1),
+        )
+    )
     model.add(MaxPooling2D((2, 2)))
     model.add(Flatten())
-    model.add(Dense(100, activation='relu', kernel_initializer='he_uniform'))
-    model.add(Dense(10, activation='softmax'))
+    model.add(Dense(100, activation="relu", kernel_initializer="he_uniform"))
+    model.add(Dense(10, activation="softmax"))
     opt = SGD(lr=0.01, momentum=0.9)
-    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss="categorical_crossentropy", metrics=["accuracy"])
     model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
 
     signature = infer_signature(testX, model.predict(testX))
@@ -415,9 +419,11 @@ The same signature can be created explicitly as follows:
     from mlflow.models.signature import ModelSignature
     from mlflow.types.schema import Schema, TensorSpec
 
-    input_schema = Schema([
-      TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1)),
-    ])
+    input_schema = Schema(
+        [
+            TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1)),
+        ]
+    )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
@@ -444,10 +450,10 @@ input example with your model:
 .. code-block:: python
 
     input_example = {
-      "sepal length (cm)": 5.1,
-      "sepal width (cm)": 3.5,
-      "petal length (cm)": 1.4,
-      "petal width (cm)": 0.2
+        "sepal length (cm)": 5.1,
+        "sepal width (cm)": 3.5,
+        "petal length (cm)": 1.4,
+        "petal width (cm)": 0.2,
     }
     mlflow.sklearn.log_model(..., input_example=input_example)
 
@@ -461,16 +467,13 @@ you can log a tensor-based input example with your model:
 .. code-block:: python
 
     # each input has shape (4, 4)
-    input_example = np.array([
-       [[  0,   0,   0,   0],
-	[  0, 134,  25,  56],
-	[253, 242, 195,   6],
-	[  0,  93,  82,  82]],
-       [[  0,  23,  46,   0],
-	[ 33,  13,  36, 166],
-	[ 76,  75,   0, 255],
-	[ 33,  44,  11,  82]]
-    ], dtype=np.uint8)
+    input_example = np.array(
+        [
+            [[0, 0, 0, 0], [0, 134, 25, 56], [253, 242, 195, 6], [0, 93, 82, 82]],
+            [[0, 23, 46, 0], [33, 13, 36, 166], [76, 75, 0, 255], [33, 44, 11, 82]],
+        ],
+        dtype=np.uint8,
+    )
     mlflow.tensorflow.log_model(..., input_example=input_example)
 
 .. _model-api:
@@ -685,7 +688,9 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
 
-    keras_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri, dst_path=local_artifact_dir)
+    keras_pyfunc = mlflow.pyfunc.load_model(
+        model_uri=model_info.model_uri, dst_path=local_artifact_dir
+    )
 
     data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
     predictions = keras_pyfunc.predict(data)
@@ -868,9 +873,9 @@ Spark MLlib pyfunc usage
             (1.0, Vectors.dense([0.0, 1.1, 0.1])),
             (0.0, Vectors.dense([2.0, 1.0, -1.0])),
             (0.0, Vectors.dense([2.0, 1.3, 1.0])),
-            (1.0, Vectors.dense([0.0, 1.2, -0.5]))
+            (1.0, Vectors.dense([0.0, 1.2, -0.5])),
         ],
-        ["label", "features"]
+        ["label", "features"],
     )
 
     # Create and fit a LogisticRegression instance
@@ -890,9 +895,9 @@ Spark MLlib pyfunc usage
         [
             (1.0, Vectors.dense([-1.0, 1.5, 1.3])),
             (0.0, Vectors.dense([3.0, 2.0, -0.1])),
-            (1.0, Vectors.dense([0.0, 2.2, -1.5]))
+            (1.0, Vectors.dense([0.0, 2.2, -1.5])),
         ],
-        ["label", "features"]
+        ["label", "features"],
     ).toPandas()
 
     prediction = lr_model_saved.predict(test)
@@ -1115,34 +1120,59 @@ using a ``fastai`` data loader:
     import mlflow
     import mlflow.fastai
 
+
     def print_auto_logged_info(r):
         tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
-        artifacts = [f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")]
+        artifacts = [
+            f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")
+        ]
         print("run_id: {}".format(r.info.run_id))
         print("artifacts: {}".format(artifacts))
         print("params: {}".format(r.data.params))
         print("metrics: {}".format(r.data.metrics))
         print("tags: {}".format(tags))
 
+
     def main(epochs=5, learning_rate=0.01):
 
         path = untar_data(URLs.ADULT_SAMPLE)
         path.ls()
 
-        df = pd.read_csv(path/'adult.csv')
+        df = pd.read_csv(path / "adult.csv")
 
-        dls = TabularDataLoaders.from_csv(path/'adult.csv', path=path, y_names="salary",
-            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
-            cont_names = ['age', 'fnlwgt', 'education-num'],
-            procs = [Categorify, FillMissing, Normalize])
+        dls = TabularDataLoaders.from_csv(
+            path / "adult.csv",
+            path=path,
+            y_names="salary",
+            cat_names=[
+                "workclass",
+                "education",
+                "marital-status",
+                "occupation",
+                "relationship",
+                "race",
+            ],
+            cont_names=["age", "fnlwgt", "education-num"],
+            procs=[Categorify, FillMissing, Normalize],
+        )
 
         splits = RandomSplitter(valid_pct=0.2)(range_of(df))
 
-        to = TabularPandas(df, procs=[Categorify, FillMissing,Normalize],
-            cat_names = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'race'],
-            cont_names = ['age', 'fnlwgt', 'education-num'],
-            y_names='salary',
-            splits=splits)
+        to = TabularPandas(
+            df,
+            procs=[Categorify, FillMissing, Normalize],
+            cat_names=[
+                "workclass",
+                "education",
+                "marital-status",
+                "occupation",
+                "relationship",
+                "race",
+            ],
+            cont_names=["age", "fnlwgt", "education-num"],
+            y_names="salary",
+            splits=splits,
+        )
 
         dls = to.dataloaders(bs=64)
 
@@ -1160,12 +1190,13 @@ using a ``fastai`` data loader:
         loaded_model = mlflow.fastai.load_model(model_uri)
 
         test_df = df.copy()
-        test_df.drop(['salary'], axis=1, inplace=True)
+        test_df.drop(["salary"], axis=1, inplace=True)
         dl = learn.dls.test_dl(test_df)
 
         predictions, _ = loaded_model.get_preds(dl=dl)
         px = pd.DataFrame(predictions).astype("float")
         px.head(5)
+
 
     main()
 
@@ -1199,9 +1230,9 @@ Alternatively, when using the ``python_function`` flavor, get predictions from a
     model_uri = ...
 
     path = untar_data(URLs.ADULT_SAMPLE)
-    df = pd.read_csv(path/'adult.csv')
+    df = pd.read_csv(path / "adult.csv")
     test_df = df.copy()
-    test_df.drop(['salary'], axis=1, inplace=True)
+    test_df.drop(["salary"], axis=1, inplace=True)
 
     loaded_model = mlflow.pyfunc.load_model(model_uri)
     loaded_model.predict(test_df)
@@ -1312,7 +1343,9 @@ Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals 
 
     loaded_pyfunc = mlflow.pyfunc.load_model("/tmp/model.pmd")
 
-    prediction_conf = pd.DataFrame([{"n_periods": 4, "return_conf_int": True, "alpha": 0.1}])
+    prediction_conf = pd.DataFrame(
+        [{"n_periods": 4, "return_conf_int": True, "alpha": 0.1}]
+    )
 
     predictions = loaded_pyfunc.predict(prediction_conf)
 
@@ -1384,10 +1417,7 @@ We will have a model generated for each of the grouping keys that have been supp
 
 .. code-block:: py
 
-    [("US", "NewYork"),
-     ("US", "Boston"),
-     ("CA", "Toronto"),
-     ("MX", "MexicoCity")]
+    [("US", "NewYork"), ("US", "Boston"), ("CA", "Toronto"), ("MX", "MexicoCity")]
 
 With a model constructed for each of these, entering each of their metrics and parameters wouldn't be an issue for the
 MLflow tracking server. What would become a problem, however, is if we modeled each major city on the planet and ran
@@ -1503,12 +1533,17 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
     diviner_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/diviner_model")
 
     predict_conf = pd.DataFrame(
-        {"n_periods": 120,
-         "groups": [("US", "NewYork"), ("CA", "Toronto"), ("MX", "MexicoCity")],  # NB: List of tuples required.
-         "predict_col": "wattage_forecast",
-         "alpha": 0.1,
-         "return_conf_int": True,
-         "on_error": "warn",
+        {
+            "n_periods": 120,
+            "groups": [
+                ("US", "NewYork"),
+                ("CA", "Toronto"),
+                ("MX", "MexicoCity"),
+            ],  # NB: List of tuples required.
+            "predict_col": "wattage_forecast",
+            "alpha": 0.1,
+            "return_conf_int": True,
+            "on_error": "warn",
         },
         index=[0],
     )
@@ -1553,7 +1588,9 @@ and behavior:
     X, y = shap.datasets.adult()
 
     # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.33, random_state=42
+    )
 
     # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
@@ -1625,7 +1662,9 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
 
     # load UCI Adult Data Set; segment it into training and test sets
     X, y = shap.datasets.adult()
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.33, random_state=42
+    )
 
     # train a candidate XGBoost model
     candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
@@ -1640,16 +1679,20 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     # Define criteria for model to be validated against
     thresholds = {
         "accuracy_score": MetricThreshold(
-            threshold=0.8,             # accuracy should be >=0.8
+            threshold=0.8,  # accuracy should be >=0.8
             min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
             min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
-            higher_is_better=True
+            higher_is_better=True,
         ),
     }
 
     with mlflow.start_run() as run:
-        candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
-        baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
+        candidate_model_uri = mlflow.sklearn.log_model(
+            candidate_model, "candidate_model"
+        ).model_uri
+        baseline_model_uri = mlflow.sklearn.log_model(
+            baseline_model, "baseline_model"
+        ).model_uri
 
         mlflow.evaluate(
             candidate_model_uri,
@@ -1750,12 +1793,12 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
 
     # Define the model class
     class AddN(mlflow.pyfunc.PythonModel):
-
         def __init__(self, n):
             self.n = n
 
         def predict(self, context, model_input):
             return model_input.apply(lambda column: column + self.n)
+
 
     # Construct and save the model
     model_path = "add_n_model"
@@ -1767,6 +1810,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
 
     # Evaluate the model
     import pandas as pd
+
     model_input = pd.DataFrame([range(10)])
     model_output = loaded_model.predict(model_input)
     assert model_output.equals(pd.DataFrame([range(5, 15)]))
@@ -1789,9 +1833,9 @@ evaluate test data.
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
-    PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
-                                                      minor=version_info.minor,
-                                                      micro=version_info.micro)
+    PYTHON_VERSION = "{major}.{minor}.{micro}".format(
+        major=version_info.major, minor=version_info.minor, micro=version_info.micro
+    )
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -1799,23 +1843,23 @@ evaluate test data.
     dtrain = xgb.DMatrix(x_train, label=y_train)
 
     # Train and save an XGBoost model
-    xgb_model = xgb.train(params={'max_depth': 10}, dtrain=dtrain, num_boost_round=10)
+    xgb_model = xgb.train(params={"max_depth": 10}, dtrain=dtrain, num_boost_round=10)
     xgb_model_path = "xgb_model.pth"
     xgb_model.save_model(xgb_model_path)
 
     # Create an `artifacts` dictionary that assigns a unique name to the saved XGBoost model file.
     # This dictionary will be passed to `mlflow.pyfunc.save_model`, which will copy the model file
     # into the new MLflow Model's directory.
-    artifacts = {
-        "xgb_model": xgb_model_path
-    }
+    artifacts = {"xgb_model": xgb_model_path}
 
     # Define the model class
     import mlflow.pyfunc
-    class XGBWrapper(mlflow.pyfunc.PythonModel):
 
+
+    class XGBWrapper(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
             import xgboost as xgb
+
             self.xgb_model = xgb.Booster()
             self.xgb_model.load_model(context.artifacts["xgb_model"])
 
@@ -1823,35 +1867,41 @@ evaluate test data.
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
+
     # Create a Conda environment for the new MLflow Model that contains all necessary dependencies.
     import cloudpickle
+
     conda_env = {
-        'channels': ['defaults'],
-        'dependencies': [
-          'python={}'.format(PYTHON_VERSION),
-          'pip',
-          {
-            'pip': [
-              'mlflow',
-              'xgboost=={}'.format(xgb.__version__),
-              'cloudpickle=={}'.format(cloudpickle.__version__),
-            ],
-          },
+        "channels": ["defaults"],
+        "dependencies": [
+            "python={}".format(PYTHON_VERSION),
+            "pip",
+            {
+                "pip": [
+                    "mlflow",
+                    "xgboost=={}".format(xgb.__version__),
+                    "cloudpickle=={}".format(cloudpickle.__version__),
+                ],
+            },
         ],
-        'name': 'xgb_env'
+        "name": "xgb_env",
     }
 
     # Save the MLflow Model
     mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc"
     mlflow.pyfunc.save_model(
-            path=mlflow_pyfunc_model_path, python_model=XGBWrapper(), artifacts=artifacts,
-            conda_env=conda_env)
+        path=mlflow_pyfunc_model_path,
+        python_model=XGBWrapper(),
+        artifacts=artifacts,
+        conda_env=conda_env,
+    )
 
     # Load the model in `python_function` format
     loaded_model = mlflow.pyfunc.load_model(mlflow_pyfunc_model_path)
 
     # Evaluate the model
     import pandas as pd
+
     test_predictions = loaded_model.predict(pd.DataFrame(x_test))
     print(test_predictions)
 
@@ -2191,9 +2241,7 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
 
     # Create the deployment configuration.
     # If no deployment configuration is provided, then the deployment happens on ACI.
-    deploy_config = {
-        "computeType": "aci"
-    }
+    deploy_config = {"computeType": "aci"}
 
     # Write the deployment configuration into a file.
     deployment_config_path = "deployment_config.json"
@@ -2204,15 +2252,17 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     client = get_deploy_client("<azureml-mlflow-tracking-url>")
 
     # MLflow requires the deployment configuration to be passed as a dictionary.
-    config = {'deploy-config-file': deployment_config_path}
+    config = {"deploy-config-file": deployment_config_path}
     model_name = "mymodel"
     model_version = 1
 
     # define the model path and the name is the service name
     # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below
-    client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
-                            config=config,
-                            name="mymodel-aci-deployment")
+    client.create_deployment(
+        model_uri=f"models:/{model_name}/{model_version}",
+        config=config,
+        name="mymodel-aci-deployment",
+    )
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI.
@@ -2225,6 +2275,7 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     import requests
     import json
+
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input = {
         "columns": [
@@ -2238,15 +2289,15 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
             "residual sugar",
             "sulphates",
             "total sulfur dioxide",
-            "volatile acidity"
+            "volatile acidity",
         ],
-        "data": [
-            [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
-        ]
+        "data": [[8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]],
     }
     response = requests.post(
-                  url=webservice.scoring_uri, data=json.dumps(sample_input),
-                  headers={"Content-type": "application/json"})
+        url=webservice.scoring_uri,
+        data=json.dumps(sample_input),
+        headers={"Content-type": "application/json"},
+    )
     response_json = json.loads(response.text)
     print(response_json)
 
@@ -2370,14 +2421,14 @@ Spark cluster and used to score the model.
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql.functions import struct
     from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.getOrCreate()
-    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model>)
-    df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, "<path-to-model>")
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct([...])))
 
 If a model contains a signature, the UDF can be called without specifying column name arguments.
 In this case, the UDF will be called with column names from signature, so the evaluation
@@ -2385,12 +2436,12 @@ dataframe's column names must match the model signature's column names.
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.getOrCreate()
-    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, "<path-to-model-with-signature>")
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
 If a model contains a signature with tensor spec inputs,
@@ -2406,17 +2457,17 @@ invoke the UDF like following example code:
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.getOrCreate()
     # Assuming the model requires input 'a' of shape (-1, 2, 3) and input 'b' of shape (-1, 4, 5)
-    model_path = <path-to-model-requiring-multidimensional-inputs>
+    model_path = "<path-to-model-requiring-multidimensional-inputs>"
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_path)
     # The `spark_df` has column 'a' containing arrays of length 6 and
     # column 'b' containing arrays of length 20
-    df = spark_df.withColumn("prediction", pyfunc_udf(struct('a', 'b')))
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct("a", "b")))
 
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value, an array of values, or a struct containing multiple field values
@@ -2446,7 +2497,7 @@ argument. The following values are supported:
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from pyspark.sql import SparkSession
 
@@ -2456,8 +2507,7 @@ argument. The following values are supported:
     # You can supply result_type to be a struct type containing
     # 2 fields 'prediction' and 'probability' like following.
     pyfunc_udf = mlflow.pyfunc.spark_udf(
-        spark, <path-to-model>,
-        result_type="prediction float, probability: array<float>"
+        spark, "<path-to-model>", result_type="prediction float, probability: array<float>"
     )
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
@@ -2480,9 +2530,7 @@ argument. The following values are supported:
 
     spark = SparkSession.builder.getOrCreate()
     pyfunc_udf = mlflow.pyfunc.spark_udf(
-        spark,
-        "path/to/model",
-        result_type=ArrayType(FloatType())
+        spark, "path/to/model", result_type=ArrayType(FloatType())
     )
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
@@ -2505,7 +2553,7 @@ set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
         spark,
         "path/to/model",
         result_type=ArrayType(FloatType()),
-        env_manager="conda"  # Use conda to restore the environment used in training
+        env_manager="conda",  # Use conda to restore the environment used in training
     )
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
 
@@ -2591,10 +2639,10 @@ Example:
 
     viz_iris = (
         alt.Chart(df_iris)
-          .mark_circle(size=60)
-          .encode(x="x", y="y", color="z:N")
-          .properties(height=375, width=575)
-          .interactive()
+        .mark_circle(size=60)
+        .encode(x="x", y="y", color="z:N")
+        .properties(height=375, width=575)
+        .interactive()
     )
 
     mlflow_vismod.log_model(
@@ -2639,9 +2687,9 @@ to save BigML models and their related information in MLflow Model format.
     with mlflow.start_run():
         with open(MODEL_FILE) as handler:
             model = json.load(handler)
-            bigmlflow.log_model(model,
-                                artifact_path="model",
-                                registered_model_name="my_model")
+            bigmlflow.log_model(
+                model, artifact_path="model", registered_model_name="my_model"
+            )
 
 These methods also add the ``python_function`` flavor to the MLflow Models
 that they produce, allowing the models to be interpreted as generic Python
