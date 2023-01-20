@@ -435,8 +435,7 @@ recipe or inspecting its results, the desired profile is specified as an API or 
 .. code-section::
 
     .. code-block:: python
-      :caption: Example API and CLI workflows for running recipes with different profile
-      customizations
+      :caption: Example API and CLI workflows for running recipes with different profile customizations
 
       import os
       from mlflow.recipes import Recipe
