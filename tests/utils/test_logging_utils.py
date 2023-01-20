@@ -98,9 +98,9 @@ def test_event_logging_stream_flushes_properly():
     assert stream.flush_count > 0
 
 
-def test_ignore_logging_if_stderr_is_none():
-    sys.stderr = None
-
+def test_ignore_logging_if_stderr_is_none(monkeypatch):
+    monkeypatch.setattr(sys, 'stderr', None)
+    # Make sure this does not fail.
     eprint("foo", flush=True)
 
 
