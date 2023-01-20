@@ -96,13 +96,12 @@ The example package contains a ``setup.py`` that declares a number of
         # Require MLflow as a dependency of the plugin, so that plugin users can simply install
         # the plugin and then immediately use it with MLflow
         install_requires=["mlflow"],
-        ...
+        ...,
         entry_points={
             # Define a Tracking Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.tracking_store": "file-plugin=mlflow_test_plugin.file_store:PluginFileStore",
             # Define a ArtifactRepository plugin for artifact URIs with scheme 'file-plugin'
-            "mlflow.artifact_repository":
-                "file-plugin=mlflow_test_plugin.local_artifact:PluginLocalArtifactRepository",
+            "mlflow.artifact_repository": "file-plugin=mlflow_test_plugin.local_artifact:PluginLocalArtifactRepository",
             # Define a RunContextProvider plugin. The entry point name for run context providers
             # is not used, and so is set to the string "unused" here
             "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",
@@ -110,11 +109,9 @@ The example package contains a ``setup.py`` that declares a number of
             # is not used, and so is set to the string "unused" here
             "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
-            "mlflow.model_registry_store":
-                "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
+            "mlflow.model_registry_store": "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
             # Define a MLflow Project Backend plugin called 'dummy-backend'
-            "mlflow.project_backend":
-                "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
+            "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
             # Define a MLflow model deployment plugin for target 'faketarget'
             "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
             # Define a Mlflow model evaluator with name "dummy_evaluator"
@@ -304,14 +301,16 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
         import mlflow
         import mlflow.pyfunc
 
+
         class Mod(mlflow.pyfunc.PythonModel):
             def predict(self, ctx, inp):
                 return 7
 
+
         exp_name = "myexp"
         mlflow.create_experiment(exp_name, artifact_location="oss://mlflow-test/")
         mlflow.set_experiment(exp_name)
-        mlflow.pyfunc.log_model('model_test', python_model=Mod())
+        mlflow.pyfunc.log_model("model_test", python_model=Mod())
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
