@@ -1265,32 +1265,43 @@ ds            y
 
 .. code-block:: py
 
-    import pandas as pd
     import numpy as np
+    import pandas as pd
     from prophet import Prophet
+    from prophet.diagnostics import cross_validation, performance_metrics
+
     import mlflow
 
+    # starts on 2007-12-10, ends on 2016-01-20
     train_df = pd.read_csv("https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv")
+
+    # Create a "test" DataFrame with the "ds" column containing 10 days after the end date in train_df
+    test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
+    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+
     prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
 
-    # Serialize the Model
     with mlflow.start_run():
         prophet_model.fit(train_df)
 
         # extract and log parameters such as changepoint_prior_scale in the mlflow run
-        model_params = {k: v for k, v in vars(prophet_model).items() if np.isscalar(v)}
+        model_params = {name: value for name, value in vars(prophet_model).items() if np.isscalar(value)}
         mlflow.log_params(model_params)
+
+        # cross validate with 900 days of data initially, predictions for next 30 days
+        # walk forward by 30 days
+        cv_results = cross_validation(prophet_model, initial="900 days", period="30 days", horizon="30 days")
+
+        # Calculate metrics from cv_results, then average each metric across all backtesting windows and log to mlflow
+        cv_metrics = ["mse", "rmse", "mape"]
+        metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
+        average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
+        mlflow.log_metrics(average_metrics)
         model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
 
     # Load saved model
-    reg_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
-
-    # Create a test DataFrame with the "ds" column containing 10 days after the end date in train_df
-    test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
-    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
-
-    # Predicted values are in the "yhat" column
-    predictions = reg_model_saved.predict(test_df)
+    prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    predictions = prophet_model_saved.predict(test_df)
 
 Output (``Pandas DataFrame``):
 
