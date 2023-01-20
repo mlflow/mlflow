@@ -28,6 +28,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
 
 import tests
 
@@ -693,3 +694,25 @@ def test_spark_udf_with_col_spec_type_input(spark):
         res = data.withColumn("res", udf()).select("res.c_int", "res.c_float").toPandas()
         assert res.c_int.tolist() == [10]
         np.testing.assert_almost_equal(res.c_float.tolist(), [1.5])
+
+
+def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    model = LogisticRegression().fit(X, y)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        signature = mlflow.models.infer_signature(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    monkeypatch.setenv("MLFLOW_USE_STDIN_SERVER", "true")
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        env_manager="virtualenv",
+    )
+    df = spark.createDataFrame(X)
+    result = df.select(udf(*X.columns)).toPandas()
+    np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))

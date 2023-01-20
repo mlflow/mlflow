@@ -1156,7 +1156,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+        from mlflow.pyfunc.scoring_server.client import (
+            ScoringServerClient,
+            StdinScoringServerClient,
+        )
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1182,52 +1185,63 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 )
             else:
                 local_model_path_on_executor = None
-            # launch scoring server
-            server_port = find_free_port()
-            scoring_server_proc = pyfunc_backend.serve(
-                model_uri=local_model_path_on_executor or local_model_path,
-                port=server_port,
-                host="127.0.0.1",
-                timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                enable_mlserver=False,
-                synchronous=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
 
-            server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
+            if MLFLOW_USE_STDIN_SERVER.get():
+                scoring_server_proc = pyfunc_backend.serve_stdin(
+                    local_model_path_on_executor or local_model_path
+                )
+                client = StdinScoringServerClient(scoring_server_proc)
+            else:
+                # launch scoring server
+                server_port = find_free_port()
+                scoring_server_proc = pyfunc_backend.serve(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    port=server_port,
+                    host="127.0.0.1",
+                    timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+                    enable_mlserver=False,
+                    synchronous=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
 
-            def server_redirect_log_thread_func(child_stdout):
-                for line in child_stdout:
-                    if isinstance(line, bytes):
-                        decoded = line.decode()
-                    else:
-                        decoded = line
-                    server_tail_logs.append(decoded)
-                    sys.stdout.write("[model server] " + decoded)
+                server_tail_logs = collections.deque(
+                    maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
+                )
 
-            server_redirect_log_thread = threading.Thread(
-                target=server_redirect_log_thread_func,
-                args=(scoring_server_proc.stdout,),
-            )
-            server_redirect_log_thread.setDaemon(True)
-            server_redirect_log_thread.start()
+                def server_redirect_log_thread_func(child_stdout):
+                    for line in child_stdout:
+                        if isinstance(line, bytes):
+                            decoded = line.decode()
+                        else:
+                            decoded = line
+                        server_tail_logs.append(decoded)
+                        sys.stdout.write("[model server] " + decoded)
 
-            client = ScoringServerClient("127.0.0.1", server_port)
+                server_redirect_log_thread = threading.Thread(
+                    target=server_redirect_log_thread_func,
+                    args=(scoring_server_proc.stdout,),
+                )
+                server_redirect_log_thread.setDaemon(True)
+                server_redirect_log_thread.start()
 
-            try:
-                client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-            except Exception:
-                err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
-                if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                    err_msg += (
-                        f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
-                        "lines of MLflow model server output:\n"
+                client = ScoringServerClient("127.0.0.1", server_port)
+
+                try:
+                    client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+                except Exception:
+                    err_msg = (
+                        "During spark UDF task execution, mlflow model server failed to launch. "
                     )
-                else:
-                    err_msg += "MLflow model server output:\n"
-                err_msg += "".join(server_tail_logs)
-                raise MlflowException(err_msg)
+                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
+                        err_msg += (
+                            f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
+                            "lines of MLflow model server output:\n"
+                        )
+                    else:
+                        err_msg += "MLflow model server output:\n"
+                    err_msg += "".join(server_tail_logs)
+                    raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
