@@ -1079,6 +1079,37 @@ method to load MLflow Models with the ``catboost`` model flavor in native CatBoo
 
 For more information, see :py:mod:`mlflow.catboost`.
 
+``CatBoost`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a CatBoost Classifier model, an example configuration for the pyfunc predict() method is:
+
+.. code-block:: python
+
+    import mlflow
+    from catboost import CatBoostClassifier
+    from sklearn import datasets
+
+    # prepare data
+    X, y = datasets.load_wine(as_frame=False, return_X_y=True)
+
+    # train the model
+    model = CatBoostClassifier(
+        iterations=5,
+        loss_function="MultiClass",
+        allow_writing_files=False,
+    )
+    model.fit(X, y)
+
+    # log the model into a mlflow run
+    with mlflow.start_run():
+        model_info = mlflow.catboost.log_model(model, "model")
+
+    # load the logged model and make a prediction
+    catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    print(catboost_pyfunc.predict(X[:5]))
+
+
 Spacy(``spaCy``)
 ^^^^^^^^^^^^^^^^^^^^
 The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via
