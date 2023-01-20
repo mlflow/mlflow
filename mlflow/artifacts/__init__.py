@@ -75,6 +75,7 @@ def load_text(artifact_uri: str) -> str:
         :caption: Example
 
         import mlflow
+
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
             mlflow.log_text("This is a sentence", "file.txt")
@@ -106,6 +107,7 @@ def load_dict(artifact_uri: str) -> dict:
         :caption: Example
 
         import mlflow
+
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
             mlflow.log_dict({"mlflow-version": "0.28", "n_cores": "10"}, "config.json")
@@ -138,11 +140,12 @@ def load_image(artifact_uri: str):
 
         import mlflow
         from PIL import Image
+
         with mlflow.start_run() as run:
             image = Image.new("RGB", (100, 100))
             artifact_uri = run.info.artifact_uri
             mlflow.log_image(image, "image.png")
-            image  = mlflow.artifacts.load_image(artifact_uri + "/image.png")
+            image = mlflow.artifacts.load_image(artifact_uri + "/image.png")
             print(image)
 
     .. code-block:: text
