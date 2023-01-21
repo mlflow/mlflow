@@ -350,7 +350,7 @@ currently active run, if any.
 (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
 such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` as follows:
 
-.. code-block:: py
+.. code-block:: python
 
     client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
@@ -389,7 +389,7 @@ easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_r
 `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
 just one block of code as follows:
 
-.. code-block:: py
+.. code-block:: python
 
    with mlflow.start_run():
        mlflow.log_param("x", 1)
@@ -418,7 +418,7 @@ Examples
 ~~~~~~~~
 
 Python
-  .. code-block:: py
+  .. code-block:: python
 
     with mlflow.start_run():
         for epoch in range(0, 3):
@@ -735,7 +735,7 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
 
     mlflow experiments create --experiment-name fraud-detection
 
-.. code-block:: py
+.. code-block:: python
 
     # Launch a run. The experiment is inferred from the MLFLOW_EXPERIMENT_NAME environment
     # variable, or from the --experiment-name parameter passed to the MLflow CLI (the latter
@@ -754,7 +754,7 @@ add tags to a run, and more.
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
     from mlflow.tracking import MlflowClient
 
@@ -771,7 +771,7 @@ Adding Tags to Runs
 
 The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
-.. code-block:: py
+.. code-block:: python
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
 
