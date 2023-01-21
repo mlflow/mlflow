@@ -216,7 +216,7 @@ can be identified by experiment IDs or experiment names, but not both at the sam
 
 For example, if you'd like to identify the best `active` run from experiment ID 0 by accuracy, use:
 
-.. code-block:: py
+.. code-block:: python
 
   from mlflow import MlflowClient
   from mlflow.entities import ViewType
@@ -233,7 +233,7 @@ For example, if you'd like to identify the best `active` run from experiment ID 
 To get all active runs from experiments IDs 3, 4, and 17 that used a CNN model
 with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
-.. code-block:: py
+.. code-block:: python
 
   from mlflow import MlflowClient
   from mlflow.entities import ViewType
@@ -247,7 +247,7 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 To search all known experiments for any MLflow runs created using the Inception model architecture:
 
-.. code-block:: py
+.. code-block:: python
 
   import mlflow
   from mlflow.entities import ViewType
@@ -261,7 +261,7 @@ To search all known experiments for any MLflow runs created using the Inception 
 
 To get all runs from the experiment named "Social NLP Experiments", use:
 
-.. code-block:: py
+.. code-block:: python
 
   import mlflow
 
