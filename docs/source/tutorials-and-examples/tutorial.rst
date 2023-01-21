@@ -261,7 +261,7 @@ in MLflow saved the model as an artifact within the run.
 
     .. container:: python
 
-      .. code-block:: py
+      .. code-block:: python
 
           mlflow.sklearn.log_model(lr, "model")
 
