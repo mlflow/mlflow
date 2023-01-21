@@ -1324,7 +1324,7 @@ ds            y
 2007-12-13    8.07246736935477
 ============= =================
 
-.. code-block:: py
+.. code-block:: python
 
     import numpy as np
     import pandas as pd
