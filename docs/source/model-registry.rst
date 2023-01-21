@@ -95,7 +95,7 @@ Adding an MLflow Model to the Model Registry
 
 There are three programmatic ways to add a model to the registry. First, you can use the ``mlflow.<model_flavor>.log_model()`` method. For example, in your code:
 
-.. code-block:: py
+.. code-block:: python
 
     from random import random, randint
     from sklearn.ensemble import RandomForestRegressor
@@ -125,7 +125,7 @@ If a registered model with the name exists, the method creates a new model versi
 The second way is to use the :func:`mlflow.register_model` method, after all your experiment runs complete and when you have decided which model is most suitable to add to the registry.
 For this method, you will need the ``run_id`` as part of the ``runs:URI`` argument.
 
-.. code-block:: py
+.. code-block:: python
 
     result = mlflow.register_model(
         "runs:/d16076a3ec534311817565e6527539c0/sklearn-model", "sk-learn-random-forest-reg"
@@ -137,7 +137,7 @@ If a registered model with the name exists, the method creates a new model versi
 And finally, you can use the :meth:`~mlflow.client.MlflowClient.create_registered_model` to create a new registered model. If the model name exists,
 this method will throw an :class:`~mlflow.exceptions.MlflowException` because creating a new registered model requires a unique name.
 
-.. code-block:: py
+.. code-block:: python
 
    from mlflow import MlflowClient
 
@@ -146,7 +146,7 @@ this method will throw an :class:`~mlflow.exceptions.MlflowException` because cr
 
 While the method above creates an empty registered model with no version associated, the method below creates a new version of the model.
 
-.. code-block:: py
+.. code-block:: python
 
     client = MlflowClient()
     result = client.create_model_version(
@@ -164,7 +164,7 @@ After you have registered an MLflow model, you can fetch that model using ``mlfl
 
 To fetch a specific model version, just supply that version number as part of the model URI.
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow.pyfunc
 
@@ -179,7 +179,7 @@ To fetch a specific model version, just supply that version number as part of th
 
 To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow.pyfunc
 
@@ -210,7 +210,7 @@ Adding or Updating an MLflow Model Descriptions
 
 At any point in a model’s lifecycle development, you can update a model version's description using :meth:`~mlflow.client.MlflowClient.update_model_version`.
 
-.. code-block:: py
+.. code-block:: python
 
     client = MlflowClient()
     client.update_model_version(
@@ -224,7 +224,7 @@ Renaming an MLflow Model
 
 As well as adding or updating a description of a specific version of the model, you can rename an existing registered model using :meth:`~mlflow.client.MlflowClient.rename_registered_model`.
 
-.. code-block:: py
+.. code-block:: python
 
     client = MlflowClient()
     client.rename_registered_model(
@@ -237,7 +237,7 @@ Transitioning an MLflow Model’s Stage
 Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
 You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
 
-.. code-block:: py
+.. code-block:: python
 
     client = MlflowClient()
     client.transition_model_version_stage(
@@ -250,7 +250,7 @@ Listing and Searching MLflow Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You can fetch a list of registered models in the registry with a simple method.
 
-.. code-block:: py
+.. code-block:: python
 
     from pprint import pprint
 
@@ -273,7 +273,7 @@ With hundreds of models, it can be cumbersome to peruse the results returned fro
 details using :meth:`~mlflow.client.MlflowClient.search_model_versions` method
 and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"``
 
-.. code-block:: py
+.. code-block:: python
 
     client = MlflowClient()
     for mv in client.search_model_versions("name='sk-learn-random-forest-reg-model'"):
@@ -318,7 +318,7 @@ Archiving an MLflow Model
 You can move models versions out of a **Production** stage into an **Archived** stage.
 At a later point, if that archived model is not needed, you can delete it.
 
-.. code-block:: py
+.. code-block:: python
 
     # Archive models version 3 from Production into Archived
     client = MlflowClient()
@@ -334,7 +334,7 @@ Deleting MLflow Models
 
 You can either delete specific versions of a registered model or you can delete a registered model and all its versions.
 
-.. code-block:: py
+.. code-block:: python
 
     # Delete versions 1,2, and 3 of the model
     client = MlflowClient()
@@ -365,7 +365,7 @@ This code snippet creates a sklearn model, which we assume that you had created 
     The sklearn library and pickle versions with which the model was saved should be compatible with the
     current MLflow supported built-in sklearn model flavor.
 
-.. code-block:: py
+.. code-block:: python
 
     import numpy as np
     import pickle
@@ -425,7 +425,7 @@ This code snippet creates a sklearn model, which we assume that you had created 
 Once saved in pickled format, we can load the sklearn model into memory using pickle API and
 register the loaded model with the Model Registry.
 
-.. code-block:: py
+.. code-block:: python
 
     import mlflow
 
@@ -453,7 +453,7 @@ register the loaded model with the Model Registry.
 
 Now, using MLflow fluent APIs, we reload the model from the Model Registry and score.
 
-.. code-block:: py
+.. code-block:: python
 
     # load the model from the Model Registry and score
     model_uri = f"models:/{reg_model_name}/1"
