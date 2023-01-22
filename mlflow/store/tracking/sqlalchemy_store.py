@@ -1299,6 +1299,28 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                     attribute, value
                 )
                 attribute_filters.append(attr_filter)
+        elif SearchUtils.is_condition(key_type, comparator):
+            _attr_filters, _non_attr_filters = _get_sqlalchemy_filter_clauses(
+                value, session, dialect
+            )
+            if _attr_filters:
+                attribute_filters.append(
+                    SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                        key_type, _attr_filters
+                    )
+                )
+            if _non_attr_filters:
+                non_attribute_filters.append(
+                    SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                        key_type, _non_attr_filters
+                    )
+                )
+        elif SearchUtils.is_group(key_type):
+            _attr_filters, _non_attr_filters = _get_sqlalchemy_filter_clauses(
+                value, session, dialect
+            )
+            attribute_filters.extend(_attr_filters)
+            non_attribute_filters.extend(_non_attr_filters)
         else:
             if SearchUtils.is_metric(key_type, comparator):
                 entity = SqlLatestMetric

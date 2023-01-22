@@ -2143,6 +2143,36 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert [r.info.run_id for r in result] == [run1.info.run_id]
 
+    def test_search_runs_run_with_or_clause(self):
+        exp_id = self._experiment_factory("test_search_runs_run_id")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id = '{run_id1}' OR  attributes.run_id = '{run_id2}'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id1, run_id2}
+
+    def test_search_runs_run_with_parenthesis(self):
+        exp_id = self._experiment_factory("test_search_runs_run_id")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string=f"attributes.run_id = '{run_id1}' OR  (attributes.run_id = '{run_id2}')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id1, run_id2}
+
     def test_search_runs_run_id(self):
         exp_id = self._experiment_factory("test_search_runs_run_id")
         # Set start_time to ensure the search result is deterministic

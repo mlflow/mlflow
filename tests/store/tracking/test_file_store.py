@@ -1054,6 +1054,38 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
 
+    def test_search_run_or_clause(self):
+        # replace with test with code is implemented
+        fs = FileStore(self.test_root)
+        # Expect 2 runs for each experiment
+        run_id_1 = self.exp_data[self.experiments[0]]["runs"][0]
+        run_id_2 = self.exp_data[self.experiments[0]]["runs"][1]
+        filter_str = f"attributes.run_id = '{run_id_1}' OR attributes.run_id = '{run_id_2}'"
+        assert (
+            len(
+                self._search(
+                    fs, self.experiments[0], filter_str, run_view_type=ViewType.ACTIVE_ONLY
+                )
+            )
+            == 2
+        )
+
+    def test_search_run_with_parenthesis(self):
+        # replace with test with code is implemented
+        fs = FileStore(self.test_root)
+        # Expect 2 runs for each experiment
+        run_id_1 = self.exp_data[self.experiments[0]]["runs"][0]
+        run_id_2 = self.exp_data[self.experiments[0]]["runs"][1]
+        filter_str = f"(attributes.run_id = '{run_id_1}' OR attributes.run_id = '{run_id_2}')"
+        assert (
+            len(
+                self._search(
+                    fs, self.experiments[0], filter_str, run_view_type=ViewType.ACTIVE_ONLY
+                )
+            )
+            == 2
+        )
+
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]

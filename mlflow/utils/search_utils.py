@@ -152,6 +152,10 @@ class SearchUtils:
                 return column.in_(value)
             elif comparator == "NOT IN":
                 return ~column.in_(value)
+            elif comparator == "AND":
+                return sa.and_(*value)
+            elif comparator == "OR":
+                return sa.or_(*value)
             return SearchUtils.get_comparison_func(comparator)(column, value)
 
         def mssql_comparison_func(column, value):
@@ -404,6 +408,7 @@ class SearchUtils:
     def _process_statement(cls, statement):
         # check validity
         invalids = list(filter(cls._invalid_statement_token_search_runs, statement.tokens))
+
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
