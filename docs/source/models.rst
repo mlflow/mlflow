@@ -1309,6 +1309,79 @@ models to be interpreted as generic Python functions for inference via
 You can also use the :py:func:`mlflow.prophet.load_model()`
 method to load MLflow Models with the ``prophet`` model flavor in native prophet format.
 
+Prophet pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+
+This example uses a time series dataset from Prophet's GitHub repository, containing log number of daily views to
+Peyton Manning’s Wikipedia page for several years. A sample of the dataset is as follows:
+
+============= =================
+ds            y
+============= =================
+2007-12-10    9.59076113897809
+2007-12-11    8.51959031601596
+2007-12-12    8.18367658262066
+2007-12-13    8.07246736935477
+============= =================
+
+.. code-block:: python
+
+    import numpy as np
+    import pandas as pd
+    from prophet import Prophet
+    from prophet.diagnostics import cross_validation, performance_metrics
+
+    import mlflow
+
+    # starts on 2007-12-10, ends on 2016-01-20
+    train_df = pd.read_csv(
+        "https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv"
+    )
+
+    # Create a "test" DataFrame with the "ds" column containing 10 days after the end date in train_df
+    test_dates = pd.date_range(start="2016-01-21", end="2016-01-31", freq="D")
+    test_df = pd.Series(data=test_dates.values, name="ds").to_frame()
+
+    prophet_model = Prophet(changepoint_prior_scale=0.5, uncertainty_samples=7)
+
+    with mlflow.start_run():
+        prophet_model.fit(train_df)
+
+        # extract and log parameters such as changepoint_prior_scale in the mlflow run
+        model_params = {
+            name: value for name, value in vars(prophet_model).items() if np.isscalar(value)
+        }
+        mlflow.log_params(model_params)
+
+        # cross validate with 900 days of data initially, predictions for next 30 days
+        # walk forward by 30 days
+        cv_results = cross_validation(
+            prophet_model, initial="900 days", period="30 days", horizon="30 days"
+        )
+
+        # Calculate metrics from cv_results, then average each metric across all backtesting windows and log to mlflow
+        cv_metrics = ["mse", "rmse", "mape"]
+        metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
+        average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
+        mlflow.log_metrics(average_metrics)
+        model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
+
+    # Load saved model
+    prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    predictions = prophet_model_saved.predict(test_df)
+
+Output (``Pandas DataFrame``):
+
+===== ========== =========== ============ ==========
+Index ds          yhat        yhat_upper  yhat_lower
+===== ========== =========== ============ ==========
+0     2016-01-21  8.526513    8.827397    8.328563
+1     2016-01-22  8.541355    9.434994    8.112758
+2     2016-01-23  8.308332    8.633746    8.201323
+3     2016-01-24  8.676326    9.534593    8.020874
+4     2016-01-25  8.983457    9.430136    8.121798
+===== ========== =========== ============ ==========
+
 For more information, see :py:mod:`mlflow.prophet`.
 
 Pmdarima (``pmdarima``)
