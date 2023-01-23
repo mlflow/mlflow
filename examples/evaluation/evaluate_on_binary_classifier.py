@@ -29,7 +29,6 @@ with mlflow.start_run() as run:
         targets="label",
         model_type="classifier",
         evaluators=["default"],
-        env_manager="virtualenv",
     )
 
 print(f"metrics:\n{result.metrics}")
