@@ -436,6 +436,7 @@ class PyFuncModel:
                     # do something with the model input
                     return 0
 
+
             some_input = 1
             # save the model
             my_model = MyModel()
@@ -444,17 +445,17 @@ class PyFuncModel:
 
             # load the model
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
-            print(type(loaded_model)) # <class 'mlflow.pyfunc.model.PyFuncModel'>
+            print(type(loaded_model))  # <class 'mlflow.pyfunc.model.PyFuncModel'>
 
             unwrapped_model = loaded_model.unwrap_python_model()
-            print(type(unwrapped_model)) # <class '__main__.MyModel'>
+            print(type(unwrapped_model))  # <class '__main__.MyModel'>
 
             # does not work, only predict() is exposed
             # print(loaded_model.my_custom_function(some_input))
 
-            print(unwrapped_model.my_custom_function(some_input)) # works
+            print(unwrapped_model.my_custom_function(some_input))  # works
 
-            print(loaded_model.predict(some_input)) # works
+            print(loaded_model.predict(some_input))  # works
 
             # works, but None is needed for context arg
             print(unwrapped_model.predict(None, some_input))
