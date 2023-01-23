@@ -2685,6 +2685,40 @@ class MlflowClient:
             name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
         """
         return self._get_registry_client().search_model_versions(filter_string)
+    
+    def fetch_run_id(name, loading_stage: str = None, version: int = None) -> str:
+        """
+        Fetches the `run_id` of the model with the given name and stage.
+        If no version is given, the latest `run_id` is returned.
+
+        :param name: Registered model name in model registry.
+        :param loading_stage: Stage of the model to load. Possible values are "None", "Staging", "Production".
+                            If None, or not defined, all stages are considered.
+        :param version: Version of the model to load. If None, the latest version is loaded.
+        :return: Model `run_id`.
+        """
+        client = MlflowClient()
+        response = client.search_model_versions(filter_string=f"name='{name}'")
+        model_versions = {int(r.version): r for r in response}
+        if not model_versions:
+            raise ValueError(f"No model with name {name} found.")
+        if loading_stage in ["None", "Staging", "Production"]:
+            # filter out model versions that are not in the desired stage
+            model_versions = {k: v for k, v in model_versions.items() if v.current_stage == loading_stage}
+            if not model_versions:
+                raise ValueError(f"No model version found for model '{name}' and stage '{loading_stage}'.")
+        if version:
+            try:
+                return model_versions[version].run_id
+            except KeyError:
+                error_message = f"No model version '{version}' found for model '{name}'"
+                if loading_stage:
+                    error_message += f" and stage '{loading_stage}'."
+                raise ValueError(error_message)
+        else:
+            # if no version is specified, return the latest version
+            version = max(model_versions.keys())
+            return model_versions[version].run_id
 
     def get_model_version_stages(
         self, name: str, version: str  # pylint: disable=unused-argument
