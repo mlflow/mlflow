@@ -2431,7 +2431,7 @@ Commands
 .. code-block:: bash
 
     mlflow sagemaker build-and-push-container  # build the container (only needs to be called once)
-    mlflow sagemaker run-local -m <path-to-model>  # test the model locally
+    mlflow deployments run-local -t sagemaker --name <deployment-name> -m <path-to-model>  # test the model locally
     mlflow deployments sagemaker create -t  # deploy the model remotely
 
 
@@ -2441,7 +2441,7 @@ For more info, see:
 
     mlflow sagemaker --help
     mlflow sagemaker build-and-push-container --help
-    mlflow sagemaker run-local --help
+    mlflow deployments run-local --help
     mlflow deployments help -t sagemaker
 
 Export a ``python_function`` model as an Apache Spark UDF
