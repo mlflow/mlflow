@@ -561,7 +561,7 @@ def test_resolve_uri_if_local_on_windows():
         "file:///my/path": "file:///{drive}my/path",
         "file:my/path": "file://{cwd}/my/path",
         "/home/my/path": "file:///{drive}home/my/path",
-        "dbfs://databricks/a/b": "dbfs://d\atabricks/a/b",
+        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
         "s3://host/my/path": "s3://host/my/path",
     }
     _assert_resolve_uri_if_local(input_and_expected_uris)
