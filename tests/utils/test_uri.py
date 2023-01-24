@@ -22,8 +22,6 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
     dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
-    _is_local_windows_path,
-    _strip_leading_slash_if_windows_path,
 )
 
 
@@ -531,47 +529,39 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
         dbfs_hdfs_uri_to_fuse_path(path)
 
 
-def test_resolve_uri_if_local():
+def _assert_resolve_uri_if_local(cases):
     cwd = pathlib.Path.cwd().as_posix()
     drive = pathlib.Path.cwd().drive
-    input_and_expected_uris = {
-        "file://myhostname/my/path": "file://myhostname/my/path",
-        "file:///my/path": "file:///{drive}my/path",
-        "file:my/path": "file://{cwd}/my/path",
-        "my/path": "{cwd}/my/path",
-        "/home/my/path": "{drive}/home/my/path",
-        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
-        "s3://host/my/path": "s3://host/my/path",
-    }
-    for input_uri, expected_uri in input_and_expected_uris.items():
+    for input_uri, expected_uri in cases.items():
         if platform.system().lower() == "windows" and expected_uri.startswith("file:"):
             cwd = f"/{cwd}"
             drive = f"{drive}/"
         assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
-def test_is_local_windows_path():
-    assert _is_local_windows_path("C:\\a\\b\\c")
-    assert not _is_local_windows_path("\\a\\b\\c")
-    assert not _is_local_windows_path("file://myhostname/my/path")
-    assert not _is_local_windows_path("/home/my/path")
-    assert not _is_local_windows_path("my/path")
-    assert not _is_local_windows_path("dbfs://databricks/a/b")
-    assert not _is_local_windows_path("s3://host/my/path")
-    assert not _is_local_windows_path("\\a\\b\\c")
+@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+def test_resolve_uri_if_local():
+    input_and_expected_uris = {
+        "my/path": "{cwd}/my/path",
+        "file://myhostname/my/path": "file://myhostname/my/path",
+        "file:///my/path": "file:///{drive}my/path",
+        "file:my/path": "file://{cwd}/my/path",
+        "/home/my/path": "{drive}/home/my/path",
+        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
+        "s3://host/my/path": "s3://host/my/path",
+    }
+    _assert_resolve_uri_if_local(input_and_expected_uris)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
-def test_strip_leading_slash_if_windows_path():
-    assert _strip_leading_slash_if_windows_path("/C:/a/b/c") == "C:/a/b/c"
-    assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
-    assert (
-        _strip_leading_slash_if_windows_path("file://myhostname/my/path")
-        == "file://myhostname/my/path"
-    )
-    assert _strip_leading_slash_if_windows_path("/home/my/path") == "/home/my/path"
-    assert _strip_leading_slash_if_windows_path("my/path") == "my/path"
-    assert _strip_leading_slash_if_windows_path("dbfs://databricks/a/b") == "dbfs://databricks/a/b"
-    assert _strip_leading_slash_if_windows_path("s3://host/my/path") == "s3://host/my/path"
-    assert _strip_leading_slash_if_windows_path("\\a\\b\\c") == "\\a\\b\\c"
+def test_resolve_uri_if_local_on_windows():
+    input_and_expected_uris = {
+        "my/path": "file://{cwd}/my/path",
+        "file://myhostname/my/path": "file://myhostname/my/path",
+        "file:///my/path": "file:///{drive}my/path",
+        "file:my/path": "file://{cwd}/my/path",
+        "/home/my/path": "{drive}/home/my/path",
+        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
+        "s3://host/my/path": "s3://host/my/path",
+    }
+    _assert_resolve_uri_if_local(input_and_expected_uris)

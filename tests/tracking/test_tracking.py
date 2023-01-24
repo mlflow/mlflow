@@ -711,22 +711,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         )
 
 
-@pytest.mark.parametrize(
-    ("artifact_location", "expected_uri_format"),
-    [
-        # (
-        #     "mysql://user:password@host:port/dbname?driver=mydriver",
-        #     "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
-        # ),
-        # (
-        #     "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-        #     "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
-        # ),
-        # ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
-        ("/dirname/rootpa#th?", "{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"),
-    ],
-)
-def test_get_artifact_uri_appends_to_uri_path_component_correctly(
+def _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
     artifact_location, expected_uri_format
 ):
     client = MlflowClient()
@@ -740,6 +725,46 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
             assert artifact_uri == expected_uri_format.format(
                 run_id=run_id, path=artifact_path.lstrip("/"), drive=pathlib.Path.cwd().drive
             )
+
+
+@pytest.mark.parametrize(
+    ("artifact_location", "expected_uri_format"),
+    [
+        (
+            "mysql://user:password@host:port/dbname?driver=mydriver",
+            "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
+        ),
+        (
+            "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
+            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
+        ),
+        ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
+    ],
+)
+def test_get_artifact_uri_appends_to_uri_path_component_correctly(
+    artifact_location, expected_uri_format
+):
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        artifact_location, expected_uri_format
+    )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+def test_get_artifact_uri_appends_to_local_path_component_correctly_on_windows(
+    artifact_location, expected_uri_format
+):
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        "/dirname/rootpa#th?", "file:///{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"
+    )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+def test_get_artifact_uri_appends_to_local_path_component_correctly(
+    artifact_location, expected_uri_format
+):
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        "/dirname/rootpa#th?", "{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"
+    )
 
 
 @pytest.mark.usefixtures("reset_active_experiment")

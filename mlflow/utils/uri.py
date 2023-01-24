@@ -2,7 +2,6 @@ import pathlib
 import posixpath
 import urllib.parse
 import platform
-import string
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -170,59 +169,8 @@ def extract_db_type_from_uri(db_uri):
     return db_type
 
 
-def _is_local_windows_path(uri_or_path):
-    """
-    Detects if platform system is windows and if `uri_or_path` is a windows path
-    """
-    parsed_uri = urllib.parse.urlparse(uri_or_path)
-    scheme = parsed_uri.scheme
-    return (
-        platform.system().lower() == "windows"
-        and not parsed_uri.netloc
-        and len(uri_or_path) > 3
-        and uri_or_path[0] in string.ascii_letters
-        and uri_or_path[0].lower() == scheme.lower()
-        and uri_or_path[1:3] in [":", ":/", "://", ":\\"]
-    )
-
-
-def _strip_leading_slash_if_windows_path(local_path):
-    """
-    Removes leading slash, if platform system is windows and `local_path` is a windows path
-
-    # For Windows path, urllib parses it with an extra leading slash
-    >>> path_with_leading_slash = urllib.parse.urlsplit("file:///C:/a/b/c").path
-    >>> path_without_leading_slash = _strip_leading_slash_if_windows_path(path_with_leading_slash)
-    >>> assert path_without_leading_slash == "C:/a/b/c"
-    """
-
-    local_parsed_path = pathlib.Path(local_path).as_posix()
-    parsed_uri = urllib.parse.urlparse(local_parsed_path)
-    if (
-        platform.system().lower() == "windows"
-        and not parsed_uri.netloc
-        and len(local_parsed_path) > 3
-        and local_parsed_path[0] == "/"
-        and local_parsed_path[1] in string.ascii_letters
-        and local_parsed_path[2:4] in [":", ":/", "://"]
-    ):
-        final_path = local_parsed_path[1:]
-        if _is_local_windows_path(final_path):
-            return final_path
-    return local_path
-
-
 def get_uri_scheme(uri_or_path):
-
-    parsed_uri = urllib.parse.urlparse(uri_or_path)
-    scheme = parsed_uri.scheme
-
-    # This checks if `uri_or_path` is a windows path (and platform is windows)
-    # without netloc and forces scheme to be empty so that it windows path can
-    # work with local artifact repo
-    if _is_local_windows_path(uri_or_path):
-        return ""
-
+    scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
     return scheme
@@ -250,17 +198,6 @@ def append_to_uri_path(uri, *paths):
     >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
     >>> assert uri2 == "a/posixpath/some/subpath"
     """
-
-    from functools import reduce
-
-    if _is_local_windows_path(uri):
-        return reduce(
-            lambda base_uri, sub_path: str(
-                pathlib.Path(base_uri).joinpath(sub_path.lstrip(posixpath.sep)).resolve().as_posix()
-            ),
-            paths,
-            uri,
-        )
 
     path = ""
     for subpath in paths:
@@ -304,14 +241,10 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     if len(prefix_path) == 0:
         return suffix_path
 
-    prefix_path = _strip_leading_slash_if_windows_path(prefix_path)
-
     # If the specified prefix path is non-empty, we must relativize the suffix path by removing
     # the leading slash, if present. Otherwise, posixpath.join() would omit the prefix from the
     # joined path
     suffix_path = suffix_path.lstrip(posixpath.sep)
-    if _is_local_windows_path(prefix_path):
-        return pathlib.Path(prefix_path).joinpath(suffix_path).as_posix()
     return posixpath.join(prefix_path, suffix_path)
 
 
@@ -375,6 +308,8 @@ def resolve_uri_if_local(local_uri):
         local_path = local_file_uri_to_path(local_uri)
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
+                if platform.system().lower() == "windows":
+                    return cwd.joinpath(local_path).as_uri()
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
             resolved_absolute_uri = urllib.parse.urlunsplit(

@@ -533,12 +533,47 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp2.creation_time == exp1.creation_time
         assert exp2.last_update_time == exp1.last_update_time
 
-    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+    @staticmethod
+    def _assert_create_experiment_appends_to_artifact_uri_path_correctly(cases):
+        for artifact_root_uri, expected_artifact_uri_format in cases:
+            with TempDir() as tmp:
+                fs = FileStore(tmp.path(), artifact_root_uri)
+                exp_id = fs.create_experiment("exp")
+                exp = fs.get_experiment(exp_id)
+                cwd = Path.cwd().as_posix()
+                drive = Path.cwd().drive
+                if (
+                    platform.system().lower() == "windows"
+                    and expected_artifact_uri_format.startswith("file:")
+                ):
+                    cwd = f"/{cwd}"
+                    drive = f"{drive}/"
 
+                assert exp.artifact_location == expected_artifact_uri_format.format(
+                    e=exp_id, cwd=cwd, drive=drive
+                )
+
+    @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+    def test_create_experiment_appends_to_artifact_local_path_correctly_on_windows(self):
+        cases = [
+            ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "file:///{drive}/path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}"),
+        ]
+        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
+
+    @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+    def test_create_experiment_appends_to_artifact_local_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
             ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
+        ]
+        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
+
+    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+
+        cases = [
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
             ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             (
@@ -568,24 +603,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
             ),
         ]
-
-        for artifact_root_uri, expected_artifact_uri_format in cases:
-            with TempDir() as tmp:
-                fs = FileStore(tmp.path(), artifact_root_uri)
-                exp_id = fs.create_experiment("exp")
-                exp = fs.get_experiment(exp_id)
-                cwd = Path.cwd().as_posix()
-                drive = Path.cwd().drive
-                if (
-                    platform.system().lower() == "windows"
-                    and expected_artifact_uri_format.startswith("file:")
-                ):
-                    cwd = f"/{cwd}"
-                    drive = f"{drive}/"
-
-                assert exp.artifact_location == expected_artifact_uri_format.format(
-                    e=exp_id, cwd=cwd, drive=drive
-                )
+        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
 
     def test_create_experiment_with_tags_works_correctly(self):
         fs = FileStore(self.test_root)
@@ -741,11 +759,47 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(deleted_runs) == 1
         assert deleted_runs[0] == run_id
 
-    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+    @staticmethod
+    def _assert_create_run_appends_to_artifact_uri_path_correctly(cases):
+        for artifact_root_uri, expected_artifact_uri_format in cases:
+            with TempDir() as tmp:
+                fs = FileStore(tmp.path(), artifact_root_uri)
+                exp_id = fs.create_experiment("exp")
+                run = fs.create_run(
+                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
+                )
+                cwd = Path.cwd().as_posix()
+                drive = Path.cwd().drive
+                if (
+                    platform.system().lower() == "windows"
+                    and expected_artifact_uri_format.startswith("file:")
+                ):
+                    cwd = f"/{cwd}"
+                    drive = f"{drive}/"
+                assert run.info.artifact_uri == expected_artifact_uri_format.format(
+                    e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+                )
+
+    @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+    def test_create_run_appends_to_artifact_local_path_correctly_on_windows(self):
+        cases = [
+            ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "file:///{drive}/path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        ]
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
+
+    @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+    def test_create_run_appends_to_artifact_local_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        ]
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:///path/to/local/folder",
@@ -783,25 +837,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 "?creds=mycreds#myfragment",
             ),
         ]
-
-        for artifact_root_uri, expected_artifact_uri_format in cases:
-            with TempDir() as tmp:
-                fs = FileStore(tmp.path(), artifact_root_uri)
-                exp_id = fs.create_experiment("exp")
-                run = fs.create_run(
-                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
-                )
-                cwd = Path.cwd().as_posix()
-                drive = Path.cwd().drive
-                if (
-                    platform.system().lower() == "windows"
-                    and expected_artifact_uri_format.startswith("file:")
-                ):
-                    cwd = f"/{cwd}"
-                    drive = f"{drive}/"
-                assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                    e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
-                )
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
 
     def test_create_run_in_deleted_experiment(self):
         fs = FileStore(self.test_root)
