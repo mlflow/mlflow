@@ -599,7 +599,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
             ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}"),
+            ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
         ]
         self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
 
@@ -688,7 +688,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
         ]
         self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
 

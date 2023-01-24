@@ -198,7 +198,6 @@ def append_to_uri_path(uri, *paths):
     >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
     >>> assert uri2 == "a/posixpath/some/subpath"
     """
-
     path = ""
     for subpath in paths:
         path = _join_posixpaths_and_append_absolute_suffixes(path, subpath)
@@ -308,7 +307,15 @@ def resolve_uri_if_local(local_uri):
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
                 if platform.system().lower() == "windows":
-                    return cwd.joinpath(local_path).as_uri()
+                    return urllib.parse.urlunsplit(
+                        (
+                            "file",
+                            None,
+                            cwd.joinpath(local_path).as_posix(),
+                            None,
+                            None,
+                        )
+                    )
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
             resolved_absolute_uri = urllib.parse.urlunsplit(

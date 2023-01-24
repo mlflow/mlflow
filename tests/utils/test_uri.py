@@ -532,10 +532,10 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
 def _assert_resolve_uri_if_local(cases):
     cwd = pathlib.Path.cwd().as_posix()
     drive = pathlib.Path.cwd().drive
+    if platform.system().lower() == "windows":
+        cwd = f"/{cwd}"
+        drive = f"{drive}/"
     for input_uri, expected_uri in cases.items():
-        if platform.system().lower() == "windows" and expected_uri.startswith("file:"):
-            cwd = f"/{cwd}"
-            drive = f"{drive}/"
         assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
@@ -556,11 +556,11 @@ def test_resolve_uri_if_local():
 @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
 def test_resolve_uri_if_local_on_windows():
     input_and_expected_uris = {
-        "my/path": "file:///{cwd}/my/path",
+        "my/path": "file://{cwd}/my/path",
         "file://myhostname/my/path": "file://myhostname/my/path",
         "file:///my/path": "file:///{drive}my/path",
         "file:my/path": "file://{cwd}/my/path",
-        "/home/my/path": "{drive}/home/my/path",
+        "/home/my/path": "file:///{drive}home/my/path",
         "dbfs://databricks/a/b": "dbfs://databricks/a/b",
         "s3://host/my/path": "s3://host/my/path",
     }
