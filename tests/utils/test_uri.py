@@ -1,7 +1,6 @@
 import pathlib
 import posixpath
 import pytest
-import os
 import platform
 
 from mlflow.exceptions import MlflowException
@@ -23,6 +22,7 @@ from mlflow.utils.uri import (
     dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
 )
+from tests.helper_functions import is_local_os_windows
 
 
 def test_extract_db_type_from_uri():
@@ -539,7 +539,7 @@ def _assert_resolve_uri_if_local(cases):
         assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
 def test_resolve_uri_if_local():
     input_and_expected_uris = {
         "my/path": "{cwd}/my/path",
@@ -553,7 +553,7 @@ def test_resolve_uri_if_local():
     _assert_resolve_uri_if_local(input_and_expected_uris)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
 def test_resolve_uri_if_local_on_windows():
     input_and_expected_uris = {
         "my/path": "file://{cwd}/my/path",
@@ -561,7 +561,7 @@ def test_resolve_uri_if_local_on_windows():
         "file:///my/path": "file:///{drive}my/path",
         "file:my/path": "file://{cwd}/my/path",
         "/home/my/path": "file:///{drive}home/my/path",
-        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
+        "dbfs://databricks/a/b": "dbfs://d\atabricks/a/b",
         "s3://host/my/path": "s3://host/my/path",
     }
     _assert_resolve_uri_if_local(input_and_expected_uris)

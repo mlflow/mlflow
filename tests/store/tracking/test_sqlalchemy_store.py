@@ -65,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
+from tests.helper_functions import is_local_os_windows
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -594,7 +595,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         e=exp_id, cwd=cwd, drive=drive
                     )
 
-    @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+    @pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
     def test_create_experiment_appends_to_artifact_local_path_correctly_on_windows(self):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
@@ -603,11 +604,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ]
         self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
 
-    @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+    @pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
     def test_create_experiment_appends_to_artifact_local_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
         ]
         self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
@@ -683,7 +684,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
                     )
 
-    @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+    @pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
     def test_create_run_appends_to_artifact_local_path_correctly_on_windows(self):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
@@ -692,11 +693,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ]
         self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
 
-    @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+    @pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
     def test_create_run_appends_to_artifact_local_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
         ]
         self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
