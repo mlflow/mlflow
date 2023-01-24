@@ -598,7 +598,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_create_experiment_appends_to_artifact_local_path_correctly_on_windows(self):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "file:///{drive}/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}"),
         ]
         self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
@@ -656,11 +656,53 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert experiment.tags["key1"] == "val1"
         assert experiment.tags["key2"] == "val2"
 
-    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+    @staticmethod
+    def _assert_create_run_appends_to_artifact_uri_path_correctly(cases):
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for artifact_root_uri, expected_artifact_uri_format in cases:
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
+                    )
+                    exp_id = store.create_experiment(name="exp")
+                    run = store.create_run(
+                        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
+                    )
+                    cwd = Path.cwd().as_posix()
+                    drive = Path.cwd().drive
+                    if (
+                        platform.system().lower() == "windows"
+                        and expected_artifact_uri_format.startswith("file:")
+                    ):
+                        cwd = f"/{cwd}"
+                        drive = f"{drive}/"
+                    assert run.info.artifact_uri == expected_artifact_uri_format.format(
+                        e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+                    )
+
+    @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
+    def test_create_run_appends_to_artifact_local_path_correctly_on_windows(self):
+        cases = [
+            ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        ]
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
+
+    @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
+    def test_create_run_appends_to_artifact_local_path_correctly(self):
         cases = [
             ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "{drive}/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        ]
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
             ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:///path/to/local/folder",
@@ -698,31 +740,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 "?creds=mycreds#myfragment",
             ),
         ]
-
-        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-        # filesystem directories for file URI and POSIX path test cases
-        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-            for artifact_root_uri, expected_artifact_uri_format in cases:
-                with TempDir() as tmp:
-                    dbfile_path = tmp.path("db")
-                    store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
-                    )
-                    exp_id = store.create_experiment(name="exp")
-                    run = store.create_run(
-                        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
-                    )
-                    cwd = Path.cwd().as_posix()
-                    drive = Path.cwd().drive
-                    if (
-                        platform.system().lower() == "windows"
-                        and expected_artifact_uri_format.startswith("file:")
-                    ):
-                        cwd = f"/{cwd}"
-                        drive = f"{drive}/"
-                    assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                        e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
-                    )
+        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
 
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
@@ -1949,10 +1967,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        expected_artifact_uri = (
-            pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_posix()
-        )
-        filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
+        if platform.system().lower() == "windows":
+            expected_artifact_uri = (
+                pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_uri()
+            )
+            filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
+        else:
+            expected_artifact_uri = (
+                pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_posix()
+            )
+            filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
         assert self._search([e1, e2], filter_string) == [r1]
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(

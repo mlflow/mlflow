@@ -1,3 +1,4 @@
+import platform
 from importlib import reload
 from unittest import mock
 import io
@@ -146,7 +147,10 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
+        if platform.system().lower() == "windows":
+            assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
+        else:
+            assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
@@ -170,9 +174,12 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == path_to_local_file_uri(
-            Path.cwd().joinpath("artifact", "path")
-        )
+        if platform.system().lower() == "windows":
+            assert store.artifact_root_uri == Path.cwd().joinpath("artifact", "path").as_uri()
+        else:
+            assert store.artifact_root_uri == path_to_local_file_uri(
+                Path.cwd().joinpath("artifact", "path")
+            )
 
     mock_create_engine.assert_not_called()
 

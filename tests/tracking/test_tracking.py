@@ -750,18 +750,14 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
-def test_get_artifact_uri_appends_to_local_path_component_correctly_on_windows(
-    artifact_location, expected_uri_format
-):
+def test_get_artifact_uri_appends_to_local_path_component_correctly_on_windows():
     _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
         "/dirname/rootpa#th?", "file:///{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"
     )
 
 
 @pytest.mark.skipif(os.name == "nt", reason="This test fails on Windows")
-def test_get_artifact_uri_appends_to_local_path_component_correctly(
-    artifact_location, expected_uri_format
-):
+def test_get_artifact_uri_appends_to_local_path_component_correctly():
     _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
         "/dirname/rootpa#th?", "{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"
     )

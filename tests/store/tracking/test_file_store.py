@@ -557,7 +557,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_create_experiment_appends_to_artifact_local_path_correctly_on_windows(self):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "file:///{drive}/path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
             ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}"),
         ]
         self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
@@ -784,7 +784,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_create_run_appends_to_artifact_local_path_correctly_on_windows(self):
         cases = [
             ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "file:///{drive}/path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "file://{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
         ]
         self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
@@ -1864,7 +1864,10 @@ def test_experiment_with_default_root_artifact_uri(tmp_path):
     file_store = FileStore(file_store_root_uri)
     experiment_id = file_store.create_experiment(name="test", artifact_location="test")
     experiment_info = file_store.get_experiment(experiment_id)
-    assert experiment_info.artifact_location == str(Path.cwd().joinpath("test"))
+    if platform.system().lower() == "windows":
+        assert experiment_info.artifact_location == Path.cwd().joinpath("test").as_uri()
+    else:
+        assert experiment_info.artifact_location == str(Path.cwd().joinpath("test"))
 
 
 def test_experiment_with_relative_artifact_uri(tmp_path):

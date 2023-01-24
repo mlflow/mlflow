@@ -556,7 +556,7 @@ def test_resolve_uri_if_local():
 @pytest.mark.skipif(os.name != "nt", reason="This test only passes on Windows")
 def test_resolve_uri_if_local_on_windows():
     input_and_expected_uris = {
-        "my/path": "file://{cwd}/my/path",
+        "my/path": "file:///{cwd}/my/path",
         "file://myhostname/my/path": "file://myhostname/my/path",
         "file:///my/path": "file:///{drive}my/path",
         "file:my/path": "file://{cwd}/my/path",
