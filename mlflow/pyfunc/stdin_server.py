@@ -23,7 +23,6 @@ _logger.info("Waiting for request")
 for line in sys.stdin:
     _logger.info("Received request")
     request = json.loads(line)
-    request_id = request["id"]
     data = request["data"]
     output_file = Path(request["output_file"])
 
@@ -38,4 +37,3 @@ for line in sys.stdin:
         scoring_server.predictions_to_json(preds, f)
 
     _logger.info("Done")
-    output_file.parent.joinpath(f"{request_id}.DONE").touch()

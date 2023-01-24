@@ -1,8 +1,8 @@
 import requests
 import time
 import json
-import uuid
 import tempfile
+import logging
 from pathlib import Path
 
 from mlflow.pyfunc import scoring_server
@@ -10,6 +10,8 @@ from mlflow.pyfunc import scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.deployments import PredictionsResponse
+
+_logger = logging.getLogger(__name__)
 
 
 class ScoringServerClient:
@@ -83,16 +85,21 @@ class StdinScoringServerClient:
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
         """
-        request_id = uuid.uuid4().hex
         request = {
-            "id": request_id,
             "data": dump_input_data(data),
             "output_file": str(self.output_json),
         }
+        if not self.output_json.exists():
+            self.output_json.touch()
+        st_mtime_before = self.output_json.stat().st_mtime
         self.process.stdin.write(json.dumps(request) + "\n")
         self.process.stdin.flush()
-        done_file = self.tmpdir.joinpath(f"{request_id}.DONE")
-        wait_until_file_exists(done_file)
+
+        while self.output_json.stat().st_mtime <= st_mtime_before:
+            _logger.info("Waiting for scoring to complete...")
+            if time.time() - st_mtime_before > 30:
+                raise MlflowException("Scoring timeout")
+            time.sleep(1)
 
         with self.output_json.open(mode="r+") as f:
             resp = PredictionsResponse.from_json(f.read())
