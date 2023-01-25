@@ -1,5 +1,6 @@
 import pathlib
 import uuid
+import os
 
 import pytest
 
@@ -7,6 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import path_to_local_file_uri, mkdir
 from collections import namedtuple
+
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
 
@@ -197,3 +199,28 @@ def test_custom_relative_artifact_uri_resolves(text_artifact):
             text_artifact,
             run.info.run_id,
         )
+
+
+def test_artifact_logging_resolution_works_with_non_root_working_directory(text_artifact):
+    original_cwd = pathlib.Path.cwd()
+    new_cwd = text_artifact.tmp_path.joinpath("some_location")
+    new_cwd.mkdir()
+    tracking_uri = mlflow.get_tracking_uri()
+    experiment_id = mlflow.create_experiment("test_exp_c", "some_path")
+    os.chdir(new_cwd)
+
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            str(
+                original_cwd.joinpath(
+                    "some_path",
+                    run.info.run_id,
+                    "artifacts",
+                    text_artifact.artifact_name,
+                )
+            ),
+            text_artifact,
+            run.info.run_id,
+        )
+    os.chdir(original_cwd)
