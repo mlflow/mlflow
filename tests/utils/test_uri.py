@@ -542,6 +542,7 @@ def _assert_resolve_uri_if_local(input_uri, expected_uri):
     ("input_uri", "expected_uri"),
     [
         ("my/path", "{cwd}/my/path"),
+        ("#my/path?a=b", "{cwd}/#my/path?a=b"),
         ("file://myhostname/my/path", "file://myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
@@ -559,6 +560,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     ("input_uri", "expected_uri"),
     [
         ("my/path", "file://{cwd}/my/path"),
+        ("#my/path?a=b", "file://{cwd}#path/to/local/folder?"),
         ("file://myhostname/my/path", "file://myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
