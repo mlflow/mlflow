@@ -528,39 +528,44 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
         dbfs_hdfs_uri_to_fuse_path(path)
 
 
-def _assert_resolve_uri_if_local(cases):
+def _assert_resolve_uri_if_local(input_uri, expected_uri):
     cwd = pathlib.Path.cwd().as_posix()
     drive = pathlib.Path.cwd().drive
     if is_local_os_windows():
         cwd = f"/{cwd}"
         drive = f"{drive}/"
-    for input_uri, expected_uri in cases.items():
-        assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
+    assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
 @pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
-def test_resolve_uri_if_local():
-    input_and_expected_uris = {
-        "my/path": "{cwd}/my/path",
-        "file://myhostname/my/path": "file://myhostname/my/path",
-        "file:///my/path": "file:///{drive}my/path",
-        "file:my/path": "file://{cwd}/my/path",
-        "/home/my/path": "{drive}/home/my/path",
-        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
-        "s3://host/my/path": "s3://host/my/path",
-    }
-    _assert_resolve_uri_if_local(input_and_expected_uris)
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "{cwd}/my/path"),
+        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "{drive}/home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)
 
 
 @pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
-def test_resolve_uri_if_local_on_windows():
-    input_and_expected_uris = {
-        "my/path": "file://{cwd}/my/path",
-        "file://myhostname/my/path": "file://myhostname/my/path",
-        "file:///my/path": "file:///{drive}my/path",
-        "file:my/path": "file://{cwd}/my/path",
-        "/home/my/path": "file:///{drive}home/my/path",
-        "dbfs://databricks/a/b": "dbfs://databricks/a/b",
-        "s3://host/my/path": "s3://host/my/path",
-    }
-    _assert_resolve_uri_if_local(input_and_expected_uris)
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "file://{cwd}/my/path"),
+        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "file:///{drive}home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)

@@ -569,79 +569,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert actual.creation_time >= time_before_create
         assert actual.last_update_time == actual.creation_time
 
-    @staticmethod
-    def _assert_create_experiment_appends_to_artifact_uri_path_correctly(cases):
-        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-        # filesystem directories for file URI and POSIX path test cases
-        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-            for artifact_root_uri, expected_artifact_uri_format in cases:
-                with TempDir() as tmp:
-                    dbfile_path = tmp.path("db")
-                    store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
-                    )
-                    exp_id = store.create_experiment(name="exp")
-                    exp = store.get_experiment(exp_id)
-                    cwd = Path.cwd().as_posix()
-                    drive = Path.cwd().drive
-                    if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
-                        cwd = f"/{cwd}"
-                        drive = f"{drive}/"
-                    assert exp.artifact_location == expected_artifact_uri_format.format(
-                        e=exp_id, cwd=cwd, drive=drive
-                    )
-
-    @pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
-    def test_create_experiment_appends_to_artifact_local_path_correctly_on_windows(self):
-        cases = [
-            ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
-        ]
-        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
-
-    @pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
-    def test_create_experiment_appends_to_artifact_local_path_correctly(self):
-        cases = [
-            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
-        ]
-        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
-
-    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
-        cases = [
-            ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
-            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
-            (
-                "file:path/to/local/folder?param=value",
-                "file://{cwd}/path/to/local/folder/{e}?param=value",
-            ),
-            ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
-            (
-                "file:///path/to/local/folder?param=value#fragment",
-                "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
-            ),
-            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
-            (
-                "s3://bucket/path/to/root?creds=mycreds",
-                "s3://bucket/path/to/root/{e}?creds=mycreds",
-            ),
-            (
-                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
-                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
-            ),
-        ]
-        self._assert_create_experiment_appends_to_artifact_uri_path_correctly(cases)
-
     def test_create_experiment_with_tags_works_correctly(self):
         experiment_id = self.store.create_experiment(
             name="test exp",
@@ -652,89 +579,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert len(experiment.tags) == 2
         assert experiment.tags["key1"] == "val1"
         assert experiment.tags["key2"] == "val2"
-
-    @staticmethod
-    def _assert_create_run_appends_to_artifact_uri_path_correctly(cases):
-        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-        # filesystem directories for file URI and POSIX path test cases
-        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-            for artifact_root_uri, expected_artifact_uri_format in cases:
-                with TempDir() as tmp:
-                    dbfile_path = tmp.path("db")
-                    store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
-                    )
-                    exp_id = store.create_experiment(name="exp")
-                    run = store.create_run(
-                        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
-                    )
-                    cwd = Path.cwd().as_posix()
-                    drive = Path.cwd().drive
-                    if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
-                        cwd = f"/{cwd}"
-                        drive = f"{drive}/"
-                    assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                        e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
-                    )
-
-    @pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
-    def test_create_run_appends_to_artifact_local_path_correctly_on_windows(self):
-        cases = [
-            ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
-        ]
-        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
-
-    @pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
-    def test_create_run_appends_to_artifact_local_path_correctly(self):
-        cases = [
-            ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
-        ]
-        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
-
-    def test_create_run_appends_to_artifact_uri_path_correctly(self):
-        cases = [
-            ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-            (
-                "file:///path/to/local/folder",
-                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
-            ),
-            (
-                "file:path/to/local/folder?param=value",
-                "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
-            ),
-            (
-                "file:///path/to/local/folder",
-                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
-            ),
-            (
-                "file:///path/to/local/folder?param=value#fragment",
-                "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
-            ),
-            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
-            (
-                "s3://bucket/path/to/root?creds=mycreds",
-                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
-            ),
-            (
-                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
-                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
-                "?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
-                "?creds=mycreds#myfragment",
-            ),
-        ]
-        self._assert_create_run_appends_to_artifact_uri_path_correctly(cases)
 
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
@@ -2945,3 +2789,219 @@ def test_get_orderby_clauses():
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
+    artifact_root_uri, expected_artifact_uri_format
+):
+    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+    # filesystem directories for file URI and POSIX path test cases
+    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+        with TempDir() as tmp:
+            dbfile_path = tmp.path("db")
+            store = SqlAlchemyStore(
+                db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
+            )
+            exp_id = store.create_experiment(name="exp")
+            exp = store.get_experiment(exp_id)
+            cwd = Path.cwd().as_posix()
+            drive = Path.cwd().drive
+            if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+                cwd = f"/{cwd}"
+                drive = f"{drive}/"
+            assert exp.artifact_location == expected_artifact_uri_format.format(
+                e=exp_id, cwd=cwd, drive=drive
+            )
+
+
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}?param=value",
+        ),
+        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_windows(
+    input_uri, expected_uri
+):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
+        ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+        ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}?param=value",
+        ),
+        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///path/to/local/folder/{e}?param=value#fragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly(
+    input_uri, expected_uri
+):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+        (
+            "s3://bucket/path/to/root?creds=mycreds",
+            "s3://bucket/path/to/root/{e}?creds=mycreds",
+        ),
+        (
+            "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+            "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def _assert_create_run_appends_to_artifact_uri_path_correctly(
+    artifact_root_uri, expected_artifact_uri_format
+):
+    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+    # filesystem directories for file URI and POSIX path test cases
+    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+        with TempDir() as tmp:
+            dbfile_path = tmp.path("db")
+            store = SqlAlchemyStore(
+                db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
+            )
+            exp_id = store.create_experiment(name="exp")
+            run = store.create_run(
+                experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
+            )
+            cwd = Path.cwd().as_posix()
+            drive = Path.cwd().drive
+            if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+                cwd = f"/{cwd}"
+                drive = f"{drive}/"
+            assert run.info.artifact_uri == expected_artifact_uri_format.format(
+                e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+            )
+
+
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
+        ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:///path/to/local/folder",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
+        ),
+        (
+            "file:///path/to/local/folder",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows(
+    input_uri, expected_uri
+):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+        ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:///path/to/local/folder",
+            "file:///path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
+        ),
+        (
+            "file:///path/to/local/folder",
+            "file:///path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_local_path_file_uri_correctly(input_uri, expected_uri):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+        (
+            "s3://bucket/path/to/root?creds=mycreds",
+            "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+        ),
+        (
+            "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+            "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+            "?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+            "?creds=mycreds#myfragment",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
