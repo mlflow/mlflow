@@ -2104,6 +2104,14 @@ the type and encoding of the input data
 
 Example requests:
 
+The REST API server, by default, returns the output of the model in JSON format. However, you can specify a
+different format by setting the ``Accept`` HTTP header. Currently, the following formats are supported:
+
+* ``application/json``: Returns the output of the model in JSON format.
+* ``application/octet-stream``: Returns the output of the model in the Python pickle format.
+
+Examples with bash:
+
 .. code-block:: bash
 
     # split-oriented DataFrame input
@@ -2136,6 +2144,43 @@ Example requests:
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
     }'
 
+Examples with python:
+
+.. code-block:: python
+
+    # With json response
+    import pandas as pd
+    import requests
+
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    response = requests.post(
+        "http://localhost:5000/invocations",
+        data=df.to_json(orient='split'),
+        headers={
+            'Content-Type': 'application/json',
+        }
+    )
+    predictions = response.json()
+
+    # With python pickle response
+    import pandas as pd
+    import pickle
+    import requests
+
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    df = pd.DataFrame(data=data)
+
+    response = requests.post(
+        "http://localhost:5000/invocations",
+        data=df.to_json(orient='split'),
+        headers={
+            'Content-Type': 'application/json',
+            'Accept': 'application/octet-stream',
+        }
+    )
+    predictions = pickle.loads(response.content)
 
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.

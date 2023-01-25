@@ -17,6 +17,7 @@ import flask
 import json
 import logging
 import os
+import pickle
 import sys
 import traceback
 
@@ -45,17 +46,20 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-from io import StringIO
+from io import BytesIO, StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PYTHON_PICKLE = "application/octet-stream"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 ]
+
+RESPONSE_CONTENT_TYPES = [CONTENT_TYPE_JSON, CONTENT_TYPE_PYTHON_PICKLE]
 
 _logger = logging.getLogger(__name__)
 
@@ -160,6 +164,11 @@ def parse_csv_input(csv_input, schema: Schema = None):
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     return json.dump({"predictions": predictions}, output, cls=NumpyEncoder)
+
+
+def predictions_to_pickle(raw_predictions, output):
+    """Convert the result to a python pickle dump."""
+    pickle.dump(raw_predictions, output)
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
@@ -283,9 +292,30 @@ def init(model: PyFuncModel):
                 error_code=BAD_REQUEST,
                 stack_trace=traceback.format_exc(),
             )
-        result = StringIO()
-        predictions_to_json(raw_predictions, result)
-        return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
+
+        # Convert the result to the correct type defined by the accept header
+        if "application/json" in flask.request.accept_mimetypes:
+            result = StringIO()
+            predictions_to_json(raw_predictions, result)
+            return flask.Response(
+                response=result.getvalue(), status=200, mimetype="application/json"
+            )
+        elif "application/octet-stream" in flask.request.accept_mimetypes:
+            result = BytesIO()
+            predictions_to_pickle(raw_predictions, result)
+            return flask.Response(
+                response=result.getvalue(), status=200, mimetype="application/octet-stream"
+            )
+        else:
+            return flask.Response(
+                response=(
+                    "This predictor only supports the following response content types (Access Header):"
+                    f" Types: {RESPONSE_CONTENT_TYPES}."
+                    f" Got '{flask.request.content_type}'."
+                ),
+                status=406,
+                mimetype="text/plain",
+            )
 
     return app
 

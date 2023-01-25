@@ -4,6 +4,7 @@ import numpy as np
 import os
 import signal
 import pandas as pd
+import pickle
 from collections import namedtuple
 from packaging.version import Version
 
@@ -306,6 +307,25 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     expect_status_code(response, 200)
+
+
+def test_scoring_server_successfully_responds_with_python_pickle_format(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = json.dumps(
+        {"dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")}
+    )
+
+    # Testing the charset parameter
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON + "; charset=UTF-8",
+        accept_mimetype="application/octet-stream",
+    )
+
+    numpy_array = pickle.loads(response.content)
+    assert isinstance(numpy_array, np.ndarray)
 
 
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(

@@ -77,6 +77,7 @@ def score_model_in_sagemaker_docker_container(
     content_type,
     flavor="python_function",
     activity_polling_timeout_seconds=500,
+    accept_mimetype="*/*",
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -100,7 +101,7 @@ def score_model_in_sagemaker_docker_container(
         env=env,
     )
     return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, False
+        proc, port, data, content_type, activity_polling_timeout_seconds, False, accept_mimetype
     )
 
 
@@ -196,6 +197,7 @@ def pyfunc_serve_and_score_model(
     activity_polling_timeout_seconds=500,
     extra_args=None,
     stdout=sys.stdout,
+    accept_mimetype="*/*",
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -231,7 +233,13 @@ def pyfunc_serve_and_score_model(
         validate_version = "--enable-mlserver" not in extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
     return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
+        proc,
+        port,
+        data,
+        content_type,
+        activity_polling_timeout_seconds,
+        validate_version,
+        accept_mimetype,
     )
 
 
@@ -313,7 +321,7 @@ class RestEndpoint:
                 self._proc.send_signal(signal.CTRL_BREAK_EVENT)
                 self._proc.kill()
 
-    def invoke(self, data, content_type):
+    def invoke(self, data, content_type, accept_mimetype="*/*"):
         import pandas as pd
         from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
@@ -329,13 +337,22 @@ class RestEndpoint:
         response = requests.post(
             url="http://localhost:%d/invocations" % self._port,
             data=data,
-            headers={"Content-Type": content_type},
+            headers={
+                "Content-Type": content_type,
+                "Accept": accept_mimetype,
+            },
         )
         return response
 
 
 def _evaluate_scoring_proc(
-    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
+    proc,
+    port,
+    data,
+    content_type,
+    activity_polling_timeout_seconds=250,
+    validate_version=True,
+    accept_mimetype="*/*",
 ):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
@@ -344,7 +361,7 @@ def _evaluate_scoring_proc(
     with RestEndpoint(
         proc, port, activity_polling_timeout_seconds, validate_version=validate_version
     ) as endpoint:
-        return endpoint.invoke(data, content_type)
+        return endpoint.invoke(data, content_type, accept_mimetype)
 
 
 @pytest.fixture(scope="function", autouse=True)
