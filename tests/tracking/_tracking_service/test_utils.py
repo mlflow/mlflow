@@ -1,4 +1,3 @@
-import platform
 from importlib import reload
 from unittest import mock
 import io
@@ -28,6 +27,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
+from tests.helper_functions import is_local_os_windows
 
 # pylint: disable=unused-argument
 
@@ -147,7 +147,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        if platform.system().lower() == "windows":
+        if is_local_os_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
         else:
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
@@ -174,7 +174,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        if platform.system().lower() == "windows":
+        if is_local_os_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("artifact", "path").as_uri()
         else:
             assert store.artifact_root_uri == path_to_local_file_uri(

@@ -5,7 +5,6 @@ import tempfile
 import unittest
 import re
 from pathlib import Path
-import platform
 
 import math
 import pytest
@@ -585,10 +584,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     exp = store.get_experiment(exp_id)
                     cwd = Path.cwd().as_posix()
                     drive = Path.cwd().drive
-                    if (
-                        platform.system().lower() == "windows"
-                        and expected_artifact_uri_format.startswith("file:")
-                    ):
+                    if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
                         cwd = f"/{cwd}"
                         drive = f"{drive}/"
                     assert exp.artifact_location == expected_artifact_uri_format.format(
@@ -674,10 +670,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     )
                     cwd = Path.cwd().as_posix()
                     drive = Path.cwd().drive
-                    if (
-                        platform.system().lower() == "windows"
-                        and expected_artifact_uri_format.startswith("file:")
-                    ):
+                    if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
                         cwd = f"/{cwd}"
                         drive = f"{drive}/"
                     assert run.info.artifact_uri == expected_artifact_uri_format.format(
@@ -1968,7 +1961,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        if platform.system().lower() == "windows":
+        if is_local_os_windows():
             expected_artifact_uri = (
                 pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_uri()
             )

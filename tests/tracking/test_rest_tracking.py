@@ -15,7 +15,6 @@ import time
 import urllib.parse
 import requests
 from unittest import mock
-import platform
 
 import pytest
 
@@ -47,6 +46,7 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
+from tests.helper_functions import is_local_os_windows
 
 
 _logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ def test_create_get_search_experiment(mlflow_client):
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
-    if platform.system().lower() == "windows":
+    if is_local_os_windows():
         assert exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
     else:
         assert exp.artifact_location == str(pathlib.Path.cwd().joinpath("my_location"))

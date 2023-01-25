@@ -1,7 +1,6 @@
 import pathlib
 import posixpath
 import pytest
-import platform
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -532,7 +531,7 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
 def _assert_resolve_uri_if_local(cases):
     cwd = pathlib.Path.cwd().as_posix()
     drive = pathlib.Path.cwd().drive
-    if platform.system().lower() == "windows":
+    if is_local_os_windows():
         cwd = f"/{cwd}"
         drive = f"{drive}/"
     for input_uri, expected_uri in cases.items():

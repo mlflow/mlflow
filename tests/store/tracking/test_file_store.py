@@ -9,7 +9,6 @@ import unittest
 import uuid
 from pathlib import Path
 import re
-import platform
 
 import pytest
 from unittest import mock
@@ -542,10 +541,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 exp = fs.get_experiment(exp_id)
                 cwd = Path.cwd().as_posix()
                 drive = Path.cwd().drive
-                if (
-                    platform.system().lower() == "windows"
-                    and expected_artifact_uri_format.startswith("file:")
-                ):
+                if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
                     cwd = f"/{cwd}"
                     drive = f"{drive}/"
 
@@ -770,10 +766,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 )
                 cwd = Path.cwd().as_posix()
                 drive = Path.cwd().drive
-                if (
-                    platform.system().lower() == "windows"
-                    and expected_artifact_uri_format.startswith("file:")
-                ):
+                if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
                     cwd = f"/{cwd}"
                     drive = f"{drive}/"
                 assert run.info.artifact_uri == expected_artifact_uri_format.format(
@@ -1864,7 +1857,7 @@ def test_experiment_with_default_root_artifact_uri(tmp_path):
     file_store = FileStore(file_store_root_uri)
     experiment_id = file_store.create_experiment(name="test", artifact_location="test")
     experiment_info = file_store.get_experiment(experiment_id)
-    if platform.system().lower() == "windows":
+    if is_local_os_windows():
         assert experiment_info.artifact_location == Path.cwd().joinpath("test").as_uri()
     else:
         assert experiment_info.artifact_location == str(Path.cwd().joinpath("test"))
