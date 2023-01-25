@@ -3,6 +3,7 @@ import time
 import json
 import tempfile
 import logging
+import uuid
 from pathlib import Path
 
 from mlflow.pyfunc import scoring_server
@@ -85,26 +86,32 @@ class StdinScoringServerClient:
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
         """
+        request_id = str(uuid.uuid4())
         request = {
+            "id": request_id,
             "data": dump_input_data(data),
             "output_file": str(self.output_json),
         }
         if not self.output_json.exists():
             self.output_json.touch()
-        st_mtime_before = self.output_json.stat().st_mtime
+
         self.process.stdin.write(json.dumps(request) + "\n")
         self.process.stdin.flush()
 
-        while self.output_json.stat().st_mtime <= st_mtime_before:
+        start_time = time.time()
+        while True:
             _logger.info("Waiting for scoring to complete...")
-            if time.time() - st_mtime_before > 30:
+            try:
+                with self.output_json.open(mode="r+") as f:
+                    resp = PredictionsResponse.from_json(f.read())
+                    if resp.get("id") == request_id:
+                        f.truncate(0)
+                        return resp
+            except Exception as e:
+                _logger.debug("Exception while waiting for scoring to complete: %s", e)
+            if time.time() - start_time > 60:
                 raise MlflowException("Scoring timeout")
             time.sleep(1)
-
-        with self.output_json.open(mode="r+") as f:
-            resp = PredictionsResponse.from_json(f.read())
-            f.truncate(0)
-        return resp
 
     def cleanup(self):
         self.process.terminate()
