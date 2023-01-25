@@ -2686,7 +2686,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=dump_input_data(inputs),
+                Body=dump_input_data(inputs, inputs_key="instances"),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
