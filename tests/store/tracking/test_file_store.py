@@ -384,6 +384,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             exp_id2,
         ]
 
+        time.sleep(0.001)
         self.store.rename_experiment(exp_id1, "new_name")
         experiments = self.store.search_experiments(order_by=["last_update_time"])
         assert [e.experiment_id for e in experiments] == [
