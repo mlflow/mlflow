@@ -52,7 +52,7 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
         ]
         MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=params_arr, tags=[])
 
-    original(self, hparam_dict, metric_dict, *args, **kwargs)
+    return original(self, hparam_dict, metric_dict, *args, **kwargs)
 
 
 def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **kwargs):
