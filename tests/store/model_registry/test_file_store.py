@@ -25,23 +25,23 @@ def now():
     return int(time.time() * 1000)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def test_root(tmp_path_factory):
     tmp_path = str(tmp_path_factory.mktemp("test_root") / f"test_file_store_{random_int()}")
     return tmp_path
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def store(test_root):
     return FileStore(test_root)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def registered_models_names():
     return [random_str() for _ in range(3)]
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def rm_data(registered_models_names, test_root):
     rm_data = {}
     for name in registered_models_names:
