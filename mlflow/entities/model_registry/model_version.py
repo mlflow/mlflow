@@ -156,6 +156,9 @@ class ModelVersion(_ModelRegistryEntity):
             model_version._add_tag(ModelVersionTag.from_proto(tag))
         return model_version
 
+    # TODO: do we have a separate method for conversion to the protobuf for UC model registry?
+    # Maybe the special method exists only in the UC MR client, don't want to pollute OSS interface with
+    # Databricks-specific stuff
     def to_proto(self):
         # input: ModelVersion entity
         # returns mlflow.protos.model_registry_pb2.ModelVersion
