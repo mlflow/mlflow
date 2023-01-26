@@ -737,3 +737,14 @@ def test_guess_mime_type(file_path, expected_mime_type):
 )
 def test_guess_mime_type_on_windows(file_path, expected_mime_type):
     assert _guess_mime_type(file_path) == expected_mime_type
+
+
+def test_app_plugin(caplog):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    from mlflow_test_plugin.app import custom_app
+
+    with custom_app.test_client() as c:
+        response = c.get("/health")
+        assert response.status_code == 403
+        assert response.get_data().decode() == "Unauthorized"
+    assert "Hello from before request!" in caplog.text
