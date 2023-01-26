@@ -1,5 +1,6 @@
 import time
 import mlflow
+from contextlib import contextmanager
 from mlflow.tracking import MlflowClient
 from mlflow.entities import Param, Metric
 from mlflow.tensorflow import (
@@ -11,7 +12,18 @@ from mlflow.tensorflow import (
 )
 
 
-ENABLED = True  # set to False while inside lightning's patched_fit()
+DISABLED = False
+
+
+@contextmanager
+def disable_pytorch_autologging():
+    global DISABLED
+    old_value = DISABLED
+    DISABLED = True
+    try:
+        yield
+    finally:
+        DISABLED = old_value
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -31,7 +43,7 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
 
     run = mlflow.active_run()
 
-    if not ENABLED and run is not None and hparam_dict:
+    if not DISABLED and run is not None and hparam_dict:
         run_id = run.info.run_id
         # str() is required by mlflow :(
         params_arr = [Param(key, str(value)) for key, value in hparam_dict.items()]
@@ -46,7 +58,7 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
 def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **kwargs):
     run = mlflow.active_run()
     if (
-        not ENABLED
+        not DISABLED
         and run is not None
         and event.WhichOneof("what") == "summary"
         and mlflow_log_every_n_step

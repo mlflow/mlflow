@@ -352,77 +352,79 @@ def patched_fit(original, self, *args, **kwargs):
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             (
-                "Autologging known to be compatible with pytorch-lightning versions between "
+                "Autologging is known to be compatible with pytorch-lightning versions between "
                 "%s and %s and may not succeed with packages "
                 "outside this range."
             )
             % (MIN_REQ_VERSION, MAX_REQ_VERSION)
         )
 
-    old_plain_autolog_value = _pytorch_autolog.ENABLED
-    _pytorch_autolog.ENABLED = False  # disable plain tensorboard autologging
-    run_id = mlflow.active_run().info.run_id
-    tracking_uri = mlflow.get_tracking_uri()
-    client = MlflowAutologgingQueueingClient(tracking_uri)
-    metrics_logger = BatchMetricsLogger(run_id, tracking_uri)
+    with _pytorch_autolog.disable_pytorch_autologging():
+        run_id = mlflow.active_run().info.run_id
+        tracking_uri = mlflow.get_tracking_uri()
+        client = MlflowAutologgingQueueingClient(tracking_uri)
+        metrics_logger = BatchMetricsLogger(run_id, tracking_uri)
 
-    log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
-    log_every_n_epoch = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1)
-    log_every_n_step = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", None)
-
-    early_stop_callback = None
-    for callback in self.callbacks:
-        if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
-            early_stop_callback = callback
-            _log_early_stop_params(early_stop_callback, client, run_id)
-
-    if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
-        self.callbacks += [
-            __MLflowPLCallback(
-                client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
-            )
-        ]
-
-    client.flush(synchronous=False)
-
-    result = original(self, *args, **kwargs)
-
-    if early_stop_callback is not None:
-        _log_early_stop_metrics(early_stop_callback, client, run_id)
-
-    if Version(pl.__version__) < Version("1.4.0"):
-        # pylint: disable-next=unexpected-keyword-arg
-        summary = str(ModelSummary(self.model, mode="full"))
-    else:
-        summary = str(ModelSummary(self.model, max_depth=-1))
-
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(tempdir, "model_summary.txt")
-        with open(summary_file, "w") as f:
-            f.write(summary)
-
-        mlflow.log_artifact(local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
-
-    if log_models:
-        registered_model_name = get_autologging_config(
-            mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
+        log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
+        log_every_n_epoch = get_autologging_config(
+            mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1
         )
-        mlflow.pytorch.log_model(
-            pytorch_model=self.model,
-            artifact_path="model",
-            registered_model_name=registered_model_name,
+        log_every_n_step = get_autologging_config(
+            mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", None
         )
 
-        if early_stop_callback is not None and self.checkpoint_callback.best_model_path:
-            mlflow.log_artifact(
-                local_path=self.checkpoint_callback.best_model_path,
-                artifact_path="restored_model_checkpoint",
+        early_stop_callback = None
+        for callback in self.callbacks:
+            if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
+                early_stop_callback = callback
+                _log_early_stop_params(early_stop_callback, client, run_id)
+
+        if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
+            self.callbacks += [
+                __MLflowPLCallback(
+                    client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+                )
+            ]
+
+        client.flush(synchronous=False)
+
+        result = original(self, *args, **kwargs)
+
+        if early_stop_callback is not None:
+            _log_early_stop_metrics(early_stop_callback, client, run_id)
+
+        if Version(pl.__version__) < Version("1.4.0"):
+            # pylint: disable-next=unexpected-keyword-arg
+            summary = str(ModelSummary(self.model, mode="full"))
+        else:
+            summary = str(ModelSummary(self.model, max_depth=-1))
+
+        tempdir = tempfile.mkdtemp()
+        try:
+            summary_file = os.path.join(tempdir, "model_summary.txt")
+            with open(summary_file, "w") as f:
+                f.write(summary)
+
+            mlflow.log_artifact(local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
+
+        if log_models:
+            registered_model_name = get_autologging_config(
+                mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
+            )
+            mlflow.pytorch.log_model(
+                pytorch_model=self.model,
+                artifact_path="model",
+                registered_model_name=registered_model_name,
             )
 
-    client.flush(synchronous=True)
+            if early_stop_callback is not None and self.checkpoint_callback.best_model_path:
+                mlflow.log_artifact(
+                    local_path=self.checkpoint_callback.best_model_path,
+                    artifact_path="restored_model_checkpoint",
+                )
 
-    _pytorch_autolog.ENABLED = old_plain_autolog_value
+        client.flush(synchronous=True)
+
     return result
