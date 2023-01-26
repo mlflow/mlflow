@@ -254,7 +254,7 @@ from mlflow.utils import (
     _is_in_ipython_notebook,
 )
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils import find_free_port
+from mlflow.utils import find_free_port, check_port_connectivity
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -636,7 +636,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
     pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-    if MLFLOW_USE_STDIN_SERVER.get():
+    if check_port_connectivity():
         scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
         client = StdinScoringServerClient(scoring_server_proc)
     else:
@@ -1187,7 +1187,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             else:
                 local_model_path_on_executor = None
 
-            if MLFLOW_USE_STDIN_SERVER.get():
+            if check_port_connectivity():
                 scoring_server_proc = pyfunc_backend.serve_stdin(
                     local_model_path_on_executor or local_model_path
                 )

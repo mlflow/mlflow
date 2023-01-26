@@ -4,6 +4,7 @@ import json
 import tempfile
 import logging
 import uuid
+import subprocess
 from pathlib import Path
 
 from mlflow.pyfunc import scoring_server
@@ -73,6 +74,8 @@ def wait_until_file_exists(f: Path, timeout: int = 30) -> None:
         time.sleep(1)
         if time.time() - begin_time > timeout:
             raise MlflowException(f"Waiting for file {f} timeout")
+
+
 
 
 class StdinScoringServerClient:

@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from itertools import islice
 from sys import version_info
 
@@ -201,6 +202,25 @@ def find_free_port():
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
+
+
+def check_port_connectivity():
+    port = find_free_port()
+    try:
+        with subprocess.Popen(
+            ["nc", "-l", "-p", str(port)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ):
+            with subprocess.Popen(
+                ["nc", "-zv", "localhost", str(port)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ) as client:
+                return client.returncode == 0
+    except Exception as e:
+        _logger.warning("Failed to check port connectivity: %s", e)
+        return False
 
 
 def is_iterator(obj):
