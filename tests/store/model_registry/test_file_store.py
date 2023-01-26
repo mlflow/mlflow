@@ -63,6 +63,10 @@ def rm_data(registered_models_names, test_root):
     return rm_data
 
 
+def _extract_names(registered_models):
+    return [rm.name for rm in registered_models]
+
+
 def test_create_registered_model(store):
 
     # Error cases
@@ -129,10 +133,6 @@ def test_rename_registered_model(store, registered_models_names, rm_data):
     assert model_name != new_name
     store.rename_registered_model(model_name, new_name)
     assert store.get_registered_model(new_name).name == new_name
-
-
-def _extract_names(registered_models):
-    return [rm.name for rm in registered_models]
 
 
 def test_delete_registered_model(store, registered_models_names, rm_data):
