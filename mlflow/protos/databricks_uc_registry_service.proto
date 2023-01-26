@@ -1,12 +1,12 @@
 syntax = "proto2";
 
-package mlflow;
+package ucmodelregistry;
 
 import "databricks.proto";
 import "databricks_uc_registry_messages.proto";
 import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.mlflow";
+option java_package = "com.databricks.api.proto.ucmodelregistry";
 option java_generate_equals_and_hash = true;
 option (scalapb.options) = {
   flat_package: true,
@@ -14,7 +14,7 @@ option (scalapb.options) = {
 
 service UcModelRegistryService {
   rpc CreateRegisteredModel (CreateRegisteredModelRequest) returns (CreateRegisteredModelResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "POST",
         path: "/mlflow/unity-catalog/registered-models/create"
@@ -26,7 +26,7 @@ service UcModelRegistryService {
   }
 
   rpc UpdateRegisteredModel (UpdateRegisteredModelRequest) returns (UpdateRegisteredModelResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "PATCH",
         path: "/mlflow/unity-catalog/registered-models/update"
@@ -38,7 +38,7 @@ service UcModelRegistryService {
   }
 
   rpc DeleteRegisteredModel (DeleteRegisteredModelRequest) returns (DeleteRegisteredModelResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "DELETE",
         path: "/mlflow/unity-catalog/registered-models/delete"
@@ -50,7 +50,7 @@ service UcModelRegistryService {
   }
 
   rpc GetRegisteredModel (GetRegisteredModelRequest) returns (GetRegisteredModelResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",
         path: "/mlflow/unity-catalog/registered-models/get"
@@ -62,7 +62,7 @@ service UcModelRegistryService {
   }
 
   rpc SearchRegisteredModels (SearchRegisteredModelsRequest) returns (SearchRegisteredModelsResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",
         path: "/mlflow/unity-catalog/registered-models/search"
@@ -74,7 +74,7 @@ service UcModelRegistryService {
   }
 
   rpc CreateModelVersion (CreateModelVersionRequest) returns (CreateModelVersionResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "POST",
         path: "/mlflow/unity-catalog/model-versions/create"
@@ -86,7 +86,7 @@ service UcModelRegistryService {
   }
 
   rpc UpdateModelVersion (UpdateModelVersionRequest) returns (UpdateModelVersionResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "PATCH",
         path: "/mlflow/unity-catalog/model-versions/update"
@@ -98,7 +98,7 @@ service UcModelRegistryService {
   }
 
   rpc DeleteModelVersion (DeleteModelVersionRequest) returns (DeleteModelVersionResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "DELETE",
         path: "/mlflow/unity-catalog/model-versions/delete"
@@ -110,7 +110,7 @@ service UcModelRegistryService {
   }
 
   rpc GetModelVersion (GetModelVersionRequest) returns (GetModelVersionResponse) {
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",
         path: "/mlflow/unity-catalog/model-versions/get"
@@ -122,7 +122,7 @@ service UcModelRegistryService {
   }
 
   rpc SearchModelVersions (SearchModelVersionsRequest) returns (SearchModelVersionsResponse){
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",
         path: "/mlflow/unity-catalog/model-versions/search"
@@ -134,7 +134,7 @@ service UcModelRegistryService {
   }
 
   rpc GenerateTemporaryModelVersionCredentials (GenerateTemporaryModelVersionCredentialsRequest) returns (GenerateTemporaryModelVersionCredentialsResponse){
-    option (rpc) = {
+    option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",
         path: "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
