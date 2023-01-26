@@ -217,6 +217,7 @@ def check_port_connectivity():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ) as client:
+                client.wait()
                 return client.returncode == 0
     except Exception as e:
         _logger.warning("Failed to check port connectivity: %s", e)

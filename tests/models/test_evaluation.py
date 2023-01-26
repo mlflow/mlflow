@@ -1122,12 +1122,12 @@ def test_evaluate_stdin_scoring_server(monkeypatch):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(model, "model")
 
-    monkeypatch.setenv("MLFLOW_USE_STDIN_SERVER", "true")
-    mlflow.evaluate(
-        model_info.model_uri,
-        X,
-        targets=y,
-        model_type="classifier",
-        evaluators=["default"],
-        env_manager="virtualenv",
-    )
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
+        mlflow.evaluate(
+            model_info.model_uri,
+            X,
+            targets=y,
+            model_type="classifier",
+            evaluators=["default"],
+            env_manager="virtualenv",
+        )

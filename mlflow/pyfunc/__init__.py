@@ -625,21 +625,19 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
+    is_port_connectable = check_port_connectivity()
     pyfunc_backend = get_flavor_backend(
         local_path,
         env_manager=env_manager,
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
-        create_env_root_dir=MLFLOW_USE_STDIN_SERVER.get(),
+        create_env_root_dir=not is_port_connectable,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
     pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-    if check_port_connectivity():
-        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
-        client = StdinScoringServerClient(scoring_server_proc)
-    else:
+    if is_port_connectable:
         server_port = find_free_port()
         scoring_server_proc = pyfunc_backend.serve(
             model_uri=local_path,
@@ -657,6 +655,9 @@ def _load_model_or_server(model_uri: str, env_manager: str):
             client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
         except Exception:
             raise MlflowException("MLflow model server failed to launch")
+    else:
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
+        client = StdinScoringServerClient(scoring_server_proc)
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
@@ -1188,11 +1189,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 local_model_path_on_executor = None
 
             if check_port_connectivity():
-                scoring_server_proc = pyfunc_backend.serve_stdin(
-                    local_model_path_on_executor or local_model_path
-                )
-                client = StdinScoringServerClient(scoring_server_proc)
-            else:
                 # launch scoring server
                 server_port = find_free_port()
                 scoring_server_proc = pyfunc_backend.serve(
@@ -1243,6 +1239,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                         err_msg += "MLflow model server output:\n"
                     err_msg += "".join(server_tail_logs)
                     raise MlflowException(err_msg)
+            else:
+                scoring_server_proc = pyfunc_backend.serve_stdin(
+                    local_model_path_on_executor or local_model_path
+                )
+                client = StdinScoringServerClient(scoring_server_proc)
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
