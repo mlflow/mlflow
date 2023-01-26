@@ -5,14 +5,12 @@ package mlflow;
 import "databricks.proto";
 import "databricks_uc_registry_messages.proto";
 import "scalapb/scalapb.proto";
-import "compliance/taxonomy/taxonomy.proto";
 
 option java_package = "com.databricks.api.proto.mlflow";
 option java_generate_equals_and_hash = true;
 option (scalapb.options) = {
   flat_package: true,
 };
-
 
 service UcModelRegistryService {
   rpc CreateRegisteredModel (CreateRegisteredModelRequest) returns (CreateRegisteredModelResponse) {
@@ -22,7 +20,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/registered-models/create"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Create RegisteredModel",
     };
   }
@@ -34,7 +32,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/registered-models/update"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Update RegisteredModel",
     };
   }
@@ -46,7 +44,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/registered-models/delete"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Delete RegisteredModel",
     };
   }
@@ -58,7 +56,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/registered-models/get"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Get RegisteredModel",
     };
   }
@@ -70,7 +68,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/registered-models/search"
         since {major: 2, minor: 0},
       }],
-      visibility: PUBLIC,
+      visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Search RegisteredModels",
     };
   }
@@ -82,7 +80,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/model-versions/create"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Create ModelVersion",
     };
   }
@@ -94,7 +92,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/model-versions/update"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Update ModelVersion",
     };
   }
@@ -106,7 +104,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/model-versions/delete"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Delete ModelVersion",
     };
   }
@@ -118,7 +116,7 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/model-versions/get"
         since {major: 2, minor: 0},
       }],
-      visibility:PUBLIC,
+      visibility:PUBLIC_UNDOCUMENTED,
       rpc_doc_title:"(Unity Catalog) Get ModelVersion",
     };
   }
@@ -130,20 +128,20 @@ service UcModelRegistryService {
         path: "/mlflow/unity-catalog/model-versions/search"
         since {major: 2, minor: 0},
       }],
-      visibility: PUBLIC,
+      visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Search ModelVersions",
     };
   }
 
-  // Auto-generated test endpoint
-  rpc GetTestResult(GetTestResultRequest) returns (GetTestResultResponse) {
+  rpc GenerateTemporaryModelVersionCredentials (GenerateTemporaryModelVersionCredentialsRequest) returns (GenerateTemporaryModelVersionCredentialsResponse){
     option (rpc) = {
-      endpoints: {
+      endpoints: [{
         method: "GET",
-        path: "/uc-model-registry/get",
-        since { major: 2, minor: 0 },
-      },
+        path: "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
+        since {major: 2, minor: 0},
+      }],
       visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials",
     };
   }
 }

@@ -81,6 +81,53 @@ message ModelVersion {
   optional string status_message = 12;
 }
 
+enum ModelVersionOperation {
+  UNKNOWN_MODEL_VERSION_OPERATION = 0;
+  READ_MODEL_VERSION = 1;
+  READ_WRITE_MODEL_VERSION = 2;
+}
+
+
+// An object encapsulates temporary credentials for cloud API authentication. The temporary
+// credentials usually are short-lived with expiration time.
+message TemporaryCredentials {
+  oneof credentials {
+    AwsCredentials aws_temp_credentials = 2;
+    AzureUserDelegationSAS azure_user_delegation_sas = 3;
+    GcpOauthToken gcp_oauth_token = 4;
+  }
+
+  // Server time when the credential will expire, in epoch milliseconds.
+  // The API client is advised to cache the credential given this expiration time.
+  optional int64 expiration_time = 1;
+}
+
+// AWS temporary credentials for API authentication.
+// Read more at https://docs.aws.amazon.com/STS/latest/APIReference/API_Credentials.html.
+message AwsCredentials {
+  // The access key ID that identifies the temporary credentials.
+  optional string access_key_id = 1;
+
+  // The secret access key that can be used to sign AWS API requests.
+  optional string secret_access_key = 2;
+
+  // The token that users must pass to AWS API to use the temporary credentials.
+  optional string session_token = 3;
+}
+
+// Azure temporary credentials for API authentication.
+// Read more at https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
+message AzureUserDelegationSAS {
+  // The signed URI (SAS Token) used to access blob services for a given path
+  optional string sas_token = 1;
+}
+
+// GCP temporary credentials for API authentication.
+// Read more at https://developers.google.com/identity/protocols/oauth2/service-account
+message GcpOauthToken {
+  optional string oauth_token = 1;
+}
+
 message CreateRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[CreateRegisteredModelResponse]";
 
@@ -243,4 +290,20 @@ message SearchModelVersionsResponse {
   optional string next_page_token = 2;
 }
 
+message GenerateTemporaryModelVersionCredentialsRequest {
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
 
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // Required. Type of operation (read or write) to perform on the model version
+  // Note that model version files can only be written at creation time
+  optional ModelVersionOperation operation = 3 [(validate_required) = true];
+
+}
+
+message GenerateTemporaryModelVersionCredentialsResponse {
+  // Temporary credentials for model version read/write
+  optional TemporaryCredentials credentials = 1 [(json_inline) = true];
+}
