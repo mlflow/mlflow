@@ -104,17 +104,19 @@ For example:
 
 .. rubric:: Tracking API
 
-.. code-block:: py
+.. code-block:: python
 
   mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
 
 .. rubric:: Models API
 
-.. code-block:: py
+.. code-block:: python
 
-  mlflow.pytorch.log_model("runs:/<mlflow_run_id>/run-relative/path/to/model", registered_model_name="mymodel")
+  mlflow.pytorch.log_model(
+      "runs:/<mlflow_run_id>/run-relative/path/to/model", registered_model_name="mymodel"
+  )
 
-.. code-block:: py
+.. code-block:: python
 
   mlflow.pytorch.load_model("models:/mymodel/1")
 

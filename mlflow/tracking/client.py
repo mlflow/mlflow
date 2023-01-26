@@ -163,6 +163,7 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_metric_info(history):
                 for m in history:
                     print("name: {}".format(m.key))
@@ -170,6 +171,7 @@ class MlflowClient:
                     print("step: {}".format(m.step))
                     print("timestamp: {}".format(m.timestamp))
                     print("--")
+
 
             # Create a run under the default experiment (whose id is "0"). Since this is low-level
             # CRUD operation, the method will create a run. To end the run, you'll have
@@ -545,10 +547,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
                 print("Experiment Id: {}".format(experiment.experiment_id))
                 print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
 
             # Create and delete an experiment
             client = MlflowClient()
@@ -589,10 +593,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
                 print("Experiment_id: {}".format(experiment.experiment_id))
                 print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
 
             # Create an experiment with a name that is unique and case sensitive
             client = MlflowClient()
@@ -651,10 +657,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
                 print("metrics: {}".format(r.data.metrics))
                 print("status: {}".format(r.info.status))
+
 
             # Create a run under the default experiment (whose id is '0').
             # Since these are low-level CRUD operations, this method will create a run.
@@ -705,10 +713,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
                 print("params: {}".format(r.data.params))
                 print("status: {}".format(r.info.status))
+
 
             # Create a run under the default experiment (whose id is '0').
             # Since these are low-level CRUD operations, this method will create a run.
@@ -791,9 +801,11 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
+
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -830,9 +842,11 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
+
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -875,10 +889,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
                 print("run_name: {}".format(run.info.run_name))
                 print("status: {}".format(run.info.status))
+
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -931,6 +947,7 @@ class MlflowClient:
             from mlflow import MlflowClient
             from mlflow.entities import Metric, Param, RunTag
 
+
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
                 print("params: {}".format(r.data.params))
@@ -938,10 +955,11 @@ class MlflowClient:
                 print("tags: {}".format(r.data.tags))
                 print("status: {}".format(r.info.status))
 
+
             # Create MLflow entities and a run under the default experiment (whose id is '0').
             timestamp = int(time.time() * 1000)
-            metrics = [Metric('m', 1.5, timestamp, 1)]
-            params = [Param("p", 'p')]
+            metrics = [Metric("m", 1.5, timestamp, 1)]
+            params = [Param("p", "p")]
             tags = [RunTag("t", "t")]
             experiment_id = "0"
             client = MlflowClient()
@@ -977,7 +995,7 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
-            with open("features.txt", 'w') as f:
+            with open("features.txt", "w") as f:
                 f.write(features)
 
             # Create a run under the default experiment (whose id is '0').
@@ -1022,9 +1040,9 @@ class MlflowClient:
 
             # Create couple of artifact files under the local directory "data"
             os.makedirs("data", exist_ok=True)
-            with open("data/data.json", 'w', encoding='utf-8') as f:
+            with open("data/data.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            with open("data/features.txt", 'w') as f:
+            with open("data/features.txt", "w") as f:
                 f.write(features)
 
             # Create a run under the default experiment (whose id is '0'), and log
@@ -1383,10 +1401,12 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
-             def print_artifact_info(artifact):
+
+            def print_artifact_info(artifact):
                 print("artifact: {}".format(artifact.path))
                 print("is_dir: {}".format(artifact.is_dir))
                 print("size: {}".format(artifact.file_size))
+
 
             features = "rooms zipcode, median_price, school_rating, transport"
             labels = "price"
@@ -1398,7 +1418,7 @@ class MlflowClient:
 
             # Create some artifacts and log under the above run
             for file, content in [("features", features), ("labels", labels)]:
-                with open("{}.txt".format(file), 'w') as f:
+                with open("{}.txt".format(file), "w") as f:
                     f.write(content)
                 client.log_artifact(run.info.run_id, "{}.txt".format(file))
 
@@ -1443,7 +1463,7 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
-            with open("features.txt", 'w') as f:
+            with open("features.txt", "w") as f:
                 f.write(features)
 
             # Log artifacts
@@ -1481,9 +1501,11 @@ class MlflowClient:
 
             from mlflow import MlflowClient
 
+
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
                 print("status: {}".format(r.info.status))
+
 
             # Create a run under the default experiment (whose id is '0').
             # Since this is low-level CRUD operation, this method will create a run.
@@ -1609,6 +1631,7 @@ class MlflowClient:
             from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
+
             def print_run_info(runs):
                 for r in runs:
                     print("run_id: {}".format(r.info.run_id))
@@ -1618,6 +1641,7 @@ class MlflowClient:
                     # Exclude mlflow system tags
                     tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
                     print("tags: {}".format(tags))
+
 
             # Create an experiment and log two runs with metrics and tags under the experiment
             experiment_id = mlflow.create_experiment("Social NLP Experiments")
@@ -1641,8 +1665,9 @@ class MlflowClient:
             # Search only deleted runs under the experiment id and use a case insensitive pattern
             # in the filter_string for the tag.
             filter_string = "tags.s.release ILIKE '%rc%'"
-            runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY,
-                                        filter_string=filter_string)
+            runs = client.search_runs(
+                experiment_id, run_view_type=ViewType.DELETED_ONLY, filter_string=filter_string
+            )
             print_run_info(runs)
 
         .. code-block:: text
@@ -1689,10 +1714,12 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
                 print("description: {}".format(rm.description))
+
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework": "Spark NLP"}
@@ -1727,10 +1754,12 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
                 print("description: {}".format(rm.description))
+
 
             name = "SocialTextAnalyzer"
             tags = {"nlp.framework": "Spark NLP"}
@@ -1748,7 +1777,7 @@ class MlflowClient:
             client.rename_registered_model(name, new_name)
             print_registered_model_info(client.get_registered_model(new_name))
 
-        .. code-block:: python
+        .. code-block:: text
             :caption: Output
 
             name: SocialTextAnalyzer
@@ -1779,6 +1808,7 @@ class MlflowClient:
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
                 print("description: {}".format(rm.description))
+
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework": "Spark NLP"}
@@ -1826,6 +1856,7 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_registered_models_info(r_models):
                 print("--")
                 for rm in r_models:
@@ -1833,12 +1864,15 @@ class MlflowClient:
                     print("tags: {}".format(rm.tags))
                     print("description: {}".format(rm.description))
 
+
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             client = MlflowClient()
 
             # Register a couple of models with respective names, tags, and descriptions
-            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
-                                     ("name2", {"t2": "t2"}, 'description2')]:
+            for name, tags, desc in [
+                ("name1", {"t1": "t1"}, "description1"),
+                ("name2", {"t2": "t2"}, "description2"),
+            ]:
                 client.create_registered_model(name, tags, desc)
 
             # Fetch all registered models
@@ -1912,7 +1946,7 @@ class MlflowClient:
             client = MlflowClient()
 
             # Get search results filtered by the registered model name
-            model_name="CordobaWeatherForecastModel"
+            model_name = "CordobaWeatherForecastModel"
             filter_string = "name='{}'".format(model_name)
             results = client.search_registered_models(filter_string=filter_string)
             print("-" * 80)
@@ -1969,11 +2003,13 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_model_info(rm):
                 print("--")
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
                 print("description: {}".format(rm.description))
+
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework": "Spark NLP"}
@@ -2013,12 +2049,14 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_models_info(mv):
                 for m in mv:
                     print("name: {}".format(m.name))
                     print("latest version: {}".format(m.version))
                     print("run_id: {}".format(m.run_id))
                     print("current_stage: {}".format(m.current_stage))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
 
@@ -2124,24 +2162,26 @@ class MlflowClient:
             import mlflow
             from mlflow import MlflowClient
 
+
             def print_registered_models_info(r_models):
                 print("--")
                 for rm in r_models:
                     print("name: {}".format(rm.name))
                     print("tags: {}".format(rm.tags))
 
+
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             client = MlflowClient()
 
             # Register a couple of models with respective names and tags
-            for name, tags in [("name1", {"t1": "t1"}),("name2", {"t2": "t2"})]:
+            for name, tags in [("name1", {"t1": "t1"}), ("name2", {"t2": "t2"})]:
                 client.create_registered_model(name, tags)
 
             # Fetch all registered models
             print_registered_models_info(client.search_registered_models())
 
             # Delete a tag from model `name2`
-            client.delete_registered_model_tag("name2", 't2')
+            client.delete_registered_model_tag("name2", "t2")
             print_registered_models_info(client.search_registered_models())
 
         .. code-block:: text
@@ -2285,10 +2325,12 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_version_info(mv):
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Description: {}".format(mv.description))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -2355,11 +2397,13 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_version_info(mv):
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Description: {}".format(mv.description))
                 print("Stage: {}".format(mv.current_stage))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -2372,11 +2416,11 @@ class MlflowClient:
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
-             # Register model name in the model registry
+            # Register model name in the model registry
             client = MlflowClient()
             client.create_registered_model(name)
 
-             # Create a new version of the rfr model under the registered model name
+            # Create a new version of the rfr model under the registered model name
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
             print_model_version_info(mv)
@@ -2417,12 +2461,14 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_models_info(mv):
                 for m in mv:
                     print("name: {}".format(m.name))
                     print("latest version: {}".format(m.version))
                     print("run_id: {}".format(m.run_id))
                     print("current_stage: {}".format(m.current_stage))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
 
@@ -2703,10 +2749,12 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_version_info(mv):
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Tags: {}".format(mv.tags))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -2779,10 +2827,12 @@ class MlflowClient:
             from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
+
             def print_model_version_info(mv):
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Tags: {}".format(mv.tags))
+
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
@@ -2801,14 +2851,14 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "1", "t1" : "2"}
+            tags = {"t": "1", "t1": "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
-            #using version to delete tag
+            # using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
 
-            #using stage to delete tag
+            # using stage to delete tag
             client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)

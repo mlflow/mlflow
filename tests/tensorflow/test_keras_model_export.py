@@ -616,10 +616,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
 
 
 @pytest.mark.skipif(
-    # TODO: Reenable this test on TF 2.11.0 once a compatible version of the transformers
-    # library is released
-    Version(tf.__version__) == Version("2.11.0")
-    or (not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0"))),
+    not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0")),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():

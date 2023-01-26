@@ -22,9 +22,10 @@ configure the log level for MLflow logs using the following code snippet. Learn 
 log levels at the
 `Python language logging guide <https://docs.python.org/3/howto/logging.html>`_.
 
-.. code-block:: py
+.. code-block:: python
 
     import logging
+
     logger = logging.getLogger("mlflow")
 
     # Set log level to debugging

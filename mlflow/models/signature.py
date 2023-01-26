@@ -109,18 +109,18 @@ def infer_signature(
 
     The input should be one of these:
       - pandas.DataFrame
+      - pandas.Series
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
+      - scipy.sparse.csr_matrix
+      - scipy.sparse.csc_matrix
 
     The element types should be mappable to one of :py:class:`mlflow.types.DataType`.
 
     For pyspark.sql.DataFrame inputs, columns of type DateType and TimestampType are both inferred
     as type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is coerced to
     TimestampType at inference.
-
-    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
-
 
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training

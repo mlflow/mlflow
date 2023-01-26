@@ -262,14 +262,15 @@ def _deploy(
                        .. code-block:: python
                            :caption: Example
 
-                           import mlflow.sagemaker as mfs
-                           vpc_config = {
-                               'SecurityGroupIds': [
-                                   'sg-123456abc',
-                               ],
-                               'Subnets': [
-                                   'subnet-123456abc',
-                               ]
+                            import mlflow.sagemaker as mfs
+
+                            vpc_config = {
+                                "SecurityGroupIds": [
+                                    "sg-123456abc",
+                                ],
+                                "Subnets": [
+                                    "subnet-123456abc",
+                                ],
                             }
                             mfs.deploy(..., vpc_config=vpc_config)
 
@@ -299,14 +300,13 @@ def _deploy(
                                     :caption: Example
 
                                     import mlflow.sagemaker as mfs
+
                                     data_capture_config = {
-                                                    'EnableCapture': True,
-                                                    'InitalSamplingPercentage': 100,
-                                                    'DestinationS3Uri": 's3://my-bucket/path',
-                                                    'CaptureOptions': [
-                                                        {'CaptureMode': 'Output'}
-                                                    ],
-                                                 }
+                                        "EnableCapture": True,
+                                        "InitalSamplingPercentage": 100,
+                                        "DestinationS3Uri": "s3://my-bucket/path",
+                                        "CaptureOptions": [{"CaptureMode": "Output"}],
+                                    }
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
@@ -639,14 +639,15 @@ def deploy_transform_job(
                        .. code-block:: python
                            :caption: Example
 
-                           import mlflow.sagemaker as mfs
-                           vpc_config = {
-                               'SecurityGroupIds': [
-                                   'sg-123456abc',
-                               ],
-                               'Subnets': [
-                                   'subnet-123456abc',
-                               ]
+                            import mlflow.sagemaker as mfs
+
+                            vpc_config = {
+                                "SecurityGroupIds": [
+                                    "sg-123456abc",
+                                ],
+                                "Subnets": [
+                                    "subnet-123456abc",
+                                ],
                             }
                             mfs.deploy_transform_job(..., vpc_config=vpc_config)
 
@@ -938,14 +939,15 @@ def push_model_to_sagemaker(
                        .. code-block:: python
                            :caption: Example
 
-                           import mlflow.sagemaker as mfs
-                           vpc_config = {
-                               'SecurityGroupIds': [
-                                   'sg-123456abc',
-                               ],
-                               'Subnets': [
-                                   'subnet-123456abc',
-                               ]
+                            import mlflow.sagemaker as mfs
+
+                            vpc_config = {
+                                "SecurityGroupIds": [
+                                    "sg-123456abc",
+                                ],
+                                "Subnets": [
+                                    "subnet-123456abc",
+                                ],
                             }
                             mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
 
@@ -1071,7 +1073,7 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
             config={
                 "port": 5000,
                 "image": "mlflow-pyfunc",
-            }
+            },
         )
 
     .. code-block:: bash
@@ -2116,14 +2118,14 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             vpc_config = {
-                'SecurityGroupIds': [
-                    'sg-123456abc',
+                "SecurityGroupIds": [
+                    "sg-123456abc",
                 ],
-                'Subnets': [
-                    'subnet-123456abc',
-                ]
+                "Subnets": [
+                    "subnet-123456abc",
+                ],
             }
-            config=dict(
+            config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
                 execution_role_arn="arn:aws:456:role/execution_role",
                 bucket_name="my-s3-bucket",
@@ -2136,15 +2138,15 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config,
                 variant_name="prod-variant-1",
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""},
-                tags={"training_timestamp": "2022-11-01T05:12:26"}
+                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
             client.create_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
                 flavor="python_function",
-                config=config
+                config=config,
             )
         .. code-block:: bash
             :caption:  Command-line example
@@ -2350,22 +2352,20 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             vpc_config = {
-                'SecurityGroupIds': [
-                    'sg-123456abc',
+                "SecurityGroupIds": [
+                    "sg-123456abc",
                 ],
-                'Subnets': [
-                    'subnet-123456abc',
-                ]
+                "Subnets": [
+                    "subnet-123456abc",
+                ],
             }
             data_capture_config = {
-                'EnableCapture': True,
-                'InitalSamplingPercentage': 100,
-                'DestinationS3Uri": 's3://my-bucket/path',
-                'CaptureOptions': [
-                    {'CaptureMode': 'Output'}
-                ]
+                "EnableCapture": True,
+                "InitalSamplingPercentage": 100,
+                "DestinationS3Uri": "s3://my-bucket/path",
+                "CaptureOptions": [{"CaptureMode": "Output"}],
             }
-            config=dict(
+            config = dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
                 execution_role_arn="arn:aws:456:role/execution_role",
                 bucket_name="my-s3-bucket",
@@ -2378,17 +2378,17 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300,
                 variant_name="prod-variant-1",
-                vpc_config=vpc_config
-                data_capture_config=data_capture_config
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""},
-                tags={"training_timestamp": "2022-11-01T05:12:26"}
+                vpc_config=vpc_config,
+                data_capture_config=data_capture_config,
+                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
             client.update_deployment(
                 "my-deployment",
                 model_uri="/mlruns/0/abc/model",
                 flavor="python_function",
-                config=config
+                config=config,
             )
         .. code-block:: bash
             :caption:  Command-line example
@@ -2505,7 +2505,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 region_name="us-east-1",
                 archive=False,
                 synchronous=True,
-                timeout_seconds=300
+                timeout_seconds=300,
             )
             client = get_deploy_client("sagemaker")
             client.delete_deployment("my-deployment", config=config)

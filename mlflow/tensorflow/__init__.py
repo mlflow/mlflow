@@ -157,6 +157,7 @@ def log_model(
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
             import numpy as np
+
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -193,8 +194,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -296,6 +298,7 @@ def save_model(
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
             import numpy as np
+
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -329,8 +332,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -587,15 +591,21 @@ def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kw
 
         import mlflow
         import tensorflow as tf
+
         tf_graph = tf.Graph()
         tf_sess = tf.Session(graph=tf_graph)
         with tf_graph.as_default():
-            signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
-                                    tf_sess=tf_sess)
-            input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
-                                for _, input_signature in signature_definition.inputs.items()]
-            output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
-                                for _, output_signature in signature_definition.outputs.items()]
+            signature_definition = mlflow.tensorflow.load_model(
+                model_uri="model_uri", tf_sess=tf_sess
+            )
+            input_tensors = [
+                tf_graph.get_tensor_by_name(input_signature.name)
+                for _, input_signature in signature_definition.inputs.items()
+            ]
+            output_tensors = [
+                tf_graph.get_tensor_by_name(output_signature.name)
+                for _, output_signature in signature_definition.outputs.items()
+            ]
     """
     import tensorflow
 
