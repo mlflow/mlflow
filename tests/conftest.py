@@ -106,7 +106,7 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True)
 def clean_up_mlruns_directory(request):
     """
     Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.

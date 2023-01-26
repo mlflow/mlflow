@@ -16,6 +16,7 @@ import sys
 import yaml
 import json
 import numbers
+import platform
 
 import pytest
 
@@ -546,3 +547,7 @@ def _mlflow_major_version_string():
     major = ver.major
     minor = ver.minor
     return f"mlflow<{major + 1},>={major}.{minor}"
+
+
+def is_local_os_windows():
+    return platform.system().lower() == "windows"
