@@ -282,7 +282,6 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
-from mlflow.environment_variables import MLFLOW_USE_STDIN_SERVER
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"

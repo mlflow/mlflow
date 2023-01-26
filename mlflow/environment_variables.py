@@ -186,7 +186,3 @@ MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
 MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
 )
-
-#: Specifies whether or not to use the stdin scoring server when making predictions
-#: in `mlflow.evaluate` and `mlflow.pyfunc.spark_udf` (default: ``False``).
-MLFLOW_USE_STDIN_SERVER = _BooleanEnvironmentVariable("MLFLOW_USE_STDIN_SERVER", False)

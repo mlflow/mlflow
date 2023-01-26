@@ -4,7 +4,6 @@ import json
 import tempfile
 import logging
 import uuid
-import subprocess
 from pathlib import Path
 
 from mlflow.pyfunc import scoring_server
@@ -64,18 +63,6 @@ class ScoringServerClient:
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
         return PredictionsResponse.from_json(response.text)
-
-
-def wait_until_file_exists(f: Path, timeout: int = 30) -> None:
-    begin_time = time.time()
-    while True:
-        if f.exists():
-            return
-        time.sleep(1)
-        if time.time() - begin_time > timeout:
-            raise MlflowException(f"Waiting for file {f} timeout")
-
-
 
 
 class StdinScoringServerClient:
