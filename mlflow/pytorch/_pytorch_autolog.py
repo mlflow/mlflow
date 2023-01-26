@@ -81,6 +81,5 @@ def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **k
 
 
 def patched_add_summary(original, self, *args, **kwargs):
-    result = original(self, *args, **kwargs)
     _flush_queue()
-    return result
+    return original(self, *args, **kwargs)
