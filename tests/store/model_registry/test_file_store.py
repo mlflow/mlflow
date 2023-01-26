@@ -112,7 +112,7 @@ def test_list_registered_model(store, registered_models_names, rm_data):
 def test_rename_registered_model(store, registered_models_names, rm_data):
     model_name = registered_models_names[random_int(0, len(registered_models_names) - 1)]
     # Error cases
-    with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
         store.rename_registered_model(model_name, None)
     # test that names of existing registered models are checked before renaming
 
