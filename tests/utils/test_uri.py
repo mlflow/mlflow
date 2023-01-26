@@ -1,3 +1,4 @@
+import pathlib
 import posixpath
 import pytest
 
@@ -18,7 +19,9 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     dbfs_hdfs_uri_to_fuse_path,
+    resolve_uri_if_local,
 )
+from tests.helper_functions import is_local_os_windows
 
 
 def test_extract_db_type_from_uri():
@@ -84,6 +87,8 @@ def test_uri_types():
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
     assert is_local_uri("file:foo/mlruns")
+
+    assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
@@ -521,3 +526,48 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
     with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
         dbfs_hdfs_uri_to_fuse_path(path)
+
+
+def _assert_resolve_uri_if_local(input_uri, expected_uri):
+    cwd = pathlib.Path.cwd().as_posix()
+    drive = pathlib.Path.cwd().drive
+    if is_local_os_windows():
+        cwd = f"/{cwd}"
+        drive = f"{drive}/"
+    assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
+
+
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "{cwd}/my/path"),
+        ("#my/path?a=b", "{cwd}/#my/path?a=b"),
+        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "{drive}/home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "file://{cwd}/my/path"),
+        ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
+        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "file:///{drive}home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)
