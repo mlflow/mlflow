@@ -211,13 +211,14 @@ def check_port_connectivity():
             ["nc", "-l", "-p", str(port)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-        ):
+        ) as server:
             with subprocess.Popen(
                 ["nc", "-zv", "localhost", str(port)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ) as client:
                 client.wait()
+                server.terminate()
                 return client.returncode == 0
     except Exception as e:
         _logger.warning("Failed to check port connectivity: %s", e)
