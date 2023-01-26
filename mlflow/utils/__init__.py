@@ -209,13 +209,13 @@ def check_port_connectivity():
     try:
         with subprocess.Popen(
             ["nc", "-l", "-p", str(port)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         ) as server:
             with subprocess.Popen(
                 ["nc", "-zv", "localhost", str(port)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             ) as client:
                 client.wait()
                 server.terminate()

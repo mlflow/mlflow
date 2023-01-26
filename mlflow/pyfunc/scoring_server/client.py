@@ -5,6 +5,8 @@ import tempfile
 import logging
 import uuid
 from pathlib import Path
+from abc import ABC, abstractmethod
+
 
 from mlflow.pyfunc import scoring_server
 
@@ -15,7 +17,22 @@ from mlflow.deployments import PredictionsResponse
 _logger = logging.getLogger(__name__)
 
 
-class ScoringServerClient:
+class BaseScoringServerClient(ABC):
+    @abstractmethod
+    def wait_server_ready(self, timeout=30, scoring_server_proc=None):
+        """
+        Wait until the scoring server is ready to accept requests.
+        """
+
+    @abstractmethod
+    def invoke(self, data):
+        """
+        Invoke inference on input data. The input data must be pandas dataframe or numpy array or
+        a dict of numpy arrays.
+        """
+
+
+class ScoringServerClient(BaseScoringServerClient):
     def __init__(self, host, port):
         self.url_prefix = f"http://{host}:{port}"
 
@@ -49,10 +66,6 @@ class ScoringServerClient:
         raise RuntimeError("Wait scoring server ready timeout.")
 
     def invoke(self, data):
-        """
-        Invoke inference on input data. The input data must be pandas dataframe or numpy array or
-        a dict of numpy arrays.
-        """
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=dump_input_data(data),
@@ -65,30 +78,35 @@ class ScoringServerClient:
         return PredictionsResponse.from_json(response.text)
 
 
-class StdinScoringServerClient:
+class StdinScoringServerClient(BaseScoringServerClient):
     def __init__(self, process):
         self.process = process
         self.tmpdir = Path(tempfile.mkdtemp())
         self.output_json = self.tmpdir.joinpath("output.json")
+
+    def wait_server_ready(self, timeout=30, scoring_server_proc=None):
+        return_code = self.process.poll()
+        if return_code is not None:
+            raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
     def invoke(self, data):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
         """
+        if not self.output_json.exists():
+            self.output_json.touch()
+
         request_id = str(uuid.uuid4())
         request = {
             "id": request_id,
             "data": dump_input_data(data),
             "output_file": str(self.output_json),
         }
-        if not self.output_json.exists():
-            self.output_json.touch()
-
         self.process.stdin.write(json.dumps(request) + "\n")
         self.process.stdin.flush()
 
-        start_time = time.time()
+        begin_time = time.time()
         while True:
             _logger.info("Waiting for scoring to complete...")
             try:
@@ -99,9 +117,6 @@ class StdinScoringServerClient:
                         return resp
             except Exception as e:
                 _logger.debug("Exception while waiting for scoring to complete: %s", e)
-            if time.time() - start_time > 60:
+            if time.time() - begin_time > 60:
                 raise MlflowException("Scoring timeout")
             time.sleep(1)
-
-    def cleanup(self):
-        self.process.terminate()

@@ -260,11 +260,18 @@ class PyFuncBackend(FlavorBackend):
             else:
                 return child_proc
 
-    def serve_stdin(self, model_uri):
+    def serve_stdin(
+        self,
+        model_uri,
+        stdout=None,
+        stderr=None,
+    ):
         local_path = _download_artifact_from_uri(model_uri)
         return self.prepare_env(local_path).execute(
             command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
             stdin=subprocess.PIPE,
+            stdout=stdout,
+            stderr=stderr,
             synchronous=False,
         )
 

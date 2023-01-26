@@ -649,14 +649,15 @@ def _load_model_or_server(model_uri: str, env_manager: str):
             stderr=subprocess.STDOUT,
         )
         client = ScoringServerClient("127.0.0.1", server_port)
-        _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
-        try:
-            client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-        except Exception:
-            raise MlflowException("MLflow model server failed to launch")
     else:
         scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
         client = StdinScoringServerClient(scoring_server_proc)
+
+    _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
+    try:
+        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+    except Exception as e:
+        raise MlflowException(f"MLflow model server failed to launch: {repr(e)}")
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
@@ -1205,44 +1206,44 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
                 )
 
-                def server_redirect_log_thread_func(child_stdout):
-                    for line in child_stdout:
-                        if isinstance(line, bytes):
-                            decoded = line.decode()
-                        else:
-                            decoded = line
-                        server_tail_logs.append(decoded)
-                        sys.stdout.write("[model server] " + decoded)
-
-                server_redirect_log_thread = threading.Thread(
-                    target=server_redirect_log_thread_func,
-                    args=(scoring_server_proc.stdout,),
-                )
-                server_redirect_log_thread.setDaemon(True)
-                server_redirect_log_thread.start()
-
                 client = ScoringServerClient("127.0.0.1", server_port)
-
-                try:
-                    client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-                except Exception:
-                    err_msg = (
-                        "During spark UDF task execution, mlflow model server failed to launch. "
-                    )
-                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                        err_msg += (
-                            f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
-                            "lines of MLflow model server output:\n"
-                        )
-                    else:
-                        err_msg += "MLflow model server output:\n"
-                    err_msg += "".join(server_tail_logs)
-                    raise MlflowException(err_msg)
             else:
                 scoring_server_proc = pyfunc_backend.serve_stdin(
-                    local_model_path_on_executor or local_model_path
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
                 )
                 client = StdinScoringServerClient(scoring_server_proc)
+
+            def server_redirect_log_thread_func(child_stdout):
+                for line in child_stdout:
+                    if isinstance(line, bytes):
+                        decoded = line.decode()
+                    else:
+                        decoded = line
+                    server_tail_logs.append(decoded)
+                    sys.stdout.write("[model server] " + decoded)
+
+            server_redirect_log_thread = threading.Thread(
+                target=server_redirect_log_thread_func,
+                args=(scoring_server_proc.stdout,),
+            )
+            server_redirect_log_thread.setDaemon(True)
+            server_redirect_log_thread.start()
+
+            try:
+                client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+            except Exception:
+                err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
+                if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
+                    err_msg += (
+                        f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
+                        "lines of MLflow model server output:\n"
+                    )
+                else:
+                    err_msg += "MLflow model server output:\n"
+                err_msg += "".join(server_tail_logs)
+                raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
