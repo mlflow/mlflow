@@ -28,6 +28,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import get_current_time_millis
@@ -38,7 +39,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.helper_functions import random_int, random_str, safe_edit_yaml, is_local_os_windows
 from tests.store.tracking import AbstractStoreTest
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
@@ -532,45 +533,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp2.creation_time == exp1.creation_time
         assert exp2.last_update_time == exp1.last_update_time
 
-    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
-        cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
-            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
-            (
-                "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}?param=value#fragment",
-            ),
-            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
-            (
-                "s3://bucket/path/to/root?creds=mycreds",
-                "s3://bucket/path/to/root/{e}?creds=mycreds",
-            ),
-            (
-                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
-                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
-            ),
-        ]
-
-        for artifact_root_uri, expected_artifact_uri_format in cases:
-            with TempDir() as tmp:
-                fs = FileStore(tmp.path(), artifact_root_uri)
-                exp_id = fs.create_experiment("exp")
-                exp = fs.get_experiment(exp_id)
-                assert exp.artifact_location == expected_artifact_uri_format.format(e=exp_id)
-
     def test_create_experiment_with_tags_works_correctly(self):
         fs = FileStore(self.test_root)
 
@@ -724,54 +686,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         deleted_runs = fs._get_deleted_runs()
         assert len(deleted_runs) == 1
         assert deleted_runs[0] == run_id
-
-    def test_create_run_appends_to_artifact_uri_path_correctly(self):
-        cases = [
-            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
-            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
-            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
-            (
-                "file:path/to/local/folder?param=value",
-                "file:path/to/local/folder/{e}/{r}/artifacts?param=value",
-            ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
-            (
-                "file:///path/to/local/folder?param=value#fragment",
-                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
-            ),
-            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
-            (
-                "s3://bucket/path/to/root?creds=mycreds",
-                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
-            ),
-            (
-                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
-                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
-                "?creds=mycreds#myfragment",
-            ),
-            (
-                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
-                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
-                "?creds=mycreds#myfragment",
-            ),
-        ]
-
-        for artifact_root_uri, expected_artifact_uri_format in cases:
-            with TempDir() as tmp:
-                fs = FileStore(tmp.path(), artifact_root_uri)
-                exp_id = fs.create_experiment("exp")
-                run = fs.create_run(
-                    experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
-                )
-                assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                    e=exp_id, r=run.info.run_id
-                )
 
     def test_create_run_in_deleted_experiment(self):
         fs = FileStore(self.test_root)
@@ -1791,3 +1705,222 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         test_metrics = file_store.get_metric_history(run_id, "test_metric")
         assert isinstance(test_metrics, PagedList)
         assert test_metrics == []
+
+
+def test_experiment_with_default_root_artifact_uri(tmp_path):
+    file_store_root_uri = path_to_local_file_uri(tmp_path)
+    file_store = FileStore(file_store_root_uri)
+    experiment_id = file_store.create_experiment(name="test", artifact_location="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    if is_local_os_windows():
+        assert experiment_info.artifact_location == Path.cwd().joinpath("test").as_uri()
+    else:
+        assert experiment_info.artifact_location == str(Path.cwd().joinpath("test"))
+
+
+def test_experiment_with_relative_artifact_uri(tmp_path):
+    file_store_root_uri = append_to_uri_path(path_to_local_file_uri(tmp_path), "experiments")
+    artifacts_root_uri = append_to_uri_path(path_to_local_file_uri(tmp_path), "artifacts")
+    file_store = FileStore(file_store_root_uri, artifacts_root_uri)
+    experiment_id = file_store.create_experiment(name="test")
+    experiment_info = file_store.get_experiment(experiment_id)
+    assert experiment_info.artifact_location == append_to_uri_path(
+        artifacts_root_uri, experiment_id
+    )
+
+
+def _assert_create_run_appends_to_artifact_uri_path_correctly(
+    artifact_root_uri, expected_artifact_uri_format
+):
+    with TempDir() as tmp:
+        fs = FileStore(tmp.path(), artifact_root_uri)
+        exp_id = fs.create_experiment("exp")
+        run = fs.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="name"
+        )
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert run.info.artifact_uri == expected_artifact_uri_format.format(
+            e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+        )
+
+
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
+        ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
+        (
+            "file:///path/to/local/folder",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+        ),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows(
+    input_uri, expected_uri
+):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+        ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}/{r}/artifacts"),
+        (
+            "file:///path/to/local/folder",
+            "file:///path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+        ),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_local_path_file_uri_correctly(input_uri, expected_uri):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+        (
+            "s3://bucket/path/to/root?creds=mycreds",
+            "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+        ),
+        (
+            "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+            "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+            "?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+            "?creds=mycreds#myfragment",
+        ),
+    ],
+)
+def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
+    _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
+    artifact_root_uri, expected_artifact_uri_format
+):
+    with TempDir() as tmp:
+        fs = FileStore(tmp.path(), artifact_root_uri)
+        exp_id = fs.create_experiment("exp")
+        exp = fs.get_experiment(exp_id)
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+
+        assert exp.artifact_location == expected_artifact_uri_format.format(
+            e=exp_id, cwd=cwd, drive=drive
+        )
+
+
+@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}?param=value",
+        ),
+        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_windows(
+    input_uri, expected_uri
+):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("path/to/local/folder", "{cwd}/path/to/local/folder/{e}"),
+        ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+        ("#path/to/local/folder?", "{cwd}/#path/to/local/folder?/{e}"),
+        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
+        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+        (
+            "file:path/to/local/folder?param=value",
+            "file://{cwd}/path/to/local/folder/{e}?param=value",
+        ),
+        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+        (
+            "file:///path/to/local/folder?param=value#fragment",
+            "file:///path/to/local/folder/{e}?param=value#fragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly(
+    input_uri, expected_uri
+):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+        (
+            "s3://bucket/path/to/root?creds=mycreds",
+            "s3://bucket/path/to/root/{e}?creds=mycreds",
+        ),
+        (
+            "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+            "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+        ),
+        (
+            "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+            "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+        ),
+    ],
+)
+def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
+    _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)

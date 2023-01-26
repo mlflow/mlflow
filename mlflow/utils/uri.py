@@ -1,5 +1,7 @@
+import pathlib
 import posixpath
 import urllib.parse
+import platform
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -17,8 +19,13 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return uri != "databricks" and (scheme == "" or scheme == "file")
+    if uri == "databricks":
+        return False
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.hostname:
+        return False
+    scheme = parsed_uri.scheme
+    return scheme == "" or scheme == "file"
 
 
 def is_http_uri(uri):
@@ -166,8 +173,7 @@ def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
-    else:
-        return scheme
+    return scheme
 
 
 def extract_and_normalize_path(uri):
@@ -281,3 +287,45 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
+
+
+def resolve_uri_if_local(local_uri):
+    """
+    if `local_uri` is passed in as a relative local path, this function
+    resolves it to absolute path relative to current working directory.
+
+    :param local_uri: Relative or absolute path or local file uri
+
+    :return: a fully-formed absolute uri path or an absolute filesystem path
+    """
+    from mlflow.utils.file_utils import local_file_uri_to_path
+
+    if local_uri is not None and is_local_uri(local_uri):
+        scheme = get_uri_scheme(local_uri)
+        cwd = pathlib.Path.cwd()
+        local_path = local_file_uri_to_path(local_uri)
+        if not pathlib.Path(local_path).is_absolute():
+            if scheme == "":
+                if platform.system().lower() == "windows":
+                    return urllib.parse.urlunsplit(
+                        (
+                            "file",
+                            None,
+                            cwd.joinpath(local_path).as_posix(),
+                            None,
+                            None,
+                        )
+                    )
+                return cwd.joinpath(local_path).as_posix()
+            local_uri_split = urllib.parse.urlsplit(local_uri)
+            resolved_absolute_uri = urllib.parse.urlunsplit(
+                (
+                    local_uri_split.scheme,
+                    None,
+                    cwd.joinpath(local_path).as_posix(),
+                    local_uri_split.query,
+                    local_uri_split.fragment,
+                )
+            )
+            return resolved_absolute_uri
+    return local_uri
