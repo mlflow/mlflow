@@ -289,6 +289,18 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
 
 
+def _build_uri_from_components(scheme, netloc, path, query, fragment):
+    return urllib.parse.urlunsplit(
+        (
+            scheme,
+            netloc,
+            path,
+            query,
+            fragment,
+        )
+    )
+
+
 def resolve_uri_if_local(local_uri):
     """
     if `local_uri` is passed in as a relative local path, this function
@@ -301,31 +313,23 @@ def resolve_uri_if_local(local_uri):
     from mlflow.utils.file_utils import local_file_uri_to_path
 
     if local_uri is not None and is_local_uri(local_uri):
-        scheme = get_uri_scheme(local_uri)
         cwd = pathlib.Path.cwd()
-        local_path = local_file_uri_to_path(local_uri)
-        if not pathlib.Path(local_path).is_absolute():
-            if scheme == "":
-                if platform.system().lower() == "windows":
-                    return urllib.parse.urlunsplit(
-                        (
-                            "file",
-                            None,
-                            cwd.joinpath(local_path).as_posix(),
-                            None,
-                            None,
-                        )
-                    )
-                return cwd.joinpath(local_path).as_posix()
-            local_uri_split = urllib.parse.urlsplit(local_uri)
-            resolved_absolute_uri = urllib.parse.urlunsplit(
-                (
-                    local_uri_split.scheme,
-                    None,
-                    cwd.joinpath(local_path).as_posix(),
-                    local_uri_split.query,
-                    local_uri_split.fragment,
-                )
-            )
-            return resolved_absolute_uri
+        scheme = get_uri_scheme(local_uri)
+        local_uri_split = urllib.parse.urlsplit(local_uri)
+        final_uri_schema = local_uri_split.scheme or "file"
+        uri_path = pathlib.Path(local_uri_split.path)
+        if not pathlib.Path(uri_path).is_absolute():
+            uri_path = cwd.joinpath(local_uri_split.path)
+            if scheme == "" and platform.system().lower() != "windows":
+                return cwd.joinpath(local_file_uri_to_path(local_uri)).as_posix()
+        elif pathlib.Path(uri_path).is_absolute() and platform.system().lower() != "windows":
+            return local_uri
+        resolved_absolute_uri = _build_uri_from_components(
+            final_uri_schema,
+            None,
+            uri_path.as_posix(),
+            local_uri_split.query,
+            local_uri_split.fragment,
+        )
+        return resolved_absolute_uri
     return local_uri

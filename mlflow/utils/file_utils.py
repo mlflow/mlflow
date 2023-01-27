@@ -2,6 +2,7 @@ import codecs
 import errno
 import gzip
 import os
+import platform
 import posixpath
 import shutil
 import sys
@@ -534,8 +535,12 @@ def local_file_uri_to_path(uri):
     Convert URI to local filesystem path.
     No-op if the uri does not have the expected scheme.
     """
-    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
-    return urllib.request.url2pathname(path)
+    if uri.startswith("file:"):
+        parsed_path = urllib.parse.urlparse(uri)
+        # Fix for retaining server name in UNC path with server name.
+        if platform.system().lower() == "windows" and parsed_path.hostname:
+            return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{parsed_path.path}")
+    return urllib.request.url2pathname(uri)
 
 
 def get_local_path_or_none(path_or_uri):

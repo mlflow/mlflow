@@ -546,7 +546,7 @@ def _assert_resolve_uri_if_local(input_uri, expected_uri):
         ("file://myhostname/my/path", "file://myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
-        ("/home/my/path", "{drive}/home/my/path"),
+        ("/home/my/path", "/home/my/path"),
         ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
         ("s3://host/my/path", "s3://host/my/path"),
     ],
@@ -560,7 +560,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     ("input_uri", "expected_uri"),
     [
         ("my/path", "file://{cwd}/my/path"),
-        ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
+        ("#my/path?a=b", "file://{cwd}#my/path?a=b"),
         ("file://myhostname/my/path", "file://myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
