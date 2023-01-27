@@ -89,6 +89,7 @@ def clean_up_mlflow_virtual_environments():
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
     tmp_example_dir = tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
