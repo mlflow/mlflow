@@ -39,6 +39,7 @@ class TrackingConfig:
     _KEY_TRACKING_URI = "mlflow_tracking_uri"
     _KEY_EXPERIMENT_NAME = "mlflow_experiment_name"
     _KEY_EXPERIMENT_ID = "mlflow_experiment_id"
+    _KEY_RUN_NAME = "mlflow_run_name"
     _KEY_ARTIFACT_LOCATION = "mlflow_experiment_artifact_location"
 
     def __init__(
@@ -46,6 +47,7 @@ class TrackingConfig:
         tracking_uri: str,
         experiment_name: str = None,
         experiment_id: str = None,
+        run_name: str = None,
         artifact_location: str = None,
     ):
         """
@@ -58,6 +60,8 @@ class TrackingConfig:
                               ``experiment_id`` must be specified. If both are specified, they
                               must be consistent with Tracking server state. Note that this
                               Experiment may not exist prior to recipe execution.
+        :param run_name: The MLFlow Run Name. If the run name is not specified, then a random
+                                name is set for the run.
         :param artifact_location: The artifact location to use for the Experiment, if the Experiment
                                   does not already exist. If the Experiment already exists, this
                                   location is ignored.
@@ -76,6 +80,7 @@ class TrackingConfig:
         self.tracking_uri = tracking_uri
         self.experiment_name = experiment_name
         self.experiment_id = experiment_id
+        self.run_name = run_name
         self.artifact_location = artifact_location
 
     def to_dict(self) -> Dict[str, str]:
@@ -97,6 +102,9 @@ class TrackingConfig:
         if self.artifact_location:
             config_dict[TrackingConfig._KEY_ARTIFACT_LOCATION] = self.artifact_location
 
+        if self.run_name:
+            config_dict[TrackingConfig._KEY_RUN_NAME] = self.run_name
+
         return config_dict
 
     @classmethod
@@ -111,6 +119,7 @@ class TrackingConfig:
             tracking_uri=config_dict.get(TrackingConfig._KEY_TRACKING_URI),
             experiment_name=config_dict.get(TrackingConfig._KEY_EXPERIMENT_NAME),
             experiment_id=config_dict.get(TrackingConfig._KEY_EXPERIMENT_ID),
+            run_name=config_dict.get(TrackingConfig._KEY_RUN_NAME),
             artifact_location=config_dict.get(TrackingConfig._KEY_ARTIFACT_LOCATION),
         )
 
@@ -143,6 +152,7 @@ def get_recipe_tracking_config(
     tracking_config = recipe_config.get("experiment", {})
 
     config_obj_kwargs = {
+        "run_name": tracking_config.get("run_name", None),
         "tracking_uri": tracking_config.get("tracking_uri", default_tracking_uri),
         "artifact_location": tracking_config.get("artifact_location", default_artifact_location),
     }
