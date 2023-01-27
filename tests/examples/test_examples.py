@@ -89,6 +89,7 @@ def clean_up_mlflow_virtual_environments():
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
+    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
     tmp_example_dir = tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
@@ -169,4 +170,3 @@ def test_command_example(directory, command):
 
     assert os.environ.get("MLFLOW_HOME") is not None
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
-    print("REMOVE THIS")
