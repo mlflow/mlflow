@@ -657,7 +657,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     try:
         client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
     except Exception as e:
-        raise MlflowException(f"MLflow model server failed to launch: {repr(e)}")
+        raise MlflowException("MLflow model server failed to launch.") from e
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
