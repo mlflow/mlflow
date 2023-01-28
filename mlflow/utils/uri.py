@@ -317,17 +317,18 @@ def resolve_uri_if_local(local_uri):
         scheme = get_uri_scheme(local_uri)
         local_uri_split = urllib.parse.urlsplit(local_uri)
         final_uri_schema = local_uri_split.scheme or "file"
-        uri_path = pathlib.Path(local_uri_split.path)
+        uri_path = pathlib.Path(local_file_uri_to_path(local_uri)).as_posix()
+        # local_path =
         if not pathlib.Path(uri_path).is_absolute():
-            uri_path = cwd.joinpath(local_uri_split.path)
+            uri_path = cwd.joinpath(local_uri_split.path).as_posix()
             if scheme == "" and platform.system().lower() != "windows":
-                return cwd.joinpath(local_file_uri_to_path(local_uri)).as_posix()
+                return cwd.joinpath(uri_path).as_posix()
         elif pathlib.Path(uri_path).is_absolute() and platform.system().lower() != "windows":
             return local_uri
         resolved_absolute_uri = _build_uri_from_components(
             final_uri_schema,
             None,
-            uri_path.as_posix(),
+            uri_path,
             local_uri_split.query,
             local_uri_split.fragment,
         )
