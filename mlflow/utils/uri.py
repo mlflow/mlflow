@@ -293,7 +293,9 @@ def resolve_uri_if_local(local_uri):
     """
     if `local_uri` is passed in as a relative local path, this function
     resolves it to absolute path relative to current working directory.
+
     :param local_uri: Relative or absolute path or local file uri
+
     :return: a fully-formed absolute uri path or an absolute filesystem path
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
