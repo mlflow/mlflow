@@ -337,8 +337,8 @@ def test_handle_readonly_on_windows(tmpdir):
 @pytest.mark.parametrize(
     ("input_uri", "expected_path"),
     [
-        ("file://a/b/c", "\\\\a\\b\\c"),
-        (r"\\a\b\c", "\\\\a\\b\\c"),
+        ("file://my_server/my_path/my_sub_path", r"\\my_server\my_path\my_sub_path"),
+        (r"\\my_server\my_path\my_sub_path", r"\\my_server\my_path\my_sub_path"),
     ],
 )
 def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
