@@ -1191,10 +1191,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if check_port_connectivity():
                 # launch scoring server
                 server_port = find_free_port()
+                host = "127.0.0.1"
                 scoring_server_proc = pyfunc_backend.serve(
                     model_uri=local_model_path_on_executor or local_model_path,
                     port=server_port,
-                    host="127.0.0.1",
+                    host=host,
                     timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
                     enable_mlserver=False,
                     synchronous=False,
@@ -1202,11 +1203,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     stderr=subprocess.STDOUT,
                 )
 
-                server_tail_logs = collections.deque(
-                    maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
-                )
-
-                client = ScoringServerClient("127.0.0.1", server_port)
+                client = ScoringServerClient(host, server_port)
             else:
                 scoring_server_proc = pyfunc_backend.serve_stdin(
                     model_uri=local_model_path_on_executor or local_model_path,
@@ -1215,12 +1212,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 )
                 client = StdinScoringServerClient(scoring_server_proc)
 
+            _logger.info("Using %s", client.__class__.__name__)
+
+            server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
+
             def server_redirect_log_thread_func(child_stdout):
                 for line in child_stdout:
-                    if isinstance(line, bytes):
-                        decoded = line.decode()
-                    else:
-                        decoded = line
+                    decoded = line.decode() if isinstance(line, bytes) else line
                     server_tail_logs.append(decoded)
                     sys.stdout.write("[model server] " + decoded)
 
