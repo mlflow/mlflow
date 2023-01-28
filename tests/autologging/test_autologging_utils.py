@@ -714,6 +714,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pytorch-lightning"},
         "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
     },
+    "pytorch": {
+        "package_info": {"pip_release": "torch"},
+        "autologging": {"minimum": "1.6.0", "maximum": "1.13.1"},
+    },
     "tensorflow": {
         "package_info": {"pip_release": "tensorflow"},
         "autologging": {"minimum": "1.15.4", "maximum": "2.3.1"},
@@ -772,8 +776,8 @@ _module_version_info_dict_patch = {
         ("sklearn", "0.23.0rc1", False),
         ("sklearn", "0.23.0dev0", False),
         ("sklearn", "0.23.0-SNAPSHOT", False),
-        ("pytorch", "1.0.5", True),
-        ("pytorch", "1.0.4", False),
+        ("pytorch", "1.6.0", True),
+        ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
     ],
