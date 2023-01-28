@@ -1231,7 +1231,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
             try:
                 client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-            except Exception:
+            except Exception as e:
                 err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
                 if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
                     err_msg += (
@@ -1241,7 +1241,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 else:
                     err_msg += "MLflow model server output:\n"
                 err_msg += "".join(server_tail_logs)
-                raise MlflowException(err_msg)
+                raise MlflowException(err_msg) from e
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
