@@ -74,14 +74,14 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     You can run the example with default hyperparameters as follows:
 
-    .. code-block:: py
+    .. code-block:: shell
 
         # Make sure the current working directory is 'examples'
         python sklearn_elasticnet_wine/train.py
 
     Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
-    .. code-block:: py
+    .. code-block:: shell
 
         # Make sure the current working directory is 'examples'
         python sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
@@ -130,7 +130,7 @@ Next, use the MLflow UI to compare the models that you have produced. In the sam
 as the one that contains the ``mlruns`` run:
 
 .. code-section::
-    .. code-block:: python
+    .. code-block:: shell
 
         mlflow ui
     .. code-block:: R
@@ -261,7 +261,7 @@ in MLflow saved the model as an artifact within the run.
 
     .. container:: python
 
-      .. code-block:: py
+      .. code-block:: python
 
           mlflow.sklearn.log_model(lr, "model")
 
@@ -299,10 +299,10 @@ in MLflow saved the model as an artifact within the run.
       .. code-block:: bash
 
           # On Linux and macOS
-          curl -X POST -H "Content-Type:application/json" --data '{"dataframe_split": {"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}}' http://127.0.0.1:1234/invocations
+          curl -X POST -H "Content-Type:application/json" --data '{"dataframe_split": {"columns":["fixed acidity", "volatile acidity", "citric acid", "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density", "pH", "sulphates", "alcohol"],"data":[[6.2, 0.66, 0.48, 1.2, 0.029, 29, 75, 0.98, 3.33, 0.39, 12.8]]}}' http://127.0.0.1:1234/invocations
 
           # On Windows
-          curl -X POST -H "Content-Type:application/json" --data "{\"dataframe_split\": {\"columns\":[\"alcohol\", \"chlorides\", \"citric acid\", \"density\", \"fixed acidity\", \"free sulfur dioxide\", \"pH\", \"residual sugar\", \"sulphates\", \"total sulfur dioxide\", \"volatile acidity\"],\"data\":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}}" http://127.0.0.1:1234/invocations
+          curl -X POST -H "Content-Type:application/json" --data "{\"dataframe_split\": {\"columns\":[\"fixed acidity\", \"volatile acidity\", \"citric acid\", \"residual sugar\", \"chlorides\", \"free sulfur dioxide\", \"total sulfur dioxide\", \"density\", \"pH\", \"sulphates\", \"alcohol\"],\"data\":[[6.2, 0.66, 0.48, 1.2, 0.029, 29, 75, 0.98, 3.33, 0.39, 12.8]]}}" http://127.0.0.1:1234/invocations
 
       the server should respond with output similar to::
 

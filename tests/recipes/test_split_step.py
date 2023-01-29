@@ -4,8 +4,17 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
+from mlflow.recipes.steps.split import (
+    _OUTPUT_TRAIN_FILE_NAME,
+    _OUTPUT_VALIDATION_FILE_NAME,
+    _OUTPUT_TEST_FILE_NAME,
+    SplitValues,
+)
 from mlflow.recipes.steps.split import (
     _get_split_df,
     _hash_pandas_dataframe,
@@ -14,24 +23,33 @@ from mlflow.recipes.steps.split import (
     SplitStep,
 )
 from unittest import mock
+from unittest.mock import Mock
+from pathlib import Path
+
+# pylint: disable=unused-import
+from tests.recipes.helper_functions import tmp_recipe_root_path, tmp_recipe_exec_path
 
 
-def test_split_step_run(tmp_path):
+def set_up_dataset(tmp_path, num_classes=2):
     ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
     ingest_output_dir.mkdir(parents=True)
     split_output_dir = tmp_path / "steps" / "split" / "outputs"
     split_output_dir.mkdir(parents=True)
-
     num_rows = 1000
     num_good_rows = 900
     input_dataframe = pd.DataFrame(
         {
             "a": list(range(num_rows)),
             "b": [str(i) for i in range(num_rows)],
-            "y": [float(i % 2) if i < num_good_rows else None for i in range(num_rows)],
+            "y": [float(i % num_classes) if i < num_good_rows else None for i in range(num_rows)],
         }
     )
     input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
+    return num_good_rows, split_output_dir, input_dataframe
+
+
+def test_split_step_run(tmp_path):
+    num_good_rows, split_output_dir, _ = set_up_dataset(tmp_path)
 
     split_ratios = [0.6, 0.3, 0.1]
 
@@ -39,7 +57,7 @@ def test_split_step_run(tmp_path):
         os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
         split_step = SplitStep(
-            {"split_ratios": split_ratios, "target_col": "y", "positive_class": "positive"},
+            {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
             "fake_root",
         )
         split_step.run(str(split_output_dir))
@@ -52,7 +70,7 @@ def test_split_step_run(tmp_path):
     with open(split_card_file_path, errors="ignore") as f:
         step_card_content = f.read()
 
-    assert "Compare Training Data (Positive vs Negative)" in step_card_content
+    assert "Compare Training Data" in step_card_content
 
     output_train_df = pd.read_parquet(str(split_output_dir / "train.parquet"))
     output_validation_df = pd.read_parquet(str(split_output_dir / "validation.parquet"))
@@ -67,6 +85,32 @@ def test_split_step_run(tmp_path):
     assert set(merged_output_df.a.tolist()) == set(range(num_good_rows))
     assert set(merged_output_df.b.tolist()) == {str(i) for i in range(num_good_rows)}
     assert set(merged_output_df.y.tolist()) == {0.0, 1.0}
+
+
+def test_split_step_run_with_multiple_classes(tmp_path):
+    num_good_rows, split_output_dir, _ = set_up_dataset(tmp_path, num_classes=10)
+
+    split_ratios = [0.6, 0.3, 0.1]
+
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.recipes.step.get_recipe_name", return_value="fake_name"):
+        split_step = SplitStep(
+            {"split_ratios": split_ratios, "target_col": "y", "recipe": "classification/v1"},
+            "fake_root",
+        )
+        split_step.run(str(split_output_dir))
+
+    output_train_df = pd.read_parquet(str(split_output_dir / "train.parquet"))
+    output_validation_df = pd.read_parquet(str(split_output_dir / "validation.parquet"))
+    output_test_df = pd.read_parquet(str(split_output_dir / "test.parquet"))
+
+    assert len(output_train_df) + len(output_validation_df) + len(output_test_df) == num_good_rows
+
+    merged_output_df = pd.concat([output_train_df, output_validation_df, output_test_df])
+    assert merged_output_df.columns.tolist() == ["a", "b", "y"]
+    assert set(merged_output_df.a.tolist()) == set(range(num_good_rows))
+    assert set(merged_output_df.b.tolist()) == {str(i) for i in range(num_good_rows)}
 
 
 def test_make_elem_hashable():
@@ -202,3 +246,67 @@ def test_validation_split_step_validates_split_correctly():
         (out_train_df, out_validation_df, out_test_df) = _validate_user_code_output(
             incorrect_post_split, train_df, validation_df, test_df
         )
+
+
+def custom_split(df):
+    from pandas import Series
+
+    splits = Series(SplitValues.TRAINING.value, index=range(len(df)))
+    splits[df["a"] >= 500] = SplitValues.VALIDATION.value
+    splits[df["a"] >= 800] = SplitValues.TEST.value
+
+    return splits
+
+
+def test_custom_split_method(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
+    ingest_output_dir = tmp_recipe_exec_path / "steps" / "ingest" / "outputs"
+    ingest_output_dir.mkdir(parents=True)
+    split_output_dir = tmp_recipe_exec_path / "steps" / "split" / "outputs"
+    split_output_dir.mkdir(parents=True)
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+
+    num_rows = 1000
+    input_dataframe = pd.DataFrame(
+        {
+            "a": list(range(num_rows)),
+            "y": [float(i % 2) for i in range(num_rows)],
+        }
+    )
+    input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
+
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "regression/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        run_args:
+            step: "split"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            split:
+                using: custom
+                split_method: split_method
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+
+    m_split = Mock()
+    m_split.split_method = custom_split
+
+    recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+    split_step = SplitStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+    with mock.patch.dict("sys.modules", {"steps.split": m_split}):
+        split_step.run(str(split_output_dir))
+
+    train_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_TRAIN_FILE_NAME))
+    validation_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_VALIDATION_FILE_NAME))
+    test_dataframe = pd.read_parquet((split_output_dir / _OUTPUT_TEST_FILE_NAME))
+    assert len(train_dataframe.index) == 500
+    assert len(validation_dataframe.index) == 300
+    assert len(test_dataframe.index) == 200

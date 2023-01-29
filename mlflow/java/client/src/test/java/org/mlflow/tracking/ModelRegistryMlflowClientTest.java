@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -106,6 +107,13 @@ public class ModelRegistryMlflowClientTest {
     @Test(expectedExceptions = MlflowHttpException.class, expectedExceptionsMessageRegExp = ".*RESOURCE_DOES_NOT_EXIST.*")
     public void testGetModelVersion_NotFound() {
         client.getModelVersion(modelName, "2");
+    }
+
+    @Test
+    public void testGetRegisteredModel() {
+	RegisteredModel model = client.getRegisteredModel(modelName);
+	Assert.assertEquals(model.getName(), modelName);
+	validateDetailedModelVersion(model.getLatestVersions(0), modelName, "Staging", "1" );
     }
 
     @Test

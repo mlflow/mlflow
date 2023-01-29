@@ -16,7 +16,7 @@ from mlflow import MlflowClient
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
-from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
+from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 
 NUM_EPOCHS = 20
 
@@ -325,6 +325,8 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+    # this is logged through SummaryWriter
+    assert "plain_loss" not in data.metrics
 
 
 def test_get_optimizer_name():
@@ -350,7 +352,16 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     dm.setup(stage="fit")
 
     accelerator = "cpu" if Version(pl.__version__) > Version("1.6.4") else "ddp_cpu"
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS, accelerator=accelerator, num_processes=4)
+    devices_kwarg_name = (
+        "devices" if Version(pl.__version__) > Version("1.6.4") else "num_processes"
+    )
+    trainer = pl.Trainer(
+        max_epochs=NUM_EPOCHS,
+        accelerator=accelerator,
+        **{
+            devices_kwarg_name: 4,
+        },
+    )
 
     with mlflow.start_run() as run:
         trainer.fit(model, datamodule=dm)

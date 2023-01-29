@@ -79,6 +79,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Save a paddle model to a path on the local file system. Produces an MLflow Model
@@ -107,8 +108,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -117,6 +119,10 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -132,6 +138,7 @@ def save_model(
         from sklearn.model_selection import train_test_split
         from sklearn import preprocessing
 
+
         def load_data():
             # dataset on boston housing prediction
             X, y = load_diabetes(return_X_y=True, as_frame=True)
@@ -141,16 +148,17 @@ def save_model(
             X_normalized = preprocessing.scale(X_min_max, with_std=False)
 
             X_train, X_test, y_train, y_test = train_test_split(
-                X_normalized, y, test_size=0.2, random_state=42)
+                X_normalized, y, test_size=0.2, random_state=42
+            )
 
             y_train = y_train.reshape(-1, 1)
             y_test = y_test.reshape(-1, 1)
-            return np.concatenate(
-                (X_train, y_train), axis=1),np.concatenate((X_test, y_test), axis=1
+            return np.concatenate((X_train, y_train), axis=1), np.concatenate(
+                (X_test, y_test), axis=1
             )
 
-        class Regressor(paddle.nn.Layer):
 
+        class Regressor(paddle.nn.Layer):
             def __init__(self):
                 super().__init__()
 
@@ -160,6 +168,7 @@ def save_model(
             def forward(self, inputs):
                 x = self.fc(inputs)
                 return x
+
 
         model = Regressor()
         model.train()
@@ -171,11 +180,13 @@ def save_model(
 
         for epoch_id in range(EPOCH_NUM):
             np.random.shuffle(training_data)
-            mini_batches = [training_data[k : k + BATCH_SIZE]
-                for k in range(0, len(training_data), BATCH_SIZE)]
+            mini_batches = [
+                training_data[k : k + BATCH_SIZE]
+                for k in range(0, len(training_data), BATCH_SIZE)
+            ]
             for iter_id, mini_batch in enumerate(mini_batches):
-                x = np.array(mini_batch[:, :-1]).astype('float32')
-                y = np.array(mini_batch[:, -1:]).astype('float32')
+                x = np.array(mini_batch[:, :-1]).astype("float32")
+                y = np.array(mini_batch[:, -1:]).astype("float32")
                 house_features = paddle.to_tensor(x)
                 prices = paddle.to_tensor(y)
 
@@ -183,17 +194,20 @@ def save_model(
 
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
-                if iter_id%20==0:
-                    print("epoch: {}, iter: {}, loss is: {}".format(
-                        epoch_id, iter_id, avg_loss.numpy()))
+                if iter_id % 20 == 0:
+                    print(
+                        "epoch: {}, iter: {}, loss is: {}".format(
+                            epoch_id, iter_id, avg_loss.numpy()
+                        )
+                    )
 
                 avg_loss.backward()
                 opt.step()
                 opt.clear_grad()
 
-        mlflow.log_param('learning_rate', 0.01)
+        mlflow.log_param("learning_rate", 0.01)
         mlflow.paddle.log_model(model, "model")
-        sk_path_dir = './test-out'
+        sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
         print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
     """
@@ -210,6 +224,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     model_data_subpath = "model"
     output_path = os.path.join(path, model_data_subpath)
@@ -299,6 +315,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         :caption: Example
 
         import mlflow.paddle
+
         pd_model = mlflow.paddle.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/pd_models")
         # use Pandas DataFrame to make predictions
         np_array = ...
@@ -342,6 +359,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -372,8 +390,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -385,6 +404,10 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -392,10 +415,16 @@ def log_model(
         :caption: Example
 
         import mlflow.paddle
+
+
         def load_data():
             ...
-        class Regressor():
+
+
+        class Regressor:
             ...
+
+
         model = Regressor()
         model.train()
         training_data, test_data = load_data()
@@ -407,7 +436,7 @@ def log_model(
         for epoch_id in range(EPOCH_NUM):
             ...
 
-        mlflow.log_param('learning_rate', 0.01)
+        mlflow.log_param("learning_rate", 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = ...
         mlflow.paddle.save_model(model, sk_path_dir)
@@ -425,6 +454,7 @@ def log_model(
         training=training,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
     )
 
 

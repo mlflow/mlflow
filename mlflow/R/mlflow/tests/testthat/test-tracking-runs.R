@@ -81,7 +81,7 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
     if (i > 1) {
       tags <- run$tags[[1]]
       expect_equal(
-        tags[tags$key == "mlflow.parentRunId",]$value,
+        tags[tags$key == "mlflow.parentRunId", ]$value,
         runs[[i - 1]]$run_uuid
       )
     }
@@ -677,4 +677,39 @@ test_that("mlflow observers receive tracking event callbacks", {
       tracking_events[[idx]]$set_terminated[[1]]$run_uuid, run$run_uuid
     )
   }
+})
+
+test_that("mlflow get metric history performs pagination", {
+  mlflow_clear_test_dir("mlruns")
+  run <- mlflow_start_run()
+
+  batch_size <- 1000
+  for (x in 0:25) {
+    # 0th index entries for timestamp will not work due to pagination filter default logic
+    # add a `+1` to the start and end values
+    start <- (batch_size * x) + 1
+    end <- (batch_size * (x + 1))
+    metrics <- data.frame(key = rep(c("m1"), batch_size),
+                        value = seq.int(from = start, to = end, by = 1),
+                        timestamp = seq.int(from = start, to = end, by = 1),
+                        step = seq.int(from = start, to = end, by = 1)
+                       )
+    mlflow_log_batch(metrics = metrics)
+  }
+  logged <- mlflow_get_metric_history(metric_key = "m1", run_id = run$run_id)
+
+  expect_equal(nrow(logged), 26000)
+
+  first_entry <- head(logged, n = 1)
+  expect_equal(first_entry$key, "m1")
+  expect_equal(first_entry$value, 1)
+  expect_equal(first_entry$step, 1)
+  expect_equal(first_entry$timestamp, purrr::map(c(1), mlflow:::milliseconds_to_date)[[1]])
+
+  last_entry <- tail(logged, n = 1)
+  expect_equal(last_entry$key, "m1")
+  expect_equal(last_entry$value, 26000)
+  expect_equal(last_entry$step, 26000)
+  expect_equal(last_entry$timestamp, purrr::map(c(26000), mlflow:::milliseconds_to_date)[[1]])
+  mlflow_end_run()
 })

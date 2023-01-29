@@ -1,4 +1,4 @@
-name: Notify DCO Failure
+name: Advice
 
 on:
   pull_request_target:
@@ -16,6 +16,6 @@ jobs:
         with:
           script: |
             const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/notify-dco-failure.js`
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/advice.js`
             );
             script({ context, github });

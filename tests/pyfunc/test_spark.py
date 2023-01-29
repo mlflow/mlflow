@@ -262,6 +262,51 @@ def test_spark_udf_with_single_arg(spark):
         assert result.res[0] == "a,b"
 
 
+def test_spark_udf_with_struct_return_type(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            input_len = len(model_input)
+            return {
+                "r1": [1] * input_len,
+                "r2": [1.5] * input_len,
+                "r3": [[1, 2]] * input_len,
+                "r4": [np.array([1.5, 2.5])] * input_len,
+                "r5": np.vstack([np.array([1.5, 2.5])] * input_len),
+                "r6": [True] * input_len,
+                "r7": ["abc"] * input_len,
+            }
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=(
+                "r1 int, r2 float, r3 array<long>, r4 array<double>, "
+                "r5 array<double>, r6 boolean, r7 string"
+            ),
+        )
+
+        data1 = spark.range(2).repartition(1)
+        result = (
+            data1.withColumn("res", udf("id"))
+            .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5", "res.r6", "res.r7")
+            .toPandas()
+        )
+        assert result.r1.tolist() == [1] * 2
+        np.testing.assert_almost_equal(result.r2.tolist(), [1.5] * 2)
+        assert result.r3.tolist() == [[1, 2]] * 2
+        np.testing.assert_almost_equal(
+            np.vstack(result.r4.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        np.testing.assert_almost_equal(
+            np.vstack(result.r5.tolist()), np.array([[1.5, 2.5], [1.5, 2.5]])
+        )
+        assert result.r6.tolist() == [True] * 2
+        assert result.r7.tolist() == ["abc"] * 2
+
+
 def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
@@ -592,3 +637,59 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
     result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
+
+
+def test_spark_udf_with_col_spec_type_input(spark):
+    input_pdf = pd.DataFrame(
+        {
+            "c_bool": [True],
+            "c_int": [10],
+            "c_long": [20],
+            "c_float": [1.5],
+            "c_double": [2.5],
+            "c_str": ["abc"],
+            "c_binary": [b"xyz"],
+            "c_datetime": [pd.to_datetime("2018-01-01")],
+        }
+    )
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            assert model_input.to_dict() == input_pdf.to_dict()
+            return model_input[["c_int", "c_float"]]
+
+    signature = ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec("boolean", "c_bool"),
+                ColSpec("integer", "c_int"),
+                ColSpec("long", "c_long"),
+                ColSpec("float", "c_float"),
+                ColSpec("double", "c_double"),
+                ColSpec("string", "c_str"),
+                ColSpec("binary", "c_binary"),
+                ColSpec("datetime", "c_datetime"),
+            ]
+        ),
+    )
+
+    spark_schema = (
+        "c_bool boolean, c_int int, c_long long, c_float float, c_double double, "
+        "c_str string, c_binary binary, c_datetime timestamp"
+    )
+    data = spark.createDataFrame(
+        data=input_pdf,
+        schema=spark_schema,
+    ).repartition(1)
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type="c_int int, c_float float",
+            env_manager="local",
+        )
+        res = data.withColumn("res", udf()).select("res.c_int", "res.c_float").toPandas()
+        assert res.c_int.tolist() == [10]
+        np.testing.assert_almost_equal(res.c_float.tolist(), [1.5])

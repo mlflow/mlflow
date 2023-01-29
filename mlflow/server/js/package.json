@@ -5,13 +5,16 @@
   "engines": {
     "node": "^16.18.0"
   },
+  "resolutions": {
+    "@types/react-plotly.js/@types/plotly.js": "^1.54.6"
+  },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^27.2.1",
     "@ag-grid-community/core": "^27.2.1",
     "@ag-grid-community/react": "^27.2.1",
     "@babel/eslint-parser": "^7.19.1",
     "@craco/craco": "7.0.0-alpha.0",
-    "@databricks/design-system": "1.6.1",
+    "@databricks/design-system": "1.7.0",
     "@emotion/cache": "^11.4.0",
     "@emotion/react": "^11.4.0",
     "antd": "4.16.8",
@@ -98,8 +101,10 @@
     "@storybook/preset-create-react-app": "^4.1.0",
     "@storybook/react": "^6.5.5",
     "@types/file-saver": "1.3",
+    "@types/plotly.js": "^1.54.21",
     "@types/react": "^17.0.50",
     "@types/react-dom": "^17.0.17",
+    "@types/react-plotly.js": "^2.5.0",
     "@types/react-router": "^5.1.18",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-transition-group": "^4.4.4",
@@ -116,16 +121,18 @@
     "jest-canvas-mock": "^2.2.0",
     "jest-localstorage-mock": "^2.3.0",
     "jest-watch-typeahead": "^1.0.0",
-    "prettier": "^2.6.2",
+    "prettier": "^2.8.0",
     "redux-mock-store": "^1.5.3",
-    "typescript": "^4.8.4",
+    "typescript": "^4.9.3",
     "webpack": "^5.69.0"
   },
   "scripts": {
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`, `start:mfe` and `test:ci`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
     "start": "craco start",
     "start:iframe": "HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true craco start",
-    "start:dev-proxy": "MLFLOW_DEV_PROXY_MODE=true yarn start:iframe",
+    "start:dev-proxy-fs": "START_FEATURE_STORE=true yarn start:dev-proxy-iframe",
+    "start:dev-proxy-iframe": "MLFLOW_DEV_PROXY_MODE=true yarn start:iframe",
+    "start:dev-proxy": "MLFLOW_DEV_PROXY_MODE=true yarn start:mfe",
     "start:mfe": "PUBLIC_URL=/ MLFLOW_MFE_DEV=true npm run start:iframe",
     "build": "craco --max_old_space_size=8192 build",
     "build:fs": "scripts/build.sh fs",
@@ -136,6 +143,7 @@
     "test:ci": "CI=true craco test --env=jsdom --colors --forceExit --ci --coverage",
     "test:watch": "yarn test:base",
     "test:debug": "craco --inspect-brk test --runInBand --no-cache --env=jsdom",
+    "type-check": "tsc --noEmit",
     "eject": "react-scripts eject",
     "gocx-codegen": "../../../js/scripts/bin/gocx-codegen ../..",
     "gocx-codegen:check": "../../../js/scripts/bin/gocx-codegen --check",

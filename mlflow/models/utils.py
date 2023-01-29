@@ -477,7 +477,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         # so do not enforce the shape and type, instead,
         # reshape the array value list to the required shape, and cast value type to
         # required type.
-        err_msg = (
+        reshape_err_msg = (
             f"The value in the Input DataFrame column '{name}' could not be converted to the "
             f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input list "
             "elements are of uniform length and that the data can be coerced to the tensor "
@@ -489,15 +489,32 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
                 tensor_spec.type
             )
         except ValueError:
-            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         if len(reshaped_numpy_arr) != len(pd_series):
-            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
+        return reshaped_numpy_arr
+    elif isinstance(pd_series[0], np.ndarray):
+        reshape_err_msg = (
+            f"The value in the Input DataFrame column '{name}' could not be converted to the "
+            f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input numpy "
+            "array elements are of uniform length and can be reshaped to above expected shape."
+        )
+        try:
+            # Because numpy array includes precise type information, so we don't convert type
+            # here, so that in following schema validation we can have strict type check on
+            # numpy array column.
+            reshaped_numpy_arr = np.vstack(pd_series.tolist()).reshape(tensor_spec.shape)
+        except ValueError:
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
+        if len(reshaped_numpy_arr) != len(pd_series):
+            raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
     else:
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "
-            "pandas dataframe values should be either scalar value or python list "
-            "containing scalar values, other types are not supported.",
+            "pandas dataframe values should be either scalar value, python list "
+            "containing scalar values or numpy array containing scalar values, "
+            "other types are not supported.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -723,11 +740,11 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         from mlflow.models.signature import infer_signature
 
         with mlflow.start_run():
-          iris = datasets.load_iris()
-          iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
-          clf = RandomForestClassifier(max_depth=7, random_state=0)
-          clf.fit(iris_train, iris.target)
-          mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
+            iris = datasets.load_iris()
+            iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+            clf = RandomForestClassifier(max_depth=7, random_state=0)
+            clf.fit(iris_train, iris.target)
+            mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
 
         # model uri for the above model
         model_uri = "models:/model-with-libs/1"

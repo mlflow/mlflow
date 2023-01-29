@@ -201,7 +201,7 @@ export const retry = async (
  * note that fetch won't reject HTTP error status
  * so this is the callback to handle non 200 responses.
  * See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#differences_from_jquery
- * @returns {Promise<Response>}
+ * @returns {Promise<T>}
  */
 export const fetchEndpoint = ({
   relativeUrl,

@@ -12,7 +12,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import sql
 from sqlalchemy.future import select
 
-from mlflow.entities import RunTag
+from mlflow.entities import RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -40,7 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
 )
 from mlflow.utils.name_utils import _generate_random_name
-from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
+from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri, resolve_uri_if_local
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
@@ -113,7 +113,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.artifact_root_uri = default_artifact_root
+        self.artifact_root_uri = resolve_uri_if_local(default_artifact_root)
         # Quick check to see if the respective SQLAlchemy database engine has already been created.
         if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
             with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
@@ -130,17 +130,7 @@ class SqlAlchemyStore(AbstractStore):
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
-        expected_tables = [
-            SqlExperiment.__tablename__,
-            SqlRun.__tablename__,
-            SqlMetric.__tablename__,
-            SqlParam.__tablename__,
-            SqlTag.__tablename__,
-            SqlExperimentTag.__tablename__,
-            SqlLatestMetric.__tablename__,
-        ]
-        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any(table not in inspected_tables for table in expected_tables):
+        if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
@@ -242,7 +232,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
-
+        if artifact_location:
+            artifact_location = resolve_uri_if_local(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
@@ -833,10 +824,98 @@ class SqlAlchemyStore(AbstractStore):
         if new_latest_metric_dict:
             self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for SQLAlchemyStore and is unused in this store's implementation.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for SQLAlchemyStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
+        # NB: The SQLAlchemyStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
+            raise MlflowException(
+                "The SQLAlchemyStore backend does not support pagination for the "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be "
+                "`None`."
+            )
+
         with self.ManagedSessionMaker() as session:
             metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
-            return [metric.to_mlflow_entity() for metric in metrics]
+            return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
+
+    class MetricWithRunId(Metric):
+        def __init__(self, metric: Metric, run_id):
+            super().__init__(
+                key=metric.key,
+                value=metric.value,
+                timestamp=metric.timestamp,
+                step=metric.step,
+            )
+            self._run_id = run_id
+
+        @property
+        def run_id(self):
+            return self._run_id
+
+        def to_dict(self):
+            return {
+                "key": self.key,
+                "value": self.value,
+                "timestamp": self.timestamp,
+                "step": self.step,
+                "run_id": self.run_id,
+            }
+
+    def get_metric_history_bulk(self, run_ids, metric_key, max_results):
+        """
+        Return all logged values for a given metric.
+
+        :param run_ids: Unique identifiers of the runs from which to fetch the metric histories for
+                        the specified key.
+        :param metric_key: Metric name within the runs.
+        :param max_results: The maximum number of results to return.
+
+        :return: A List of :py:class:`SqlAlchemyStore.MetricWithRunId` objects if ``metric_key``
+            values have been logged to one or more of the specified ``run_ids``, else an empty
+            list. Results are sorted by run ID in lexicographically ascending order, followed by
+            timestamp, step, and value in numerically ascending order.
+        """
+        # NB: The SQLAlchemyStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        with self.ManagedSessionMaker() as session:
+            metrics = (
+                session.query(SqlMetric)
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                )
+                .order_by(
+                    SqlMetric.run_uuid,
+                    SqlMetric.timestamp,
+                    SqlMetric.step,
+                    SqlMetric.value,
+                )
+                .limit(max_results)
+                .all()
+            )
+            return [
+                SqlAlchemyStore.MetricWithRunId(
+                    run_id=metric.run_uuid,
+                    metric=metric.to_mlflow_entity(),
+                )
+                for metric in metrics
+            ]
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)

@@ -2,6 +2,9 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import pathlib
+
+import flask
 import json
 import os
 import sys
@@ -11,6 +14,7 @@ import tempfile
 import time
 import urllib.parse
 import requests
+from unittest import mock
 
 import pytest
 
@@ -21,9 +25,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.models import Model
 import mlflow.pyfunc
+from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.handlers import validate_path_is_safe
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
@@ -42,6 +46,7 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
+from tests.helper_functions import is_local_os_windows
 
 
 _logger = logging.getLogger(__name__)
@@ -50,7 +55,7 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    root_artifact_uri = root_artifact_uri = str(tmp_path)
+    root_artifact_uri = str(tmp_path)
     if request.param == "file":
         uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
         FileStore(uri)
@@ -89,7 +94,10 @@ def test_create_get_search_experiment(mlflow_client):
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
-    assert exp.artifact_location == "my_location"
+    if is_local_os_windows():
+        assert exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
+    else:
+        assert exp.artifact_location == str(pathlib.Path.cwd().joinpath("my_location"))
     assert len(exp.tags) == 2
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"
@@ -294,6 +302,9 @@ def test_log_metrics_params_tags(mlflow_client):
     assert metric1.value == 987.654
     assert metric1.timestamp == 321
     assert metric1.step == 0
+
+    metric_history = mlflow_client.get_metric_history(run_id, "a_test_accuracy")
+    assert metric_history == []
 
 
 def test_log_metric_validation(mlflow_client):
@@ -843,3 +854,190 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
     assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
+
+
+def test_get_metric_history_bulk_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response_no_run_ids_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"metric_key": "key"},
+    )
+    assert_response(
+        response_no_run_ids_field,
+        "GetMetricHistoryBulk request must specify at least one run_id",
+    )
+
+    response_empty_run_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [], "metric_key": "key"},
+    )
+    assert_response(
+        response_empty_run_ids,
+        "GetMetricHistoryBulk request must specify at least one run_id",
+    )
+
+    response_too_many_run_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [f"id_{i}" for i in range(1000)], "metric_key": "key"},
+    )
+    assert_response(
+        response_too_many_run_ids,
+        "GetMetricHistoryBulk request cannot specify more than",
+    )
+
+    response_no_metric_key_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": ["123"]},
+    )
+    assert_response(
+        response_no_metric_key_field,
+        "GetMetricHistoryBulk request must specify a metric_key",
+    )
+
+
+def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    created_run1 = mlflow_client.create_run(experiment_id)
+    run_id1 = created_run1.info.run_id
+    created_run2 = mlflow_client.create_run(experiment_id)
+    run_id2 = created_run2.info.run_id
+    created_run3 = mlflow_client.create_run(experiment_id)
+    run_id3 = created_run3.info.run_id
+
+    metricA_history = [
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 11.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 12.0},
+        {"key": "metricA", "timestamp": 2, "step": 3, "value": 12.0},
+    ]
+    for metric in metricA_history:
+        mlflow_client.log_metric(run_id1, **metric)
+        metric_for_run2 = dict(metric)
+        metric_for_run2["value"] += 1.0
+        mlflow_client.log_metric(run_id2, **metric_for_run2)
+
+    metricB_history = [
+        {"key": "metricB", "timestamp": 7, "step": -2, "value": -100.0},
+        {"key": "metricB", "timestamp": 8, "step": 0, "value": 0.0},
+        {"key": "metricB", "timestamp": 8, "step": 0, "value": 1.0},
+        {"key": "metricB", "timestamp": 9, "step": 1, "value": 12.0},
+    ]
+    for metric in metricB_history:
+        mlflow_client.log_metric(run_id1, **metric)
+        metric_for_run2 = dict(metric)
+        metric_for_run2["value"] += 1.0
+        mlflow_client.log_metric(run_id2, **metric_for_run2)
+
+    response_run1_metricA = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1], "metric_key": "metricA"},
+    )
+    assert response_run1_metricA.status_code == 200
+    assert response_run1_metricA.json().get("metrics") == [
+        {**metric, "run_id": run_id1} for metric in metricA_history
+    ]
+
+    response_run2_metricB = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id2], "metric_key": "metricB"},
+    )
+    assert response_run2_metricB.status_code == 200
+    assert response_run2_metricB.json().get("metrics") == [
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0} for metric in metricB_history
+    ]
+
+    response_run1_run2_metricA = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1, run_id2], "metric_key": "metricA"},
+    )
+    assert response_run1_run2_metricA.status_code == 200
+    assert response_run1_run2_metricA.json().get("metrics") == sorted(
+        [{**metric, "run_id": run_id1} for metric in metricA_history]
+        + [
+            {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+            for metric in metricA_history
+        ],
+        key=lambda metric: metric["run_id"],
+    )
+
+    response_run1_run2_run_3_metricB = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id1, run_id2, run_id3], "metric_key": "metricB"},
+    )
+    assert response_run1_run2_run_3_metricB.status_code == 200
+    assert response_run1_run2_run_3_metricB.json().get("metrics") == sorted(
+        [{**metric, "run_id": run_id1} for metric in metricB_history]
+        + [
+            {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
+            for metric in metricB_history
+        ],
+        key=lambda metric: metric["run_id"],
+    )
+
+
+def test_get_metric_history_bulk_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("get metric history bulk")
+    run_id = mlflow_client.create_run(experiment_id).info.run_id
+    max_results = 2
+
+    metricA_history = [
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 11.0},
+        {"key": "metricA", "timestamp": 1, "step": 3, "value": 12.0},
+        {"key": "metricA", "timestamp": 2, "step": 3, "value": 12.0},
+    ]
+    for metric in metricA_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    response_limited = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        params={"run_id": [run_id], "metric_key": "metricA", "max_results": max_results},
+    )
+    assert response_limited.status_code == 200
+    assert response_limited.json().get("metrics") == [
+        {**metric, "run_id": run_id} for metric in metricA_history[:max_results]
+    ]
+
+
+def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch, tmp_path):
+    from mlflow.server.handlers import get_metric_history_bulk_handler
+
+    path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
+
+    flask_app = flask.Flask("test_flask_app")
+
+    class MockRequestArgs:
+        def __init__(self, args_dict):
+            self.args_dict = args_dict
+
+        def to_dict(self, flat):
+            return self.args_dict
+
+        def get(self, key, default=None):
+            return self.args_dict.get(key, default)
+
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
+    ), flask_app.test_request_context() as mock_context:
+        run_ids = [str(i) for i in range(10)]
+        mock_context.request.args = MockRequestArgs(
+            {
+                "run_id": run_ids,
+                "metric_key": "mock_key",
+            }
+        )
+
+        get_metric_history_bulk_handler()
+
+        mock_store.get_metric_history_bulk.assert_called_once_with(
+            run_ids=run_ids,
+            metric_key="mock_key",
+            max_results=25000,
+        )

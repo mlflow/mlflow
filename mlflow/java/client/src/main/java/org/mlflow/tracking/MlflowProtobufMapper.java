@@ -160,6 +160,17 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeGetRegisteredModel(String modelName) {
+    try {
+      return new URIBuilder("registered-models/get")
+          .addParameter("name", modelName)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
+  }
+
   String makeGetModelVersion(String modelName, String modelVersion) {
     try {
       return new URIBuilder("model-versions/get")
@@ -244,6 +255,12 @@ class MlflowProtobufMapper {
 
   GetModelVersion.Response toGetModelVersionResponse(String json) {
     GetModelVersion.Response.Builder builder = GetModelVersion.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetRegisteredModel.Response toGetRegisteredModelResponse(String json) {
+    GetRegisteredModel.Response.Builder builder = GetRegisteredModel.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }

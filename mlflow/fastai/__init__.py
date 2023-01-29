@@ -88,6 +88,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -111,8 +112,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -121,6 +123,10 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     :param kwargs: kwargs to pass to ``Learner.save`` method.
 
@@ -137,10 +143,10 @@ def save_model(
         # Start MLflow session and save model to current working directory
         with mlflow.start_run():
             model.fit(epochs, learning_rate)
-            mlflow.fastai.save_model(model, 'model')
+            mlflow.fastai.save_model(model, "model")
 
         # Load saved model for inference
-        model_uri = "{}/{}".format(os.getcwd(), 'model')
+        model_uri = "{}/{}".format(os.getcwd(), "model")
         loaded_model = mlflow.fastai.load_model(model_uri)
         results = loaded_model.predict(predict_data)
     """
@@ -163,6 +169,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     # ParamScheduler currently is not pickable
     # hence it is been removed before export and added again after export
@@ -233,6 +241,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -259,8 +268,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -274,6 +284,10 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -284,25 +298,31 @@ def log_model(
         import mlflow.fastai
         from mlflow import MlflowClient
 
+
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
             path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
 
-           # Prepare, transform, and normalize the data
-           data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
-           data.normalize(vis.imagenet_stats)
+            # Prepare, transform, and normalize the data
+            data = vis.ImageDataBunch.from_folder(
+                path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64
+            )
+            data.normalize(vis.imagenet_stats)
 
-           # Create the CNN Learner model
-           model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
+            # Create the CNN Learner model
+            model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
 
-           # Start MLflow session and log model
-           with mlflow.start_run() as run:
+            # Start MLflow session and log model
+            with mlflow.start_run() as run:
                 model.fit(epochs, learning_rate)
-                mlflow.fastai.log_model(model, 'model')
+                mlflow.fastai.log_model(model, "model")
 
-           # fetch the logged model artifacts
-           artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id, 'model')]
-           print("artifacts: {}".format(artifacts))
+            # fetch the logged model artifacts
+            artifacts = [
+                f.path for f in MlflowClient().list_artifacts(run.info.run_id, "model")
+            ]
+            print("artifacts: {}".format(artifacts))
+
 
         main()
 
@@ -323,6 +343,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         **kwargs,
     )
 
@@ -445,6 +466,7 @@ def autolog(
         import mlflow.fastai
         from mlflow import MlflowClient
 
+
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
@@ -454,12 +476,15 @@ def autolog(
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
 
+
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
             path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
 
             # Prepare, transform, and normalize the data
-            data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
+            data = vis.ImageDataBunch.from_folder(
+                path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64
+            )
             data.normalize(vis.imagenet_stats)
 
             # Create CNN the Learner model
@@ -474,6 +499,7 @@ def autolog(
 
             # fetch the auto logged parameters, metrics, and artifacts
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
 
         main()
 

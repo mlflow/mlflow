@@ -18,8 +18,10 @@ from mlflow.recipes.utils.metrics import (
     _get_primary_metric,
     _get_model_type_from_template,
     _load_custom_metrics,
+    _get_extended_task,
+    transform_multiclass_metric,
 )
-from mlflow.recipes.utils.step import get_merged_eval_metrics
+from mlflow.recipes.utils.step import get_merged_eval_metrics, validate_classification_config
 from mlflow.recipes.utils.tracking import (
     get_recipe_tracking_config,
     apply_recipe_tracking_config,
@@ -61,19 +63,18 @@ class EvaluateStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if "positive_class" not in self.step_config and self.recipe == "classification/v1":
-            raise MlflowException(
-                "`positive_class` must be specified for classification/v1 recipes.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         self.positive_class = self.step_config.get("positive_class")
+        self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.model_validation_status = "UNKNOWN"
-        self.primary_metric = _get_primary_metric(self.step_config)
+        self.primary_metric = _get_primary_metric(
+            self.step_config.get("primary_metric"), self.extended_task
+        )
         self.user_defined_custom_metrics = {
-            metric.name: metric for metric in _get_custom_metrics(self.step_config)
+            metric.name: metric
+            for metric in _get_custom_metrics(self.step_config, self.extended_task)
         }
         self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.recipe)
+            metric.name: metric for metric in _get_builtin_metrics(self.extended_task)
         }
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
@@ -156,6 +157,7 @@ class EvaluateStep(BaseStep):
                 relative_path="test.parquet",
             )
             test_df = pd.read_parquet(test_df_path)
+            validate_classification_config(self.task, self.positive_class, test_df, self.target_col)
 
             validation_df_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
@@ -174,7 +176,7 @@ class EvaluateStep(BaseStep):
             model_uri = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="train",
-                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+                relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
             )
 
             apply_recipe_tracking_config(self.tracking_config)
@@ -197,7 +199,6 @@ class EvaluateStep(BaseStep):
                         {
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
-                            "pos_label": self.positive_class,
                             "metric_prefix": "val_",
                         },
                     ),
@@ -206,11 +207,12 @@ class EvaluateStep(BaseStep):
                         test_df,
                         {
                             "log_model_explainability": False,
-                            "pos_label": self.positive_class,
                             "metric_prefix": "test_",
                         },
                     ),
                 ):
+                    if self.extended_task == "classification/binary":
+                        evaluator_config["pos_label"] = self.positive_class
                     eval_result = mlflow.evaluate(
                         model=model_uri,
                         data=dataset,
@@ -225,7 +227,9 @@ class EvaluateStep(BaseStep):
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
                     eval_metrics[dataset_name] = {
-                        strip_prefix(k, evaluator_config["metric_prefix"]): v
+                        transform_multiclass_metric(
+                            strip_prefix(k, evaluator_config["metric_prefix"]), self.extended_task
+                        ): v
                         for k, v in eval_result.metrics.items()
                     }
 

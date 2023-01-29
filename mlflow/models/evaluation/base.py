@@ -12,6 +12,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.entities import RunTag
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -35,7 +36,7 @@ _logger = logging.getLogger(__name__)
 
 
 class EvaluationMetric:
-    """
+    '''
     A model evaluation metric.
 
     :param eval_fn:
@@ -47,7 +48,7 @@ class EvaluationMetric:
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 builtin_metrics: Dict[str, float],
             ) -> float:
-                \"\"\"
+                """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
                     The ``prediction`` column contains the predictions made by the model.
@@ -60,14 +61,14 @@ class EvaluationMetric:
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
                     The metric value.
-                \"\"\"
+                """
                 ...
 
     :param name: The name of the metric.
     :param greater_is_better: Whether a higher value of the metric is better.
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
-    """
+    '''
 
     def __init__(self, eval_fn, name, greater_is_better, long_name=None):
         self.eval_fn = eval_fn
@@ -92,7 +93,7 @@ def make_metric(
     name=None,
     long_name=None,
 ):
-    """
+    '''
     A factory function to create an :py:class:`EvaluationMetric` object.
 
     :param eval_fn:
@@ -104,7 +105,7 @@ def make_metric(
                 eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
                 builtin_metrics: Dict[str, float],
             ) -> float:
-                \"\"\"
+                """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
                     The ``prediction`` column contains the predictions made by the model.
@@ -117,7 +118,7 @@ def make_metric(
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :return:
                     The metric value.
-                \"\"\"
+                """
                 ...
 
     :param greater_is_better: Whether a higher value of the metric is better.
@@ -130,7 +131,7 @@ def make_metric(
 
         - :py:class:`mlflow.models.EvaluationMetric`
         - :py:func:`mlflow.evaluate`
-    """
+    '''
     if name is None:
         if isinstance(eval_fn, FunctionType) and eval_fn.__name__ == "<lambda>":
             raise MlflowException(
@@ -147,6 +148,7 @@ def make_metric(
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name)
 
 
+@developer_stable
 class EvaluationArtifact(metaclass=ABCMeta):
     """
     A model evaluation artifact containing an artifact uri and content.
@@ -600,6 +602,7 @@ class EvaluationDataset:
         )
 
 
+@developer_stable
 class ModelEvaluator(metaclass=ABCMeta):
     @abstractmethod
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs) -> bool:
@@ -979,7 +982,7 @@ def evaluate(
     baseline_model=None,
     env_manager="local",
 ):
-    """
+    '''
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
     log resulting metrics & artifacts to MLflow Tracking. Set thresholds on the generated metrics to
     validate model quality. For additional overview information, see
@@ -1002,7 +1005,7 @@ def evaluate(
 
      - For binary classifiers, the default evaluator additionally logs:
         - **metrics**: true_negatives, false_positives, false_negatives, true_positives, recall,
-          precision, f1_score, accuracy_score, example_count, log_loss, roc_auc, 
+          precision, f1_score, accuracy_score, example_count, log_loss, roc_auc,
           precision_recall_auc.
         - **artifacts**: lift curve plot, precision-recall plot, ROC plot.
 
@@ -1077,15 +1080,15 @@ def evaluate(
 
      - Limitations when environment restoration is enabled:
         - When environment restoration is enabled for the evaluated model (i.e. a non-local
-          ``env_manager`` is specified), the model is loaded as a client that invokes a MLflow 
-          Model Scoring Server process in an independent Python environment with the model's 
-          training time dependencies installed. As such, methods like ``predict_proba`` (for 
-          probability outputs) or ``score`` (computes the evaluation criterian for sklearn models) 
-          of the model become inaccessible and the default evaluator does not compute metrics or 
+          ``env_manager`` is specified), the model is loaded as a client that invokes a MLflow
+          Model Scoring Server process in an independent Python environment with the model's
+          training time dependencies installed. As such, methods like ``predict_proba`` (for
+          probability outputs) or ``score`` (computes the evaluation criterian for sklearn models)
+          of the model become inaccessible and the default evaluator does not compute metrics or
           artifacts that require those methods.
-        - Because the model is an MLflow Model Server process, SHAP explanations are slower to 
-          compute. As such, model explainaibility is disabled when a non-local ``env_manager`` 
-          specified, unless the ``evaluator_config`` option **log_model_explainability** is 
+        - Because the model is an MLflow Model Server process, SHAP explanations are slower to
+          compute. As such, model explainaibility is disabled when a non-local ``env_manager``
+          specified, unless the ``evaluator_config`` option **log_model_explainability** is
           explicitly set to ``True``.
 
     :param model: A pyfunc model instance, or a URI referring to such a model.
@@ -1159,7 +1162,7 @@ def evaluate(
                 builtin_metrics: Dict[str, float],
                 artifacts_dir: str,
             ) -> Dict[str, Any]:
-                \"\"\"
+                """
                 :param eval_df:
                     A Pandas or Spark DataFrame containing ``prediction`` and ``target`` column.
                     The ``prediction`` column contains the predictions made by the model.
@@ -1177,7 +1180,7 @@ def evaluate(
                 :return:
                     A dictionary that maps artifact names to artifact objects
                     (e.g. a Matplotlib Figure) or to artifact paths within ``artifacts_dir``.
-                \"\"\"
+                """
                 ...
 
         Object types that artifacts can be represented as:
@@ -1202,9 +1205,9 @@ def evaluate(
 
 
             def scatter_plot(eval_df, builtin_metrics, artifacts_dir):
-                plt.scatter(eval_df['prediction'], eval_df['target'])
-                plt.xlabel('Targets')
-                plt.ylabel('Predictions')
+                plt.scatter(eval_df["prediction"], eval_df["target"])
+                plt.xlabel("Targets")
+                plt.ylabel("Predictions")
                 plt.title("Targets vs. Predictions")
                 plt.savefig(os.path.join(artifacts_dir, "example.png"))
                 plt.close()
@@ -1218,56 +1221,54 @@ def evaluate(
             mlflow.evaluate(..., custom_artifacts=[scatter_plot, pred_sample])
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
+        :py:class:`mlflow.models.MetricThreshold` used for model validation. Each metric name must
+        either be the name of a builtin metric or the name of a custom metric defined in the
+        ``custom_metrics`` parameter.
 
-                                  :py:class:`mlflow.models.MetricThreshold` used for
-                                  model validation. Each metric name must either be the
-                                  name of a builtin metric or the name of a custom
-                                  metric defined in the ``custom_metrics`` parameter.
+        .. code-block:: python
+            :caption: Example of Model Validation
 
-                                  .. code-block:: python
-                                      :caption: Example of Model Validation
+            from mlflow.models import MetricThreshold
 
-                                      from mlflow.models import MetricThreshold
+            thresholds = {
+                "accuracy_score": MetricThreshold(
+                    # accuracy should be >=0.8
+                    threshold=0.8,
+                    # accuracy should be at least 5 percent greater than baseline model accuracy
+                    min_absolute_change=0.05,
+                    # accuracy should be at least 0.05 greater than baseline model accuracy
+                    min_relative_change=0.05,
+                    higher_is_better=True,
+                ),
+            }
 
-                                      thresholds = {
-                                          "accuracy_score": MetricThreshold(
-                                              threshold=0.8,            # accuracy \
-should be >=0.8
-                                              min_absolute_change=0.05, # accuracy \
-should be at least 5 percent greater than baseline model accuracy
-                                              min_relative_change=0.05, # accuracy \
-should be at least 0.05 greater than baseline model accuracy
-                                              higher_is_better=True
-                                          ),
-                                      }
+            with mlflow.start_run():
+                mlflow.evaluate(
+                    model=your_candidate_model,
+                    data,
+                    targets,
+                    model_type,
+                    dataset_name,
+                    evaluators,
+                    validation_thresholds=thresholds,
+                    baseline_model=your_baseline_model,
+                )
 
-                                      with mlflow.start_run():
-                                          mlflow.evaluate(
-                                              model=your_candidate_model,
-                                              data,
-                                              targets,
-                                              model_type,
-                                              dataset_name,
-                                              evaluators,
-                                              validation_thresholds=thresholds,
-                                              baseline_model=your_baseline_model,
-                                          )
-                                            
-                                  See :ref:`the Model Validation documentation <model-validation>` 
-                                  for more details.
+        See :ref:`the Model Validation documentation <model-validation>`
+        for more details.
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-                           flavor. If specified, the candidate ``model`` is compared to this 
+                           flavor. If specified, the candidate ``model`` is compared to this
                            baseline for model validation purposes.
 
-    :param env_manager: Specify an environment manager to load the candidate ``model`` and 
-                        ``baseline_model`` in isolated Python evironments and restore their 
-                        dependencies. Default value is ``local``, and the following values are 
+    :param env_manager: Specify an environment manager to load the candidate ``model`` and
+                        ``baseline_model`` in isolated Python evironments and restore their
+                        dependencies. Default value is ``local``, and the following values are
                         supported:
 
-                         - ``virtualenv``: (Recommended) Use virtualenv to restore the python 
+                         - ``virtualenv``: (Recommended) Use virtualenv to restore the python
                            environment that was used to train the model.
-                         - ``conda``:  Use Conda to restore the software environment that was used 
+                         - ``conda``:  Use Conda to restore the software environment that was used
                            to train the model.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
@@ -1275,7 +1276,7 @@ should be at least 0.05 greater than baseline model accuracy
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
-    """
+    '''
     import signal
     from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager

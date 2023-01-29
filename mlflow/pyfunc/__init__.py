@@ -399,9 +399,10 @@ class PyFuncModel:
                      For model signatures with tensor spec inputs
                      (e.g. the Tensorflow core / Keras model), the input data type must be one of
                      `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
-                     `pandas.DataFrame`. If data is of `pandas.DataFrame` type and an input field
-                     requires multidimensional array input, the corresponding column values in
-                     the pandas DataFrame will be reshaped to the required shape and DataFrame
+                     `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
+                     contains a signature with tensor spec inputs, the corresponding column values
+                     in the pandas DataFrame will be reshaped to the required shape with 'C' order
+                     (i.e. read / write the elements using C-like index order), and DataFrame
                      column values will be cast as the required tensor spec type.
 
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
@@ -419,6 +420,8 @@ class PyFuncModel:
         This method is useful for accessing custom model functions, while still being able to
         leverage the MLflow designed workflow through the `predict()` method.
 
+        :return: The underlying wrapped model object
+
         .. test-code-block:: python
             :caption: Example
 
@@ -433,6 +436,7 @@ class PyFuncModel:
                     # do something with the model input
                     return 0
 
+
             some_input = 1
             # save the model
             my_model = MyModel()
@@ -441,20 +445,21 @@ class PyFuncModel:
 
             # load the model
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
-            print(type(loaded_model)) # <class 'mlflow.pyfunc.model.PyFuncModel'>
+            print(type(loaded_model))  # <class 'mlflow.pyfunc.model.PyFuncModel'>
 
             unwrapped_model = loaded_model.unwrap_python_model()
-            print(type(unwrapped_model)) # <class '__main__.MyModel'>
+            print(type(unwrapped_model))  # <class '__main__.MyModel'>
 
             # does not work, only predict() is exposed
             # print(loaded_model.my_custom_function(some_input))
 
-            print(unwrapped_model.my_custom_function(some_input)) # works
+            print(unwrapped_model.my_custom_function(some_input))  # works
 
-            print(loaded_model.predict(some_input)) # works
+            print(loaded_model.predict(some_input))  # works
 
             # works, but None is needed for context arg
             print(unwrapped_model.predict(None, some_input))
+
         """
         try:
             python_model = self._model_impl.python_model
@@ -623,7 +628,6 @@ def _load_model_or_server(model_uri: str, env_manager: str):
         local_path,
         env_manager=env_manager,
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
-        create_env_root_dir=True,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the
@@ -811,6 +815,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
     will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
+    If a model contains a signature with tensor spec inputs, you will need to pass a column of
+    array type as a corresponding UDF argument. The column values of which must be one dimensional
+    arrays. The UDF will reshape the column values to the required shape with 'C' order
+    (i.e. read / write the elements using C-like index order) and cast the values as the required
+    tensor spec type.
+
     If a model contains a signature, the UDF can be called without specifying column name
     arguments. In this case, the UDF will be called with column names from signature, so the
     evaluation dataframe's column names must match the model signature's column names.
@@ -849,7 +859,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     :param result_type: the return type of the user-defined function. The value can be either a
         ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
-        type or an array ``pyspark.sql.types.ArrayType`` of primitive type are allowed.
+        type, an array ``pyspark.sql.types.ArrayType`` of primitive type, or a struct type
+        containing fields of above 2 kinds of types are allowed.
         The following classes of result type are supported:
 
         - "int" or ``pyspark.sql.types.IntegerType``: The leftmost integer that can fit in an
@@ -876,6 +887,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
           to ``bool`` or an exception if there is none.
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
+
+        - "field1 FIELD1_TYPE, field2 FIELD2_TYPE, ...": A struct type containing multiple fields
+          separated by comma, each field type must be one of types listed above.
 
     :param env_manager: The environment manager to use in order to create the python environment
                         for model inference. Note that environment is only restored in the context
@@ -938,7 +952,15 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType, BooleanType]
+    supported_types = [
+        IntegerType,
+        LongType,
+        FloatType,
+        DoubleType,
+        StringType,
+        BooleanType,
+        SparkStructType,
+    ]
 
     if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
@@ -977,7 +999,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 "limitations with handling SIGKILL signals, these MLflow Model server child "
                 "processes cannot be cleaned up if the Spark Job is canceled."
             )
-    pyfunc_backend = pyfunc_backend = get_flavor_backend(
+    pyfunc_backend = get_flavor_backend(
         local_model_path,
         env_manager=env_manager,
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
@@ -1032,22 +1054,56 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        # If the spark dataframe input column is array type,
-        # then in spark pandas_udf, the passed in arguments
-        # (`pd.dataframe` instance or `pd.Series`) contains numpy array values.
-        # Converting the numpy array values into list
-        # Because `PyFuncModel.predict` only accepts pandas dataframe
-        # containing column values of scalar type or list type.
-        pdf = pandas.DataFrame(
-            {
-                col: pdf[col].map(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
-                for col in pdf.columns
-            }
-        )
         result = predict_fn(pdf)
+
+        if isinstance(result, dict):
+            result = {k: list(v) for k, v in result.items()}
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
+
+        spark_primitive_type_to_np_type = {
+            IntegerType: np.int32,
+            LongType: np.int64,
+            FloatType: np.float32,
+            DoubleType: np.float64,
+            BooleanType: np.bool_,
+            StringType: np.str_,
+        }
+
+        if isinstance(result_type, SparkStructType):
+            result_dict = {}
+            for field_name in result_type.fieldNames():
+                field_type = result_type[field_name].dataType
+                field_values = result[field_name]
+
+                if type(field_type) in spark_primitive_type_to_np_type:
+                    np_type = spark_primitive_type_to_np_type[type(field_type)]
+                    field_values = field_values.astype(np_type)
+
+                elif type(field_type) == ArrayType:
+                    elem_type = field_type.elementType
+                    if type(elem_type) not in spark_primitive_type_to_np_type:
+                        raise MlflowException(
+                            "Unsupported array type field with element type "
+                            f"{elem_type.simpleString()} in struct type.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    np_type = spark_primitive_type_to_np_type[type(elem_type)]
+
+                    field_values = [
+                        np.array(v, dtype=np.dtype(type(elem_type))) for v in field_values
+                    ]
+
+                else:
+                    raise MlflowException(
+                        f"Unsupported field type {field_type.simpleString()} in struct type.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+                result_dict[field_name] = field_values
+
+            return pandas.DataFrame(result_dict)
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
@@ -1055,8 +1111,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             result = result.select_dtypes(
                 [np.byte, np.ubyte, np.short, np.ushort, np.int32]
             ).astype(np.int32)
+
         elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int])
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(
+                np.int64
+            )
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)
@@ -1243,6 +1302,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -1317,8 +1377,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -1328,6 +1389,10 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -1376,6 +1441,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
@@ -1416,6 +1483,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -1487,8 +1555,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -1501,6 +1570,10 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -1519,6 +1592,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
     )
 
 

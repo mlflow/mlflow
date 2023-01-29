@@ -45,7 +45,10 @@ class EditableCell extends React.Component {
             {editing ? (
               <Form ref={formRef}>
                 <Form.Item style={{ margin: 0 }} name={dataIndex} initialValue={record[dataIndex]}>
-                  <Input onKeyDown={this.handleKeyPress} />
+                  <Input
+                    onKeyDown={this.handleKeyPress}
+                    data-testid='editable-table-edited-input'
+                  />
                 </Form.Item>
               </Form>
             ) : (
@@ -110,13 +113,22 @@ export class EditableTable extends React.Component {
         }
         return editing ? (
           <span>
-            <Button type='link' onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
+            <Button
+              type='link'
+              onClick={() => this.save(record.key)}
+              style={{ marginRight: 10 }}
+              data-testid='editable-table-button-save'
+            >
               <FormattedMessage
                 defaultMessage='Save'
                 description='Text for saving changes on rows in editable form table in MLflow'
               />
             </Button>
-            <Button type='link' onClick={() => this.cancel(record.key)}>
+            <Button
+              type='link'
+              onClick={() => this.cancel(record.key)}
+              data-testid='editable-table-button-cancel'
+            >
               <FormattedMessage
                 defaultMessage='Cancel'
                 description='Text for canceling changes on rows in editable form table in MLflow'
@@ -129,11 +141,13 @@ export class EditableTable extends React.Component {
               icon={<PencilIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
+              data-testid='editable-table-button-edit'
             />
             <Button
               icon={<TrashIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.setState({ deletingKey: record.key })}
+              data-testid='editable-table-button-delete'
             />
           </span>
         );

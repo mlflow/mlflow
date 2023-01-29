@@ -31,10 +31,13 @@ from mlflow.recipes.utils.metrics import (
     _get_custom_metrics,
     _get_model_type_from_template,
     _load_custom_metrics,
+    _get_extended_task,
+    transform_multiclass_metrics_dict,
 )
 from mlflow.recipes.utils.step import (
     get_merged_eval_metrics,
     get_pandas_data_profiles,
+    validate_classification_config,
 )
 from mlflow.recipes.utils.tracking import (
     get_recipe_tracking_config,
@@ -54,6 +57,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RECIPE_STEP_NAME,
 )
 from mlflow.utils.string_utils import strip_prefix
+from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
+from mlflow.models import Model
+from mlflow.utils.file_utils import TempDir
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -65,6 +71,7 @@ _logger = logging.getLogger(__name__)
 class TrainStep(BaseStep):
 
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
+    SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH = "sk_model"
     PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"
 
     def __init__(self, step_config, recipe_root, recipe_config=None):
@@ -73,7 +80,6 @@ class TrainStep(BaseStep):
         self.recipe_config = recipe_config
 
     def _validate_and_apply_step_config(self):
-        self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         if "using" in self.step_config:
             if self.step_config["using"] not in ["custom", "automl/flaml"]:
                 raise MlflowException(
@@ -147,12 +153,8 @@ class TrainStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if "positive_class" not in self.step_config and self.recipe == "classification/v1":
-            raise MlflowException(
-                "`positive_class` must be specified for classification/v1 recipes.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         self.positive_class = self.step_config.get("positive_class")
+        self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if "estimator_method" not in self.step_config and self.step_config["using"] == "custom":
@@ -162,23 +164,23 @@ class TrainStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        self.predict_proba = self.step_config.get("predict_proba", False)
-        self.primary_metric = _get_primary_metric(self.step_config)
-        self.user_defined_custom_metrics = {
-            metric.name: metric for metric in _get_custom_metrics(self.step_config)
-        }
-        self.evaluation_metrics = {
-            metric.name: metric for metric in _get_builtin_metrics(self.recipe)
-        }
+        self.predict_prefix = self.step_config.get("predict_prefix", "predicted_")
+        self.predict_scores_for_all_classes = self.step_config.get(
+            "predict_scores_for_all_classes", True
+        )
+        self.primary_metric = _get_primary_metric(
+            self.step_config.get("primary_metric"), self.extended_task
+        )
+        builtin_metrics = _get_builtin_metrics(self.extended_task)
+        custom_metrics = _get_custom_metrics(self.step_config, self.extended_task)
+        self.user_defined_custom_metrics = {metric.name: metric for metric in custom_metrics}
+        self.evaluation_metrics = {metric.name: metric for metric in builtin_metrics}
         self.evaluation_metrics.update(self.user_defined_custom_metrics)
         self.evaluation_metrics_greater_is_better = {
-            metric.name: metric.greater_is_better for metric in _get_builtin_metrics(self.recipe)
+            metric.name: metric.greater_is_better for metric in builtin_metrics
         }
         self.evaluation_metrics_greater_is_better.update(
-            {
-                metric.name: metric.greater_is_better
-                for metric in _get_custom_metrics(self.step_config)
-            }
+            {metric.name: metric.greater_is_better for metric in custom_metrics}
         )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
@@ -223,6 +225,36 @@ class TrainStep(BaseStep):
         else:
             return tuning_param == logged_param
 
+    def _label_encoded_fitted_estimator(self, estimator, X_train, y_train):
+        from sklearn.preprocessing import LabelEncoder
+
+        label_encoder = None
+        target_column_class_labels = None
+        encoded_y_train = y_train
+        if "classification" in self.recipe:
+            label_encoder = LabelEncoder()
+            label_encoder.fit(y_train)
+            target_column_class_labels = label_encoder.classes_
+            import pandas as pd
+
+            encoded_y_train = pd.Series(label_encoder.transform(y_train))
+
+        def inverse_label_encoder(predicted_output):
+            if not label_encoder:
+                return predicted_output
+
+            return label_encoder.inverse_transform(predicted_output)
+
+        estimator.fit(X_train, encoded_y_train)
+        original_predict = estimator.predict
+
+        def wrapped_predict(*args, **kwargs):
+            return inverse_label_encoder(original_predict(*args, **kwargs))
+
+        estimator.predict = wrapped_predict
+
+        return estimator, target_column_class_labels
+
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -241,6 +273,7 @@ class TrainStep(BaseStep):
             import pandas as pd
             import numpy as np
             import shutil
+            import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight
             from mlflow.models.signature import infer_signature
@@ -255,8 +288,11 @@ class TrainStep(BaseStep):
                 relative_path="transformed_training_data.parquet",
             )
             train_df = pd.read_parquet(transformed_training_data_path)
+            validate_classification_config(
+                self.task, self.positive_class, train_df, self.target_col
+            )
             self.using_rebalancing = False
-            if self.recipe == "classification/v1":
+            if self.extended_task == "classification/binary":
                 classes = np.unique(train_df[self.target_col])
                 class_weights = compute_class_weight(
                     class_weight="balanced",
@@ -264,7 +300,7 @@ class TrainStep(BaseStep):
                     y=train_df[self.target_col],
                 )
                 self.original_class_weights = dict(zip(classes, class_weights))
-                if self.rebalance_training_data:
+                if self.rebalance_training_data and len(classes) == 2:
                     if len(train_df) > _REBALANCING_CUTOFF:
                         self.using_rebalancing = True
                         train_df = self._rebalance_classes(train_df)
@@ -319,9 +355,10 @@ class TrainStep(BaseStep):
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
-                estimator.fit(X_train, y_train)
-
-                logged_estimator = self._log_estimator_to_mlflow(estimator, X_train)
+                fitted_estimator, target_column_class_labels = self._label_encoded_fitted_estimator(
+                    estimator, X_train, y_train
+                )
+                logged_estimator = self._log_estimator_to_mlflow(fitted_estimator, X_train)
 
                 # Create a recipe consisting of the transformer+model for test data evaluation
                 with open(transformer_path, "rb") as f:
@@ -329,40 +366,88 @@ class TrainStep(BaseStep):
                 mlflow.sklearn.log_model(
                     transformer, "transform/transformer", code_paths=self.code_paths
                 )
-                model = make_pipeline(transformer, estimator)
-                if self.predict_proba:
-                    model_schema = infer_signature(
-                        raw_X_train, model.predict_proba(raw_X_train.copy())
-                    )
-                    model_info = mlflow.sklearn.log_model(
-                        model,
-                        f"{self.name}/model",
-                        signature=model_schema,
-                        code_paths=self.code_paths,
-                        pyfunc_predict_fn="predict_proba",
-                    )
-                else:
-                    model_schema = infer_signature(raw_X_train, model.predict(raw_X_train.copy()))
-                    model_info = mlflow.sklearn.log_model(
-                        model,
-                        f"{self.name}/model",
-                        signature=model_schema,
-                        code_paths=self.code_paths,
-                    )
-                output_model_path = get_step_output_path(
+
+                trained_pipeline = make_pipeline(transformer, fitted_estimator)
+                # Creating a wrapped recipe model which exposes a single predict function
+                # so it can output both predict and predict_proba(for a classification problem)
+                # at the same time.
+                wrapped_model = WrappedRecipeModel(
+                    self.predict_scores_for_all_classes,
+                    self.predict_prefix,
+                    target_column_class_labels=target_column_class_labels,
+                )
+
+                model_uri = get_step_output_path(
                     recipe_root_path=self.recipe_root,
                     step_name=self.name,
                     relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
                 )
-                if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-                    shutil.rmtree(output_model_path)
+                sklearn_model_uri = get_step_output_path(
+                    recipe_root_path=self.recipe_root,
+                    step_name=self.name,
+                    relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
+                )
+                if os.path.exists(model_uri):
+                    shutil.rmtree(model_uri)
+                if os.path.exists(sklearn_model_uri):
+                    shutil.rmtree(sklearn_model_uri)
 
-                if self.predict_proba:
-                    mlflow.sklearn.save_model(
-                        model, output_model_path, pyfunc_predict_fn="predict_proba"
+                # Saving the sklearn model as a separate output since `mlflow.evaluate()`, which is
+                # used in evaluate step of the recipe, needs this model's sklearn representation
+                # to computes metrics (the pyfunc representation of the user-facing model logged to
+                # MLflow Tracking is not currently compatible with `mlflow.evaluate()`)
+                mlflow.sklearn.save_model(trained_pipeline, sklearn_model_uri)
+                artifacts = {"model_path": sklearn_model_uri}
+                with TempDir() as tmp:
+                    # Saving a temp model so that the output schema (signature) of the model's
+                    # pyfunc representation can be inferred and included when logging the model
+                    # to MLflow Tracking. Unfortunately, there is currently no easy way to infer
+                    # the model's signature without first saving a copy of it, and there is no easy
+                    # way to add an inferred signature to an existing model
+                    pyfunc_model_tmp_path = os.path.join(tmp.path(), "pyfunc_model")
+                    mlflow.pyfunc.save_model(
+                        path=pyfunc_model_tmp_path,
+                        python_model=wrapped_model,
+                        artifacts=artifacts,
                     )
-                else:
-                    mlflow.sklearn.save_model(model, output_model_path)
+                    tempModel = mlflow.pyfunc.load_model(pyfunc_model_tmp_path)
+                    model_schema = infer_signature(
+                        raw_X_train, tempModel.predict(raw_X_train.copy())
+                    )
+                    mlflow.pyfunc.save_model(
+                        path=model_uri,
+                        python_model=wrapped_model,
+                        artifacts=artifacts,
+                        signature=model_schema,
+                        code_path=self.code_paths,
+                    )
+                model = mlflow.pyfunc.load_model(model_uri)
+                # Adding a sklearn flavor to the pyfunc model so models could be loaded easily
+                # using mlflow.sklearn.load_model
+                tmp_model_info = Model.load(model_uri)
+                model_data_subpath = os.path.join(
+                    "artifacts", TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH, "model.pkl"
+                )
+                model_info = Model(
+                    artifact_path="train/model",
+                    run_id=run.info.run_id,
+                    utc_time_created=tmp_model_info.utc_time_created,
+                    flavors=tmp_model_info.flavors,
+                    signature=tmp_model_info.signature,  # ModelSignature
+                    saved_input_example_info=tmp_model_info.saved_input_example_info,
+                    model_uuid=tmp_model_info.model_uuid,
+                    mlflow_version=tmp_model_info.mlflow_version,
+                    metadata=tmp_model_info.metadata,
+                )
+                model_info.add_flavor(
+                    mlflow.sklearn.FLAVOR_NAME,
+                    pickled_model=model_data_subpath,
+                    sklearn_version=sklearn.__version__,
+                    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+                    code="code",
+                )
+                model_info.save(f"{model_uri}/MLmodel")
+                mlflow.log_artifacts(model_uri, "train/model")
 
                 with open(os.path.join(output_directory, "run_id"), "w") as f:
                     f.write(run.info.run_id)
@@ -375,6 +460,12 @@ class TrainStep(BaseStep):
                     "training": (train_df, "training_"),
                     "validation": (validation_df, "val_"),
                 }.items():
+                    eval_config = {
+                        "log_model_explainability": False,
+                        "metric_prefix": metric_prefix,
+                    }
+                    if self.positive_class is not None:
+                        eval_config["pos_label"] = self.positive_class
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
                         data=dataset,
@@ -385,11 +476,7 @@ class TrainStep(BaseStep):
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
-                        evaluator_config={
-                            "log_model_explainability": False,
-                            "pos_label": self.positive_class,
-                            "metric_prefix": metric_prefix,
-                        },
+                        evaluator_config=eval_config,
                     )
                     eval_result.save(os.path.join(output_directory, f"eval_{dataset_name}"))
                     eval_metrics[dataset_name] = {
@@ -398,16 +485,30 @@ class TrainStep(BaseStep):
 
             target_data = raw_validation_df[self.target_col]
             prediction_result = model.predict(raw_validation_df.drop(self.target_col, axis=1))
-            if self.predict_proba:
-                prediction_result_probs = model.predict_proba(
-                    raw_validation_df.drop(self.target_col, axis=1)
-                )
-                prediction_result_for_error = prediction_result_probs
+
+            use_probability_for_error_rate = False
+            if isinstance(prediction_result, pd.DataFrame) and {
+                f"{self.predict_prefix}label",
+                f"{self.predict_prefix}score",
+            }.issubset(prediction_result.columns):
+                if self.positive_class:
+                    prediction_result_for_error = prediction_result[
+                        f"{self.predict_prefix}score_{self.positive_class}"
+                    ].values
+                    # use_probability_for_error_rate to true to compute error function
+                    # based on positive class
+                    use_probability_for_error_rate = True
+                else:
+                    prediction_result_for_error = prediction_result[
+                        f"{self.predict_prefix}score"
+                    ].values
+
+                prediction_result = prediction_result[f"{self.predict_prefix}label"].values
             else:
                 prediction_result_for_error = prediction_result
             error_fn = _get_error_fn(
                 self.recipe,
-                use_probability=self.predict_proba,
+                use_probability=use_probability_for_error_rate,
                 positive_class=self.positive_class,
             )
             pred_and_error_df = pd.DataFrame(
@@ -418,20 +519,30 @@ class TrainStep(BaseStep):
                 }
             )
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
-            if self.predict_proba:
-                train_predicted_probs = model.predict_proba(
-                    raw_train_df.drop(self.target_col, axis=1)
-                )
+            if isinstance(train_predictions, pd.DataFrame) and {
+                f"{self.predict_prefix}label",
+                f"{self.predict_prefix}score",
+            }.issubset(train_predictions.columns):
                 predicted_training_data = raw_train_df.assign(
-                    predicted_data=train_predictions,
-                    predicted_probability=train_predicted_probs[:, 0],
+                    predicted_data=train_predictions[f"{self.predict_prefix}label"],
+                    predicted_score=train_predictions[f"{self.predict_prefix}score"].values,
                 )
-                worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-                    raw_train_df,
-                    train_predicted_probs[:, 0],
-                    error_fn(train_predicted_probs, raw_train_df[self.target_col].to_numpy()),
-                    self.target_col,
-                )
+                if self.positive_class:
+                    worst_examples_df = BaseStep._generate_worst_examples_dataframe(
+                        raw_train_df,
+                        train_predictions[f"{self.predict_prefix}label"].values,
+                        error_fn(
+                            train_predictions[
+                                f"{self.predict_prefix}score_{self.positive_class}"
+                            ].values,
+                            raw_train_df[self.target_col].to_numpy(),
+                        ),
+                        self.target_col,
+                    )
+                else:
+                    # compute worst examples data_frame only if positive class exists
+                    worst_examples_df = pd.DataFrame()
+
             else:
                 predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
@@ -466,7 +577,7 @@ class TrainStep(BaseStep):
                 model=model,
                 model_schema=model_schema,
                 run_id=run.info.run_id,
-                model_uri=model_info.model_uri,
+                model_uri=model_uri,
                 worst_examples_df=worst_examples_df,
                 train_df=raw_train_df,
                 output_directory=output_directory,
@@ -537,6 +648,7 @@ class TrainStep(BaseStep):
             X_train,
             y_train,
             self.task,
+            self.extended_task,
             self.step_config,
             self.recipe_root,
             self.evaluation_metrics,
@@ -742,7 +854,11 @@ class TrainStep(BaseStep):
             )
         # Tab 3: Model architecture.
         set_config(display="diagram")
-        model_repr = estimator_html_repr(model)
+        model_repr = estimator_html_repr(
+            mlflow.sklearn.load_model(
+                os.path.join(model_uri, "artifacts", TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH)
+            )
+        )
         card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
 
         # Tab 4: Inferred model (transformer + estimator) schema.
@@ -768,11 +884,12 @@ class TrainStep(BaseStep):
         )
 
         # Tab 5: Examples with Largest Prediction Error
-        (
-            card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
-                "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+        if not worst_examples_df.empty:
+            (
+                card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
+                    "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+                )
             )
-        )
 
         # Tab 6: Worst predictions profile vs train profile.
         if not self.skip_data_profiling:
@@ -858,6 +975,7 @@ class TrainStep(BaseStep):
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
         )
+        model_uri_path = f"runs:/{run_id}/train/model"
         run_url = get_databricks_run_url(
             tracking_uri=mlflow.get_tracking_uri(),
             run_id=run_id,
@@ -865,7 +983,7 @@ class TrainStep(BaseStep):
         model_url = get_databricks_run_url(
             tracking_uri=mlflow.get_tracking_uri(),
             run_id=run_id,
-            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri),
+            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri_path),
         )
 
         if run_url is not None:
@@ -877,10 +995,10 @@ class TrainStep(BaseStep):
 
         if model_url is not None:
             run_card_tab.add_html(
-                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri_path}</a>"
             )
         else:
-            run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
+            run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri_path}`")
 
         return card
 
@@ -976,10 +1094,12 @@ class TrainStep(BaseStep):
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                 y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
-                estimator.fit(X_train_sampled, y_train_sampled)
+                fitted_estimator, _ = self._label_encoded_fitted_estimator(
+                    estimator, X_train_sampled, y_train_sampled
+                )
 
                 logged_estimator = self._log_estimator_to_mlflow(
-                    estimator, X_train_sampled, on_worker=on_worker
+                    fitted_estimator, X_train_sampled, on_worker=on_worker
                 )
 
                 eval_result = mlflow.evaluate(
@@ -1019,8 +1139,11 @@ class TrainStep(BaseStep):
                     mlflow.log_params(manual_log_params)
 
                 # return +/- metric
+                transformed_metrics = transform_multiclass_metrics_dict(
+                    eval_result.metrics, self.extended_task
+                )
                 sign = -1 if self.evaluation_metrics_greater_is_better[self.primary_metric] else 1
-                return sign * eval_result.metrics[self.primary_metric]
+                return sign * transformed_metrics[self.primary_metric]
 
         search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
         algo_type, algo_name = tuning_params["algorithm"].rsplit(".", 1)
@@ -1056,7 +1179,13 @@ class TrainStep(BaseStep):
             "trials": hp_trials,
         }
         if "early_stop_fn" in tuning_params:
-            train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(".", 1)
+            try:
+                train_module_name, early_stop_fn_name = tuning_params["early_stop_fn"].rsplit(
+                    ".", 1
+                )
+            except ValueError:
+                early_stop_fn_name = tuning_params["early_stop_fn"]
+                train_module_name = _USER_DEFINED_TRAIN_STEP_MODULE
             early_stop_fn = getattr(importlib.import_module(train_module_name), early_stop_fn_name)
             fmin_kwargs["early_stop_fn"] = early_stop_fn
         best_hp_params = fmin(**fmin_kwargs)

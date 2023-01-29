@@ -296,8 +296,17 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
     )
     assert model_loaded is not None
-    with pytest.raises(TypeError, match=r".+"):
-        mlflow.tensorflow.load_model(model_path)
+    if Version(tf.__version__) <= Version("2.11.0"):
+        with pytest.raises(TypeError, match=r".+"):
+            mlflow.tensorflow.load_model(model_path)
+    else:
+        # TF dev build following the release of 2.11.0 introduced changes to the recursive
+        # loading strategy wherein the validation stage of custom objects loaded won't be
+        # validated eagerly. This prevents a TypeError from being thrown as in the above
+        # expectation catching validation block. The change in logic now permits loading and
+        # will not raise an Exception, as validated below.
+        incorrect_loaded = mlflow.tensorflow.load_model(model_path)
+        assert incorrect_loaded is not None
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
@@ -607,10 +616,7 @@ def test_load_without_save_format(tf_keras_model, model_path):
 
 
 @pytest.mark.skipif(
-    # TODO: Reenable this test on TF 2.11.0 once a compatible version of the transformers
-    # library is released
-    Version(tf.__version__) == Version("2.11.0")
-    or (not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0"))),
+    not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0")),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():
@@ -742,3 +748,25 @@ def test_tf_saved_model_model_with_tf_keras_api(tmp_path, monkeypatch):
     mlflow_model = mlflow.pyfunc.load_model(model_uri)
     predictions = mlflow_model.predict({"features": model_data_info.inference_df})
     np.testing.assert_allclose(predictions["dense"], model_data_info.expected_results_df)
+
+
+def test_model_save_load_with_metadata(tf_keras_model, model_path):
+    mlflow.tensorflow.save_model(
+        tf_keras_model, path=model_path, metadata={"metadata_key": "metadata_value"}
+    )
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_metadata(tf_keras_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_keras_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

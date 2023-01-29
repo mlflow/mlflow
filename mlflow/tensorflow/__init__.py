@@ -136,6 +136,7 @@ def log_model(
     extra_pip_requirements=None,
     saved_model_kwargs=None,
     keras_model_kwargs=None,
+    metadata=None,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -156,6 +157,7 @@ def log_model(
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
             import numpy as np
+
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -192,8 +194,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -208,6 +211,10 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
     :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -227,6 +234,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         saved_model_kwargs=saved_model_kwargs,
         keras_model_kwargs=keras_model_kwargs,
+        metadata=metadata,
     )
 
 
@@ -270,6 +278,7 @@ def save_model(
     extra_pip_requirements=None,
     saved_model_kwargs=None,
     keras_model_kwargs=None,
+    metadata=None,
 ):
     """
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
@@ -289,6 +298,7 @@ def save_model(
             from mlflow.types.schema import Schema, TensorSpec
             from mlflow.models.signature import ModelSignature
             import numpy as np
+
             input_schema = Schema(
                 [
                     TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
@@ -322,8 +332,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -337,6 +348,10 @@ def save_model(
                                if the model to be saved is a Tensorflow module.
     :param keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
                                to be saved is a keras model.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     import tensorflow
     from tensorflow.keras.models import Model as KerasModel
@@ -377,6 +392,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     if isinstance(model, KerasModel):
         keras_model_kwargs = keras_model_kwargs or {}
@@ -574,15 +591,21 @@ def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kw
 
         import mlflow
         import tensorflow as tf
+
         tf_graph = tf.Graph()
         tf_sess = tf.Session(graph=tf_graph)
         with tf_graph.as_default():
-            signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
-                                    tf_sess=tf_sess)
-            input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
-                                for _, input_signature in signature_definition.inputs.items()]
-            output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
-                                for _, output_signature in signature_definition.outputs.items()]
+            signature_definition = mlflow.tensorflow.load_model(
+                model_uri="model_uri", tf_sess=tf_sess
+            )
+            input_tensors = [
+                tf_graph.get_tensor_by_name(input_signature.name)
+                for _, input_signature in signature_definition.inputs.items()
+            ]
+            output_tensors = [
+                tf_graph.get_tensor_by_name(output_signature.name)
+                for _, output_signature in signature_definition.outputs.items()
+            ]
     """
     import tensorflow
 

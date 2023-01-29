@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
+from mlflow.utils.annotations import developer_stable
 
 # TODO: refactor to have a common base class for all the plugin implementation in MLFlow
 #   mlflow/tracking/context/registry.py
@@ -13,6 +14,7 @@ from mlflow.deployments.utils import parse_target_uri
 #   mlflow/store/artifact/artifact_repository_registry.py
 
 
+@developer_stable
 class PluginManager(abc.ABC):
     """
     Abstract class defining a entrypoint based plugin registration.
@@ -72,6 +74,7 @@ class PluginManager(abc.ABC):
         self._has_registered = True
 
 
+@developer_stable
 class DeploymentPlugins(PluginManager):
     def __init__(self):
         super().__init__("mlflow.deployments")

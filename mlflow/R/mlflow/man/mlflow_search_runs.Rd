@@ -13,8 +13,9 @@ mlflow_search_runs(
 )
 }
 \arguments{
-\item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset of runs.
-The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.}
+\item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset
+of runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+between a param/metric/tag and a constant.}
 
 \item{run_view_type}{Run view type.}
 

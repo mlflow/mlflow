@@ -20,3 +20,4 @@ Reference_Manual_mlflow.md
 depends.Rds
 R-version
 *.tar.gz
+crate.bin

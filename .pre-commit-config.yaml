@@ -15,6 +15,13 @@ repos:
         stages: [commit]
         log_file: .black.log
 
+      - id: blacken-docs
+        name: blacken-docs
+        entry: blacken-docs
+        language: system
+        types_or: [python, rst]
+        stages: [commit]
+
       - id: pylint
         name: pylint
         entry: pylint
@@ -35,3 +42,10 @@ repos:
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+
+      - id: compile-ml-package-versions
+        name: compile-ml-package-versions
+        language: system
+        files: '^(mlflow/ml-package-versions\.yml|dev/compile_ml_package_versions\.py|mlflow/ml_package_versions\.py)$'
+        entry: "python dev/compile_ml_package_versions.py"
+        pass_filenames: false

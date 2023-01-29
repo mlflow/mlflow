@@ -121,6 +121,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -171,8 +172,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -184,6 +186,10 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -193,11 +199,16 @@ def log_model(
         from pyspark.ml import Pipeline
         from pyspark.ml.classification import LogisticRegression
         from pyspark.ml.feature import HashingTF, Tokenizer
-        training = spark.createDataFrame([
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+
+        training = spark.createDataFrame(
+            [
+                (0, "a b c d e spark", 1.0),
+                (1, "b d", 0.0),
+                (2, "spark f g h", 1.0),
+                (3, "hadoop mapreduce", 0.0),
+            ],
+            ["id", "text", "label"],
+        )
         tokenizer = Tokenizer(inputCol="text", outputCol="words")
         hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
         lr = LogisticRegression(maxIter=10, regParam=0.001)
@@ -213,7 +224,11 @@ def log_model(
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
+    remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
+        remote_model_path = append_to_uri_path(
+            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
+        )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
@@ -247,6 +262,7 @@ def log_model(
             await_registration_for=await_registration_for,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            metadata=metadata,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -263,6 +279,7 @@ def log_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            remote_model_path=remote_model_path,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -471,11 +488,14 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    remote_model_path=None,
 ):
     """
-    Saves model metadata into the passed-in directory. The persisted metadata assumes that a
-    model can be loaded from a relative path to the metadata file (currently hard-coded to
-    "sparkml").
+    Saves model metadata into the passed-in directory.
+    If mlflowdbfs is not used, the persisted metadata assumes that a model can be
+    loaded from a relative path to the metadata file (currently hard-coded to "sparkml").
+    If mlflowdbfs is used, remote_model_path should be provided, and the model needs to
+    be loaded from the remote_model_path.
     """
     import pyspark
 
@@ -511,10 +531,16 @@ def _save_model_metadata(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            if remote_model_path:
+                _logger.info(
+                    "Inferring pip requirements by reloading the logged model from the databricks "
+                    "artifact repository, which can be time-consuming. To speed up, explicitly "
+                    "specify the conda_env or pip_requirements when calling log_model()."
+                )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                dst_dir,
+                remote_model_path or dst_dir,
                 FLAVOR_NAME,
                 fallback=default_reqs,
             )
@@ -575,6 +601,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
 ):
     """
     Save a Spark MLlib Model to a local path.
@@ -624,8 +651,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -634,12 +662,16 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     .. code-block:: python
         :caption: Example
 
         from mlflow import spark
-        from pyspark.ml.pipeline.PipelineModel
+        from pyspark.ml.pipeline import PipelineModel
 
         # your pyspark.ml.pipeline.PipelineModel type
         model = ...
@@ -654,6 +686,8 @@ def save_model(
         spark_model = PipelineModel([spark_model])
     if mlflow_model is None:
         mlflow_model = Model()
+    if metadata is not None:
+        mlflow_model.metadata = metadata
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
@@ -761,13 +795,13 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         :caption: Example
 
         from mlflow import spark
+
         model = mlflow.spark.load_model("spark-model")
         # Prepare test documents, which are unlabeled (id, text) tuples.
-        test = spark.createDataFrame([
-            (4, "spark i j k"),
-            (5, "l m n"),
-            (6, "spark hadoop spark"),
-            (7, "apache hadoop")], ["id", "text"])
+        test = spark.createDataFrame(
+            [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+            ["id", "text"],
+        )
         # Make predictions on test documents
         prediction = model.transform(test)
     """
@@ -956,26 +990,29 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         import os
         import shutil
         from pyspark.sql import SparkSession
+
         # Create and persist some dummy data
         # Note: On environments like Databricks with pre-created SparkSessions,
         # ensure the org.mlflow:mlflow-spark:1.11.0 is attached as a library to
         # your cluster
-        spark = (SparkSession.builder
-                    .config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
-                    .master("local[*]")
-                    .getOrCreate())
-        df = spark.createDataFrame([
-                (4, "spark i j k"),
-                (5, "l m n"),
-                (6, "spark hadoop spark"),
-                (7, "apache hadoop")], ["id", "text"])
+        spark = (
+            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
+            .master("local[*]")
+            .getOrCreate()
+        )
+        df = spark.createDataFrame(
+            [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+            ["id", "text"],
+        )
         import tempfile
+
         tempdir = tempfile.mkdtemp()
         df.write.csv(os.path.join(tempdir, "my-data-path"), header=True)
         # Enable Spark datasource autologging.
         mlflow.spark.autolog()
-        loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"),
-                        header=True, inferSchema=True)
+        loaded_df = spark.read.csv(
+            os.path.join(tempdir, "my-data-path"), header=True, inferSchema=True
+        )
         # Call toPandas() to trigger a read of the Spark datasource. Datasource info
         # (path and format) is logged to the current active run, or the
         # next-created MLflow run if no run is currently active

@@ -88,6 +88,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     onnx_execution_providers=None,
+    metadata=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -110,8 +111,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -127,6 +129,10 @@ def save_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     import onnx
 
@@ -145,6 +151,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
     model_data_subpath = "model.onnx"
     model_data_path = os.path.join(path, model_data_subpath)
 
@@ -395,6 +403,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     onnx_execution_providers=None,
+    metadata=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -419,8 +428,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -439,6 +449,10 @@ def log_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -455,4 +469,5 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         onnx_execution_providers=onnx_execution_providers,
+        metadata=metadata,
     )

@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class RunContextProvider:
     """
     Abstract base class for context provider objects specifying custom tags at run-creation time

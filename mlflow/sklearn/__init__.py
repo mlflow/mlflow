@@ -153,6 +153,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
+    metadata=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -186,8 +187,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -198,6 +200,10 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -214,14 +220,19 @@ def save_model(
         # set path to location for persistence
         sk_path_dir_1 = ...
         mlflow.sklearn.save_model(
-                sk_model, sk_path_dir_1,
-                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+            sk_model,
+            sk_path_dir_1,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        )
 
         # save the model in pickle format
         # set path to location for persistence
         sk_path_dir_2 = ...
-        mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
-                                  serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+        mlflow.sklearn.save_model(
+            sk_model,
+            sk_path_dir_2,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+        )
     """
     import sklearn
 
@@ -245,6 +256,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
@@ -329,6 +342,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
+    metadata=None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -364,8 +378,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -379,6 +394,10 @@ def log_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
            pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -395,7 +414,7 @@ def log_model(
         sk_model = sk_model.fit(iris.data, iris.target)
         # set the artifact_path to location where experiment artifacts will be saved
 
-        #log model params
+        # log model params
         mlflow.log_param("criterion", sk_model.criterion)
         mlflow.log_param("splitter", sk_model.splitter)
 
@@ -416,6 +435,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
+        metadata=metadata,
     )
 
 
@@ -567,6 +587,7 @@ def load_model(model_uri, dst_path=None):
         :caption: Example
 
         import mlflow.sklearn
+
         sk_model = mlflow.sklearn.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/sk_models")
 
         # use Pandas DataFrame to make predictions
@@ -1104,12 +1125,14 @@ def autolog(
         import mlflow
         from mlflow import MlflowClient
 
+
         def fetch_logged_data(run_id):
             client = MlflowClient()
             data = client.get_run(run_id).data
             tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
             return data.params, data.metrics, tags, artifacts
+
 
         # enable autologging
         mlflow.sklearn.autolog()
@@ -1134,10 +1157,10 @@ def autolog(
 
         pprint(metrics)
         # {'training_score': 1.0,
-           'training_mean_absolute_error': 2.220446049250313e-16,
-           'training_mean_squared_error': 1.9721522630525295e-31,
-           'training_r2_score': 1.0,
-           'training_root_mean_squared_error': 4.440892098500626e-16}
+        #  'training_mean_absolute_error': 2.220446049250313e-16,
+        #  'training_mean_squared_error': 1.9721522630525295e-31,
+        #  'training_r2_score': 1.0,
+        #  'training_root_mean_squared_error': 4.440892098500626e-16}
 
         pprint(tags)
         # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',

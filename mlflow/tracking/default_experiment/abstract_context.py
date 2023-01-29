@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
+from mlflow.utils.annotations import developer_stable
 
 
+@developer_stable
 class DefaultExperimentProvider:
     """
     Abstract base class for objects that provide the ID of an MLflow Experiment based on the

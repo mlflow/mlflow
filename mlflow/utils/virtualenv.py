@@ -236,7 +236,7 @@ def _create_virtualenv(
         _logger.info("Environment %s already exists", env_dir)
         return activate_cmd
 
-    _logger.info("Creating a new environment %s", env_dir)
+    _logger.info("Creating a new environment in %s with %s", env_dir, python_bin_path)
     _exec_cmd(["virtualenv", "--python", python_bin_path, env_dir], capture_output=capture_output)
 
     _logger.info("Installing dependencies")

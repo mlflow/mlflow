@@ -76,7 +76,10 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    resolve_uri_if_local,
+)
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -147,7 +150,10 @@ class FileStore(AbstractStore):
         """
         super().__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
-        self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
+        if not artifact_root_uri:
+            self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
+        else:
+            self.artifact_root_uri = resolve_uri_if_local(artifact_root_uri)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
@@ -315,16 +321,16 @@ class FileStore(AbstractStore):
         return experiments[0] if len(experiments) > 0 else None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
-        artifact_uri = artifact_uri or append_to_uri_path(
-            self.artifact_root_uri, str(experiment_id)
-        )
-        self._check_root_dir()
+        if not artifact_uri:
+            resolved_artifact_uri = append_to_uri_path(self.artifact_root_uri, str(experiment_id))
+        else:
+            resolved_artifact_uri = resolve_uri_if_local(artifact_uri)
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         creation_time = get_current_time_millis()
         experiment = Experiment(
             experiment_id,
             name,
-            artifact_uri,
+            resolved_artifact_uri,
             LifecycleStage.ACTIVE,
             creation_time=creation_time,
             last_update_time=creation_time,
@@ -742,24 +748,45 @@ class FileStore(AbstractStore):
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
         return Metric(key=metric_name, value=val, timestamp=ts, step=step)
 
-    def get_metric_history(self, run_id, metric_key):
+    def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
+        """
+        Return all logged values for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param metric_key: Metric name within the run
+        :param max_results: An indicator for paginated results. This functionality is not
+            implemented for FileStore and is unused in this store's implementation.
+        :param page_token: An indicator for paginated results. This functionality is not
+            implemented for FileStore and if the value is overridden with a value other than
+            ``None``, an MlflowException will be thrown.
+
+        :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            have been logged to the ``run_id``, else an empty list.
+        """
+        # NB: The FileStore does not currently support pagination for this API.
+        # Raise if `page_token` is specified, as the functionality to support paged queries
+        # is not implemented.
+        if page_token is not None:
+            raise MlflowException(
+                "The FileStore backend does not support pagination for the "
+                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
+                "be `None`."
+            )
+
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
-        return self._get_metric_history(run_info, metric_key)
 
-    def _get_metric_history(self, run_info, metric_key):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
-            run_id = run_info.run_id
-            raise MlflowException(
-                f"Metric '{metric_key}' not found under run '{run_id}'",
-                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
-            )
-        return [
-            FileStore._get_metric_from_line(metric_key, line)
-            for line in read_file_lines(parent_path, metric_key)
-        ]
+            return PagedList([], None)
+        return PagedList(
+            [
+                FileStore._get_metric_from_line(metric_key, line)
+                for line in read_file_lines(parent_path, metric_key)
+            ],
+            None,
+        )
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):

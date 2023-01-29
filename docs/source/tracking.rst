@@ -350,7 +350,7 @@ currently active run, if any.
 (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
 such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` as follows:
 
-.. code-block:: py
+.. code-block:: python
 
     client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
@@ -389,7 +389,7 @@ easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_r
 `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
 just one block of code as follows:
 
-.. code-block:: py
+.. code-block:: python
 
    with mlflow.start_run():
        mlflow.log_param("x", 1)
@@ -418,11 +418,11 @@ Examples
 ~~~~~~~~
 
 Python
-  .. code-block:: py
+  .. code-block:: python
 
     with mlflow.start_run():
         for epoch in range(0, 3):
-            mlflow.log_metric(key="quality", value=2*epoch, step=epoch)
+            mlflow.log_metric(key="quality", value=2 * epoch, step=epoch)
 
 Java and Scala
   .. code-block:: java
@@ -488,7 +488,7 @@ You can access the most recent autolog run through the :py:func:`mlflow.last_act
     X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
     # Create and train models.
-    rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+    rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
     rf.fit(X_train, y_train)
 
     # Use the model to make predictions on the test dataset.
@@ -735,7 +735,7 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
 
     mlflow experiments create --experiment-name fraud-detection
 
-.. code-block:: py
+.. code-block:: python
 
     # Launch a run. The experiment is inferred from the MLFLOW_EXPERIMENT_NAME environment
     # variable, or from the --experiment-name parameter passed to the MLflow CLI (the latter
@@ -754,12 +754,15 @@ add tags to a run, and more.
 
 .. rubric:: Example
 
-.. code-block:: py
+.. code-block:: python
 
-    from  mlflow.tracking import MlflowClient
+    from mlflow.tracking import MlflowClient
+
     client = MlflowClient()
-    experiments = client.search_experiments() # returns a list of mlflow.entities.Experiment
-    run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
+    experiments = (
+        client.search_experiments()
+    )  # returns a list of mlflow.entities.Experiment
+    run = client.create_run(experiments[0].experiment_id)  # returns mlflow.entities.Run
     client.log_param(run.info.run_id, "hello", "world")
     client.set_terminated(run.info.run_id)
 
@@ -768,7 +771,7 @@ Adding Tags to Runs
 
 The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
-.. code-block:: py
+.. code-block:: python
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
 
@@ -1170,6 +1173,7 @@ See the following example of a client REST call in Python attempting to list exp
 .. code-block:: python
 
     import requests
+
     response = requests.get("http://0.0.0.0:8885/api/2.0/mlflow/experiments/list")
 
 Output
@@ -1200,7 +1204,8 @@ then make API requests to your remote tracking server.
     .. code-block:: python
 
         import mlflow
-        remote_server_uri = "..." # set to your server URI
+
+        remote_server_uri = "..."  # set to your server URI
         mlflow.set_tracking_uri(remote_server_uri)
         # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
         # valid path in the workspace
@@ -1263,7 +1268,7 @@ For example:
     import mlflow
 
     response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
-    assert response.text == mlflow.__version__ # Checking for a strict version match
+    assert response.text == mlflow.__version__  # Checking for a strict version match
 
 
 .. _system_tags:

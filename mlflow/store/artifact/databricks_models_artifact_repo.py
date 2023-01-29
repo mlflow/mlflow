@@ -17,7 +17,9 @@ from mlflow.store.artifact.utils.models import (
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100000000
+# The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
+# The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
 REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 

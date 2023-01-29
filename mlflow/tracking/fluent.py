@@ -40,6 +40,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 if TYPE_CHECKING:
@@ -442,7 +443,7 @@ def last_active_run() -> Optional[Run]:
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
         # Create and train models.
-        rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
         rf.fit(X_train, y_train)
 
         # Use the model to make predictions on the test dataset.
@@ -502,8 +503,11 @@ def get_run(run_id: str) -> Run:
             mlflow.log_param("p", 0)
 
         run_id = run.info.run_id
-        print("run_id: {}; lifecycle_stage: {}".format(run_id,
-            mlflow.get_run(run_id).info.lifecycle_stage))
+        print(
+            "run_id: {}; lifecycle_stage: {}".format(
+                run_id, mlflow.get_run(run_id).info.lifecycle_stage
+            )
+        )
 
     .. code-block:: text
         :caption: Output
@@ -559,7 +563,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
         import mlflow
 
         with mlflow.start_run():
-           mlflow.set_experiment_tag("release.version", "2.2.0")
+            mlflow.set_experiment_tag("release.version", "2.2.0")
     """
     experiment_id = _get_experiment_id()
     MlflowClient().set_experiment_tag(experiment_id, key, value)
@@ -584,7 +588,7 @@ def set_tag(key: str, value: Any) -> None:
         import mlflow
 
         with mlflow.start_run():
-           mlflow.set_tag("release.version", "2.2.0")
+            mlflow.set_tag("release.version", "2.2.0")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value)
@@ -602,8 +606,7 @@ def delete_tag(key: str) -> None:
 
         import mlflow
 
-        tags = {"engineering": "ML Platform",
-                "engineering_remote": "ML Platform"}
+        tags = {"engineering": "ML Platform", "engineering_remote": "ML Platform"}
 
         with mlflow.start_run() as run:
             mlflow.set_tags(tags)
@@ -710,9 +713,11 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
 
         import mlflow
 
-        tags = {"engineering": "ML Platform",
-                "release.candidate": "RC1",
-                "release.version": "2.2.0"}
+        tags = {
+            "engineering": "ML Platform",
+            "release.candidate": "RC1",
+            "release.version": "2.2.0",
+        }
 
         # Set a batch of tags
         with mlflow.start_run():
@@ -736,9 +741,11 @@ def set_tags(tags: Dict[str, Any]) -> None:
 
         import mlflow
 
-        tags = {"engineering": "ML Platform",
-                "release.candidate": "RC1",
-                "release.version": "2.2.0"}
+        tags = {
+            "engineering": "ML Platform",
+            "release.candidate": "RC1",
+            "release.version": "2.2.0",
+        }
 
         # Set a batch of tags
         with mlflow.start_run():
@@ -764,7 +771,7 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
 
         # Create a features.txt artifact file
         features = "rooms, zipcode, median_price, school_rating, transport"
-        with open("features.txt", 'w') as f:
+        with open("features.txt", "w") as f:
             f.write(features)
 
         # With artifact_path=None write features.txt under
@@ -797,9 +804,9 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
 
         # Create couple of artifact files under the directory "data"
         os.makedirs("data", exist_ok=True)
-        with open("data/data.json", 'w', encoding='utf-8') as f:
+        with open("data/data.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
-        with open("data/features.txt", 'w') as f:
+        with open("data/features.txt", "w") as f:
             f.write(features)
 
         # Write all files in "data" to root artifact_uri/states
@@ -1262,8 +1269,11 @@ def delete_run(run_id: str) -> None:
         run_id = run.info.run_id
         mlflow.delete_run(run_id)
 
-        print("run_id: {}; lifecycle_stage: {}".format(run_id,
-            mlflow.get_run(run_id).info.lifecycle_stage))
+        print(
+            "run_id: {}; lifecycle_stage: {}".format(
+                run_id, mlflow.get_run(run_id).info.lifecycle_stage
+            )
+        )
 
     .. code-block:: text
         :caption: Output
@@ -1298,7 +1308,7 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
         import mlflow
 
         features = "rooms, zipcode, median_price, school_rating, transport"
-        with open("features.txt", 'w') as f:
+        with open("features.txt", "w") as f:
             f.write(features)
 
         # Log the artifact in a directory "features" under the root artifact_uri/features
@@ -1427,28 +1437,38 @@ def search_runs(
             exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
     elif no_ids_or_names:
-        experiment_ids = _get_experiment_id()
+        experiment_ids = [_get_experiment_id()]
     elif not no_names:
-        experiments = [get_experiment_by_name(n) for n in experiment_names if n is not None]
+        experiments = []
+        for n in experiment_names:
+            if n is not None:
+                experiment_by_name = get_experiment_by_name(n)
+                if experiment_by_name:
+                    experiments.append(experiment_by_name)
+                else:
+                    _logger.warning("Cannot retrieve experiment by name %s", n)
         experiment_ids = [e.experiment_id for e in experiments if e is not None]
 
-    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
-    # full thing is a mess
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().search_runs(
-            experiment_ids,
-            filter_string,
-            run_view_type,
-            number_to_get,
-            order_by,
-            next_page_token,
-        )
+    if len(experiment_ids) == 0:
+        runs = []
+    else:
+        # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+        # full thing is a mess
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return MlflowClient().search_runs(
+                experiment_ids,
+                filter_string,
+                run_view_type,
+                number_to_get,
+                order_by,
+                next_page_token,
+            )
 
-    runs = get_results_from_paginated_fn(
-        pagination_wrapper_func,
-        NUM_RUNS_PER_PAGE_PANDAS,
-        max_results,
-    )
+        runs = get_results_from_paginated_fn(
+            pagination_wrapper_func,
+            NUM_RUNS_PER_PAGE_PANDAS,
+            max_results,
+        )
 
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
@@ -1595,6 +1615,7 @@ def autolog(
     .. test-code-block:: python
 
         import mlflow
+
         mlflow.autolog(log_models=False, exclusive=True)
         import sklearn
 
@@ -1604,9 +1625,11 @@ def autolog(
     .. test-code-block:: python
 
         import mlflow
+
         mlflow.autolog(log_models=False, exclusive=True)
 
         import sklearn
+
         mlflow.sklearn.autolog(log_models=True)
 
     would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
@@ -1650,6 +1673,7 @@ def autolog(
         from mlflow import MlflowClient
         from sklearn.linear_model import LinearRegression
 
+
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
@@ -1658,6 +1682,7 @@ def autolog(
             print("params: {}".format(r.data.params))
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
+
 
         # prepare training data
         X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
@@ -1776,25 +1801,15 @@ def autolog(
     for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
-    # for pyspark, we activate autologging immediately, without waiting for a module import.
-    # this is because on Databricks a SparkSession already exists and the user can directly
-    #   interact with it, and this activity should be logged.
-    try:
+    if is_in_databricks_runtime():
+        # for pyspark, we activate autologging immediately, without waiting for a module import.
+        # this is because on Databricks a SparkSession already exists and the user can directly
+        #   interact with it, and this activity should be logged.
         import pyspark as pyspark_module
         import pyspark.ml as pyspark_ml_module
 
         setup_autologging(pyspark_module)
         setup_autologging(pyspark_ml_module)
-    except ImportError as ie:
-        # if pyspark isn't installed, a user could potentially install it in the middle
-        #   of their session so we want to enable autologging once they do
-        if "pyspark" in str(ie):
-            register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-            register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
-    except Exception as e:
-        if is_testing():
-            # Raise unexpected exceptions in test mode in order to detect
-            # errors within dependent autologging integrations
-            raise
-        else:
-            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+    else:
+        register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
+        register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)

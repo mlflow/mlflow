@@ -11,6 +11,14 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
+  "+fb25b": {
+    "defaultMessage": "Time created",
+    "description": "Label for the start time select dropdown for experiment runs view"
+  },
+  "+hQ+de": {
+    "defaultMessage": "Run name",
+    "description": "Label for Y axis in bar chart when comparing metrics between runs"
+  },
   "+hkg/y": {
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
@@ -22,10 +30,6 @@
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
-  },
-  "/738wy": {
-    "defaultMessage": "Filter",
-    "description": "String for the filter button to filter experiment runs table which match the search criteria"
   },
   "/JowTb": {
     "defaultMessage": "Name",
@@ -155,10 +159,6 @@
     "defaultMessage": "Scatter Plot",
     "description": "Tab text for scatter plot on the model comparison page"
   },
-  "4aTcCT": {
-    "defaultMessage": "All Runs",
-    "description": "Linked model dropdown option to show all experiment runs"
-  },
   "4hOOuV": {
     "defaultMessage": "404: Resource not found",
     "description": "Generic 404 user-friendly error for the MLFlow UI"
@@ -283,10 +283,6 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
-  "9Ce4Gd": {
-    "defaultMessage": "Started during",
-    "description": "Label for the start time select dropdown for experiment runs view"
-  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
@@ -367,10 +363,6 @@
     "defaultMessage": "Stage Transition",
     "description": "Title text for model version stage transitions in confirm modal"
   },
-  "DzGXnD": {
-    "defaultMessage": "Copy",
-    "description": "Copy tooltip to copy experiment name from experiment runs table header"
-  },
   "E7mv3b": {
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
@@ -391,17 +383,9 @@
     "defaultMessage": "Metrics:",
     "description": "Label text for metrics in parallel coordinates plot in MLflow"
   },
-  "EMNpby": {
-    "defaultMessage": "Only show differences",
-    "description": "Switch to select only columns with different values across runs"
-  },
   "ES952j": {
     "defaultMessage": "Not a number ({metricKey})",
     "description": "Label indicating \"not-a-number\" used as a hover text in a plot UI element"
-  },
-  "EwcVCu": {
-    "defaultMessage": "Clear",
-    "description": "String for the clear button to clear any filters or sorting that we may have applied on the experiment table"
   },
   "F/EzKI": {
     "defaultMessage": "Transition existing {currentStage} model versions to {archivedStage}",
@@ -527,10 +511,6 @@
     "defaultMessage": "Last Modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
-  "K4Ujb4": {
-    "defaultMessage": "Only show columns with differences",
-    "description": "Switch to select only columns with different values across runs"
-  },
   "KEL9Js": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
@@ -647,10 +627,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
   },
-  "SK8RBp": {
-    "defaultMessage": "Sort by",
-    "description": "Sort by default option for sort by select dropdown for experiment runs"
-  },
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
@@ -667,10 +643,6 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
-  "ThqGmu": {
-    "defaultMessage": "Created during",
-    "description": "Label for the start time select dropdown for experiment runs view"
-  },
   "ThrXMh": {
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
@@ -682,6 +654,10 @@
   "U+Jzcv": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Row entry for version columns in the registered model page"
+  },
+  "U3btBc": {
+    "defaultMessage": "Examples:",
+    "description": "Text header for examples of mlflow search syntax"
   },
   "U6cPEB": {
     "defaultMessage": "Loading Artifacts Failed",
@@ -702,10 +678,6 @@
   "UhdPmo": {
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
-  },
-  "Ux8CTl": {
-    "defaultMessage": "Linked Models:",
-    "description": "Filtering label for filtering experiments based on if the models are linked or not to the experiment"
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
@@ -750,10 +722,6 @@
   "XaD7FM": {
     "defaultMessage": "Select parameters/metrics to plot.",
     "description": "Text to show when x or y axis is not selected on box plot"
-  },
-  "Xqs6q2": {
-    "defaultMessage": "Without Model Versions",
-    "description": "Linked model dropdown option to show experiment runs without model versions only"
   },
   "XzoBvA": {
     "defaultMessage": "Cancel",
@@ -1019,9 +987,9 @@
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
   },
-  "kFpx6j": {
-    "defaultMessage": "With Model Versions",
-    "description": "Linked model dropdown option to show experiment runs with model versions only"
+  "kIlkgf": {
+    "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
+    "description": "Tooltip string to explain how to search runs from the experiments table"
   },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
@@ -1155,10 +1123,6 @@
     "defaultMessage": "Please select metrics",
     "description": "Placeholder text for metrics in parallel coordinates plot in MLflow"
   },
-  "rMo+i0": {
-    "defaultMessage": "Sort by",
-    "description": "Sort label for the sort select dropdown for experiment runs view"
-  },
   "rOnjGB": {
     "defaultMessage": "Download CSV",
     "description": "String for the download csv button to download experiments offline in a CSV format"
@@ -1174,10 +1138,6 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
-  },
-  "sXjD3p": {
-    "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause",
-    "description": "Tooltip string to explain how to search runs from the experiments table"
   },
   "sXqvoN": {
     "defaultMessage": "Ignore column ordering",
@@ -1223,9 +1183,9 @@
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
   },
-  "vPmud2": {
-    "defaultMessage": "Download CSV",
-    "description": "Tooltip for the download csv button to download experiments offline in a CSV format"
+  "vPUy4a": {
+    "defaultMessage": "Step",
+    "description": "Label for X axis in compare runs metrics when values are displayed by metric history step"
   },
   "vi2MM7": {
     "defaultMessage": "All",
@@ -1267,13 +1227,13 @@
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
   },
+  "y0rS56": {
+    "defaultMessage": "Time",
+    "description": "Label for X axis in compare runs metrics when values are displayed by absolute time"
+  },
   "yJpGwW": {
     "defaultMessage": "Deleted",
     "description": "Linked model dropdown option to show deleted experiment runs"
-  },
-  "yJu+hX": {
-    "defaultMessage": "Download",
-    "description": "String for the download csv button to download experiments offline in a CSV format"
   },
   "yK/6vg": {
     "defaultMessage": "Cancel",

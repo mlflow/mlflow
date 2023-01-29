@@ -24,7 +24,8 @@ def get_deploy_client(target_uri):
 
         from mlflow.deployments import get_deploy_client
         import pandas as pd
-        client = get_deploy_client('redisai')
+
+        client = get_deploy_client("redisai")
         # Deploy the model stored at artifact path 'myModel' under run with ID 'someRunId'. The
         # model artifacts are fetched from the current tracking server and then used for deployment.
         client.create_deployment("spamDetector", "runs:/someRunId/myModel")

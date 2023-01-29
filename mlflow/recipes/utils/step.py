@@ -1,5 +1,6 @@
 import logging
 import os
+import numpy as np
 import pandas as pd
 from mlflow.recipes.cards import pandas_renderer
 
@@ -157,3 +158,28 @@ def truncate_pandas_data_profile(title: str, data_frame) -> str:
             max_rows,
         )
     return (title, truncated_df)
+
+
+def validate_classification_config(
+    task: str, positive_class: str, input_df: pd.DataFrame, target_col: str
+):
+    """
+
+    :param task:
+    :param positive_class:
+    :param input_df:
+    :param target_col:
+    """
+    if task == "classification":
+        classes = np.unique(input_df[target_col])
+        num_classes = len(classes)
+        if num_classes <= 1:
+            raise MlflowException(
+                f"Classification tasks require at least two tasks. "
+                f"Your dataset contains {num_classes}."
+            )
+        elif positive_class is None and num_classes == 2:
+            raise MlflowException(
+                "`positive_class` must be specified for classification/v1 recipes.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )

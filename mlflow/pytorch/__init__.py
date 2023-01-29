@@ -15,6 +15,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from functools import partial
 from packaging.version import Version
 import posixpath
 
@@ -22,6 +23,7 @@ import mlflow
 import shutil
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -63,6 +65,9 @@ _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
+
+MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -131,6 +136,7 @@ def log_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -183,8 +189,9 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -225,6 +232,10 @@ def log_model(
                       If ``None``, no extra files are added to the model.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
@@ -236,6 +247,7 @@ def log_model(
         import torch
         import mlflow.pytorch
 
+
         class LinearNNModel(torch.nn.Module):
             def __init__(self):
                 super().__init__()
@@ -245,6 +257,7 @@ def log_model(
                 y_pred = self.linear(x)
                 return y_pred
 
+
         def gen_data():
             # Example linear model modified to use y = 2x
             # from https://github.com/hunkim/PyTorchZeroToAll
@@ -252,6 +265,7 @@ def log_model(
             X = torch.arange(1.0, 25.0).view(-1, 1)
             y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
             return X, y
+
 
         # Define model, loss, and optimizer
         model = LinearNNModel()
@@ -284,8 +298,9 @@ def log_model(
         # Fetch the logged model artifacts
         print("run_id: {}".format(run.info.run_id))
         for artifact_path in ["model/data", "scripted_model/data"]:
-            artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
-                        artifact_path)]
+            artifacts = [
+                f.path for f in MlflowClient().list_artifacts(run.info.run_id, artifact_path)
+            ]
             print("artifacts: {}".format(artifacts))
 
     .. code-block:: text
@@ -317,6 +332,7 @@ def log_model(
         extra_files=extra_files,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         **kwargs,
     )
 
@@ -335,6 +351,7 @@ def save_model(
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    metadata=None,
     **kwargs,
 ):
     """
@@ -376,8 +393,9 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
+
                         train = df.drop_column("target_label")
-                        predictions = ... # compute model predictions
+                        predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
@@ -414,6 +432,10 @@ def save_model(
                       If ``None``, no extra files are added to the model.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -427,6 +449,7 @@ def save_model(
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
+
 
         # Initialize our model, criterion and optimizer
         ...
@@ -486,6 +509,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
+    if metadata is not None:
+        mlflow_model.metadata = metadata
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -682,6 +707,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
+
 
         # Initialize our model, criterion and optimizer
         ...
@@ -895,13 +921,19 @@ def autolog(
     <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
     an expansive example with implementation of additional lightening steps.
 
-    **Note**: Autologging is only supported for PyTorch Lightning models,
+    **Note**: Full autologging is only supported for PyTorch Lightning models,
     i.e., models that subclass
     `pytorch_lightning.LightningModule \
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla PyTorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
-    is not yet available.
+    Autologging support for vanilla PyTorch (ie models that only subclass
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_)
+    only autologs calls to
+    `torch.utils.tensorboard.SummaryWriter <https://pytorch.org/docs/stable/tensorboard.html>`_'s
+    ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
+    no notion of an "epoch".
+
+    .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
+              MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
@@ -949,6 +981,7 @@ def autolog(
         # loop step, (no validation, no testing). It illustrates how you can use MLflow
         # to auto log parameters, metrics, and models.
 
+
         class MNISTModel(pl.LightningModule):
             def __init__(self):
                 super().__init__()
@@ -972,6 +1005,7 @@ def autolog(
             def configure_optimizers(self):
                 return torch.optim.Adam(self.parameters(), lr=0.02)
 
+
         def print_auto_logged_info(r):
 
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
@@ -982,12 +1016,14 @@ def autolog(
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
 
+
         # Initialize our model
         mnist_model = MNISTModel()
 
         # Initialize DataLoader from MNIST Dataset
-        train_ds = MNIST(os.getcwd(), train=True,
-            download=True, transform=transforms.ToTensor())
+        train_ds = MNIST(
+            os.getcwd(), train=True, download=True, transform=transforms.ToTensor()
+        )
         train_loader = DataLoader(train_ds, batch_size=32)
 
         # Initialize a trainer
@@ -1027,7 +1063,50 @@ def autolog(
 
         PyTorch autologged MLflow entities
     """
-    import pytorch_lightning as pl
-    from mlflow.pytorch._pytorch_autolog import patched_fit
+    import atexit
 
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    try:
+        import pytorch_lightning as pl
+        from mlflow.pytorch._lightning_autolog import patched_fit
+
+        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    except ImportError:
+        pass
+
+    from mlflow.pytorch._pytorch_autolog import (
+        patched_add_event,
+        patched_add_hparams,
+        patched_add_summary,
+        _flush_queue,
+    )
+
+    import torch.utils.tensorboard.writer
+
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.writer.FileWriter,
+        "add_event",
+        partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
+        manage_run=True,
+    )
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.writer.FileWriter,
+        "add_summary",
+        patched_add_summary,
+        manage_run=True,
+    )
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.SummaryWriter,
+        "add_hparams",
+        patched_add_hparams,
+        manage_run=True,
+    )
+
+    atexit.register(_flush_queue)
+
+
+autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
+    "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
+)

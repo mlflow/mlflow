@@ -31,4 +31,16 @@ describe('ErrorWrapper', () => {
     const error = new ErrorWrapper('a{waefaw', 400).getErrorCode();
     expect(error).toEqual('INTERNAL_ERROR');
   });
+
+  it('ErrorWrapper.is4xxError correctly detects 4XX error', () => {
+    const error401 = new ErrorWrapper('{}', 401);
+    const error404 = new ErrorWrapper('{}', 404);
+    const error503 = new ErrorWrapper('{}', 503);
+    const errorUncategorized = new ErrorWrapper('some textual error');
+
+    expect(error401.is4xxError()).toEqual(true);
+    expect(error404.is4xxError()).toEqual(true);
+    expect(error503.is4xxError()).toEqual(false);
+    expect(errorUncategorized.is4xxError()).toEqual(false);
+  });
 });

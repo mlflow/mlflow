@@ -48,9 +48,9 @@ def register_model(
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-           rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
-           mlflow.log_params(params)
-           mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            mlflow.log_params(params)
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
         model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
