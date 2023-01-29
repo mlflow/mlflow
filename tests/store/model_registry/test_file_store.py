@@ -1,6 +1,7 @@
 import time
 import uuid
 from unittest import mock
+from typing import NamedTuple, List
 
 import pytest
 
@@ -801,6 +802,11 @@ def test_search_model_versions_by_tag(store):
     assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
 
+class SearchRegisteredModelsResult(NamedTuple):
+    names: List[str]
+    token: str
+
+
 def _search_registered_models(
     fs, filter_string=None, max_results=10, order_by=None, page_token=None
 ):
@@ -810,7 +816,10 @@ def _search_registered_models(
         order_by=order_by,
         page_token=page_token,
     )
-    return [registered_model.name for registered_model in result], result.token
+    return SearchRegisteredModelsResult(
+        names=[registered_model.name for registered_model in result],
+        token=result.token,
+    )
 
 
 def test_search_registered_models(store):
@@ -821,67 +830,67 @@ def test_search_registered_models(store):
         store.create_registered_model(name)
 
     # search with no filter should return all registered models
-    rms, _ = _search_registered_models(store, None)
-    assert rms == names
+    res = _search_registered_models(store, None)
+    assert res.names == names
 
     # equality search using name should return exactly the 1 name
-    rms, _ = _search_registered_models(store, f"name='{names[0]}'")
-    assert rms == [names[0]]
+    res = _search_registered_models(store, f"name='{names[0]}'")
+    assert res.names == [names[0]]
 
     # equality search using name that is not valid should return nothing
-    rms, _ = _search_registered_models(store, f"name='{names[0]}cats'")
-    assert rms == []
+    res = _search_registered_models(store, f"name='{names[0]}cats'")
+    assert res.names == []
 
     # case-sensitive prefix search using LIKE should return all the RMs
-    rms, _ = _search_registered_models(store, f"name LIKE '{prefix}%'")
-    assert rms == names
+    res = _search_registered_models(store, f"name LIKE '{prefix}%'")
+    assert res.names == names
 
     # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
-    rms, _ = _search_registered_models(store, "name LIKE '%RM%'")
-    assert rms == names
+    res = _search_registered_models(store, "name LIKE '%RM%'")
+    assert res.names == names
 
     # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
     # _e% matches test_for_search_ , so all RMs should match
-    rms, _ = _search_registered_models(store, "name LIKE '_e%'")
-    assert rms == names
+    res = _search_registered_models(store, "name LIKE '_e%'")
+    assert res.names == names
 
     # case-sensitive prefix search using LIKE should return just rm4
-    rms, _ = _search_registered_models(store, f"name LIKE '{prefix}RM4A%'")
-    assert rms == [names[4]]
+    res = _search_registered_models(store, f"name LIKE '{prefix}RM4A%'")
+    assert res.names == [names[4]]
 
     # case-sensitive prefix search using LIKE should return no models if no match
-    rms, _ = _search_registered_models(store, f"name LIKE '{prefix}cats%'")
-    assert rms == []
+    res = _search_registered_models(store, f"name LIKE '{prefix}cats%'")
+    assert res.names == []
 
     # confirm that LIKE is not case-sensitive
-    rms, _ = _search_registered_models(store, "name lIkE '%blah%'")
-    assert rms == []
+    res = _search_registered_models(store, "name lIkE '%blah%'")
+    assert res.names == []
 
-    rms, _ = _search_registered_models(store, f"name like '{prefix}RM4A%'")
-    assert rms == [names[4]]
+    res = _search_registered_models(store, f"name like '{prefix}RM4A%'")
+    assert res.names == [names[4]]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'")
-    assert rms == names[4:]
+    res = _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'")
+    assert res.names == names[4:]
 
     # case-insensitive postfix search with ILIKE
-    rms, _ = _search_registered_models(store, "name ILIKE '%RM4a%'")
-    assert rms == names[4:]
+    res = _search_registered_models(store, "name ILIKE '%RM4a%'")
+    assert res.names == names[4:]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(store, f"name ILIKE '{prefix}cats%'")
-    assert rms == []
+    res = _search_registered_models(store, f"name ILIKE '{prefix}cats%'")
+    assert res.names == []
 
     # confirm that ILIKE is not case-sensitive
-    rms, _ = _search_registered_models(store, "name iLike '%blah%'")
-    assert rms == []
+    res = _search_registered_models(store, "name iLike '%blah%'")
+    assert res.names == []
 
     # confirm that ILIKE works for empty query
-    rms, _ = _search_registered_models(store, "name iLike '%%'")
-    assert rms == names
+    res = _search_registered_models(store, "name iLike '%%'")
+    assert res.names == names
 
-    rms, _ = _search_registered_models(store, "name ilike '%RM4a%'")
-    assert rms == names[4:]
+    res = _search_registered_models(store, "name ilike '%RM4a%'")
+    assert res.names == names[4:]
 
     # cannot search by invalid comparator types
     with pytest.raises(
@@ -917,22 +926,22 @@ def test_search_registered_models(store):
 
     # delete last registered model. search should not return the first 5
     store.delete_registered_model(name=names[-1])
-    assert _search_registered_models(store, None, max_results=1000) == (names[:-1], None)
+    res = _search_registered_models(store, None, max_results=1000)
+    assert res.names == names[:-1]
+    assert res.token is None
 
     # equality search using name should return no names
     assert _search_registered_models(store, f"name='{names[-1]}'") == ([], None)
 
     # case-sensitive prefix search using LIKE should return all the RMs
-    assert _search_registered_models(store, f"name LIKE '{prefix}%'") == (
-        names[0:5],
-        None,
-    )
+    res = _search_registered_models(store, f"name LIKE '{prefix}%'")
+    assert res.names == names[0:5]
+    assert res.token is None
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    assert _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'") == (
-        [names[4]],
-        None,
-    )
+    res = _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'")
+    assert res.names == [names[4]]
+    assert res.token is None
 
 
 def test_search_registered_models_by_tag(store):
@@ -950,33 +959,33 @@ def test_search_registered_models_by_tag(store):
     store.create_registered_model(name1, tags1)
     store.create_registered_model(name2, tags2)
 
-    rms, _ = _search_registered_models(store, "tag.t3 = 'XYZ'")
-    assert rms == [name2]
+    res = _search_registered_models(store, "tag.t3 = 'XYZ'")
+    assert res.names == [name2]
 
-    rms, _ = _search_registered_models(store, f"name = '{name1}' and tag.t1 = 'abc'")
-    assert rms == [name1]
+    res = _search_registered_models(store, f"name = '{name1}' and tag.t1 = 'abc'")
+    assert res.names == [name1]
 
-    rms, _ = _search_registered_models(store, "tag.t1 LIKE 'ab%'")
-    assert rms == [name1, name2]
+    res = _search_registered_models(store, "tag.t1 LIKE 'ab%'")
+    assert res.names == [name1, name2]
 
-    rms, _ = _search_registered_models(store, "tag.t1 ILIKE 'aB%'")
-    assert rms == [name1, name2]
+    res = _search_registered_models(store, "tag.t1 ILIKE 'aB%'")
+    assert res.names == [name1, name2]
 
-    rms, _ = _search_registered_models(store, "tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
-    assert rms == [name1, name2]
+    res = _search_registered_models(store, "tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
+    assert res.names == [name1, name2]
 
-    rms, _ = _search_registered_models(store, "tag.t3 = 'XYz'")
-    assert rms == []
+    res = _search_registered_models(store, "tag.t3 = 'XYz'")
+    assert res.names == []
 
-    rms, _ = _search_registered_models(store, "tag.T3 = 'XYZ'")
-    assert rms == []
+    res = _search_registered_models(store, "tag.T3 = 'XYZ'")
+    assert res.names == []
 
-    rms, _ = _search_registered_models(store, "tag.t1 != 'abc'")
-    assert rms == [name2]
+    res = _search_registered_models(store, "tag.t1 != 'abc'")
+    assert res.names == [name2]
 
     # test filter with duplicated keys
-    rms, _ = _search_registered_models(store, "tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
-    assert rms == [name1]
+    res = _search_registered_models(store, "tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
+    assert res.names == [name1]
 
 
 def test_search_registered_models_order_by_simple(store):
@@ -988,17 +997,17 @@ def test_search_registered_models_order_by_simple(store):
         time.sleep(0.001)  # sleep for windows store timestamp precision issues
 
     # by default order by name ASC
-    rms, _ = _search_registered_models(store)
-    assert rms == names
+    res = _search_registered_models(store)
+    assert res.names == names
 
     # order by name DESC
-    rms, _ = _search_registered_models(store, order_by=["name DESC"])
-    assert rms == names[::-1]
+    res = _search_registered_models(store, order_by=["name DESC"])
+    assert res.names == names[::-1]
 
     # order by last_updated_timestamp ASC
     store.update_registered_model(names[0], "latest updated")
-    rms, _ = _search_registered_models(store, order_by=["last_updated_timestamp ASC"])
-    assert rms[-1] == names[0]
+    res = _search_registered_models(store, order_by=["last_updated_timestamp ASC"])
+    assert res.names[-1] == names[0]
 
 
 def test_search_registered_model_pagination(store):
@@ -1007,31 +1016,31 @@ def test_search_registered_model_pagination(store):
     # test flow with fixed max_results
     returned_rms = []
     query = "name LIKE 'RM%'"
-    result, token = _search_registered_models(store, query, page_token=None, max_results=5)
-    returned_rms.extend(result)
-    while token:
-        result, token = _search_registered_models(store, query, page_token=token, max_results=5)
-        returned_rms.extend(result)
-    assert rms == returned_rms
+    res = _search_registered_models(store, query, page_token=None, max_results=5)
+    returned_rms.extend(res.names)
+    while res.token:
+        res = _search_registered_models(store, query, page_token=res.token, max_results=5)
+        returned_rms.extend(res.names)
+    assert returned_rms == rms
 
     # test that pagination will return all valid results in sorted order
     # by name ascending
-    result, token1 = _search_registered_models(store, query, max_results=5)
-    assert token1 is not None
-    assert result == rms[0:5]
+    res = _search_registered_models(store, query, max_results=5)
+    assert res.token is not None
+    assert res.names == rms[0:5]
 
-    result, token2 = _search_registered_models(store, query, page_token=token1, max_results=10)
-    assert token2 is not None
-    assert result == rms[5:15]
+    res = _search_registered_models(store, query, page_token=res.token, max_results=10)
+    assert res.token is not None
+    assert res.names == rms[5:15]
 
-    result, token3 = _search_registered_models(store, query, page_token=token2, max_results=20)
-    assert token3 is not None
-    assert result == rms[15:35]
+    res = _search_registered_models(store, query, page_token=res.token, max_results=20)
+    assert res.token is not None
+    assert res.names == rms[15:35]
 
-    result, token4 = _search_registered_models(store, query, page_token=token3, max_results=100)
+    res = _search_registered_models(store, query, page_token=res.token, max_results=100)
     # assert that page token is None
-    assert token4 is None
-    assert result == rms[35:]
+    assert res.token is None
+    assert res.names == rms[35:]
 
     # test that providing a completely invalid page token throws
     with pytest.raises(
@@ -1068,27 +1077,27 @@ def test_search_registered_model_order_by(store):
         )
         returned_rms.extend(result)
     # name descending should be the opposite order of the current order
-    assert rms[::-1] == returned_rms
+    assert returned_rms == rms[::-1]
     # last_updated_timestamp descending should have the newest RMs first
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
     )
-    assert rms[::-1] == result
+    assert res.names == rms[::-1]
     # last_updated_timestamp ascending should have the oldest RMs first
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store, query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
     )
-    assert rms == result
+    assert res.names == rms
     # name ascending should have the original order
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store, query, page_token=None, order_by=["name ASC"], max_results=100
     )
-    assert rms == result
+    assert res.names == rms
     # test that no ASC/DESC defaults to ASC
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store, query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
     )
-    assert rms == result
+    assert res.names == rms
     with mock.patch(
         "mlflow.store.model_registry.file_store.get_current_time_millis", return_value=1
     ):
@@ -1101,24 +1110,22 @@ def test_search_registered_model_order_by(store):
         rm4 = store.create_registered_model("MR4").name
     query = "name LIKE 'MR%'"
     # test with multiple clauses
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store,
         query,
         page_token=None,
         order_by=["last_updated_timestamp ASC", "name DESC"],
         max_results=100,
     )
-    assert [rm2, rm1, rm4, rm3] == result
+    assert res.names == [rm2, rm1, rm4, rm3]
     # confirm that name ascending is the default, even if ties exist on other fields
-    result, _ = _search_registered_models(
-        store, query, page_token=None, order_by=[], max_results=100
-    )
-    assert [rm1, rm2, rm3, rm4] == result
+    res = _search_registered_models(store, query, page_token=None, order_by=[], max_results=100)
+    assert res.names == [rm1, rm2, rm3, rm4]
     # test default tiebreak with descending timestamps
-    result, _ = _search_registered_models(
+    res = _search_registered_models(
         store, query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
     )
-    assert [rm3, rm4, rm1, rm2] == result
+    assert res.names == [rm3, rm4, rm1, rm2]
 
 
 def test_search_registered_model_order_by_errors(store):
