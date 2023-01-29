@@ -386,8 +386,7 @@ def test_create_model_version(store):
     name = "test_for_create_MV"
     store.create_registered_model(name)
     run_id = uuid.uuid4().hex
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 456778
+    with mock.patch("time.time", return_value=456778):
         mv1 = store.create_model_version(name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1
@@ -1090,10 +1089,14 @@ def test_search_registered_model_order_by(store):
         store, query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
     )
     assert rms == result
-    with mock.patch("mlflow.store.model_registry.file_store.now", return_value=1):
+    with mock.patch(
+        "mlflow.store.model_registry.file_store.get_current_time_millis", return_value=1
+    ):
         rm1 = store.create_registered_model("MR1").name
         rm2 = store.create_registered_model("MR2").name
-    with mock.patch("mlflow.store.model_registry.file_store.now", return_value=2):
+    with mock.patch(
+        "mlflow.store.model_registry.file_store.get_current_time_millis", return_value=2
+    ):
         rm3 = store.create_registered_model("MR3").name
         rm4 = store.create_registered_model("MR4").name
     query = "name LIKE 'MR%'"
