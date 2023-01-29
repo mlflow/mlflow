@@ -19,14 +19,14 @@ def store(tmp_path):
 
 
 @pytest.fixture
-def registered_models_names():
+def registered_model_names():
     return [random_str() for _ in range(3)]
 
 
 @pytest.fixture
-def rm_data(registered_models_names, tmp_path):
+def rm_data(registered_model_names, tmp_path):
     rm_data = {}
-    for name in registered_models_names:
+    for name in registered_model_names:
         # create registered model
         rm_folder = tmp_path.joinpath(FileStore.MODELS_FOLDER_NAME, name)
         rm_folder.mkdir(parents=True, exist_ok=True)
@@ -47,11 +47,10 @@ def rm_data(registered_models_names, tmp_path):
 
 
 def test_create_registered_model(store):
-
     # Error cases
-    with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
         store.create_registered_model(None)
-    with pytest.raises(MlflowException, match="Registered model name cannot be empty."):
+    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
         store.create_registered_model("")
 
     name = random_str()
@@ -72,35 +71,31 @@ def _verify_registered_model(fs, name, rm_data):
     assert rm.tags == rm_data[name]["tags"]
 
 
-def test_get_registered_model(store, registered_models_names, rm_data):
-    for name in registered_models_names:
-
+def test_get_registered_model(store, registered_model_names, rm_data):
+    for name in registered_model_names:
         _verify_registered_model(store, name, rm_data)
 
     # test that fake registered models dont exist.
-    for name in {random_str(25) for _ in range(10)}:
-        with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
-            store.get_registered_model(name)
+    name = random_str()
+    with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
+        store.get_registered_model(name)
 
 
-def test_list_registered_model(store, registered_models_names, rm_data):
+def test_list_registered_model(store, registered_model_names, rm_data):
     for rm in store.list_registered_models(max_results=10, page_token=None):
         name = rm.name
-        assert name in registered_models_names
+        assert name in registered_model_names
         assert name == rm_data[name]["name"]
 
 
-def test_rename_registered_model(store, registered_models_names, rm_data):
-    model_name = registered_models_names[random_int(0, len(registered_models_names) - 1)]
+def test_rename_registered_model(store, registered_model_names, rm_data):
     # Error cases
+    model_name = registered_model_names[0]
     with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
         store.rename_registered_model(model_name, None)
-    # test that names of existing registered models are checked before renaming
 
-    for name in registered_models_names:
-        if name != model_name:
-            other_model_name = name
-            break
+    # test that names of existing registered models are checked before renaming
+    other_model_name = registered_model_names[1]
     with pytest.raises(
         MlflowException, match=rf"Registered Model \(name={other_model_name}\) already exists\."
     ):
@@ -115,8 +110,8 @@ def _extract_names(registered_models):
     return [rm.name for rm in registered_models]
 
 
-def test_delete_registered_model(store, registered_models_names, rm_data):
-    model_name = registered_models_names[random_int(0, len(registered_models_names) - 1)]
+def test_delete_registered_model(store, registered_model_names, rm_data):
+    model_name = registered_model_names[random_int(0, len(registered_model_names) - 1)]
 
     # Error cases
     with pytest.raises(
@@ -144,9 +139,8 @@ def test_list_registered_model_paginated(store):
     assert rms2.token is not None
     assert rms1 == rms2
     rms3 = store.list_registered_models(max_results=500, page_token=rms2.token)
-    assert len(rms3) <= 500
-    if len(rms3) < 500:
-        assert rms3.token is None
+    assert len(rms3) == 6
+    assert rms3.token is None
 
 
 def test_list_registered_model_paginated_returns_in_correct_order(store):
