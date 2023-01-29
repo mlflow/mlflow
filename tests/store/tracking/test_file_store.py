@@ -252,7 +252,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert [e.experiment_id for e in experiments] == [exp_id1, self.store.DEFAULT_EXPERIMENT_ID]
 
         now = get_current_time_millis()
-        experiments = self.store.search_experiments(filter_string=f"creation_time >= {now}")
+        experiments = self.store.search_experiments(filter_string=f"creation_time > {now}")
         assert experiments == []
 
         time_before_rename = get_current_time_millis()

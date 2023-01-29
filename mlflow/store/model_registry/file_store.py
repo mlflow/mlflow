@@ -56,10 +56,7 @@ from mlflow.utils.file_utils import (
     list_all,
     local_file_uri_to_path,
 )
-
-
-def now():
-    return int(time.time() * 1000)
+from mlflow.utils.time_utils import get_current_time_millis
 
 
 _REGISTRY_DIR_ENV_VAR = "MLFLOW_REGISTRY_DIR"
@@ -151,7 +148,7 @@ class FileStore(AbstractStore):
             _validate_registered_model_tag(tag.key, tag.value)
         meta_dir = self._get_registered_model_path(name)
         mkdir(meta_dir)
-        creation_time = now()
+        creation_time = get_current_time_millis()
         latest_versions = []
         registered_model = RegisteredModel(
             name=name,
@@ -190,7 +187,7 @@ class FileStore(AbstractStore):
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         registered_model = self.get_registered_model(name)
-        updated_time = now()
+        updated_time = get_current_time_millis()
         registered_model.description = description
         registered_model.last_updated_timestamp = updated_time
         self._save_registered_model_as_meta_file(registered_model)
@@ -215,7 +212,7 @@ class FileStore(AbstractStore):
         new_meta_dir = self._get_registered_model_path(new_name)
         if not exists(new_meta_dir):
             mkdir(new_meta_dir)
-            updated_time = now()
+            updated_time = get_current_time_millis()
             registered_model.name = new_name
             registered_model.last_updated_timestamp = updated_time
             self._save_registered_model_as_meta_file(
@@ -430,7 +427,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_registered_model_tag_path(name, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
-        updated_time = now()
+        updated_time = get_current_time_millis()
         self._update_registered_model_last_updated_time(name, updated_time)
 
     def delete_registered_model_tag(self, name, key):
@@ -444,7 +441,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_registered_model_tag_path(name, key)
         if exists(tag_path):
             os.remove(tag_path)
-            updated_time = now()
+            updated_time = get_current_time_millis()
             self._update_registered_model_last_updated_time(name, updated_time)
 
     # CRUD API for ModelVersion objects
@@ -525,7 +522,7 @@ class FileStore(AbstractStore):
             _validate_model_version_tag(tag.key, tag.value)
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
             try:
-                creation_time = now()
+                creation_time = get_current_time_millis()
                 registered_model = self.get_registered_model(name)
                 registered_model.last_updated_timestamp = creation_time
                 version = next_version(name)
@@ -574,7 +571,7 @@ class FileStore(AbstractStore):
         :param description: New model description.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        updated_time = now()
+        updated_time = get_current_time_millis()
         model_version = self.get_model_version(name=name, version=version)
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
@@ -602,7 +599,7 @@ class FileStore(AbstractStore):
             )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
-        last_updated_time = now()
+        last_updated_time = get_current_time_millis()
         model_versions = []
         if archive_existing_versions:
             registered_model_path = self._get_registered_model_path(name)
@@ -630,7 +627,7 @@ class FileStore(AbstractStore):
         """
         model_version = self.get_model_version(name=name, version=version)
         model_version.current_stage = STAGE_DELETED_INTERNAL
-        updated_time = now()
+        updated_time = get_current_time_millis()
         model_version.last_updated_timestamp = updated_time
         self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, updated_time)
@@ -746,7 +743,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_registered_model_version_tag_path(name, version, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
-        updated_time = now()
+        updated_time = get_current_time_millis()
         self._update_registered_model_last_updated_time(name, updated_time)
 
     def delete_model_version_tag(self, name, version, key):
@@ -761,7 +758,7 @@ class FileStore(AbstractStore):
         tag_path = self._get_registered_model_version_tag_path(name, version, key)
         if exists(tag_path):
             os.remove(tag_path)
-            updated_time = now()
+            updated_time = get_current_time_millis()
             self._update_registered_model_last_updated_time(name, updated_time)
 
     @staticmethod
