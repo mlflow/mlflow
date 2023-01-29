@@ -201,7 +201,7 @@ def _create_model_version(
     )
 
 
-def _extract_latest_by_stage(latest_versions):
+def _stage_to_version_map(latest_versions):
     return {mvd.current_stage: mvd.version for mvd in latest_versions}
 
 
@@ -213,7 +213,7 @@ def test_get_latest_versions(store):
     mv1 = _create_model_version(store, name)
     assert mv1.version == 1
     rmd2 = store.get_registered_model(name)
-    assert _extract_latest_by_stage(rmd2.latest_versions) == {"None": 1}
+    assert _stage_to_version_map(rmd2.latest_versions) == {"None": 1}
 
     # add a bunch more
     mv2 = _create_model_version(store, name)
@@ -235,54 +235,50 @@ def test_get_latest_versions(store):
 
     # test that correct latest versions are returned for each stage
     rmd4 = store.get_registered_model(name)
-    assert _extract_latest_by_stage(rmd4.latest_versions) == {
+    assert _stage_to_version_map(rmd4.latest_versions) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=None)) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=[])) == {
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=[])) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=["Production"])
-    ) == {"Production": 3}
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=["production"])
-    ) == {
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["Production"])) == {
+        "Production": 3
+    }
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["production"])) == {
         "Production": 3
     }  # The stages are case insensitive.
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=["pROduction"])
-    ) == {
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["pROduction"])) == {
         "Production": 3
     }  # The stages are case insensitive.
-    assert _extract_latest_by_stage(
+    assert _stage_to_version_map(
         store.get_latest_versions(name=name, stages=["None", "Production"])
     ) == {"None": 1, "Production": 3}
 
     # delete latest Production, and should point to previous one
     store.delete_model_version(name=mv3.name, version=mv3.version)
     rmd5 = store.get_registered_model(name=name)
-    assert _extract_latest_by_stage(rmd5.latest_versions) == {
+    assert _stage_to_version_map(rmd5.latest_versions) == {
         "None": 1,
         "Production": 2,
         "Staging": 4,
     }
-    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=None)) == {
         "None": 1,
         "Production": 2,
         "Staging": 4,
     }
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=["Production"])
-    ) == {"Production": 2}
+    assert _stage_to_version_map(store.get_latest_versions(name=name, stages=["Production"])) == {
+        "Production": 2
+    }
 
 
 def test_set_registered_model_tag(store):
