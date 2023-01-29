@@ -100,9 +100,7 @@ def test_get_registered_model(store, registered_models_names, rm_data):
 
     # test that fake registered models dont exist.
     for name in {random_str(25) for _ in range(10)}:
-        with pytest.raises(
-            MlflowException, match=f"Could not find registered model with name {name}"
-        ):
+        with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
             store.get_registered_model(name)
 
 
@@ -141,7 +139,7 @@ def test_delete_registered_model(store, registered_models_names, rm_data):
 
     # Error cases
     with pytest.raises(
-        MlflowException, match=f"Could not find registered model with name {model_name}!!!"
+        MlflowException, match=f"Registered Model with name={model_name}!!! not found"
     ):
         store.delete_registered_model(model_name + "!!!")
 
@@ -150,9 +148,7 @@ def test_delete_registered_model(store, registered_models_names, rm_data):
         store.list_registered_models(max_results=10, page_token=None)
     )
     # Cannot delete a deleted model
-    with pytest.raises(
-        MlflowException, match=f"Could not find registered model with name {model_name}"
-    ):
+    with pytest.raises(MlflowException, match=f"Registered Model with name={model_name} not found"):
         store.delete_registered_model(model_name)
 
 
@@ -342,7 +338,7 @@ def test_set_registered_model_tag(store):
     # can not set tag on deleted (non-existed) registered model
     store.delete_registered_model(name1)
     with pytest.raises(
-        MlflowException, match=f"Could not find registered model with name {name1}"
+        MlflowException, match=f"Registered Model with name={name1} not found"
     ) as exception_context:
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -399,7 +395,7 @@ def test_delete_registered_model_tag(store):
     # can not delete tag on deleted (non-existed) registered model
     store.delete_registered_model(name1)
     with pytest.raises(
-        MlflowException, match=f"Could not find registered model with name {name1}"
+        MlflowException, match=f"Registered Model with name={name1} not found"
     ) as exception_context:
         store.delete_registered_model_tag(name1, "anotherKey")
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
