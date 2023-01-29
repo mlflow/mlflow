@@ -9,7 +9,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
 from collections import namedtuple
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.helper_functions import is_local_os_windows
 
 
 Artifact = namedtuple("Artifact", ["uri", "content"])

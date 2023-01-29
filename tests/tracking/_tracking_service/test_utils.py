@@ -27,7 +27,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.helper_functions import is_local_os_windows
 
 # pylint: disable=unused-argument
 

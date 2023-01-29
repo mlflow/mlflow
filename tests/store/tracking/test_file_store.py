@@ -28,6 +28,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
+from mlflow.utils.helper_functions import is_local_os_windows
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
@@ -39,7 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
 )
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml, is_local_os_windows
+from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"

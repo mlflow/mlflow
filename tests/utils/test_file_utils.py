@@ -24,9 +24,10 @@ from mlflow.utils.file_utils import (
     _handle_readonly_on_windows,
     local_file_uri_to_path,
 )
+from mlflow.utils.helper_functions import is_local_os_windows
 from tests.projects.utils import TEST_PROJECT_DIR
 
-from tests.helper_functions import random_int, random_file, safe_edit_yaml, is_local_os_windows
+from tests.helper_functions import random_int, random_file, safe_edit_yaml
 
 
 @pytest.fixture(scope="module")

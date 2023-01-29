@@ -51,6 +51,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.helper_functions import is_local_os_windows
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
@@ -64,7 +65,6 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
-from tests.helper_functions import is_local_os_windows
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"

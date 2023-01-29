@@ -21,7 +21,7 @@ from mlflow.utils.uri import (
     dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
 )
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.helper_functions import is_local_os_windows
 
 
 def test_extract_db_type_from_uri():

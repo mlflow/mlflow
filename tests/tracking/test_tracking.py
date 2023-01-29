@@ -33,7 +33,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.helper_functions import is_local_os_windows
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 

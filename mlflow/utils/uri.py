@@ -1,12 +1,12 @@
 import pathlib
 import posixpath
 import urllib.parse
-import platform
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.validation import _validate_db_type_string
+from mlflow.utils.helper_functions import is_local_os_windows
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -306,7 +306,7 @@ def resolve_uri_if_local(local_uri):
         local_path = local_file_uri_to_path(local_uri)
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
-                if platform.system().lower() == "windows":
+                if is_local_os_windows():
                     return urllib.parse.urlunsplit(
                         (
                             "file",

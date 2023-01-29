@@ -39,6 +39,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.helper_functions import is_local_os_windows
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -46,7 +47,6 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
-from tests.helper_functions import is_local_os_windows
 
 
 _logger = logging.getLogger(__name__)

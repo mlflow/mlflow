@@ -2,7 +2,6 @@ import codecs
 import errno
 import gzip
 import os
-import platform
 import posixpath
 import shutil
 import sys
@@ -31,6 +30,7 @@ from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
+from mlflow.utils.helper_functions import is_local_os_windows
 
 ENCODING = "utf-8"
 
@@ -540,7 +540,7 @@ def local_file_uri_to_path(uri):
         parsed_path = urllib.parse.urlparse(uri)
         path = parsed_path.path
         # Fix for retaining server name in UNC path.
-        if platform.system().lower() == "windows" and parsed_path.hostname:
+        if is_local_os_windows() and parsed_path.hostname:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
     return urllib.request.url2pathname(path)
 
