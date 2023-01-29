@@ -1,54 +1,36 @@
-import os
 import time
 import uuid
 from unittest import mock
 
 import pytest
 
-from mlflow.entities.model_registry import (
-    ModelVersion,
-    ModelVersionTag,
-    RegisteredModelTag,
-)
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-    ErrorCode,
-)
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
+from mlflow.utils.time_utils import get_current_time_millis
 from tests.helper_functions import random_int, random_str
 
 
-def now():
-    return int(time.time() * 1000)
+@pytest.fixture
+def store(tmp_path):
+    return FileStore(str(tmp_path))
 
 
-@pytest.fixture()
-def test_root(tmp_path_factory):
-    tmp_path = str(tmp_path_factory.mktemp("test_root") / f"test_file_store_{random_int()}")
-    return tmp_path
-
-
-@pytest.fixture()
-def store(test_root):
-    return FileStore(test_root)
-
-
-@pytest.fixture()
+@pytest.fixture
 def registered_models_names():
     return [random_str() for _ in range(3)]
 
 
-@pytest.fixture()
-def rm_data(registered_models_names, test_root):
+@pytest.fixture
+def rm_data(registered_models_names, tmp_path):
     rm_data = {}
     for name in registered_models_names:
         # create registered model
-        creation_time = now()
-        rm_folder = os.path.join(test_root, FileStore.MODELS_FOLDER_NAME, name)
-        os.makedirs(rm_folder)
+        rm_folder = tmp_path.joinpath(FileStore.MODELS_FOLDER_NAME, name)
+        rm_folder.mkdir(parents=True, exist_ok=True)
+        creation_time = get_current_time_millis()
         d = {
             "name": name,
             "creation_timestamp": creation_time,
@@ -59,12 +41,9 @@ def rm_data(registered_models_names, test_root):
         }
         rm_data[name] = d
         write_yaml(rm_folder, FileStore.META_DATA_FILE_NAME, d)
-        os.makedirs(os.path.join(rm_folder, FileStore.TAGS_FOLDER_NAME))
+        tags_dir = rm_folder.joinpath(FileStore.TAGS_FOLDER_NAME)
+        tags_dir.mkdir(parents=True, exist_ok=True)
     return rm_data
-
-
-def _extract_names(registered_models):
-    return [rm.name for rm in registered_models]
 
 
 def test_create_registered_model(store):
@@ -107,7 +86,7 @@ def test_get_registered_model(store, registered_models_names, rm_data):
 def test_list_registered_model(store, registered_models_names, rm_data):
     for rm in store.list_registered_models(max_results=10, page_token=None):
         name = rm.name
-        assert name in registered_models_names, "Not found in registered modules"
+        assert name in registered_models_names
         assert name == rm_data[name]["name"]
 
 
@@ -123,19 +102,21 @@ def test_rename_registered_model(store, registered_models_names, rm_data):
             other_model_name = name
             break
     with pytest.raises(
-        MlflowException, match=rf"Registered Model \(name={other_model_name}\) already exists."
+        MlflowException, match=rf"Registered Model \(name={other_model_name}\) already exists\."
     ):
         store.rename_registered_model(model_name, other_model_name)
 
     new_name = model_name + "!!!"
-    assert model_name != new_name
     store.rename_registered_model(model_name, new_name)
     assert store.get_registered_model(new_name).name == new_name
 
 
+def _extract_names(registered_models):
+    return [rm.name for rm in registered_models]
+
+
 def test_delete_registered_model(store, registered_models_names, rm_data):
     model_name = registered_models_names[random_int(0, len(registered_models_names) - 1)]
-    # print(store.list_registered_models(max_results=10, page_token=None))
 
     # Error cases
     with pytest.raises(
@@ -206,7 +187,7 @@ def test_list_registered_model_paginated_errors(store):
         store.list_registered_models(page_token="evilhax", max_results=1e15)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # list should not return deleted models
-    store.delete_registered_model(name="RM{:03}".format(0))
+    store.delete_registered_model(name="RM000")
     assert set(
         _extract_names(store.list_registered_models(max_results=100, page_token=None))
     ) == set(rms[1:])
@@ -322,7 +303,7 @@ def test_set_registered_model_tag(store):
     new_tag = RegisteredModelTag("randomTag", "not a random value")
     store.set_registered_model_tag(name1, new_tag)
     rm1 = store.get_registered_model(name=name1)
-    all_tags = initial_tags + [new_tag]
+    all_tags = [*initial_tags, new_tag]
     assert rm1.tags == {tag.key: tag.value for tag in all_tags}
 
     # test overriding a tag with the same key
@@ -507,8 +488,8 @@ def test_update_model_version(store):
     with pytest.raises(
         MlflowException,
         match=(
-            "Invalid Model Version stage: unknown. "
-            "Value must be one of None, Staging, Production, Archived."
+            r"Invalid Model Version stage: unknown\. "
+            r"Value must be one of None, Staging, Production, Archived\."
         ),
     ) as exception_context:
         store.transition_model_version_stage(
@@ -676,13 +657,13 @@ def test_search_model_versions(store):
         return [mvd.version for mvd in store.search_model_versions(filter_string)]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using run_id_1 should return version 1
-    assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
+    assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
 
     # search using run_id_2 should return versions 2 and 3
-    assert set(search_versions("run_id='%s'" % run_id_2)) == {2, 3}
+    assert set(search_versions(f"run_id='{run_id_2}'")) == {2, 3}
 
     # search using the IN operator should return all versions
     assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
@@ -768,7 +749,7 @@ def test_search_model_versions(store):
 
     assert set(search_versions(None)) == {1, 2, 3}
 
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3}
 
     store.transition_model_version_stage(
         name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
@@ -778,8 +759,8 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1)
-    assert 1 == len(mvds)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'")
+    assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
     assert mvds[0].run_id == run_id_1
@@ -855,11 +836,11 @@ def test_search_registered_models(store):
     assert rms == names
 
     # equality search using name should return exactly the 1 name
-    rms, _ = _search_registered_models(store, "name='{}'".format(names[0]))
+    rms, _ = _search_registered_models(store, f"name='{names[0]}'")
     assert rms == [names[0]]
 
     # equality search using name that is not valid should return nothing
-    rms, _ = _search_registered_models(store, "name='{}'".format(names[0] + "cats"))
+    rms, _ = _search_registered_models(store, f"name='{names[0]}cats'")
     assert rms == []
 
     # case-sensitive prefix search using LIKE should return all the RMs
@@ -876,22 +857,22 @@ def test_search_registered_models(store):
     assert rms == names
 
     # case-sensitive prefix search using LIKE should return just rm4
-    rms, _ = _search_registered_models(store, "name LIKE '{}%'".format(prefix + "RM4A"))
+    rms, _ = _search_registered_models(store, f"name LIKE '{prefix}RM4A%'")
     assert rms == [names[4]]
 
     # case-sensitive prefix search using LIKE should return no models if no match
-    rms, _ = _search_registered_models(store, "name LIKE '{}%'".format(prefix + "cats"))
+    rms, _ = _search_registered_models(store, f"name LIKE '{prefix}cats%'")
     assert rms == []
 
     # confirm that LIKE is not case-sensitive
     rms, _ = _search_registered_models(store, "name lIkE '%blah%'")
     assert rms == []
 
-    rms, _ = _search_registered_models(store, "name like '{}%'".format(prefix + "RM4A"))
+    rms, _ = _search_registered_models(store, f"name like '{prefix}RM4A%'")
     assert rms == [names[4]]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "RM4A"))
+    rms, _ = _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'")
     assert rms == names[4:]
 
     # case-insensitive postfix search with ILIKE
@@ -899,7 +880,7 @@ def test_search_registered_models(store):
     assert rms == names[4:]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "cats"))
+    rms, _ = _search_registered_models(store, f"name ILIKE '{prefix}cats%'")
     assert rms == []
 
     # confirm that ILIKE is not case-sensitive
@@ -927,13 +908,13 @@ def test_search_registered_models(store):
         MlflowException,
         match=r"Invalid attribute key 'run_id' specified. Valid keys are '{'name'}'",
     ) as exception_context:
-        _search_registered_models(store, "run_id='%s'" % "somerunID")
+        _search_registered_models(store, "run_id='somerunID'")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # cannot search by source_path
     with pytest.raises(
         MlflowException,
-        match=r"Invalid attribute key 'source_path' specified. Valid keys are '{'name'}'",
+        match=r"Invalid attribute key 'source_path' specified\. Valid keys are '{'name'}'",
     ) as exception_context:
         _search_registered_models(store, "source_path = 'A/D'")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -950,7 +931,7 @@ def test_search_registered_models(store):
     assert _search_registered_models(store, None, max_results=1000) == (names[:-1], None)
 
     # equality search using name should return no names
-    assert _search_registered_models(store, "name='{}'".format(names[-1])) == ([], None)
+    assert _search_registered_models(store, f"name='{names[-1]}'") == ([], None)
 
     # case-sensitive prefix search using LIKE should return all the RMs
     assert _search_registered_models(store, f"name LIKE '{prefix}%'") == (
@@ -959,7 +940,7 @@ def test_search_registered_models(store):
     )
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    assert _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "RM4A")) == (
+    assert _search_registered_models(store, f"name ILIKE '{prefix}RM4A%'") == (
         [names[4]],
         None,
     )
@@ -1191,7 +1172,7 @@ def test_set_model_version_tag(store):
     store.create_model_version(name2, "A/D", run_id_3, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
-    all_tags = initial_tags + [new_tag]
+    all_tags = [*initial_tags, new_tag]
     rm1mv1 = store.get_model_version(name1, 1)
     assert rm1mv1.tags == {tag.key: tag.value for tag in all_tags}
 
@@ -1245,7 +1226,6 @@ def test_set_model_version_tag(store):
 
 
 def test_delete_model_version_tag(store):
-
     name1 = "DeleteModelVersionTag_TestMod"
     name2 = "DeleteModelVersionTag_TestMod 2"
     initial_tags = [
@@ -1332,6 +1312,8 @@ def test_pyfunc_model_registry_with_file_store(store):
     assert models[0].name == "model1"
     assert models[1].name == "model2"
     mv1 = store.search_model_versions("name = 'model1'")
-    assert len(mv1) == 2 and mv1[0].name == "model1"
+    assert len(mv1) == 2
+    assert mv1[0].name == "model1"
     mv2 = store.search_model_versions("name = 'model2'")
-    assert len(mv2) == 1 and mv2[0].name == "model2"
+    assert len(mv2) == 1
+    assert mv2[0].name == "model2"
