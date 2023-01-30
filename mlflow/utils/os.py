@@ -1,7 +1,7 @@
 import platform
 
 
-def is_local_os_windows():
+def is_windows():
     """
     :return: Returns true if the local system/OS name is Windows.
     """

@@ -24,7 +24,7 @@ from mlflow.utils.file_utils import (
     _handle_readonly_on_windows,
     local_file_uri_to_path,
 )
-from mlflow.utils.helper_functions import is_local_os_windows
+from mlflow.utils.os import is_windows
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file, safe_edit_yaml
@@ -314,7 +314,7 @@ def test_write_spark_df_to_parquet(spark_session, tmp_path):
     pd.testing.assert_frame_equal(sdf.toPandas(), pd.read_parquet(output_path))
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="requires Windows")
+@pytest.mark.skipif(not is_windows(), reason="requires Windows")
 def test_handle_readonly_on_windows(tmpdir):
     tmp_path = tmpdir.join("file").strpath
     with open(tmp_path, "w"):
@@ -334,7 +334,7 @@ def test_handle_readonly_on_windows(tmpdir):
     assert not os.path.exists(tmp_path)
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_path"),
     [

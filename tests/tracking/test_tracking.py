@@ -33,7 +33,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
-from mlflow.utils.helper_functions import is_local_os_windows
+from mlflow.utils.os import is_windows
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -750,14 +750,14 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
     )
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 def test_get_artifact_uri_appends_to_local_path_component_correctly_on_windows():
     _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
         "/dirname/rootpa#th?", "file:///{drive}/dirname/rootpa/{run_id}/artifacts/{path}#th?"
     )
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 def test_get_artifact_uri_appends_to_local_path_component_correctly():
     _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
         "/dirname/rootpa#th?", "{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"

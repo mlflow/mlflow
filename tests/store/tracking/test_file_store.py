@@ -28,7 +28,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.helper_functions import is_local_os_windows
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
@@ -1713,7 +1713,7 @@ def test_experiment_with_default_root_artifact_uri(tmp_path):
     file_store = FileStore(file_store_root_uri)
     experiment_id = file_store.create_experiment(name="test", artifact_location="test")
     experiment_info = file_store.get_experiment(experiment_id)
-    if is_local_os_windows():
+    if is_windows():
         assert experiment_info.artifact_location == Path.cwd().joinpath("test").as_uri()
     else:
         assert experiment_info.artifact_location == str(Path.cwd().joinpath("test"))
@@ -1741,7 +1741,7 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
         )
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
-        if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
             cwd = f"/{cwd}"
             drive = f"{drive}/"
         assert run.info.artifact_uri == expected_artifact_uri_format.format(
@@ -1749,7 +1749,7 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
         )
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
@@ -1781,7 +1781,7 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
@@ -1844,7 +1844,7 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
         exp = fs.get_experiment(exp_id)
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
-        if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
             cwd = f"/{cwd}"
             drive = f"{drive}/"
 
@@ -1853,7 +1853,7 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
         )
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
@@ -1880,7 +1880,7 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
