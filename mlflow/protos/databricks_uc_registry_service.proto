@@ -8,6 +8,7 @@ import "scalapb/scalapb.proto";
 
 option java_package = "com.databricks.api.proto.ucmodelregistry";
 option java_generate_equals_and_hash = true;
+option py_generic_services = true;
 option (scalapb.options) = {
   flat_package: true,
 };
@@ -144,7 +145,7 @@ service UcModelRegistryService {
       rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials",
     };
   }
-  rpc getModelVersionDownloadUri (GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
+  rpc GetModelVersionDownloadUri (GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
     option (mlflow.rpc) = {
       endpoints: [{
         method: "GET",

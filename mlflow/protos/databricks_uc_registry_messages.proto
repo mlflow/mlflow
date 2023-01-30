@@ -82,11 +82,10 @@ message ModelVersion {
 }
 
 enum ModelVersionOperation {
-  UNKNOWN_MODEL_VERSION_OPERATION = 0;
-  READ_MODEL_VERSION = 1;
-  READ_WRITE_MODEL_VERSION = 2;
+  MODEL_VERSION_OPERATION_UNKNOWN = 0;
+  MODEL_VERSION_READ = 1;
+  MODEL_VERSION_READ_WRITE = 2;
 }
-
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary
 // credentials usually are short-lived with expiration time.
@@ -291,6 +290,7 @@ message SearchModelVersionsResponse {
 }
 
 message GenerateTemporaryModelVersionCredentialsRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]";
   // Name of the registered model
   optional string name = 1 [(mlflow.validate_required) = true];
 
@@ -309,6 +309,7 @@ message GenerateTemporaryModelVersionCredentialsResponse {
 }
 
 message GetModelVersionDownloadUriRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]";
   // Name of the registered model
   optional string name = 1 [(mlflow.validate_required) = true];
 
