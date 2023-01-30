@@ -307,3 +307,18 @@ message GenerateTemporaryModelVersionCredentialsResponse {
   // Temporary credentials for model version read/write
   optional TemporaryCredentials credentials = 1 [(mlflow.json_inline) = true];
 }
+
+message GetModelVersionDownloadUriRequest {
+  // Name of the registered model
+  optional string name = 1 [(mlflow.validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(mlflow.validate_required) = true];
+}
+
+
+message GetModelVersionDownloadUriResponse {
+  // URI corresponding to where artifacts for this model version are stored.
+  optional string artifact_uri = 1;
+}
+

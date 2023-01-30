@@ -144,4 +144,15 @@ service UcModelRegistryService {
       rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials",
     };
   }
+  rpc getModelVersionDownloadUri (GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
+    option (mlflow.rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/model-versions/get-download-uri"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Get Download URI For ModelVersion Artifacts",
+    };
+  }
 }
