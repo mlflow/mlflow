@@ -254,7 +254,7 @@ from mlflow.utils import (
     _is_in_ipython_notebook,
 )
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils import find_free_port
+from mlflow.utils import find_free_port, check_port_connectivity
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -614,7 +614,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     :param env_manager: The environment manager to load the model.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
         return load_model(model_uri)
@@ -624,33 +624,40 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
+    is_port_connectable = check_port_connectivity()
     pyfunc_backend = get_flavor_backend(
         local_path,
         env_manager=env_manager,
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=not is_port_connectable,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
     pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-    server_port = find_free_port()
-    scoring_server_proc = pyfunc_backend.serve(
-        model_uri=local_path,
-        port=server_port,
-        host="127.0.0.1",
-        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-        enable_mlserver=False,
-        synchronous=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    if is_port_connectable:
+        server_port = find_free_port()
+        scoring_server_proc = pyfunc_backend.serve(
+            model_uri=local_path,
+            port=server_port,
+            host="127.0.0.1",
+            timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+            enable_mlserver=False,
+            synchronous=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        client = ScoringServerClient("127.0.0.1", server_port)
+    else:
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
+        client = StdinScoringServerClient(scoring_server_proc)
+
     _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
-    client = ScoringServerClient("127.0.0.1", server_port)
     try:
         client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-    except Exception:
-        raise MlflowException("MLflow model server failed to launch")
+    except Exception as e:
+        raise MlflowException("MLflow model server failed to launch.") from e
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
@@ -1151,7 +1158,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+        from mlflow.pyfunc.scoring_server.client import (
+            ScoringServerClient,
+            StdinScoringServerClient,
+        )
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -1177,27 +1187,38 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 )
             else:
                 local_model_path_on_executor = None
-            # launch scoring server
-            server_port = find_free_port()
-            scoring_server_proc = pyfunc_backend.serve(
-                model_uri=local_model_path_on_executor or local_model_path,
-                port=server_port,
-                host="127.0.0.1",
-                timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                enable_mlserver=False,
-                synchronous=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
+
+            if check_port_connectivity():
+                # launch scoring server
+                server_port = find_free_port()
+                host = "127.0.0.1"
+                scoring_server_proc = pyfunc_backend.serve(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    port=server_port,
+                    host=host,
+                    timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+                    enable_mlserver=False,
+                    synchronous=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+
+                client = ScoringServerClient(host, server_port)
+            else:
+                scoring_server_proc = pyfunc_backend.serve_stdin(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+                client = StdinScoringServerClient(scoring_server_proc)
+
+            _logger.info("Using %s", client.__class__.__name__)
 
             server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
 
             def server_redirect_log_thread_func(child_stdout):
                 for line in child_stdout:
-                    if isinstance(line, bytes):
-                        decoded = line.decode()
-                    else:
-                        decoded = line
+                    decoded = line.decode() if isinstance(line, bytes) else line
                     server_tail_logs.append(decoded)
                     sys.stdout.write("[model server] " + decoded)
 
@@ -1208,11 +1229,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()
 
-            client = ScoringServerClient("127.0.0.1", server_port)
-
             try:
                 client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-            except Exception:
+            except Exception as e:
                 err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
                 if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
                     err_msg += (
@@ -1222,7 +1241,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 else:
                     err_msg += "MLflow model server output:\n"
                 err_msg += "".join(server_tail_logs)
-                raise MlflowException(err_msg)
+                raise MlflowException(err_msg) from e
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
