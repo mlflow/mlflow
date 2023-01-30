@@ -110,3 +110,6 @@ def pytest_terminal_summary(
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+
+val = "hello world"
