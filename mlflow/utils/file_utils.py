@@ -540,7 +540,7 @@ def local_file_uri_to_path(uri):
         parsed_path = urllib.parse.urlparse(uri)
         path = parsed_path.path
         # Fix for retaining server name in UNC path.
-        if is_windows() and parsed_path.hostname:
+        if is_windows() and parsed_path.netloc:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
     return urllib.request.url2pathname(path)
 
