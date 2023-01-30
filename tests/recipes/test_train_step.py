@@ -940,15 +940,16 @@ def test_train_step_with_probability_calibration(
         relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
     )
     model = mlflow.pyfunc.load_model(model_uri)
-    transform_step_output_dir = tmp_recipe_exec_path.joinpath("steps", "transform", "outputs")
 
-    validation_dataset = pd.read_parquet(
-        (str(transform_step_output_dir / "transformed_validation_data.parquet"))
+    from sklearn.calibration import CalibratedClassifierCV
+
+    assert isinstance(
+        model._model_impl.python_model._classifier.named_steps["calibratedclassifiercv"],
+        CalibratedClassifierCV,
     )
 
-    predicted_output = model.predict(validation_dataset.drop("y", axis=1))
-    predicted_label = predicted_output["predicted_label"]
+    assert (train_step_output_dir / "card.html").exists()
+    with open(train_step_output_dir / "card.html") as f:
+        step_card_content = f.read()
 
-    import numpy as np
-
-    assert np.array_equal(np.unique(predicted_label), np.array(["a", "b"]))
+    assert "Prob. Calibration" in step_card_content
