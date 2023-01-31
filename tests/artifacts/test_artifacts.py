@@ -1,13 +1,15 @@
 import pathlib
 import uuid
 import os
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import path_to_local_file_uri, mkdir
+from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
 from collections import namedtuple
+from mlflow.utils.os import is_windows
 
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
@@ -224,3 +226,45 @@ def test_artifact_logging_resolution_works_with_non_root_working_directory(text_
             run.info.run_id,
         )
     os.chdir(original_cwd)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+def test_log_artifact_windows_path_with_hostname(text_artifact):
+    experiment_test_1_artifact_location = r"\\my_server\my_path\my_sub_path\1"
+    experiment_test_1_id = mlflow.create_experiment(
+        "test_exp_d", experiment_test_1_artifact_location
+    )
+    with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            mlflow.log_artifact(text_artifact.artifact_path)
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
+            local_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
+            )
+            assert (
+                rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
+                rf"\artifacts\{text_artifact.artifact_name}" == local_path
+            )
+
+    experiment_test_2_artifact_location = "file://my_server/my_path/my_sub_path"
+    experiment_test_2_id = mlflow.create_experiment(
+        "test_exp_e", experiment_test_2_artifact_location
+    )
+    with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            mlflow.log_artifact(text_artifact.artifact_path)
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
+            local_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
+            )
+            assert (
+                local_file_uri_to_path(experiment_test_2_artifact_location)
+                + rf"\{run.info.run_id}\artifacts\{text_artifact.artifact_name}"
+                == local_path
+            )

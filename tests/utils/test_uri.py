@@ -21,7 +21,7 @@ from mlflow.utils.uri import (
     dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
 )
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.os import is_windows
 
 
 def test_extract_db_type_from_uri():
@@ -531,13 +531,13 @@ def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
 def _assert_resolve_uri_if_local(input_uri, expected_uri):
     cwd = pathlib.Path.cwd().as_posix()
     drive = pathlib.Path.cwd().drive
-    if is_local_os_windows():
+    if is_windows():
         cwd = f"/{cwd}"
         drive = f"{drive}/"
     assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
@@ -546,7 +546,7 @@ def _assert_resolve_uri_if_local(input_uri, expected_uri):
         ("file://myhostname/my/path", "file://myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
-        ("/home/my/path", "{drive}/home/my/path"),
+        ("/home/my/path", "/home/my/path"),
         ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
         ("s3://host/my/path", "s3://host/my/path"),
     ],
@@ -555,7 +555,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     _assert_resolve_uri_if_local(input_uri, expected_uri)
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
