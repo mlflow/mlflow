@@ -8,6 +8,7 @@ import "scalapb/scalapb.proto";
 
 option java_package = "com.databricks.api.proto.ucmodelregistry";
 option java_generate_equals_and_hash = true;
+option py_generic_services = true;
 option (scalapb.options) = {
   flat_package: true,
 };
@@ -136,7 +137,7 @@ service UcModelRegistryService {
   rpc GenerateTemporaryModelVersionCredentials (GenerateTemporaryModelVersionCredentialsRequest) returns (GenerateTemporaryModelVersionCredentialsResponse){
     option (mlflow.rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
         since {major: 2, minor: 0},
       }],
@@ -144,4 +145,29 @@ service UcModelRegistryService {
       rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials",
     };
   }
+
+  rpc GetModelVersionDownloadUri (GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
+    option (mlflow.rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/model-versions/get-download-uri"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Get Download URI For ModelVersion Artifacts",
+    };
+  }
+
+  rpc FinalizeModelVersion (FinalizeModelVersionRequest) returns (FinalizeModelVersionResponse) {
+    option (mlflow.rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/model-versions/finalize"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Finalize Model Version",
+    };
+  }
+
 }

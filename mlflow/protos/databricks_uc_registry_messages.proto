@@ -82,11 +82,10 @@ message ModelVersion {
 }
 
 enum ModelVersionOperation {
-  UNKNOWN_MODEL_VERSION_OPERATION = 0;
-  READ_MODEL_VERSION = 1;
-  READ_WRITE_MODEL_VERSION = 2;
+  MODEL_VERSION_OPERATION_UNKNOWN = 0;
+  MODEL_VERSION_READ = 1;
+  MODEL_VERSION_READ_WRITE = 2;
 }
-
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary
 // credentials usually are short-lived with expiration time.
@@ -208,14 +207,8 @@ message CreateModelVersionRequest {
   // MLflow tracking server
   optional string run_id = 3;
 
-  // ID of the MLflow experiment containing the MLflow run that generated this model version
-  optional string run_experiment_id = 4;
-
-  // ID of the workspace containing the MLflow run that generated this model version
-  optional int64 run_workspace_id = 5;
-
   // Optional description for model version.
-  optional string description = 6;
+  optional string description = 4;
 }
 
 message CreateModelVersionResponse {
@@ -291,6 +284,7 @@ message SearchModelVersionsResponse {
 }
 
 message GenerateTemporaryModelVersionCredentialsRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]";
   // Name of the registered model
   optional string name = 1 [(mlflow.validate_required) = true];
 
@@ -307,3 +301,32 @@ message GenerateTemporaryModelVersionCredentialsResponse {
   // Temporary credentials for model version read/write
   optional TemporaryCredentials credentials = 1 [(mlflow.json_inline) = true];
 }
+
+message GetModelVersionDownloadUriRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]";
+  // Name of the registered model
+  optional string name = 1 [(mlflow.validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(mlflow.validate_required) = true];
+}
+
+
+message GetModelVersionDownloadUriResponse {
+  // URI corresponding to where artifacts for this model version are stored.
+  optional string artifact_uri = 1;
+}
+
+message FinalizeModelVersionRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[FinalizeModelVersionResponse]";
+  // Name of the registered model
+  optional string name = 1 [(mlflow.validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(mlflow.validate_required) = true];
+}
+
+
+message FinalizeModelVersionResponse {
+}
+
