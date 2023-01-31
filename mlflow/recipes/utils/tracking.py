@@ -3,6 +3,7 @@ import logging
 import pathlib
 import tempfile
 import shutil
+import random
 from typing import Dict, Any, TypeVar
 
 import mlflow
@@ -28,6 +29,15 @@ from mlflow.utils.mlflow_tags import (
 _logger = logging.getLogger(__name__)
 
 TrackingConfigType = TypeVar("TrackingConfig")
+
+
+def _get_run_name(run_name_prefix):
+    if run_name_prefix is None:
+        return None
+
+    sep = "-"
+    num = random.randint(0, 10**3)
+    return f"{run_name_prefix}{sep}{num}"
 
 
 class TrackingConfig:
@@ -152,7 +162,7 @@ def get_recipe_tracking_config(
     tracking_config = recipe_config.get("experiment", {})
 
     config_obj_kwargs = {
-        "run_name": tracking_config.get("run_name", None),
+        "run_name": _get_run_name(tracking_config.get("run_name_prefix")),
         "tracking_uri": tracking_config.get("tracking_uri", default_tracking_uri),
         "artifact_location": tracking_config.get("artifact_location", default_artifact_location),
     }
