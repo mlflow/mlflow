@@ -17,6 +17,11 @@ protoc -I="$PROTOS" \
     "$PROTOS"/databricks_artifacts.proto \
     "$PROTOS"/mlflow_artifacts.proto \
     "$PROTOS"/scalapb/scalapb.proto \
+
+# Separate out building UC model registry protos to avoid autogenerating
+# Java stubs, for now
+protoc -I="$PROTOS" \
+    --python_out="$PROTOS" \
     "$PROTOS"/databricks_uc_registry_messages.proto \
     "$PROTOS"/databricks_uc_registry_service.proto
 
@@ -46,4 +51,3 @@ rm "$PROTOS/model_registry_pb2.py.old"
 rm "$PROTOS/databricks_artifacts_pb2.py.old"
 rm "$PROTOS/mlflow_artifacts_pb2.py.old"
 rm "$TEST_PROTOS/test_message_pb2.py.old"
-rm -r "mlflow/java/client/src/main/java/com/databricks/api/proto/ucmodelregistry"
