@@ -349,9 +349,10 @@ class TrainStep(BaseStep):
                 ),
             }
 
+            run_name = self.tracking_config.run_name
             best_estimator_params = None
             mlflow.autolog(log_models=False, silent=True)
-            with mlflow.start_run(tags=tags) as run:
+            with mlflow.start_run(run_name=run_name, tags=tags) as run:
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
@@ -1070,15 +1071,18 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
+            run_name = self.tracking_config.run_name
             if on_worker:
                 client = MlflowClient()
                 parent_tags = client.get_run(parent_run_id).data.tags
                 child_run = client.create_run(
-                    _get_experiment_id(), tags={**parent_tags, "mlflow.parentRunId": parent_run_id}
+                    _get_experiment_id(),
+                    tags={**parent_tags, "mlflow.parentRunId": parent_run_id},
+                    run_name=run_name,
                 )
                 run_args = {"run_id": child_run.info.run_id}
             else:
-                run_args = {"nested": True}
+                run_args = {"run_name": run_name, "nested": True}
             with mlflow.start_run(**run_args) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
