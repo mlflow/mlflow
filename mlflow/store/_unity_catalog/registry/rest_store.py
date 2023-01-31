@@ -5,29 +5,27 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
     UpdateRegisteredModelRequest,
     DeleteRegisteredModelRequest,
-    GetLatestVersionsRequest,
     CreateModelVersionRequest,
     UpdateModelVersionRequest,
     DeleteModelVersionRequest,
     GetModelVersionDownloadUriRequest,
     SearchModelVersionsRequest,
-    RenameRegisteredModelRequest,
     GetRegisteredModelRequest,
     GetModelVersionRequest,
     SearchRegisteredModelsRequest,
     GenerateTemporaryModelVersionCredentialsRequest,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    call_endpoint,
-    call_endpoints,
     extract_api_info_for_service,
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
+from mlflow.store.model_registry.rest_store import BaseRestStore
+from mlflow.store._unity_catalog.registry.utils import model_version_from_uc_proto, registered_model_from_uc_proto
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -35,7 +33,32 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(UcModelRegistryService, _
 _logger = logging.getLogger(__name__)
 
 
-class UcModelRegistryStore(AbstractStore):
+def _require_param_unspecified(param_name, param_value, default_value=None, message=None):
+    if param_value != default_value:
+        _raise_unsupported_parameter(param_name, message)
+
+
+def _raise_unsupported_parameter(param, message=None):
+    messages = [
+        f"Param {param} is unsupported for models in the Unity Catalog.",
+    ]
+    if message is not None:
+        messages.append(message)
+    messages.append("See the user guide for more information")
+    raise MlflowException(" ".join(messages))
+
+
+def _raise_unsupported_method(method, message=None):
+    messages = [
+        f"Method {method} is unsupported for models in the Unity Catalog.",
+    ]
+    if message is not None:
+        messages.append(message)
+    messages.append("See the user guide for more information")
+    raise MlflowException(" ".join(messages))
+
+
+class UcModelRegistryStore(BaseRestStore):
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
@@ -46,17 +69,7 @@ class UcModelRegistryStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super().__init__()
-        self.get_host_creds = get_host_creds
-
-    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
-        response_proto = api.Response()
-        if call_all_endpoints:
-            endpoints = _METHOD_TO_ALL_INFO[api]
-            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
-        else:
-            endpoint, method = _METHOD_TO_INFO[api]
-            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        super().__init__(get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO)
 
     # CRUD API for RegisteredModel objects
 
@@ -71,8 +84,7 @@ class UcModelRegistryStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
-        proto_tags = [tag.to_proto() for tag in tags or []]
-        req_body = message_to_json(CreateRegisteredModelRequest(name=name, tags=proto_tags, description=description))
+        req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -96,9 +108,8 @@ class UcModelRegistryStore(AbstractStore):
         :param new_name: New proposed name.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        req_body = message_to_json(RenameRegisteredModelRequest(name=name, new_name=new_name))
-        response_proto = self._call_endpoint(RenameRegisteredModelRequest, req_body)
-        return RegisteredModel.from_proto(response_proto.registered_model)
+        _raise_unsupported_method(method="rename_registered_model",
+                                  message="Use the Unity Catalog REST API to rename registered models")
 
     def delete_registered_model(self, name):
         """
@@ -127,6 +138,7 @@ class UcModelRegistryStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
+        _require_param_unspecified("order_by", order_by)
         req_body = message_to_json(
             SearchRegisteredModelsRequest(
                 filter=filter_string,
@@ -163,12 +175,7 @@ class UcModelRegistryStore(AbstractStore):
                        each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
-        req_body = message_to_json(GetLatestVersionsRequest(name=name, stages=stages))
-        response_proto = self._call_endpoint(GetLatestVersionsRequest, req_body, call_all_endpoints=True)
-        return [
-            ModelVersion.from_proto(model_version)
-            for model_version in response_proto.model_versions
-        ]
+        _raise_unsupported_method(method="get_latest_versions")
 
     def set_registered_model_tag(self, name, tag):
         """
@@ -178,8 +185,7 @@ class UcModelRegistryStore(AbstractStore):
         :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
         :return: None
         """
-        req_body = message_to_json(SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value))
-        self._call_endpoint(SetRegisteredModelTagRequest, req_body)
+        _raise_unsupported_method(method="set_registered_model_tag")
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -189,8 +195,7 @@ class UcModelRegistryStore(AbstractStore):
         :param key: Registered model tag key.
         :return: None
         """
-        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=name, key=key))
-        self._call_endpoint(DeleteRegisteredModelTagRequest, req_body)
+        _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
 
@@ -210,18 +215,17 @@ class UcModelRegistryStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
-        proto_tags = [tag.to_proto() for tag in tags or []]
+        _require_param_unspecified(param_name="run_link", param_value=run_link)
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
                 source=source,
                 run_id=run_id,
-                run_link=run_link,
-                tags=proto_tags,
                 description=description,
             )
         )
         response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+
         return ModelVersion.from_proto(response_proto.model_version)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -237,7 +241,8 @@ class UcModelRegistryStore(AbstractStore):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        pass
+        raise MlflowException("Stage transitions are unsupported for model versions in the Unity Catalog. See the "
+                              "user guide for more information.")
 
     def update_model_version(self, name, version, description):
         """

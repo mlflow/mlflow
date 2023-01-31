@@ -207,14 +207,8 @@ message CreateModelVersionRequest {
   // MLflow tracking server
   optional string run_id = 3;
 
-  // ID of the MLflow experiment containing the MLflow run that generated this model version
-  optional string run_experiment_id = 4;
-
-  // ID of the workspace containing the MLflow run that generated this model version
-  optional int64 run_workspace_id = 5;
-
   // Optional description for model version.
-  optional string description = 6;
+  optional string description = 4;
 }
 
 message CreateModelVersionResponse {
