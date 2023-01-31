@@ -57,7 +57,7 @@ jobs:
           tags: |
             type=ref,event=tag
 
-      - name:
+      - name: Build and Push Model Server Image
           pip install -e .
           mlflow models build-docker -n model-server:latest
           for tag in ${steps.modelmeta.outputs.tags[@]}; do
