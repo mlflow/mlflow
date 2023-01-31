@@ -16,7 +16,15 @@ protoc -I="$PROTOS" \
     "$PROTOS"/model_registry.proto \
     "$PROTOS"/databricks_artifacts.proto \
     "$PROTOS"/mlflow_artifacts.proto \
-    "$PROTOS"/scalapb/scalapb.proto
+    "$PROTOS"/scalapb/scalapb.proto \
+
+# Separate out building UC model registry protos to avoid autogenerating
+# Java stubs, for now
+protoc -I="$PROTOS" \
+    --python_out="$PROTOS" \
+    "$PROTOS"/databricks_uc_registry_messages.proto \
+    "$PROTOS"/databricks_uc_registry_service.proto
+
 
 PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
