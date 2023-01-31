@@ -30,6 +30,7 @@ from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
+from mlflow.utils.os import is_windows
 
 ENCODING = "utf-8"
 
@@ -534,7 +535,13 @@ def local_file_uri_to_path(uri):
     Convert URI to local filesystem path.
     No-op if the uri does not have the expected scheme.
     """
-    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
+    path = uri
+    if uri.startswith("file:"):
+        parsed_path = urllib.parse.urlparse(uri)
+        path = parsed_path.path
+        # Fix for retaining server name in UNC path.
+        if is_windows() and parsed_path.netloc:
+            return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
     return urllib.request.url2pathname(path)
 
 
