@@ -51,6 +51,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.os import is_windows
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
@@ -64,7 +65,6 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
-from tests.helper_functions import is_local_os_windows
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -1805,7 +1805,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.status = 'KILLED'"
         assert self._search([e1, e2], filter_string) == []
 
-        if is_local_os_windows():
+        if is_windows():
             expected_artifact_uri = (
                 pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_uri()
             )
@@ -2806,7 +2806,7 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             exp = store.get_experiment(exp_id)
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
-            if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+            if is_windows() and expected_artifact_uri_format.startswith("file:"):
                 cwd = f"/{cwd}"
                 drive = f"{drive}/"
             assert exp.artifact_location == expected_artifact_uri_format.format(
@@ -2814,10 +2814,11 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             )
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
+        ("file://my_server/my_path/my_sub_path", "file://my_server/my_path/my_sub_path/{e}"),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
@@ -2840,7 +2841,7 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
@@ -2909,7 +2910,7 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             )
             cwd = Path.cwd().as_posix()
             drive = Path.cwd().drive
-            if is_local_os_windows() and expected_artifact_uri_format.startswith("file:"):
+            if is_windows() and expected_artifact_uri_format.startswith("file:"):
                 cwd = f"/{cwd}"
                 drive = f"{drive}/"
             assert run.info.artifact_uri == expected_artifact_uri_format.format(
@@ -2917,10 +2918,14 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             )
 
 
-@pytest.mark.skipif(not is_local_os_windows(), reason="This test only passes on Windows")
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
+        (
+            "file://my_server/my_path/my_sub_path",
+            "file://my_server/my_path/my_sub_path/{e}/{r}/artifacts",
+        ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
         ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
@@ -2949,7 +2954,7 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-@pytest.mark.skipif(is_local_os_windows(), reason="This test fails on Windows")
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
