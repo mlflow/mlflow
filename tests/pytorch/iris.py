@@ -4,9 +4,12 @@
 
 import pytorch_lightning as pl
 import torch
+import torch.utils.tensorboard
 from torch import nn
 import torch.nn.functional as F
 from packaging.version import Version
+
+SUMMARY_WRITER = torch.utils.tensorboard.SummaryWriter()
 
 
 def create_multiclass_accuracy():
@@ -56,6 +59,9 @@ class IrisClassification(IrisClassificationBase):
         x, y = batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
+        # this should *not* get intercepted by "plain" pytorch autologging
+        # since it is called from inside lightning's fit()
+        SUMMARY_WRITER.add_scalar("plain_loss", loss.item())
         self.train_acc(torch.argmax(logits, dim=1), y)
         self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
         self.log("loss", loss)

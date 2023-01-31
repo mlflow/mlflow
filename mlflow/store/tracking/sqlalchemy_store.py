@@ -40,7 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
 )
 from mlflow.utils.name_utils import _generate_random_name
-from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
+from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri, resolve_uri_if_local
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
@@ -113,7 +113,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.artifact_root_uri = default_artifact_root
+        self.artifact_root_uri = resolve_uri_if_local(default_artifact_root)
         # Quick check to see if the respective SQLAlchemy database engine has already been created.
         if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
             with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
@@ -232,7 +232,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         _validate_experiment_name(name)
-
+        if artifact_location:
+            artifact_location = resolve_uri_if_local(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()

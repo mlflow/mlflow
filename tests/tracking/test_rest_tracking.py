@@ -2,6 +2,8 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import pathlib
+
 import flask
 import json
 import os
@@ -37,6 +39,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.os import is_windows
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -91,7 +94,10 @@ def test_create_get_search_experiment(mlflow_client):
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
-    assert exp.artifact_location == "my_location"
+    if is_windows():
+        assert exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
+    else:
+        assert exp.artifact_location == str(pathlib.Path.cwd().joinpath("my_location"))
     assert len(exp.tags) == 2
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"

@@ -23,6 +23,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
+from mlflow.utils.proto_json_utils import dump_input_data
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -2673,10 +2674,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 --name my-deployment \\
                 --input-path ./input.json
         """
-        import json
         import boto3
-        import pandas as pd
-        from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
             assume_role_arn=self.assumed_role_arn
@@ -2686,13 +2684,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             sage_client = boto3.client(
                 "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
             )
-            if isinstance(inputs, pd.DataFrame):
-                body = json.dumps({"dataframe_split": inputs.to_dict(orient="split")})
-            else:
-                body = json.dumps({"instances": _get_jsonable_obj(inputs)})
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=body,
+                Body=dump_input_data(inputs, inputs_key="instances"),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")

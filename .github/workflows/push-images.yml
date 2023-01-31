@@ -8,6 +8,10 @@ jobs:
   push-images:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./.github/actions/setup-python
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -26,7 +30,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gather Docker Meta Data
+      - name: Gather Docker Metadata for Tracking
         id: meta
         uses: docker/metadata-action@v4
         with:
@@ -45,3 +49,26 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Gather Docker Metadata for Model Server
+        id: modelmeta
+        uses: docker/metadata-action@v4
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            ghcr.io/mlflow/model-server
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=ref,event=tag
+
+      - name: Build Model Server Image
+        run: |
+          pip install -e .
+          mlflow models build-docker -n model-server:latest --mlflow-home `pwd`
+
+      - name: Push Model Server Image
+        run: |
+          for tag in ${{ steps.modelmeta.outputs.tags }}; do
+            docker tag model-server:latest $tag
+            docker push $tag
+          done

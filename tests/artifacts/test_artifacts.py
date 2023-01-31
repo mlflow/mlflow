@@ -1,10 +1,16 @@
 import pathlib
+import uuid
+import os
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
 from collections import namedtuple
+from mlflow.utils.os import is_windows
+
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
 
@@ -136,3 +142,129 @@ def test_load_image_invalid_image(run_with_text_artifact):
         mlflow.exceptions.MlflowException, match="Unable to form a PIL Image object"
     ):
         mlflow.artifacts.load_image(artifact.uri)
+
+
+@pytest.fixture()
+def text_artifact(tmp_path):
+    artifact_name = "test.txt"
+    artifacts_root_tmp = mkdir(tmp_path.joinpath(str(uuid.uuid4())))
+    test_artifact_path = artifacts_root_tmp.joinpath(artifact_name)
+    test_artifact_path.write_text("test")
+    artifact_return_type = namedtuple(
+        "artifact_return_type", ["tmp_path", "artifact_path", "artifact_name"]
+    )
+    return artifact_return_type(artifacts_root_tmp, test_artifact_path, artifact_name)
+
+
+def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
+    mlflow.log_artifact(test_artifact.artifact_path)
+    artifact_uri = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path=test_artifact.artifact_name, tracking_uri=tracking_uri
+    )
+    assert artifact_uri == expected_artifact_uri
+
+
+def test_default_relative_artifact_uri_resolves(text_artifact):
+    tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("mlruns"))
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            str(
+                pathlib.Path.cwd().joinpath(
+                    "test_artifacts_root",
+                    run.info.run_id,
+                    "artifacts",
+                    text_artifact.artifact_name,
+                )
+            ),
+            text_artifact,
+            run.info.run_id,
+        )
+
+
+def test_custom_relative_artifact_uri_resolves(text_artifact):
+    tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("tracking"))
+    artifacts_root_path = text_artifact.tmp_path.joinpath("test_artifacts")
+    artifacts_root_uri = path_to_local_file_uri(artifacts_root_path)
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment_id = mlflow.create_experiment("test_exp_b", artifacts_root_uri)
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            str(
+                artifacts_root_path.joinpath(
+                    run.info.run_id, "artifacts", text_artifact.artifact_name
+                )
+            ),
+            text_artifact,
+            run.info.run_id,
+        )
+
+
+def test_artifact_logging_resolution_works_with_non_root_working_directory(text_artifact):
+    original_cwd = pathlib.Path.cwd()
+    new_cwd = text_artifact.tmp_path.joinpath("some_location")
+    new_cwd.mkdir()
+    tracking_uri = mlflow.get_tracking_uri()
+    experiment_id = mlflow.create_experiment("test_exp_c", "some_path")
+    os.chdir(new_cwd)
+
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        _assert_artifact_uri(
+            tracking_uri,
+            str(
+                original_cwd.joinpath(
+                    "some_path",
+                    run.info.run_id,
+                    "artifacts",
+                    text_artifact.artifact_name,
+                )
+            ),
+            text_artifact,
+            run.info.run_id,
+        )
+    os.chdir(original_cwd)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+def test_log_artifact_windows_path_with_hostname(text_artifact):
+    experiment_test_1_artifact_location = r"\\my_server\my_path\my_sub_path\1"
+    experiment_test_1_id = mlflow.create_experiment(
+        "test_exp_d", experiment_test_1_artifact_location
+    )
+    with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            mlflow.log_artifact(text_artifact.artifact_path)
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
+            local_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
+            )
+            assert (
+                rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
+                rf"\artifacts\{text_artifact.artifact_name}" == local_path
+            )
+
+    experiment_test_2_artifact_location = "file://my_server/my_path/my_sub_path"
+    experiment_test_2_id = mlflow.create_experiment(
+        "test_exp_e", experiment_test_2_artifact_location
+    )
+    with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            mlflow.log_artifact(text_artifact.artifact_path)
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
+            local_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
+            )
+            assert (
+                local_file_uri_to_path(experiment_test_2_artifact_location)
+                + rf"\{run.info.run_id}\artifacts\{text_artifact.artifact_name}"
+                == local_path
+            )
