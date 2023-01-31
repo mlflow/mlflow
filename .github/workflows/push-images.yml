@@ -8,6 +8,8 @@ jobs:
   push-images:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+
       - uses: ./.github/actions/setup-python
 
       - name: Set up QEMU
