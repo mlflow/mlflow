@@ -61,11 +61,14 @@ jobs:
           tags: |
             type=ref,event=tag
 
-      - name: Build and Push Model Server Image
+      - name: Build Model Server Image
         run: |
           pip install -e .
           mlflow models build-docker -n model-server:latest --mlflow-home `pwd`
-          for tag in ${steps.modelmeta.outputs.tags[@]}; do
-            docker tag model-server:latest ghcr.io/mlflow/model-server:$tag
-            docker push ghcr.io/mlflow/model-server:$tag
+
+      - name: Push Model Server Image
+        run: |
+          for tag in ${{ steps.modelmeta.outputs.tags }}; do
+            docker tag model-server:latest $tag
+            docker push $tag
           done
