@@ -760,7 +760,7 @@ def test_train_step_with_predict_probability(
         (str(transform_step_output_dir / "transformed_validation_data.parquet"))
     )
 
-    output = model.predict(validation_dataset)
+    output = model.predict(validation_dataset.drop("y", axis=1))
 
     assert list(output.columns) == [
         "predicted_score_a",
@@ -829,7 +829,7 @@ def test_train_step_with_predict_probability_with_custom_prefix(
         (str(transform_step_output_dir / "transformed_validation_data.parquet"))
     )
 
-    output = model.predict(validation_dataset)
+    output = model.predict(validation_dataset.drop("y", axis=1))
 
     assert list(output.columns) == [
         "custom_prefix_score_a",
@@ -886,9 +886,70 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
         (str(transform_step_output_dir / "transformed_validation_data.parquet"))
     )
 
-    predicted_output = model.predict(validation_dataset)
+    predicted_output = model.predict(validation_dataset.drop("y", axis=1))
     predicted_label = predicted_output["predicted_label"]
 
     import numpy as np
 
     assert np.array_equal(np.unique(predicted_label), np.array(["a1", "a2", "a3", "b"]))
+
+
+def test_train_step_with_probability_calibration(
+    tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
+):
+    train_step_output_dir = setup_train_dataset(
+        tmp_recipe_exec_path, recipe="classification/binary"
+    )
+    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
+    recipe_steps_dir.mkdir(parents=True)
+    recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
+    recipe_yaml.write_text(
+        """
+        recipe: "classification/v1"
+        target_col: "y"
+        primary_metric: "f1_score"
+        profile: "test_profile"
+        positive_class: "a"
+        run_args:
+            step: "train"
+        experiment:
+            name: "demo"
+            tracking_uri: {tracking_uri}
+        steps:
+            train:
+                using: custom
+                estimator_method: estimator_fn
+                calibrate_proba: isotonic
+                tuning:
+                    enabled: false
+        """.format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+    with mock.patch(
+        "steps.train.estimator_fn",
+        classifier_with_predict_proba_estimator_fn,
+    ):
+        recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
+        train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
+        train_step.run(str(train_step_output_dir))
+
+    model_uri = get_step_output_path(
+        recipe_root_path=tmp_recipe_root_path,
+        step_name="train",
+        relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+    )
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    from sklearn.calibration import CalibratedClassifierCV
+
+    assert isinstance(
+        model._model_impl.python_model._classifier.named_steps["calibratedclassifiercv"],
+        CalibratedClassifierCV,
+    )
+
+    assert (train_step_output_dir / "card.html").exists()
+    with open(train_step_output_dir / "card.html") as f:
+        step_card_content = f.read()
+
+    assert "Prob. Calibration" in step_card_content
