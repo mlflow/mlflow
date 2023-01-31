@@ -26,7 +26,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Gather Docker Meta Data
+      - name: Gather Docker Metadata for Tracking
         id: meta
         uses: docker/metadata-action@v4
         with:
@@ -45,3 +45,22 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Gather Docker Metadata for Model Server
+        id: modelmeta
+        uses: docker/metadata-action@v4
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            ghcr.io/mlflow/model-server
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=ref,event=tag
+
+      - name:
+          pip install -e .
+          mlflow models build-docker -n model-server:latest
+          for tag in ${steps.modelmeta.outputs.tags[@]}; do
+            docker tag model-server:latest ghcr.io/mlflow/mlflow:$tag
+            docker push ghcr.io/mlflow/mlflow:$tag
+          done
