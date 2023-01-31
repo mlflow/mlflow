@@ -235,7 +235,11 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_d", experiment_test_1_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
-        with mock.patch("shutil.copyfile"), mock.patch("os.path.exists", return_value=True):
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
             mlflow.log_artifact(text_artifact.artifact_path)
             local_path = mlflow.artifacts.download_artifacts(
                 run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
@@ -250,7 +254,11 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_e", experiment_test_2_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
-        with mock.patch("shutil.copyfile"), mock.patch("os.path.exists", return_value=True):
+        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+            "os.path.exists", return_value=True
+        ) as exists_mock:
+            copyfile_mock.assert_called_once()
+            exists_mock.assert_called_once()
             mlflow.log_artifact(text_artifact.artifact_path)
             local_path = mlflow.artifacts.download_artifacts(
                 run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
