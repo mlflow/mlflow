@@ -6,6 +6,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     UpdateRegisteredModelRequest,
     DeleteRegisteredModelRequest,
     CreateModelVersionRequest,
+    FinalizeModelVersionRequest,
     UpdateModelVersionRequest,
     DeleteModelVersionRequest,
     GetModelVersionDownloadUriRequest,
@@ -14,6 +15,8 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionRequest,
     SearchRegisteredModelsRequest,
     GenerateTemporaryModelVersionCredentialsRequest,
+    MODEL_VERSION_READ,
+    MODEL_VERSION_READ_WRITE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -199,6 +202,65 @@ class UcModelRegistryStore(BaseRestStore):
 
     # CRUD API for ModelVersion objects
 
+    def _create_model_version(
+            self, name, source, run_id=None, description=None
+    ):
+        """
+        Create a new model version from given source and run ID.
+
+        :param name: Registered model name.
+        :param source: Source path where the MLflow model is stored.
+        :param run_id: Run ID from MLflow tracking server that generated the model.
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                     instances associated with this model version.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
+        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 created in the backend.
+        """
+        req_body = message_to_json(
+            CreateModelVersionRequest(
+                name=name,
+                source=source,
+                run_id=run_id,
+                description=description,
+            )
+        )
+        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+        return response_proto.model_version
+
+    def _generate_temporary_model_version_credential(self, name, version, operation):
+        """
+        Generate temporary credentials for model version file write or read
+        :param name: Parent registered model name
+        :param version: Version number of model version
+        :param operation: ModelVersionOperation enum value indicating whether to get read or read/write credentials
+        :return: Temporary credentials
+        """
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name,
+                version=version,
+                operation=operation
+            )
+        )
+        self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body)
+
+    def _finalize_model_version(self, name, version):
+        """
+        Finalize model version, transitioning it into the READY state after creation flow completes
+        :param name: Parent registered model name
+        :param version: Version number of model version
+        """
+        req_body = message_to_json(
+            FinalizeModelVersionRequest(
+                name=name,
+                version=version,
+            )
+        )
+        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+        return response_proto.model_version
+
     def create_model_version(
             self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -216,16 +278,11 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_param_unspecified(param_name="run_link", param_value=run_link)
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=name,
-                source=source,
-                run_id=run_id,
-                description=description,
-            )
-        )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-
+        _require_param_unspecified(param_name="tags", param_value=tags)
+        created_mv = self._create_model_version(name=name, source=source, run_id=run_id, description=description)
+        scoped_token = self._generate_temporary_model_version_credential(name=name, version=created_mv.version,
+                                                                         operation=MODEL_VERSION_READ_WRITE)
+        upload_files(token=scoped_token, )
         return ModelVersion.from_proto(response_proto.model_version)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -241,8 +298,7 @@ class UcModelRegistryStore(BaseRestStore):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        raise MlflowException("Stage transitions are unsupported for model versions in the Unity Catalog. See the "
-                              "user guide for more information.")
+        _raise_unsupported_method(method="transition_model_version_stage")
 
     def update_model_version(self, name, version, description):
         """
@@ -320,11 +376,7 @@ class UcModelRegistryStore(BaseRestStore):
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         :return: None
         """
-        req_body = message_to_json(
-            Request
-        SetModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
-        )
-        self._call_endpoint(SetModelVersionTagRequest, req_body)
+        _raise_unsupported_method(method="set_model_version_tag")
 
     def delete_model_version_tag(self, name, version, key):
         """
@@ -335,5 +387,4 @@ class UcModelRegistryStore(BaseRestStore):
         :param key: Tag key.
         :return: None
         """
-        req_body = message_to_json(DeleteModelVersionTagRequest(name=name, version=version, key=key))
-        self._call_endpoint(DeleteModelVersionTagRequest, req_body)
+        _raise_unsupported_method(method="delete_model_version_tag")

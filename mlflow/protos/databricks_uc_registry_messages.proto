@@ -317,3 +317,16 @@ message GetModelVersionDownloadUriResponse {
   optional string artifact_uri = 1;
 }
 
+message FinalizeModelVersionRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[FinalizeModelVersionResponse]";
+  // Name of the registered model
+  optional string name = 1 [(mlflow.validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(mlflow.validate_required) = true];
+}
+
+
+message FinalizeModelVersionResponse {
+}
+

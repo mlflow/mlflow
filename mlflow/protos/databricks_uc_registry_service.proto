@@ -137,7 +137,7 @@ service UcModelRegistryService {
   rpc GenerateTemporaryModelVersionCredentials (GenerateTemporaryModelVersionCredentialsRequest) returns (GenerateTemporaryModelVersionCredentialsResponse){
     option (mlflow.rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
         since {major: 2, minor: 0},
       }],
@@ -145,6 +145,7 @@ service UcModelRegistryService {
       rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials",
     };
   }
+
   rpc GetModelVersionDownloadUri (GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
     option (mlflow.rpc) = {
       endpoints: [{
@@ -156,4 +157,17 @@ service UcModelRegistryService {
       rpc_doc_title: "(Unity Catalog) Get Download URI For ModelVersion Artifacts",
     };
   }
+
+  rpc FinalizeModelVersion (FinalizeModelVersionRequest) returns (FinalizeModelVersionResponse) {
+    option (mlflow.rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/model-versions/finalize"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Finalize Model Version",
+    };
+  }
+
 }
