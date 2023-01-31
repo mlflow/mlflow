@@ -8,6 +8,8 @@ jobs:
   push-images:
     runs-on: ubuntu-latest
     steps:
+      - uses: ./.github/actions/setup-python
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
