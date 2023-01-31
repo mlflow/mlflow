@@ -279,11 +279,8 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_param_unspecified(param_name="run_link", param_value=run_link)
         _require_param_unspecified(param_name="tags", param_value=tags)
-        created_mv = self._create_model_version(name=name, source=source, run_id=run_id, description=description)
-        scoped_token = self._generate_temporary_model_version_credential(name=name, version=created_mv.version,
-                                                                         operation=MODEL_VERSION_READ_WRITE)
-        upload_files(token=scoped_token, )
-        return ModelVersion.from_proto(response_proto.model_version)
+        # TODO: Implement client-side model version upload and finalization logic here
+        return self._create_model_version(name=name, source=source, run_id=run_id, description=description)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
