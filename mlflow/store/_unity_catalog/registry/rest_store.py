@@ -1,6 +1,5 @@
 import logging
 
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
     UpdateRegisteredModelRequest,
@@ -15,8 +14,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionRequest,
     SearchRegisteredModelsRequest,
     GenerateTemporaryModelVersionCredentialsRequest,
-    MODEL_VERSION_READ,
-    MODEL_VERSION_READ_WRITE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -89,7 +86,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
-        return RegisteredModel.from_proto(response_proto.registered_model)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def update_registered_model(self, name, description):
         """
@@ -101,7 +98,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(UpdateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
-        return RegisteredModel.from_proto(response_proto.registered_model)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def rename_registered_model(self, name, new_name):
         """
@@ -152,7 +149,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(SearchRegisteredModelsRequest, req_body)
         registered_models = [
-            RegisteredModel.from_proto(registered_model)
+            registered_model_from_uc_proto(registered_model)
             for registered_model in response_proto.registered_models
         ]
         return PagedList(registered_models, response_proto.next_page_token)
@@ -166,7 +163,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(GetRegisteredModelRequest(name=name))
         response_proto = self._call_endpoint(GetRegisteredModelRequest, req_body)
-        return RegisteredModel.from_proto(response_proto.registered_model)
+        return registered_model_from_uc_proto(response_proto.registered_model)
 
     def get_latest_versions(self, name, stages=None):
         """
@@ -310,7 +307,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateModelVersionRequest(name=name, version=str(version), description=description)
         )
         response_proto = self._call_endpoint(UpdateModelVersionRequest, req_body)
-        return ModelVersion.from_proto(response_proto.model_version)
+        return model_version_from_uc_proto(response_proto.model_version)
 
     def delete_model_version(self, name, version):
         """
@@ -333,7 +330,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(GetModelVersionRequest(name=name, version=str(version)))
         response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
-        return ModelVersion.from_proto(response_proto.model_version)
+        return model_version_from_uc_proto(response_proto.model_version)
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -361,7 +358,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(SearchModelVersionsRequest(filter=filter_string))
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
-        model_versions = [ModelVersion.from_proto(mvd) for mvd in response_proto.model_versions]
+        model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
         return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):
