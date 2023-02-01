@@ -39,7 +39,6 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
-    model_version_from_uc_proto,
     registered_model_from_uc_proto,
 )
 
@@ -95,7 +94,9 @@ def _get_response_from_method(method):
     return method_to_response[method]()
 
 
-class UcModelRegistryStore(BaseRestStore):
+# TODO: re-enable the abstract-method check in a follow-up PR. It's disabled for now because
+# we haven't yet implemented required model version CRUD APIs in this class
+class UcModelRegistryStore(BaseRestStore): # pylint: disable=abstract-method
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
