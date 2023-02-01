@@ -89,8 +89,8 @@ def _get_response_from_method(method):
         GetRegisteredModelRequest: GetRegisteredModelResponse,
         GetModelVersionRequest: GetModelVersionResponse,
         SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
-        GenerateTemporaryModelVersionCredentialsRequest:
-            GenerateTemporaryModelVersionCredentialsResponse,
+        # pylint: disable=line-too-long
+        GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
     }
     return method_to_response[method]()
 
@@ -169,7 +169,7 @@ class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-            self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
