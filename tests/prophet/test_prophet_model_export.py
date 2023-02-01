@@ -384,7 +384,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 def test_pyfunc_serve_and_score(prophet_model):
-
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.prophet.log_model(prophet_model.model, artifact_path)

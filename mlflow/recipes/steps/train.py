@@ -69,7 +69,6 @@ _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
-
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
     SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH = "sk_model"
     PREDICTED_TRAINING_DATA_RELATIVE_PATH = "predicted_training_data.parquet"

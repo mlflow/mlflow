@@ -1521,7 +1521,6 @@ def _autolog(
                         child_tags=child_tags,
                     )
                 except Exception as e:
-
                     msg = (
                         "Encountered exception during creation of child runs for parameter search."
                         " Child runs may be missing. Exception: {}".format(str(e))
@@ -1534,7 +1533,6 @@ def _autolog(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
                 except Exception as e:
-
                     msg = (
                         "Failed to log parameter search results as an artifact."
                         " Exception: {}".format(str(e))

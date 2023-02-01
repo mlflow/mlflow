@@ -224,7 +224,6 @@ def test_model_metadata():
 
 
 def test_load_model_without_mlflow_version():
-
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
         path = tmp.path("model")

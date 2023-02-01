@@ -446,6 +446,7 @@ def save_model(
         import torch
         import mlflow.pytorch
 
+
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
@@ -555,7 +556,6 @@ def save_model(
             )
 
     if requirements_file:
-
         warnings.warn(
             "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
             FutureWarning,
@@ -703,6 +703,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         import torch
         import mlflow.pytorch
+
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
@@ -1007,7 +1008,6 @@ def autolog(
 
 
         def print_auto_logged_info(r):
-
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))

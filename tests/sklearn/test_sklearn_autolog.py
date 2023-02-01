@@ -1435,7 +1435,6 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     ) as mock_log_post_training_metric, mock.patch(
         "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
     ) as mock_register_prediction_input_dataset:
-
         with mlflow.start_run():
             svc = sklearn.svm.SVC()
             cv_model = sklearn.model_selection.GridSearchCV(
