@@ -109,22 +109,22 @@ def serve():
 
 def _get_app_name() -> str:
     """Search for plugins for custom mlflow app, otherwise return default."""
-    apps = [app for app in entrypoints.get_group_all("mlflow.app")]
+    apps = list(entrypoints.get_group_all("mlflow.app"))
     # Default, nothing installed
-    if len(apps) < 1:
+    if len(apps) == 0:
         return "{}:app".format(__name__)
     # Cannot install more than one
     if len(apps) > 1:
         raise MlflowException(
-            "Multiple server plugins detected "
-            "Only one server plugin may be installed"
-            "Plugins: {}".format(
-                ", ".join(["{}.{}".format(a.module_name, a.object_name) for a in apps])
+            "Multiple server plugins detected. "
+            "Only one server plugin may be installed. "
+            "Detected plugins: {}".format(
+                ", ".join([f"{a.module_name}.{a.object_name}" for a in apps])
             )
         )
     # Has a plugin installed
     plugin_app = apps[0]
-    return "{}:{}".format(plugin_app.module_name, plugin_app.object_name)
+    return f"{plugin_app.module_name}:{plugin_app.object_name}"
 
 
 def _build_waitress_command(waitress_opts, host, port, app_name):
