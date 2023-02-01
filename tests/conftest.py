@@ -166,6 +166,6 @@ def monkeypatch():
 
 
 @pytest.fixture
-def tmp_file_uri(tmp_path):
+def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()
     return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
