@@ -103,6 +103,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
+    def _dispose_engine(self):
+        self.engine.dispose()
+
     @staticmethod
     def _verify_registry_tables_exist(engine):
         # Verify that all tables have been created.
@@ -387,6 +390,7 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlRegisteredModelTag.name)
+                # pylint: disable-next=not-callable
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
@@ -457,6 +461,7 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                # pylint: disable-next=not-callable
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
