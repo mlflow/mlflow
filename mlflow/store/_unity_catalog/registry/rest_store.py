@@ -25,10 +25,15 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
 )
 from mlflow.store.model_registry.rest_store import BaseRestStore
-from mlflow.store._unity_catalog.registry.utils import model_version_from_uc_proto, registered_model_from_uc_proto
+from mlflow.store._unity_catalog.registry.utils import (
+    model_version_from_uc_proto,
+    registered_model_from_uc_proto,
+)
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
-_METHOD_TO_ALL_INFO = extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
+    UcModelRegistryService, _REST_API_PATH_PREFIX
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -69,7 +74,9 @@ class UcModelRegistryStore(BaseRestStore):
     """
 
     def __init__(self, get_host_creds):
-        super().__init__(get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO)
+        super().__init__(
+            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO
+        )
 
     # CRUD API for RegisteredModel objects
 
@@ -108,8 +115,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param new_name: New proposed name.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        _raise_unsupported_method(method="rename_registered_model",
-                                  message="Use the Unity Catalog REST API to rename registered models")
+        _raise_unsupported_method(
+            method="rename_registered_model",
+            message="Use the Unity Catalog REST API to rename registered models",
+        )
 
     def delete_registered_model(self, name):
         """
@@ -123,7 +132,7 @@ class UcModelRegistryStore(BaseRestStore):
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-            self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -199,9 +208,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     # CRUD API for ModelVersion objects
 
-    def _create_model_version(
-            self, name, source, run_id=None, description=None
-    ):
+    def _create_model_version(self, name, source, run_id=None, description=None):
         """
         Create a new model version from given source and run ID.
 
@@ -236,9 +243,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name,
-                version=version,
-                operation=operation
+                name=name, version=version, operation=operation
             )
         )
         self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body)
@@ -259,7 +264,7 @@ class UcModelRegistryStore(BaseRestStore):
         return response_proto.model_version
 
     def create_model_version(
-            self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
@@ -277,7 +282,9 @@ class UcModelRegistryStore(BaseRestStore):
         _require_param_unspecified(param_name="run_link", param_value=run_link)
         _require_param_unspecified(param_name="tags", param_value=tags)
         # TODO: Implement client-side model version upload and finalization logic here
-        return self._create_model_version(name=name, source=source, run_id=run_id, description=description)
+        return self._create_model_version(
+            name=name, source=source, run_id=run_id, description=description
+        )
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
@@ -342,7 +349,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
-        req_body = message_to_json(GetModelVersionDownloadUriRequest(name=name, version=str(version)))
+        req_body = message_to_json(
+            GetModelVersionDownloadUriRequest(name=name, version=str(version))
+        )
         response_proto = self._call_endpoint(GetModelVersionDownloadUriRequest, req_body)
         return response_proto.artifact_uri
 

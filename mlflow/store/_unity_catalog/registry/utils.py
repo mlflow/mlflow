@@ -1,6 +1,10 @@
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion, ModelVersionStatus, RegisteredModel
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersion,
+    ModelVersionStatus,
+    RegisteredModel,
+)
 
 
 def model_version_from_uc_proto(uc_proto):

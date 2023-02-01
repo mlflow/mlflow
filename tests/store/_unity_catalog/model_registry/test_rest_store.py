@@ -20,7 +20,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetModelVersionRequest,
     GetModelVersionDownloadUriRequest,
     SearchModelVersionsRequest,
-    SearchRegisteredModelsRequest
+    SearchRegisteredModelsRequest,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -69,7 +69,7 @@ def host_creds():
 
 
 @pytest.fixture
-def rest_store():
+def store():
     yield UcModelRegistryStore(lambda: host_creds())
 
 
@@ -94,10 +94,7 @@ def _verify_requests(http_request, endpoint, method, proto_message):
 def _verify_all_requests(http_request, endpoints, proto_message):
     json_body = message_to_json(proto_message)
     http_request.assert_has_calls(
-        [
-            mock.call(**(_args(endpoint, method, json_body)))
-            for endpoint, method in endpoints
-        ]
+        [mock.call(**(_args(endpoint, method, json_body))) for endpoint, method in endpoints]
     )
 
 
@@ -152,9 +149,7 @@ def test_delete_registered_model(mock_http, store):
 @mock_http_request
 def test_search_registered_model(mock_http, store):
     store.search_registered_models()
-    _verify_requests(
-        mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest()
-    )
+    _verify_requests(mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest())
     params_list = [
         {"filter_string": "model = 'yo'"},
         {"max_results": 400},
@@ -169,7 +164,10 @@ def test_search_registered_model(mock_http, store):
             if "filter_string" in params:
                 params["filter"] = params.pop("filter_string")
             _verify_requests(
-                mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest(**params)
+                mock_http,
+                "registered-models/search",
+                "GET",
+                SearchRegisteredModelsRequest(**params),
             )
 
 
@@ -188,9 +186,7 @@ def test_get_latest_versions(mock_multiple_http_requests, store):
     store.get_latest_versions(name=name)
     endpoint = "registered-models/get-latest-versions"
     endpoints = [(endpoint, "POST"), (endpoint, "GET")]
-    _verify_all_requests(
-        mock_multiple_http_requests, endpoints, GetLatestVersions(name=name)
-    )
+    _verify_all_requests(mock_multiple_http_requests, endpoints, GetLatestVersions(name=name))
 
 
 @mock_multiple_http_requests
@@ -340,7 +336,10 @@ def test_get_model_version_download_uri(mock_http, store):
 def test_search_model_versions(mock_http, store):
     store.search_model_versions(filter_string="name='model_12'")
     _verify_requests(
-        mock_http, "model-versions/search", "GET", SearchModelVersionsRequest(filter="name='model_12'")
+        mock_http,
+        "model-versions/search",
+        "GET",
+        SearchModelVersionsRequest(filter="name='model_12'"),
     )
 
 
