@@ -26,7 +26,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsRequest,
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse
+    GenerateTemporaryModelVersionCredentialsResponse,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -107,8 +107,10 @@ class UcModelRegistryStore(BaseRestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(
-            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO,
-            get_response_from_method=_get_response_from_method
+            get_host_creds,
+            method_to_info=_METHOD_TO_INFO,
+            method_to_all_info=_METHOD_TO_ALL_INFO,
+            get_response_from_method=_get_response_from_method,
         )
 
     # CRUD API for RegisteredModel objects
@@ -165,7 +167,7 @@ class UcModelRegistryStore(BaseRestStore):
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-            self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -237,4 +239,3 @@ class UcModelRegistryStore(BaseRestStore):
         :return: None
         """
         _raise_unsupported_method(method="delete_registered_model_tag")
-
