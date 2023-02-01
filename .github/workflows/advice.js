@@ -26,7 +26,7 @@ module.exports = async ({ context, github }) => {
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
   const { sha, label } = context.payload.pull_request.head;
-  const { user } = context.payload.pull_request;
+  const { user, body } = context.payload.pull_request;
   const messages = [];
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
@@ -46,6 +46,15 @@ module.exports = async ({ context, github }) => {
         "This PR was filed from the master branch in your fork, which is not recommended " +
         "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
         "a non-master branch."
+    );
+  }
+
+  if (!body.includes("How should the PR be classified in the release notes?")) {
+    messages.push(
+      "#### &#x26a0; Invalid PR template\n\n" +
+        "This PR does not appear to have been filed using the MLflow PR template. " +
+        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)" +
+        "and fill it out."
     );
   }
 
