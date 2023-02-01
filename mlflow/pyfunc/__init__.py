@@ -427,6 +427,7 @@ class PyFuncModel:
 
             import mlflow
 
+
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
                 def predict(self, context, model_input):

@@ -575,7 +575,6 @@ def autolog(
 
 
         def print_auto_logged_info(run):
-
             tags = {k: v for k, v in run.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [
                 f.path for f in mlflow.MlflowClient().list_artifacts(run.info.run_id, "model")
