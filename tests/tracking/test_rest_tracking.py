@@ -842,6 +842,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
+    time.sleep(0.001)
     mlflow_client.delete_experiment(experiment_ids[1])
     experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
     assert [e.name for e in experiments] == ["Abc", "a", "Default"]
