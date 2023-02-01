@@ -53,7 +53,7 @@ module.exports = async ({ context, github }) => {
     messages.push(
       "#### &#x26a0; Invalid PR template\n\n" +
         "This PR does not appear to have been filed using the MLflow PR template. " +
-        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)" +
+        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md) " +
         "and fill it out."
     );
   }
