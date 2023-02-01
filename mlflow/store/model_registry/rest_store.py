@@ -39,7 +39,31 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _RE
 _logger = logging.getLogger(__name__)
 
 
-class RestStore(AbstractStore):
+def _get_response_from_method(method):
+    return method.Response()
+
+
+class BaseRestStore(AbstractStore):
+    def __init__(
+        self, get_host_creds, method_to_info, method_to_all_info, get_response_from_method
+    ):
+        super().__init__()
+        self.get_host_creds = get_host_creds
+        self._method_to_info = method_to_info
+        self._method_to_all_info = method_to_all_info
+        self._get_response_from_method = get_response_from_method
+
+    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
+        response_proto = self._get_response_from_method(api)
+        if call_all_endpoints:
+            endpoints = self._method_to_all_info[api]
+            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
+        else:
+            endpoint, method = self._method_to_info[api]
+            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+
+
+class RestStore(BaseRestStore):
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
@@ -50,17 +74,12 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super().__init__()
-        self.get_host_creds = get_host_creds
-
-    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
-        response_proto = api.Response()
-        if call_all_endpoints:
-            endpoints = _METHOD_TO_ALL_INFO[api]
-            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
-        else:
-            endpoint, method = _METHOD_TO_INFO[api]
-            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        super().__init__(
+            get_host_creds,
+            method_to_info=_METHOD_TO_INFO,
+            method_to_all_info=_METHOD_TO_ALL_INFO,
+            get_response_from_method=_get_response_from_method,
+        )
 
     # CRUD API for RegisteredModel objects
 
