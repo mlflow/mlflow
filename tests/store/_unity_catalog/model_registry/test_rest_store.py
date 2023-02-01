@@ -91,6 +91,14 @@ def _verify_requests(http_request, endpoint, method, proto_message):
     http_request.assert_any_call(**(_args(endpoint, method, json_body)))
 
 
+def _expected_unsupported_method_error_message(method):
+    return f"Method {method} is unsupported for models in the Unity Catalog"
+
+
+def _expected_unsupported_arg_error_message(arg):
+    return f"Argument {arg} is unsupported for models in the Unity Catalog"
+
+
 def _verify_all_requests(http_request, endpoints, proto_message):
     json_body = message_to_json(proto_message)
     http_request.assert_has_calls(
@@ -111,7 +119,7 @@ def test_create_registered_model(mock_http, store):
         "registered-models/create",
         "POST",
         CreateRegisteredModelRequest(
-            name="model_1", tags=[tag.to_proto() for tag in tags], description=description
+            name="model_1", description=description
         ),
     )
 
@@ -120,7 +128,7 @@ def test_create_registered_model(mock_http, store):
 def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")):
         store.rename_registered_model(name=name, new_name=new_name)
 
 
@@ -151,24 +159,34 @@ def test_search_registered_model(mock_http, store):
     store.search_registered_models()
     _verify_requests(mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest())
     params_list = [
-        {"filter_string": "model = 'yo'"},
         {"max_results": 400},
         {"page_token": "blah"},
-        {"order_by": ["x", "Y"]},
     ]
     # test all combination of params
-    for sz in [0, 1, 2, 3, 4]:
+    for sz in range(3):
         for combination in combinations(params_list, sz):
             params = {k: v for d in combination for k, v in d.items()}
             store.search_registered_models(**params)
-            if "filter_string" in params:
-                params["filter"] = params.pop("filter_string")
             _verify_requests(
                 mock_http,
                 "registered-models/search",
                 "GET",
                 SearchRegisteredModelsRequest(**params),
             )
+
+
+@mock_http_request
+def test_search_registered_models_invalid_args(mock_http, store):
+    params_list = [
+        {"filter_string": "model = 'yo'"},
+        {"order_by": ["x", "Y"]},
+    ]
+    # test all combination of invalid params
+    for sz in range(1, 3):
+        for combination in combinations(params_list, sz):
+            params = {k: v for d in combination for k, v in d.items()}
+            with pytest.raises(MlflowException, match="unsupported for models in the Unity Catalog"):
+                store.search_registered_models(**params)
 
 
 @mock_http_request
@@ -180,50 +198,31 @@ def test_get_registered_model(mock_http, store):
     )
 
 
-@mock_multiple_http_requests
-def test_get_latest_versions(mock_multiple_http_requests, store):
+@mock_http_request
+def test_get_latest_versions_unsupported(mock_http, store):
     name = "model_1"
-    store.get_latest_versions(name=name)
-    endpoint = "registered-models/get-latest-versions"
-    endpoints = [(endpoint, "POST"), (endpoint, "GET")]
-    _verify_all_requests(mock_multiple_http_requests, endpoints, GetLatestVersions(name=name))
-
-
-@mock_multiple_http_requests
-def test_get_latest_versions_with_stages(mock_multiple_http_requests, store):
-    name = "model_1"
-    store.get_latest_versions(name=name, stages=["blaah"])
-    endpoint = "registered-models/get-latest-versions"
-    endpoints = [(endpoint, "POST"), (endpoint, "GET")]
-    _verify_all_requests(
-        mock_multiple_http_requests, endpoints, GetLatestVersions(name=name, stages=["blaah"])
-    )
+    expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.get_latest_versions(name=name)
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.get_latest_versions(name=name, stages=["Production"])
 
 
 @mock_http_request
-def test_set_registered_model_tag(mock_http, store):
+def test_set_registered_model_tag_unsupported(mock_http, store):
     name = "model_1"
     tag = RegisteredModelTag(key="key", value="value")
-    store.set_registered_model_tag(name=name, tag=tag)
-    _verify_requests(
-        mock_http,
-        "registered-models/set-tag",
-        "POST",
-        SetRegisteredModelTag(name=name, key=tag.key, value=tag.value),
-    )
+    expected_err_msg = _expected_unsupported_method_error_message("set_registered_model_tag")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.set_registered_model_tag(name=name, tag=tag)
 
 
 @mock_http_request
-def test_delete_registered_model_tag(mock_http, store):
+def test_delete_registered_model_tag_unsupported(mock_http, store):
     name = "model_1"
-    store.delete_registered_model_tag(name=name, key="key")
-    _verify_requests(
-        mock_http,
-        "registered-models/delete-tag",
-        "DELETE",
-        DeleteRegisteredModelTag(name=name, key="key"),
-    )
-
+    expected_err_msg = _expected_unsupported_method_error_message("delete_registered_model_tag")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.delete_registered_model_tag(name=name, key="key")
 
 @mock_http_request
 def test_create_model_version(mock_http, store):
@@ -236,18 +235,11 @@ def test_create_model_version(mock_http, store):
     )
     # test optional fields
     run_id = uuid.uuid4().hex
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    run_link = "localhost:5000/path/to/run"
     description = "version description"
     store.create_model_version(
         "model_1",
         "path/to/source",
         run_id,
-        tags,
-        run_link=run_link,
         description=description,
     )
     _verify_requests(
@@ -258,29 +250,38 @@ def test_create_model_version(mock_http, store):
             name="model_1",
             source="path/to/source",
             run_id=run_id,
-            run_link=run_link,
-            tags=[tag.to_proto() for tag in tags],
             description=description,
         ),
     )
 
+@mock_http_request
+def test_create_model_version_invalid_args(mock_http, store):
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
+    run_link = "https://localhost:5000"
+    params_list = [
+        {"run_link": run_link},
+        {"tags": [tags]},
+    ]
+    # test all combination of invalid params
+    for sz in range(1, 3):
+        for combination in combinations(params_list, sz):
+            params = {k: v for d in combination for k, v in d.items()}
+            with pytest.raises(MlflowException, match="unsupported for models in the Unity Catalog"):
+                store.create_model_version(**params, name="mymodel", source="mysource")
+
 
 @mock_http_request
-def test_transition_model_version_stage(mock_http, store):
+def test_transition_model_version_stage_unsupported(mock_http, store):
     name = "model_1"
     version = "5"
-    store.transition_model_version_stage(
-        name=name, version=version, stage="prod", archive_existing_versions=True
-    )
-    _verify_requests(
-        mock_http,
-        "model-versions/transition-stage",
-        "POST",
-        TransitionModelVersionStage(
+    expected_err_msg = _expected_unsupported_method_error_message("transition_model_version_stage")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.transition_model_version_stage(
             name=name, version=version, stage="prod", archive_existing_versions=True
-        ),
-    )
-
+        )
 
 @mock_http_request
 def test_update_model_version_description(mock_http, store):
@@ -328,7 +329,7 @@ def test_get_model_version_download_uri(mock_http, store):
         mock_http,
         "model-versions/get-download-uri",
         "GET",
-        GetModelVersionDownloadUri(name=name, version=version),
+        GetModelVersionDownloadUriRequest(name=name, version=version),
     )
 
 
@@ -344,25 +345,17 @@ def test_search_model_versions(mock_http, store):
 
 
 @mock_http_request
-def test_set_model_version_tag(mock_http, store):
+def test_set_model_version_tag_unsupported(mock_http, store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
-    store.set_model_version_tag(name=name, version="1", tag=tag)
-    _verify_requests(
-        mock_http,
-        "model-versions/set-tag",
-        "POST",
-        SetModelVersionTag(name=name, version="1", key=tag.key, value=tag.value),
-    )
+    expected_err_msg = _expected_unsupported_method_error_message("set_model_version_tag")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.set_model_version_tag(name=name, version="1", tag=tag)
 
 
 @mock_http_request
 def test_delete_model_version_tag(mock_http, store):
     name = "model_1"
-    store.delete_model_version_tag(name=name, version="1", key="key")
-    _verify_requests(
-        mock_http,
-        "model-versions/delete-tag",
-        "DELETE",
-        DeleteModelVersionTag(name=name, version="1", key="key"),
-    )
+    expected_err_msg = _expected_unsupported_method_error_message("delete_model_version_tag")
+    with pytest.raises(MlflowException, match=expected_err_msg):
+        store.delete_model_version_tag(name=name, version="1", key="key")

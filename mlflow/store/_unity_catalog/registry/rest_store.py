@@ -2,18 +2,31 @@ import logging
 
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
+    CreateRegisteredModelResponse,
     UpdateRegisteredModelRequest,
+    UpdateRegisteredModelResponse,
     DeleteRegisteredModelRequest,
+    DeleteRegisteredModelResponse,
     CreateModelVersionRequest,
+    CreateModelVersionResponse,
     FinalizeModelVersionRequest,
+    FinalizeModelVersionResponse,
     UpdateModelVersionRequest,
+    UpdateModelVersionResponse,
     DeleteModelVersionRequest,
+    DeleteModelVersionResponse,
     GetModelVersionDownloadUriRequest,
+    GetModelVersionDownloadUriResponse,
     SearchModelVersionsRequest,
+    SearchModelVersionsResponse,
     GetRegisteredModelRequest,
+    GetRegisteredModelResponse,
     GetModelVersionRequest,
+    GetModelVersionResponse,
     SearchRegisteredModelsRequest,
+    SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
+    GenerateTemporaryModelVersionCredentialsResponse
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -38,14 +51,14 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 _logger = logging.getLogger(__name__)
 
 
-def _require_param_unspecified(param_name, param_value, default_value=None, message=None):
-    if param_value != default_value:
-        _raise_unsupported_parameter(param_name, message)
+def _require_arg_unspecified(arg_name, arg_value, default_value=None, message=None):
+    if arg_value != default_value:
+        _raise_unsupported_arg(arg_name, message)
 
 
-def _raise_unsupported_parameter(param, message=None):
+def _raise_unsupported_arg(arg_name, message=None):
     messages = [
-        f"Param {param} is unsupported for models in the Unity Catalog.",
+        f"Argument {arg_name} is unsupported for models in the Unity Catalog.",
     ]
     if message is not None:
         messages.append(message)
@@ -63,6 +76,25 @@ def _raise_unsupported_method(method, message=None):
     raise MlflowException(" ".join(messages))
 
 
+def _get_response_from_method(method):
+    method_to_response = {
+        CreateRegisteredModelRequest: CreateRegisteredModelResponse,
+        UpdateRegisteredModelRequest: UpdateRegisteredModelResponse,
+        DeleteRegisteredModelRequest: DeleteRegisteredModelResponse,
+        CreateModelVersionRequest: CreateModelVersionResponse,
+        FinalizeModelVersionRequest: FinalizeModelVersionResponse,
+        UpdateModelVersionRequest: UpdateModelVersionResponse,
+        DeleteModelVersionRequest: DeleteModelVersionResponse,
+        GetModelVersionDownloadUriRequest: GetModelVersionDownloadUriResponse,
+        SearchModelVersionsRequest: SearchModelVersionsResponse,
+        GetRegisteredModelRequest: GetRegisteredModelResponse,
+        GetModelVersionRequest: GetModelVersionResponse,
+        SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
+        GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+    }
+    return method_to_response[method]()
+
+
 class UcModelRegistryStore(BaseRestStore):
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.
@@ -75,7 +107,8 @@ class UcModelRegistryStore(BaseRestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(
-            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO
+            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO,
+            get_response_from_method=_get_response_from_method
         )
 
     # CRUD API for RegisteredModel objects
@@ -132,7 +165,7 @@ class UcModelRegistryStore(BaseRestStore):
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+            self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -147,12 +180,11 @@ class UcModelRegistryStore(BaseRestStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        _require_param_unspecified("order_by", order_by)
+        _require_arg_unspecified("filter_string", filter_string)
+        _require_arg_unspecified("order_by", order_by)
         req_body = message_to_json(
             SearchRegisteredModelsRequest(
-                filter=filter_string,
                 max_results=max_results,
-                order_by=order_by,
                 page_token=page_token,
             )
         )
@@ -264,7 +296,7 @@ class UcModelRegistryStore(BaseRestStore):
         return response_proto.model_version
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+            self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
@@ -279,8 +311,8 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
-        _require_param_unspecified(param_name="run_link", param_value=run_link)
-        _require_param_unspecified(param_name="tags", param_value=tags)
+        _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags)
         # TODO: Implement client-side model version upload and finalization logic here
         return self._create_model_version(
             name=name, source=source, run_id=run_id, description=description

@@ -54,7 +54,7 @@ class BaseRestStore(AbstractStore):
         self._get_response_from_method = get_response_from_method
 
     def _call_endpoint(self, api, json_body, call_all_endpoints=False):
-        response_proto = api.Response()
+        response_proto = self._get_response_from_method(api)
         if call_all_endpoints:
             endpoints = self._method_to_all_info[api]
             return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
@@ -75,7 +75,10 @@ class RestStore(BaseRestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(
-            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO
+            get_host_creds,
+            method_to_info=_METHOD_TO_INFO,
+            method_to_all_info=_METHOD_TO_ALL_INFO,
+            get_response_from_method=_get_response_from_method,
         )
 
     # CRUD API for RegisteredModel objects

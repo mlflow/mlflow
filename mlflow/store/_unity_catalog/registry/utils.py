@@ -2,27 +2,34 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion,
-    ModelVersionStatus,
+    ModelVersionStatus as ProtoModelVersionStatus,
     RegisteredModel,
 )
+
+
+_STRING_TO_STATUS = {
+    k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()
+}
+_STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
+
+def uc_model_version_status_to_string(status):
+    return _STATUS_TO_STRING[status]
 
 
 def model_version_from_uc_proto(uc_proto):
     # input: mlflow.protos.databricks_uc_registry_messages_pb2.ModelVersion
     # returns: ModelVersion entity
     return ModelVersion(
-        uc_proto.name,
-        uc_proto.version,
-        uc_proto.creation_timestamp,
-        uc_proto.last_updated_timestamp,
-        uc_proto.description,
-        uc_proto.user_id,
-        uc_proto.current_stage,
-        uc_proto.source,
-        uc_proto.run_id,
-        ModelVersionStatus.to_string(uc_proto.status),
-        uc_proto.status_message,
-        run_link=uc_proto.run_link,
+        name=uc_proto.name,
+        version=uc_proto.version,
+        creation_timestamp=uc_proto.creation_timestamp,
+        last_updated_timestamp=uc_proto.last_updated_timestamp,
+        description=uc_proto.description,
+        user_id=uc_proto.user_id,
+        source=uc_proto.source,
+        run_id=uc_proto.run_id,
+        status=uc_model_version_status_to_string(uc_proto.status),
+        status_message=uc_proto.status_message,
     )
 
 
@@ -30,11 +37,10 @@ def registered_model_from_uc_proto(uc_proto):
     # input: mlflow.protos.databricks_uc_registry_messages_pb2.RegisteredModel
     # returns: RegisteredModel entity
     return RegisteredModel(
-        uc_proto.name,
-        uc_proto.creation_timestamp,
-        uc_proto.last_updated_timestamp,
-        uc_proto.description,
-        uc_proto.user_id,
+        name=uc_proto.name,
+        creation_timestamp=uc_proto.creation_timestamp,
+        last_updated_timestamp=uc_proto.last_updated_timestamp,
+        description=uc_proto.description,
     )
 
 
