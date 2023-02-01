@@ -328,7 +328,6 @@ def test_create_env_with_mamba():
     """
 
     def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
-
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
             return subprocess.CompletedProcess(
@@ -340,14 +339,12 @@ def test_create_env_with_mamba():
             return subprocess.CompletedProcess(cmd, 0)
 
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
-
         if os.path.basename(cmd[0]) == "mamba":
             raise OSError()
 
     conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
 
     with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
-
         # Simulate success
         with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
             mlflow.utils.conda.get_or_create_conda_env(conda_env_path)

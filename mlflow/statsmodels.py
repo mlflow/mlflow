@@ -532,7 +532,6 @@ def autolog(
             safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
 
     def wrapper_fit(original, self, *args, **kwargs):
-
         should_autolog = False
         if AutologHelpers.should_autolog:
             AutologHelpers.should_autolog = False

@@ -725,7 +725,7 @@ def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
     """
     Copies the directory src_dir into dst_dir, without preserving filesystem permissions
     """
-    for (dirpath, dirnames, filenames) in os.walk(src_dir):
+    for dirpath, dirnames, filenames in os.walk(src_dir):
         for dirname in dirnames:
             relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
             # For each directory <dirname> immediately under <dirpath>, create an equivalently-named

@@ -277,7 +277,6 @@ def log_model(
 
 
 def _save_model(model, path):
-
     from prophet.serialize import model_to_json
 
     model_ser = model_to_json(model)
@@ -286,7 +285,6 @@ def _save_model(model, path):
 
 
 def _load_model(path):
-
     from prophet.serialize import model_from_json
 
     with open(path) as f:

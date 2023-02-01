@@ -433,7 +433,6 @@ def test_mlflow_models_serve(enable_mlserver):
 
 
 def test_mlflow_tracking_disabled_in_artifacts_only_mode():
-
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
@@ -447,7 +446,6 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
 
 
 def test_mlflow_artifact_list_in_artifacts_only_mode():
-
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
@@ -462,7 +460,6 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
-
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
     process = subprocess.Popen(cmd)
@@ -479,7 +476,6 @@ def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specifi
 
 
 def test_mlflow_artifact_only_prints_warning_for_configs():
-
     with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
     ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):

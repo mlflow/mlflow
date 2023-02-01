@@ -11,7 +11,6 @@ _logger = logging.getLogger(__name__)
 
 
 class RecipeMetric:
-
     _KEY_METRIC_NAME = "name"
     _KEY_METRIC_GREATER_IS_BETTER = "greater_is_better"
     _KEY_CUSTOM_FUNCTION = "function"
