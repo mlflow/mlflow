@@ -508,7 +508,6 @@ def min_absolute_change_threshold_test_spec(request):
         )
 
     if request.param == "missing_baseline_metric":
-
         l1_loss_validation_result = _MetricValidationResult(
             "custom_l1_loss", 0.72, l1_loss_threshold, None
         )
@@ -674,7 +673,6 @@ def min_relative_change_threshold_test_spec(request):
         )
 
     if request.param == "missing_baseline_metric":
-
         l1_loss_validation_result = _MetricValidationResult(
             "custom_l1_loss", 0.72, l1_loss_threshold, None
         )

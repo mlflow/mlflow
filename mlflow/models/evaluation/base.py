@@ -808,7 +808,6 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     }
 
     for metric_name in validation_thresholds.keys():
-
         metric_threshold, validation_result = (
             validation_thresholds[metric_name],
             validation_results[metric_name],

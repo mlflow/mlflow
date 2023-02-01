@@ -316,20 +316,17 @@ def load_model(model_uri, dst_path=None):
 
 
 def _save_model(model, path):
-
     with open(path, "wb") as f:
         pickle.dump(model, f)
 
 
 def _load_model(path):
-
     with open(path, "rb") as pickled_model:
         model = pickle.load(pickled_model)
     return model
 
 
 def _load_pyfunc(path):
-
     return _PmdarimaModelWrapper(_load_model(path))
 
 
@@ -341,7 +338,6 @@ class _PmdarimaModelWrapper:
         self._pmdarima_version = pmdarima.__version__
 
     def predict(self, dataframe) -> pd.DataFrame:
-
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

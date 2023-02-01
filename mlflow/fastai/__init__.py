@@ -599,7 +599,6 @@ def autolog(
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-
             if not fit_in_fine_tune:
                 early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
                 _log_early_stop_callback_params(early_stop_callback)

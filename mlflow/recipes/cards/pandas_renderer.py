@@ -204,7 +204,7 @@ def convert_to_comparison_proto(
         of the glimpses with the given names.
     """
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
-    for (name, df) in dfs:
+    for name, df in dfs:
         if not df.empty:
             proto = convert_to_dataset_feature_statistics(df)
             proto.name = name

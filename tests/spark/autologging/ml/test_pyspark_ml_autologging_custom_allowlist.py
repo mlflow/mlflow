@@ -30,7 +30,6 @@ def test_custom_log_model_allowlist(tmpdir):
 
 
 def test_log_model_allowlist_from_url():
-
     allowlist_file_path = "https://raw.githubusercontent.com/mlflow/mlflow/v1.26.0/mlflow/pyspark/ml/log_model_allowlist.txt"
 
     spark_session = (

@@ -429,7 +429,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         artifact_path = artifact_path or ""
 
         staged_uploads = []
-        for (dirpath, _, filenames) in os.walk(local_dir):
+        for dirpath, _, filenames in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)
@@ -467,7 +467,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
-        for (src_file_path, upload_future) in inflight_uploads.items():
+        for src_file_path, upload_future in inflight_uploads.items():
             try:
                 upload_future.result()
             except Exception as e:

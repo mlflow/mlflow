@@ -173,7 +173,7 @@ def _validate_user_code_output(post_split, train_df, validation_df, test_df):
             " Expected output is a tuple with (train_df, validation_df, test_df)"
         ) from None
 
-    for (post_split_df, pre_split_df, split_type) in [
+    for post_split_df, pre_split_df, split_type in [
         [post_filter_train_df, train_df, "train"],
         [post_filter_validation_df, validation_df, "validation"],
         [post_filter_test_df, test_df, "test"],
