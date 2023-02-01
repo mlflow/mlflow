@@ -2436,6 +2436,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for _ in range(3):
             invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
             assert _get_schema_version(engine) == _get_latest_schema_revision()
+        engine.dispose()
 
     def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
         self,
@@ -2688,6 +2689,7 @@ class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
         super()._setup_db_uri()
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
+        engine.dispose()
         invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
