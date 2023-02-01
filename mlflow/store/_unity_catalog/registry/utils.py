@@ -1,5 +1,4 @@
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
-from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion,
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -42,11 +41,3 @@ def registered_model_from_uc_proto(uc_proto):
         last_updated_timestamp=uc_proto.last_updated_timestamp,
         description=uc_proto.description,
     )
-
-
-def registered_model_to_uc_proto(uc_proto):
-    pass
-
-
-def model_version_to_uc_proto(uc_proto):
-    pass
