@@ -77,10 +77,10 @@ def test_get_recipe_tracking_config_returns_expected_config(
     assert recipe_tracking_config.artifact_location == (
         artifact_location or default_artifact_location
     )
-    if run_name_prefix is not None:
-        assert run_name_prefix in recipe_tracking_config.run_name
-    else:
+    if run_name_prefix is None:
         assert recipe_tracking_config.run_name is None
+    else:
+        assert run_name_prefix in recipe_tracking_config.run_name
     if experiment_name is not None:
         assert recipe_tracking_config.experiment_name == experiment_name
     elif experiment_id is not None:
@@ -142,11 +142,10 @@ def test_get_recipe_tracking_config_returns_expected_config_on_databricks(
         )
         assert recipe_tracking_config.tracking_uri == (tracking_uri or default_tracking_uri)
         assert recipe_tracking_config.artifact_location == artifact_location
-        if run_name_prefix is not None:
-            assert run_name_prefix in recipe_tracking_config.run_name
-        else:
+        if run_name_prefix is None:
             assert recipe_tracking_config.run_name is None
-        # assert recipe_tracking_config.run_name == (run_name_prefix or None)
+        else:
+            assert run_name_prefix in recipe_tracking_config.run_name
         if experiment_name is not None:
             assert recipe_tracking_config.experiment_name == experiment_name
         elif experiment_id is not None:

@@ -3,7 +3,7 @@ import logging
 import pathlib
 import tempfile
 import shutil
-import random
+import uuid
 from typing import Dict, Any, TypeVar
 
 import mlflow
@@ -36,7 +36,7 @@ def _get_run_name(run_name_prefix):
         return None
 
     sep = "-"
-    num = random.randint(0, 10**3)
+    num = uuid.uuid4().hex[:8]
     return f"{run_name_prefix}{sep}{num}"
 
 
