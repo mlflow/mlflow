@@ -1,5 +1,7 @@
 import logging
 
+from abc import ABCMeta
+
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.protos.model_registry_pb2 import (
     ModelRegistryService,
@@ -43,7 +45,10 @@ def _get_response_from_method(method):
     return method.Response()
 
 
-class BaseRestStore(AbstractStore):
+class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
+
+    __metaclass__ = ABCMeta
+
     def __init__(
         self, get_host_creds, method_to_info, method_to_all_info, get_response_from_method
     ):

@@ -89,14 +89,15 @@ def _get_response_from_method(method):
         GetRegisteredModelRequest: GetRegisteredModelResponse,
         GetModelVersionRequest: GetModelVersionResponse,
         SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
-        GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+        GenerateTemporaryModelVersionCredentialsRequest:
+            GenerateTemporaryModelVersionCredentialsResponse,
     }
     return method_to_response[method]()
 
 
 # TODO: re-enable the abstract-method check in a follow-up PR. It's disabled for now because
 # we haven't yet implemented required model version CRUD APIs in this class
-class UcModelRegistryStore(BaseRestStore): # pylint: disable=abstract-method
+class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
     """
     Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
@@ -168,7 +169,7 @@ class UcModelRegistryStore(BaseRestStore): # pylint: disable=abstract-method
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+            self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
