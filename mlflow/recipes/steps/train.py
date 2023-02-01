@@ -225,6 +225,24 @@ class TrainStep(BaseStep):
         else:
             return tuning_param == logged_param
 
+    def _fitted_estimator(self, *args):
+        if "calibrate_proba" in self.step_config:
+            return self._calibrated_classifier_fitted_estimator(*args)
+        else:
+            return self._label_encoded_fitted_estimator(*args)
+
+    def _calibrated_classifier_fitted_estimator(self, estimator, X_train, y_train):
+        original_estimator = estimator.fit(X_train, y_train)
+        if "classification" in self.recipe:
+            from sklearn.calibration import CalibratedClassifierCV
+
+            estimator = CalibratedClassifierCV(
+                estimator, method=self.step_config["calibrate_proba"]
+            )
+            estimator.fit(X_train, y_train)
+
+        return estimator, {"original_estimator": original_estimator}
+
     def _label_encoded_fitted_estimator(self, estimator, X_train, y_train):
         from sklearn.preprocessing import LabelEncoder
 
@@ -253,7 +271,7 @@ class TrainStep(BaseStep):
 
         estimator.predict = wrapped_predict
 
-        return estimator, target_column_class_labels
+        return estimator, {"target_column_class_labels": target_column_class_labels}
 
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
@@ -349,13 +367,14 @@ class TrainStep(BaseStep):
                 ),
             }
 
+            run_name = self.tracking_config.run_name
             best_estimator_params = None
             mlflow.autolog(log_models=False, silent=True)
-            with mlflow.start_run(tags=tags) as run:
+            with mlflow.start_run(run_name=run_name, tags=tags) as run:
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
-                fitted_estimator, target_column_class_labels = self._label_encoded_fitted_estimator(
+                fitted_estimator, additional_fitted_args = self._fitted_estimator(
                     estimator, X_train, y_train
                 )
                 logged_estimator = self._log_estimator_to_mlflow(fitted_estimator, X_train)
@@ -374,7 +393,9 @@ class TrainStep(BaseStep):
                 wrapped_model = WrappedRecipeModel(
                     self.predict_scores_for_all_classes,
                     self.predict_prefix,
-                    target_column_class_labels=target_column_class_labels,
+                    target_column_class_labels=additional_fitted_args.get(
+                        "target_column_class_labels"
+                    ),
                 )
 
                 model_uri = get_step_output_path(
@@ -518,6 +539,7 @@ class TrainStep(BaseStep):
                     "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
+            calibrated_plot = None
             train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
             if isinstance(train_predictions, pd.DataFrame) and {
                 f"{self.predict_prefix}label",
@@ -539,6 +561,18 @@ class TrainStep(BaseStep):
                         ),
                         self.target_col,
                     )
+
+                    if "calibrate_proba" in self.step_config and hasattr(
+                        additional_fitted_args.get("original_estimator"), "predict_proba"
+                    ):
+                        from sklearn.calibration import CalibrationDisplay
+
+                        calibrated_plot = CalibrationDisplay.from_estimator(
+                            additional_fitted_args.get("original_estimator"),
+                            raw_train_df.drop(self.target_col, axis=1),
+                            raw_train_df[self.target_col],
+                            pos_label=self.positive_class,
+                        )
                 else:
                     # compute worst examples data_frame only if positive class exists
                     worst_examples_df = pd.DataFrame()
@@ -583,6 +617,7 @@ class TrainStep(BaseStep):
                 output_directory=output_directory,
                 leaderboard_df=leaderboard_df,
                 tuning_df=tuning_df,
+                calibrated_plot=calibrated_plot,
             )
             card.save_as_html(output_directory)
             for step_name in ("ingest", "split", "transform", "train"):
@@ -802,6 +837,7 @@ class TrainStep(BaseStep):
         output_directory,
         leaderboard_df=None,
         tuning_df=None,
+        calibrated_plot=None,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -888,6 +924,15 @@ class TrainStep(BaseStep):
             (
                 card.add_tab("Worst Predictions", "{{ WORST_EXAMPLES_TABLE }}").add_html(
                     "WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df)
+                )
+            )
+
+        if calibrated_plot:
+            calibrated_plot_location = os.path.join(output_directory, "calibrated_plot_location")
+            calibrated_plot.figure_.savefig(calibrated_plot_location, format="png")
+            (
+                card.add_tab("Prob. Calibration", "{{ CALIBRATED_PLOT }}").add_image(
+                    "CALIBRATED_PLOT", calibrated_plot_location
                 )
             )
 
@@ -1070,15 +1115,18 @@ class TrainStep(BaseStep):
 
         # wrap training in objective fn
         def objective(X_train, y_train, validation_df, hyperparameter_args, on_worker=False):
+            run_name = self.tracking_config.run_name
             if on_worker:
                 client = MlflowClient()
                 parent_tags = client.get_run(parent_run_id).data.tags
                 child_run = client.create_run(
-                    _get_experiment_id(), tags={**parent_tags, "mlflow.parentRunId": parent_run_id}
+                    _get_experiment_id(),
+                    tags={**parent_tags, "mlflow.parentRunId": parent_run_id},
+                    run_name=run_name,
                 )
                 run_args = {"run_id": child_run.info.run_id}
             else:
-                run_args = {"nested": True}
+                run_args = {"run_name": run_name, "nested": True}
             with mlflow.start_run(**run_args) as tuning_run:
                 estimator_args = dict(estimator_hardcoded_params, **hyperparameter_args)
                 estimator = estimator_fn(estimator_args)
@@ -1094,7 +1142,7 @@ class TrainStep(BaseStep):
                 X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
                 y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
 
-                fitted_estimator, _ = self._label_encoded_fitted_estimator(
+                fitted_estimator, _ = self._fitted_estimator(
                     estimator, X_train_sampled, y_train_sampled
                 )
 
