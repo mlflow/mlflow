@@ -8,6 +8,7 @@ import pytest
 
 import mlflow
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
+from mlflow.utils.os import is_windows
 
 from tests.autologging.fixtures import enable_test_mode
 
@@ -162,3 +163,9 @@ def monkeypatch():
     """
     with ExtendedMonkeyPatch().context() as mp:
         yield mp
+
+
+@pytest.fixture
+def tmp_sqlite_uri(tmp_path):
+    path = tmp_path.joinpath("mlflow.db").as_uri()
+    return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]

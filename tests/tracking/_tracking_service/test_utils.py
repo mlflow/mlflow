@@ -130,7 +130,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"

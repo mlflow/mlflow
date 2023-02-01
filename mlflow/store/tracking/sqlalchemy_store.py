@@ -149,6 +149,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
+    def _dispose_engine(self):
+        self.engine.dispose()
+
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
             # config letting MySQL override default

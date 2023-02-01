@@ -2,65 +2,29 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-import sys
 import pytest
-import logging
-import shutil
-import tempfile
-from pathlib import Path
 
-from mlflow.store.model_registry.file_store import FileStore
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
-from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
+from mlflow.utils.os import is_windows
+from tests.tracking.integration_test_utils import _terminate_server, _init_server
 
 
-_logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module")
-def module_scoped_tmp_dir():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
-
-
-@pytest.fixture(scope="module", params=["file", "sqlalchemy"])
-def backend_uri(request, module_scoped_tmp_dir):
+@pytest.fixture(params=["file", "sqlalchemy"])
+def client(request, tmp_path):
     if request.param == "file":
-        return path_to_local_file_uri(str(module_scoped_tmp_dir.joinpath("file")))
+        backend_uri = tmp_path.joinpath("file").as_uri()
     else:
-        path = path_to_local_file_uri(str(module_scoped_tmp_dir.joinpath("sqlalchemy.db")))
-        return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-
-@pytest.fixture(autouse=True)
-def reset_backend(backend_uri, module_scoped_tmp_dir):
-    for child in module_scoped_tmp_dir.iterdir():
-        if child.is_dir():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
-
-    if backend_uri.startswith("file"):
-        FileStore(backend_uri)
-    else:
-        SqlAlchemyStore(backend_uri)
-
-
-@pytest.fixture(scope="module")
-def client(backend_uri, module_scoped_tmp_dir):
-    _logger.info("Launching server...")
     url, process = _init_server(
-        backend_uri=backend_uri, root_artifact_uri=module_scoped_tmp_dir.as_uri()
+        backend_uri=backend_uri, root_artifact_uri=tmp_path.joinpath("artifacts").as_uri()
     )
     yield MlflowClient(url)
-    _logger.info(f"Terminating server at {url}...")
-    process.terminate()
-    _await_server_down_or_die(process)
+    _terminate_server(process)
 
 
 def assert_is_between(start_time, end_time, expected_time):
