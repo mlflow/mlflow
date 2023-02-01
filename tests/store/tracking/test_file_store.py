@@ -994,10 +994,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert self._search(fs, experiment_id, filter_str="tags.generic_2='another value'") == [r2]
         assert self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'") == []
         assert self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'") == []
-        assert sorted([r1, r2],) == sorted(
+        assert sorted([r1, r2]) == sorted(
             self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
-        assert sorted([r1, r2],) == sorted(
+        assert sorted([r1, r2]) == sorted(
             self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
         assert self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'") == [r1]

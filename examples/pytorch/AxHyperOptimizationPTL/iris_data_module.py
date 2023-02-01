@@ -25,7 +25,6 @@ class IrisDataModule(pl.LightningDataModule):
         return data_set
 
     def setup(self, stage=None):
-
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
             iris_full = self._get_iris_as_tensor_dataset()

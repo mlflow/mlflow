@@ -73,7 +73,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
     def _run(self, output_directory: str) -> BaseCard:
-
         dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,

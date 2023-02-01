@@ -264,7 +264,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert updated_exp.last_update_time > exp.last_update_time
 
     def test_delete_restore_experiment_with_runs(self):
-
         experiment_id = self._experiment_factory("test exp")
         run1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
         run2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
@@ -988,7 +987,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert metric_obj.value == 20
 
     def test_get_metric_history_paginated_request_raises(self):
-
         with pytest.raises(
             MlflowException,
             match="The SQLAlchemyStore backend does not support pagination for the "
@@ -1198,7 +1196,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        assert sorted([(m.key, m.value, m.timestamp) for m in expected],) == sorted(
+        assert sorted(
+            [(m.key, m.value, m.timestamp) for m in expected],
+        ) == sorted(
             [(m.key, m.value, m.timestamp) for m in actual],
         )
 
@@ -1646,10 +1646,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
         assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
         assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
-        assert sorted([r1, r2],) == sorted(
+        assert sorted(
+            [r1, r2],
+        ) == sorted(
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
-        assert sorted([r1, r2],) == sorted(
+        assert sorted(
+            [r1, r2],
+        ) == sorted(
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
@@ -1861,7 +1865,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
         assert self._search([e1, e2], filter_string) == [r1]
 
-        for (k, v) in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
+        for k, v in {"experiment_id": e1, "lifecycle_stage": "ACTIVE"}.items():
             with pytest.raises(MlflowException, match=r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], f"attribute.{k} = '{v}'")
 

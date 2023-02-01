@@ -914,7 +914,6 @@ def autolog(
     _log_model_allowlist = _read_log_model_allowlist()
 
     def _log_pretraining_metadata(estimator, params):
-
         if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
@@ -954,7 +953,6 @@ def autolog(
         mlflow.set_tags(_get_estimator_info_tags(estimator))
 
     def _log_posttraining_metadata(estimator, spark_model, params, input_df):
-
         if _is_parameter_search_estimator(estimator):
             try:
                 # Fetch environment-specific tags (e.g., user and source) to ensure that lineage

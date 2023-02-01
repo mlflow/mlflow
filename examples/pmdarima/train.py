@@ -15,7 +15,6 @@ def calculate_cv_metrics(model, endog, metric, cv):
 
 
 with mlflow.start_run():
-
     data = load_wineind()
 
     train, test = model_selection.train_test_split(data, train_size=150)

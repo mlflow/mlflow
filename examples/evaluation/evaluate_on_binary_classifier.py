@@ -17,7 +17,6 @@ eval_data = X_test
 eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
-
     # Log the XGBoost binary classifier model to MLflow
     mlflow.sklearn.log_model(model, "model")
     model_uri = mlflow.get_artifact_uri("model")

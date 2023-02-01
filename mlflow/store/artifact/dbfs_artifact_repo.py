@@ -123,7 +123,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_path = artifact_path or ""
-        for (dirpath, _, filenames) in os.walk(local_dir):
+        for dirpath, _, filenames in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)

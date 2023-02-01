@@ -196,7 +196,6 @@ def test_statsmodels_autolog_loads_model_from_artifact():
         loaded_model = mlflow.statsmodels.load_model(f"runs:/{run_id}/model")
 
         if hasattr(model_with_results.model, "predict"):
-
             if isinstance(model_with_results.alg, TimeSeriesModel):
                 start_date, end_date = _get_dates_from_df(model_with_results.inference_dataframe)
                 model_predictions = model_with_results.model.predict(start_date, end_date)
