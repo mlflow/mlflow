@@ -5,7 +5,7 @@ import pytest
 from unittest import mock
 import functools
 
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -62,7 +62,7 @@ def host_creds():
 
 @pytest.fixture
 def store():
-    yield UcModelRegistryStore(lambda: host_creds())
+    yield UcModelRegistryStore(host_creds)
 
 
 def _args(endpoint, method, json_body):
