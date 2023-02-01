@@ -20,7 +20,7 @@ from tests.recipes.helper_functions import (
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 @pytest.mark.parametrize(
-    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id", "run_name"),
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id", "run_name_prefix"),
     [
         (
             "mysql://myhost:8000/test_uri",
@@ -38,7 +38,7 @@ from tests.recipes.helper_functions import (
     ],
 )
 def test_get_recipe_tracking_config_returns_expected_config(
-    tracking_uri, artifact_location, experiment_name, experiment_id, run_name
+    tracking_uri, artifact_location, experiment_name, experiment_id, run_name_prefix
 ):
     default_tracking_uri = path_to_local_sqlite_uri(
         path=str((pathlib.Path.cwd() / "metadata" / "mlflow" / "mlruns.db").resolve())
@@ -62,8 +62,8 @@ def test_get_recipe_tracking_config_returns_expected_config(
         profile_contents["experiment"]["name"] = experiment_name
     if experiment_id is not None:
         profile_contents["experiment"]["id"] = experiment_id
-    if run_name is not None:
-        profile_contents["experiment"]["run_name"] = run_name
+    if run_name_prefix is not None:
+        profile_contents["experiment"]["run_name_prefix"] = run_name_prefix
 
     profile_path = pathlib.Path.cwd() / "profiles" / "testprofile.yaml"
     with open(profile_path, "w") as f:
@@ -77,7 +77,10 @@ def test_get_recipe_tracking_config_returns_expected_config(
     assert recipe_tracking_config.artifact_location == (
         artifact_location or default_artifact_location
     )
-    assert recipe_tracking_config.run_name == (run_name or None)
+    if run_name_prefix is None:
+        assert recipe_tracking_config.run_name is None
+    else:
+        assert run_name_prefix in recipe_tracking_config.run_name
     if experiment_name is not None:
         assert recipe_tracking_config.experiment_name == experiment_name
     elif experiment_id is not None:
@@ -88,7 +91,7 @@ def test_get_recipe_tracking_config_returns_expected_config(
 
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 @pytest.mark.parametrize(
-    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id", "run_name"),
+    ("tracking_uri", "artifact_location", "experiment_name", "experiment_id", "run_name_prefix"),
     [
         (
             "mysql://myhost:8000/test_uri",
@@ -106,7 +109,7 @@ def test_get_recipe_tracking_config_returns_expected_config(
     ],
 )
 def test_get_recipe_tracking_config_returns_expected_config_on_databricks(
-    tracking_uri, artifact_location, experiment_name, experiment_id, run_name
+    tracking_uri, artifact_location, experiment_name, experiment_id, run_name_prefix
 ):
     with mock.patch("mlflow.recipes.utils.tracking.is_in_databricks_runtime", return_value=True):
         default_tracking_uri = "databricks"
@@ -126,8 +129,8 @@ def test_get_recipe_tracking_config_returns_expected_config_on_databricks(
             profile_contents["experiment"]["name"] = experiment_name
         if experiment_id is not None:
             profile_contents["experiment"]["id"] = experiment_id
-        if run_name is not None:
-            profile_contents["experiment"]["run_name"] = run_name
+        if run_name_prefix is not None:
+            profile_contents["experiment"]["run_name_prefix"] = run_name_prefix
 
         profile_path = pathlib.Path.cwd() / "profiles" / "testprofile.yaml"
         with open(profile_path, "w") as f:
@@ -139,7 +142,10 @@ def test_get_recipe_tracking_config_returns_expected_config_on_databricks(
         )
         assert recipe_tracking_config.tracking_uri == (tracking_uri or default_tracking_uri)
         assert recipe_tracking_config.artifact_location == artifact_location
-        assert recipe_tracking_config.run_name == (run_name or None)
+        if run_name_prefix is None:
+            assert recipe_tracking_config.run_name is None
+        else:
+            assert run_name_prefix in recipe_tracking_config.run_name
         if experiment_name is not None:
             assert recipe_tracking_config.experiment_name == experiment_name
         elif experiment_id is not None:
