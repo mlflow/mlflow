@@ -51,7 +51,6 @@ def pmdarima_custom_env(tmp_path):
 
 @pytest.fixture(scope="module")
 def test_data():
-
     data_conf = {
         "shift": False,
         "start": "2016-01-01",
@@ -67,7 +66,6 @@ def test_data():
 
 @pytest.fixture(scope="module")
 def auto_arima_model(test_data):
-
     return pmdarima.auto_arima(
         test_data["orders"], max_d=1, suppress_warnings=True, error_action="raise"
     )
@@ -75,13 +73,11 @@ def auto_arima_model(test_data):
 
 @pytest.fixture(scope="module")
 def auto_arima_object_model(test_data):
-
     model = pmdarima.arima.ARIMA(order=(2, 1, 3), maxiter=25)
     return model.fit(test_data["orders"])
 
 
 def test_pmdarima_auto_arima_save_and_load(auto_arima_model, model_path):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
 
     loaded_model = mlflow.pmdarima.load_model(model_uri=model_path)
@@ -90,7 +86,6 @@ def test_pmdarima_auto_arima_save_and_load(auto_arima_model, model_path):
 
 
 def test_pmdarima_arima_object_save_and_load(auto_arima_object_model, model_path):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_object_model, path=model_path)
 
     loaded_model = mlflow.pmdarima.load_model(model_uri=model_path)
@@ -99,7 +94,6 @@ def test_pmdarima_arima_object_save_and_load(auto_arima_object_model, model_path
 
 
 def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
 
@@ -119,7 +113,6 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
 def test_pmdarima_signature_and_examples_saved_correctly(
     auto_arima_model, test_data, model_path, use_signature, use_example
 ):
-
     # NB: Signature inference will only work on the first element of the tuple return
     prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
     signature = infer_signature(test_data, prediction[0]) if use_signature else None
@@ -164,7 +157,6 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
 def test_pmdarima_load_from_remote_uri_succeeds(
     auto_arima_object_model, model_path, mock_s3_bucket
 ):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_object_model, path=model_path)
 
     artifact_root = f"s3://{mock_s3_bucket}"
@@ -349,7 +341,6 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 
 
 def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
-
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
@@ -376,7 +367,6 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
 
 
 def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
 
@@ -391,7 +381,6 @@ def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
 
 
 def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):
-
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
 

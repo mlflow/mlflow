@@ -227,7 +227,6 @@ def _get_diviner_instance_type(path) -> str:
 
 
 def _load_model(path):
-
     import diviner
 
     local_path = pathlib.Path(path)

@@ -38,7 +38,6 @@ def main():
     mlflow.statsmodels.autolog()
 
     with mlflow.start_run():
-
         ols = sm.OLS(y, X)
         model = ols.fit(method=args.inverse_method)
 

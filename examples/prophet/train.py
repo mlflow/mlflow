@@ -19,7 +19,6 @@ def extract_params(pr_model):
 sales_data = pd.read_csv(SOURCE_DATA)
 
 with mlflow.start_run():
-
     model = Prophet().fit(sales_data)
 
     params = extract_params(model)

@@ -239,7 +239,6 @@ def test__apply_custom_config_does_not_change_type_of_string_fields(sagemaker_de
 
 @mock_sagemaker_aws_services
 def test_create_deployment_with_non_existent_assume_role_arn_raises_exception(pretrained_model):
-
     plugin = mfs.SageMakerDeploymentClient(
         "sagemaker:/us-west-2/arn:aws:iam::123456789012:role/non-existent-role-arn"
     )

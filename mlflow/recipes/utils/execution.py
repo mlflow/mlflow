@@ -269,7 +269,6 @@ def _get_step_output_directory_path(execution_directory_path: str, step_name: st
 
 
 class _ExecutionPlan:
-
     _MSG_REGEX = r'^echo "Run MLFlow Recipe step: (\w+)"\n$'
     _FORMAT_STEPS_CACHED = "%s: No changes. Skipping."
 

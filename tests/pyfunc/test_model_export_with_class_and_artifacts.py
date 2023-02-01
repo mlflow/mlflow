@@ -225,9 +225,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
 
     data = iris_data
     signature_ = infer_signature(*data)
-    example_ = data[0][
-        :3,
-    ]
+    example_ = data[0][:3]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:

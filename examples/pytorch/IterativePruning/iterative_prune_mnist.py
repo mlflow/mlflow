@@ -59,7 +59,6 @@ class IterativePrune:
 
     @staticmethod
     def prune_and_save_model(model, amount):
-
         for _, module in model.named_modules():
             if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
                 prune.l1_unstructured(module, name="weight", amount=amount)
@@ -76,7 +75,6 @@ class IterativePrune:
         total_params = 0
 
         for name, parameter in model.named_parameters():
-
             if not parameter.requires_grad:
                 continue
 

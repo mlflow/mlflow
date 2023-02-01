@@ -145,7 +145,7 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
     num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
 
     client = MlflowClient()
-    for (metric_key, expected_len) in [
+    for metric_key, expected_len in [
         ("train_acc", num_logged_epochs),
         ("loss", num_logged_steps),
         ("loss_forked", num_logged_epochs),

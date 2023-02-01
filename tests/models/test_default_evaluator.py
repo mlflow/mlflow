@@ -82,7 +82,6 @@ def evaluate_model_helper(
     evaluator_config=None,
     eval_baseline_model_only=False,
 ):
-
     """
     Helper function for testing MLflow.evaluate
     To test if evaluation for baseline model does not log metrics and artifacts;

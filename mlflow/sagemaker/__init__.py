@@ -2816,7 +2816,6 @@ class _SageMakerOperation:
 
 
 class _SageMakerOperationStatus:
-
     STATE_SUCCEEDED = "succeeded"
     STATE_FAILED = "failed"
     STATE_IN_PROGRESS = "in progress"

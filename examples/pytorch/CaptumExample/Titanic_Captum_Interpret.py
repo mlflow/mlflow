@@ -107,7 +107,6 @@ def count_model_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
     total_params = 0
     for name, parameter in model.named_parameters():
-
         if not parameter.requires_grad:
             continue
         param = parameter.nonzero(as_tuple=False).size(0)
@@ -307,7 +306,6 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser(description="Titanic Captum Example")
 
     parser.add_argument(

@@ -20,6 +20,7 @@ baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
 eval_data = X_test
 eval_data["label"] = y_test
 
+
 # Define a custom metric to evaluate against
 def double_positive(_eval_df, builtin_metrics):
     return builtin_metrics["true_positives"] * 2

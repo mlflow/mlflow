@@ -21,7 +21,6 @@ def _gen_random_no_arg():
 
 
 def test_cache_return_value_per_process():
-
     path1 = _gen_random_str1(True)
     path2 = _gen_random_str1(True)
 
