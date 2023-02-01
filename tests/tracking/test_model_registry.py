@@ -2,13 +2,13 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-import sys
 import pytest
 
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.os import is_windows
 from tests.tracking.integration_test_utils import _terminate_server, _init_server
 
 
@@ -18,9 +18,7 @@ def client(request, tmp_path):
         backend_uri = tmp_path.joinpath("file").as_uri()
     else:
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     url, process = _init_server(
         backend_uri=backend_uri, root_artifact_uri=tmp_path.joinpath("artifacts").as_uri()

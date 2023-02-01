@@ -149,6 +149,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
+    def _dispose_engine(self):
+        self.engine.dispose()
+
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
             # config letting MySQL override default
@@ -1440,7 +1443,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
-    for (type_, key, ascending) in map(
+    for type_, key, ascending in map(
         SearchExperimentsUtils.parse_order_by_for_search_experiments,
         order_by or ["creation_time DESC", "experiment_id ASC"],
     ):

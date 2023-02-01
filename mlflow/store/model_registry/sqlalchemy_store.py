@@ -103,6 +103,9 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
+    def _dispose_engine(self):
+        self.engine.dispose()
+
     @staticmethod
     def _verify_registry_tables_exist(engine):
         # Verify that all tables have been created.
