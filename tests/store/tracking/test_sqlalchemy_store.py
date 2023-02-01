@@ -2440,6 +2440,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for _ in range(3):
             invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
             assert _get_schema_version(engine) == _get_latest_schema_revision()
+        engine.dispose()
 
     def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
         self,
@@ -2657,7 +2658,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert metrics == []
 
 
-def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
+def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SingletonThreadPool")
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
     run = store.create_run(
@@ -2674,12 +2676,13 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     assert param.key in fetched_run.data.params
 
 
-def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
-    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(
+    tmp_sqlite_uri,
+):
+    store = SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
     store.delete_experiment("0")
     assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
-    SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
 
 
 class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
@@ -2692,6 +2695,7 @@ class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
         super()._setup_db_uri()
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
+        engine.dispose()
         invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
@@ -2756,8 +2760,8 @@ def test_get_attribute_name():
     assert len(entities.RunInfo.get_orderable_attributes()) == 7
 
 
-def test_get_orderby_clauses():
-    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+def test_get_orderby_clauses(tmp_sqlite_uri):
+    store = SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
         parsed = [str(x) for x in _get_orderby_clauses([], session)[1]]
