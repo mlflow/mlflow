@@ -132,7 +132,7 @@ class S3ArtifactRepository(ArtifactRepository):
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
         local_dir = os.path.abspath(local_dir)
-        for (root, _, filenames) in os.walk(local_dir):
+        for root, _, filenames in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)

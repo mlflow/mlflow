@@ -371,7 +371,7 @@ def test_search_experiments(tmp_path):
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
-    for (tag, active_experiment_name) in zip_longest(tag_values, active_experiment_names):
+    for tag, active_experiment_name in zip_longest(tag_values, active_experiment_names):
         mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
@@ -435,7 +435,7 @@ def test_search_registered_models(tmp_path):
     model_names = b_model_names + a_model_names
 
     tag_values = ["x", "x", "y"]
-    for (tag, model_name) in zip_longest(tag_values, model_names):
+    for tag, model_name in zip_longest(tag_values, model_names):
         MlflowClient().create_registered_model(model_name, tags={"tag": tag} if tag else None)
 
     # max_results is unspecified
@@ -481,7 +481,6 @@ def is_from_run(active_run, run):
 
 
 def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
-
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -531,7 +530,6 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 def test_start_run_defaults_databricks_notebook(
     empty_active_run_stack,
 ):  # pylint: disable=unused-argument
-
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id

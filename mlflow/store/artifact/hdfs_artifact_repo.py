@@ -52,12 +52,10 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-
             if not hdfs.exists(hdfs_base_path):
                 hdfs.mkdir(hdfs_base_path)
 
             for subdir_path, _, files in os.walk(local_dir):
-
                 relative_path = _relative_path_local(local_dir, subdir_path)
 
                 hdfs_subdir_path = (
@@ -142,14 +140,12 @@ class HdfsArtifactRepository(ArtifactRepository):
             local_dir = _tmp_dir(dst_path)
 
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-
             if not hdfs.isdir(hdfs_base_path):
                 local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
                 _download_hdfs_file(hdfs, hdfs_base_path, local_path)
                 return local_path
 
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
-
                 relative_path = _relative_path_remote(hdfs_base_path, path)
                 local_path = os.path.join(local_dir, relative_path) if relative_path else local_dir
 

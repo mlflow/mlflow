@@ -587,7 +587,6 @@ def _not_implemented():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_experiment():
-
     request_message = _get_request_message(
         CreateExperiment(),
         schema={
@@ -881,7 +880,6 @@ def _get_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_runs():
-
     request_message = _get_request_message(
         SearchRuns(),
         schema={
@@ -1268,7 +1266,6 @@ def _delete_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_registered_models():
-
     request_message = _get_request_message(
         SearchRegisteredModels(),
         schema={

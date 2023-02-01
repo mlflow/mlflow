@@ -1165,7 +1165,6 @@ using a ``fastai`` data loader:
 
 
     def main(epochs=5, learning_rate=0.01):
-
         path = untar_data(URLs.ADULT_SAMPLE)
         path.ls()
 
@@ -1441,7 +1440,6 @@ Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals 
     data = pmdarima.datasets.load_airpassengers()
 
     with mlflow.start_run():
-
         model = pmdarima.auto_arima(data, seasonal=True)
         mlflow.pmdarima.save_model(model, "/tmp/model.pmd")
 
@@ -1894,6 +1892,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
 .. code-block:: python
 
     import mlflow.pyfunc
+
 
     # Define the model class
     class AddN(mlflow.pyfunc.PythonModel):

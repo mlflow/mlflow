@@ -171,7 +171,6 @@ class BertDataModule(pl.LightningDataModule):
                 self.val_count = len(self.val_dataset)
                 self.test_count = len(self.test_dataset)
             else:
-
                 num_train = int(len(self.train_dataset) * 0.95)
                 self.train_dataset, self.val_dataset = random_split(
                     self.train_dataset, [num_train, len(self.train_dataset) - num_train]
