@@ -803,6 +803,11 @@ def test_get_experiment(mlflow_client):
 
 
 def test_search_experiments(mlflow_client):
+    # To ensure the default experiment and non-default experiments have different creation_time
+    # for deterministic search results, send a request to the server and initialize the tracking
+    # store.
+    assert mlflow_client.search_experiments()[0].name == "Default"
+
     experiments = [
         ("a", {"key": "value"}),
         ("ab", {"key": "vaLue"}),
