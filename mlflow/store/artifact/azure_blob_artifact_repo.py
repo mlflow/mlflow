@@ -7,7 +7,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
-from mlflow.environment_variables import MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT
+from mlflow.environment_variables import MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT
 
 class AzureBlobArtifactRepository(ArtifactRepository):
     """
@@ -31,7 +31,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
 
-        self.write_timeout = MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT.get()
+        _DEFAULT_TIMEOUT = 600 # 10 minutes
+        self.write_timeout = MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
