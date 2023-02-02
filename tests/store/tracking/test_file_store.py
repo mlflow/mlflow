@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import os
 import posixpath
 import random
@@ -44,6 +43,275 @@ from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
+
+
+@pytest.fixture
+def store(tmp_path):
+    return FileStore(str(tmp_path.joinpath("mlruns")))
+
+
+def create_experiments(store, experiment_names):
+    ids = []
+    for name in experiment_names:
+        # ensure that the field `creation_time` is distinct for search ordering
+        time.sleep(0.001)
+        ids.append(store.create_experiment(name))
+    return ids
+
+
+def test_valid_root(store):
+    store._check_root_dir()
+    shutil.rmtree(store.root_directory)
+    with pytest.raises(Exception, match=r"does not exist"):
+        store._check_root_dir()
+
+
+def test_attempting_to_remove_default_experiment(store):
+    def _is_default_in_experiments(view_type):
+        search_result = store.search_experiments(view_type=view_type)
+        ids = [experiment.experiment_id for experiment in search_result]
+        return FileStore.DEFAULT_EXPERIMENT_ID in ids
+
+    assert _is_default_in_experiments(ViewType.ACTIVE_ONLY)
+
+    # Ensure experiment deletion of default id raises
+    with pytest.raises(MlflowException, match="Cannot delete the default experiment"):
+        store.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+
+
+def test_search_experiments_view_type(store):
+    experiment_names = ["a", "b"]
+    experiment_ids = create_experiments(store, experiment_names)
+    store.delete_experiment(experiment_ids[1])
+
+    experiments = store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == ["a", "Default"]
+    experiments = store.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == ["b"]
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == ["b", "a", "Default"]
+
+
+def test_search_experiments_filter_by_attribute(store):
+    experiment_names = ["a", "ab", "Abc"]
+    create_experiments(store, experiment_names)
+
+    experiments = store.search_experiments(filter_string="name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.`name` = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.`name` != 'a'")
+    assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    experiments = store.search_experiments(filter_string="name LIKE 'a%'")
+    assert [e.name for e in experiments] == ["ab", "a"]
+    experiments = store.search_experiments(
+        filter_string="name ILIKE 'a%'", order_by=["last_update_time asc"]
+    )
+    assert [e.name for e in experiments] == ["a", "ab", "Abc"]
+    experiments = store.search_experiments(filter_string="name ILIKE 'a%'")
+    assert [e.name for e in experiments] == ["Abc", "ab", "a"]
+    experiments = store.search_experiments(filter_string="name ILIKE 'a%' AND name ILIKE '%b'")
+    assert [e.name for e in experiments] == ["ab"]
+
+
+def test_search_experiments_filter_by_time_attribute(store):
+    # Sleep to ensure that the first experiment has a different creation_time than the default
+    # experiment and eliminate flakiness.
+    time.sleep(0.001)
+    time_before_create1 = get_current_time_millis()
+    exp_id1 = store.create_experiment("1")
+    exp1 = store.get_experiment(exp_id1)
+    time.sleep(0.001)
+    time_before_create2 = get_current_time_millis()
+    exp_id2 = store.create_experiment("2")
+    exp2 = store.get_experiment(exp_id2)
+
+    experiments = store.search_experiments(filter_string=f"creation_time = {exp1.creation_time}")
+    assert [e.experiment_id for e in experiments] == [exp_id1]
+
+    experiments = store.search_experiments(filter_string=f"creation_time != {exp1.creation_time}")
+    assert [e.experiment_id for e in experiments] == [exp_id2, store.DEFAULT_EXPERIMENT_ID]
+
+    experiments = store.search_experiments(filter_string=f"creation_time >= {time_before_create1}")
+    assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
+
+    experiments = store.search_experiments(filter_string=f"creation_time < {time_before_create2}")
+    assert [e.experiment_id for e in experiments] == [exp_id1, store.DEFAULT_EXPERIMENT_ID]
+
+    now = get_current_time_millis()
+    experiments = store.search_experiments(filter_string=f"creation_time > {now}")
+    assert experiments == []
+
+    time_before_rename = get_current_time_millis()
+    store.rename_experiment(exp_id1, "new_name")
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time >= {time_before_rename}"
+    )
+    assert [e.experiment_id for e in experiments] == [exp_id1]
+
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time <= {get_current_time_millis()}"
+    )
+    assert {e.experiment_id for e in experiments} == {
+        exp_id1,
+        exp_id2,
+        store.DEFAULT_EXPERIMENT_ID,
+    }
+
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time = {exp2.last_update_time}"
+    )
+    assert [e.experiment_id for e in experiments] == [exp_id2]
+
+
+def test_search_experiments_filter_by_attribute_and_tag(store):
+    store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
+    store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
+    experiments = store.search_experiments(filter_string="name ILIKE 'exp%' AND tag.a = '1'")
+    assert [e.name for e in experiments] == ["exp1"]
+
+
+def test_search_experiments_filter_by_tag(store):
+    experiments = [
+        ("exp1", [ExperimentTag("key", "value")]),
+        ("exp2", [ExperimentTag("key", "vaLue")]),
+        ("exp3", [ExperimentTag("k e y", "value")]),
+    ]
+    for name, tags in experiments:
+        # sleep to enforce deterministic ordering based on last_update_time (creation_time due to
+        # no mutation of experiment state)
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    experiments = store.search_experiments(filter_string="tag.key = 'value'")
+    assert [e.name for e in experiments] == ["exp1"]
+    experiments = store.search_experiments(filter_string="tag.`k e y` = 'value'")
+    assert [e.name for e in experiments] == ["exp3"]
+    experiments = store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
+    assert [e.name for e in experiments] == ["exp3"]
+    experiments = store.search_experiments(filter_string="tag.key != 'value'")
+    assert [e.name for e in experiments] == ["exp2"]
+    experiments = store.search_experiments(filter_string="tag.key LIKE 'val%'")
+    assert [e.name for e in experiments] == ["exp1"]
+    experiments = store.search_experiments(filter_string="tag.key LIKE '%Lue'")
+    assert [e.name for e in experiments] == ["exp2"]
+    experiments = store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+    assert [e.name for e in experiments] == ["exp2", "exp1"]
+    experiments = store.search_experiments(
+        filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
+    )
+    assert [e.name for e in experiments] == ["exp2"]
+
+
+def test_search_experiments_order_by(store):
+    experiment_names = ["x", "y", "z"]
+    create_experiments(store, experiment_names)
+
+    # Test the case where an experiment does not have a creation time by simulating a time of
+    # `None`. This is applicable to experiments created in older versions of MLflow where the
+    # `creation_time` attribute did not exist
+    with mock.patch(
+        "mlflow.store.tracking.file_store.get_current_time_millis",
+        return_value=None,
+    ):
+        store.create_experiment("n")
+
+    experiments = store.search_experiments(order_by=["name"])
+    assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
+
+    experiments = store.search_experiments(order_by=["name ASC"])
+    assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
+
+    experiments = store.search_experiments(order_by=["name DESC"])
+    assert [e.name for e in experiments] == ["z", "y", "x", "n", "Default"]
+
+    experiments = store.search_experiments(order_by=["creation_time DESC"])
+    assert [e.name for e in experiments] == ["z", "y", "x", "Default", "n"]
+
+    experiments = store.search_experiments(order_by=["creation_time ASC"])
+    assert [e.name for e in experiments] == ["Default", "x", "y", "z", "n"]
+
+    experiments = store.search_experiments(order_by=["name", "last_update_time asc"])
+    assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
+
+
+def test_search_experiments_order_by_time_attribute(store):
+    # Sleep to ensure that the first experiment has a different creation_time than the default
+    # experiment and eliminate flakiness.
+    time.sleep(0.001)
+    exp_id1 = store.create_experiment("1")
+    time.sleep(0.001)
+    exp_id2 = store.create_experiment("2")
+
+    experiments = store.search_experiments(order_by=["creation_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id1,
+        exp_id2,
+    ]
+
+    experiments = store.search_experiments(order_by=["creation_time DESC"])
+    assert [e.experiment_id for e in experiments] == [
+        exp_id2,
+        exp_id1,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
+
+    experiments = store.search_experiments(order_by=["last_update_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id1,
+        exp_id2,
+    ]
+
+    time.sleep(0.001)
+    store.rename_experiment(exp_id1, "new_name")
+    experiments = store.search_experiments(order_by=["last_update_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id2,
+        exp_id1,
+    ]
+
+
+def test_search_experiments_max_results(store):
+    experiment_names = list(map(str, range(9)))
+    create_experiments(store, experiment_names)
+    reversed_experiment_names = experiment_names[::-1]
+
+    experiments = store.search_experiments()
+    assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
+    experiments = store.search_experiments(max_results=3)
+    assert [e.name for e in experiments] == reversed_experiment_names[:3]
+
+
+def test_search_experiments_max_results_validation(store):
+    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+        store.search_experiments(max_results=None)
+    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+        store.search_experiments(max_results=0)
+    with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+        store.search_experiments(max_results=1_000_000)
+
+
+def test_search_experiments_pagination(store):
+    experiment_names = list(map(str, range(9)))
+    create_experiments(store, experiment_names)
+    reversed_experiment_names = experiment_names[::-1]
+
+    experiments = store.search_experiments(max_results=4)
+    assert [e.name for e in experiments] == reversed_experiment_names[:4]
+    assert experiments.token is not None
+
+    experiments = store.search_experiments(max_results=4, page_token=experiments.token)
+    assert [e.name for e in experiments] == reversed_experiment_names[4:8]
+    assert experiments.token is not None
+
+    experiments = store.search_experiments(max_results=4, page_token=experiments.token)
+    assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
+    assert experiments.token is None
 
 
 class TestFileStore(unittest.TestCase, AbstractStoreTest):
@@ -152,286 +420,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def tearDown(self):
         shutil.rmtree(self.test_root, ignore_errors=True)
-
-    def test_valid_root(self):
-        # Test with valid root
-        file_store = FileStore(self.test_root)
-        try:
-            file_store._check_root_dir()
-        except Exception as e:
-            self.fail("test_valid_root raised exception '%s'" % e.message)
-
-        # Test removing root
-        second_file_store = FileStore(self.test_root)
-        shutil.rmtree(self.test_root)
-        with pytest.raises(Exception, match=r"does not exist"):
-            second_file_store._check_root_dir()
-
-    def test_attempting_to_remove_default_experiment(self):
-        def _is_default_in_experiments(view_type):
-            search_result = file_store.search_experiments(view_type=view_type)
-            ids = [experiment.experiment_id for experiment in search_result]
-            return FileStore.DEFAULT_EXPERIMENT_ID in ids
-
-        file_store = FileStore(self.test_root)
-        assert _is_default_in_experiments(ViewType.ACTIVE_ONLY)
-
-        # Ensure experiment deletion of default id raises
-        with pytest.raises(MlflowException, match="Cannot delete the default experiment"):
-            file_store.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-
-    def test_search_experiments_view_type(self):
-        self.initialize()
-        experiment_names = ["a", "b"]
-        experiment_ids = self.create_experiments(experiment_names)
-        self.store.delete_experiment(experiment_ids[1])
-
-        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        assert [e.name for e in experiments] == ["a", "Default"]
-        experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
-        assert [e.name for e in experiments] == ["b"]
-        experiments = self.store.search_experiments(view_type=ViewType.ALL)
-        assert [e.name for e in experiments] == ["b", "a", "Default"]
-
-    def test_search_experiments_filter_by_attribute(self):
-        self.initialize()
-        experiment_names = ["a", "ab", "Abc"]
-        self.create_experiments(experiment_names)
-
-        experiments = self.store.search_experiments(filter_string="name = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.name = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
-        assert [e.name for e in experiments] == ["ab", "a"]
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'a%'", order_by=["last_update_time asc"]
-        )
-        assert [e.name for e in experiments] == ["a", "ab", "Abc"]
-        experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "a"]
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
-        )
-        assert [e.name for e in experiments] == ["ab"]
-
-    def test_search_experiments_filter_by_time_attribute(self):
-        self.initialize()
-        # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment and eliminate flakiness.
-        time.sleep(0.001)
-        time_before_create1 = get_current_time_millis()
-        exp_id1 = self.store.create_experiment("1")
-        exp1 = self.store.get_experiment(exp_id1)
-        time.sleep(0.001)
-        time_before_create2 = get_current_time_millis()
-        exp_id2 = self.store.create_experiment("2")
-        exp2 = self.store.get_experiment(exp_id2)
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time = {exp1.creation_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time != {exp1.creation_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2, self.store.DEFAULT_EXPERIMENT_ID]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time >= {time_before_create1}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time < {time_before_create2}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1, self.store.DEFAULT_EXPERIMENT_ID]
-
-        now = get_current_time_millis()
-        experiments = self.store.search_experiments(filter_string=f"creation_time > {now}")
-        assert experiments == []
-
-        time_before_rename = get_current_time_millis()
-        self.store.rename_experiment(exp_id1, "new_name")
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time >= {time_before_rename}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time <= {get_current_time_millis()}"
-        )
-        assert {e.experiment_id for e in experiments} == {
-            exp_id1,
-            exp_id2,
-            self.store.DEFAULT_EXPERIMENT_ID,
-        }
-
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time = {exp2.last_update_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2]
-
-    def test_search_experiments_filter_by_tag(self):
-        self.initialize()
-        experiments = [
-            ("exp1", [ExperimentTag("key", "value")]),
-            ("exp2", [ExperimentTag("key", "vaLue")]),
-            ("exp3", [ExperimentTag("k e y", "value")]),
-        ]
-        for name, tags in experiments:
-            # sleep for windows file system current_time precision in Python to enforce
-            # deterministic ordering based on last_update_time (creation_time due to no
-            # mutation of experiment state)
-            time.sleep(0.01)
-            self.store.create_experiment(name, tags=tags)
-
-        experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
-        assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.`k e y` = 'value'")
-        assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
-        assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
-        assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
-        assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
-        assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
-        assert [e.name for e in experiments] == ["exp2", "exp1"]
-        experiments = self.store.search_experiments(
-            filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
-        )
-        assert [e.name for e in experiments] == ["exp2"]
-
-    def test_search_experiments_filter_by_attribute_and_tag(self):
-        self.initialize()
-        self.store.create_experiment(
-            "exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")]
-        )
-        self.store.create_experiment(
-            "exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")]
-        )
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'exp%' AND tag.a = '1'"
-        )
-        assert [e.name for e in experiments] == ["exp1"]
-
-    def test_search_experiments_order_by(self):
-        self.initialize()
-        experiment_names = ["x", "y", "z"]
-        time.sleep(0.05)
-        self.create_experiments(experiment_names)
-
-        # Test the case where an experiment does not have a creation time by simulating a time of
-        # `None`. This is applicable to experiments created in older versions of MLflow where the
-        # `creation_time` attribute did not exist
-        with mock.patch(
-            "mlflow.store.tracking.file_store.get_current_time_millis",
-            return_value=None,
-        ):
-            self.create_experiments(["n"])
-
-        experiments = self.store.search_experiments(order_by=["name"])
-        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
-
-        experiments = self.store.search_experiments(order_by=["name ASC"])
-        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
-
-        experiments = self.store.search_experiments(order_by=["name DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "n", "Default"]
-
-        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default", "n"]
-
-        experiments = self.store.search_experiments(order_by=["creation_time ASC"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z", "n"]
-
-        experiments = self.store.search_experiments(order_by=["name", "last_update_time asc"])
-        assert [e.name for e in experiments] == ["Default", "n", "x", "y", "z"]
-
-    def test_search_experiments_order_by_time_attribute(self):
-        self.initialize()
-        # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment and eliminate flakiness.
-        time.sleep(0.001)
-        exp_id1 = self.store.create_experiment("1")
-        time.sleep(0.001)
-        exp_id2 = self.store.create_experiment("2")
-
-        experiments = self.store.search_experiments(order_by=["creation_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id1,
-            exp_id2,
-        ]
-
-        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
-        assert [e.experiment_id for e in experiments] == [
-            exp_id2,
-            exp_id1,
-            self.store.DEFAULT_EXPERIMENT_ID,
-        ]
-
-        experiments = self.store.search_experiments(order_by=["last_update_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id1,
-            exp_id2,
-        ]
-
-        time.sleep(0.001)
-        self.store.rename_experiment(exp_id1, "new_name")
-        experiments = self.store.search_experiments(order_by=["last_update_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id2,
-            exp_id1,
-        ]
-
-    def test_search_experiments_max_results(self):
-        self.initialize()
-        experiment_names = list(map(str, range(9)))
-        self.create_experiments(experiment_names)
-        reversed_experiment_names = experiment_names[::-1]
-
-        experiments = self.store.search_experiments()
-        assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
-        experiments = self.store.search_experiments(max_results=3)
-        assert [e.name for e in experiments] == reversed_experiment_names[:3]
-
-    def test_search_experiments_max_results_validation(self):
-        self.initialize()
-        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
-            self.store.search_experiments(max_results=None)
-        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
-            self.store.search_experiments(max_results=0)
-        with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
-            self.store.search_experiments(max_results=1_000_000)
-
-    def test_search_experiments_pagination(self):
-        self.initialize()
-        experiment_names = list(map(str, range(9)))
-        self.create_experiments(experiment_names)
-        reversed_experiment_names = experiment_names[::-1]
-
-        experiments = self.store.search_experiments(max_results=4)
-        assert [e.name for e in experiments] == reversed_experiment_names[:4]
-        assert experiments.token is not None
-
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[4:8]
-        assert experiments.token is not None
-
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
-        assert experiments.token is None
 
     def _verify_experiment(self, fs, exp_id):
         exp = fs.get_experiment(exp_id)
