@@ -70,13 +70,15 @@ jobs:
           echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
-      # Merge the base branch (which is usually master) to for the PR code using the latest configurations.
+      # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git fetch origin ${{ needs.check-comment.outputs.base_ref }}
-          git merge origin/${{ needs.check-comment.outputs.base_ref }}
+          git remote add mlflow https://github.com/mlflow/mlflow.git
+          git remote -v
+          git fetch mlflow ${{ needs.check-comment.outputs.base_ref }}
+          git merge mlflow/${{ needs.check-comment.outputs.base_ref }}
       # ************************************************************************
       # Prettier
       # ************************************************************************
