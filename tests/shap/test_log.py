@@ -32,7 +32,6 @@ def shap_model():
 
 
 def get_housing_data():
-
     X, y = fetch_california_housing(as_frame=True, return_X_y=True)
 
     return X[:1000], y[:1000]
@@ -44,7 +43,6 @@ def test_sklearn_log_explainer():
     """
 
     with mlflow.start_run() as run:
-
         run_id = run.info.run_id
 
         X, y = get_housing_data()
@@ -81,7 +79,6 @@ def test_sklearn_log_explainer_self_serialization():
     """
 
     with mlflow.start_run() as run:
-
         run_id = run.info.run_id
 
         X, y = get_housing_data()
@@ -121,7 +118,6 @@ def test_sklearn_log_explainer_pyfunc():
     """
 
     with mlflow.start_run() as run:
-
         run_id = run.info.run_id
 
         X, y = get_housing_data()
@@ -163,7 +159,6 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 
 def test_load_pyfunc(tmpdir):
-
     X, y = get_housing_data()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)

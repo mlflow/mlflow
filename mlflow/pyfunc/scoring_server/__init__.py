@@ -188,7 +188,6 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
 
 
 def init(model: PyFuncModel):
-
     """
     Initialize the server. Loads pyfunc model from the path.
     """

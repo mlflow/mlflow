@@ -464,7 +464,6 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-
         LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
 
         def __init__(self):
@@ -524,7 +523,6 @@ def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_
 
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
-
     assert get_autologging_config("nonexistent_integration", "foo") is None
 
     @autologging_integration("test_integration_for_config")
@@ -552,7 +550,6 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
 
 
 def test_autologging_is_disabled_returns_expected_values():
-
     assert autologging_is_disabled("nonexistent_integration") is True
 
     @autologging_integration("test_integration_for_disable_check")

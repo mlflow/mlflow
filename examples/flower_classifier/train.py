@@ -64,7 +64,7 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
         print("Input data not found, attempting to download the data from the web.")
         download_input()
 
-    for (dirname, _, files) in os.walk(training_data):
+    for dirname, _, files in os.walk(training_data):
         for filename in files:
             if filename.endswith("jpg"):
                 image_files.append(os.path.join(dirname, filename))

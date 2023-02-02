@@ -252,7 +252,6 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
 
 
 def test_default_host_creds():
-
     artifact_uri = "https://test.com"
     username = "user"
     password = "pass"
