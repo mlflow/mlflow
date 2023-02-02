@@ -66,7 +66,7 @@ jobs:
         id: run-pre-commit
         run: |
           pre-commit run --all-files --color=always
-      - name: Tweak error messages
+      - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
         run: |
           if [ -f ".black.log" ]; then
