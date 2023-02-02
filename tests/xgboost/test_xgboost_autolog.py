@@ -708,3 +708,15 @@ def test_xgb_api_autolog_registering_model(bst_params, dtrain):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+@pytest.mark.parametrize("model_format", ["xgb", "json", "ubj"])
+def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
+    mlflow.xgboost.autolog(log_models=True, model_format=model_format)
+    with mlflow.start_run() as run:
+        xgb.train(bst_params, dtrain)
+    run_id = run.info.run_id
+    client = MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+    model_artifact = f"model.{model_format}" in artifacts
+    assert model_artifact is not None
