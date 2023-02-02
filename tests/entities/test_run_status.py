@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.entities import RunStatus
 
+
 def test_all_status_covered():
     # ensure that all known status are returned. Test will fail if new status are added to PB
     all_statuses = {
@@ -12,6 +13,7 @@ def test_all_status_covered():
         RunStatus.KILLED,
     }
     assert all_statuses == set(RunStatus.all_status())
+
 
 def test_status_mappings():
     # test enum to string mappings
@@ -30,15 +32,14 @@ def test_status_mappings():
     assert RunStatus.to_string(RunStatus.KILLED) == "KILLED"
     assert RunStatus.KILLED == RunStatus.from_string("KILLED")
 
-    with pytest.raises(
-        Exception, match=r"Could not get string corresponding to run status -120"
-    ):
+    with pytest.raises(Exception, match=r"Could not get string corresponding to run status -120"):
         RunStatus.to_string(-120)
 
     with pytest.raises(
         Exception, match=r"Could not get run status corresponding to string the IMPO"
     ):
         RunStatus.from_string("the IMPOSSIBLE status string")
+
 
 def test_is_terminated():
     assert RunStatus.is_terminated(RunStatus.FAILED)
