@@ -46,7 +46,10 @@ def _get_response_from_method(method):
 
 
 class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
-
+    """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
+    Base class client for a remote model registry server accessed via REST API calls
+    """
     __metaclass__ = ABCMeta
 
     def __init__(
