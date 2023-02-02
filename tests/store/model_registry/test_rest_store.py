@@ -153,7 +153,7 @@ def _search_registered_models_params():
         {"page_token": "blah"},
         {"order_by": ["x", "Y"]},
     ]
-    # test all combination of params
+    # Generate all combinations of the above params
     for sz in [0, 1, 2, 3, 4]:
         for combination in combinations(params_list, sz):
             params = {k: v for d in combination for k, v in d.items()}
