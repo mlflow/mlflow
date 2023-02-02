@@ -15,7 +15,8 @@ def mock_exec_cmd():
 
 def test_get_app_name():
     # Hard to test if the test plugin is installed.
-    assert server._get_app_name() == f"{server.__name__}:app"
+    with mock.patch("mlflow.server.entrypoints.get_group_all", return_value=[]):
+        assert server._get_app_name() == f"{server.__name__}:app"
 
 
 def test_get_app_name_two_plugins():
@@ -54,13 +55,13 @@ def test_build_gunicorn_command():
 
 def test_run_server(mock_exec_cmd):
     """Make sure this runs."""
-    with mock.patch("sys.platform", "linux"):
+    with mock.patch("sys.platform", return_value="linux"):
         server._run_server("", "", "", "", "", "", "", "")
     mock_exec_cmd.assert_called_once()
 
 
 def test_run_server_win32(mock_exec_cmd):
     """Make sure this runs."""
-    with mock.patch("sys.platform", "win32"):
+    with mock.patch("sys.platform", return_value="win32"):
         server._run_server("", "", "", "", "", "", "", "")
     mock_exec_cmd.assert_called_once()

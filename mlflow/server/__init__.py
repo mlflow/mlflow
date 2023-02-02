@@ -112,15 +112,13 @@ def _get_app_name() -> str:
     apps = list(entrypoints.get_group_all("mlflow.app"))
     # Default, nothing installed
     if len(apps) == 0:
-        return "{}:app".format(__name__)
+        return f"{__name__}:app"
     # Cannot install more than one
     if len(apps) > 1:
         raise MlflowException(
             "Multiple server plugins detected. "
             "Only one server plugin may be installed. "
-            "Detected plugins: {}".format(
-                ", ".join([f"{a.module_name}.{a.object_name}" for a in apps])
-            )
+            f"Detected plugins: {', '.join([f'{a.module_name}.{a.object_name}' for a in apps])}"
         )
     # Has a plugin installed
     plugin_app = apps[0]

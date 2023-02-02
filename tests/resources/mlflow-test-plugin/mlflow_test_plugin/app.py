@@ -14,7 +14,7 @@ custom_app.config["MY_VAR"] = "config-var"
 
 
 def is_logged_in():
-    return False
+    return True
 
 
 @custom_app.before_request
