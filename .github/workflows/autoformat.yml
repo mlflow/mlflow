@@ -75,7 +75,8 @@ jobs:
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git remote add mlflow git@github.com:mlflow/mlflow.git
+          git remote add mlflow https://github.com/mlflow/mlflow.git
+          git remote -v
           git fetch mlflow ${{ needs.check-comment.outputs.base_ref }}
           git merge mlflow/${{ needs.check-comment.outputs.base_ref }}
       # ************************************************************************
