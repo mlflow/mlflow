@@ -63,7 +63,7 @@ def store(creds):
     return RestStore(lambda: creds)
 
 
-def args(host_creds, endpoint, method, json_body):
+def _args(host_creds, endpoint, method, json_body):
     res = {"host_creds": host_creds, "endpoint": "/api/2.0/mlflow/%s" % endpoint, "method": method}
     if method == "GET":
         res["params"] = json.loads(json_body)
@@ -74,13 +74,13 @@ def args(host_creds, endpoint, method, json_body):
 
 def _verify_requests(http_request, creds, endpoint, method, proto_message):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(args(creds, endpoint, method, json_body)))
+    http_request.assert_any_call(**(_args(creds, endpoint, method, json_body)))
 
 
 def _verify_all_requests(http_request, creds, endpoints, proto_message):
     json_body = message_to_json(proto_message)
     http_request.assert_has_calls(
-        [mock.call(**(args(creds, endpoint, method, json_body))) for endpoint, method in endpoints]
+        [mock.call(**(_args(creds, endpoint, method, json_body))) for endpoint, method in endpoints]
     )
 
 
