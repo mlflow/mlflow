@@ -186,3 +186,9 @@ MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
 MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
 )
+
+#: Specifies the timeout to use when uploading a file to Azure blob
+#: (default: ``600``)
+MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT", int, 600
+)

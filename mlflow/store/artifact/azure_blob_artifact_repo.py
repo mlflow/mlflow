@@ -7,6 +7,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
+from mlflow.environment_variables import MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT
 
 class AzureBlobArtifactRepository(ArtifactRepository):
     """
@@ -29,6 +30,8 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             return
 
         from azure.storage.blob import BlobServiceClient
+
+        self.write_timeout = MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT.get()
 
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
@@ -86,7 +89,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         with open(local_file, "rb") as file:
-            container_client.upload_blob(dest_path, file, overwrite=True)
+            container_client.upload_blob(dest_path, file, overwrite=True, timeout=self.write_timeout)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
@@ -103,7 +106,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 remote_file_path = posixpath.join(upload_path, f)
                 local_file_path = os.path.join(root, f)
                 with open(local_file_path, "rb") as file:
-                    container_client.upload_blob(remote_file_path, file, overwrite=True)
+                    container_client.upload_blob(remote_file_path, file, overwrite=True, timeout=self.write_timeout)
 
     def list_artifacts(self, path=None):
         # Newer versions of `azure-storage-blob` (>= 12.4.0) provide a public
