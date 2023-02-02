@@ -50,22 +50,34 @@ class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
     __metaclass__ = ABCMeta
 
     def __init__(
-        self, get_host_creds, method_to_info, method_to_all_info, get_response_from_method
+        self,
+        get_host_creds,
+        get_response_from_method,
+        get_all_endpoints_from_method,
+        get_endpoint_from_method,
     ):
         super().__init__()
-        self.get_host_creds = get_host_creds
-        self._method_to_info = method_to_info
-        self._method_to_all_info = method_to_all_info
+        self._get_all_endpoints_from_method = get_all_endpoints_from_method
+        self._get_endpoint_from_method = get_endpoint_from_method
         self._get_response_from_method = get_response_from_method
+        self.get_host_creds = get_host_creds
 
     def _call_endpoint(self, api, json_body, call_all_endpoints=False):
         response_proto = self._get_response_from_method(api)
         if call_all_endpoints:
-            endpoints = self._method_to_all_info[api]
+            endpoints = self._get_all_endpoints_from_method(api)
             return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
         else:
-            endpoint, method = self._method_to_info[api]
+            endpoint, method = self._get_endpoint_from_method(api)
             return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+
+
+def _get_all_endpoints_from_method(method):
+    return _METHOD_TO_ALL_INFO[method]
+
+
+def _get_endpoint_from_method(method):
+    return _METHOD_TO_INFO[method]
 
 
 class RestStore(BaseRestStore):
@@ -81,9 +93,9 @@ class RestStore(BaseRestStore):
     def __init__(self, get_host_creds):
         super().__init__(
             get_host_creds,
-            method_to_info=_METHOD_TO_INFO,
-            method_to_all_info=_METHOD_TO_ALL_INFO,
             get_response_from_method=_get_response_from_method,
+            get_all_endpoints_from_method=_get_all_endpoints_from_method,
+            get_endpoint_from_method=_get_endpoint_from_method,
         )
 
     # CRUD API for RegisteredModel objects

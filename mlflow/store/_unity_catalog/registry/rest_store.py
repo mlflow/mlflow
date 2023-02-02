@@ -95,6 +95,14 @@ def _get_response_from_method(method):
     return method_to_response[method]()
 
 
+def _get_all_endpoints_from_method(method):
+    return _METHOD_TO_ALL_INFO[method]
+
+
+def _get_endpoint_from_method(method):
+    return _METHOD_TO_INFO[method]
+
+
 # TODO: re-enable the abstract-method check in a follow-up PR. It's disabled for now because
 # we haven't yet implemented required model version CRUD APIs in this class
 class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
@@ -110,9 +118,9 @@ class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
     def __init__(self, get_host_creds):
         super().__init__(
             get_host_creds,
-            method_to_info=_METHOD_TO_INFO,
-            method_to_all_info=_METHOD_TO_ALL_INFO,
             get_response_from_method=_get_response_from_method,
+            get_endpoint_from_method=_get_endpoint_from_method,
+            get_all_endpoints_from_method=_get_all_endpoints_from_method,
         )
 
     # CRUD API for RegisteredModel objects
