@@ -718,5 +718,4 @@ def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
     run_id = run.info.run_id
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
-    model_artifact = f"model.{model_format}" in artifacts
-    assert model_artifact is not None
+    assert os.path.join("model", f"model.{model_format}") in artifacts
