@@ -183,7 +183,6 @@ def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config
 
 def test_universal_autolog_makes_expected_event_logging_calls():
     class TestLogger(AutologgingEventLogger):
-
         LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
 
         def __init__(self):

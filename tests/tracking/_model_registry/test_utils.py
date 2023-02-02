@@ -78,7 +78,8 @@ def test_fallback_to_tracking_store():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(db_type):
+def test_get_store_sqlalchemy_store(db_type, monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
     env = {_TRACKING_URI_ENV_VAR: uri}

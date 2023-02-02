@@ -42,7 +42,6 @@ _IS_UNIX = os.name != "nt"
 
 
 class _PythonEnv:
-
     BUILD_PACKAGES = ("pip", "setuptools", "wheel")
 
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
@@ -444,7 +443,6 @@ def _is_mlflow_requirement(requirement_string):
             # Try again with the per-requirement options removed
             return Requirement(requirement_specifier).name.lower() == "mlflow"
         except InvalidRequirement:
-
             # Support defining branch dependencies for local builds or direct GitHub builds
             # from source.
             # Example: mlflow @ git+https://github.com/mlflow/mlflow@branch_2.0

@@ -42,12 +42,10 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 
     def __init__(self, artifact_uri):
-
         super().__init__(self.resolve_uri(artifact_uri, get_tracking_uri()))
 
     @classmethod
     def resolve_uri(cls, artifact_uri, tracking_uri):
-
         base_url = "/api/2.0/mlflow-artifacts/artifacts"
 
         track_parse = urlparse(tracking_uri)

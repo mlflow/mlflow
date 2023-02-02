@@ -544,7 +544,6 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
 
 
 def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
-
     data = sklearn.datasets.load_diabetes()
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
@@ -1038,7 +1037,6 @@ def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
             pass
 
         def predict(self, context, model_input):
-
             if sklearn.__version__ == "0.22.1":
                 pred_value = 1
             else:

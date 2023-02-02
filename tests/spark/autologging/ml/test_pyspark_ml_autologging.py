@@ -392,7 +392,6 @@ def test_log_stage_type_params(spark_session):
     from pyspark.ml.feature import Binarizer, OneHotEncoder
 
     class TestingEstimator(Estimator):
-
         transformer = Param(Params._dummy(), "transformer", "a transformer param")
         model = Param(Params._dummy(), "model", "a model param")
         evaluator = Param(Params._dummy(), "evaluator", "an evaluator param")

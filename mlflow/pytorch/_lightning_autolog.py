@@ -145,7 +145,6 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
     # in pytorch-lightning >= 1.2.0.
     elif _pl_version >= Version("1.2.0"):
-
         # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
         # compatibility with versions of pytorch-lightning <= 1.2.0, which required an
         # `outputs` argument that was not used and is no longer defined in

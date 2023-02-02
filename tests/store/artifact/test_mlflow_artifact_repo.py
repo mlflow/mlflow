@@ -49,7 +49,6 @@ conditions = [
 @pytest.mark.parametrize("tracking_uri", ["http://localhost:5000", "http://localhost:5000/"])
 @pytest.mark.parametrize(("artifact_uri", "resolved_uri"), conditions)
 def test_mlflow_artifact_uri_formats_resolved(artifact_uri, resolved_uri, tracking_uri):
-
     assert MlflowArtifactsRepository.resolve_uri(artifact_uri, tracking_uri) == resolved_uri
 
 

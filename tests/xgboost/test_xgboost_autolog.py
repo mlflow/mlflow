@@ -174,7 +174,6 @@ def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
 
 
 def test_xgb_autolog_sklearn():
-
     mlflow.xgboost.autolog()
 
     X, y = datasets.load_iris(return_X_y=True)

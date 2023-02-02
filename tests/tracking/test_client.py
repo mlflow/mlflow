@@ -657,7 +657,6 @@ def mock_registry_store_with_get_latest_version(mock_registry_store):
 
 
 def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
-
     # set_model_version_tag using version
     MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar")
     mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
@@ -682,7 +681,6 @@ def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
 
 
 def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
-
     # delete_model_version_tag using version
     MlflowClient().delete_model_version_tag("model_name", 1, "tag1")
     mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(

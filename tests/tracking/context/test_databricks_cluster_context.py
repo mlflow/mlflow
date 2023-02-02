@@ -18,5 +18,4 @@ def test_databricks_cluster_run_context_tags():
 
 
 def test_databricks_notebook_run_context_tags_nones():
-
     assert DatabricksClusterRunContext().tags() == {}

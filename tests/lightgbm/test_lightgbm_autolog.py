@@ -156,7 +156,6 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
 
 
 def test_lgb_autolog_sklearn():
-
     mlflow.lightgbm.autolog()
 
     X, y = datasets.load_iris(return_X_y=True)

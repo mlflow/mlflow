@@ -263,7 +263,6 @@ class FileStore(AbstractStore):
         order_by=None,
         page_token=None,
     ):
-
         if not isinstance(max_results, int) or max_results < 1:
             raise MlflowException(
                 "Invalid value for max_results. It must be a positive integer,"

@@ -130,7 +130,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"
@@ -299,7 +300,6 @@ def test_plugin_registration_via_entrypoints():
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
 
@@ -319,7 +319,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
 
         # Check that the raised warning contains the message from the original exception
@@ -331,7 +330,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
 
 
 def test_get_store_for_unregistered_scheme():
-
     tracking_store = TrackingStoreRegistry()
 
     with pytest.raises(
