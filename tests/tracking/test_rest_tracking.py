@@ -2,6 +2,8 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import pathlib
+
 import flask
 import json
 import os
@@ -24,7 +26,6 @@ from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.models import Model
 import mlflow.pyfunc
 from mlflow.server.handlers import validate_path_is_safe
-from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -37,10 +38,11 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.os import is_windows
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
-    _await_server_down_or_die,
+    _terminate_server,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -52,22 +54,18 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    root_artifact_uri = str(tmp_path)
     if request.param == "file":
-        uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
-        FileStore(uri)
+        backend_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
-        uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
-        SqlAlchemyStore(uri, root_artifact_uri)
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
 
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=root_artifact_uri)
-
+    url, process = _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri())
     yield MlflowClient(url)
 
-    _logger.info(f"Terminating server at {url}...")
-    process.terminate()
-    _await_server_down_or_die(process)
+    _terminate_server(process)
 
 
 @pytest.fixture()
@@ -91,7 +89,10 @@ def test_create_get_search_experiment(mlflow_client):
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
-    assert exp.artifact_location == "my_location"
+    if is_windows():
+        assert exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
+    else:
+        assert exp.artifact_location == str(pathlib.Path.cwd().joinpath("my_location"))
     assert len(exp.tags) == 2
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"
@@ -802,6 +803,11 @@ def test_get_experiment(mlflow_client):
 
 
 def test_search_experiments(mlflow_client):
+    # To ensure the default experiment and non-default experiments have different creation_time
+    # for deterministic search results, send a request to the server and initialize the tracking
+    # store.
+    assert mlflow_client.search_experiments()[0].name == "Default"
+
     experiments = [
         ("a", {"key": "value"}),
         ("ab", {"key": "vaLue"}),
@@ -841,6 +847,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["a", "Default"]
 
     # view_type
+    time.sleep(0.001)
     mlflow_client.delete_experiment(experiment_ids[1])
     experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
     assert [e.name for e in experiments] == ["Abc", "a", "Default"]

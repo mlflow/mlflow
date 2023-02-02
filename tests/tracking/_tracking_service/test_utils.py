@@ -26,6 +26,8 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_URI_ENV_VAR,
     _TRACKING_USERNAME_ENV_VAR,
 )
+from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.os import is_windows
 
 # pylint: disable=unused-argument
 
@@ -128,7 +130,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"
@@ -145,7 +148,10 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == "./mlruns"
+        if is_windows():
+            assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
+        else:
+            assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
@@ -169,7 +175,12 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        assert store.artifact_root_uri == artifact_uri
+        if is_windows():
+            assert store.artifact_root_uri == Path.cwd().joinpath("artifact", "path").as_uri()
+        else:
+            assert store.artifact_root_uri == path_to_local_file_uri(
+                Path.cwd().joinpath("artifact", "path")
+            )
 
     mock_create_engine.assert_not_called()
 
@@ -289,7 +300,6 @@ def test_plugin_registration_via_entrypoints():
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
 
@@ -309,7 +319,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
 
         # Check that the raised warning contains the message from the original exception
@@ -321,7 +330,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
 
 
 def test_get_store_for_unregistered_scheme():
-
     tracking_store = TrackingStoreRegistry()
 
     with pytest.raises(

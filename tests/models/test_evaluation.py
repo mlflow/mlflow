@@ -544,7 +544,6 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
 
 
 def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
-
     data = sklearn.datasets.load_diabetes()
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
@@ -1038,7 +1037,6 @@ def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
             pass
 
         def predict(self, context, model_input):
-
             if sklearn.__version__ == "0.22.1":
                 pred_value = 1
             else:
@@ -1110,3 +1108,24 @@ def test_evaluate_terminates_model_servers(multiclass_logistic_regressor_model_u
         )
         assert os_mock.call_count == 2
         os_mock.assert_has_calls([mock.call(1, signal.SIGTERM), mock.call(2, signal.SIGTERM)])
+
+
+def test_evaluate_stdin_scoring_server(monkeypatch):
+    X, y = sklearn.datasets.load_iris(return_X_y=True)
+    X = X[::5]
+    y = y[::5]
+    model = sklearn.linear_model.LogisticRegression()
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(model, "model")
+
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
+        mlflow.evaluate(
+            model_info.model_uri,
+            X,
+            targets=y,
+            model_type="classifier",
+            evaluators=["default"],
+            env_manager="virtualenv",
+        )

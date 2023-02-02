@@ -110,9 +110,7 @@ def test_model_save_load(gluon_model, model_data, model_path):
 def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
     model = gluon_model
     signature_ = infer_signature(model_data[0].asnumpy())
-    example_ = model_data[0].asnumpy()[
-        :3,
-    ]
+    example_ = model_data[0].asnumpy()[:3]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:

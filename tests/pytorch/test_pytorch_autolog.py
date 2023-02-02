@@ -16,7 +16,7 @@ from mlflow import MlflowClient
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
-from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
+from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 
 NUM_EPOCHS = 20
 
@@ -145,7 +145,7 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
     num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
 
     client = MlflowClient()
-    for (metric_key, expected_len) in [
+    for metric_key, expected_len in [
         ("train_acc", num_logged_epochs),
         ("loss", num_logged_steps),
         ("loss_forked", num_logged_epochs),
@@ -325,6 +325,8 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+    # this is logged through SummaryWriter
+    assert "plain_loss" not in data.metrics
 
 
 def test_get_optimizer_name():

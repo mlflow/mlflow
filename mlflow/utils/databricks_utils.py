@@ -569,7 +569,6 @@ DatabricksWorkspaceInfoType = TypeVar("DatabricksWorkspaceInfo", bound="Databric
 
 
 class DatabricksWorkspaceInfo:
-
     WORKSPACE_HOST_ENV_VAR = "_DATABRICKS_WORKSPACE_HOST"
     WORKSPACE_ID_ENV_VAR = "_DATABRICKS_WORKSPACE_ID"
 

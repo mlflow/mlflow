@@ -265,7 +265,6 @@ class BatchMetricsLogger:
             step = 0
 
         for key, value in metrics.items():
-
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
         if self._should_flush():
@@ -504,6 +503,7 @@ def _get_new_training_session_class():
     ...             print(c1.should_log(), c2.should_log())
     True False
     """
+
     # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now
     # because:
     # 1. We don't currently have any use cases for allow_children=True.

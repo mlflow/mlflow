@@ -464,7 +464,6 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-
         LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
 
         def __init__(self):
@@ -524,7 +523,6 @@ def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_
 
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
-
     assert get_autologging_config("nonexistent_integration", "foo") is None
 
     @autologging_integration("test_integration_for_config")
@@ -552,7 +550,6 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
 
 
 def test_autologging_is_disabled_returns_expected_values():
-
     assert autologging_is_disabled("nonexistent_integration") is True
 
     @autologging_integration("test_integration_for_disable_check")
@@ -714,6 +711,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pytorch-lightning"},
         "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
     },
+    "pytorch": {
+        "package_info": {"pip_release": "torch"},
+        "autologging": {"minimum": "1.6.0", "maximum": "1.13.1"},
+    },
     "tensorflow": {
         "package_info": {"pip_release": "tensorflow"},
         "autologging": {"minimum": "1.15.4", "maximum": "2.3.1"},
@@ -772,8 +773,8 @@ _module_version_info_dict_patch = {
         ("sklearn", "0.23.0rc1", False),
         ("sklearn", "0.23.0dev0", False),
         ("sklearn", "0.23.0-SNAPSHOT", False),
-        ("pytorch", "1.0.5", True),
-        ("pytorch", "1.0.4", False),
+        ("pytorch", "1.6.0", True),
+        ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
     ],

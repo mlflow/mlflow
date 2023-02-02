@@ -15,6 +15,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from functools import partial
 from packaging.version import Version
 import posixpath
 
@@ -22,6 +23,7 @@ import mlflow
 import shutil
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -63,6 +65,9 @@ _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
+
+MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
+MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
 
 def get_default_pip_requirements():
@@ -441,6 +446,7 @@ def save_model(
         import torch
         import mlflow.pytorch
 
+
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
@@ -550,7 +556,6 @@ def save_model(
             )
 
     if requirements_file:
-
         warnings.warn(
             "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
             FutureWarning,
@@ -698,6 +703,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         import torch
         import mlflow.pytorch
+
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
@@ -916,13 +922,19 @@ def autolog(
     <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
     an expansive example with implementation of additional lightening steps.
 
-    **Note**: Autologging is only supported for PyTorch Lightning models,
+    **Note**: Full autologging is only supported for PyTorch Lightning models,
     i.e., models that subclass
     `pytorch_lightning.LightningModule \
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla PyTorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
-    is not yet available.
+    Autologging support for vanilla PyTorch (ie models that only subclass
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_)
+    only autologs calls to
+    `torch.utils.tensorboard.SummaryWriter <https://pytorch.org/docs/stable/tensorboard.html>`_'s
+    ``add_scalar`` and ``add_hparams`` methods to mlflow. In this case, there's also
+    no notion of an "epoch".
+
+    .. Note:: Only pytorch-lightning modules between versions MIN_REQ_VERSION and
+              MAX_REQ_VERSION are known to be compatible with mlflow's autologging.
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
@@ -996,7 +1008,6 @@ def autolog(
 
 
         def print_auto_logged_info(r):
-
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))
@@ -1052,7 +1063,50 @@ def autolog(
 
         PyTorch autologged MLflow entities
     """
-    import pytorch_lightning as pl
-    from mlflow.pytorch._pytorch_autolog import patched_fit
+    import atexit
 
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    try:
+        import pytorch_lightning as pl
+        from mlflow.pytorch._lightning_autolog import patched_fit
+
+        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+    except ImportError:
+        pass
+
+    from mlflow.pytorch._pytorch_autolog import (
+        patched_add_event,
+        patched_add_hparams,
+        patched_add_summary,
+        _flush_queue,
+    )
+
+    import torch.utils.tensorboard.writer
+
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.writer.FileWriter,
+        "add_event",
+        partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
+        manage_run=True,
+    )
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.writer.FileWriter,
+        "add_summary",
+        patched_add_summary,
+        manage_run=True,
+    )
+    safe_patch(
+        FLAVOR_NAME,
+        torch.utils.tensorboard.SummaryWriter,
+        "add_hparams",
+        patched_add_hparams,
+        manage_run=True,
+    )
+
+    atexit.register(_flush_queue)
+
+
+autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
+    "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
+)

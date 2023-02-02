@@ -35,7 +35,7 @@ querystring_parser:
 sqlalchemy:
   pip_release: sqlalchemy
   minimum: "1.4.0"
-  max_major_version: 1
+  max_major_version: 2
 
 gunicorn:
   pip_release: gunicorn

@@ -1,3 +1,4 @@
+import pathlib
 from collections import namedtuple
 import filecmp
 import json
@@ -32,6 +33,7 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+from mlflow.utils.os import is_windows
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -710,6 +712,22 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         )
 
 
+def _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+    artifact_location, expected_uri_format
+):
+    client = MlflowClient()
+    client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
+    mlflow.set_experiment("get-artifact-uri-test")
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+        for artifact_path in ["path/to/artifact", "/artifact/path", "arty.txt"]:
+            artifact_uri = mlflow.get_artifact_uri(artifact_path)
+            assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
+            assert artifact_uri == expected_uri_format.format(
+                run_id=run_id, path=artifact_path.lstrip("/"), drive=pathlib.Path.cwd().drive
+            )
+
+
 @pytest.mark.parametrize(
     ("artifact_location", "expected_uri_format"),
     [
@@ -722,23 +740,28 @@ def test_get_artifact_uri_uses_currently_active_run_id():
             "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # pylint: disable=line-too-long
         ),
         ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}"),
-        ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}"),
     ],
 )
 def test_get_artifact_uri_appends_to_uri_path_component_correctly(
     artifact_location, expected_uri_format
 ):
-    client = MlflowClient()
-    client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
-    mlflow.set_experiment("get-artifact-uri-test")
-    with mlflow.start_run():
-        run_id = mlflow.active_run().info.run_id
-        for artifact_path in ["path/to/artifact", "/artifact/path", "arty.txt"]:
-            artifact_uri = mlflow.get_artifact_uri(artifact_path)
-            assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
-            assert artifact_uri == expected_uri_format.format(
-                run_id=run_id, path=artifact_path.lstrip("/")
-            )
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        artifact_location, expected_uri_format
+    )
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+def test_get_artifact_uri_appends_to_local_path_component_correctly_on_windows():
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        "/dirname/rootpa#th?", "file:///{drive}/dirname/rootpa/{run_id}/artifacts/{path}#th?"
+    )
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_get_artifact_uri_appends_to_local_path_component_correctly():
+    _assert_get_artifact_uri_appends_to_uri_path_component_correctly(
+        "/dirname/rootpa#th?", "{drive}/dirname/rootpa#th?/{run_id}/artifacts/{path}"
+    )
 
 
 @pytest.mark.usefixtures("reset_active_experiment")

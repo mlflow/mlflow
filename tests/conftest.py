@@ -8,6 +8,7 @@ import pytest
 
 import mlflow
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
+from mlflow.utils.os import is_windows
 
 from tests.autologging.fixtures import enable_test_mode
 
@@ -106,7 +107,7 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True)
 def clean_up_mlruns_directory(request):
     """
     Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.
@@ -162,3 +163,9 @@ def monkeypatch():
     """
     with ExtendedMonkeyPatch().context() as mp:
         yield mp
+
+
+@pytest.fixture
+def tmp_sqlite_uri(tmp_path):
+    path = tmp_path.joinpath("mlflow.db").as_uri()
+    return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]

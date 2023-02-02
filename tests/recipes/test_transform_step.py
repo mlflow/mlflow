@@ -20,6 +20,7 @@ from tests.recipes.helper_functions import tmp_recipe_root_path
 
 # pylint: enable=unused-import
 
+
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir
 def set_up_transform_step(recipe_root: Path, transform_user_module):
     split_step_output_dir = recipe_root.joinpath("steps", "split", "outputs")

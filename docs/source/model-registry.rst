@@ -391,7 +391,6 @@ This code snippet creates a sklearn model, which we assume that you had created 
 
 
     def print_predictions(m, y_pred):
-
         # The coefficients
         print("Coefficients: \n", m.coef_)
         # The mean squared error
@@ -541,7 +540,6 @@ save, log, register, and load from the Model Registry and score.
             return prediction_scores
 
         def predict(self, context, model_input):
-
             # Apply the preprocess function from the vader model to score
             model_output = model_input.apply(lambda col: self._score(col))
             return model_output
