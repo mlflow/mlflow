@@ -1015,6 +1015,10 @@ Also, you must run ``pip install azure-storage-blob`` separately (on both your c
 Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
 MLflow does not declare a dependency on these packages by default.
 
+You may set an MLflow environment variable to configure the timeout for artifact uploads:
+
+- ``MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT`` - Sets the timeout for artifact upload in seconds (Default: 600).
+
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^
 
