@@ -131,11 +131,12 @@ def test_search_registered_models_params(
     store, creds, filter_string, max_results, page_token, order_by
 ):
     params = {
-        **({"filter_string": filter_string} if filter_string else {}),
-        **({"max_results": max_results} if max_results else {}),
-        **({"page_token": page_token} if page_token else {}),
-        **({"order_by": order_by} if order_by else {}),
+        "filter_string": filter_string,
+        "max_results": max_results,
+        "page_token": page_token,
+        "order_by": order_by,
     }
+    params = {k: v for k, v in params.items() if v is not None}
     with mock_http_request_200() as mock_http:
         store.search_registered_models(**params)
     if "filter_string" in params:
