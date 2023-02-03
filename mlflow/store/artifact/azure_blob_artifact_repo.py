@@ -25,15 +25,15 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri, client=None):
         super().__init__(artifact_uri)
 
+        _DEFAULT_TIMEOUT = 600  # 10 minutes
+        self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
+
         # Allow override for testing
         if client:
             self.client = client
             return
 
         from azure.storage.blob import BlobServiceClient
-
-        _DEFAULT_TIMEOUT = 600  # 10 minutes
-        self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
