@@ -100,6 +100,11 @@ MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_DOWNLOAD_CHUNK
 #: ``google-cloud-storage`` package.
 MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZE", int, None)
 
+#: (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``) 
+#: Specifies the default timeout to use when downloading/uploading a file from/to GCS
+#: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
+MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
+
 #: Specifies whether to disable model logging and loading via mlflowdbfs.
 #: (default: ``None``)
 _DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, None)
@@ -183,8 +188,8 @@ MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
 )
 
-#: Specifies the timeout to use when uploading or downloading a file
+#: (Experimental, may be changed or removed) Specifies the timeout to use when uploading or downloading a file
 #: (default: ``None``). If None, individual artifact stores will choose defaults.
-MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_AZURE_ARTIFACT_UPLOAD_TIMEOUT", int, None
+MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )

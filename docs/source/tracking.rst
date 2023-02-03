@@ -941,7 +941,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 
 You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
 
-- ``MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT`` - Sets the timeout for artifact upload/download in seconds (Default set by individual artifact stores).
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default set by individual artifact stores).
 
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1020,7 +1020,7 @@ MLflow does not declare a dependency on these packages by default.
 
 You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
 
-- ``MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT`` - Sets the timeout for artifact upload/download in seconds (Default: 600).
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default: 600).
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^
@@ -1035,7 +1035,8 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 
 You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
 
-- ``MLFLOW_UPLOAD_DOWNLOAD_TIMEOUT`` - Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
+- ``MLFLOW_GCS_DEFAULT_TIMEOUT`` - (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``) Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
 - ``MLFLOW_GCS_UPLOAD_CHUNK_SIZE`` - Sets the standard upload chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB.
 - ``MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE`` - Sets the standard download chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB
 
