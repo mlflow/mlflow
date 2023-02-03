@@ -188,7 +188,8 @@ MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", int, 60
 )
 
-#: (Experimental, may be changed or removed) Specifies the timeout to use when uploading or downloading a file
+#: (Experimental, may be changed or removed)
+#: Specifies the timeout to use when uploading or downloading a file
 #: (default: ``None``). If None, individual artifact stores will choose defaults.
 MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
