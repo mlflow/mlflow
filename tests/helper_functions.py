@@ -546,3 +546,24 @@ def _mlflow_major_version_string():
     major = ver.major
     minor = ver.minor
     return f"mlflow<{major + 1},>={major}.{minor}"
+
+
+@contextmanager
+def mock_http_request_200():
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text="{}"),
+    ) as m:
+        yield m
+
+
+@contextmanager
+def mock_http_request_403_200():
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=[
+            mock.MagicMock(status_code=403, text='{"error_code": "ENDPOINT_NOT_FOUND"}'),
+            mock.MagicMock(status_code=200, text="{}"),
+        ],
+    ) as m:
+        yield m
