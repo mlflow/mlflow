@@ -1,5 +1,4 @@
 from itertools import combinations
-from contextlib import contextmanager
 
 import json
 import pytest
@@ -30,27 +29,7 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
-
-
-@contextmanager
-def mock_http_request_200():
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.MagicMock(status_code=200, text="{}"),
-    ) as m:
-        yield m
-
-
-@contextmanager
-def mock_http_request_403_200():
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        side_effect=[
-            mock.MagicMock(status_code=403, text='{"error_code": "ENDPOINT_NOT_FOUND"}'),
-            mock.MagicMock(status_code=200, text="{}"),
-        ],
-    ) as m:
-        yield m
+from tests.helper_functions import mock_http_request_200, mock_http_request_403_200
 
 
 @pytest.fixture
