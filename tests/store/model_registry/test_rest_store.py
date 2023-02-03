@@ -1,5 +1,3 @@
-from itertools import combinations
-
 import json
 import pytest
 import uuid
@@ -125,22 +123,19 @@ def test_search_registered_models(store, creds):
     _verify_requests(mock_http, creds, "registered-models/search", "GET", SearchRegisteredModels())
 
 
-def _search_registered_models_params():
-    params_list = [
-        {"filter_string": "model = 'yo'"},
-        {"max_results": 400},
-        {"page_token": "blah"},
-        {"order_by": ["x", "Y"]},
-    ]
-    # Generate all combinations of the above params
-    for sz in [0, 1, 2, 3, 4]:
-        for combination in combinations(params_list, sz):
-            params = {k: v for d in combination for k, v in d.items()}
-            yield params
-
-
-@pytest.mark.parametrize("params", _search_registered_models_params())
-def test_search_registered_models_params(store, creds, params):
+@pytest.mark.parametrize("filter_string", [None, "model = 'yo'"])
+@pytest.mark.parametrize("max_results", [None, 400])
+@pytest.mark.parametrize("page_token", [None, "blah"])
+@pytest.mark.parametrize("order_by", [None, ["x", "Y"]])
+def test_search_registered_models_params(
+    store, creds, filter_string, max_results, page_token, order_by
+):
+    params = {
+        **({"filter_string": filter_string} if filter_string else {}),
+        **({"max_results": max_results} if max_results else {}),
+        **({"page_token": page_token} if page_token else {}),
+        **({"order_by": order_by} if order_by else {}),
+    }
     with mock_http_request_200() as mock_http:
         store.search_registered_models(**params)
     if "filter_string" in params:
