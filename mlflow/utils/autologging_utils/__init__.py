@@ -420,7 +420,8 @@ def autologging_integration(name):
 
         if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
             wrapped_autolog.__doc__ = (
-                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+                gen_autologging_package_version_requirements_doc(name) +
+                (wrapped_autolog.__doc__ or "")
             )
         return wrapped_autolog
 
