@@ -68,12 +68,12 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         run: |
           source ./dev/install-common-deps.sh --ml
 
       - name: Run example tests
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
         run: |
@@ -119,7 +119,7 @@ jobs:
           echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
 
       - name: Run docker tests
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.docker_changed == 'true' }}
         run: |
           docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
 
