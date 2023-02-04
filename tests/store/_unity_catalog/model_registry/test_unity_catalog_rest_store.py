@@ -17,7 +17,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
-
+from tests.helper_functions import mock_http_request_200
 
 @pytest.fixture(scope="module", autouse=True)
 def request_fixture():
