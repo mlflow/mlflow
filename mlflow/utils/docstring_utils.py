@@ -60,6 +60,9 @@ class ParamDocs(dict):
         :param p2:
             doc2
         """
+        if docstring is None:
+            return None
+
         min_indent = _get_minimum_indentation(docstring)
         for param_name, param_doc in self.items():
             param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
