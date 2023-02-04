@@ -17,44 +17,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
-from tests.helper_functions import mock_http_request_200
-
-@pytest.fixture(scope="module", autouse=True)
-def request_fixture():
-    with mock.patch("requests.request") as request_mock:
-        response = mock.MagicMock()
-        response.status_code = 200
-        response.text = "{}"
-        request_mock.return_value = response
-        yield request_mock
-
-
-def mock_http_request(f):
-    @functools.wraps(f)
-    @mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        return_value=mock.MagicMock(status_code=200, text="{}"),
-    )
-    def wrapper(*args, **kwargs):
-        return f(*args, **kwargs)
-
-    return wrapper
-
-
-def mock_multiple_http_requests(f):
-    @functools.wraps(f)
-    @mock.patch(
-        "mlflow.utils.rest_utils.http_request",
-        side_effect=[
-            mock.MagicMock(status_code=403, text='{"error_code": "ENDPOINT_NOT_FOUND"}'),
-            mock.MagicMock(status_code=200, text="{}"),
-        ],
-    )
-    def wrapper(*args, **kwargs):
-        return f(*args, **kwargs)
-
-    return wrapper
-
+from tests.helper_functions import mock_http_200
 
 def host_creds():
     return MlflowHostCreds("https://hello")
@@ -62,7 +25,7 @@ def host_creds():
 
 @pytest.fixture
 def store():
-    yield UcModelRegistryStore(host_creds)
+    return UcModelRegistryStore(host_creds)
 
 
 def _args(endpoint, method, json_body):
@@ -98,7 +61,7 @@ def _verify_all_requests(http_request, endpoints, proto_message):
     )
 
 
-@mock_http_request
+@mock_http_200
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
     store.create_registered_model(name="model_1", description=description)
@@ -110,7 +73,7 @@ def test_create_registered_model(mock_http, store):
     )
 
 
-@mock_http_request
+@mock_http_200
 def test_create_registered_model_with_tags_unsupported(mock_http, store):
     tags = [
         RegisteredModelTag(key="key", value="value"),
@@ -121,7 +84,7 @@ def test_create_registered_model_with_tags_unsupported(mock_http, store):
         store.create_registered_model(name="model_1", tags=tags, description=description)
 
 
-@mock_http_request
+@mock_http_200
 def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
@@ -131,7 +94,7 @@ def test_update_registered_model_name(mock_http, store):
         store.rename_registered_model(name=name, new_name=new_name)
 
 
-@mock_http_request
+@mock_http_200
 def test_update_registered_model_description(mock_http, store):
     name = "model_1"
     description = "test model"
@@ -144,7 +107,7 @@ def test_update_registered_model_description(mock_http, store):
     )
 
 
-@mock_http_request
+@mock_http_200
 def test_delete_registered_model(mock_http, store):
     name = "model_1"
     store.delete_registered_model(name=name)
@@ -153,7 +116,7 @@ def test_delete_registered_model(mock_http, store):
     )
 
 
-@mock_http_request
+@mock_http_200
 def test_search_registered_model(mock_http, store):
     store.search_registered_models()
     _verify_requests(mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest())
@@ -174,7 +137,7 @@ def test_search_registered_model(mock_http, store):
             )
 
 
-@mock_http_request
+@mock_http_200
 def test_search_registered_models_invalid_args(mock_http, store):
     params_list = [
         {"filter_string": "model = 'yo'"},
@@ -190,7 +153,7 @@ def test_search_registered_models_invalid_args(mock_http, store):
                 store.search_registered_models(**params)
 
 
-@mock_http_request
+@mock_http_200
 def test_get_registered_model(mock_http, store):
     name = "model_1"
     store.get_registered_model(name=name)
@@ -199,7 +162,7 @@ def test_get_registered_model(mock_http, store):
     )
 
 
-@mock_http_request
+@mock_http_200
 def test_get_latest_versions_unsupported(mock_http, store):
     name = "model_1"
     expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
@@ -209,7 +172,7 @@ def test_get_latest_versions_unsupported(mock_http, store):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
-@mock_http_request
+@mock_http_200
 def test_set_registered_model_tag_unsupported(mock_http, store):
     name = "model_1"
     tag = RegisteredModelTag(key="key", value="value")
@@ -218,7 +181,7 @@ def test_set_registered_model_tag_unsupported(mock_http, store):
         store.set_registered_model_tag(name=name, tag=tag)
 
 
-@mock_http_request
+@mock_http_200
 def test_delete_registered_model_tag_unsupported(mock_http, store):
     name = "model_1"
     expected_err_msg = _expected_unsupported_method_error_message("delete_registered_model_tag")
