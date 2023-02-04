@@ -3,7 +3,6 @@ from itertools import combinations
 import json
 import pytest
 from unittest import mock
-import functools
 
 from mlflow.entities.model_registry import RegisteredModelTag
 from mlflow.exceptions import MlflowException
