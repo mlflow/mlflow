@@ -23,12 +23,12 @@ REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifact
 REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
-class DatabricksModelsArtifactRepository(ArtifactRepository):
+class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
-    Performs storage operations on artifacts controlled by a Databricks-hosted model registry.
+    Performs storage operations on artifacts controlled by a Unity Catalog model registry
 
-    Signed access URIs for the appropriate cloud storage locations are fetched from the
-    MLflow service and used to download model artifacts.
+    Temporary scoped tokens for the appropriate cloud storage locations are fetched from the
+    remote backend and used to download model artifacts.
 
     The artifact_uri is expected to be of the form
     - `models:/<model_name>/<model_version>`
@@ -37,7 +37,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
-    when the client is pointing to a Databricks-hosted model registry.
+    when the client is pointing to a Unity Catalog model registry.
     """
 
     def __init__(self, artifact_uri):
