@@ -19,6 +19,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
 
+
 def host_creds():
     return MlflowHostCreds("https://hello")
 
