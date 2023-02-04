@@ -1107,6 +1107,7 @@ def autolog(
     atexit.register(_flush_queue)
 
 
-autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
-    "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
-)
+if autolog.__doc__ is not None:
+    autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
+        "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
+    )
