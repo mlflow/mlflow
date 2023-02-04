@@ -1,7 +1,5 @@
 import logging
 
-from abc import ABCMeta
-
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.protos.model_registry_pb2 import (
     ModelRegistryService,
@@ -25,11 +23,10 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteModelVersionTag,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.store.model_registry.base_rest_store import BaseRestStore
+from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    call_endpoint,
-    call_endpoints,
     extract_api_info_for_service,
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
@@ -45,37 +42,6 @@ def _get_response_from_method(method):
     return method.Response()
 
 
-class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
-    """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
-    Base class client for a remote model registry server accessed via REST API calls
-    """
-
-    __metaclass__ = ABCMeta
-
-    def __init__(
-        self,
-        get_host_creds,
-        get_response_from_method,
-        get_all_endpoints_from_method,
-        get_endpoint_from_method,
-    ):
-        super().__init__()
-        self._get_all_endpoints_from_method = get_all_endpoints_from_method
-        self._get_endpoint_from_method = get_endpoint_from_method
-        self._get_response_from_method = get_response_from_method
-        self.get_host_creds = get_host_creds
-
-    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
-        response_proto = self._get_response_from_method(api)
-        if call_all_endpoints:
-            endpoints = self._get_all_endpoints_from_method(api)
-            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
-        else:
-            endpoint, method = self._get_endpoint_from_method(api)
-            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
-
-
 def _get_all_endpoints_from_method(method):
     return _METHOD_TO_ALL_INFO[method]
 
@@ -84,9 +50,9 @@ def _get_endpoint_from_method(method):
     return _METHOD_TO_INFO[method]
 
 
+@experimental
 class RestStore(BaseRestStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
 
     :param get_host_creds: Method to be invoked prior to every REST request to get the

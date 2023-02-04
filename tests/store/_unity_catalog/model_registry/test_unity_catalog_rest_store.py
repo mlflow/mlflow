@@ -84,11 +84,11 @@ def _verify_requests(http_request, endpoint, method, proto_message):
 
 
 def _expected_unsupported_method_error_message(method):
-    return f"Method {method} is unsupported for models in the Unity Catalog"
+    return f"Method '{method}' is unsupported for models in the Unity Catalog"
 
 
 def _expected_unsupported_arg_error_message(arg):
-    return f"Argument {arg} is unsupported for models in the Unity Catalog"
+    return f"Argument '{arg}' is unsupported for models in the Unity Catalog"
 
 
 def _verify_all_requests(http_request, endpoints, proto_message):
@@ -100,18 +100,25 @@ def _verify_all_requests(http_request, endpoints, proto_message):
 
 @mock_http_request
 def test_create_registered_model(mock_http, store):
-    tags = [
-        RegisteredModelTag(key="key", value="value"),
-        RegisteredModelTag(key="anotherKey", value="some other value"),
-    ]
     description = "best model ever"
-    store.create_registered_model("model_1", tags, description)
+    store.create_registered_model(name="model_1", description=description)
     _verify_requests(
         mock_http,
         "registered-models/create",
         "POST",
         CreateRegisteredModelRequest(name="model_1", description=description),
     )
+
+
+@mock_http_request
+def test_create_registered_model_with_tags_unsupported(mock_http, store):
+    tags = [
+        RegisteredModelTag(key="key", value="value"),
+        RegisteredModelTag(key="anotherKey", value="some other value"),
+    ]
+    description = "best model ever"
+    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("tags")):
+        store.create_registered_model(name="model_1", tags=tags, description=description)
 
 
 @mock_http_request

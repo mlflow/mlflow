@@ -1,6 +1,8 @@
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
+    RegisteredModel as ProtoRegisteredModel,
+    ModelVersion as ProtoModelVersion,
 )
 
 
@@ -8,13 +10,11 @@ _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVers
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 
 
-def uc_model_version_status_to_string(status):
+def uc_model_version_status_to_string(status: ProtoModelVersionStatus) -> str:
     return _STATUS_TO_STRING[status]
 
 
-def model_version_from_uc_proto(uc_proto):
-    # input: mlflow.protos.databricks_uc_registry_messages_pb2.ModelVersion
-    # returns: ModelVersion entity
+def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
     return ModelVersion(
         name=uc_proto.name,
         version=uc_proto.version,
@@ -29,9 +29,7 @@ def model_version_from_uc_proto(uc_proto):
     )
 
 
-def registered_model_from_uc_proto(uc_proto):
-    # input: mlflow.protos.databricks_uc_registry_messages_pb2.RegisteredModel
-    # returns: RegisteredModel entity
+def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> RegisteredModel:
     return RegisteredModel(
         name=uc_proto.name,
         creation_timestamp=uc_proto.creation_timestamp,

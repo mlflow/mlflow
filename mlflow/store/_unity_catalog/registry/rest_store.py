@@ -41,6 +41,8 @@ from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     registered_model_from_uc_proto,
 )
+from mlflow.utils.annotations import experimental
+
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -57,7 +59,7 @@ def _require_arg_unspecified(arg_name, arg_value, default_value=None, message=No
 
 def _raise_unsupported_arg(arg_name, message=None):
     messages = [
-        f"Argument {arg_name} is unsupported for models in the Unity Catalog.",
+        f"Argument '{arg_name}' is unsupported for models in the Unity Catalog.",
     ]
     if message is not None:
         messages.append(message)
@@ -67,7 +69,7 @@ def _raise_unsupported_arg(arg_name, message=None):
 
 def _raise_unsupported_method(method, message=None):
     messages = [
-        f"Method {method} is unsupported for models in the Unity Catalog.",
+        f"Method '{method}' is unsupported for models in the Unity Catalog.",
     ]
     if message is not None:
         messages.append(message)
@@ -105,9 +107,9 @@ def _get_endpoint_from_method(method):
 
 # TODO: re-enable the abstract-method check in a follow-up PR. It's disabled for now because
 # we haven't yet implemented required model version CRUD APIs in this class
+@experimental
 class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
 
     :param get_host_creds: Method to be invoked prior to every REST request to get the
@@ -136,6 +138,7 @@ class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
+        _require_arg_unspecified("tags", tags)
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
