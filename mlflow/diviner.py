@@ -222,14 +222,8 @@ def _save_model_fit_in_spark(diviner_model, path: str):
 
     diviner_pata_path = os.path.abspath(os.path.join(path, _DIVINER_MODEL_SUB))
 
-    if is_valid_dbfs_uri(tmp_path) and is_dbfs_fuse_available():
-        tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
-        shutil.move(src=tmp_fuse_path, dst=diviner_pata_path)
-    else:
-        raise MlflowException(
-            f"The path specified `{path}` is unsupported. To save Diviner "
-            "models fit in Spark, a '/dbfs/' fuse mount path must be used."
-        )
+    tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+    shutil.move(src=tmp_fuse_path, dst=diviner_pata_path)
 
     # Save the model metadata to the path location
     diviner_model._save_model_metadata_components_to_path(path=path)
