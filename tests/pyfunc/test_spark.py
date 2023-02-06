@@ -94,7 +94,6 @@ def get_spark_session(conf):
     # If running in local mode on certain OS configurations (M1 Mac ARM CPUs)
     # adding `.config("spark.driver.bindAddress", "127.0.0.1")` to the SparkSession
     # builder configuration will enable a SparkSession to start.
-
     # For local testing, uncomment the following line:
     # spark_master = os.environ.get("SPARK_MASTER", "local[1]")
     # If doing local testing, comment-out the following line.

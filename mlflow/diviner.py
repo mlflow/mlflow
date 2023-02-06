@@ -17,18 +17,22 @@ Diviner format
 """
 import logging
 import os.path
+import shutil
 import pathlib
 import yaml
 import pandas as pd
 from typing import Tuple, List
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_root_uri_and_artifact_path
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
@@ -42,13 +46,14 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, _shutil_copytree_without_file_permissions
 from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _get_flavor_configuration,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
 from mlflow.models.utils import _save_example
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -219,24 +224,40 @@ def _save_model_fit_in_spark(diviner_model, path: str):
         raise NotImplementedError("Only GroupedProphet instances fit in Spark are currently "
                                   "supported.")
 
-    import shutil
-    from mlflow.spark import _tmp_path, MLFLOW_DFS_TMP
-    from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
+
 
     # Create a temporary DFS location to write the Spark DataFrame containing the models to.
     tmp_dfs_dir = MLFLOW_DFS_TMP.get()
-    tmp_path = _tmp_path(tmp_dfs_dir)
+    tmp_path = generate_tmp_dfs_path(tmp_dfs_dir)
 
     # Save the model Spark DataFrame to the temporary DFS location
     diviner_model._save_model_df_to_path(tmp_path)
 
-    diviner_pata_path = os.path.abspath(path)
+    diviner_data_path = os.path.abspath(path)
 
     tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
-    shutil.move(src=tmp_fuse_path, dst=diviner_pata_path)
+    shutil.move(src=tmp_fuse_path, dst=diviner_data_path)
 
     # Save the model metadata to the path location
-    # diviner_model._save_model_metadata_components_to_path(path=path)
+    diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
+
+
+def _load_model_fit_in_spark(model_uri: str, local_model_path: str=None):
+    """
+    Utility for loading a Diviner model that has been fit (and saved) in the Spark variant.
+    """
+    # NB: To load the model DataFrame (which is a Spark DataFrame), Spark requires that the file
+    # partitions are in DFS. In order to facilitate this, the model DataFrame (saved as parquet)
+    # will be copied to a temporary DFS location. The remaining files can be read directly from
+    # the local file system path.
+
+    dfs_temp_directory = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
+    dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
+    os.makedirs(dfs_fuse_directory)
+    local_path = local_model_path or _download_artifact_from_uri(model_uri)
+    _shutil_copytree_without_file_permissions(src_dir=local_path, dst_dir=dfs_fuse_directory)
+
+    return _load_model(dfs_fuse_directory)
 
 
 def load_model(model_uri, dst_path=None):
@@ -261,7 +282,20 @@ def load_model(model_uri, dst_path=None):
     :return: A ``Diviner`` model instance
     """
 
+    # Determine if the file read indicator is present for saved in Spark or not
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        runs_uri = model_uri
+        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
+    elif ModelsArtifactRepository.is_models_uri(model_uri):
+        runs_uri = model_uri
+        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    if os.path.isfile(os.path.join(local_model_path, "_fit_in_spark")):
+        return _load_model_fit_in_spark(model_uri, local_model_path)
 
     return _load_model(local_model_path)
 
