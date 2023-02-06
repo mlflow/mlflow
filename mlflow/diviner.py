@@ -150,27 +150,30 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
-
-    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.diviner",
-        conda_env=_CONDA_ENV_FILE_NAME,
-        python_env=_PYTHON_ENV_FILE_NAME,
-        code=code_dir_subpath,
-        **model_bin_kwargs,
-    )
-    flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
-    )
-
     if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
         _save_model_fit_in_spark(
-            diviner_model=diviner_model, path=str(path.joinpath(MLMODEL_FILE_NAME))
+            diviner_model=diviner_model, path=str(path.joinpath(_MODEL_BINARY_FILE_NAME))
         )
     else:
+        diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
+
+        # NB: Pyfunc is not supported for Diviner models fit in Spark due to the size of the saved
+        # models (there is a high probabiliy of overloading the heap space on an executor) and
+        # the fact that the models are stored within a Spark DataFrame.
+        model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.diviner",
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
+            code=code_dir_subpath,
+            **model_bin_kwargs,
+        )
+        flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
+        mlflow_model.add_flavor(
+            FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
+        )
+
         mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
@@ -200,18 +203,25 @@ def save_model(
 
 
 def _save_model_fit_in_spark(diviner_model, path: str):
+
+    # Validate that the path is a relative path early in order to fail fast prior to attempting
+    # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
+    # Exception within MLflow when attempting to copy the temporary write files from DFS to
+    # the file system path provided.
+    if not os.path.isabs(path):
+        raise MlflowException("The save path provided must be a run-relative path. "
+                              f"The path submitted, '{path}' is an absolute path.")
+
     from diviner import GroupedProphet
 
     # Raise NotImplementedError if instance type is not GroupedProphet
     if not isinstance(diviner_model, GroupedProphet):
-        raise NotImplementedError("Only GroupedProphet instances fit in Spark are supported.")
+        raise NotImplementedError("Only GroupedProphet instances fit in Spark are currently "
+                                  "supported.")
 
     import shutil
     from mlflow.spark import _tmp_path, MLFLOW_DFS_TMP
-    from mlflow.utils.databricks_utils import is_dbfs_fuse_available
-    from mlflow.utils.uri import is_valid_dbfs_uri, dbfs_hdfs_uri_to_fuse_path
-
-    _DIVINER_MODEL_SUB = "model.parquet"
+    from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
 
     # Create a temporary DFS location to write the Spark DataFrame containing the models to.
     tmp_dfs_dir = MLFLOW_DFS_TMP.get()
@@ -220,13 +230,13 @@ def _save_model_fit_in_spark(diviner_model, path: str):
     # Save the model Spark DataFrame to the temporary DFS location
     diviner_model._save_model_df_to_path(tmp_path)
 
-    diviner_pata_path = os.path.abspath(os.path.join(path, _DIVINER_MODEL_SUB))
+    diviner_pata_path = os.path.abspath(path)
 
     tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
     shutil.move(src=tmp_fuse_path, dst=diviner_pata_path)
 
     # Save the model metadata to the path location
-    diviner_model._save_model_metadata_components_to_path(path=path)
+    # diviner_model._save_model_metadata_components_to_path(path=path)
 
 
 def load_model(model_uri, dst_path=None):
