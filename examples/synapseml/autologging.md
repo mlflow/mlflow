@@ -5,38 +5,45 @@ SynapseML supports autologging for every model in the library.
 
 Install SynapseML library following this [guidance](https://microsoft.github.io/SynapseML/docs/getting_started/installation/)
 
-
 To enable autologging for SynapseML:
+
 1. Download this customized [log_model_allowlist file](https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt) and put it at a place that your code has access to.
-For example:
-* In Synapse `wasb://<containername>@<accountname>.blob.core.windows.net/PATH_TO_YOUR/log_model_allowlist.txt`
-* In Databricks `/dbfs/FileStore/PATH_TO_YOUR/log_model_allowlist.txt`.
+   For example:
+
+- In Synapse `wasb://<containername>@<accountname>.blob.core.windows.net/PATH_TO_YOUR/log_model_allowlist.txt`
+- In Databricks `/dbfs/FileStore/PATH_TO_YOUR/log_model_allowlist.txt`.
+
 2. Set spark configuration `spark.mlflow.pysparkml.autolog.logModelAllowlistFile` to the path of your `log_model_allowlist.txt` file.
 3. Call `mlflow.pyspark.ml.autolog()` before your training code to enable autologging for all supported models.
 
 Note:
+
 1. If you want to support autologging of PySpark models not present in the log_model_allowlist file, you can add such models to the file.
 2. If you've enabled autologging, then don't write explicit `with mlflow.start_run()` as it might cause multiple runs for one single model or one run for multiple models.
-
 
 ## Configuration process in Databricks as an example
 
 1. Install latest MLflow via `%pip install mlflow -u`
 2. Upload your customized `log_model_allowlist.txt` file to dbfs by clicking File/Upload Data button on Databricks UI.
 3. Set Cluster Spark configuration following [this documentation](https://docs.microsoft.com/en-us/azure/databricks/clusters/configure#spark-configuration)
+
 ```
 spark.mlflow.pysparkml.autolog.logModelAllowlistFile /dbfs/FileStore/PATH_TO_YOUR/log_model_allowlist.txt
 ```
+
 4. Run the following line before your training code executes.
+
 ```
 mlflow.pyspark.ml.autolog()
 ```
+
 You can customize how autologging works by supplying appropriate [parameters](https://www.mlflow.org/docs/latest/python_api/mlflow.pyspark.ml.html#mlflow.pyspark.ml.autolog).
- 
+
 5. To find your experiment's results via the `Experiments` tab of the MLFlow UI.
-<img src="https://mmlspark.blob.core.windows.net/graphics/adb_experiments.png" width="1200" />
+   <img src="https://mmlspark.blob.core.windows.net/graphics/adb_experiments.png" width="1200" />
 
 ## Example for ConditionalKNNModel
+
 ```python
 from pyspark.ml.linalg import Vectors
 from synapse.ml.nn import *
