@@ -32,9 +32,7 @@ def test_get_app_name_two_plugins():
 
 def test_get_app_name_custom_app_plugin():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-    from mlflow_test_plugin import app
-
-    assert server._get_app_name() == f"{app.__name__}:custom_app"
+    assert server._get_app_name() == "mlflow_test_plugin.app:custom_app"
 
 
 def test_build_waitress_command():
