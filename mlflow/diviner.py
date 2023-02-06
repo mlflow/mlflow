@@ -16,6 +16,7 @@ Diviner format
     https://databricks-diviner.readthedocs.io/en/latest/index.html
 """
 import logging
+import os.path
 import pathlib
 import yaml
 import pandas as pd
@@ -164,7 +165,13 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
     )
-    mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
+
+    if diviner_model._fit_with_spark:
+        _save_model_fit_in_spark(
+            diviner_model=diviner_model, path=str(path.joinpath(MLMODEL_FILE_NAME))
+        )
+    else:
+        mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
         if pip_requirements is None:
@@ -190,6 +197,42 @@ def save_model(
     write_to(str(path.joinpath(_REQUIREMENTS_FILE_NAME)), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
+
+
+def _save_model_fit_in_spark(diviner_model, path: str):
+    from diviner import GroupedProphet
+
+    # Raise NotImplementedError if instance type is not GroupedProphet
+    if not isinstance(diviner_model, GroupedProphet):
+        raise NotImplementedError("Only GroupedProphet instances fit in Spark are supported.")
+
+    import shutil
+    from mlflow.spark import _tmp_path, MLFLOW_DFS_TMP
+    from mlflow.utils.databricks_utils import is_dbfs_fuse_available
+    from mlflow.utils.uri import is_valid_dbfs_uri, dbfs_hdfs_uri_to_fuse_path
+
+    _DIVINER_MODEL_SUB = "model.parquet"
+
+    # Create a temporary DFS location to write the Spark DataFrame containing the models to.
+    tmp_dfs_dir = MLFLOW_DFS_TMP.get()
+    tmp_path = _tmp_path(tmp_dfs_dir)
+
+    # Save the model Spark DataFrame to the temporary DFS location
+    diviner_model._save_model_df_to_path(tmp_path)
+
+    diviner_pata_path = os.path.abspath(os.path.join(path, _DIVINER_MODEL_SUB))
+
+    if is_valid_dbfs_uri(tmp_path) and is_dbfs_fuse_available():
+        tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+        shutil.move(src=tmp_fuse_path, dst=diviner_pata_path)
+    else:
+        raise MlflowException(
+            f"The path specified `{path}` is unsupported. To save Diviner "
+            "models fit in Spark, a '/dbfs/' fuse mount path must be used."
+        )
+
+    # Save the model metadata to the path location
+    diviner_model._save_model_metadata_components_to_path(path=path)
 
 
 def load_model(model_uri, dst_path=None):
