@@ -166,7 +166,7 @@ def save_model(
         FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
     )
 
-    if diviner_model._fit_with_spark:
+    if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
         _save_model_fit_in_spark(
             diviner_model=diviner_model, path=str(path.joinpath(MLMODEL_FILE_NAME))
         )
