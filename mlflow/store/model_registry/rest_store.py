@@ -48,11 +48,6 @@ class RestStore(BaseRestStore):
       is a function so that we can obtain fresh credentials in the case of expiry.
     """
 
-    def __init__(self, get_host_creds):
-        super().__init__(
-            get_host_creds,
-        )
-
     def _get_response_from_method(self, method):
         return method.Response()
 
