@@ -162,24 +162,21 @@ def save_model(
     else:
         diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
 
-        # NB: Pyfunc is not supported for Diviner models fit in Spark due to the size of the saved
-        # models (there is a high probabiliy of overloading the heap space on an executor) and
-        # the fact that the models are stored within a Spark DataFrame.
-        model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
-        pyfunc.add_to_model(
-            mlflow_model,
-            loader_module="mlflow.diviner",
-            conda_env=_CONDA_ENV_FILE_NAME,
-            python_env=_PYTHON_ENV_FILE_NAME,
-            code=code_dir_subpath,
-            **model_bin_kwargs,
-        )
-        flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
-        mlflow_model.add_flavor(
-            FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
-        )
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.diviner",
+        conda_env=_CONDA_ENV_FILE_NAME,
+        python_env=_PYTHON_ENV_FILE_NAME,
+        code=code_dir_subpath,
+        **model_bin_kwargs,
+    )
+    flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
+    )
 
-        mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
+    mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
         if pip_requirements is None:
@@ -224,8 +221,6 @@ def _save_model_fit_in_spark(diviner_model, path: str):
         raise NotImplementedError("Only GroupedProphet instances fit in Spark are currently "
                                   "supported.")
 
-
-
     # Create a temporary DFS location to write the Spark DataFrame containing the models to.
     tmp_dfs_dir = MLFLOW_DFS_TMP.get()
     tmp_path = generate_tmp_dfs_path(tmp_dfs_dir)
@@ -242,7 +237,7 @@ def _save_model_fit_in_spark(diviner_model, path: str):
     diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
 
 
-def _load_model_fit_in_spark(model_uri: str, local_model_path: str=None):
+def _load_model_fit_in_spark(local_model_path: str):
     """
     Utility for loading a Diviner model that has been fit (and saved) in the Spark variant.
     """
@@ -254,8 +249,7 @@ def _load_model_fit_in_spark(model_uri: str, local_model_path: str=None):
     dfs_temp_directory = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
     dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
     os.makedirs(dfs_fuse_directory)
-    local_path = local_model_path or _download_artifact_from_uri(model_uri)
-    _shutil_copytree_without_file_permissions(src_dir=local_path, dst_dir=dfs_fuse_directory)
+    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
     return _load_model(dfs_fuse_directory)
 
