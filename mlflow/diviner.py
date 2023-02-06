@@ -251,7 +251,7 @@ def _load_model_fit_in_spark(local_model_path: str):
     os.makedirs(dfs_fuse_directory)
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
-    return _load_model(dfs_fuse_directory)
+    return _load_model(dfs_temp_directory)
 
 
 def load_model(model_uri, dst_path=None):
@@ -288,8 +288,8 @@ def load_model(model_uri, dst_path=None):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    if os.path.isfile(os.path.join(local_model_path, "_fit_in_spark")):
-        return _load_model_fit_in_spark(model_uri, local_model_path)
+    if os.path.exists(os.path.join(local_model_path, "_fit_in_spark")):
+        return _load_model_fit_in_spark(local_model_path)
 
     return _load_model(local_model_path)
 
