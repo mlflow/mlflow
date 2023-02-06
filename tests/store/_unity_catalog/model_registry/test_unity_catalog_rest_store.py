@@ -73,8 +73,7 @@ def test_create_registered_model(mock_http, store):
     )
 
 
-@mock_http_200
-def test_create_registered_model_with_tags_unsupported(mock_http, store):
+def test_create_registered_model_with_tags_unsupported(store):
     tags = [
         RegisteredModelTag(key="key", value="value"),
         RegisteredModelTag(key="anotherKey", value="some other value"),
@@ -162,8 +161,7 @@ def test_get_registered_model(mock_http, store):
     )
 
 
-@mock_http_200
-def test_get_latest_versions_unsupported(mock_http, store):
+def test_get_latest_versions_unsupported(store):
     name = "model_1"
     expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
     with pytest.raises(MlflowException, match=expected_err_msg):
@@ -172,8 +170,7 @@ def test_get_latest_versions_unsupported(mock_http, store):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
-@mock_http_200
-def test_set_registered_model_tag_unsupported(mock_http, store):
+def test_set_registered_model_tag_unsupported(store):
     name = "model_1"
     tag = RegisteredModelTag(key="key", value="value")
     expected_err_msg = _expected_unsupported_method_error_message("set_registered_model_tag")
@@ -181,8 +178,7 @@ def test_set_registered_model_tag_unsupported(mock_http, store):
         store.set_registered_model_tag(name=name, tag=tag)
 
 
-@mock_http_200
-def test_delete_registered_model_tag_unsupported(mock_http, store):
+def test_delete_registered_model_tag_unsupported(store):
     name = "model_1"
     expected_err_msg = _expected_unsupported_method_error_message("delete_registered_model_tag")
     with pytest.raises(MlflowException, match=expected_err_msg):

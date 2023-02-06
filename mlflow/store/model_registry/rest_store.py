@@ -38,18 +38,6 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _RE
 _logger = logging.getLogger(__name__)
 
 
-def _get_response_from_method(method):
-    return method.Response()
-
-
-def _get_all_endpoints_from_method(method):
-    return _METHOD_TO_ALL_INFO[method]
-
-
-def _get_endpoint_from_method(method):
-    return _METHOD_TO_INFO[method]
-
-
 @experimental
 class RestStore(BaseRestStore):
     """
@@ -63,10 +51,16 @@ class RestStore(BaseRestStore):
     def __init__(self, get_host_creds):
         super().__init__(
             get_host_creds,
-            get_response_from_method=_get_response_from_method,
-            get_all_endpoints_from_method=_get_all_endpoints_from_method,
-            get_endpoint_from_method=_get_endpoint_from_method,
         )
+
+    def _get_response_from_method(self, method):
+        return method.Response()
+
+    def _get_endpoint_from_method(self, method):
+        return _METHOD_TO_INFO[method]
+
+    def _get_all_endpoints_from_method(self, method):
+        return _METHOD_TO_ALL_INFO[method]
 
     # CRUD API for RegisteredModel objects
 
