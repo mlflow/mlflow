@@ -1047,6 +1047,49 @@ Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Boo
 not models that implement the `scikit-learn API
 <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__.
 
+``XGBoost`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The example below
+
+* Loads the IRIS dataset from ``scikit-learn``
+* Trains an XGBoost Classifier
+* Logs the model and params using ``mlflow``
+* Loads the logged model and makes predictions
+
+.. code-block:: python
+
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+    from xgboost import XGBClassifier
+    import mlflow
+
+    data = load_iris()
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["data"], data["target"], test_size=0.2
+    )
+
+    xgb_classifier = XGBClassifier(
+        n_estimators=10,
+        max_depth=3,
+        learning_rate=1,
+        objective="binary:logistic",
+        random_state=123,
+    )
+
+    # log fitted model with anXGBClassifier parameters
+    with mlflow.start_run():
+        xgb_classifier.fit(X_train, y_train)
+        clf_params = xgb_classifier.get_xgb_params()
+        mlflow.log_params(clf_params)
+        model_info = mlflow.xgboost.log_model(xgb_classifier, "iris-classifier")
+
+    # Load saved model and make predictions
+    xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    y_pred = xgb_classifier_saved.predict(X_test)
+    print(y_pred)
+
+
 For more information, see :py:mod:`mlflow.xgboost`.
 
 LightGBM (``lightgbm``)
