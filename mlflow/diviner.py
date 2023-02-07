@@ -50,10 +50,11 @@ from mlflow.utils.file_utils import write_to, _shutil_copytree_without_file_perm
 from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _get_flavor_configuration,
+    _get_flavor_configuration_from_uri,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path, append_to_uri_path
 from mlflow.models.utils import _save_example
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -156,10 +157,12 @@ def save_model(
         mlflow_model.metadata = metadata
 
     if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
+        flavor_conf = {"_fit_in_spark": True}
         _save_model_fit_in_spark(
             diviner_model=diviner_model, path=str(path.joinpath(_MODEL_BINARY_FILE_NAME))
         )
     else:
+        flavor_conf = {"_fit_in_spark": False}
         diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
@@ -171,7 +174,7 @@ def save_model(
         code=code_dir_subpath,
         **model_bin_kwargs,
     )
-    flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
+    flavor_conf.update({_MODEL_TYPE_KEY: diviner_model.__class__.__name__}, **model_bin_kwargs)
     mlflow_model.add_flavor(
         FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
     )
@@ -237,7 +240,7 @@ def _save_model_fit_in_spark(diviner_model, path: str):
     diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
 
 
-def _load_model_fit_in_spark(local_model_path: str):
+def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     """
     Utility for loading a Diviner model that has been fit (and saved) in the Spark variant.
     """
@@ -246,12 +249,16 @@ def _load_model_fit_in_spark(local_model_path: str):
     # will be copied to a temporary DFS location. The remaining files can be read directly from
     # the local file system path.
 
+    import diviner
+
     dfs_temp_directory = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
     dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
     os.makedirs(dfs_fuse_directory)
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
-    return _load_model(dfs_temp_directory)
+    diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
+
+    return diviner_instance.load(dfs_temp_directory)
 
 
 def load_model(model_uri, dst_path=None):
@@ -286,10 +293,17 @@ def load_model(model_uri, dst_path=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
 
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    if os.path.exists(os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME, "_fit_in_spark")):
-        return _load_model_fit_in_spark(local_model_path)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
+    if flavor_conf.get("fit_in_spark", False):
+
+        local_model_uri = os.path.join(local_model_path, flavor_conf[_MODEL_BINARY_KEY])
+
+        return _load_model_fit_in_spark(local_model_uri, flavor_conf)
 
     return _load_model(local_model_path)
 
@@ -307,8 +321,6 @@ def _load_model(path):
     local_path = pathlib.Path(path)
 
     flavor_conf = _get_flavor_configuration(model_path=str(local_path), flavor_name=FLAVOR_NAME)
-
-    _add_code_from_conf_to_system_path(str(local_path), flavor_conf)
 
     diviner_model_path = local_path.joinpath(
         flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
