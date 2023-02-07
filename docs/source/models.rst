@@ -1077,7 +1077,7 @@ The example below
         random_state=123,
     )
 
-    # log fitted model with anXGBClassifier parameters
+    # log fitted model and XGBClassifier parameters
     with mlflow.start_run():
         xgb_classifier.fit(X_train, y_train)
         clf_params = xgb_classifier.get_xgb_params()
