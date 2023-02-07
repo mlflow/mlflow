@@ -302,7 +302,6 @@ def load_model(model_uri, dst_path=None):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     if flavor_conf.get(_SPARK_MODEL_INDICATOR, False):
-
         return _load_model_fit_in_spark(local_model_path, flavor_conf)
 
     return _load_model(local_model_path)
