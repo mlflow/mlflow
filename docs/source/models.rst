@@ -1087,7 +1087,6 @@ The example below
     # Load saved model and make predictions
     xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
     y_pred = xgb_classifier_saved.predict(X_test)
-    print(y_pred)
 
 
 For more information, see :py:mod:`mlflow.xgboost`.
