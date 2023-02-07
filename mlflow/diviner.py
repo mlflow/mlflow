@@ -288,7 +288,7 @@ def load_model(model_uri, dst_path=None):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    if os.path.exists(os.path.join(local_model_path, "_fit_in_spark")):
+    if os.path.exists(os.path.join(local_model_path, _MODEL_BINARY_FILE_NAME, "_fit_in_spark")):
         return _load_model_fit_in_spark(local_model_path)
 
     return _load_model(local_model_path)
