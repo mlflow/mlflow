@@ -64,6 +64,7 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.div"
 _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
+_SPARK_MODEL_INDICATOR = "fit_in_spark"
 
 _logger = logging.getLogger(__name__)
 
@@ -157,12 +158,12 @@ def save_model(
         mlflow_model.metadata = metadata
 
     if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
-        flavor_conf = {"_fit_in_spark": True}
+        flavor_conf = {_SPARK_MODEL_INDICATOR: True}
         _save_model_fit_in_spark(
             diviner_model=diviner_model, path=str(path.joinpath(_MODEL_BINARY_FILE_NAME))
         )
     else:
-        flavor_conf = {"_fit_in_spark": False}
+        flavor_conf = {_SPARK_MODEL_INDICATOR: False}
         diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
@@ -247,7 +248,7 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     # NB: To load the model DataFrame (which is a Spark DataFrame), Spark requires that the file
     # partitions are in DFS. In order to facilitate this, the model DataFrame (saved as parquet)
     # will be copied to a temporary DFS location. The remaining files can be read directly from
-    # the local file system path.
+    # the local file system path, which is handled within the Diviner APIs.
 
     import diviner
 
@@ -257,8 +258,9 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
     diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
+    load_directory = os.path.join(dfs_fuse_directory, flavor_conf[_MODEL_BINARY_KEY])
 
-    return diviner_instance.load(dfs_temp_directory)
+    return diviner_instance.load(load_directory)
 
 
 def load_model(model_uri, dst_path=None):
@@ -299,11 +301,9 @@ def load_model(model_uri, dst_path=None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-    if flavor_conf.get("fit_in_spark", False):
+    if flavor_conf.get(_SPARK_MODEL_INDICATOR, False):
 
-        local_model_uri = os.path.join(local_model_path, flavor_conf[_MODEL_BINARY_KEY])
-
-        return _load_model_fit_in_spark(local_model_uri, flavor_conf)
+        return _load_model_fit_in_spark(local_model_path, flavor_conf)
 
     return _load_model(local_model_path)
 
