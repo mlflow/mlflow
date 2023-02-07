@@ -12,6 +12,7 @@ import stat
 import pandas as pd
 from pyspark.sql import SparkSession
 
+import mlflow
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
@@ -344,3 +345,23 @@ def test_handle_readonly_on_windows(tmpdir):
 )
 def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
     assert local_file_uri_to_path(input_uri) == expected_path
+
+
+def test_shutil_copytree_without_file_permissions(tmpdir):
+    src_dir = tmpdir.mkdir("src-dir")
+    dst_dir = tmpdir.mkdir("dst-dir")
+    # Test copying empty directory
+    mlflow.utils.file_utils._shutil_copytree_without_file_permissions(
+        src_dir.strpath, dst_dir.strpath
+    )
+    assert len(os.listdir(dst_dir.strpath)) == 0
+    # Test copying directory with contents
+    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
+    src_dir.join("top-level-file.txt").write("hi")
+    mlflow.utils.file_utils._shutil_copytree_without_file_permissions(
+        src_dir.strpath, dst_dir.strpath
+    )
+    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
+    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
+    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
+    assert dst_dir.join("top-level-file.txt").read() == "hi"

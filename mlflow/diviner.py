@@ -32,7 +32,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_root_uri_and_artifact_path
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
@@ -49,12 +49,12 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import write_to, _shutil_copytree_without_file_permissions
 from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
-    _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
+    _get_flavor_configuration,
 )
-from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path, append_to_uri_path
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
 from mlflow.models.utils import _save_example
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -209,25 +209,24 @@ def save_model(
 
 
 def _save_model_fit_in_spark(diviner_model, path: str):
-
+    """
+    Saves a Diviner model that was fit in Spark by processing the model components separately.
+    The metadata and ancillary files to write (JSON and Pandas DataFrames) are written directly
+    to a fuse mount location, which the Spark DataFrame that contains the individual serialized
+    Diviner model objects is written by using the 'dbfs:' scheme path that Spark recognizes.
+    """
     # Validate that the path is a relative path early in order to fail fast prior to attempting
     # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
     # Exception within MLflow when attempting to copy the temporary write files from DFS to
     # the file system path provided.
     if not os.path.isabs(path):
-        raise MlflowException("The save path provided must be a run-relative path. "
-                              f"The path submitted, '{path}' is an absolute path.")
-
-    from diviner import GroupedProphet
-
-    # Raise NotImplementedError if instance type is not GroupedProphet
-    if not isinstance(diviner_model, GroupedProphet):
-        raise NotImplementedError("Only GroupedProphet instances fit in Spark are currently "
-                                  "supported.")
+        raise MlflowException(
+            "The save path provided must be a run-relative path. "
+            f"The path submitted, '{path}' is an absolute path."
+        )
 
     # Create a temporary DFS location to write the Spark DataFrame containing the models to.
-    tmp_dfs_dir = MLFLOW_DFS_TMP.get()
-    tmp_path = generate_tmp_dfs_path(tmp_dfs_dir)
+    tmp_path = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
 
     # Save the model Spark DataFrame to the temporary DFS location
     diviner_model._save_model_df_to_path(tmp_path)
@@ -243,13 +242,12 @@ def _save_model_fit_in_spark(diviner_model, path: str):
 
 def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     """
-    Utility for loading a Diviner model that has been fit (and saved) in the Spark variant.
+    Loads a Diviner model that has been fit (and saved) in the Spark variant.
     """
     # NB: To load the model DataFrame (which is a Spark DataFrame), Spark requires that the file
     # partitions are in DFS. In order to facilitate this, the model DataFrame (saved as parquet)
     # will be copied to a temporary DFS location. The remaining files can be read directly from
     # the local file system path, which is handled within the Diviner APIs.
-
     import diviner
 
     dfs_temp_directory = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
@@ -279,12 +277,12 @@ def load_model(model_uri, dst_path=None):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
     :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
+                     This directory must already exist if provided. If unspecified, a local output
                      path will be created.
 
     :return: A ``Diviner`` model instance
     """
-
+    model_uri = str(model_uri)
     # Determine if the file read indicator is present for saved in Spark or not
     if RunsArtifactRepository.is_runs_uri(model_uri):
         runs_uri = model_uri
@@ -304,37 +302,41 @@ def load_model(model_uri, dst_path=None):
     if flavor_conf.get(_SPARK_MODEL_INDICATOR, False):
         return _load_model_fit_in_spark(local_model_path, flavor_conf)
 
-    return _load_model(local_model_path)
+    return _load_model(local_model_path, flavor_conf)
 
 
-def _get_diviner_instance_type(path) -> str:
-    local_path = pathlib.Path(path)
-    diviner_model_info_path = local_path.joinpath(MLMODEL_FILE_NAME)
-    diviner_model_info = yaml.safe_load(diviner_model_info_path.read_text())
-    return diviner_model_info.get(_FLAVOR_KEY).get(FLAVOR_NAME).get(_MODEL_TYPE_KEY)
-
-
-def _load_model(path):
+def _load_model(path, flavor_conf):
+    """
+    Loads a Diviner model instance that was not fit using Spark from a file system location.
+    """
     import diviner
 
     local_path = pathlib.Path(path)
-
-    flavor_conf = _get_flavor_configuration(model_path=str(local_path), flavor_name=FLAVOR_NAME)
 
     diviner_model_path = local_path.joinpath(
         flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )
 
-    diviner_instance = getattr(diviner, _get_diviner_instance_type(path))
+    diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
     return diviner_instance.load(str(diviner_model_path))
 
 
 def _load_pyfunc(path):
     local_path = pathlib.Path(path)
+
     # NB: reverting the dir walk that happens with pyfunc's loading implementation
     if local_path.is_file():
         local_path = local_path.parent
-    return _DivinerModelWrapper(_load_model(local_path))
+
+    flavor_conf = _get_flavor_configuration(local_path, FLAVOR_NAME)
+
+    if flavor_conf.get(_SPARK_MODEL_INDICATOR):
+        raise MlflowException(
+            "The model being loaded was fit in Spark. Diviner models fit in "
+            "Spark do not support loading as pyfunc."
+        )
+
+    return _DivinerModelWrapper(_load_model(local_path, flavor_conf))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
