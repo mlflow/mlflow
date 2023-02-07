@@ -2,7 +2,6 @@ import pathlib
 import posixpath
 import urllib.parse
 import uuid
-from os import path
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
