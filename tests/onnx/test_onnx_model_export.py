@@ -106,6 +106,23 @@ def onnx_model(model, sample_input, tmpdir):
     return onnx.load(model_path)
 
 
+@pytest.fixture
+def onnx_model_2gb(tmpdir):
+    model_path = os.path.join(str(tmpdir), "onnx_big")
+    dynamic_axes = {"input": {0: "batch"}}
+    # Linear layer weights + biases just over 1GB
+    big_model = nn.Sequential(
+        nn.Linear(2**14, 2**14),
+        nn.Linear(2**14, 2**14),
+    )
+
+    sample_input = torch.ones(1, 2**14)
+    torch.onnx.export(
+        big_model, sample_input, model_path, dynamic_axes=dynamic_axes, input_names=["input"]
+    )
+    return onnx.load(model_path)
+
+
 @pytest.fixture(scope="module")
 def multi_tensor_model(dataset):
     class MyModel(nn.Module):
@@ -239,6 +256,15 @@ def test_model_save_load(onnx_model, model_path):
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading ONNX model
+    onnx.checker.check_model = mock.Mock()
+    mlflow.onnx.load_model(model_path)
+    assert onnx.checker.check_model.called
+
+
+def test_model_save_load_2gb(onnx_model_2gb, model_path):
+    mlflow.onnx.save_model(onnx_model_2gb, model_path)
+
+    # Loading >2GB ONNX model
     onnx.checker.check_model = mock.Mock()
     mlflow.onnx.load_model(model_path)
     assert onnx.checker.check_model.called

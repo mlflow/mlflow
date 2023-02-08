@@ -157,7 +157,7 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save onnx-model
-    onnx.save_model(onnx_model, model_data_path)
+    onnx.save_model(onnx_model, model_data_path, save_as_external_data=True)
 
     pyfunc.add_to_model(
         mlflow_model,
