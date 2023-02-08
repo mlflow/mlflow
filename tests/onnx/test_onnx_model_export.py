@@ -10,6 +10,7 @@ from torch import nn
 import torch.onnx
 from torch.utils.data import DataLoader
 from sklearn import datasets
+from packaging.version import Version
 import pandas as pd
 import numpy as np
 import yaml
@@ -117,9 +118,20 @@ def onnx_model_2gb(tmpdir):
     )
 
     sample_input = torch.ones(1, 2**14)
-    torch.onnx.export(
-        big_model, sample_input, model_path, dynamic_axes=dynamic_axes, input_names=["input"]
-    )
+    if Version(torch.__version__) >= Version("1.11.0"):
+        torch.onnx.export(
+            big_model, sample_input, model_path, dynamic_axes=dynamic_axes, input_names=["input"]
+        )
+    # Exporting with pytorch use_external_data_format required for large models for <1.11
+    else:
+        torch.onnx.export(
+            big_model,
+            sample_input,
+            model_path,
+            dynamic_axes=dynamic_axes,
+            input_names=["input"],
+            use_external_data_format=True,
+        )
     return onnx.load(model_path)
 
 
