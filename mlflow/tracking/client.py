@@ -2628,7 +2628,7 @@ class MlflowClient:
 
     def search_model_versions(
         self,
-        filter_string: str = None,
+        filter_string: Optional[str] = None,
         max_results: int = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,

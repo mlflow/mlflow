@@ -978,7 +978,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # test that providing too large of a max_results throws
         with pytest.raises(
-            MlflowException, match=r"Invalid value for max_results."
+            MlflowException, match=r"Invalid value for max_results\."
         ) as exception_context:
             search_versions(query, page_token="evilhax", max_results=1e15)
         assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

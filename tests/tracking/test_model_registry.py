@@ -247,9 +247,9 @@ def test_set_delete_registered_model_tag_flow(client):
 
 def test_set_registered_model_tag_with_empty_string_as_value(client):
     name = "SetRMTagEmptyValueTest"
-    mlflow_client.create_registered_model(name)
-    mlflow_client.set_registered_model_tag(name, "tag_key", "")
-    assert {"tag_key": ""}.items() <= mlflow_client.get_registered_model(name).tags.items()
+    client.create_registered_model(name)
+    client.set_registered_model_tag(name, "tag_key", "")
+    assert {"tag_key": ""}.items() <= client.get_registered_model(name).tags.items()
 
 
 @pytest.mark.parametrize("max_results", [1, 8, 100])
@@ -278,7 +278,7 @@ def test_set_registered_model_tag_with_empty_string_as_value(client):
     ],
 )
 def test_search_model_versions_flow_paginated(
-    mlflow_client,
+    client,
     backend_store_uri,
     max_results,
     filter_string,
@@ -289,10 +289,9 @@ def test_search_model_versions_flow_paginated(
 ):
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
-        mlflow_client.create_registered_model(name)
+        client.create_registered_model(name)
     mvs = [
-        mlflow_client.create_model_version(name, "path/to/model", "run_id")
-        for name in names + names[:10]
+        client.create_model_version(name, "path/to/model", "run_id") for name in names + names[:10]
     ]
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
@@ -308,28 +307,21 @@ def test_search_model_versions_flow_paginated(
         assert [mv.name for mv in expected_mvs] == [mv.name for mv in result_mvs]
         assert [mv.version for mv in expected_mvs] == [mv.version for mv in result_mvs]
 
-    try:
-        if order_by_key:
-            expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
-        else:
-            expected_mvs = sorted(
-                filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
-            )
-        verify_pagination(
-            lambda tok: mlflow_client.search_model_versions(
-                filter_string=filter_string,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=tok,
-            ),
-            expected_mvs,
+    if order_by_key:
+        expected_mvs = sorted(filter(filter_func, mvs), key=order_by_key, reverse=order_by_desc)
+    else:
+        expected_mvs = sorted(
+            filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
         )
-    except Exception as e:
-        raise e
-    finally:
-        # clean up test
-        for name in names:
-            mlflow_client.delete_registered_model(name)
+    verify_pagination(
+        lambda tok: client.search_model_versions(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=tok,
+        ),
+        expected_mvs,
+    )
 
 
 def test_create_and_query_model_version_flow(client):

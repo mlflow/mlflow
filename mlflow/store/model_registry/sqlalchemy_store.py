@@ -926,9 +926,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 if key not in SearchModelVersionUtils.VALID_ORDER_BY_ATTRIBUTE_KEYS:
                     raise MlflowException(
-                        f"Invalid order by key '{key}' specified."
-                        + "Valid keys are "
-                        + f"'{SearchModelVersionUtils.VALID_ORDER_BY_ATTRIBUTE_KEYS}'",
+                        f"Invalid order by key '{key}' specified. "
+                        "Valid keys are "
+                        f"{SearchModelVersionUtils.VALID_ORDER_BY_ATTRIBUTE_KEYS}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 else:
