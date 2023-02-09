@@ -346,23 +346,20 @@ class SplitStep(BaseStep):
                 "Return type of the custom split function should be a pandas series",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        train_df = validation_df = test_df = pd.DataFrame()
-        for index, value in custom_split_mapping_series.items():
-            if value == SplitValues.TRAINING.value:
-                train_df = pd.concat([train_df, input_df.iloc[[index]]], ignore_index=True)
-            elif value == SplitValues.VALIDATION.value:
-                validation_df = pd.concat(
-                    [validation_df, input_df.iloc[[index]]], ignore_index=True
-                )
-            elif value == SplitValues.TEST.value:
-                test_df = pd.concat([test_df, input_df.iloc[[index]]], ignore_index=True)
-            else:
-                raise MlflowException(
-                    f"Returned pandas series from custom split step should only contain "
-                    f"{SplitValues.TRAINING.value}, {SplitValues.VALIDATION.value} or "
-                    f"{SplitValues.TEST.value} as values. Value returned back instead: {value}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+
+        copy_df = input_df.copy()
+        copy_df["split"] = custom_split_mapping_series
+        train_df = input_df[copy_df["split"] == SplitValues.TRAINING.value]
+        validation_df = input_df[copy_df["split"] == SplitValues.VALIDATION.value]
+        test_df = input_df[copy_df["split"] == SplitValues.TEST.value]
+
+        if train_df.size + validation_df.size + test_df.size != input_df.size:
+            raise MlflowException(
+                f"Returned pandas series from custom split step should only contain "
+                f"{SplitValues.TRAINING.value}, {SplitValues.VALIDATION.value} or "
+                f"{SplitValues.TEST.value} as values. Value returned back instead: {value}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         return train_df, validation_df, test_df
 
