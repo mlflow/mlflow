@@ -98,6 +98,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    **kwargs,
 ):
     """
     Save a ``Diviner`` model object to a path on the local file system.
@@ -136,6 +137,14 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+
+    :param kwargs: Optional configurations for Spark DataFrame partition storage iff the model has
+                   been fit in Spark.
+                   Currently supported options:
+                   `partition_by` for setting a (or several) partition columns as a list of
+                   column names.
+                   `partition_count` for setting the number of part files to write from a
+                   repartition per `partition_by` group. The default part file count is 200.
     """
     import diviner
 
@@ -160,7 +169,9 @@ def save_model(
     if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
         flavor_conf = {_SPARK_MODEL_INDICATOR: True}
         _save_model_fit_in_spark(
-            diviner_model=diviner_model, path=str(path.joinpath(_MODEL_BINARY_FILE_NAME))
+            diviner_model=diviner_model,
+            path=str(path.joinpath(_MODEL_BINARY_FILE_NAME)),
+            kwargs=kwargs,
         )
     else:
         flavor_conf = {_SPARK_MODEL_INDICATOR: False}
@@ -208,7 +219,7 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def _save_model_fit_in_spark(diviner_model, path: str):
+def _save_model_fit_in_spark(diviner_model, path: str, **kwargs):
     """
     Saves a Diviner model that was fit in Spark by processing the model components separately.
     The metadata and ancillary files to write (JSON and Pandas DataFrames) are written directly
@@ -229,7 +240,7 @@ def _save_model_fit_in_spark(diviner_model, path: str):
     tmp_path = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
 
     # Save the model Spark DataFrame to the temporary DFS location
-    diviner_model._save_model_df_to_path(tmp_path)
+    diviner_model._save_model_df_to_path(tmp_path, **kwargs)
 
     diviner_data_path = os.path.abspath(path)
 
