@@ -49,6 +49,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `Diviner <https://github.com/mlflow/mlflow/tree/master/examples/diviner>`_
 
+  - `SynapseML <https://github.com/mlflow/mlflow/tree/master/examples/synapseml>`_
+
   - scikit-learn
 
     + `Diabetes example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes>`_
