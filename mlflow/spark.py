@@ -52,9 +52,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to, _shutil_copytree_without_file_permissions
+from mlflow.utils.file_utils import TempDir, write_to, shutil_copytree_without_file_permissions
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -727,7 +725,7 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
     return PipelineModel.load(dfs_tmpdir)
 
 
@@ -781,19 +779,11 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         # Make predictions on test documents
         prediction = model.transform(test)
     """
-    if RunsArtifactRepository.is_runs_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
-    elif ModelsArtifactRepository.is_models_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     # This MUST be called prior to appending the model flavor to `model_uri` in order
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
     )

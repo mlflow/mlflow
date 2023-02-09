@@ -693,7 +693,7 @@ def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
         spark_df.coalesce(1).write.format("parquet").save(output_path)
 
 
-def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
+def shutil_copytree_without_file_permissions(src_dir, dst_dir):
     """
     Copies the directory src_dir into dst_dir, without preserving filesystem permissions
     """

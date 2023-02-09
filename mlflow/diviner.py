@@ -46,7 +46,7 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import write_to, _shutil_copytree_without_file_permissions
+from mlflow.utils.file_utils import write_to, shutil_copytree_without_file_permissions
 from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _get_flavor_configuration_from_uri,
@@ -64,7 +64,7 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.div"
 _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
-_SPARK_MODEL_INDICATOR = "fit_in_spark"
+_SPARK_MODEL_INDICATOR = "fit_with_spark"
 
 _logger = logging.getLogger(__name__)
 
@@ -138,13 +138,16 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param kwargs: Optional configurations for Spark DataFrame partition storage iff the model has
+    :param kwargs: Optional configurations for Spark DataFrame storage iff the model has
                    been fit in Spark.
-                   Currently supported options:
-                   `partition_by` for setting a (or several) partition columns as a list of
-                   column names.
-                   `partition_count` for setting the number of part files to write from a
+                   Current supported options:
+                   - `partition_by` for setting a (or several) partition columns as a list of
+                   column names. Must be a list of strings of grouping key column(s).
+                   - `partition_count` for setting the number of part files to write from a
                    repartition per `partition_by` group. The default part file count is 200.
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will be
+                   stored while copying from a local file system to a Spark-supported "dbfs:/"
+                   scheme.
     """
     import diviner
 
@@ -237,7 +240,7 @@ def _save_model_fit_in_spark(diviner_model, path: str, **kwargs):
         )
 
     # Create a temporary DFS location to write the Spark DataFrame containing the models to.
-    tmp_path = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
+    tmp_path = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
 
     # Save the model Spark DataFrame to the temporary DFS location
     diviner_model._save_model_df_to_path(tmp_path, **kwargs)
@@ -251,7 +254,7 @@ def _save_model_fit_in_spark(diviner_model, path: str, **kwargs):
     diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
 
 
-def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
+def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
     """
     Loads a Diviner model that has been fit (and saved) in the Spark variant.
     """
@@ -261,10 +264,10 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     # the local file system path, which is handled within the Diviner APIs.
     import diviner
 
-    dfs_temp_directory = generate_tmp_dfs_path(MLFLOW_DFS_TMP.get())
+    dfs_temp_directory = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
     dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
     os.makedirs(dfs_fuse_directory)
-    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
     diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
     load_directory = os.path.join(dfs_fuse_directory, flavor_conf[_MODEL_BINARY_KEY])
@@ -272,7 +275,7 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf):
     return diviner_instance.load(load_directory)
 
 
-def load_model(model_uri, dst_path=None):
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a ``Diviner`` object from a local file or a run.
 
@@ -290,28 +293,23 @@ def load_model(model_uri, dst_path=None):
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist if provided. If unspecified, a local output
                      path will be created.
+    :param kwargs: Optional configuration options for loading of a Diviner model. For models
+                   that have been fit and saved using Spark, if a specific DFS temporary directory
+                   is desired for loading of Diviner models, use the keyword argument
+                   `"dfs_tmpdir"` to define the loading temporary path for the model during loading.
 
     :return: A ``Diviner`` model instance
     """
     model_uri = str(model_uri)
-    # Determine if the file read indicator is present for saved in Spark or not
-    if RunsArtifactRepository.is_runs_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
-    elif ModelsArtifactRepository.is_models_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     if flavor_conf.get(_SPARK_MODEL_INDICATOR, False):
-        return _load_model_fit_in_spark(local_model_path, flavor_conf)
+        return _load_model_fit_in_spark(local_model_path, flavor_conf, **kwargs)
 
     return _load_model(local_model_path, flavor_conf)
 
@@ -417,6 +415,16 @@ def log_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
+                   Additionally, for models that have been fit in Spark, the following supported
+                   configuration options are available to set:
+                   Current supported options:
+                   - `partition_by` for setting a (or several) partition columns as a list of
+                   column names. Must be a list of strings of grouping key column(s).
+                   - `partition_count` for setting the number of part files to write from a
+                   repartition per `partition_by` group. The default part file count is 200.
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will be
+                   stored while copying from a local file system to a Spark-supported "dbfs:/"
+                   scheme.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
