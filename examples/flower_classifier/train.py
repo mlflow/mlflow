@@ -38,9 +38,9 @@ def download_input():
 
 
 @click.command(
-    help="Trains an Keras model on flower_photos dataset."
-    "The input is expected as a directory tree with pictures for each category in a"
-    " folder named by the category."
+    help="Trains an Keras model on flower_photos dataset. "
+    "The input is expected as a directory tree with pictures for each category in a "
+    "folder named by the category. "
     "The model and its metrics are logged with mlflow."
 )
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
