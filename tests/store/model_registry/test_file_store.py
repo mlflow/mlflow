@@ -389,7 +389,7 @@ def test_create_model_version(store):
     store.create_registered_model(name)
     run_id = uuid.uuid4().hex
     with mock.patch("time.time", return_value=456778):
-        mv1 = store.create_model_version(name, "a/b/CD", run_id)
+        mv1 = _create_model_version(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1
 
@@ -819,7 +819,7 @@ def test_search_model_versions_order_by_simple(store):
     assert mvs[-1].version == 1
 
 
-def test_search_model_versions_pagination(self):
+def test_search_model_versions_pagination(store):
     def search_versions(filter_string, page_token=None, max_results=10):
         result = _search_model_versions(
             store, filter_string=filter_string, page_token=page_token, max_results=max_results
@@ -874,7 +874,7 @@ def test_search_model_versions_pagination(self):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_search_model_versions_by_tag(self):
+def test_search_model_versions_by_tag(store):
     # create some model versions
     name = "test_for_search_MV_by_tag"
     store.create_registered_model(name)

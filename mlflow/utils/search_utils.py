@@ -18,6 +18,7 @@ from sqlparse.tokens import Token as TokenType
 from packaging.version import Version
 
 from mlflow.entities import RunInfo
+from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
@@ -1133,6 +1134,9 @@ class SearchModelVersionUtils(SearchUtils):
     @classmethod
     def filter(cls, model_versions, filter_string):  # pylint: disable=arguments-renamed
         """Filters a set of model versions based on a search filter string."""
+        model_versions = filter(
+            lambda mv: mv.current_stage != STAGE_DELETED_INTERNAL, model_versions
+        )
         if not filter_string:
             return model_versions
         parsed = cls.parse_search_filter(filter_string)

@@ -527,7 +527,7 @@ class FileStore(AbstractStore):
                 registered_model = self.get_registered_model(name)
                 registered_model.last_updated_timestamp = creation_time
                 self._save_registered_model_as_meta_file(registered_model)
-                version = next_version(registered_model)
+                version = next_version(name)
                 model_version = ModelVersion(
                     name=name,
                     version=version,
