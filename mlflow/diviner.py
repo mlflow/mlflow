@@ -30,8 +30,6 @@ from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -140,13 +138,15 @@ def save_model(
 
     :param kwargs: Optional configurations for Spark DataFrame storage iff the model has
                    been fit in Spark.
+
                    Current supported options:
-                   - `partition_by` for setting a (or several) partition columns as a list of
+
+                   - `partition_by`  for setting a (or several) partition columns as a list of \
                    column names. Must be a list of strings of grouping key column(s).
-                   - `partition_count` for setting the number of part files to write from a
+                   - `partition_count`  for setting the number of part files to write from a \
                    repartition per `partition_by` group. The default part file count is 200.
-                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will be
-                   stored while copying from a local file system to a Spark-supported "dbfs:/"
+                   - `dfs_tmpdir`  for specifying the DFS temporary location where the model will \
+                   be stored while copying from a local file system to a Spark-supported "dbfs:/" \
                    scheme.
     """
     import diviner
@@ -416,14 +416,15 @@ def log_model(
                                              release without warning.
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
                    Additionally, for models that have been fit in Spark, the following supported
-                   configuration options are available to set:
+                   configuration options are available to set.
                    Current supported options:
-                   - `partition_by` for setting a (or several) partition columns as a list of
+
+                   - `partition_by`  for setting a (or several) partition columns as a list of \
                    column names. Must be a list of strings of grouping key column(s).
-                   - `partition_count` for setting the number of part files to write from a
+                   - `partition_count`  for setting the number of part files to write from a \
                    repartition per `partition_by` group. The default part file count is 200.
-                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will be
-                   stored while copying from a local file system to a Spark-supported "dbfs:/"
+                   - `dfs_tmpdir`  for specifying the DFS temporary location where the model will \
+                   be stored while copying from a local file system to a Spark-supported "dbfs:/" \
                    scheme.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
