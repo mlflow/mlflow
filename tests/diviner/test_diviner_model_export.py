@@ -499,14 +499,14 @@ def test_model_log_with_metadata(grouped_pmdarima):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_diviner_model_fit_in_spark_cannot_be_loaded_as_pyfunc(grouped_prophet, model_path):
+def test_diviner_model_fit_with_spark_cannot_be_loaded_as_pyfunc(grouped_prophet, model_path):
     mlflow.diviner.save_model(grouped_prophet, model_path)
 
     diviner_model_info_path = model_path.joinpath(MLMODEL_FILE_NAME)
     diviner_model_info = yaml.safe_load(diviner_model_info_path.read_text())
 
     # We can't actually test this by saving in Spark due to method unavailability in OSS Diviner.
-    diviner_model_info["flavors"]["diviner"]["fit_in_spark"] = True
+    diviner_model_info["flavors"]["diviner"]["fit_with_spark"] = True
 
     diviner_model_info_path.write_text(yaml.safe_dump(diviner_model_info))
 
@@ -515,6 +515,6 @@ def test_diviner_model_fit_in_spark_cannot_be_loaded_as_pyfunc(grouped_prophet, 
 
 
 @pytest.mark.parametrize("path", ["dbfs:/model", "file/storage", "Users/model/save"])
-def test_diviner_model_fit_in_spark_raises_with_invalid_paths(grouped_prophet, path):
+def test_diviner_model_fit_with_spark_raises_with_invalid_paths(grouped_prophet, path):
     with pytest.raises(MlflowException, match="The save path provided must be a run-relative"):
         mlflow.diviner._save_model_fit_in_spark(grouped_prophet, path)
