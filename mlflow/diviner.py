@@ -225,6 +225,8 @@ def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
     """
     fit_with_spark = False
 
+    save_path = str(path.joinpath(_MODEL_BINARY_FILE_NAME))
+
     if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
         # Validate that the path is a relative path early in order to fail fast prior to attempting
         # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
@@ -242,7 +244,7 @@ def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
         # Save the model Spark DataFrame to the temporary DFS location
         diviner_model._save_model_df_to_path(tmp_path, **kwargs)
 
-        diviner_data_path = os.path.abspath(path)
+        diviner_data_path = os.path.abspath(save_path)
 
         tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_fuse_path, dst=diviner_data_path)
@@ -251,7 +253,7 @@ def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
         diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
         fit_with_spark = True
     else:
-        diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
+        diviner_model.save(save_path)
     return fit_with_spark
 
 
