@@ -217,9 +217,9 @@ def save_model(
 def _load_model(model_file):
     import onnx
 
+    onnx.checker.check_model(model_file)
     onnx_model = onnx.load(model_file)
     # Check Formation
-    onnx.checker.check_model(onnx_model)
     return onnx_model
 
 
