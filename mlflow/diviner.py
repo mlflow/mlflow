@@ -169,16 +169,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
-        flavor_conf = {_SPARK_MODEL_INDICATOR: True}
-        _save_model_fit_in_spark(
-            diviner_model=diviner_model,
-            path=str(path.joinpath(_MODEL_BINARY_FILE_NAME)),
-            kwargs=kwargs,
-        )
-    else:
-        flavor_conf = {_SPARK_MODEL_INDICATOR: False}
-        diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
+    fit_with_spark = _save_diviner_model(diviner_model, path, **kwargs)
+    flavor_conf = {_SPARK_MODEL_INDICATOR: fit_with_spark}
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
@@ -222,36 +214,45 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def _save_model_fit_in_spark(diviner_model, path: str, **kwargs):
+def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
     """
-    Saves a Diviner model that was fit in Spark by processing the model components separately.
+    Saves a Diviner model to the specified path. If the model was fit by using a Pandas DataFrame
+    for the training data submitted to `fit`, directly save the Diviner model object.
+    If the Diviner model was fit by using a Spark DataFrame, save the model components separately.
     The metadata and ancillary files to write (JSON and Pandas DataFrames) are written directly
     to a fuse mount location, which the Spark DataFrame that contains the individual serialized
     Diviner model objects is written by using the 'dbfs:' scheme path that Spark recognizes.
     """
-    # Validate that the path is a relative path early in order to fail fast prior to attempting
-    # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
-    # Exception within MLflow when attempting to copy the temporary write files from DFS to
-    # the file system path provided.
-    if not os.path.isabs(path):
-        raise MlflowException(
-            "The save path provided must be a run-relative path. "
-            f"The path submitted, '{path}' is an absolute path."
-        )
+    fit_with_spark = False
 
-    # Create a temporary DFS location to write the Spark DataFrame containing the models to.
-    tmp_path = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
+    if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
+        # Validate that the path is a relative path early in order to fail fast prior to attempting
+        # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
+        # Exception within MLflow when attempting to copy the temporary write files from DFS to
+        # the file system path provided.
+        if not os.path.isabs(path):
+            raise MlflowException(
+                "The save path provided must be a run-relative path. "
+                f"The path submitted, '{path}' is an absolute path."
+            )
 
-    # Save the model Spark DataFrame to the temporary DFS location
-    diviner_model._save_model_df_to_path(tmp_path, **kwargs)
+        # Create a temporary DFS location to write the Spark DataFrame containing the models to.
+        tmp_path = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
 
-    diviner_data_path = os.path.abspath(path)
+        # Save the model Spark DataFrame to the temporary DFS location
+        diviner_model._save_model_df_to_path(tmp_path, **kwargs)
 
-    tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
-    shutil.move(src=tmp_fuse_path, dst=diviner_data_path)
+        diviner_data_path = os.path.abspath(path)
 
-    # Save the model metadata to the path location
-    diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
+        tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+        shutil.move(src=tmp_fuse_path, dst=diviner_data_path)
+
+        # Save the model metadata to the path location
+        diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
+        fit_with_spark = True
+    else:
+        diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
+    return fit_with_spark
 
 
 def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
@@ -267,7 +268,7 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
     dfs_temp_directory = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
     dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
     os.makedirs(dfs_fuse_directory)
-    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
+    shutil.copytree(src=local_model_path, dst=dfs_fuse_directory)
 
     diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
     load_directory = os.path.join(dfs_fuse_directory, flavor_conf[_MODEL_BINARY_KEY])
