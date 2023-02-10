@@ -929,6 +929,36 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvs[-1].name == names[0]
         assert mvs[-1].version == 1
 
+    def test_search_model_versions_order_by_errors(self):
+        # create some model versions
+        name = "RM1"
+        self._rm_maker(name)
+        for _ in range(6):
+            self._mv_maker(name=name)
+        query = "name LIKE 'RM%'"
+        # test that invalid columns throw even if they come after valid columns
+        with pytest.raises(
+            MlflowException, match=r"Invalid attribute key '.+' specified"
+        ) as exception_context:
+            self.store.search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "run_id DESC"],
+                max_results=5,
+            )
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that invalid columns with random text throw even if they come after valid columns
+        with pytest.raises(
+            MlflowException, match=r"Invalid order_by clause '.+'"
+        ) as exception_context:
+            self.store.search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "last_updated_timestamp DESC blah"],
+                max_results=5,
+            )
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
     def test_search_model_versions_pagination(self):
         def search_versions(filter_string, page_token=None, max_results=10):
             result = self.store.search_model_versions(
