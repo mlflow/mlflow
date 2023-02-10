@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import pytest
 from unittest import mock
+from copy import deepcopy
+from pathlib import Path
 
 import json
 import yaml
@@ -516,5 +518,7 @@ def test_diviner_model_fit_with_spark_cannot_be_loaded_as_pyfunc(grouped_prophet
 
 @pytest.mark.parametrize("path", ["dbfs:/model", "file/storage", "Users/model/save"])
 def test_diviner_model_fit_with_spark_raises_with_invalid_paths(grouped_prophet, path):
+    mod_model = deepcopy(grouped_prophet)
+    setattr(mod_model, "_fit_with_spark", True)
     with pytest.raises(MlflowException, match="The save path provided must be a run-relative"):
-        mlflow.diviner._save_model_fit_in_spark(grouped_prophet, path)
+        mlflow.diviner._save_diviner_model(mod_model, Path(path))
