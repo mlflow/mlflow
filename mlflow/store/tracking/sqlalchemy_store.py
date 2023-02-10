@@ -1131,7 +1131,7 @@ class SqlAlchemyStore(AbstractStore):
             elif len(filtered_tags) > 1:
                 raise MlflowException(
                     "Bad data in database - tags for a specific run must have "
-                    "a single unique value."
+                    "a single unique value. "
                     "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
                     error_code=INVALID_STATE,
                 )

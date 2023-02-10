@@ -142,7 +142,7 @@ def cache_return_value_per_process(fn):
     def wrapped_fn(*args, **kwargs):
         if len(kwargs) > 0:
             raise ValueError(
-                "The function decorated by `cache_return_value_per_process` is not allowed to be"
+                "The function decorated by `cache_return_value_per_process` is not allowed to be "
                 "called with key-word style arguments."
             )
         if (fn, args) in _per_process_value_cache_map:

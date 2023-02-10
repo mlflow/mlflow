@@ -421,7 +421,7 @@ def server(
     "--older-than",
     default=None,
     help="Optional. Remove run(s) older than the specified time limit. "
-    "Specify a string in #d#h#m#s format. Float values are also supported."
+    "Specify a string in #d#h#m#s format. Float values are also supported. "
     "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
 )
 @click.option(

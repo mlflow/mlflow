@@ -1336,7 +1336,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
         # test cannot set tags on deleted experiments
         fs.delete_experiment(exp_id)
-        with pytest.raises(MlflowException, match="must be in the 'active'lifecycle_stage"):
+        with pytest.raises(MlflowException, match="must be in the 'active' lifecycle_stage"):
             fs.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
     def test_set_tags(self):
