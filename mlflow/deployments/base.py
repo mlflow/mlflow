@@ -37,8 +37,8 @@ def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: dis
     :return: None
     """
     raise NotImplementedError(
-        "This function should be implemented in the deployment plugin. It is"
-        "kept here only for documentation purpose and shouldn't be used in"
+        "This function should be implemented in the deployment plugin. It is "
+        "kept here only for documentation purpose and shouldn't be used in "
         "your application"
     )
 
@@ -64,8 +64,8 @@ def target_help():
 
     """
     raise NotImplementedError(
-        "This function should be implemented in the deployment plugin. It is"
-        "kept here only for documentation purpose and shouldn't be used in"
+        "This function should be implemented in the deployment plugin. It is "
+        "kept here only for documentation purpose and shouldn't be used in "
         "your application"
     )
 
