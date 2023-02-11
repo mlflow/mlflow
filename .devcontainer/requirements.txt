@@ -144,7 +144,7 @@ importlib-resources==5.10.0
     # via alembic
 iniconfig==1.1.1
     # via pytest
-ipython==8.6.0
+ipython==8.10.0
     # via
     #   -r test-requirements.txt
     #   black
