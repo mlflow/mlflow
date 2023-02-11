@@ -270,7 +270,7 @@ def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
     dfs_temp_directory = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
     dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
     os.makedirs(dfs_fuse_directory)
-    shutil.copytree(src=local_model_path, dst=dfs_fuse_directory)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
 
     diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
     load_directory = os.path.join(dfs_fuse_directory, flavor_conf[_MODEL_BINARY_KEY])
