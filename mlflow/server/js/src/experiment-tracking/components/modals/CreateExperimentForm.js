@@ -56,7 +56,7 @@ class CreateExperimentFormComponent extends Component {
           rules={[
             {
               required: false,
-            }
+            },
           ]}
         >
           <Input
