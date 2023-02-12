@@ -3,7 +3,9 @@ import { Services as ModelRegistryService } from '../../model-registry/services'
 
 export const getExperimentNameValidator = (getExistingExperimentNames) => {
   return (rule, value, callback) => {
-    if (value.length === 0) {
+    console.log("checking ...")
+    // alert("checking..")
+    if (!value) {
       // no need to execute below validations when no value is entered
       // eslint-disable-next-line callback-return
       callback(undefined);
@@ -27,7 +29,7 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
 };
 
 export const modelNameValidator = (rule, name, callback) => {
-  if (name.length === 0) {
+  if (!name) {
     callback(undefined);
     return;
   }
