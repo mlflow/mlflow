@@ -1047,6 +1047,48 @@ Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Boo
 not models that implement the `scikit-learn API
 <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__.
 
+``XGBoost`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The example below
+
+* Loads the IRIS dataset from ``scikit-learn``
+* Trains an XGBoost Classifier
+* Logs the model and params using ``mlflow``
+* Loads the logged model and makes predictions
+
+.. code-block:: python
+
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+    from xgboost import XGBClassifier
+    import mlflow
+
+    data = load_iris()
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["data"], data["target"], test_size=0.2
+    )
+
+    xgb_classifier = XGBClassifier(
+        n_estimators=10,
+        max_depth=3,
+        learning_rate=1,
+        objective="binary:logistic",
+        random_state=123,
+    )
+
+    # log fitted model and XGBClassifier parameters
+    with mlflow.start_run():
+        xgb_classifier.fit(X_train, y_train)
+        clf_params = xgb_classifier.get_xgb_params()
+        mlflow.log_params(clf_params)
+        model_info = mlflow.xgboost.log_model(xgb_classifier, "iris-classifier")
+
+    # Load saved model and make predictions
+    xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    y_pred = xgb_classifier_saved.predict(X_test)
+
+
 For more information, see :py:mod:`mlflow.xgboost`.
 
 LightGBM (``lightgbm``)
@@ -1121,6 +1163,189 @@ also use the :py:func:`mlflow.spacy.load_model()` method to load MLflow Models w
 in native spaCy format.
 
 For more information, see :py:mod:`mlflow.spacy`.
+
+``Spacy`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~
+
+The example below shows how to train a ``Spacy`` ``TextCategorizer`` model, log the model artifact and metrics to the
+mlflow tracking server and then load the saved model to make predictions. For this example, we will be using the
+``Polarity 2.0`` dataset available in the ``nltk`` package. This dataset consists of 10000 positive and 10000 negative
+short movie reviews.
+
+First we convert the texts and sentiment labels ("pos" or "neg") from NLTK native format to ``Spacy``'s ``DocBin`` format:
+
+.. code-block:: python
+
+    import pandas as pd
+    import spacy
+    from nltk.corpus import movie_reviews
+    from spacy import Language
+    from spacy.tokens import DocBin
+
+    nltk.download("movie_reviews")
+
+
+    def get_sentences(sentiment_type: str) -> pd.DataFrame:
+        """Reconstruct the sentences from the word lists for each review record for a specific ``sentiment_type``
+        as a pandas DataFrame with two columns: 'sentence' and 'sentiment'.
+        """
+        file_ids = movie_reviews.fileids(sentiment_type)
+        sent_df = []
+        for file_id in file_ids:
+            sentence = " ".join(movie_reviews.words(file_id))
+            sent_df.append({"sentence": sentence, "sentiment": sentiment_type})
+        return pd.DataFrame(sent_df)
+
+
+    def convert(data_df: pd.DataFrame, target_file: str):
+        """Convert a DataFrame with 'sentence' and 'sentiment' columns to a
+        spacy DocBin object and save it to 'target_file'.
+        """
+        nlp = spacy.blank("en")
+        sentiment_labels = data_df.sentiment.unique()
+        spacy_doc = DocBin()
+
+        for _, row in data_df.iterrows():
+            sent_tokens = nlp.make_doc(row["sentence"])
+            # To train a Spacy TextCategorizer model, the label must be attached to the "cats" dictionary of the "Doc"
+            # object, e.g. {"pos": 1.0, "neg": 0.0} for a "pos" label.
+            for label in sentiment_labels:
+                sent_tokens.cats[label] = 1.0 if label == row["sentiment"] else 0.0
+            spacy_doc.add(sent_tokens)
+
+        spacy_doc.to_disk(target_file)
+
+
+    # Build a single DataFrame with both positive and negative reviews, one row per review
+    review_data = [get_sentences(sentiment_type) for sentiment_type in ("pos", "neg")]
+    review_data = pd.concat(review_data, axis=0)
+
+    # Split the DataFrame into a train and a dev set
+    train_df = review_data.groupby("sentiment", group_keys=False).apply(
+        lambda x: x.sample(frac=0.7, random_state=100)
+    )
+    dev_df = review_data.loc[review_data.index.difference(train_df.index), :]
+
+    # Save the train and dev data files to the current directory as "corpora.train" and "corpora.dev", respectively
+    convert(train_df, "corpora.train")
+    convert(dev_df, "corpora.dev")
+
+
+To set up the training job, we first need to generate a configuration file as described in the `Spacy Documentation <https://spacy.io/usage/training#config>`_
+For simplicity, we will only use a ``TextCategorizer`` in the pipeline.
+
+.. code-block:: console
+
+    python -m spacy init config --pipeline textcat --lang en mlflow-textcat.cfg
+
+Change the default train and dev paths in the config file to the current directory:
+
+.. code-block:: diff
+
+      [paths]
+    - train = null
+    - dev = null
+    + train = "."
+    + dev = "."
+
+
+In ``Spacy``, the training loop is defined internally in Spacy's code. Spacy provides a "logging" extension point where
+we can use ``mlflow``. To do this,
+
+* We have to define a function to write metrics / model input to ``mlfow``
+* Register it as a logger in ``Spacy``'s component registry
+* Change the default console logger in the ``Spacy``'s configuration file (``mlflow-textcat.cfg``)
+
+.. code-block:: python
+
+    from typing import IO, Callable, Tuple, Dict, Any, Optional
+    import spacy
+    from spacy import Language
+    import mlflow
+
+
+    @spacy.registry.loggers("mlflow_logger.v1")
+    def mlflow_logger():
+        """Returns a function, ``setup_logger`` that returns two functions:
+
+        * ``log_step`` is called internally by Spacy for every evaluation step. We can log the intermediate train and
+        validation scores to the mlflow tracking server here.
+        * ``finalize``: is called internally by Spacy after training is complete. We can log the model artifact to the
+        mlflow tracking server here.
+        """
+
+        def setup_logger(
+            nlp: Language,
+            stdout: IO = sys.stdout,
+            stderr: IO = sys.stderr,
+        ) -> Tuple[Callable, Callable]:
+            def log_step(info: Optional[Dict[str, Any]]):
+                if info:
+                    step = info["step"]
+                    score = info["score"]
+                    metrics = {}
+
+                    for pipe_name in nlp.pipe_names:
+                        loss = info["losses"][pipe_name]
+                        metrics[f"{pipe_name}_loss"] = loss
+                        metrics[f"{pipe_name}_score"] = score
+                    mlflow.log_metrics(metrics, step=step)
+
+            def finalize():
+                uri = mlflow.spacy.log_model(nlp, "mlflow_textcat_example")
+                mlflow.end_run()
+
+            return log_step, finalize
+
+        return setup_logger
+
+
+Check the `spacy-loggers library <https://pypi.org/project/spacy-loggers/>` _ for a more complete implementation.
+
+Point to our mlflow logger in ``Spacy`` configuration file. For this example, we will lower the number of training steps
+and eval frequency:
+
+.. code-block:: diff
+
+      [training.logger]
+    - @loggers = "spacy.ConsoleLogger.v1"
+    - dev = null
+    + @loggers = "mlflow_logger.v1"
+
+      [training]
+    - max_steps = 20000
+    - eval_frequency = 100
+    + max_steps = 100
+    + eval_frequency = 10
+
+Train our model:
+
+.. code-block:: python
+
+    from spacy.cli.train import train as spacy_train
+
+    spacy_train("mlflow-textcat.cfg")
+
+To make predictions, we load the saved model from the last run:
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    # look up the last run info from mlflow
+    client = MlflowClient()
+    last_run = client.search_runs(experiment_ids=["0"], max_results=1)[0]
+
+    # We need to append the spacy model directory name to the artifact uri
+    spacy_model = mlflow.pyfunc.load_model(
+        f"{last_run.info.artifact_uri}/mlflow_textcat_example"
+    )
+    predictions_in = dev_df.loc[:, ["sentence"]]
+    predictions_out = spacy_model.predict(predictions_in).squeeze().tolist()
+    predicted_labels = [
+        "pos" if row["pos"] > row["neg"] else "neg" for row in predictions_out
+    ]
+    print(dev_df.assign(predicted_sentiment=predicted_labels))
 
 Fastai(``fastai``)
 ^^^^^^^^^^^^^^^^^^^^^^

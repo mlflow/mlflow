@@ -446,7 +446,7 @@ class CustomDataset(_PandasConvertibleDataset):
             raise MlflowException(
                 message=(
                     "The `ingested_data` is not a DataFrame, please make sure "
-                    f"'{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}'"
+                    f"'{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}' "
                     "returns a Pandas DataFrame object."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,

@@ -97,8 +97,8 @@ class MLflowCheckpoint(Callback):
 
 
 @click.command(
-    help="Trains an Keras model on wine-quality dataset."
-    "The input is expected in csv format."
+    help="Trains an Keras model on wine-quality dataset. "
+    "The input is expected in csv format. "
     "The model and its metrics are logged with mlflow."
 )
 @click.option("--epochs", type=click.INT, default=100, help="Maximum number of epochs to evaluate.")
