@@ -4,6 +4,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import UnityCatalogModelsArtifactRepository
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
@@ -12,7 +13,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
-
+from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
 class ModelsArtifactRepository(ArtifactRepository):
     """
@@ -28,7 +29,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri)
-        if is_using_databricks_registry(artifact_uri):
+        if is_databricks_unity_catalog_uri(mlflow.get_registry_uri()):
+            self.repo = UnityCatalogModelsArtifactRepository(artifact_uri)
+        elif is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
         else:

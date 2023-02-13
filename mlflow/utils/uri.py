@@ -42,6 +42,10 @@ def is_databricks_uri(uri):
     return scheme == "databricks" or uri == "databricks"
 
 
+def is_databricks_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "databricks-uc" or uri == "databricks-uc"
+
 def construct_db_uri_from_profile(profile):
     if profile:
         return "databricks://" + profile

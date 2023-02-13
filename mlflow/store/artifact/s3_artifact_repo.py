@@ -30,9 +30,9 @@ def _cached_get_s3_client(
         s3_endpoint_url,
         verify,
         timestamp,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_session_token=None
+        access_key_id=None,
+        secret_access_key=None,
+        session_token=None
 ):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
@@ -62,15 +62,15 @@ def _cached_get_s3_client(
         config=Config(signature_version=signature_version),
         endpoint_url=s3_endpoint_url,
         verify=verify,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        aws_session_token=aws_session_token
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        aws_session_token=session_token
     )
 
 
-def _get_s3_client(aws_access_key_id=None,
-                   aws_secret_access_key=None,
-                   aws_session_token=None):
+def _get_s3_client(access_key_id=None,
+                   secret_access_key=None,
+                   session_token=None):
     s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
     do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
@@ -87,22 +87,22 @@ def _get_s3_client(aws_access_key_id=None,
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
 
     return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp,
-                                 aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,
-                                 aws_session_token=aws_session_token)
+                                 access_key_id=access_key_id, secret_access_key=secret_access_key,
+                                 session_token=session_token)
 
 
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 
-    def __init__(self, artifact_uri, aws_access_key_id=None, aws_secret_access_key=None, aws_session_token=None):
+    def __init__(self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None):
         super().__init__(artifact_uri)
-        self._aws_access_key_id = aws_access_key_id
-        self._aws_secret_access_key = aws_secret_access_key
-        self._aws_session_token = aws_session_token
+        self._access_key_id = access_key_id
+        self._secret_access_key = secret_access_key
+        self._session_token = session_token
 
     def _get_s3_client(self):
-        return _get_s3_client(aws_access_key_id=self._aws_access_key_id,
-                              aws_secret_access_key=self._aws_secret_access_key, aws_session_token=self._aws_session_token)
+        return _get_s3_client(access_key_id=self._access_key_id,
+                              secret_access_key=self._secret_access_key, session_token=self._session_token)
 
     @staticmethod
     def parse_s3_uri(uri):

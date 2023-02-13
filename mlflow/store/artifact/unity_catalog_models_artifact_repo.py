@@ -4,11 +4,12 @@ import json
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_uc_registry_messages_pb2 import GenerateTemporaryModelVersionCredentialsResponse
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
-from mlflow.utils.rest_utils import http_request
+from mlflow.utils.rest_utils import http_request, call_endpoint
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -16,11 +17,8 @@ from mlflow.store.artifact.utils.models import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100000000
-# The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
-REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
-# The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
-REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_GET_DOWNLOAD_URI_ENDPOINT = "/api/2.0/mlflow/unity-catalog/model-versions/get"
+REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -50,85 +48,43 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking.client import MlflowClient
 
         self.databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
+                get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
-        client = MlflowClient(registry_uri=self.databricks_profile_uri)
-        self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
+        self.client = MlflowClient(registry_uri=self.databricks_profile_uri)
+        self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
-    def _call_endpoint(self, json, endpoint):
+    def _get_blob_storage_path(self):
+        return self.client.get_model_version_download_uri(self.name, self.model_version)
+
+    def _get_scoped_token(self):
+        req_body = {"name": self.model_name, "version": self.model_version}
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
-        return http_request(host_creds=db_creds, endpoint=endpoint, method="GET", params=json)
-
-    def _make_json_body(self, path, page_token=None):
-        body = {"name": self.model_name, "version": self.model_version, "path": path}
-        if page_token:
-            body["page_token"] = page_token
-        return body
+        response_proto = GenerateTemporaryModelVersionCredentialsResponse()
+        return call_endpoint(host_creds=db_creds, endpoint=REGISTRY_GET_SCOPED_TOKEN_ENDPOINT, method="POST",
+                             json_body=req_body, response_proto=response_proto)
 
     def list_artifacts(self, path=None):
-        infos = []
-        page_token = None
-        if not path:
-            path = ""
-        while True:
-            json_body = self._make_json_body(path, page_token)
-            response = self._call_endpoint(json_body, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
-            try:
-                response.raise_for_status()
-                json_response = json.loads(response.text)
-            except Exception:
-                raise MlflowException(
-                    "API request to list files under path `%s` failed with status code %s. "
-                    "Response body: %s" % (path, response.status_code, response.text)
-                )
-            artifact_list = json_response.get("files", [])
-            next_page_token = json_response.get("next_page_token", None)
-            # If `path` is a file, ListArtifacts returns a single list element with the
-            # same name as `path`. The list_artifacts API expects us to return an empty list in this
-            # case, so we do so here.
-            if (
-                len(artifact_list) == 1
-                and artifact_list[0]["path"] == path
-                and not artifact_list[0]["is_dir"]
-            ):
-                return []
-            for output_file in artifact_list:
-                artifact_size = None if output_file["is_dir"] else output_file["file_size"]
-                infos.append(FileInfo(output_file["path"], output_file["is_dir"], artifact_size))
-            if len(artifact_list) == 0 or not next_page_token:
-                break
-            page_token = next_page_token
-        return infos
+        raise MlflowException("This repository does not support listing artifacts.")
 
-    # TODO: Change the implementation of this to match how databricks_artifact_repo.py handles this
-    def _get_signed_download_uri(self, path=None):
-        if not path:
-            path = ""
-        json_body = self._make_json_body(path)
-        response = self._call_endpoint(json_body, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
-        try:
-            json_response = json.loads(response.text)
-        except ValueError:
-            raise MlflowException(
-                "API request to get presigned uri to for file under path `%s` failed with"
-                " status code %s. Response body: %s" % (path, response.status_code, response.text)
-            )
-        return json_response.get("signed_uri", None), json_response.get("headers", None)
-
-    def _extract_headers_from_signed_url(self, headers):
-        filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
-        return {header.get("name"): header.get("value") for header in filtered_headers}
-
-    def _download_file(self, remote_file_path, local_path):
-        try:
-            signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
-            headers = {}
-            if raw_headers is not None:
-                # Don't send None to _extract_headers_from_signed_url
-                headers = self._extract_headers_from_signed_url(raw_headers)
-            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
-        except Exception as err:
-            raise MlflowException(err)
+    def download_artifacts(self, artifact_path, dst_path=None):
+        if artifact_path != "":
+            raise MlflowException(f"Got non-empty artifact_path {artifact_path} when attempting to download UC model "
+                                  f"version artifacts. Downloading specific artifacts for a model version in the "
+                                  f"Unity Catalog is not upported. Pass the empty string ('') as the artifact_path "
+                                  f"argument instead")
+        scoped_token = self._get_scoped_token()
+        blob_storage_path = self._get_blob_storage_path()
+        if scoped_token.credentials.aws_temp_credentials is not None:
+            from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+            aws_creds = scoped_token.credentials.aws_temp_credentials
+            S3ArtifactRepository(blob_storage_path, access_key_id=aws_creds.access_key_id,
+                                 secret_access_key=aws_creds.secret_access_key,
+                                 session_token=aws_creds.session_token).download_artifacts(artifact_path)
+        elif scoped_token.credentials.azure_user_delegation_sas is not None:
+            from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+            from azure.storage.blob import BlobServiceClient
+            azure_creds = scoped_token.credentials.azure_user_delegation_sas
+            client = BlobServiceClient()
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")
