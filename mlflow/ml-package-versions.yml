@@ -92,7 +92,7 @@ tensorflow:
       "== 2.5.3": ["sqlalchemy<2"]
       "== 2.6.5": ["sqlalchemy<2"]
     run: |
-      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python pytest \
+      pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
         tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \

@@ -5,6 +5,8 @@ import pickle
 import mlflow.tensorflow
 from mlflow.utils.file_utils import TempDir
 import argparse
+from packaging.version import Version
+from tests.helper_functions import PROTOBUF_REQUIREMENT
 
 parser = argparse.ArgumentParser()
 
@@ -41,6 +43,9 @@ if save_as_type == "tf1-estimator":
             )
         elif task_type == "log_model":
             with mlflow.start_run() as run:
+                extra_pip_requirements = (
+                    [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
+                )
                 # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                 mlflow.tensorflow.log_model(
                     tf_saved_model_dir=tmp.path(),
