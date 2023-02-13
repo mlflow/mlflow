@@ -25,7 +25,7 @@ catboost==1.1.1
 # Required by mlflow.statsmodels
 statsmodels==0.13.5
 # Required by mlflow.h2o
-h2o==3.40
+h2o==3.40.0.1
 # Required by mlflow.onnx
 onnx==1.13.0
 onnxruntime==1.14.0
