@@ -580,6 +580,7 @@ def autolog(
     patch_class_tree(statsmodels.base.model.Model)
 
 
-autolog.__doc__ = autolog.__doc__.format(
-    autolog_metric_allowlist=", ".join(_autolog_metric_allowlist)
-)
+if autolog.__doc__ is not None:
+    autolog.__doc__ = autolog.__doc__.format(
+        autolog_metric_allowlist=", ".join(_autolog_metric_allowlist)
+    )

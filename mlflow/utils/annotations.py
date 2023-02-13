@@ -31,9 +31,9 @@ def _experimental(api: Any, api_type: str):
         + "be removed in a future release without warning.\n\n"
     )
     if api_type == "property":
-        api.__doc__ = api.__doc__ + "\n\n" + notice
+        api.__doc__ = api.__doc__ + "\n\n" + notice if api.__doc__ else notice
     else:
-        api.__doc__ = notice + api.__doc__
+        api.__doc__ = notice + api.__doc__ if api.__doc__ else notice
     return api
 
 
@@ -114,5 +114,5 @@ def keyword_only(func):
         return func(**kwargs)
 
     notice = ".. Note:: This method requires all argument be specified by keyword.\n"
-    wrapper.__doc__ = notice + wrapper.__doc__
+    wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
     return wrapper

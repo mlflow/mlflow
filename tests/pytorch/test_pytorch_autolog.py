@@ -132,7 +132,7 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
 
 @pytest.mark.skipif(
     Version(pl.__version__) < Version("1.1.0"),
-    reason="Access to metrics from the current step is only possible since PyTorch-lightning 1.1.0"
+    reason="Access to metrics from the current step is only possible since PyTorch-lightning 1.1.0 "
     "when LoggerConnector.cached_results was added",
 )
 def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
