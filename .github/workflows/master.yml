@@ -217,8 +217,7 @@ jobs:
           mvn clean package -q
 
   flavors:
-    # TODO: Change this to 'ubuntu-latest' once https://github.com/mlflow/mlflow/issues/7222 is fixed
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
