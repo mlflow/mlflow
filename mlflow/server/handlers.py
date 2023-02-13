@@ -12,6 +12,7 @@ from functools import wraps
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+import mimetypes
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
@@ -88,6 +89,7 @@ _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+_mime_type = mimetypes.MimeTypes()
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -441,15 +443,24 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     return request_message
 
 
+def _response_with_file_attachment_headers(filename, response):
+    mime_type = _guess_mime_type(filename)
+    response.mimetype = mime_type
+    response.headers["Content-Disposition"] = "attachment"
+    response.headers["filename"] = filename
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Type"] = mime_type
+    return response
+
+
 def _send_artifact(artifact_repository, path):
-    filename = os.path.abspath(artifact_repository.download_artifacts(path))
-    extension = os.path.splitext(filename)[-1].replace(".", "")
+    abs_file_path = os.path.abspath(artifact_repository.download_artifacts(path))
+    filename = posixpath.basename(abs_file_path)
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
-    if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype="text/plain", as_attachment=True)
-    else:
-        return send_file(filename, as_attachment=True)
+    mime_type = _guess_mime_type(filename)
+    file_sender_response = send_file(abs_file_path, mimetype=mime_type, as_attachment=True)
+    return _response_with_file_attachment_headers(filename, file_sender_response)
 
 
 def catch_mlflow_exception(func):
@@ -493,6 +504,20 @@ _TEXT_EXTENSIONS = [
     MLMODEL_FILE_NAME,
     MLPROJECT_FILE_NAME,
 ]
+
+
+def _guess_mime_type(filename):
+    extension = os.path.splitext(filename)[-1].replace(".", "")
+    # for MLmodel/mlproject with no extensions
+    if extension == "":
+        extension = filename
+    if extension in _TEXT_EXTENSIONS:
+        return "text/plain"
+    mime_type = _mime_type.guess_type(filename)[0]
+    if not mime_type:
+        # As a fallback, if mime type is not detected, treat it as a binary file
+        return "application/octet-stream"
+    return mime_type
 
 
 def _disable_unless_serve_artifacts(func):
@@ -1547,10 +1572,9 @@ def _download_artifact(artifact_path):
         file_handle.close()
         tmp_dir.cleanup()
 
-    return current_app.response_class(
-        stream_and_remove_file(),
-        headers={"Content-Disposition": "attachment", "filename": basename},
-    )
+    file_sender_response = current_app.response_class(stream_and_remove_file())
+
+    return _response_with_file_attachment_headers(basename, file_sender_response)
 
 
 @catch_mlflow_exception
