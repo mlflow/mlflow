@@ -1,4 +1,4 @@
-## MlFlow automatic Logging with SynapseML
+## MLflow automatic Logging with SynapseML
 
 [MLflow automatic logging](https://www.mlflow.org/docs/latest/tracking.html#automatic-logging) allows you to log metrics, parameters, and models without the need for explicit log statements.
 SynapseML supports autologging for every model in the library.
@@ -18,8 +18,7 @@ To enable autologging for SynapseML:
 
 Note:
 
-1. If you want to support autologging of PySpark models not present in the log_model_allowlist file, you can add such models to the file.
-2. If you've enabled autologging, then don't write explicit `with mlflow.start_run()` as it might cause multiple runs for one single model or one run for multiple models.
+If you want to support autologging of PySpark models not present in the log_model_allowlist file, you can add such models to the file.
 
 ## Configuration process in Databricks as an example
 
