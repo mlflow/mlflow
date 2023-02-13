@@ -12,6 +12,7 @@ defaults:
 jobs:
   check-comment:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
     outputs:
       should_autoformat: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
@@ -46,6 +47,7 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     steps:
@@ -145,6 +147,7 @@ jobs:
 
   update-status:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [check-comment, format]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     steps:
