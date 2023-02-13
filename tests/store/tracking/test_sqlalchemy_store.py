@@ -189,9 +189,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
-        if type(names) is list:
-            return [self.store.create_experiment(name=name) for name in names]
+        if isinstance(names, (list, tuple)):
+            ids = []
+            for name in names:
+                time.sleep(0.001)
+                ids.append(self.store.create_experiment(name=name))
+            return ids
 
+        time.sleep(0.001)
         return self.store.create_experiment(name=names)
 
     def test_default_experiment(self):
