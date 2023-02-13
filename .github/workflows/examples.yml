@@ -35,6 +35,7 @@ env:
 jobs:
   examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
@@ -91,6 +92,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
