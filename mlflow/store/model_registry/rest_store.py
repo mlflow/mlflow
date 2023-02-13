@@ -24,7 +24,6 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
-from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
@@ -38,7 +37,6 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _RE
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 class RestStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls

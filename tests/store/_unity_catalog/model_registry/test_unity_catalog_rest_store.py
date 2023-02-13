@@ -31,7 +31,7 @@ def store():
 def _args(endpoint, method, json_body):
     res = {
         "host_creds": host_creds(),
-        "endpoint": "/api/2.0/mlflow/unity-catalog/%s" % endpoint,
+        "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
     }
     if method == "GET":
