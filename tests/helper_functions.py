@@ -557,6 +557,18 @@ def mock_http_request_200():
         yield m
 
 
+def mock_http_200(f):
+    @functools.wraps(f)
+    @mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text="{}"),
+    )
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
 @contextmanager
 def mock_http_request_403_200():
     with mock.patch(
