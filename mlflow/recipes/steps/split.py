@@ -346,23 +346,31 @@ class SplitStep(BaseStep):
                 "Return type of the custom split function should be a pandas series",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        train_df = validation_df = test_df = pd.DataFrame()
-        for index, value in custom_split_mapping_series.items():
-            if value == SplitValues.TRAINING.value:
-                train_df = pd.concat([train_df, input_df.iloc[[index]]], ignore_index=True)
-            elif value == SplitValues.VALIDATION.value:
-                validation_df = pd.concat(
-                    [validation_df, input_df.iloc[[index]]], ignore_index=True
+
+        copy_df = input_df.copy()
+        copy_df["split"] = custom_split_mapping_series
+        train_df = input_df[copy_df["split"] == SplitValues.TRAINING.value].reset_index(drop=True)
+        validation_df = input_df[copy_df["split"] == SplitValues.VALIDATION.value].reset_index(
+            drop=True
+        )
+        test_df = input_df[copy_df["split"] == SplitValues.TEST.value].reset_index(drop=True)
+
+        if train_df.size + validation_df.size + test_df.size != input_df.size:
+            incorrect_args = custom_split_mapping_series[
+                ~custom_split_mapping_series.isin(
+                    [
+                        SplitValues.TRAINING.value,
+                        SplitValues.VALIDATION.value,
+                        SplitValues.TEST.value,
+                    ]
                 )
-            elif value == SplitValues.TEST.value:
-                test_df = pd.concat([test_df, input_df.iloc[[index]]], ignore_index=True)
-            else:
-                raise MlflowException(
-                    f"Returned pandas series from custom split step should only contain "
-                    f"{SplitValues.TRAINING.value}, {SplitValues.VALIDATION.value} or "
-                    f"{SplitValues.TEST.value} as values. Value returned back instead: {value}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+            ].unique()
+            raise MlflowException(
+                f"Returned pandas series from custom split step should only contain "
+                f"{SplitValues.TRAINING.value}, {SplitValues.VALIDATION.value} or "
+                f"{SplitValues.TEST.value} as values. Value returned back: {incorrect_args}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         return train_df, validation_df, test_df
 
