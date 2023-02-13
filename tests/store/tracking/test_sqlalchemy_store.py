@@ -192,6 +192,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         if isinstance(names, (list, tuple)):
             ids = []
             for name in names:
+                # Sleep to ensure each experiment has a unique creation_time for
+                # deterministic experiment search results
                 time.sleep(0.001)
                 ids.append(self.store.create_experiment(name=name))
             return ids
