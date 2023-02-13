@@ -56,13 +56,14 @@ export MLFLOW_HOME=$(pwd)
 
 req_files=""
 # Install Python test dependencies only if we're running Python tests
+if [[ "$ML" == "true" ]]; then
+  req_files+=" -r requirements/extra-ml-requirements.txt"
+fi
+
 if [[ "$SKINNY" == "true" ]]; then
   req_files+=" -r requirements/skinny-test-requirements.txt"
 else
   req_files+=" -r requirements/test-requirements.txt"
-fi
-if [[ "$ML" == "true" ]]; then
-  req_files+=" -r requirements/extra-ml-requirements.txt"
 fi
 
 if [[ ! -z $req_files ]]; then
