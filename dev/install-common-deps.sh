@@ -62,7 +62,7 @@ else
   req_files+=" -r requirements/test-requirements.txt"
 fi
 if [[ "$ML" == "true" ]]; then
-  req_files+=" -r requirements/extra-ml-requirements.txt"
+  req_files+=" -r requirements/extra-ml-requirements.txt --user-deprecated=legacy-resolver"
 fi
 
 if [[ ! -z $req_files ]]; then
