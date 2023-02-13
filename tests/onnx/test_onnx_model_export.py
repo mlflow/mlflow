@@ -10,6 +10,7 @@ from torch import nn
 import torch.onnx
 from torch.utils.data import DataLoader
 from sklearn import datasets
+from packaging.version import Version
 import pandas as pd
 import numpy as np
 import yaml
@@ -236,12 +237,35 @@ def onnx_custom_env(tmpdir):
 
 
 def test_model_save_load(onnx_model, model_path):
+    # New ONNX versions can optionally convert to external data
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        onnx.convert_model_to_external_data = mock.Mock()
+
     mlflow.onnx.save_model(onnx_model, model_path)
+
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        assert onnx.convert_model_to_external_data.called
 
     # Loading ONNX model
     onnx.checker.check_model = mock.Mock()
     mlflow.onnx.load_model(model_path)
     assert onnx.checker.check_model.called
+
+
+def test_model_save_load_nonexternal_data(onnx_model, model_path):
+    original_save_model = onnx.save_model
+    if Version(onnx.__version__) >= Version("1.9.0"):
+
+        def onnx_save_nonexternal(model, path, save_as_external_data):
+            original_save_model(model, path, save_as_external_data=False)
+
+        with mock.patch("onnx.save_model", wraps=onnx_save_nonexternal):
+            mlflow.onnx.save_model(onnx_model, model_path)
+
+        # Loading ONNX model
+        onnx.checker.check_model = mock.Mock()
+        mlflow.onnx.load_model(model_path)
+        assert onnx.checker.check_model.called
 
 
 def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custom_env):
