@@ -520,5 +520,5 @@ def test_diviner_model_fit_with_spark_cannot_be_loaded_as_pyfunc(grouped_prophet
 def test_diviner_model_fit_with_spark_raises_with_invalid_paths(grouped_prophet, path):
     mod_model = deepcopy(grouped_prophet)
     setattr(mod_model, "_fit_with_spark", True)
-    with pytest.raises(MlflowException, match="The save path provided must be a run-relative"):
+    with pytest.raises(MlflowException, match="The save path provided must be a relative"):
         mlflow.diviner._save_diviner_model(mod_model, Path(path))

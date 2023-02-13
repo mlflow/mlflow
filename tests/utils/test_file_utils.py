@@ -347,21 +347,20 @@ def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
     assert local_file_uri_to_path(input_uri) == expected_path
 
 
-def test_shutil_copytree_without_file_permissions(tmpdir):
-    src_dir = tmpdir.mkdir("src-dir")
-    dst_dir = tmpdir.mkdir("dst-dir")
+def test_shutil_copytree_without_file_permissions(tmp_path):
+    src_dir = tmp_path.joinpath("src-dir")
+    src_dir.mkdir()
+    dst_dir = tmp_path.joinpath("dst-dir")
+    dst_dir.mkdir()
     # Test copying empty directory
-    mlflow.utils.file_utils.shutil_copytree_without_file_permissions(
-        src_dir.strpath, dst_dir.strpath
-    )
-    assert len(os.listdir(dst_dir.strpath)) == 0
+    mlflow.utils.file_utils.shutil_copytree_without_file_permissions(src_dir, dst_dir)
+    assert len(os.listdir(dst_dir)) == 0
     # Test copying directory with contents
-    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
-    src_dir.join("top-level-file.txt").write("hi")
-    mlflow.utils.file_utils.shutil_copytree_without_file_permissions(
-        src_dir.strpath, dst_dir.strpath
-    )
-    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
-    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
-    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
-    assert dst_dir.join("top-level-file.txt").read() == "hi"
+    src_dir.joinpath("subdir").mkdir()
+    src_dir.joinpath("subdir/subdir-file.txt").write_text("testing 123")
+    src_dir.joinpath("top-level-file.txt").write_text("hi")
+    mlflow.utils.file_utils.shutil_copytree_without_file_permissions(src_dir, dst_dir)
+    assert set(os.listdir(dst_dir)) == {"top-level-file.txt", "subdir"}
+    assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
+    assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
+    assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"

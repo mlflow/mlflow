@@ -102,7 +102,8 @@ def get_spark_session(conf):
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
         .master(spark_master)
-        # .config("spark.driver.bindAddress", "127.0.0.1")  # Uncomment for testing on M1 locally
+        # Uncomment the following line for testing on Apple silicon locally
+        # .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.task.maxFailures", "1")  # avoid retry failed spark tasks
         .getOrCreate()
     )

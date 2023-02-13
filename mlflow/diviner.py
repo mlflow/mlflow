@@ -16,7 +16,7 @@ Diviner format
     https://databricks-diviner.readthedocs.io/en/latest/index.html
 """
 import logging
-import os.path
+import os
 import shutil
 import pathlib
 import yaml
@@ -141,11 +141,11 @@ def save_model(
 
                    Current supported options:
 
-                   - `partition_by`  for setting a (or several) partition columns as a list of \
+                   - `partition_by` for setting a (or several) partition columns as a list of \
                    column names. Must be a list of strings of grouping key column(s).
-                   - `partition_count`  for setting the number of part files to write from a \
+                   - `partition_count` for setting the number of part files to write from a \
                    repartition per `partition_by` group. The default part file count is 200.
-                   - `dfs_tmpdir`  for specifying the DFS temporary location where the model will \
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
                    be stored while copying from a local file system to a Spark-supported "dbfs:/" \
                    scheme.
     """
@@ -223,18 +223,16 @@ def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
     to a fuse mount location, which the Spark DataFrame that contains the individual serialized
     Diviner model objects is written by using the 'dbfs:' scheme path that Spark recognizes.
     """
-    fit_with_spark = False
-
     save_path = str(path.joinpath(_MODEL_BINARY_FILE_NAME))
 
-    if hasattr(diviner_model, "_fit_with_spark") and diviner_model._fit_with_spark:
+    if getattr(diviner_model, "_fit_with_spark", False):
         # Validate that the path is a relative path early in order to fail fast prior to attempting
         # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
         # Exception within MLflow when attempting to copy the temporary write files from DFS to
         # the file system path provided.
         if not os.path.isabs(path):
             raise MlflowException(
-                "The save path provided must be a run-relative path. "
+                "The save path provided must be a relative path. "
                 f"The path submitted, '{path}' is an absolute path."
             )
 
@@ -251,10 +249,9 @@ def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
 
         # Save the model metadata to the path location
         diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
-        fit_with_spark = True
-    else:
-        diviner_model.save(save_path)
-    return fit_with_spark
+        return True
+    diviner_model.save(save_path)
+    return False
 
 
 def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
@@ -422,11 +419,11 @@ def log_model(
                    configuration options are available to set.
                    Current supported options:
 
-                   - `partition_by`  for setting a (or several) partition columns as a list of \
+                   - `partition_by` for setting a (or several) partition columns as a list of \
                    column names. Must be a list of strings of grouping key column(s).
-                   - `partition_count`  for setting the number of part files to write from a \
+                   - `partition_count` for setting the number of part files to write from a \
                    repartition per `partition_by` group. The default part file count is 200.
-                   - `dfs_tmpdir`  for specifying the DFS temporary location where the model will \
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
                    be stored while copying from a local file system to a Spark-supported "dbfs:/" \
                    scheme.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
