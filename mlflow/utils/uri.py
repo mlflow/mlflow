@@ -1,6 +1,7 @@
 import pathlib
 import posixpath
 import urllib.parse
+import uuid
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -329,3 +330,7 @@ def resolve_uri_if_local(local_uri):
             )
             return resolved_absolute_uri
     return local_uri
+
+
+def generate_tmp_dfs_path(dfs_tmp):
+    return posixpath.join(dfs_tmp, str(uuid.uuid4()))

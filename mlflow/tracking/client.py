@@ -1340,7 +1340,7 @@ class MlflowClient:
                     from PIL import Image
                 except ImportError as exc:
                     raise ImportError(
-                        "`log_image` requires Pillow to serialize a numpy array as an image."
+                        "`log_image` requires Pillow to serialize a numpy array as an image. "
                         "Please install it via: pip install Pillow"
                     ) from exc
 

@@ -817,7 +817,7 @@ class _TF2ModuleWrapper:
             data = tensorflow.convert_to_tensor(data)
         else:
             raise MlflowException(
-                f"Unsupported input data type: {type(data)}, the input data must be"
+                f"Unsupported input data type: {type(data)}, the input data must be "
                 "numpy array or a list."
             )
         result = self.model(data)
