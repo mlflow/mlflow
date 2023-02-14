@@ -165,6 +165,7 @@ catboost:
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        export CATBOOST_PACKAGE_VERSION=1.1.1
         pip wheel --no-deps --wheel-dir $CACHE_DIR \
           git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
       fi
