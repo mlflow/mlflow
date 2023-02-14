@@ -176,7 +176,7 @@ fi
 echo "The top-level dependencies that will be installed are: "
 
 if [[ -n "$full" ]]; then
-  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt" "$rd/extra-ml-requirements.txt")
+  files=("$rd/extra-ml-requirements.txt" "$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
   echo "Files:"
   echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
