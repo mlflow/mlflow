@@ -48,15 +48,13 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/cache-pip
       - name: Add problem matchers
         run: |
           echo "::add-matcher::.github/workflows/matchers/pylint.json"
           echo "::add-matcher::.github/workflows/matchers/black.json"
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh --ml
-          pip install -r requirements/lint-requirements.txt
+          pip install . pytest -r requirements/lint-requirements.txt
       - name: Test custom pylint-plugins
         run: |
           pytest pylint_plugins/tests

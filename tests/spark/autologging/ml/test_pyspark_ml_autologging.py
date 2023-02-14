@@ -405,7 +405,7 @@ def test_log_stage_type_params(spark_session):
         def setEvaluator(self, evaluator: Evaluator):
             return self._set(evaluator=evaluator)
 
-        def _fit(self, dataset):
+        def _fit(self, _dataset):
             return TestingModel()
 
     class TestingModel(SparkModel):
