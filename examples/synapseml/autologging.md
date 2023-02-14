@@ -5,9 +5,11 @@ SynapseML supports autologging for every model in the library.
 
 Install SynapseML library following this [guidance](https://microsoft.github.io/SynapseML/docs/getting_started/installation/)
 
-To enable autologging for SynapseML:
+Default mlflow [log_model_allowlist file](https://github.com/mlflow/mlflow/blob/master/mlflow/pyspark/ml/log_model_allowlist.txt) already includes some SynapseML models. To enable more models, you could use `mlflow.pyspark.ml.autolog(log_moddel_allowlist=YOUR_SET_OF_MODELS)` function, or follow the below guidance by specifying a link to the file and update spark configuration.
 
-1. Download this customized [log_model_allowlist file](https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt) and put it at a place that your code has access to.
+To enable autologging with your custom log_model_allowlist file:
+
+1. Put your customized log_model_allowlist file at a place that your code has access to. ([SynapseML official log_model_allowlist file](https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt))
    For example:
 
 - In Synapse `wasb://<containername>@<accountname>.blob.core.windows.net/PATH_TO_YOUR/log_model_allowlist.txt`
