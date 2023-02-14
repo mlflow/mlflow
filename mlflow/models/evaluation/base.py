@@ -461,15 +461,15 @@ class EvaluationDataset:
             if not isinstance(targets, str):
                 raise MlflowException(
                     message="If data is a Pandas DataFrame or Spark DataFrame, `targets` argument "
-                    "must be the name of the column which contains evaluation labels in the `data`"
-                    " dataframe.",
+                    "must be the name of the column which contains evaluation labels in the `data` "
+                    "dataframe.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if self._spark_df_type and isinstance(data, self._spark_df_type):
                 if data.count() > EvaluationDataset.SPARK_DATAFRAME_LIMIT:
                     _logger.warning(
                         "Specified Spark DataFrame is too large for model evaluation. Only "
-                        f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
+                        f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used. "
                         "If you want evaluate on the whole spark dataframe, please manually call "
                         "`spark_dataframe.toPandas()`."
                     )
