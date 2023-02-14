@@ -31,7 +31,8 @@ export const modelNameValidator = (rule, name, callback) => {
     callback(undefined);
     return;
   }
-  ModelRegistryService.getRegisteredModel({ data: { name } })
+
+  ModelRegistryService.getRegisteredModel({ name: name })
     .then(() => callback(`Model "${name}" already exists.`))
     .catch((e) => callback(undefined));
 };
