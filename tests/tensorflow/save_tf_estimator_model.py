@@ -13,7 +13,6 @@ import mlflow
 from mlflow.utils.file_utils import TempDir
 import pickle
 import argparse
-from packaging.version import Version
 from tests.helper_functions import PROTOBUF_REQUIREMENT
 
 assert mlflow.__version__ == "1.28.0"
@@ -216,16 +215,13 @@ with TempDir() as tmp:
 
     if args.task_type == "log_model":
         with mlflow.start_run() as run:
-            extra_pip_requirements = (
-                [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
-            )
             # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
             mlflow.tensorflow.log_model(
                 tf_saved_model_dir=saved_model.path,
                 tf_meta_graph_tags=saved_model.meta_graph_tags,
                 tf_signature_def_key=saved_model.signature_def_key,
                 artifact_path="model",
-                extra_pip_requirements=extra_pip_requirements,
+                extra_pip_requirements=[PROTOBUF_REQUIREMENT],
             )
             run_id = run.info.run_id
     elif args.task_type == "save_model":
@@ -235,6 +231,7 @@ with TempDir() as tmp:
             tf_meta_graph_tags=saved_model.meta_graph_tags,
             tf_signature_def_key=saved_model.signature_def_key,
             path=args.save_path,
+            extra_pip_requirements=[PROTOBUF_REQUIREMENT],
         )
         run_id = None
     else:
