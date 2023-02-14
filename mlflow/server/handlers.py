@@ -5,6 +5,7 @@ import re
 import tempfile
 import posixpath
 import urllib
+from mimetypes import guess_type
 
 import logging
 from functools import wraps
@@ -12,7 +13,6 @@ from functools import wraps
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
-import mimetypes
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
@@ -89,7 +89,6 @@ _tracking_store = None
 _model_registry_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
-_mime_type = mimetypes.MimeTypes()
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -514,7 +513,7 @@ def _guess_mime_type(filename):
         extension = filename
     if extension in _TEXT_EXTENSIONS:
         return "text/plain"
-    mime_type = _mime_type.guess_type(filename)[0]
+    mime_type, _ = guess_type(filename)
     if not mime_type:
         # As a fallback, if mime type is not detected, treat it as a binary file
         return "application/octet-stream"

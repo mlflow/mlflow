@@ -74,9 +74,9 @@ def read_file(path):
         return f.read()
 
 
-def upload_file(path, url):
+def upload_file(path, url, headers=None):
     with open(path, "rb") as f:
-        requests.put(url, data=f).raise_for_status()
+        requests.put(url, data=f, headers=headers).raise_for_status()
 
 
 def download_file(url, local_path):
@@ -364,3 +364,29 @@ def test_mime_type_for_download_artifacts_api(
     assert params["filename"] == filename
     assert artifact_response.headers["Content-Type"] == expected_mime_type
     assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+@pytest.mark.parametrize(
+    ("filename", "requested_mime_type", "responded_mime_type"),
+    [
+        ("b.pkl", "text/html", "application/octet-stream"),
+        ("c.png", "text/html", "image/png"),
+        ("d.pdf", "text/html", "application/pdf"),
+    ],
+)
+def test_server_overrides_requested_mime_type(
+    artifacts_server, tmpdir, filename, requested_mime_type, responded_mime_type
+):
+    default_artifact_root = artifacts_server.default_artifact_root
+    test_file = tmpdir.join(filename)
+    test_file.write(None)
+    upload_file(
+        test_file,
+        f"{default_artifact_root}/dir/{filename}",
+        headers={"Accept": requested_mime_type},
+    )
+    download_response = download_file(f"{default_artifact_root}/dir/{filename}", test_file)
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert download_response.headers["Content-Type"] == responded_mime_type
