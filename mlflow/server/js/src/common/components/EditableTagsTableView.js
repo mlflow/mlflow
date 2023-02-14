@@ -95,7 +95,7 @@ export class EditableTagsTableViewImpl extends Component {
                 },
                 {
                   validator: this.tagNameValidator,
-                }
+                },
               ]}
             >
               <Input
