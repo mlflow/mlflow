@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import requests
 import pathlib
+import cgi
 
 import pytest
 
@@ -82,9 +83,8 @@ def download_file(url, local_path):
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         assert r.headers["X-Content-Type-Options"] == "nosniff"
-        assert "filename" in r.headers
         assert "Content-Type" in r.headers
-        assert "filename" in r.headers
+        assert "Content-Disposition" in r.headers
         with open(local_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -348,7 +348,9 @@ def test_mime_type_for_download_artifacts_api(
     test_file.write(None)
     upload_file(test_file, f"{default_artifact_root}/dir/{filename}")
     download_response = download_file(f"{default_artifact_root}/dir/{filename}", test_file)
-    assert download_response.headers["filename"] == filename
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
     assert download_response.headers["Content-Type"] == expected_mime_type
 
     mlflow.set_tracking_uri(url)
@@ -358,6 +360,7 @@ def test_mime_type_for_download_artifacts_api(
         url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": filename}
     )
     artifact_response.raise_for_status()
-    assert artifact_response.headers["filename"] == filename
+    _, params = cgi.parse_header(artifact_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
     assert artifact_response.headers["Content-Type"] == expected_mime_type
     assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"

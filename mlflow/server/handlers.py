@@ -446,8 +446,9 @@ def _get_request_message(request_message, flask_request=request, schema=None):
 def _response_with_file_attachment_headers(filename, response):
     mime_type = _guess_mime_type(filename)
     response.mimetype = mime_type
-    response.headers["Content-Disposition"] = "attachment"
-    response.headers["filename"] = filename
+    content_disposition_header_name = "Content-Disposition"
+    if content_disposition_header_name not in response.headers:
+        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
