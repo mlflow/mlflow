@@ -236,7 +236,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh --ml
+          source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
           ./dev/run-python-flavor-tests.sh;
