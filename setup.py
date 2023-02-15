@@ -127,7 +127,6 @@ setup(
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
-            "scikit-learn",
             # Required to log artifacts and models to HDFS artifact locations
             "pyarrow",
             # Required to sign outgoing request with SigV4 signature
