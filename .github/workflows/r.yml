@@ -49,6 +49,10 @@ jobs:
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
         uses: actions/cache@v3
+        continue-on-error: true
+        # https://github.com/actions/cache/issues/810
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
         with:
           path: ${{ env.R_LIBS_USER }}
           # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
