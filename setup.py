@@ -1,9 +1,7 @@
 import os
 import logging
-import distutils
-
 from importlib.machinery import SourceFileLoader
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Command
 
 _MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
@@ -69,7 +67,7 @@ _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
 
-class ListDependencies(distutils.cmd.Command):
+class ListDependencies(Command):
     # `python setup.py <command name>` prints out "running <command name>" by default.
     # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
     # of this command to `pip install`.
@@ -92,7 +90,7 @@ class ListDependencies(distutils.cmd.Command):
 MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
 
 
-class MinPythonVersion(distutils.cmd.Command):
+class MinPythonVersion(Command):
     description = "Print out the minimum supported Python version"
     user_options = []
 
