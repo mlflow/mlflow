@@ -49,7 +49,7 @@ You can customize how autologging works by supplying appropriate [parameters](ht
 
 ```python
 from pyspark.ml.linalg import Vectors
-from synapse.ml.nn import *
+from synapse.ml.nn import ConditionalKNN
 
 df = spark.createDataFrame([
     (Vectors.dense(2.0,2.0,2.0), "foo", 1),
