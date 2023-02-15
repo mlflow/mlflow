@@ -84,14 +84,11 @@ def test_log_model_allowlist_from_url():
 
 
 def test_log_model_allowlist_as_autolog_argument():
-    spark_session = SparkSession.builder.master("local[*]").getOrCreate()
-    allowlist = [
-        "pyspark.ml.regression.LinearRegressionModel",
-        "pyspark.ml.classification.NaiveBayesModel",
-        "pyspark.ml.feature.*",
-    ]
-
-    mlflow.pyspark.ml.autolog(log_model_allowlist=allowlist)
-    assert mlflow.pyspark.ml._log_model_allowlist == set(allowlist)
-
-    spark_session.stop()
+    with SparkSession.builder.master("local[*]").getOrCreate() as spark:
+        allowlist = [
+            "pyspark.ml.regression.LinearRegressionModel",
+            "pyspark.ml.classification.NaiveBayesModel",
+            "pyspark.ml.feature.*",
+        ]
+        mlflow.pyspark.ml.autolog(log_model_allowlist=allowlist)
+        assert mlflow.pyspark.ml._log_model_allowlist == set(allowlist)

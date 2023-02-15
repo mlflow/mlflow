@@ -34,13 +34,15 @@ spark.mlflow.pysparkml.autolog.logModelAllowlistFile /dbfs/FileStore/PATH_TO_YOU
 
 4. Run the following line before your training code executes.
 
-```
+```python
+import mlflow
+
 mlflow.pyspark.ml.autolog()
 ```
 
 You can customize how autologging works by supplying appropriate [parameters](https://www.mlflow.org/docs/latest/python_api/mlflow.pyspark.ml.html#mlflow.pyspark.ml.autolog).
 
-5. To find your experiment's results via the `Experiments` tab of the MLFlow UI.
+5. To find your experiment's results via the `Experiments` tab of the MLflow UI.
    <img src="https://mmlspark.blob.core.windows.net/graphics/adb_experiments.png" width="1200" />
 
 ## Example for ConditionalKNNModel
@@ -70,9 +72,9 @@ df = spark.createDataFrame([
     (Vectors.dense(2.0,4.0,16.0), "foo", 1),
     (Vectors.dense(2.0,4.0,18.0), "foo", 4),
     (Vectors.dense(2.0,4.0,20.0), "foo", 4)
-], ["features","values","labels"])
+], ["features", "values", "labels"])
 
-cnn = (ConditionalKNN().setOutputCol("prediction"))
+cnn = ConditionalKNN().setOutputCol("prediction")
 cnnm = cnn.fit(df)
 
 test_df = spark.createDataFrame([
