@@ -50,7 +50,7 @@ jobs:
       - name: Cache R packages
         uses: actions/cache@v3
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 5
         with:
           path: ${{ env.R_LIBS_USER }}
           # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
