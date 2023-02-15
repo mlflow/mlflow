@@ -10,9 +10,12 @@ runs:
         echo "prefix=$ImageOS-$ImageVersion" >> $GITHUB_OUTPUT
     - uses: actions/cache@v3
       continue-on-error: true
-      timeout-minutes: 5
+      # https://github.com/actions/cache/issues/810
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
       with:
         path: ~/.cache/pip
         key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('requirements/*-requirements.txt') }}
         restore-keys: |
           ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-
+
