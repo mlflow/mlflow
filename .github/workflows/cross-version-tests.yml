@@ -157,6 +157,8 @@ jobs:
       - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
+        continue-on-error: true
+        timeout-minutes: 10
         with:
           path: /home/runner/.cache/wheels
           key: ${{ steps.get-cache-key.outputs.key }}

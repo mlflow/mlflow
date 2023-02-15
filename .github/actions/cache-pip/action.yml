@@ -9,6 +9,8 @@ runs:
       run: |
         echo "prefix=$ImageOS-$ImageVersion" >> $GITHUB_OUTPUT
     - uses: actions/cache@v3
+      continue-on-error: true
+      timeout-minutes: 10
       with:
         path: ~/.cache/pip
         key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pip-${{ hashFiles('requirements/*-requirements.txt') }}
