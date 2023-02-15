@@ -15,12 +15,22 @@ test('ExperimentNameValidator works properly', () => {
   // no input value passed, no error message expected
   experimentNameValidator(undefined, '', mockCallback);
   expect(mockCallback).toHaveBeenCalledWith(undefined);
+
+  // input value == undefined, no error message expected
+  experimentNameValidator(undefined, undefined, mockCallback);
+  expect(mockCallback).toHaveBeenCalledWith(undefined);
 });
 
 describe('modelNameValidator should work properly', () => {
   test('should invoke callback with undefined for empty name', () => {
     const mockCallback = jest.fn((err) => err);
     modelNameValidator(undefined, '', mockCallback);
+    expect(mockCallback).toHaveBeenCalledWith(undefined);
+  });
+
+  test('should invoke callback with undefined for empty name', () => {
+    const mockCallback = jest.fn((err) => err);
+    modelNameValidator(undefined, undefined, mockCallback);
     expect(mockCallback).toHaveBeenCalledWith(undefined);
   });
 
