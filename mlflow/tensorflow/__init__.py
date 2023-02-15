@@ -844,7 +844,6 @@ class _KerasModelWrapper:
             return pandas.DataFrame(self.keras_model.predict(data.values), index=data.index)
 
         supported_input_types = (np.ndarray, list, tuple, dict)
-
         if not isinstance(data, supported_input_types):
             raise MlflowException(
                 f"Unsupported input data type: {type(data)}. "
