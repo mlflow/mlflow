@@ -12,6 +12,7 @@ defaults:
 jobs:
   check-comment:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
     outputs:
       should_autoformat: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
@@ -46,6 +47,7 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     steps:
@@ -70,13 +72,15 @@ jobs:
           echo "python=$python" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
-      # Merge the base branch (which is usually master) to for the PR code using the latest configurations.
+      # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git fetch origin ${{ needs.check-comment.outputs.base_ref }}
-          git merge origin/${{ needs.check-comment.outputs.base_ref }}
+          git remote add mlflow https://github.com/mlflow/mlflow.git
+          git remote -v
+          git fetch mlflow ${{ needs.check-comment.outputs.base_ref }}
+          git merge mlflow/${{ needs.check-comment.outputs.base_ref }}
       # ************************************************************************
       # Prettier
       # ************************************************************************
@@ -143,6 +147,7 @@ jobs:
 
   update-status:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [check-comment, format]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     steps:

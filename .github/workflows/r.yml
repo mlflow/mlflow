@@ -20,6 +20,7 @@ env:
 jobs:
   r:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     defaults:
       run:

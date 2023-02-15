@@ -418,8 +418,8 @@ class Recipe:
         if " " in recipe_root_path:
             raise MlflowException(
                 message=(
-                    "Recipe directory path cannot contain spaces. Please move or rename your"
-                    f" recipe directory. Current path: {recipe_root_path}"
+                    "Recipe directory path cannot contain spaces. Please move or rename your "
+                    f"recipe directory. Current path: {recipe_root_path}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
@@ -428,7 +428,7 @@ class Recipe:
         recipe = recipe_config.get("recipe")
         if recipe is None:
             raise MlflowException(
-                "The `recipe` property needs to be defined in the `recipe.yaml` file."
+                "The `recipe` property needs to be defined in the `recipe.yaml` file. "
                 "For example: `recipe: regression/v1`",
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None

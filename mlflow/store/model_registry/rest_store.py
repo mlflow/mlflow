@@ -23,11 +23,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteModelVersionTag,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    call_endpoint,
-    call_endpoints,
     extract_api_info_for_service,
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
@@ -39,33 +37,8 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _RE
 _logger = logging.getLogger(__name__)
 
 
-def _get_response_from_method(method):
-    return method.Response()
-
-
-class BaseRestStore(AbstractStore):
-    def __init__(
-        self, get_host_creds, method_to_info, method_to_all_info, get_response_from_method
-    ):
-        super().__init__()
-        self.get_host_creds = get_host_creds
-        self._method_to_info = method_to_info
-        self._method_to_all_info = method_to_all_info
-        self._get_response_from_method = get_response_from_method
-
-    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
-        response_proto = self._get_response_from_method(api)
-        if call_all_endpoints:
-            endpoints = self._method_to_all_info[api]
-            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
-        else:
-            endpoint, method = self._method_to_info[api]
-            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
-
-
 class RestStore(BaseRestStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
 
     :param get_host_creds: Method to be invoked prior to every REST request to get the
@@ -73,13 +46,14 @@ class RestStore(BaseRestStore):
       is a function so that we can obtain fresh credentials in the case of expiry.
     """
 
-    def __init__(self, get_host_creds):
-        super().__init__(
-            get_host_creds,
-            method_to_info=_METHOD_TO_INFO,
-            method_to_all_info=_METHOD_TO_ALL_INFO,
-            get_response_from_method=_get_response_from_method,
-        )
+    def _get_response_from_method(self, method):
+        return method.Response()
+
+    def _get_endpoint_from_method(self, method):
+        return _METHOD_TO_INFO[method]
+
+    def _get_all_endpoints_from_method(self, method):
+        return _METHOD_TO_ALL_INFO[method]
 
     # CRUD API for RegisteredModel objects
 

@@ -85,6 +85,12 @@ tensorflow:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
       "< 2.6.0": ["protobuf<4.0.0"]
       "< 2.7.0": ["pandas==1.3.5"]
+      # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
+      # transitive dependency version conflicts with the `typing-extensions` package
+      "== 2.3.4": ["sqlalchemy<2"]
+      "== 2.4.4": ["sqlalchemy<2"]
+      "== 2.5.3": ["sqlalchemy<2"]
+      "== 2.6.5": ["sqlalchemy<2"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -100,6 +106,12 @@ tensorflow:
       "== dev": ["scikit-learn"]
       "< 2.6.0": ["protobuf<4.0.0"]
       "< 2.7.0": ["pandas==1.3.5"]
+      # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
+      # transitive dependency version conflicts with the `typing-extensions` package
+      "== 2.3.4": ["sqlalchemy<2"]
+      "== 2.4.4": ["sqlalchemy<2"]
+      "== 2.5.3": ["sqlalchemy<2"]
+      "== 2.6.5": ["sqlalchemy<2"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -407,3 +419,35 @@ diviner:
       "<= 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
+
+h2o:
+  package_info:
+    pip_release: "h2o"
+  models:
+    minimum: "3.40.0.1"
+    maximum: "3.40.0.1"
+    run: |
+      pytest tests/h2o
+
+shap:
+  package_info:
+    pip_release: "shap"
+  models:
+    minimum: "0.41.0"
+    maximum: "0.41.0"
+    run: |
+      pytest tests/shap
+
+paddle:
+  package_info:
+    pip_release: "paddlepaddle"
+  models:
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    run: |
+      pytest tests/paddle/test_paddle_model_export.py
+  autolog:
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    run: |
+      pytest tests/paddle/test_paddle_autolog.py

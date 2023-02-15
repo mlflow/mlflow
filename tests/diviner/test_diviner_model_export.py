@@ -1,7 +1,8 @@
 import os
-from pathlib import Path
 import pytest
 from unittest import mock
+from copy import deepcopy
+from pathlib import Path
 
 import json
 import yaml
@@ -13,6 +14,7 @@ from diviner.utils.example_utils import example_data_generator
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -93,7 +95,7 @@ def test_diviner_native_save_and_load(grouped_prophet, model_path):
 
 def test_diviner_pyfunc_save_load(grouped_pmdarima, model_path):
     mlflow.diviner.save_model(diviner_model=grouped_pmdarima, path=model_path)
-    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     model_predict = grouped_pmdarima.predict(n_periods=10, return_conf_int=True, alpha=0.075)
 
@@ -496,3 +498,26 @@ def test_model_log_with_metadata(grouped_pmdarima):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_diviner_model_fit_with_spark_cannot_be_loaded_as_pyfunc(grouped_prophet, model_path):
+    mlflow.diviner.save_model(grouped_prophet, model_path)
+
+    diviner_model_info_path = model_path.joinpath(MLMODEL_FILE_NAME)
+    diviner_model_info = yaml.safe_load(diviner_model_info_path.read_text())
+
+    # We can't actually test this by saving in Spark due to method unavailability in OSS Diviner.
+    diviner_model_info["flavors"]["diviner"]["fit_with_spark"] = True
+
+    diviner_model_info_path.write_text(yaml.safe_dump(diviner_model_info))
+
+    with pytest.raises(MlflowException, match="The model being loaded was fit in Spark. Diviner"):
+        pyfunc.load_model(model_uri=model_path)
+
+
+@pytest.mark.parametrize("path", ["dbfs:/model", "file/storage", "Users/model/save"])
+def test_diviner_model_fit_with_spark_raises_with_invalid_paths(grouped_prophet, path):
+    mod_model = deepcopy(grouped_prophet)
+    setattr(mod_model, "_fit_with_spark", True)
+    with pytest.raises(MlflowException, match="The save path provided must be a relative"):
+        mlflow.diviner._save_diviner_model(mod_model, Path(path))

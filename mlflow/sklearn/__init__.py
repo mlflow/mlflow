@@ -1332,13 +1332,24 @@ def _autolog(
             registered_model_name = get_autologging_config(
                 flavor_name, "registered_model_name", None
             )
-            log_model_func(
-                self,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
-                registered_model_name=registered_model_name,
-            )
+            if flavor_name == mlflow.xgboost.FLAVOR_NAME:
+                model_format = get_autologging_config(flavor_name, "model_format", "xgb")
+                log_model_func(
+                    self,
+                    artifact_path="model",
+                    signature=signature,
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                    model_format=model_format,
+                )
+            else:
+                log_model_func(
+                    self,
+                    artifact_path="model",
+                    signature=signature,
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                )
         return fit_output
 
     def fit_mlflow(original, self, *args, **kwargs):

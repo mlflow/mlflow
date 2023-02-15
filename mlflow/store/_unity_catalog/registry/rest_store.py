@@ -26,7 +26,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsRequest,
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse
+    GenerateTemporaryModelVersionCredentialsResponse,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -42,6 +42,7 @@ from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
 )
+from mlflow.utils.annotations import experimental
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -58,7 +59,7 @@ def _require_arg_unspecified(arg_name, arg_value, default_value=None, message=No
 
 def _raise_unsupported_arg(arg_name, message=None):
     messages = [
-        f"Argument {arg_name} is unsupported for models in the Unity Catalog.",
+        f"Argument '{arg_name}' is unsupported for models in the Unity Catalog.",
     ]
     if message is not None:
         messages.append(message)
@@ -68,36 +69,16 @@ def _raise_unsupported_arg(arg_name, message=None):
 
 def _raise_unsupported_method(method, message=None):
     messages = [
-        f"Method {method} is unsupported for models in the Unity Catalog.",
+        f"Method '{method}' is unsupported for models in the Unity Catalog.",
     ]
     if message is not None:
         messages.append(message)
     messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
 
-
-def _get_response_from_method(method):
-    method_to_response = {
-        CreateRegisteredModelRequest: CreateRegisteredModelResponse,
-        UpdateRegisteredModelRequest: UpdateRegisteredModelResponse,
-        DeleteRegisteredModelRequest: DeleteRegisteredModelResponse,
-        CreateModelVersionRequest: CreateModelVersionResponse,
-        FinalizeModelVersionRequest: FinalizeModelVersionResponse,
-        UpdateModelVersionRequest: UpdateModelVersionResponse,
-        DeleteModelVersionRequest: DeleteModelVersionResponse,
-        GetModelVersionDownloadUriRequest: GetModelVersionDownloadUriResponse,
-        SearchModelVersionsRequest: SearchModelVersionsResponse,
-        GetRegisteredModelRequest: GetRegisteredModelResponse,
-        GetModelVersionRequest: GetModelVersionResponse,
-        SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
-        GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
-    }
-    return method_to_response[method]()
-
-
+@experimental
 class UcModelRegistryStore(BaseRestStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
 
     :param get_host_creds: Method to be invoked prior to every REST request to get the
@@ -105,11 +86,30 @@ class UcModelRegistryStore(BaseRestStore):
       is a function so that we can obtain fresh credentials in the case of expiry.
     """
 
-    def __init__(self, get_host_creds):
-        super().__init__(
-            get_host_creds, method_to_info=_METHOD_TO_INFO, method_to_all_info=_METHOD_TO_ALL_INFO,
-            get_response_from_method=_get_response_from_method
-        )
+    def _get_response_from_method(self, method):
+        method_to_response = {
+            CreateRegisteredModelRequest: CreateRegisteredModelResponse,
+            UpdateRegisteredModelRequest: UpdateRegisteredModelResponse,
+            DeleteRegisteredModelRequest: DeleteRegisteredModelResponse,
+            CreateModelVersionRequest: CreateModelVersionResponse,
+            FinalizeModelVersionRequest: FinalizeModelVersionResponse,
+            UpdateModelVersionRequest: UpdateModelVersionResponse,
+            DeleteModelVersionRequest: DeleteModelVersionResponse,
+            GetModelVersionDownloadUriRequest: GetModelVersionDownloadUriResponse,
+            SearchModelVersionsRequest: SearchModelVersionsResponse,
+            GetRegisteredModelRequest: GetRegisteredModelResponse,
+            GetModelVersionRequest: GetModelVersionResponse,
+            SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
+            # pylint: disable=line-too-long
+            GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+        }
+        return method_to_response[method]()
+
+    def _get_endpoint_from_method(self, method):
+        return _METHOD_TO_INFO[method]
+
+    def _get_all_endpoints_from_method(self, method):
+        return _METHOD_TO_ALL_INFO[method]
 
     # CRUD API for RegisteredModel objects
 
@@ -124,6 +124,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
+        _require_arg_unspecified("tags", tags)
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -165,7 +166,7 @@ class UcModelRegistryStore(BaseRestStore):
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-            self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -237,6 +238,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: None
         """
         _raise_unsupported_method(method="delete_registered_model_tag")
+<<<<<<< HEAD
 
     # CRUD API for ModelVersion objects
 

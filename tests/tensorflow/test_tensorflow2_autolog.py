@@ -827,8 +827,8 @@ def get_text_vec_model(train_samples):
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.3.0"),
     reason=(
-        "Deserializing a model with `TextVectorization` and `Embedding`"
-        "fails in tensorflow < 2.3.0. See this issue:"
+        "Deserializing a model with `TextVectorization` and `Embedding` "
+        "fails in tensorflow < 2.3.0. See this issue: "
         "https://github.com/tensorflow/tensorflow/issues/38250"
     ),
 )

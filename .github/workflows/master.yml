@@ -41,6 +41,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
@@ -66,10 +67,12 @@ jobs:
         id: run-pre-commit
         run: |
           pre-commit run --all-files --color=always
-      - name: Tweak error messages
+      - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
         run: |
-          grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
+          if [ -f ".black.log" ]; then
+            grep -o 'reformatted .*\.py' .black.log | sed 's/reformatted \(.*\.py\)/\1: This file is unformatted. Run `black .` or comment `@mlflow-automation autoformat` on the PR if you'\''re an MLflow maintainer./'
+          fi
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -77,6 +80,7 @@ jobs:
   # while also verifying certain dependencies are omitted.
   python-skinny:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
@@ -93,6 +97,7 @@ jobs:
 
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
         with:
@@ -124,6 +129,7 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
         with:
@@ -193,6 +199,7 @@ jobs:
 
   java:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
@@ -210,8 +217,8 @@ jobs:
           mvn clean package -q
 
   flavors:
-    # TODO: Change this to 'ubuntu-latest' once https://github.com/mlflow/mlflow/issues/7222 is fixed
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -238,6 +245,7 @@ jobs:
   # run these tests in a separate job.
   models:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -258,6 +266,7 @@ jobs:
 
   pyfunc:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -278,6 +287,7 @@ jobs:
 
   sagemaker:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -295,6 +305,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
