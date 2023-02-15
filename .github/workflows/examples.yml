@@ -43,13 +43,6 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          # Increase available disk space by removing unnecessary tool chains:
-          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          df -h
-
       - name: Check diff
         id: check-diff
         run: |
@@ -100,10 +93,6 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          df -h
 
       - name: Check diff
         id: check-diff
