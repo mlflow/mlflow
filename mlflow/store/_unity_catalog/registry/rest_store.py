@@ -238,7 +238,6 @@ class UcModelRegistryStore(BaseRestStore):
         :return: None
         """
         _raise_unsupported_method(method="delete_registered_model_tag")
-<<<<<<< HEAD
 
     # CRUD API for ModelVersion objects
 
