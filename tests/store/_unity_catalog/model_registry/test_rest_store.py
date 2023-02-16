@@ -118,9 +118,7 @@ def test_create_registered_model(mock_http, store):
         mock_http,
         "registered-models/create",
         "POST",
-        CreateRegisteredModelRequest(
-            name="model_1", description=description
-        ),
+        CreateRegisteredModelRequest(name="model_1", description=description),
     )
 
 
@@ -128,7 +126,9 @@ def test_create_registered_model(mock_http, store):
 def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
-    with pytest.raises(MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")):
+    with pytest.raises(
+        MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")
+    ):
         store.rename_registered_model(name=name, new_name=new_name)
 
 
@@ -185,7 +185,9 @@ def test_search_registered_models_invalid_args(mock_http, store):
     for sz in range(1, 3):
         for combination in combinations(params_list, sz):
             params = {k: v for d in combination for k, v in d.items()}
-            with pytest.raises(MlflowException, match="unsupported for models in the Unity Catalog"):
+            with pytest.raises(
+                MlflowException, match="unsupported for models in the Unity Catalog"
+            ):
                 store.search_registered_models(**params)
 
 
@@ -224,6 +226,7 @@ def test_delete_registered_model_tag_unsupported(mock_http, store):
     with pytest.raises(MlflowException, match=expected_err_msg):
         store.delete_registered_model_tag(name=name, key="key")
 
+
 @mock_http_request
 def test_create_model_version(mock_http, store):
     store.create_model_version("model_1", "path/to/source")
@@ -254,6 +257,7 @@ def test_create_model_version(mock_http, store):
         ),
     )
 
+
 @mock_http_request
 def test_create_model_version_invalid_args(mock_http, store):
     tags = [
@@ -269,7 +273,9 @@ def test_create_model_version_invalid_args(mock_http, store):
     for sz in range(1, 3):
         for combination in combinations(params_list, sz):
             params = {k: v for d in combination for k, v in d.items()}
-            with pytest.raises(MlflowException, match="unsupported for models in the Unity Catalog"):
+            with pytest.raises(
+                MlflowException, match="unsupported for models in the Unity Catalog"
+            ):
                 store.create_model_version(**params, name="mymodel", source="mysource")
 
 
@@ -282,6 +288,7 @@ def test_transition_model_version_stage_unsupported(mock_http, store):
         store.transition_model_version_stage(
             name=name, version=version, stage="prod", archive_existing_versions=True
         )
+
 
 @mock_http_request
 def test_update_model_version_description(mock_http, store):

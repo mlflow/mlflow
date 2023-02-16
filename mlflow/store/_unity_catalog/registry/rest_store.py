@@ -76,6 +76,7 @@ def _raise_unsupported_method(method, message=None):
     messages.append("See the user guide for more information")
     raise MlflowException(" ".join(messages))
 
+
 @experimental
 class UcModelRegistryStore(BaseRestStore):
     """
@@ -297,7 +298,7 @@ class UcModelRegistryStore(BaseRestStore):
         return response_proto.model_version
 
     def create_model_version(
-            self, name, source, run_id=None, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
