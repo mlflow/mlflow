@@ -79,8 +79,8 @@ def upload_file(path, url, headers=None):
         requests.put(url, data=f, headers=headers).raise_for_status()
 
 
-def download_file(url, local_path):
-    with requests.get(url, stream=True) as r:
+def download_file(url, local_path, headers=None):
+    with requests.get(url, stream=True, headers=headers) as r:
         r.raise_for_status()
         assert r.headers["X-Content-Type-Options"] == "nosniff"
         assert "Content-Type" in r.headers
@@ -383,9 +383,12 @@ def test_server_overrides_requested_mime_type(
     upload_file(
         test_file,
         f"{default_artifact_root}/dir/{filename}",
+    )
+    download_response = download_file(
+        f"{default_artifact_root}/dir/{filename}",
+        test_file,
         headers={"Accept": requested_mime_type},
     )
-    download_response = download_file(f"{default_artifact_root}/dir/{filename}", test_file)
 
     _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
     assert params["filename"] == filename
