@@ -241,7 +241,6 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
-
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
