@@ -492,7 +492,7 @@ wcwidth==0.2.5
     # via prompt-toolkit
 websocket-client==1.4.2
     # via docker
-werkzeug==2.2.2
+werkzeug==2.2.3
     # via
     #   flask
     #   moto
