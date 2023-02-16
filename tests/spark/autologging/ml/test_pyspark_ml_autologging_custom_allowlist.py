@@ -84,7 +84,7 @@ def test_log_model_allowlist_from_url():
 
 
 def test_log_model_allowlist_as_autolog_argument():
-    with SparkSession.builder.master("local[*]").getOrCreate() as spark:
+    with SparkSession.builder.master("local[*]").getOrCreate():
         allowlist = [
             "pyspark.ml.regression.LinearRegressionModel",
             "pyspark.ml.classification.NaiveBayesModel",
