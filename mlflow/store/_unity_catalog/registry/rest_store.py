@@ -282,21 +282,6 @@ class UcModelRegistryStore(BaseRestStore):
         )
         self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body)
 
-    def _finalize_model_version(self, name, version):
-        """
-        Finalize model version, transitioning it into the READY state after creation flow completes
-        :param name: Parent registered model name
-        :param version: Version number of model version
-        """
-        req_body = message_to_json(
-            FinalizeModelVersionRequest(
-                name=name,
-                version=version,
-            )
-        )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-        return response_proto.model_version
-
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -331,7 +316,6 @@ class UcModelRegistryStore(BaseRestStore):
             versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _raise_unsupported_method(method="transition_model_version_stage")
 
@@ -411,7 +395,6 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :param version: Registered model version.
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
-        :return: None
         """
         _raise_unsupported_method(method="set_model_version_tag")
 
@@ -422,6 +405,5 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :param version: Registered model version.
         :param key: Tag key.
-        :return: None
         """
         _raise_unsupported_method(method="delete_model_version_tag")
