@@ -772,7 +772,7 @@ def test_search_model_versions(store):
     )
 
     mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
-    assert 1 == len(mvds)
+    assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
     assert mvds[0].run_id == run_id_1
@@ -1428,6 +1428,7 @@ def test_pyfunc_model_registry_with_file_store(store):
         assert models[0].name == "model1"
         assert models[1].name == "model2"
         mv1 = store.search_model_versions("name = 'model1'", max_results=10)
-        assert len(mv1) == 2 and mv1[0].name == "model1"
+        assert len(mv1) == 2
+        assert mv1[0].name == "model1"
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
         assert len(mv2) == 1 and mv2[0].name == "model2"
