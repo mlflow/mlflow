@@ -16,6 +16,8 @@ from mlflow.store.artifact.utils.models import (
     is_using_databricks_registry,
 )
 
+from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
+
 _logger = logging.getLogger(__name__)
 REGISTRY_GET_DOWNLOAD_URI_ENDPOINT = "/api/2.0/mlflow/unity-catalog/model-versions/get"
 REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
@@ -74,7 +76,8 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                                   f"argument instead")
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
-
+        repo = get_artifact_repo_from_storage_info(storage_location=blob_storage_path, scoped_token=scoped_token)
+        repo.download_artifacts(artifact_path, dst_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")
