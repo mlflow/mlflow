@@ -51,39 +51,45 @@ You can customize how autologging works by supplying appropriate [parameters](ht
 from pyspark.ml.linalg import Vectors
 from synapse.ml.nn import ConditionalKNN
 
-df = spark.createDataFrame([
-    (Vectors.dense(2.0,2.0,2.0), "foo", 1),
-    (Vectors.dense(2.0,2.0,4.0), "foo", 3),
-    (Vectors.dense(2.0,2.0,6.0), "foo", 4),
-    (Vectors.dense(2.0,2.0,8.0), "foo", 3),
-    (Vectors.dense(2.0,2.0,10.0), "foo", 1),
-    (Vectors.dense(2.0,2.0,12.0), "foo", 2),
-    (Vectors.dense(2.0,2.0,14.0), "foo", 0),
-    (Vectors.dense(2.0,2.0,16.0), "foo", 1),
-    (Vectors.dense(2.0,2.0,18.0), "foo", 3),
-    (Vectors.dense(2.0,2.0,20.0), "foo", 0),
-    (Vectors.dense(2.0,4.0,2.0), "foo", 2),
-    (Vectors.dense(2.0,4.0,4.0), "foo", 4),
-    (Vectors.dense(2.0,4.0,6.0), "foo", 2),
-    (Vectors.dense(2.0,4.0,8.0), "foo", 2),
-    (Vectors.dense(2.0,4.0,10.0), "foo", 4),
-    (Vectors.dense(2.0,4.0,12.0), "foo", 3),
-    (Vectors.dense(2.0,4.0,14.0), "foo", 2),
-    (Vectors.dense(2.0,4.0,16.0), "foo", 1),
-    (Vectors.dense(2.0,4.0,18.0), "foo", 4),
-    (Vectors.dense(2.0,4.0,20.0), "foo", 4)
-], ["features", "values", "labels"])
+df = spark.createDataFrame(
+    [
+        (Vectors.dense(2.0, 2.0, 2.0), "foo", 1),
+        (Vectors.dense(2.0, 2.0, 4.0), "foo", 3),
+        (Vectors.dense(2.0, 2.0, 6.0), "foo", 4),
+        (Vectors.dense(2.0, 2.0, 8.0), "foo", 3),
+        (Vectors.dense(2.0, 2.0, 10.0), "foo", 1),
+        (Vectors.dense(2.0, 2.0, 12.0), "foo", 2),
+        (Vectors.dense(2.0, 2.0, 14.0), "foo", 0),
+        (Vectors.dense(2.0, 2.0, 16.0), "foo", 1),
+        (Vectors.dense(2.0, 2.0, 18.0), "foo", 3),
+        (Vectors.dense(2.0, 2.0, 20.0), "foo", 0),
+        (Vectors.dense(2.0, 4.0, 2.0), "foo", 2),
+        (Vectors.dense(2.0, 4.0, 4.0), "foo", 4),
+        (Vectors.dense(2.0, 4.0, 6.0), "foo", 2),
+        (Vectors.dense(2.0, 4.0, 8.0), "foo", 2),
+        (Vectors.dense(2.0, 4.0, 10.0), "foo", 4),
+        (Vectors.dense(2.0, 4.0, 12.0), "foo", 3),
+        (Vectors.dense(2.0, 4.0, 14.0), "foo", 2),
+        (Vectors.dense(2.0, 4.0, 16.0), "foo", 1),
+        (Vectors.dense(2.0, 4.0, 18.0), "foo", 4),
+        (Vectors.dense(2.0, 4.0, 20.0), "foo", 4),
+    ],
+    ["features", "values", "labels"],
+)
 
 cnn = ConditionalKNN().setOutputCol("prediction")
 cnnm = cnn.fit(df)
 
-test_df = spark.createDataFrame([
-    (Vectors.dense(2.0,2.0,2.0), "foo", 1, [0, 1]),
-    (Vectors.dense(2.0,2.0,4.0), "foo", 4, [0, 1]),
-    (Vectors.dense(2.0,2.0,6.0), "foo", 2, [0, 1]),
-    (Vectors.dense(2.0,2.0,8.0), "foo", 4, [0, 1]),
-    (Vectors.dense(2.0,2.0,10.0), "foo", 4, [0, 1])
-], ["features","values","labels","conditioner"])
+test_df = spark.createDataFrame(
+    [
+        (Vectors.dense(2.0, 2.0, 2.0), "foo", 1, [0, 1]),
+        (Vectors.dense(2.0, 2.0, 4.0), "foo", 4, [0, 1]),
+        (Vectors.dense(2.0, 2.0, 6.0), "foo", 2, [0, 1]),
+        (Vectors.dense(2.0, 2.0, 8.0), "foo", 4, [0, 1]),
+        (Vectors.dense(2.0, 2.0, 10.0), "foo", 4, [0, 1]),
+    ],
+    ["features", "values", "labels", "conditioner"],
+)
 
 display(cnnm.transform(test_df))
 ```
