@@ -651,6 +651,7 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     [
         ("/a/b/c.txt", "text/plain"),
         ("c.txt", "text/plain"),
+        ("c.pkl", "application/octet-stream"),
         ("/a/b/c.pkl", "application/octet-stream"),
         ("/a/b/c.png", "image/png"),
         ("/a/b/c.pdf", "application/pdf"),
@@ -667,7 +668,8 @@ def test_guess_mime_type(file_path, expected_mime_type):
     ("file_path", "expected_mime_type"),
     [
         ("C:\\a\\b\\c.txt", "text/plain"),
-        ("c.txt", "application/octet-stream"),
+        ("c.txt", "text/plain"),
+        ("c.pkl", "application/octet-stream"),
         ("C:\\a\\b\\c.pkl", "application/octet-stream"),
         ("C:\\a\\b\\c.png", "image/png"),
         ("C:\\a\\b\\c.pdf", "application/pdf"),
