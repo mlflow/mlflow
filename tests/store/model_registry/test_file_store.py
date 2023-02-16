@@ -803,7 +803,7 @@ def test_search_model_versions_order_by_simple(store):
 
     # order by version DESC
     mvs = _search_model_versions(store, order_by=["version_number DESC"])
-    assert [mv.name for mv in mvs] == names[::-1]
+    assert [mv.name for mv in mvs] == ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
     assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
     # order by creation_timestamp DESC

@@ -337,11 +337,11 @@ def test_search_model_versions_max_results(client, max_results):
     ("order_by", "order_by_key", "order_by_desc"),
     [
         (None, None, False),
-        (["name DESC"], lambda mv: mv.name, True),
+        (["name DESC"], lambda mv: (mv.name, mv.version), True),
         (
             ["version_number DESC"],
-            lambda mv: mv.version,
-            True,
+            lambda mv: (-int(mv.version), mv.name),
+            False,
         ),
     ],
 )
@@ -374,7 +374,9 @@ def test_search_model_versions_order_by(
     if order_by_key:
         expected_mvs = sorted(mvs, key=order_by_key, reverse=order_by_desc)
     else:
-        expected_mvs = sorted(mvs, key=lambda x: x.last_updated_timestamp, reverse=True)
+        expected_mvs = sorted(
+            mvs, key=lambda x: (-int(x.last_updated_timestamp), x.name, -int(x.version))
+        )
     verify_pagination(
         lambda tok: client.search_model_versions(
             order_by=order_by,

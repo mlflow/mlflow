@@ -890,8 +890,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_model_versions_order_by_simple(self):
         # create some model versions
-        prefix = "test_for_search_MV_"
-        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]]
+        names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
         sources = ["A"] * 3 + ["B"] * 3
         run_ids = [uuid.uuid4().hex for _ in range(6)]
         for name in set(names):
@@ -911,7 +910,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # order by version DESC
         mvs = self.store.search_model_versions(filter_string=None, order_by=["version_number DESC"])
-        assert [mv.name for mv in mvs] == names[::-1]
+        assert [mv.name for mv in mvs] == ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
         assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
         # order by creation_timestamp DESC

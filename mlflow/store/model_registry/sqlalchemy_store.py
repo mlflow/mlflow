@@ -885,7 +885,9 @@ class SqlAlchemyStore(AbstractStore):
             parsed_filters, self.engine.dialect.name
         )
 
-        parsed_orderby = self._parse_search_model_versions_order_by(order_by)
+        parsed_orderby = self._parse_search_model_versions_order_by(
+            order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]
+        )
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         # we query for max_results + 1 items to check whether there is another page to return.
         # this remediates having to make another query which returns no items.
@@ -948,8 +950,10 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     clauses.append(field.desc())
 
-        if SqlModelVersion.last_updated_time.key not in observed_order_by_clauses:
-            clauses.append(SqlModelVersion.last_updated_time.desc())
+        if SqlModelVersion.name.key not in observed_order_by_clauses:
+            clauses.append(SqlModelVersion.name.asc())
+        if SqlModelVersion.version.key not in observed_order_by_clauses:
+            clauses.append(SqlModelVersion.version.desc())
         return clauses
 
     @classmethod

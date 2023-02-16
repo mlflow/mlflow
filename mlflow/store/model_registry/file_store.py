@@ -728,7 +728,10 @@ class FileStore(AbstractStore):
             model_versions.extend(self._list_model_versions_under_path(path))
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
-        sorted_mvs = SearchModelVersionUtils.sort(filtered_mvs, order_by)
+        sorted_mvs = SearchModelVersionUtils.sort(
+            filtered_mvs,
+            order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"],
+        )
         start_offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         final_offset = start_offset + max_results
 
