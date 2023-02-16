@@ -1134,9 +1134,7 @@ class SearchModelVersionUtils(SearchUtils):
     @classmethod
     def filter(cls, model_versions, filter_string):  # pylint: disable=arguments-renamed
         """Filters a set of model versions based on a search filter string."""
-        model_versions = [
-            for mv in model_versions if mv.current_stage != STAGE_DELETED_INTERNAL
-        ]
+        model_versions = [mv for mv in model_versions if mv.current_stage != STAGE_DELETED_INTERNAL]
         if not filter_string:
             return model_versions
         parsed = cls.parse_search_filter(filter_string)
