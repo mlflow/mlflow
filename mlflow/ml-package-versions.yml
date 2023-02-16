@@ -145,7 +145,7 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.3.3"
+    maximum: "3.3.5"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -153,7 +153,7 @@ lightgbm:
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.3.3"
+    maximum: "3.3.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -419,3 +419,35 @@ diviner:
       "<= 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
+
+h2o:
+  package_info:
+    pip_release: "h2o"
+  models:
+    minimum: "3.40.0.1"
+    maximum: "3.40.0.1"
+    run: |
+      pytest tests/h2o
+
+shap:
+  package_info:
+    pip_release: "shap"
+  models:
+    minimum: "0.41.0"
+    maximum: "0.41.0"
+    run: |
+      pytest tests/shap
+
+paddle:
+  package_info:
+    pip_release: "paddlepaddle"
+  models:
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    run: |
+      pytest tests/paddle/test_paddle_model_export.py
+  autolog:
+    minimum: "2.4.1"
+    maximum: "2.4.1"
+    run: |
+      pytest tests/paddle/test_paddle_autolog.py

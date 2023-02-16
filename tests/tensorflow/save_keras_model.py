@@ -38,6 +38,7 @@ if save_as_type == "tf1-estimator":
                 tf_meta_graph_tags=["serve"],
                 tf_signature_def_key="serving_default",
                 path=save_path,
+                extra_pip_requirements=["protobuf<4.0.0"],
             )
         elif task_type == "log_model":
             with mlflow.start_run() as run:
@@ -47,6 +48,7 @@ if save_as_type == "tf1-estimator":
                     tf_meta_graph_tags=["serve"],
                     tf_signature_def_key="serving_default",
                     artifact_path="model",
+                    extra_pip_requirements=["protobuf<4.0.0"],
                 )
                 run_id = run.info.run_id
         else:
