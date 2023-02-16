@@ -782,8 +782,7 @@ def test_search_model_versions(store):
 
 def test_search_model_versions_order_by_simple(store):
     # create some model versions
-    prefix = "test_for_search_MV_"
-    names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]]
+    names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
     sources = ["A"] * 3 + ["B"] * 3
     run_ids = [uuid.uuid4().hex for _ in range(6)]
     for name in set(names):
@@ -1106,8 +1105,7 @@ def test_search_registered_models_by_tag(store):
 
 def test_search_registered_models_order_by_simple(store):
     # create some registered models
-    prefix = "test_for_search_"
-    names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
+    names = ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]
     for name in names:
         store.create_registered_model(name)
         time.sleep(0.001)  # sleep for windows store timestamp precision issues
