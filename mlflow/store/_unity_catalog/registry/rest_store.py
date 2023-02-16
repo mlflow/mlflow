@@ -242,46 +242,6 @@ class UcModelRegistryStore(BaseRestStore):
 
     # CRUD API for ModelVersion objects
 
-    def _create_model_version(self, name, source, run_id=None, description=None):
-        """
-        Create a new model version from given source and run ID.
-
-        :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
-        :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
-        :param run_link: Link to the run from an MLflow tracking server that generated this model.
-        :param description: Description of the version.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 created in the backend.
-        """
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=name,
-                source=source,
-                run_id=run_id,
-                description=description,
-            )
-        )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-        return response_proto.model_version
-
-    def _generate_temporary_model_version_credential(self, name, version, operation):
-        """
-        Generate temporary credentials for model version file write or read
-        :param name: Parent registered model name
-        :param version: Version number of model version
-        :param operation: ModelVersionOperation enum value indicating whether to get read or read/write credentials
-        :return: Temporary credentials
-        """
-        req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=operation
-            )
-        )
-        self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body)
-
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -301,9 +261,16 @@ class UcModelRegistryStore(BaseRestStore):
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
         # TODO: Implement client-side model version upload and finalization logic here
-        return self._create_model_version(
-            name=name, source=source, run_id=run_id, description=description
+        req_body = message_to_json(
+            CreateModelVersionRequest(
+                name=name,
+                source=source,
+                run_id=run_id,
+                description=description,
+            )
         )
+        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+        return response_proto.model_version
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
