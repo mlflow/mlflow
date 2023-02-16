@@ -40,3 +40,24 @@ def registered_model_from_uc_proto(uc_proto):
         last_updated_timestamp=uc_proto.last_updated_timestamp,
         description=uc_proto.description,
     )
+
+def get_artifact_repo_from_storage_info(storage_location, scoped_token):
+    """
+    Get an ArtifactRepository instance capable of reading/writing to a UC model version's
+    file storage location
+    :param storage_location: Storage location of the model version
+    :param scoped_token:
+    :return:
+    """
+    if scoped_token.credentials.aws_temp_credentials is not None:
+        from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+        aws_creds = scoped_token.credentials.aws_temp_credentials
+        return S3ArtifactRepository(storage_location, access_key_id=aws_creds.access_key_id,
+                             secret_access_key=aws_creds.secret_access_key,
+                             session_token=aws_creds.session_token)
+    elif scoped_token.credentials.azure_user_delegation_sas is not None:
+        from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
+        from azure.core.credentials import AzureSasCredential
+        sas_token = scoped_token.credentials.azure_user_delegation_sas.sas_token
+        return AzureDataLakeArtifactRepository(storage_location,
+                                        credential=AzureSasCredential(sas_token))

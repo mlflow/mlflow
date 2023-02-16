@@ -74,17 +74,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                                   f"argument instead")
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
-        if scoped_token.credentials.aws_temp_credentials is not None:
-            from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-            aws_creds = scoped_token.credentials.aws_temp_credentials
-            S3ArtifactRepository(blob_storage_path, access_key_id=aws_creds.access_key_id,
-                                 secret_access_key=aws_creds.secret_access_key,
-                                 session_token=aws_creds.session_token).download_artifacts(artifact_path)
-        elif scoped_token.credentials.azure_user_delegation_sas is not None:
-            from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
-            from azure.storage.blob import BlobServiceClient
-            azure_creds = scoped_token.credentials.azure_user_delegation_sas
-            client = BlobServiceClient()
+
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")
