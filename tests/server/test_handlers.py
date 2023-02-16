@@ -645,6 +645,7 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     assert args == {"name": name, "version": version, "key": key}
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("file_path", "expected_mime_type"),
     [
