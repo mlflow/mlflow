@@ -232,7 +232,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format=None,
+    model_format="xgb",
     metadata=None,
     **kwargs,
 ):
@@ -384,6 +384,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
+    model_format="xgb",
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -429,6 +430,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param model_format: File format in which the model is to be saved.
     """
     import functools
     import xgboost
@@ -713,6 +715,7 @@ def autolog(
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
+                model_format=model_format,
             )
 
         param_logging_operations.await_completion()

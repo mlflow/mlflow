@@ -19,6 +19,7 @@ from packaging.version import Version
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
+import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
@@ -833,22 +834,6 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
                 if dummy_read_shows_mlflowdbfs_available
                 else "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
             )
-
-
-def test_shutil_copytree_without_file_permissions(tmpdir):
-    src_dir = tmpdir.mkdir("src-dir")
-    dst_dir = tmpdir.mkdir("dst-dir")
-    # Test copying empty directory
-    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
-    assert len(os.listdir(dst_dir.strpath)) == 0
-    # Test copying directory with contents
-    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
-    src_dir.join("top-level-file.txt").write("hi")
-    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
-    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
-    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
-    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
-    assert dst_dir.join("top-level-file.txt").read() == "hi"
 
 
 def test_log_model_with_code_paths(spark_model_iris):
