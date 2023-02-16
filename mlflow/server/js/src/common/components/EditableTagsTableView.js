@@ -92,6 +92,8 @@ export class EditableTagsTableViewImpl extends Component {
                     description:
                       'Error message for name requirement in editable tags table view in MLflow',
                   }),
+                },
+                {
                   validator: this.tagNameValidator,
                 },
               ]}
