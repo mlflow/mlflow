@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import requests
 import pathlib
+import cgi
 
 import pytest
 
@@ -73,17 +74,21 @@ def read_file(path):
         return f.read()
 
 
-def upload_file(path, url):
+def upload_file(path, url, headers=None):
     with open(path, "rb") as f:
-        requests.put(url, data=f).raise_for_status()
+        requests.put(url, data=f, headers=headers).raise_for_status()
 
 
-def download_file(url, local_path):
-    with requests.get(url, stream=True) as r:
+def download_file(url, local_path, headers=None):
+    with requests.get(url, stream=True, headers=headers) as r:
         r.raise_for_status()
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert "Content-Type" in r.headers
+        assert "Content-Disposition" in r.headers
         with open(local_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
+        return r
 
 
 def test_mlflow_artifacts_rest_apis(artifacts_server, tmpdir):
@@ -321,3 +326,70 @@ def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_ser
     )
     get_model_version_artifact_response.raise_for_status()
     assert get_model_version_artifact_response.text == "abcdefg"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_mime_type"),
+    [
+        ("a.txt", "text/plain"),
+        ("b.pkl", "application/octet-stream"),
+        ("c.png", "image/png"),
+        ("d.pdf", "application/pdf"),
+        ("MLmodel", "text/plain"),
+        ("mlproject", "text/plain"),
+    ],
+)
+def test_mime_type_for_download_artifacts_api(
+    artifacts_server, tmpdir, filename, expected_mime_type
+):
+    default_artifact_root = artifacts_server.default_artifact_root
+    url = artifacts_server.url
+    test_file = tmpdir.join(filename)
+    test_file.write(None)
+    upload_file(test_file, f"{default_artifact_root}/dir/{filename}")
+    download_response = download_file(f"{default_artifact_root}/dir/{filename}", test_file)
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert download_response.headers["Content-Type"] == expected_mime_type
+
+    mlflow.set_tracking_uri(url)
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(test_file)
+    artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": filename}
+    )
+    artifact_response.raise_for_status()
+    _, params = cgi.parse_header(artifact_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert artifact_response.headers["Content-Type"] == expected_mime_type
+    assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+@pytest.mark.parametrize(
+    ("filename", "requested_mime_type", "responded_mime_type"),
+    [
+        ("b.pkl", "text/html", "application/octet-stream"),
+        ("c.png", "text/html", "image/png"),
+        ("d.pdf", "text/html", "application/pdf"),
+    ],
+)
+def test_server_overrides_requested_mime_type(
+    artifacts_server, tmpdir, filename, requested_mime_type, responded_mime_type
+):
+    default_artifact_root = artifacts_server.default_artifact_root
+    test_file = tmpdir.join(filename)
+    test_file.write(None)
+    upload_file(
+        test_file,
+        f"{default_artifact_root}/dir/{filename}",
+    )
+    download_response = download_file(
+        f"{default_artifact_root}/dir/{filename}",
+        test_file,
+        headers={"Accept": requested_mime_type},
+    )
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert download_response.headers["Content-Type"] == responded_mime_type

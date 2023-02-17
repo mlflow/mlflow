@@ -165,8 +165,9 @@ catboost:
     install_dev: |
       # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
       if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        # TODO: Remove the commit once https://github.com/catboost/catboost/issues/2242 is fixed
         pip wheel --no-deps --wheel-dir $CACHE_DIR \
-          git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+          git+https://github.com/catboost/catboost.git@f8921d839eccf11e533a46347dde5b5b25b17190#subdirectory=catboost/python-package
       fi
       pip install $CACHE_DIR/catboost-*.whl
 

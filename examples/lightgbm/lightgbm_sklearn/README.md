@@ -6,6 +6,6 @@ Like the other LightGBM example, we enable autologging for LightGBM scikit-learn
 
 You can run this example using the following command:
 
-```python
+```shell
 python train.py
 ```

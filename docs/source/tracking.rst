@@ -596,9 +596,6 @@ Autologging captures the following information:
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
-.. note::
-  - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
-
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 
@@ -616,9 +613,6 @@ Autologging captures the following information:
 +-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
-
-.. note::
-  - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 

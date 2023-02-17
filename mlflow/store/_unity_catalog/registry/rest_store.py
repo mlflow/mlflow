@@ -241,7 +241,6 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
-
     def _create_model_version(self, name, source, run_id=None, description=None):
         """
         Create a new model version from given source and run ID.
@@ -256,6 +255,9 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
+        _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags)
+        # TODO: Implement client-side model version upload and finalization logic here
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
@@ -332,7 +334,6 @@ class UcModelRegistryStore(BaseRestStore):
             versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _raise_unsupported_method(method="transition_model_version_stage")
 
@@ -412,7 +413,6 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :param version: Registered model version.
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
-        :return: None
         """
         _raise_unsupported_method(method="set_model_version_tag")
 
@@ -423,6 +423,5 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :param version: Registered model version.
         :param key: Tag key.
-        :return: None
         """
         _raise_unsupported_method(method="delete_model_version_tag")
