@@ -5,6 +5,8 @@ import re
 import tempfile
 import posixpath
 import urllib
+from mimetypes import guess_type
+import pathlib
 
 import logging
 from functools import wraps
@@ -441,15 +443,25 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     return request_message
 
 
+def _response_with_file_attachment_headers(file_path, response):
+    mime_type = _guess_mime_type(file_path)
+    filename = pathlib.Path(file_path).name
+    response.mimetype = mime_type
+    content_disposition_header_name = "Content-Disposition"
+    if content_disposition_header_name not in response.headers:
+        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Type"] = mime_type
+    return response
+
+
 def _send_artifact(artifact_repository, path):
-    filename = os.path.abspath(artifact_repository.download_artifacts(path))
-    extension = os.path.splitext(filename)[-1].replace(".", "")
+    file_path = os.path.abspath(artifact_repository.download_artifacts(path))
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
-    if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype="text/plain", as_attachment=True)
-    else:
-        return send_file(filename, as_attachment=True)
+    mime_type = _guess_mime_type(file_path)
+    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
+    return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
 def catch_mlflow_exception(func):
@@ -493,6 +505,21 @@ _TEXT_EXTENSIONS = [
     MLMODEL_FILE_NAME,
     MLPROJECT_FILE_NAME,
 ]
+
+
+def _guess_mime_type(file_path):
+    filename = pathlib.Path(file_path).name
+    extension = os.path.splitext(filename)[-1].replace(".", "")
+    # for MLmodel/mlproject with no extensions
+    if extension == "":
+        extension = filename
+    if extension in _TEXT_EXTENSIONS:
+        return "text/plain"
+    mime_type, _ = guess_type(filename)
+    if not mime_type:
+        # As a fallback, if mime type is not detected, treat it as a binary file
+        return "application/octet-stream"
+    return mime_type
 
 
 def _disable_unless_serve_artifacts(func):
@@ -1534,7 +1561,6 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
-    basename = posixpath.basename(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -1547,10 +1573,9 @@ def _download_artifact(artifact_path):
         file_handle.close()
         tmp_dir.cleanup()
 
-    return current_app.response_class(
-        stream_and_remove_file(),
-        headers={"Content-Disposition": "attachment", "filename": basename},
-    )
+    file_sender_response = current_app.response_class(stream_and_remove_file())
+
+    return _response_with_file_attachment_headers(artifact_path, file_sender_response)
 
 
 @catch_mlflow_exception
