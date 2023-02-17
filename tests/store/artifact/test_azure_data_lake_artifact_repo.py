@@ -11,7 +11,6 @@ from azure.storage.filedatalake import (
 )
 from azure.storage.filedatalake import PathProperties
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import (
     AzureDataLakeArtifactRepository,
     _parse_abfss_uri,
@@ -77,17 +76,17 @@ def test_parse_global_abfss_uri():
     global_abfs_with_multi_path = "abfss://filesystem@acct.dfs.core.windows.net/a/b"
     assert parse(global_abfs_with_multi_path) == ("filesystem", "acct", "a/b")
 
-    with pytest.raises(Exception, match="ABFSS URI must be of the form"):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
         parse("abfss://filesystem@acct.dfs.core.evil.net/path")
-    with pytest.raises(Exception, match="ABFSS URI must be of the form"):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
         parse("abfss://filesystem@acct/path")
-    with pytest.raises(Exception, match="ABFSS URI must be of the form"):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
         parse("abfss://acct.dfs.core.windows.net/path")
-    with pytest.raises(Exception, match="ABFSS URI must be of the form"):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
         parse("abfss://@acct.dfs.core.windows.net/path")
-    with pytest.raises(Exception, match="ABFSS URI must be of the form"):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
         parse("abfss://filesystem@acctxdfs.core.windows.net/path")
-    with pytest.raises(Exception, match="Not an ABFSS URI"):
+    with pytest.raises(MlflowException, match="Not an ABFSS URI"):
         parse("abfs://cont@acct.dfs.core.windows.net/path")
 
 

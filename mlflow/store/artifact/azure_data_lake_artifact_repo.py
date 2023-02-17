@@ -1,6 +1,5 @@
 import os
 import posixpath
-import pathlib
 import re
 import urllib.parse
 
@@ -14,7 +13,8 @@ from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 def _parse_abfss_uri(uri):
     """
-    Parse an ABFSS URI in the format "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
+    Parse an ABFSS URI in the format
+    "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
     returning a tuple consisting of the filesystem, account name, and path
 
     See more details about ABFSS URIs at
@@ -31,7 +31,7 @@ def _parse_abfss_uri(uri):
 
     if match is None:
         raise MlflowException(
-            "ABFSS URI must be of the form " "abfss://<filesystem>@<account>.dfs.core.windows.net"
+            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net"
         )
     filesystem = match.group(1)
     account_name = match.group(2)
@@ -42,7 +42,7 @@ def _parse_abfss_uri(uri):
 
 
 def _get_data_lake_client(account_url, credential):
-    from azure.storage.filedatalake import DataLakeServiceClient, DataLakeDirectoryClient
+    from azure.storage.filedatalake import DataLakeServiceClient
 
     return DataLakeServiceClient(account_url, credential)
 
@@ -69,7 +69,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.base_data_lake_directory = path
-        print(f"Got {self.base_data_lake_directory} from {artifact_uri}")
 
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError(
@@ -80,7 +79,6 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
         dest_path = self.base_data_lake_directory
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        print(f"Calling get_dir_client with '{dest_path}'")
         dir_client = self.fs_client.get_directory_client(dest_path)
         local_dir = os.path.abspath(local_dir)
         for root, _, filenames in os.walk(local_dir):
