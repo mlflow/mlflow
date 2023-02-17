@@ -40,6 +40,7 @@ from mlflow.server.handlers import (
     _delete_registered_model_tag,
     _set_model_version_tag,
     _delete_model_version_tag,
+    _guess_mime_type,
 )
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
@@ -66,6 +67,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
+from mlflow.utils.os import is_windows
 
 
 @pytest.fixture()
@@ -641,3 +643,39 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     _delete_model_version_tag()
     _, args = mock_model_registry_store.delete_model_version_tag.call_args
     assert args == {"name": name, "version": version, "key": key}
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("file_path", "expected_mime_type"),
+    [
+        ("/a/b/c.txt", "text/plain"),
+        ("c.txt", "text/plain"),
+        ("c.pkl", "application/octet-stream"),
+        ("/a/b/c.pkl", "application/octet-stream"),
+        ("/a/b/c.png", "image/png"),
+        ("/a/b/c.pdf", "application/pdf"),
+        ("/a/b/MLmodel", "text/plain"),
+        ("/a/b/mlproject", "text/plain"),
+    ],
+)
+def test_guess_mime_type(file_path, expected_mime_type):
+    assert _guess_mime_type(file_path) == expected_mime_type
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("file_path", "expected_mime_type"),
+    [
+        ("C:\\a\\b\\c.txt", "text/plain"),
+        ("c.txt", "text/plain"),
+        ("c.pkl", "application/octet-stream"),
+        ("C:\\a\\b\\c.pkl", "application/octet-stream"),
+        ("C:\\a\\b\\c.png", "image/png"),
+        ("C:\\a\\b\\c.pdf", "application/pdf"),
+        ("C:\\a\\b\\MLmodel", "text/plain"),
+        ("C:\\a\\b\\mlproject", "text/plain"),
+    ],
+)
+def test_guess_mime_type_on_windows(file_path, expected_mime_type):
+    assert _guess_mime_type(file_path) == expected_mime_type
