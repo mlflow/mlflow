@@ -315,10 +315,11 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        # TODO: Implement client-side model version upload and finalization logic here
-        return self._create_model_version(
+        model_version = self._create_model_version(
             name=name, source=source, run_id=run_id, description=description
         )
+        scoped_token = self._generate_temporary_model_version_credential()
+        self._finalize_model_version(name=name, version=model_version.version)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """

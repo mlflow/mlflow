@@ -79,7 +79,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks":
+    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == "databricks-uc":
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(

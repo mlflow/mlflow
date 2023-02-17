@@ -7,8 +7,8 @@ from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_da
 _MODELS_URI_SUFFIX_LATEST = "latest"
 
 
-def is_using_databricks_registry(uri):
-    profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+def is_using_databricks_registry(artifact_uri):
+    profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
     return is_databricks_uri(profile_uri)
 
 

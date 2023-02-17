@@ -31,7 +31,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
 from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
@@ -2270,7 +2270,7 @@ class MlflowClient:
             Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
-        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
+        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri and not is_databricks_unity_catalog_uri(self._registry_uri):
             if not run_id:
                 eprint(
                     "Warning: no run_link will be recorded with the model version "

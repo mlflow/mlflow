@@ -1,19 +1,16 @@
 import logging
-import json
+from urllib.parse import urlunsplit
 
 import mlflow.tracking
-from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import GenerateTemporaryModelVersionCredentialsResponse
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.rest_utils import http_request, call_endpoint
-from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_unity_catalog_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
-    is_using_databricks_registry,
 )
 
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
@@ -41,18 +38,26 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        if not is_using_databricks_registry(artifact_uri):
+        registry_uri = mlflow.get_registry_uri()
+        if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
-                message="A valid databricks profile is required to instantiate this repository",
+                message="Attempted to instantiate an artifact repo to access models in the "
+                        f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. Please specify a "
+                        f"Unity Catalog registry URI of the form 'databricks-uc[://profile]', e.g. by calling "
+                        f"mlflow.set_registry_uri('databricks-uc') if using the MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
         from mlflow.tracking.client import MlflowClient
 
-        self.databricks_profile_uri = (
-                get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
-        )
-        self.client = MlflowClient(registry_uri=self.databricks_profile_uri)
+        profile, key_prefix = get_db_info_from_uri(artifact_uri)
+        if key_prefix is not None:
+            raise MlflowException("Remote model registry access via model URIs of the form "
+                                  "'models://<scope>@<prefix>/<model_name>/<version_or_stage>' is unsupported for "
+                                  "models in the Unity Catalog. We recommend that you access the Unity Catalog "
+                                  "from the current Databricks workspace instead.")
+        registry_uri = urlunsplit(("databricks-uc", profile, "", "", ""))
+        self.client = MlflowClient(registry_uri=registry_uri)
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
     def _get_blob_storage_path(self):

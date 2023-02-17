@@ -1,11 +1,9 @@
 import os
 import posixpath
+import pathlib
 import re
 import urllib.parse
 
-import re
-from azure.storage.filedatalake import DataLakeServiceClient, DataLakeDirectoryClient
-from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -58,131 +56,79 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri, credential):
         super().__init__(artifact_uri)
+        from azure.storage.filedatalake import DataLakeServiceClient, DataLakeDirectoryClient
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
-        from azure.storage.blob import BlobServiceClient
-
         (filesystem, account_name, api_uri_suffix, path) = _parse_abfss_uri(artifact_uri)
 
-        account_url = f"https://{account}.{api_uri_suffix}"
-        self.client = BlobServiceClient(
+        account_url = f"https://{account_name}.{api_uri_suffix}"
+        data_lake_client = DataLakeServiceClient(
             account_url=account_url, credential=credential
         )
-
-    @staticmethod
-    def parse_wasbs_uri(uri):
-        """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
-        parsed = urllib.parse.urlparse(uri)
-        if parsed.scheme != "wasbs":
-            raise Exception("Not a WASBS URI: %s" % uri)
-
-        match = re.match(
-            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
-        )
-
-        if match is None:
-            raise Exception(
-                "WASBS URI must be of the form "
-                "<container>@<account>.blob.core.windows.net"
-                " or <container>@<account>.blob.core.chinacloudapi.cn"
-            )
-        container = match.group(1)
-        storage_account = match.group(2)
-        api_uri_suffix = match.group(3)
-        path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
-        return container, storage_account, path, api_uri_suffix
+        self.fs_client = data_lake_client.get_file_system_client(filesystem)
+        self.base_data_lake_directory = path
+        self.directory_client = self.fs_client.get_directory_client(self.base_data_lake_directory)
 
     def log_artifact(self, local_file, artifact_path=None):
-        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
-        container_client = self.client.get_container_client(container)
-        if artifact_path:
-            dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        with open(local_file, "rb") as file:
-            container_client.upload_blob(
-                dest_path, file, overwrite=True, timeout=self.write_timeout
-            )
+        raise NotImplementedError("This artifact repository does not support logging single artifacts")
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
-        container_client = self.client.get_container_client(container)
+        dest_path = self.base_data_lake_directory
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
+        dir_client = self.fs_client.get_directory_client(dest_path)
         local_dir = os.path.abspath(local_dir)
         for root, _, filenames in os.walk(local_dir):
-            upload_path = dest_path
-            if root != local_dir:
-                rel_path = os.path.relpath(root, local_dir)
-                upload_path = posixpath.join(dest_path, rel_path)
+            rel_path = os.path.relpath(root, local_dir)
             for f in filenames:
-                remote_file_path = posixpath.join(upload_path, f)
+                # TODO: can base directory client get file at path/to/directory? or do we need
+                # a new directory client per local `root` directory that we walk in os.walk?
+                file_client = dir_client.get_file_client(posixpath.join(rel_path, f))
                 local_file_path = os.path.join(root, f)
-                with open(local_file_path, "rb") as file:
-                    container_client.upload_blob(
-                        remote_file_path, file, overwrite=True, timeout=self.write_timeout
-                    )
+                if os.path.getsize(local_file_path) == 0:
+                    file_client.create_file()
+                else:
+                    with open(local_file_path, "rb") as file:
+                        file_client.upload_data(
+                            data=file, overwrite=True
+                        )
 
     def list_artifacts(self, path=None):
-        # Newer versions of `azure-storage-blob` (>= 12.4.0) provide a public
-        # `azure.storage.blob.BlobPrefix` object to signify that a blob is a directory,
-        # while older versions only expose this API internally as
-        # `azure.storage.blob._models.BlobPrefix`
-        try:
-            from azure.storage.blob import BlobPrefix
-        except ImportError:
-            from azure.storage.blob._models import BlobPrefix
-
-        def is_dir(result):
-            return isinstance(result, BlobPrefix)
-
-        (container, _, artifact_path, _) = self.parse_wasbs_uri(self.artifact_uri)
-        container_client = self.client.get_container_client(container)
-        dest_path = artifact_path
+        directory_to_list = self.base_data_lake_directory
         if path:
-            dest_path = posixpath.join(dest_path, path)
+            directory_to_list = posixpath.join(directory_to_list, path)
         infos = []
-        prefix = dest_path if dest_path.endswith("/") else dest_path + "/"
-        results = container_client.walk_blobs(name_starts_with=prefix)
-
-        for result in results:
+        for result in self.fs_client.get_paths(path=directory_to_list):
             if (
-                dest_path == result.name
+                directory_to_list == result.name
             ):  # result isn't actually a child of the path we're interested in, so skip it
                 continue
-
-            if not result.name.startswith(artifact_path):
-                raise MlflowException(
-                    "The name of the listed Azure blob does not begin with the specified"
-                    " artifact path. Artifact path: {artifact_path}. Blob name:"
-                    " {blob_name}".format(artifact_path=artifact_path, blob_name=result.name)
-                )
-
-            if is_dir(result):
-                subdir = posixpath.relpath(path=result.name, start=artifact_path)
+            if result.is_directory:
+                subdir = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
                 if subdir.endswith("/"):
                     subdir = subdir[:-1]
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
-            else:  # Just a plain old blob
-                file_name = posixpath.relpath(path=result.name, start=artifact_path)
-                infos.append(FileInfo(file_name, is_dir=False, file_size=result.size))
+            else:
+                file_name = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
+                infos.append(FileInfo(file_name, is_dir=False, file_size=result.content_length))
 
         # The list_artifacts API expects us to return an empty list if the
         # the path references a single file.
-        rel_path = dest_path[len(artifact_path) + 1 :]
+        rel_path = directory_to_list[len(self.base_data_lake_directory) + 1 :]
         if (len(infos) == 1) and not infos[0].is_dir and (infos[0].path == rel_path):
             return []
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        (container, _, remote_root_path, _) = self.parse_wasbs_uri(self.artifact_uri)
-        container_client = self.client.get_container_client(container)
-        remote_full_path = posixpath.join(remote_root_path, remote_file_path)
+        remote_full_path = posixpath.join(self.base_data_lake_directory, remote_file_path)
+        base_dir = posixpath.dirname(remote_full_path)
+        dir_client = self.fs_client.get_directory_client(base_dir)
+        filename = posixpath.basename(remote_full_path)
+        file_client = dir_client.get_file_client(filename)
         with open(local_path, "wb") as file:
-            container_client.download_blob(remote_full_path).readinto(file)
+            file_client.download_file().readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        raise NotImplementedError("This artifact repository does not support deleting artifacts")
