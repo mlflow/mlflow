@@ -112,7 +112,7 @@ def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_e
         with mock.patch("boto3.client") as mock_get_s3_client:
             repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
             repo._get_s3_client()
-            mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify)
+            mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify, aws_access_key_id=None, aws_secret_access_key=None, aws_session_token=None)
 
 
 def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmpdir):
