@@ -39,10 +39,10 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
+    model_version_from_uc_proto,
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
-
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -77,10 +77,8 @@ def _raise_unsupported_method(method, message=None):
     raise MlflowException(" ".join(messages))
 
 
-# TODO: re-enable the abstract-method check in a follow-up PR. It's disabled for now because
-# we haven't yet implemented required model version CRUD APIs in this class
 @experimental
-class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
+class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
@@ -241,3 +239,137 @@ class UcModelRegistryStore(BaseRestStore):  # pylint: disable=abstract-method
         :return: None
         """
         _raise_unsupported_method(method="delete_registered_model_tag")
+
+    # CRUD API for ModelVersion objects
+    def create_model_version(
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
+    ):
+        """
+        Create a new model version from given source and run ID.
+
+        :param name: Registered model name.
+        :param source: Source path where the MLflow model is stored.
+        :param run_id: Run ID from MLflow tracking server that generated the model.
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                     instances associated with this model version.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
+        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 created in the backend.
+        """
+        _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags)
+        # TODO: Implement client-side model version upload and finalization logic here
+        req_body = message_to_json(
+            CreateModelVersionRequest(
+                name=name,
+                source=source,
+                run_id=run_id,
+                description=description,
+            )
+        )
+        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+        return response_proto.model_version
+
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+        """
+        Update model version stage.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param stage: New desired stage for this model version.
+        :param archive_existing_versions: If this flag is set to ``True``, all existing model
+            versions in the stage will be automatically moved to the "archived" stage. Only valid
+            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
+
+        """
+        _raise_unsupported_method(method="transition_model_version_stage")
+
+    def update_model_version(self, name, version, description):
+        """
+        Update metadata associated with a model version in backend.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param description: New model description.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        req_body = message_to_json(
+            UpdateModelVersionRequest(name=name, version=str(version), description=description)
+        )
+        response_proto = self._call_endpoint(UpdateModelVersionRequest, req_body)
+        return model_version_from_uc_proto(response_proto.model_version)
+
+    def delete_model_version(self, name, version):
+        """
+        Delete model version in backend.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :return: None
+        """
+        req_body = message_to_json(DeleteModelVersionRequest(name=name, version=str(version)))
+        self._call_endpoint(DeleteModelVersionRequest, req_body)
+
+    def get_model_version(self, name, version):
+        """
+        Get the model version instance by name and version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        req_body = message_to_json(GetModelVersionRequest(name=name, version=str(version)))
+        response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
+        return model_version_from_uc_proto(response_proto.model_version)
+
+    def get_model_version_download_uri(self, name, version):
+        """
+        Get the download location in Model Registry for this model version.
+        NOTE: For first version of Model Registry, since the models are not copied over to another
+              location, download URI points to input source path.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :return: A single URI location that allows reads for downloading.
+        """
+        req_body = message_to_json(
+            GetModelVersionDownloadUriRequest(name=name, version=str(version))
+        )
+        response_proto = self._call_endpoint(GetModelVersionDownloadUriRequest, req_body)
+        return response_proto.artifact_uri
+
+    def search_model_versions(self, filter_string):
+        """
+        Search for model versions in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'`` or
+                              ``run_id = '...'``.
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects.
+        """
+        req_body = message_to_json(SearchModelVersionsRequest(filter=filter_string))
+        response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
+        model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
+        return PagedList(model_versions, response_proto.next_page_token)
+
+    def set_model_version_tag(self, name, version, tag):
+        """
+        Set a tag for the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+        """
+        _raise_unsupported_method(method="set_model_version_tag")
+
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key.
+        """
+        _raise_unsupported_method(method="delete_model_version_tag")
