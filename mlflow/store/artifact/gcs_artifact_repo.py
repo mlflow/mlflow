@@ -74,7 +74,9 @@ class GCSArtifactRepository(ArtifactRepository):
             return self.gcs.Client.create_anonymous_client()
 
     def _get_bucket(self, bucket):
-        return self._get_client().bucket(bucket)
+        client = self._get_client()
+        print(f"Got client {client}")
+        return client.bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)

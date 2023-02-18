@@ -36,6 +36,7 @@ def test_list_artifacts_empty(gcs_mock):
 
 def test_custom_gcs_client_used():
     mock_client = mock.MagicMock(autospec=gcs_client.Client)
+    print(f"Using client {mock_cliente}")
     repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_client=mock_client)
     mock_client.bucket.return_value.list_blobs.return_value = mock.MagicMock()
     repo.list_artifacts()
