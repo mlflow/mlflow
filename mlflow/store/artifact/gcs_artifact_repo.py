@@ -18,17 +18,21 @@ class GCSArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Google Cloud Storage.
 
-    Assumes the google credentials are available in the environment,
-    see https://google-cloud.readthedocs.io/en/latest/core/auth.html.
+    :param artifact_uri: URI of GCS bucket
+    :param client: Optional, exposed for testing. Python module to use for GCS
+                   operations, defaults to google.cloud.storage.
+    :param gcs_client: Optional. The actual client to use for GCS operations; a default
+                       client object will be created if unspecified, using default
+                       credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(self, artifact_uri, client=None):
+    def __init__(self, artifact_uri, client=None, gcs_client=None):
         if client:
             self.gcs = client
         else:
             from google.cloud import storage as gcs_storage
-
             self.gcs = gcs_storage
+        self.client = gcs_client
 
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
 
@@ -60,14 +64,17 @@ class GCSArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-    def _get_bucket(self, bucket):
+    def _get_client(self):
         from google.auth.exceptions import DefaultCredentialsError
-
+        if self.client is not None:
+            return self.client
         try:
-            storage_client = self.gcs.Client()
+            return self.gcs.Client()
         except DefaultCredentialsError:
-            storage_client = self.gcs.Client.create_anonymous_client()
-        return storage_client.bucket(bucket)
+            return self.gcs.Client.create_anonymous_client()
+
+    def _get_bucket(self, bucket):
+        return self._get_client().bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
