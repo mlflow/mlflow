@@ -31,6 +31,7 @@ class GCSArtifactRepository(ArtifactRepository):
             self.gcs = client
         else:
             from google.cloud import storage as gcs_storage
+
             self.gcs = gcs_storage
         self.client = gcs_client
 
@@ -66,6 +67,7 @@ class GCSArtifactRepository(ArtifactRepository):
 
     def _get_client(self):
         from google.auth.exceptions import DefaultCredentialsError
+
         if self.client is not None:
             return self.client
         try:
@@ -74,9 +76,7 @@ class GCSArtifactRepository(ArtifactRepository):
             return self.gcs.Client.create_anonymous_client()
 
     def _get_bucket(self, bucket):
-        client = self._get_client()
-        print(f"Got client {client}")
-        return client.bucket(bucket)
+        return self._get_client().bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
