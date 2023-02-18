@@ -66,6 +66,7 @@ class GCSArtifactRepository(ArtifactRepository):
 
     def _get_client(self):
         from google.auth.exceptions import DefaultCredentialsError
+
         if self.client is not None:
             return self.client
         try:
