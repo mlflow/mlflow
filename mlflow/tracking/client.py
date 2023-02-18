@@ -2270,7 +2270,12 @@ class MlflowClient:
             Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
-        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri and not is_databricks_unity_catalog_uri(self._registry_uri):
+        if (
+            not run_link
+            and is_databricks_uri(tracking_uri)
+            and tracking_uri != self._registry_uri
+            and not is_databricks_unity_catalog_uri(self._registry_uri)
+        ):
             if not run_id:
                 eprint(
                     "Warning: no run_link will be recorded with the model version "

@@ -31,6 +31,7 @@ class GCSArtifactRepository(ArtifactRepository):
             self.gcs = client
         else:
             from google.cloud import storage as gcs_storage
+
             self.gcs = gcs_storage
         self.client = gcs_client
 

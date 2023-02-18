@@ -3,7 +3,9 @@ from urllib.parse import urlunsplit
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_uc_registry_messages_pb2 import GenerateTemporaryModelVersionCredentialsResponse
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    GenerateTemporaryModelVersionCredentialsResponse,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -17,7 +19,9 @@ from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_st
 
 _logger = logging.getLogger(__name__)
 REGISTRY_GET_DOWNLOAD_URI_ENDPOINT = "/api/2.0/mlflow/unity-catalog/model-versions/get"
-REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
+REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = (
+    "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
+)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -42,9 +46,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
-                        f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. Please specify a "
-                        f"Unity Catalog registry URI of the form 'databricks-uc[://profile]', e.g. by calling "
-                        f"mlflow.set_registry_uri('databricks-uc') if using the MLflow Python client",
+                f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. Please specify a "
+                f"Unity Catalog registry URI of the form 'databricks-uc[://profile]', e.g. by calling "
+                f"mlflow.set_registry_uri('databricks-uc') if using the MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
@@ -52,10 +56,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
 
         profile, key_prefix = get_db_info_from_uri(artifact_uri)
         if key_prefix is not None:
-            raise MlflowException("Remote model registry access via model URIs of the form "
-                                  "'models://<scope>@<prefix>/<model_name>/<version_or_stage>' is unsupported for "
-                                  "models in the Unity Catalog. We recommend that you access the Unity Catalog "
-                                  "from the current Databricks workspace instead.")
+            raise MlflowException(
+                "Remote model registry access via model URIs of the form "
+                "'models://<scope>@<prefix>/<model_name>/<version_or_stage>' is unsupported for "
+                "models in the Unity Catalog. We recommend that you access the Unity Catalog "
+                "from the current Databricks workspace instead."
+            )
         registry_uri = urlunsplit(("databricks-uc", profile, "", "", ""))
         self.client = MlflowClient(registry_uri=registry_uri)
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
@@ -67,21 +73,30 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         req_body = {"name": self.model_name, "version": self.model_version}
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
-        return call_endpoint(host_creds=db_creds, endpoint=REGISTRY_GET_SCOPED_TOKEN_ENDPOINT, method="POST",
-                             json_body=req_body, response_proto=response_proto)
+        return call_endpoint(
+            host_creds=db_creds,
+            endpoint=REGISTRY_GET_SCOPED_TOKEN_ENDPOINT,
+            method="POST",
+            json_body=req_body,
+            response_proto=response_proto,
+        )
 
     def list_artifacts(self, path=None):
         raise MlflowException("This repository does not support listing artifacts.")
 
     def download_artifacts(self, artifact_path, dst_path=None):
         if artifact_path != "":
-            raise MlflowException(f"Got non-empty artifact_path {artifact_path} when attempting to download UC model "
-                                  f"version artifacts. Downloading specific artifacts for a model version in the "
-                                  f"Unity Catalog is not upported. Pass the empty string ('') as the artifact_path "
-                                  f"argument instead")
+            raise MlflowException(
+                f"Got non-empty artifact_path {artifact_path} when attempting to download UC model "
+                f"version artifacts. Downloading specific artifacts for a model version in the "
+                f"Unity Catalog is not upported. Pass the empty string ('') as the artifact_path "
+                f"argument instead"
+            )
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
-        repo = get_artifact_repo_from_storage_info(storage_location=blob_storage_path, scoped_token=scoped_token)
+        repo = get_artifact_repo_from_storage_info(
+            storage_location=blob_storage_path, scoped_token=scoped_token
+        )
         repo.download_artifacts(artifact_path, dst_path)
 
     def log_artifact(self, local_file, artifact_path=None):

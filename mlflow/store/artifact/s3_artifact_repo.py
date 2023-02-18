@@ -95,9 +95,7 @@ def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=Non
     )
 
 
-def _get_s3_client(access_key_id=None,
-                   secret_access_key=None,
-                   session_token=None):
+def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=None):
     s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
     do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
@@ -113,9 +111,15 @@ def _get_s3_client(access_key_id=None,
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
 
-    return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp,
-                                 access_key_id=access_key_id, secret_access_key=secret_access_key,
-                                 session_token=session_token)
+    return _cached_get_s3_client(
+        signature_version,
+        s3_endpoint_url,
+        verify,
+        timestamp,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+        session_token=session_token,
+    )
 
 
 class S3ArtifactRepository(ArtifactRepository):

@@ -27,7 +27,6 @@ class UnityCatalogFileSystem:
         """
         pass
 
-
     def _download_file(self, src_path, dst_path):
         """
         Download the specified file from the source path to the destination path
