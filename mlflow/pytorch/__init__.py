@@ -1067,44 +1067,48 @@ def autolog(
 
     try:
         import pytorch_lightning as pl
+    except ImportError:
+        pass
+    else:
         from mlflow.pytorch._lightning_autolog import patched_fit
 
         safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+
+    try:
+        import torch.utils.tensorboard.writer
     except ImportError:
         pass
+    else:
+        from mlflow.pytorch._pytorch_autolog import (
+            patched_add_event,
+            patched_add_hparams,
+            patched_add_summary,
+            _flush_queue,
+        )
 
-    from mlflow.pytorch._pytorch_autolog import (
-        patched_add_event,
-        patched_add_hparams,
-        patched_add_summary,
-        _flush_queue,
-    )
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.writer.FileWriter,
+            "add_event",
+            partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
+            manage_run=True,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.writer.FileWriter,
+            "add_summary",
+            patched_add_summary,
+            manage_run=True,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.SummaryWriter,
+            "add_hparams",
+            patched_add_hparams,
+            manage_run=True,
+        )
 
-    import torch.utils.tensorboard.writer
-
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.writer.FileWriter,
-        "add_event",
-        partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
-        manage_run=True,
-    )
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.writer.FileWriter,
-        "add_summary",
-        patched_add_summary,
-        manage_run=True,
-    )
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.SummaryWriter,
-        "add_hparams",
-        patched_add_hparams,
-        manage_run=True,
-    )
-
-    atexit.register(_flush_queue)
+        atexit.register(_flush_queue)
 
 
 if autolog.__doc__ is not None:

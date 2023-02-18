@@ -47,3 +47,16 @@ pyspark.ml.pipeline.PipelineModel
 pyspark.ml.tuning.CrossValidatorModel
 pyspark.ml.tuning.TrainValidationSplitModel
 
+# SynapeML models
+synapse.ml.cognitive.*
+synapse.ml.exploratory.*
+synapse.ml.featurize.*
+synapse.ml.geospatial.*
+synapse.ml.image.*
+synapse.ml.io.*
+synapse.ml.isolationforest.*
+synapse.ml.lightgbm.*
+synapse.ml.nn.*
+synapse.ml.opencv.*
+synapse.ml.stages.*
+synapse.ml.vw.*
