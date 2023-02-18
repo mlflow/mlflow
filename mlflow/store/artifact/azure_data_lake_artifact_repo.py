@@ -1,6 +1,5 @@
 import os
 import posixpath
-import pathlib
 import re
 import urllib.parse
 
@@ -14,34 +13,39 @@ from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
 def _parse_abfss_uri(uri):
     """
-    Parse an ABFSS URI in the format "abfs[s]://file_system@account_name.api_url_suffix/path",
-    returning a tuple consisting of the filesystem, account name, API URL suffix, and path
+    Parse an ABFSS URI in the format
+    "abfss://<file_system>@<account_name>.dbfs.core.windows.net/<path>",
+    returning a tuple consisting of the filesystem, account name, and path
+
+    See more details about ABFSS URIs at
+    https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
+
     :param uri: ABFSS URI to parse
-    :return: A tuple containing the name of the filesystem, account name, API URL suffix, and path
+    :return: A tuple containing the name of the filesystem, account name, and path
     """
-    # https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
-    # Format is abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>/<file_name>
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
         raise MlflowException("Not an ABFSS URI: %s" % uri)
 
-    match = re.match(
-        r"([^@]+)@([^.]+)\.(dfs\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
-    )
+    match = re.match(r"([^@]+)@([^.]+)\.dfs\.core\.windows\.net", parsed.netloc)
 
     if match is None:
         raise MlflowException(
-            "ABFSS URI must be of the form "
-            "abfss://<filesystem>@<account>.dfs.core.windows.net"
-            " or abfss://<filesystem>@<account>.dfs.core.chinacloudapi.cn"
+            "ABFSS URI must be of the form abfss://<filesystem>@<account>.dfs.core.windows.net"
         )
     filesystem = match.group(1)
     account_name = match.group(2)
-    api_uri_suffix = match.group(3)
     path = parsed.path
     if path.startswith("/"):
         path = path[1:]
-    return filesystem, account_name, api_uri_suffix, path
+    return filesystem, account_name, path
+
+
+def _get_data_lake_client(account_url, credential):
+    from azure.storage.filedatalake import DataLakeServiceClient
+
+    return DataLakeServiceClient(account_url, credential)
+
 
 class AzureDataLakeArtifactRepository(ArtifactRepository):
     """
@@ -56,23 +60,20 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri, credential):
         super().__init__(artifact_uri)
-        from azure.storage.filedatalake import DataLakeServiceClient, DataLakeDirectoryClient
-
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
-        (filesystem, account_name, api_uri_suffix, path) = _parse_abfss_uri(artifact_uri)
+        (filesystem, account_name, path) = _parse_abfss_uri(artifact_uri)
 
-        account_url = f"https://{account_name}.{api_uri_suffix}"
-        data_lake_client = DataLakeServiceClient(
-            account_url=account_url, credential=credential
-        )
+        account_url = f"https://{account_name}.dfs.core.windows.net"
+        data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.base_data_lake_directory = path
-        self.directory_client = self.fs_client.get_directory_client(self.base_data_lake_directory)
 
     def log_artifact(self, local_file, artifact_path=None):
-        raise NotImplementedError("This artifact repository does not support logging single artifacts")
+        raise NotImplementedError(
+            "This artifact repository does not support logging single artifacts"
+        )
 
     def log_artifacts(self, local_dir, artifact_path=None):
         dest_path = self.base_data_lake_directory
@@ -91,16 +92,14 @@ class AzureDataLakeArtifactRepository(ArtifactRepository):
                     file_client.create_file()
                 else:
                     with open(local_file_path, "rb") as file:
-                        file_client.upload_data(
-                            data=file, overwrite=True
-                        )
+                        file_client.upload_data(data=file, overwrite=True)
 
     def list_artifacts(self, path=None):
         directory_to_list = self.base_data_lake_directory
         if path:
             directory_to_list = posixpath.join(directory_to_list, path)
         infos = []
-        for result in self.fs_client.get_paths(path=directory_to_list):
+        for result in self.fs_client.get_paths(path=directory_to_list, recursive=False):
             if (
                 directory_to_list == result.name
             ):  # result isn't actually a child of the path we're interested in, so skip it
