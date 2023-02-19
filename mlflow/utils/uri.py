@@ -16,6 +16,7 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
+_DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
 
 def is_local_uri(uri):

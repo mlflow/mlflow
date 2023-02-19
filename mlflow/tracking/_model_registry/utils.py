@@ -19,6 +19,7 @@ from mlflow.tracking._tracking_service.utils import (
 )
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 
@@ -182,7 +183,9 @@ def _get_store_registry():
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
     # Register a placeholder function that raises if users pass a registry URI with scheme
     # "databricks-uc"
-    _model_registry_store_registry.register("databricks-uc", _get_databricks_uc_rest_store)
+    _model_registry_store_registry.register(
+        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
+    )
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
