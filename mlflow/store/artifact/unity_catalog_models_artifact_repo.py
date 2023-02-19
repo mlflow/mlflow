@@ -1,7 +1,6 @@
 import logging
 from urllib.parse import urlunsplit
 
-import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
@@ -10,7 +9,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import call_endpoint
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_unity_catalog_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_unity_catalog_uri, DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -42,13 +41,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, registry_uri):
-        registry_uri = mlflow.get_registry_uri()
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
                 f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. Please specify a "
-                f"Unity Catalog registry URI of the form 'databricks-uc[://profile]', e.g. by calling "
-                f"mlflow.set_registry_uri('databricks-uc') if using the MLflow Python client",
+                f"Unity Catalog registry URI of the form '{DATABRICKS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
+                f"mlflow.set_registry_uri('{DATABRICKS_UNITY_CATALOG_SCHEME}') if using the MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
@@ -62,7 +60,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 "models in the Unity Catalog. We recommend that you access the Unity Catalog "
                 "from the current Databricks workspace instead."
             )
-        registry_uri = urlunsplit(("databricks-uc", profile, "", "", ""))
+        registry_uri = urlunsplit((DATABRICKS_UNITY_CATALOG_SCHEME, profile, "", "", ""))
         self.client = MlflowClient(registry_uri=registry_uri)
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
