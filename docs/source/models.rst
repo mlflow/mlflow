@@ -1098,16 +1098,63 @@ The ``lightgbm`` model flavor enables logging of `LightGBM models
 in MLflow format via the :py:func:`mlflow.lightgbm.save_model()` and :py:func:`mlflow.lightgbm.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
-You can also use the :py:func:`mlflow.lightgbm.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.lightgbm.load_model()`
 method to load MLflow Models with the ``lightgbm`` model flavor in native LightGBM format.
 
-Note that the ``lightgbm`` model flavor only supports an instance of `lightgbm.Booster
-<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`__,
-not models that implement the `scikit-learn API
-<https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`_.
+Note that the scikit-learn API for LightGBM is now supported. For more information, see :py:mod:`mlflow.lightgbm`.
 
-For more information, see :py:mod:`mlflow.lightgbm`.
+``LightGBM`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The example below
+
+* Loads the IRIS dataset from ``scikit-learn``
+* Trains a LightGBM ``LGBMClassifier``
+* Logs the model and feature importance's using ``mlflow``
+* Loads the logged model and makes predictions
+
+.. code-block:: python
+
+    from lightgbm import LGBMClassifier
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+    import mlflow
+
+    data = load_iris()
+
+    # Remove special characters from feature names to be able to use them as keys for mlflow metrics
+    feature_names = [
+        name.replace(" ", "_").replace("(", "").replace(")", "")
+        for name in data["feature_names"]
+    ]
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["data"], data["target"], test_size=0.2
+    )
+    # create model instance
+    lgb_classifier = LGBMClassifier(
+        n_estimators=10,
+        max_depth=3,
+        learning_rate=1,
+        objective="binary:logistic",
+        random_state=123,
+    )
+
+    # Fit and save model and LGBMClassifier feature importances as mlflow metrics
+    with mlflow.start_run():
+        lgb_classifier.fit(X_train, y_train)
+        feature_importances = dict(zip(feature_names, lgb_classifier.feature_importances_))
+        feature_importance_metrics = {
+            f"feature_importance_{feature_name}": imp_value
+            for feature_name, imp_value in feature_importances.items()
+        }
+        mlflow.log_metrics(feature_importance_metrics)
+        model_info = mlflow.lightgbm.log_model(lgb_classifier, "iris-classifier")
+
+    # Load saved model and make predictions
+    lgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    y_pred = lgb_classifier_saved.predict(X_test)
+    print(y_pred)
+
 
 CatBoost (``catboost``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
