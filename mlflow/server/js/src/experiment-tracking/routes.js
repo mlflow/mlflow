@@ -3,8 +3,12 @@ import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 class Routes {
   static rootRoute = '/';
 
-  static getExperimentPageRoute(experimentId) {
-    return `/experiments/${experimentId}`;
+  static getExperimentPageRoute(experimentId, isComparingRuns = false) {
+    if (isComparingRuns) {
+      return `/experiments/${experimentId}?isComparingRuns=true`;
+    } else {
+      return `/experiments/${experimentId}`;
+    }
   }
 
   static searchRunsByUser(experimentId, user_id) {

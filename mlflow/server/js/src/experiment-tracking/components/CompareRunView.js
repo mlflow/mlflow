@@ -48,7 +48,7 @@ const LegacyCompareRunsPageCallout = (props) => {
             // eslint-disable-next-line max-len
             description='Callout message to tell user about new compare runs feature'
           />{' '}
-          <Link to={Routes.getExperimentPageRoute(props.experimentIds[0])}>
+          <Link to={Routes.getExperimentPageRoute(props.experimentIds[0], true)}>
             <FormattedMessage
               defaultMessage='Give it a try.'
               description='Link to new runs compare page'
