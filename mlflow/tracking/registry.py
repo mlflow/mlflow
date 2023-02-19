@@ -70,7 +70,9 @@ class StoreRegistry:
                  ``mlflow.store.{tracking|model_registry}.AbstractStore`` that fulfills the store
                   URI requirements.
         """
-        scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
+        scheme = (
+            store_uri if store_uri in {"databricks", "databricks-uc"} else get_uri_scheme(store_uri)
+        )
 
         try:
             store_builder = self._registry[scheme]

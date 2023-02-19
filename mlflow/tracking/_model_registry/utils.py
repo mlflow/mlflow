@@ -150,6 +150,17 @@ def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
+def _get_databricks_uc_rest_store(store_uri, **_):
+    from mlflow.exceptions import MlflowException
+    from mlflow.version import VERSION
+
+    raise MlflowException(
+        f"The current version of the MLflow client ({VERSION}) does not support models "
+        f"in the Unity Catalog. Please upgrade to the latest version of the MLflow Python client "
+        f"to access models in the Unity Catalog"
+    )
+
+
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.
 _model_registry_store_registry = None
@@ -166,6 +177,9 @@ def _get_store_registry():
 
     _model_registry_store_registry = ModelRegistryStoreRegistry()
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
+    # Register a placeholder function that raises if users pass a registry URI with scheme
+    # "databricks-uc"
+    _model_registry_store_registry.register("databricks-uc", _get_databricks_uc_rest_store)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)

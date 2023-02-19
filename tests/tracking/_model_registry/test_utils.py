@@ -1,9 +1,10 @@
 import io
 import pickle
-import os
 import pytest
-from unittest import mock
+import os
 
+import mlflow.tracking
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
@@ -18,6 +19,12 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 # and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.fixture()
+def reset_registry_uri():
+    yield
+    set_registry_uri(None)
 
 
 def test_set_get_registry_uri():
@@ -121,6 +128,13 @@ def test_get_store_caches_on_store_uri(tmpdir):
     assert store3 is store4
 
     assert store1 is not store3
+
+
+@pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
+def test_get_store_raises_on_uc_registry_uri(store_uri, reset_registry_uri):
+    set_registry_uri(store_uri)
+    with pytest.raises(MlflowException, match="does not support models in the Unity Catalog"):
+        mlflow.tracking.MlflowClient().search_registered_models()
 
 
 def test_store_object_can_be_serialized_by_pickle():
