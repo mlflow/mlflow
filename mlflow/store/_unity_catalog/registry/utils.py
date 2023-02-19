@@ -11,6 +11,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 
+
 def uc_model_version_status_to_string(status):
     return _STATUS_TO_STRING[status]
 
