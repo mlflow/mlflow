@@ -27,7 +27,7 @@ class Routes {
   static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
 
   static runPageWithArtifactSelectedRoute =
-    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath+';
+    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath*';
 
   /**
    * Get route to the metric plot page

@@ -3,7 +3,15 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import { Spacer, Switch, Tabs, Tooltip, Typography } from '@databricks/design-system';
+import {
+  Alert,
+  Button,
+  Spacer,
+  Switch,
+  Tabs,
+  Tooltip,
+  Typography,
+} from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -19,9 +27,55 @@ import Utils from '../../common/utils/Utils';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
+import { shouldUseNextRunsComparisonUI } from '../../common/utils/FeatureUtils';
+import { useExperimentPageFeedbackUrl } from './experiment-page/hooks/useExperimentPageFeedbackUrl';
 
 const { TabPane } = Tabs;
 
+const LegacyCompareRunsPageCallout = (props) => {
+  LegacyCompareRunsPageCallout.propTypes = {
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+  };
+  const feedbackFormUrl = useExperimentPageFeedbackUrl();
+  return shouldUseNextRunsComparisonUI() ? (
+    <Alert
+      type='info'
+      closable={false}
+      message={
+        <>
+          <FormattedMessage
+            defaultMessage='We’ve made several improvements to the new runs comparison experience.'
+            // eslint-disable-next-line max-len
+            description='Callout message to tell user about new compare runs feature'
+          />{' '}
+          <Link to={Routes.getExperimentPageRoute(props.experimentIds[0])}>
+            <FormattedMessage
+              defaultMessage='Give it a try.'
+              description='Link to new runs compare page'
+            />
+          </Link>{' '}
+          {feedbackFormUrl && (
+            <>
+              <FormattedMessage
+                defaultMessage="If you prefer to use this experience, we'd love to know more."
+                // eslint-disable-next-line max-len
+                description='Callout message to ask user for feedback about using legacy compare runs feature'
+              />{' '}
+              <a href={feedbackFormUrl} target='_blank' rel='noreferrer'>
+                <Button css={{ marginLeft: 16 }} type='link' size='small'>
+                  <FormattedMessage
+                    defaultMessage='Provide Feedback'
+                    description='Link to a survey for users to give feedback'
+                  />
+                </Button>
+              </a>
+            </>
+          )}
+        </>
+      }
+    />
+  ) : null;
+};
 export class CompareRunView extends Component {
   static propTypes = {
     experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)).isRequired,
@@ -381,6 +435,7 @@ export class CompareRunView extends Component {
     return (
       <div className='CompareRunView' ref={this.compareRunViewRef}>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <LegacyCompareRunsPageCallout experimentIds={experimentIds} />
         <CollapsibleSection
           title={this.props.intl.formatMessage({
             defaultMessage: 'Visualizations',

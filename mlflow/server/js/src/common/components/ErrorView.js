@@ -59,6 +59,7 @@ export class ErrorViewImpl extends Component {
   static centerMessages = {
     400: 'Bad Request',
     404: 'Page Not Found',
+    409: 'Resource Conflict',
   };
 
   renderErrorMessage(subMessage, fallbackHomePageReactRoute) {

@@ -9,7 +9,6 @@ import { Interpolation, Theme } from '@emotion/react';
 import cx from 'classnames';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
-import { ExperimentRunsTableEmptyOverlay } from '../../../../../common/components/ExperimentRunsTableEmptyOverlay';
 import Utils from '../../../../../common/utils/Utils';
 import { COLUMN_TYPES } from '../../../../constants';
 import {
@@ -18,22 +17,33 @@ import {
   UpdateExperimentViewStateFn,
 } from '../../../../types';
 
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
+import {
+  clearSearchExperimentsFacetsFilters,
+  isSearchFacetsFilterUsed,
+  SearchExperimentRunsFacetsState,
+} from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import {
   ADJUSTABLE_ATTRIBUTE_COLUMNS,
   ADJUSTABLE_ATTRIBUTE_COLUMNS_SINGLE_EXPERIMENT,
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
+  getRowIsLoadMore,
   getRowId,
   isCanonicalSortKeyOfType,
   useRunsColumnDefinitions,
 } from '../../utils/experimentPage.column-utils';
+import { RUNS_VISIBILITY_MODE } from '../../utils/experimentPage.common-utils';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
+import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
+import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 
 const ROW_HEIGHT = 32;
+const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
+
 export interface ExperimentViewRunsTableProps {
   /**
    * Actual set of prepared row data to be rendered
@@ -43,15 +53,17 @@ export interface ExperimentViewRunsTableProps {
   /**
    * Helper data set with metric, param and tag keys
    */
-  runsData: Pick<ExperimentRunsSelectorResult, 'metricKeyList' | 'paramKeyList' | 'tagsList'>;
+  runsData: ExperimentRunsSelectorResult;
 
   experiments: ExperimentEntity[];
   searchFacetsState: SearchExperimentRunsFacetsState;
   viewState: SearchExperimentRunsViewState;
   updateViewState: UpdateExperimentViewStateFn;
   isLoading: boolean;
+  moreRunsAvailable: boolean;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onAddColumnClicked: () => void;
+  loadMoreRunsFunc: () => void;
 }
 
 export const ExperimentViewRunsTable = React.memo(
@@ -60,10 +72,12 @@ export const ExperimentViewRunsTable = React.memo(
     searchFacetsState,
     runsData,
     isLoading,
+    moreRunsAvailable,
     updateSearchFacets,
     updateViewState,
     onAddColumnClicked,
     rowsData,
+    loadMoreRunsFunc,
   }: ExperimentViewRunsTableProps) => {
     const { isComparingRuns } = searchFacetsState;
     const { paramKeyList, metricKeyList, tagsList } = runsData;
@@ -89,6 +103,8 @@ export const ExperimentViewRunsTable = React.memo(
       ({ api }: SelectionChangedEvent) => {
         const selectedUUIDs: string[] = api
           .getSelectedRows()
+          // Filter out load more row as it's not a real run
+          .filter((row) => !row.isLoadMoreRow)
           .map(({ runInfo }) => runInfo.run_uuid);
         updateViewState({
           runsSelected: selectedUUIDs.reduce(
@@ -183,6 +199,38 @@ export const ExperimentViewRunsTable = React.memo(
       [gridApi, updateSearchFacets],
     );
 
+    // This callback toggles visibility of runs: either all of them or a particular one
+    const toggleRowVisibility = useCallback(
+      // `runUuidOrToggle` param can be a run ID or a keyword value indicating that all/none should be hidden
+      (runUuidOrToggle: string) => {
+        updateSearchFacets((existingFacets) => {
+          if (runUuidOrToggle === RUNS_VISIBILITY_MODE.SHOWALL) {
+            // Case #1: Showing all runs by clearing `runsHidden` array
+            return {
+              ...existingFacets,
+              runsHidden: [],
+            };
+          } else if (runUuidOrToggle === RUNS_VISIBILITY_MODE.HIDEALL) {
+            // Case #2: Hiding all runs by fully populating `runsHidden` array
+            return {
+              ...existingFacets,
+              runsHidden: rowsData.map((r) => r.runUuid),
+            };
+          }
+
+          // Case #3: toggling particular run
+          const uuid = runUuidOrToggle;
+          return {
+            ...existingFacets,
+            runsHidden: !existingFacets.runsHidden.includes(uuid)
+              ? [...existingFacets.runsHidden, uuid]
+              : existingFacets.runsHidden.filter((r) => r !== uuid),
+          };
+        });
+      },
+      [updateSearchFacets, rowsData],
+    );
+
     const gridReadyHandler = useCallback((params: GridReadyEvent) => {
       setGridApi(params.api);
       setColumnApi(params.columnApi);
@@ -194,6 +242,7 @@ export const ExperimentViewRunsTable = React.memo(
       onExpand: toggleRowExpanded,
       compareExperiments: experiments.length > 1,
       onTogglePin: togglePinnedRow,
+      onToggleVisibility: toggleRowVisibility,
       metricKeyList,
       paramKeyList,
       tagKeyList: filteredTagKeys,
@@ -210,9 +259,17 @@ export const ExperimentViewRunsTable = React.memo(
         gridApi.showLoadingOverlay();
       } else {
         gridApi.hideOverlay();
+
+        // If there are more runs available in the API, append
+        // additional special row that will display "Load more" button
+        if (rowsData.length && moreRunsAvailable) {
+          gridApi.setRowData([...rowsData, createLoadMoreRow()]);
+          return;
+        }
+
         gridApi.setRowData(rowsData);
       }
-    }, [gridApi, rowsData, isLoading]);
+    }, [gridApi, rowsData, isLoading, moreRunsAvailable, loadMoreRunsFunc]);
 
     // Count all columns available for selection
     const allAvailableColumnsCount = useMemo(() => {
@@ -242,7 +299,17 @@ export const ExperimentViewRunsTable = React.memo(
       return Math.max(0, allMetricsAndParamsColumns - selectedMetricsAndParamsColumns);
     }, [metricKeyList.length, paramKeyList.length, searchFacetsState.selectedColumns]);
 
-    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns;
+    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && rowsData.length > 0;
+
+    const allRunsCount = useMemo(
+      () =>
+        runsData.runInfos.filter(
+          (r) =>
+            searchFacetsState.runsPinned.includes(r.run_uuid) ||
+            runsData.runUuidsMatchingFilter.includes(r.run_uuid),
+        ).length,
+      [runsData, searchFacetsState.runsPinned],
+    );
 
     useLayoutEffect(() => {
       if (!gridApi) {
@@ -251,12 +318,14 @@ export const ExperimentViewRunsTable = React.memo(
       // Each time we switch to "compare runs" mode, we should
       // maximize columns so "run name" column will take up all remaining space
       if (isComparingRuns) {
+        // Selection feature is not supported in compare runs mode so we should deselect all
+        gridApi.deselectAll();
         gridApi.sizeColumnsToFit();
       }
     }, [gridApi, isComparingRuns]);
 
     return (
-      <div>
+      <div css={styles.tableAreaWrapper}>
         <div
           ref={containerElement}
           className={cx('ag-theme-balham ag-grid-sticky', {
@@ -267,7 +336,6 @@ export const ExperimentViewRunsTable = React.memo(
           <MLFlowAgGridLoader
             defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
             columnDefs={columnDefs}
-            domLayout='autoHeight'
             rowSelection='multiple'
             onGridReady={gridReadyHandler}
             onSelectionChanged={onSelectionChange}
@@ -277,6 +345,9 @@ export const ExperimentViewRunsTable = React.memo(
             suppressRowClickSelection
             suppressColumnMoveAnimation
             suppressScrollOnNewData
+            isFullWidthRow={getRowIsLoadMore}
+            fullWidthCellRenderer={'LoadMoreRowRenderer'}
+            fullWidthCellRendererParams={{ loadMoreRunsFunc }}
             suppressFieldDotNotation
             enableCellTextSelection
             components={getFrameworkComponents()}
@@ -284,6 +355,7 @@ export const ExperimentViewRunsTable = React.memo(
             loadingOverlayComponent='loadingOverlayComponent'
             loadingOverlayComponentParams={{ showImmediately: true }}
             getRowId={getRowId}
+            rowBuffer={ROW_BUFFER}
           />
           {displayAddColumnsCTA && (
             <ExperimentViewRunsTableAddColumnCTA
@@ -291,15 +363,18 @@ export const ExperimentViewRunsTable = React.memo(
               isInitialized={Boolean(gridApi)}
               onClick={onAddColumnClicked}
               visible={!isLoading}
+              moreRunsAvailable={moreRunsAvailable}
               moreAvailableParamsAndMetricsColumnCount={moreAvailableParamsAndMetricsColumns}
             />
           )}
         </div>
         {rowsData.length < 1 && !isLoading && (
-          <div css={styles.noResultsWrapper}>
-            <ExperimentRunsTableEmptyOverlay />
-          </div>
+          <ExperimentViewRunsEmptyTable
+            onClearFilters={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
+            isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
+          />
         )}
+        <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />
       </div>
     );
   },
@@ -325,15 +400,11 @@ const getGridColors = (theme: Theme) => ({
 });
 
 const styles = {
-  noResultsWrapper: (theme: Theme) => ({
-    marginTop: -theme.spacing.md * 4,
-    textAlign: 'center' as const,
-    backgroundColor: theme.colors.backgroundPrimary,
-    position: 'relative' as const,
-  }),
+  tableAreaWrapper: { display: 'flex', flexDirection: 'column' as const },
   agGridOverrides: (theme: Theme): Interpolation<Theme> => {
     const gridColors = getGridColors(theme);
     return {
+      height: '100%',
       position: 'relative',
       '&.ag-theme-balham': {
         // Set up internal variable values
@@ -407,20 +478,28 @@ const styles = {
           borderRight: 'none',
         },
 
-        // Fixed for loading overlay
+        // Fixed for loading overlay, should be above "load more" button
         '.ag-overlay-loading-wrapper': {
           paddingTop: theme.spacing.md * 4,
           alignItems: 'center',
+          zIndex: 2,
         },
         '.ag-overlay-loading-wrapper .ag-react-container': {
           flex: 1,
-          zIndex: 1,
         },
 
         // Adds border after the last column to separate contents from "Add columns" CTA
         '.ag-center-cols-container': {
-          borderRight: `1px solid var(--ag-border-color)`,
           minHeight: 0,
+        },
+
+        '.ag-full-width-row': {
+          borderBottom: 0,
+          backgroundColor: 'transparent',
+          zIndex: 1,
+          '&.ag-row-hover': {
+            backgroundColor: 'transparent',
+          },
         },
 
         // Centers vertically and styles the checkbox cell
@@ -437,7 +516,7 @@ const styles = {
 
         // Distance from the checkbox to other icons (pin, visibility etc.)
         '.ag-selection-checkbox': {
-          marginRight: 16,
+          marginRight: 20,
         },
 
         // Header and cell checkboxes will get same colors from the palette
