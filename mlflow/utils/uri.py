@@ -16,7 +16,7 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
-DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+_DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
@@ -45,7 +45,7 @@ def is_databricks_uri(uri):
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == DATABRICKS_UNITY_CATALOG_SCHEME or uri == DATABRICKS_UNITY_CATALOG_SCHEME
+    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
 def construct_db_uri_from_profile(profile):
@@ -80,7 +80,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == DATABRICKS_UNITY_CATALOG_SCHEME:
+    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
