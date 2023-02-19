@@ -9,7 +9,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import http_request, call_endpoint
+from mlflow.utils.rest_utils import call_endpoint
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_unity_catalog_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -41,7 +41,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     when the client is pointing to a Unity Catalog model registry.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, registry_uri):
         registry_uri = mlflow.get_registry_uri()
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
