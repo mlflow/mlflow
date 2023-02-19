@@ -1,7 +1,8 @@
 import io
 import pickle
-import pytest
 import os
+import pytest
+from unittest import mock
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
