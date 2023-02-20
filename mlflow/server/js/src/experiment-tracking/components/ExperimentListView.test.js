@@ -50,7 +50,7 @@ const mountComponent = (props) => {
       })}
     >
       <BrowserRouter>
-        <ExperimentListView {...props} history={{}} designSystemThemeApi={designSystemThemeApi} />,
+        <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
       </BrowserRouter>
       ,
     </Provider>,

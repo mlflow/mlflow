@@ -11,10 +11,9 @@ import {
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
 import { List } from 'antd';
-import { List as VList, AutoSizer, InfiniteLoader } from 'react-virtualized';
+import { List as VList, AutoSizer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 import { Link, withRouter } from 'react-router-dom';
-
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
@@ -44,10 +43,6 @@ export class ExperimentListView extends Component {
 
   bindListRef = (ref) => {
     this.list = ref;
-  };
-
-  infiniteLoaderRef = (ref) => {
-    this.infiteLoader = ref;
   };
 
   componentDidUpdate = () => {
@@ -146,13 +141,6 @@ export class ExperimentListView extends Component {
     }
   };
 
-  onScroll = ({ startIndex, stopIndex }) => {
-    const isScrolledToLastItem = stopIndex >= this.props.experiments.length;
-    if (!isScrolledToLastItem) {
-      return;
-    }
-  };
-
   // Avoid calling emotion for every list item
   activeExperimentListItem = classNames.getExperimentListItemContainer(
     true,
@@ -166,9 +154,7 @@ export class ExperimentListView extends Component {
   renderListItem = ({ index, key, style, isScrolling }) => {
     const item = this.state.filteredExperiments[index];
     const { activeExperimentIds } = this.props;
-    const { checkedKeys } = this.state;
     const isActive = activeExperimentIds.includes(item.experiment_id);
-    const isChecked = checkedKeys.includes(item.experiment_id);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     // Clicking the link removes all checks and marks other experiments
     // as not active.
@@ -189,15 +175,15 @@ export class ExperimentListView extends Component {
               id={item.experiment_id}
               key={item.experiment_id}
               onChange={(e) => this.handleCheck(e, item.experiment_id)}
-              checked={isChecked || isActive}
-              data-test-id='experiment-list-item-check-box'
+              checked={isActive}
+              data-test-id={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
               className={'experiment-link'}
               to={Routes.getExperimentPageRoute(item.experiment_id)}
               onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
               title={item.name}
-              data-test-id='experiment-list-item-link'
+              data-test-id={`${dataTestId}-link`}
             >
               {item.name}
             </Link>,
@@ -292,26 +278,16 @@ export class ExperimentListView extends Component {
         <div>
           <AutoSizer>
             {({ width, height }) => (
-              <InfiniteLoader
-                isRowLoaded={this.isRowLoaded}
-                loadMoreRows={this.onScroll}
+              <VList
+                rowRenderer={this.renderListItem}
+                data={this.state.filteredExperiments}
+                ref={this.bindListRef}
+                rowHeight={32}
+                overscanRowCount={10}
+                height={height}
+                width={width}
                 rowCount={filteredExperiments.length}
-                ref={this.infiniteLoaderRef}
-              >
-                {({ onRowsRendered, registerChild }) => (
-                  <VList
-                    rowRenderer={this.renderListItem}
-                    data={this.state.checkedKeys}
-                    onRowsRendered={onRowsRendered}
-                    ref={this.bindListRef}
-                    rowHeight={32}
-                    overscanRowCount={10}
-                    height={height}
-                    width={width}
-                    rowCount={filteredExperiments.length}
-                  />
-                )}
-              </InfiniteLoader>
+              />
             )}
           </AutoSizer>
         </div>
