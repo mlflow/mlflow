@@ -18,27 +18,19 @@ MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".UnityCatalog
     ],
 )
 def test_uc_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile):
-    with mock.patch(
-            MODELS_ARTIFACT_REPOSITORY, autospec=True
-    ) as mock_repo:
-        models_repo = UnityCatalogModelsArtifactRepository(uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME)
-        assert models_repo.artifact_uri == uri_with_profile
-        assert isinstance(models_repo, UnityCatalogModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_with_profile)
+    models_repo = UnityCatalogModelsArtifactRepository(uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME)
+    assert models_repo.artifact_uri == uri_with_profile
+    assert models_repo.client._registry_uri == f"{_DATABRICKS_UNITY_CATALOG_SCHEME}://profile"
 
 
 def test_uc_models_artifact_repo_init_with_db_profile_inferred_from_context():
     uri_without_profile = "models:/MyModel/12"
-    with mock.patch(
-            MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".UnityCatalogModelsArtifactRepository", autospec=True
-    ) as mock_repo, mock.patch(
-        "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
-        return_value="databricks-uc://getRegistryUriDefault",
-    ):
-        models_repo = UnityCatalogModelsArtifactRepository(uri_without_profile, _DATABRICKS_UNITY_CATALOG_SCHEME)
-        assert models_repo.artifact_uri == uri_without_profile
-        assert isinstance(models_repo, UnityCatalogModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_without_profile)
+    profile_in_registry_uri = "some_profile"
+    registry_uri = f"databricks-uc://{profile_in_registry_uri}"
+    models_repo = UnityCatalogModelsArtifactRepository(artifact_uri=uri_without_profile, registry_uri=registry_uri)
+    assert models_repo.artifact_uri == uri_without_profile
+    assert models_repo.client._registry_uri == registry_uri
+
 
 
 def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
