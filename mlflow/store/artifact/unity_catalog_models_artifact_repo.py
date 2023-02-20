@@ -17,7 +17,6 @@ from mlflow.store.artifact.utils.models import (
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 
 _logger = logging.getLogger(__name__)
-REGISTRY_GET_DOWNLOAD_URI_ENDPOINT = "/api/2.0/mlflow/unity-catalog/model-versions/get"
 REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = (
     "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
 )
@@ -60,8 +59,8 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 "models in the Unity Catalog. We recommend that you access the Unity Catalog "
                 "from the current Databricks workspace instead."
             )
-        registry_uri = urlunsplit((_DATABRICKS_UNITY_CATALOG_SCHEME, profile, "", "", ""))
-        self.client = MlflowClient(registry_uri=registry_uri)
+        self.registry_uri = urlunsplit((_DATABRICKS_UNITY_CATALOG_SCHEME, profile, "", "", ""))
+        self.client = MlflowClient(registry_uri=self.registry_uri)
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
     def _get_blob_storage_path(self):
@@ -69,7 +68,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
 
     def _get_scoped_token(self):
         req_body = {"name": self.model_name, "version": self.model_version}
-        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
+        db_creds = get_databricks_host_creds(self.registry_uri)
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
         return call_endpoint(
             host_creds=db_creds,
@@ -83,13 +82,6 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         raise MlflowException("This repository does not support listing artifacts.")
 
     def download_artifacts(self, artifact_path, dst_path=None):
-        if artifact_path != "":
-            raise MlflowException(
-                f"Got non-empty artifact_path {artifact_path} when attempting to download UC model "
-                f"version artifacts. Downloading specific artifacts for a model version in the "
-                f"Unity Catalog is not upported. Pass the empty string ('') as the artifact_path "
-                f"argument instead"
-            )
         scoped_token = self._get_scoped_token()
         blob_storage_path = self._get_blob_storage_path()
         repo = get_artifact_repo_from_storage_info(
