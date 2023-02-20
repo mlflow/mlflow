@@ -129,17 +129,19 @@ def test_list_artifacts(mock_data_lake_client, mock_filesystem_client):
 
 
 def test_log_artifacts(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
-    parentd = tmpdir.mkdir("data")
-    subd = parentd.mkdir("subdir")
-    parentd.join("a.txt").write("A")
-    subd.join("b.txt").write("B")
-    subd.join("empty-file.txt").write("")
+    parentd = tmp_path.joinpath("data")
+    parentd.mkdir()
+    subd = parentd.joinpath("subdir")
+    subd.mkdir()
+    parentd.joinpath("a.txt").write_text("A")
+    subd.joinpath("b.txt").write_text("B")
+    subd.joinpath("empty-file.txt").write_text("")
 
-    repo.log_artifacts(parentd.strpath)
+    repo.log_artifacts(str(parentd))
 
     mock_filesystem_client.get_directory_client.assert_called_with(TEST_ROOT_PATH)
     call_list = mock_directory_client.get_file_client.call_args_list
@@ -156,23 +158,23 @@ def test_log_artifacts(
 
 
 def test_download_file_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     def create_file(file):
         local_path = os.path.basename(file.name)
-        f = tmpdir.join(local_path)
-        f.write("hello world!")
+        f = tmp_path.joinpath(local_path)
+        f.write_text("hello world!")
 
     mock_file_client.download_file().readinto.side_effect = create_file
     repo.download_artifacts("test.txt")
-    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
+    assert os.path.exists(os.path.join(str(tmp_path), "test.txt"))
     mock_directory_client.get_file_client.assert_called_with("test.txt")
 
 
 def test_download_directory_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, mock_data_lake_client)
 
@@ -216,14 +218,14 @@ def test_download_directory_artifact(
     mock_file_client.download_file().readinto.side_effect = create_file
 
     # Ensure that the root directory can be downloaded successfully
-    dest_dir_obj = tmpdir.join("download_dir")
+    dest_dir_obj = tmp_path.joinpath("download_dir")
     dest_dir_obj.mkdir()
-    dest_dir = dest_dir_obj.strpath
+    dest_dir = str(dest_dir_obj)
     repo.download_artifacts(artifact_path="", dst_path=dest_dir)
-    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmp_path`
     dir_contents = os.listdir(dest_dir)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
     assert dir_name in dir_contents
-    subdir_contents = os.listdir(dest_dir_obj.join(dir_name).strpath)
+    subdir_contents = os.listdir(str(dest_dir_obj.joinpath(dir_name)))
     assert dir_file_name in subdir_contents
