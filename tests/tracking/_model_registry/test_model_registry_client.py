@@ -15,6 +15,10 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+)
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
@@ -113,7 +117,9 @@ def test_search_registered_models(mock_store):
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
     )
     result = newModelRegistryClient().search_registered_models(filter_string="test filter")
-    mock_store.search_registered_models.assert_called_with("test filter", 100, None, None)
+    mock_store.search_registered_models.assert_called_with(
+        "test filter", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
     assert len(result) == 2
     assert result.token == ""
 
@@ -350,7 +356,9 @@ def test_search_model_versions(mock_store):
     ]
     mock_store.search_model_versions.return_value = PagedList(mvs[:2][::-1], "")
     result = newModelRegistryClient().search_model_versions("name=Model 1")
-    mock_store.search_model_versions.assert_called_with("name=Model 1", 100, None, None)
+    mock_store.search_model_versions.assert_called_with(
+        "name=Model 1", SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT, None, None
+    )
     assert result == mvs[:2][::-1]
     assert result.token == ""
 

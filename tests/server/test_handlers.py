@@ -44,6 +44,10 @@ from mlflow.server.handlers import (
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
@@ -334,14 +338,24 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds, None)
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "", "max_results": 100, "order_by": [], "page_token": ""}
+    assert args == {
+        "filter_string": "",
+        "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
     assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
 
     mock_get_request_message.return_value = SearchRegisteredModels(filter="hello")
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds[:1], "tok")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "hello", "max_results": 100, "order_by": [], "page_token": ""}
+    assert args == {
+        "filter_string": "hello",
+        "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify(rmds[:1]),
         "next_page_token": "tok",
@@ -615,7 +629,10 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds, None)
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="source_path = 'A/B/CD'", max_results=100, order_by=[], page_token=""
+        filter_string="source_path = 'A/B/CD'",
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        order_by=[],
+        page_token="",
     )
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
 
@@ -623,7 +640,10 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[:1], "tok")
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="name='model_1'", max_results=100, order_by=[], page_token=""
+        filter_string="name='model_1'",
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        order_by=[],
+        page_token="",
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify(mvds[:1]),

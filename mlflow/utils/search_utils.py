@@ -1093,7 +1093,7 @@ class SearchModelVersionUtils(SearchUtils):
         "name",
         "version_number",
         "run_id",
-        "source_path",  # this is for sql store only
+        "source_path",
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {
         "name",
