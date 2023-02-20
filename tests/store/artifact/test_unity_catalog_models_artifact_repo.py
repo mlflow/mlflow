@@ -14,7 +14,7 @@ MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".UnityCatalog
 @pytest.mark.parametrize(
     "uri_with_profile",
     [
-        "models://profile@databricks/MyModel/12"
+        "models://profile@databricks-uc/MyModel/12"
     ],
 )
 def test_uc_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile):
@@ -30,8 +30,6 @@ def test_uc_models_artifact_repo_init_with_db_profile_inferred_from_context():
     models_repo = UnityCatalogModelsArtifactRepository(artifact_uri=uri_without_profile, registry_uri=registry_uri)
     assert models_repo.artifact_uri == uri_without_profile
     assert models_repo.client._registry_uri == registry_uri
-
-
 
 def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
     non_databricks_uri = "non_databricks_uri"
@@ -51,6 +49,14 @@ def test_uc_models_artifact_repo_uses_repo_download_artifacts():
     ``ModelsArtifactRepository`` should delegate `download_artifacts` to its
     ``self.repo.download_artifacts`` function.
     """
+    # TODO: each time we do a download_artifacts(), which is the only supported operation
+    # for this read-only models:// artifact store, we re-fetch the scoped token and blob storage
+    # location for the current store object.
+    # in contrast, the ModelsArtifactRepo just delegates to its underlying artifact repo
+    # based on the URI
+    # We could mock the result of getting download URI and scoped tokens, and make sure the
+    # cloud-appropriate artifact repo is used to download artifacts. That's prob the best
+    # thing to test here, the real request flow for download
     artifact_location = "s3://blah_bucket/"
     with mock.patch.object(
             MlflowClient, "get_model_version_download_uri", return_value=artifact_location

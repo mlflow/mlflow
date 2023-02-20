@@ -101,20 +101,23 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
-def get_databricks_profile_uri_from_artifact_uri(uri):
+def get_databricks_profile_uri_from_artifact_uri(uri, result_scheme="databricks"):
     """
-    Retrieves the netloc portion of the URI as a ``databricks://`` URI,
+    Retrieves the netloc portion of the URI as a ``databricks://`` or `databricks-uc://` URI,
     if it is a proper Databricks profile specification, e.g.
     ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
     """
     parsed = urllib.parse.urlparse(uri)
-    if not parsed.netloc or parsed.hostname != "databricks":
+    print(f"@SID parsed URI {uri}, got netloc {parsed.netloc}, hostname {parsed.hostname}, username {parsed.username}")
+    if not parsed.netloc or parsed.hostname != result_scheme:
+        print("Returning None 0")
         return None
     if not parsed.username:  # no profile or scope:key
-        return "databricks"  # the default tracking/registry URI
+        print("Returning None 1")
+        return result_scheme  # the default tracking/registry URI
     validate_db_scope_prefix_info(parsed.username, parsed.password)
     key_prefix = ":" + parsed.password if parsed.password else ""
-    return "databricks://" + parsed.username + key_prefix
+    return f"{result_scheme}://" + parsed.username + key_prefix
 
 
 def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
