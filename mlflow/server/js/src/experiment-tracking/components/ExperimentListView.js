@@ -31,7 +31,6 @@ export class ExperimentListView extends Component {
 
   state = {
     checkedKeys: this.props.activeExperimentIds,
-    filteredExperiments: this.props.experiments,
     hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
@@ -63,7 +62,6 @@ export class ExperimentListView extends Component {
   handleSearchInputChange = (event) => {
     this.setState({
       searchInput: event.target.value,
-      filteredExperiments: this.filterExperiments(event.target.value),
     });
   };
 
@@ -151,8 +149,9 @@ export class ExperimentListView extends Component {
     this.props.designSystemThemeApi.theme,
   );
 
-  renderListItem = ({ index, key, style, isScrolling }) => {
-    const item = this.state.filteredExperiments[index];
+  renderListItem = ({ index, key, style, isScrolling, parent }) => {
+    // Use the parents props to index.
+    const item = parent.props.data[index];
     const { activeExperimentIds } = this.props;
     const isActive = activeExperimentIds.includes(item.experiment_id);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
@@ -227,7 +226,7 @@ export class ExperimentListView extends Component {
 
     const { searchInput } = this.state;
     const { activeExperimentIds } = this.props;
-    const { filteredExperiments } = this.state;
+    const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
       <div id='experiment-list-outer-container' css={classNames.experimentListOuterContainer}>
@@ -280,7 +279,7 @@ export class ExperimentListView extends Component {
             {({ width, height }) => (
               <VList
                 rowRenderer={this.renderListItem}
-                data={this.state.filteredExperiments}
+                data={filteredExperiments}
                 ref={this.bindListRef}
                 rowHeight={32}
                 overscanRowCount={10}
