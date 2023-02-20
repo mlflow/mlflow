@@ -118,13 +118,13 @@ export class ExperimentListView extends Component {
 
   // Add a key if it does not exist, remove it if it does
   // Always keep at least one experiment checked if it is only the active one.
-  handleCheck = (e, key) => {
+  handleCheck = (isChecked, key) => {
     this.setState((prevState, props) => {
       let { checkedKeys } = prevState;
-      if (e === true && !prevState.checkedKeys.includes(key)) {
+      if (isChecked === true && !prevState.checkedKeys.includes(key)) {
         checkedKeys = [key, ...prevState.checkedKeys];
       }
-      if (e === false && props.activeExperimentIds.length !== 1) {
+      if (isChecked === false && props.activeExperimentIds.length !== 1) {
         checkedKeys = prevState.checkedKeys.filter((i) => i !== key);
       }
       return { checkedKeys: checkedKeys };
@@ -174,7 +174,7 @@ export class ExperimentListView extends Component {
             <Checkbox
               id={item.experiment_id}
               key={item.experiment_id}
-              onChange={(e) => this.handleCheck(e, item.experiment_id)}
+              onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
               checked={isActive}
               data-test-id={`${dataTestId}-check-box`}
             ></Checkbox>,
