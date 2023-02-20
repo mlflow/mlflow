@@ -515,7 +515,7 @@ const styles = {
         },
 
         // Distance from the checkbox to other icons (pin, visibility etc.)
-        '.ag-selection-checkbox': {
+        '.ag-cell-wrapper .ag-selection-checkbox': {
           marginRight: 20,
         },
 
