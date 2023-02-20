@@ -1104,7 +1104,7 @@ method to load MLflow Models with the ``lightgbm`` model flavor in native LightG
 Note that the scikit-learn API for LightGBM is now supported. For more information, see :py:mod:`mlflow.lightgbm`.
 
 ``LightGBM`` pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The example below
 
