@@ -134,8 +134,9 @@ def test_get_store_caches_on_store_uri(tmpdir):
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
 def test_get_store_raises_on_uc_registry_uri(store_uri, reset_registry_uri):
     set_registry_uri(store_uri)
+    client = mlflow.tracking.MlflowClient()
     with pytest.raises(MlflowException, match="does not support models in the Unity Catalog"):
-        mlflow.tracking.MlflowClient().search_registered_models()
+        client.search_registered_models()
 
 
 def test_store_object_can_be_serialized_by_pickle():
