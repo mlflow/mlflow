@@ -18,10 +18,12 @@ RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     cd mlflow/server/js && \
     yarn install && \
     yarn build && \
-    # clean cache
+    # clean cache and logs
     apt-get autoremove -yqq --purge && apt-get clean && rm -rf /var/lib/apt/lists/* && \
     npm cache clean --force && \
     yarn cache clean --all && \
+    rm -rf /var/log/* && \
+    find / -type d -name '*__pycache__' -print0 | xargs -0 -r rm -rf && \
     # adding an unprivileged user
     groupadd --gid 10001 mlflow && \
     useradd --uid 10001 --gid mlflow --shell /bin/bash --create-home mlflow
